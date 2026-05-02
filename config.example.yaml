@@ -1,0 +1,32 @@
+# Auto Tagger Configuration Example
+# Copy to ~/.config/auto-tagger/config.yaml or ./auto-tagger.yaml
+
+# Output format: table, json, or plain
+output_format: table
+
+# Enable verbose logging
+verbose: false
+
+# Process directories recursively
+recursive: false
+recursive_depth: 10
+
+# Patterns to exclude from processing
+exclude_patterns:
+  - .git
+  - __pycache__
+  - "*.pyc"
+  - .DS_Store
+  - "*.tmp"
+
+# Auto-approve all changes (use with caution!)
+yolo: false
+
+# LLM Configuration (for Phase 4)
+llm_api_key: null  # Set via AUTO_TAG_LLM_API_KEY env var
+llm_endpoint: https://openrouter.ai/api/v1
+llm_model: anthropic/claude-3.5-haiku
+
+# Caching Configuration
+cache_enabled: true
+cache_path: ~/.cache/auto-tagger/cache.db
