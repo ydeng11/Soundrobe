@@ -82,7 +82,7 @@ def test_tag_command_dry_run(tmp_path):
 
 def test_verbose_flag(tmp_path):
     """Test verbose flag."""
-    runner = CliRunner(mix_stderr=False)
+    runner = CliRunner()
     result = runner.invoke(cli, ["--verbose", "tag", str(tmp_path)])
     assert result.exit_code == 0
 
