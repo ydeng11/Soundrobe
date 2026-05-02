@@ -48,8 +48,9 @@
 
 ### Current Phase
 - Phase 1: Project Setup & Core Architecture
-- Status: **NOT STARTED**
-- Plans: plan-1-1, plan-1-2, plan-1-3
+- Status: **PLANNED** (Ready for execution)
+- Plan: `.planning/phases/phase-1-plan.md`
+- Tasks: 26 atomic tasks across 3 waves
 
 ### Upcoming Phases
 - Phase 2: Core Tagging Engine
