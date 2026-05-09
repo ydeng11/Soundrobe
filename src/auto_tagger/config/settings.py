@@ -71,7 +71,7 @@ class Settings(BaseSettings):
         description="Enable match caching",
     )
     cache_path: Path = Field(
-        default=Path.home() / ".cache" / "auto-tagger" / "cache.db",
+        default=Path(".planning") / "cache.db",
         description="Path to cache database",
     )
 

@@ -82,6 +82,7 @@ def test_tag_command_dry_run(tmp_path):
 def test_tag_command_dry_run_previews_audio_metadata(tmp_path, monkeypatch):
     """Dry-run tag command previews discovered audio metadata."""
     from auto_tagger.core.metadata import TrackMetadata
+    from auto_tagger.integrations.candidates import AlbumCandidate, LookupSource
 
     audio_file = tmp_path / "01.flac"
     audio_file.write_bytes(b"")
@@ -94,13 +95,34 @@ def test_tag_command_dry_run_previews_audio_metadata(tmp_path, monkeypatch):
         "auto_tagger.commands.tag.read_metadata",
         lambda path: TrackMetadata(title="Song", artist="Artist", album="Album"),
     )
+    monkeypatch.setattr(
+        "auto_tagger.commands.tag.LookupService",
+        lambda **kwargs: type(
+            "FakeLookupService",
+            (),
+            {
+                "lookup_album": lambda self, path: [
+                    AlbumCandidate(
+                        artist="Artist",
+                        album="Album",
+                        year="2024",
+                        musicbrainz_albumid="album-id",
+                        source=LookupSource.BEETS,
+                        distance=0.2,
+                    )
+                ]
+            },
+        )(),
+    )
 
     runner = CliRunner()
     result = runner.invoke(cli, ["tag", str(tmp_path), "--dry-run"])
 
     assert result.exit_code == 0
     assert "Metadata preview" in result.output
+    assert "Lookup candidates" in result.output
     assert "Song" in result.output
+    assert "album-id" in result.output
 
 
 def test_verbose_flag(tmp_path):

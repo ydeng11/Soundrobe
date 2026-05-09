@@ -5,6 +5,7 @@ from pathlib import Path
 from auto_tagger.config import Settings
 from auto_tagger.core import iter_audio_files, read_metadata
 from auto_tagger.exceptions import FileProcessingError
+from auto_tagger.integrations import LookupService
 from auto_tagger.utils import console, print_info, print_success, print_table
 
 
@@ -28,7 +29,10 @@ def execute(settings: Settings, path: Path, dry_run: bool) -> None:
         return
 
     if not dry_run:
-        print_info("Phase 2 supports metadata reading only; use --dry-run to preview tags")
+        print_info(
+            "Phase 3 supports metadata and lookup preview only; "
+            "use --dry-run to preview tags"
+        )
         return
 
     for audio_file in audio_files:
@@ -39,4 +43,23 @@ def execute(settings: Settings, path: Path, dry_run: bool) -> None:
         else:
             console.print(f"[yellow]No metadata tags found:[/yellow] {audio_file}")
 
+    _print_lookup_candidates(settings, path)
     print_success(f"Previewed metadata for {len(audio_files)} audio file(s)")
+
+
+def _print_lookup_candidates(settings: Settings, path: Path) -> None:
+    try:
+        candidates = LookupService(settings=settings).lookup_album(path)
+    except Exception as exc:
+        console.print(f"[yellow]Lookup unavailable:[/yellow] {exc}")
+        return
+
+    if not candidates:
+        console.print("[yellow]No lookup candidates found[/yellow]")
+        return
+
+    print_table(
+        "Lookup candidates",
+        ["Source", "Artist", "Album", "Year", "Distance", "MusicBrainz Album ID"],
+        [candidate.to_display_row() for candidate in candidates],
+    )

@@ -2,9 +2,9 @@
 
 ## Project Status
 
-**Current Phase**: Phase 3 Planned
+**Current Phase**: Phase 3 Complete
 **Last Updated**: 2026-05-09
-**Next Action**: Run `/gsd:execute-phase 3` to start Phase 3: Beets Integration
+**Next Action**: Run `/gsd:plan-phase 4` to start Phase 4: LLM Integration
 
 ---
 
@@ -47,14 +47,14 @@
 - [x] Phase 0: Project Initialization
 - [x] Phase 1: Project Setup & Core Architecture (COMPLETE)
 - [x] Phase 2: Core Tagging Engine (COMPLETE)
+- [x] Phase 3: Beets Integration (COMPLETE)
 
 ### Current Phase
-- Phase 3: Beets Integration
-- Status: **PLANNED** (Ready for execution)
-- Plans: plan-3-1, plan-3-2, plan-3-3, plan-3-4
+- Phase 4: LLM Integration
+- Status: **NOT STARTED** (Ready for planning)
+- Plans: plan-4-1, plan-4-2, plan-4-3, plan-4-4
 
 ### Upcoming Phases
-- Phase 3: Beets Integration
 - Phase 4: LLM Integration
 - Phase 5: Quality Assurance & Validation
 - Phase 6: Navidrome Features & Distribution
@@ -64,14 +64,14 @@
 ## Requirements Status
 
 **Total v1 Requirements**: 26 REQ-IDs
-**Implemented**: 3
+**Implemented**: 7
 **In Progress**: 1
-**Pending**: 22
+**Pending**: 18
 
 ### Category Breakdown
 - Core Tagging (REQ-CT): 3 implemented, 1 deferred
 - Navidrome Integration (REQ-ND): 1 partial (ReplayGain tag read/write), 3 active
-- Beets Integration (REQ-BT): 4 active
+- Beets Integration (REQ-BT): 4 implemented
 - LLM Integration (REQ-LM): 4 active
 - Quality Assurance (REQ-QA): 4 active
 - CLI & Distribution (REQ-CL): 6 active
@@ -241,3 +241,21 @@ Ready for Phase 3: Beets Integration
   - Wave 3.3: Folder structure fallback
   - Wave 3.4: Match caching system
 - Next action: execute Phase 3
+
+### 2026-05-09: Phase 3 Execution (COMPLETE)
+- Added `beets>=2.0.0` runtime dependency
+- Implemented normalized lookup candidate models and JSON serialization
+- Added isolated Beets client boundary with injectable lookup functions and rate limiting
+- Implemented folder structure fallback candidates for `/Artist/Album` paths
+- Implemented SQLite match cache at project-local `.planning/cache.db`
+- Added lookup orchestration: cache -> Beets -> folder fallback
+- Extended `auto-tag tag --dry-run` with lookup candidate preview
+- Added Phase 3 unit coverage for candidate models, cache, folder fallback, Beets client, lookup service, and CLI integration
+
+**Verification Results**:
+✓ `ruff check src tests`
+✓ `mypy src`
+✓ `pytest --cov=auto_tagger` (48 passed, 84% coverage)
+✓ `auto-tag tag "潘玮柏/2006-反转地球" --dry-run`
+
+Ready for Phase 4: LLM Integration
