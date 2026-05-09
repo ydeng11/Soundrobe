@@ -125,6 +125,98 @@ def test_tag_command_dry_run_previews_audio_metadata(tmp_path, monkeypatch):
     assert "album-id" in result.output
 
 
+def test_tag_command_dry_run_notes_llm_unavailable_without_key(tmp_path, monkeypatch):
+    """Dry-run lookup preview does not call LLM without an API key."""
+    from auto_tagger.core.metadata import TrackMetadata
+    from auto_tagger.integrations.candidates import AlbumCandidate, LookupSource
+
+    audio_file = tmp_path / "01.flac"
+    audio_file.write_bytes(b"")
+
+    monkeypatch.setattr(
+        "auto_tagger.commands.tag.iter_audio_files",
+        lambda path, recursive=False: [audio_file],
+    )
+    monkeypatch.setattr(
+        "auto_tagger.commands.tag.read_metadata",
+        lambda path: TrackMetadata(title="Song", artist="Artist", album="Album"),
+    )
+    monkeypatch.setattr(
+        "auto_tagger.commands.tag.LookupService",
+        lambda **kwargs: type(
+            "FakeLookupService",
+            (),
+            {
+                "lookup_album": lambda self, path: [
+                    AlbumCandidate(artist="Artist", album="A", source=LookupSource.BEETS),
+                    AlbumCandidate(artist="Artist", album="B", source=LookupSource.BEETS),
+                ]
+            },
+        )(),
+    )
+
+    runner = CliRunner()
+    result = runner.invoke(cli, ["tag", str(tmp_path), "--dry-run"])
+
+    assert result.exit_code == 0
+    assert "LLM selection unavailable" in result.output
+
+
+def test_tag_command_dry_run_shows_llm_selection_with_api_key(tmp_path, monkeypatch):
+    """Dry-run lookup preview displays LLM selection when an API key is configured."""
+    from auto_tagger.core.metadata import TrackMetadata
+    from auto_tagger.integrations.candidates import AlbumCandidate, LookupRequest, LookupSource
+    from auto_tagger.llm.selection import SelectionResult
+
+    audio_file = tmp_path / "01.flac"
+    audio_file.write_bytes(b"")
+    candidates = [
+        AlbumCandidate(artist="Artist", album="A", source=LookupSource.BEETS),
+        AlbumCandidate(artist="Artist", album="B", source=LookupSource.BEETS),
+    ]
+
+    class FakeLookupService:
+        def lookup_album(self, path):
+            return candidates
+
+        def request_from_path(self, path):
+            return LookupRequest(path=path, artist_hint="Artist", album_hint="Album")
+
+    class FakeSelectionService:
+        def __init__(self, client, settings):
+            pass
+
+        def select_candidate(self, request, lookup_candidates):
+            return SelectionResult(candidates[1], 0.91, "best match")
+
+    monkeypatch.setattr(
+        "auto_tagger.commands.tag.iter_audio_files",
+        lambda path, recursive=False: [audio_file],
+    )
+    monkeypatch.setattr(
+        "auto_tagger.commands.tag.read_metadata",
+        lambda path: TrackMetadata(title="Song", artist="Artist", album="Album"),
+    )
+    monkeypatch.setattr(
+        "auto_tagger.commands.tag.LookupService",
+        lambda **kwargs: FakeLookupService(),
+    )
+    monkeypatch.setattr("auto_tagger.commands.tag.OpenRouterClient", lambda settings: object())
+    monkeypatch.setattr("auto_tagger.commands.tag.CandidateSelectionService", FakeSelectionService)
+
+    runner = CliRunner()
+    result = runner.invoke(
+        cli,
+        ["tag", str(tmp_path), "--dry-run"],
+        env={"AUTO_TAG_LLM_API_KEY": "key"},
+    )
+
+    assert result.exit_code == 0
+    assert "LLM selection" in result.output
+    assert "0.91" in result.output
+    assert "B" in result.output
+
+
 def test_verbose_flag(tmp_path):
     """Test verbose flag."""
     runner = CliRunner()

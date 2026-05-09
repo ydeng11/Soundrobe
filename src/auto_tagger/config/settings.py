@@ -65,6 +65,38 @@ class Settings(BaseSettings):
         default="anthropic/claude-3.5-haiku",
         description="LLM model to use",
     )
+    llm_fallback_model: str = Field(
+        default="google/gemini-flash-1.5-8b",
+        description="Fallback LLM model to use",
+    )
+    llm_max_candidates: int = Field(
+        default=5,
+        ge=1,
+        le=20,
+        description="Maximum lookup candidates to include in LLM prompts",
+    )
+    llm_max_tokens: int = Field(
+        default=800,
+        ge=64,
+        le=8000,
+        description="Maximum LLM completion tokens",
+    )
+    llm_temperature: float = Field(
+        default=0.0,
+        ge=0.0,
+        le=2.0,
+        description="LLM sampling temperature",
+    )
+    llm_cost_per_1k_prompt_tokens: float = Field(
+        default=0.001,
+        ge=0.0,
+        description="Estimated prompt token cost per 1K tokens",
+    )
+    llm_cost_per_1k_completion_tokens: float = Field(
+        default=0.002,
+        ge=0.0,
+        description="Estimated completion token cost per 1K tokens",
+    )
 
     cache_enabled: bool = Field(
         default=True,

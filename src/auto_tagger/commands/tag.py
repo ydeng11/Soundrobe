@@ -6,6 +6,7 @@ from auto_tagger.config import Settings
 from auto_tagger.core import iter_audio_files, read_metadata
 from auto_tagger.exceptions import FileProcessingError
 from auto_tagger.integrations import LookupService
+from auto_tagger.llm import CandidateSelectionService, OpenRouterClient
 from auto_tagger.utils import console, print_info, print_success, print_table
 
 
@@ -49,7 +50,8 @@ def execute(settings: Settings, path: Path, dry_run: bool) -> None:
 
 def _print_lookup_candidates(settings: Settings, path: Path) -> None:
     try:
-        candidates = LookupService(settings=settings).lookup_album(path)
+        lookup_service = LookupService(settings=settings)
+        candidates = lookup_service.lookup_album(path)
     except Exception as exc:
         console.print(f"[yellow]Lookup unavailable:[/yellow] {exc}")
         return
@@ -63,3 +65,28 @@ def _print_lookup_candidates(settings: Settings, path: Path) -> None:
         ["Source", "Artist", "Album", "Year", "Distance", "MusicBrainz Album ID"],
         [candidate.to_display_row() for candidate in candidates],
     )
+
+    if len(candidates) > 1 and not settings.llm_api_key:
+        console.print("[yellow]LLM selection unavailable:[/yellow] missing API key")
+        return
+
+    if len(candidates) > 1 and settings.llm_api_key:
+        result = CandidateSelectionService(
+            OpenRouterClient(settings),
+            settings,
+        ).select_candidate(lookup_service.request_from_path(path), candidates)
+        if result.selected_candidate is None:
+            console.print(f"[yellow]LLM selection:[/yellow] none ({result.reason})")
+            return
+        print_table(
+            "LLM selection",
+            ["Artist", "Album", "Confidence", "Reason"],
+            [
+                [
+                    result.selected_candidate.artist or "",
+                    result.selected_candidate.album or "",
+                    f"{result.confidence:.2f}",
+                    result.reason,
+                ]
+            ],
+        )

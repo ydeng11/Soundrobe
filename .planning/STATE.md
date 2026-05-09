@@ -2,9 +2,9 @@
 
 ## Project Status
 
-**Current Phase**: Phase 4 Planned
+**Current Phase**: Phase 4 Complete
 **Last Updated**: 2026-05-09
-**Next Action**: Run `/gsd:execute-phase 4` to start Phase 4: LLM Integration
+**Next Action**: Run `/gsd:plan-phase 5` to start Phase 5: Quality Assurance & Validation
 
 ---
 
@@ -48,14 +48,14 @@
 - [x] Phase 1: Project Setup & Core Architecture (COMPLETE)
 - [x] Phase 2: Core Tagging Engine (COMPLETE)
 - [x] Phase 3: Beets Integration (COMPLETE)
+- [x] Phase 4: LLM Integration (COMPLETE)
 
 ### Current Phase
-- Phase 4: LLM Integration
-- Status: **PLANNED** (Ready for execution)
-- Plans: plan-4-1, plan-4-2, plan-4-3, plan-4-4
+- Phase 5: Quality Assurance & Validation
+- Status: **NOT STARTED** (Ready for planning)
+- Plans: plan-5-1, plan-5-2, plan-5-3, plan-5-4, plan-5-5
 
 ### Upcoming Phases
-- Phase 4: LLM Integration
 - Phase 5: Quality Assurance & Validation
 - Phase 6: Navidrome Features & Distribution
 
@@ -64,15 +64,15 @@
 ## Requirements Status
 
 **Total v1 Requirements**: 26 REQ-IDs
-**Implemented**: 7
+**Implemented**: 11
 **In Progress**: 1
-**Pending**: 18
+**Pending**: 14
 
 ### Category Breakdown
 - Core Tagging (REQ-CT): 3 implemented, 1 deferred
 - Navidrome Integration (REQ-ND): 1 partial (ReplayGain tag read/write), 3 active
 - Beets Integration (REQ-BT): 4 implemented
-- LLM Integration (REQ-LM): 4 active
+- LLM Integration (REQ-LM): 4 implemented
 - Quality Assurance (REQ-QA): 4 active
 - CLI & Distribution (REQ-CL): 6 active
 
@@ -273,3 +273,23 @@ Ready for Phase 4: LLM Integration
   - Wave 4.3: Match selection service
   - Wave 4.4: Fallback tag generation and cost reporting
 - Next action: execute Phase 4
+
+### 2026-05-09: Phase 4 Execution (COMPLETE)
+- Added `httpx>=0.28.0` runtime dependency
+- Added LLM configuration fields for model, fallback model, structured output limits, temperature, and cost rates
+- Implemented OpenRouter Chat Completions client with structured JSON response support, retries, usage parsing, and validation errors
+- Implemented token usage, cost estimates, and cost summaries
+- Implemented Pydantic schemas for candidate selection and fallback tag generation
+- Implemented compact prompt builders for match selection and fallback metadata generation
+- Implemented LLM candidate selection service with high-confidence Beets skip behavior and cost estimates
+- Implemented fallback tag generation service that returns validated `TrackMetadata` objects without writing tags
+- Extended `auto-tag tag --dry-run` to report LLM selection availability and display selected candidates when an API key is configured
+- Added Phase 4 unit coverage for client, cost, schemas, prompts, selection, fallback generation, and CLI integration
+
+**Verification Results**:
+✓ `ruff check src tests`
+✓ `mypy src`
+✓ `pytest --cov=auto_tagger` (66 passed, 86% coverage)
+✓ `auto-tag tag "潘玮柏/2006-反转地球" --dry-run`
+
+Ready for Phase 5: Quality Assurance & Validation
