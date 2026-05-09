@@ -3,7 +3,7 @@
 from pathlib import Path
 from typing import Any
 
-import yaml
+import yaml  # type: ignore[import-untyped]
 
 from auto_tagger.config.settings import Settings
 from auto_tagger.exceptions import ConfigError

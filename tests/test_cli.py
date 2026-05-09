@@ -1,7 +1,6 @@
 """Tests for CLI functionality."""
 
 from click.testing import CliRunner
-import pytest
 
 from auto_tagger.cli import cli
 
@@ -77,7 +76,31 @@ def test_tag_command_dry_run(tmp_path):
     runner = CliRunner()
     result = runner.invoke(cli, ["tag", str(tmp_path), "--dry-run"])
     assert result.exit_code == 0
-    assert "Dry run: True" in result.output
+    assert "No supported audio files" in result.output
+
+
+def test_tag_command_dry_run_previews_audio_metadata(tmp_path, monkeypatch):
+    """Dry-run tag command previews discovered audio metadata."""
+    from auto_tagger.core.metadata import TrackMetadata
+
+    audio_file = tmp_path / "01.flac"
+    audio_file.write_bytes(b"")
+
+    monkeypatch.setattr(
+        "auto_tagger.commands.tag.iter_audio_files",
+        lambda path, recursive=False: [audio_file],
+    )
+    monkeypatch.setattr(
+        "auto_tagger.commands.tag.read_metadata",
+        lambda path: TrackMetadata(title="Song", artist="Artist", album="Album"),
+    )
+
+    runner = CliRunner()
+    result = runner.invoke(cli, ["tag", str(tmp_path), "--dry-run"])
+
+    assert result.exit_code == 0
+    assert "Metadata preview" in result.output
+    assert "Song" in result.output
 
 
 def test_verbose_flag(tmp_path):

@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 import pytest
 
-from auto_tagger.config import Settings, find_config_file, load_config_file, load_settings
+from auto_tagger.config import Settings, find_config_file, load_config_file
 from auto_tagger.exceptions import ConfigError
 
 

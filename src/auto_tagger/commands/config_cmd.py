@@ -1,6 +1,5 @@
 """Config command implementation."""
 
-from typing import Any
 
 from auto_tagger.config import Settings, find_config_file
 from auto_tagger.utils import console, print_info, print_json, print_table

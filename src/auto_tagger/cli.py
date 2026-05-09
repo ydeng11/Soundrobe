@@ -2,10 +2,9 @@
 
 import sys
 from pathlib import Path
-from typing import Optional
+from typing import Any
 
 import click
-from rich.console import Console
 
 from auto_tagger import __version__
 from auto_tagger.config import Settings, load_settings
@@ -39,13 +38,13 @@ CONTEXT_SETTINGS = {
 )
 @click.version_option(version=__version__, prog_name="auto-tag")
 @click.pass_context
-def cli(ctx: click.Context, config: Optional[Path], verbose: bool, output: Optional[str]) -> None:
+def cli(ctx: click.Context, config: Path | None, verbose: bool, output: str | None) -> None:
     """Auto Tagger - Intelligent audio file tagging CLI tool.
 
     Automatically tag audio files with metadata from MusicBrainz and LLM assistance.
     """
     try:
-        cli_overrides = {}
+        cli_overrides: dict[str, Any] = {}
         if verbose:
             cli_overrides["verbose"] = True
         if output:
@@ -122,7 +121,7 @@ def batch(ctx: click.Context, path: Path, dry_run: bool, yolo: bool, parallel: i
 @click.argument("key", required=False)
 @click.argument("value", required=False)
 @click.pass_context
-def config(ctx: click.Context, key: Optional[str], value: Optional[str]) -> None:
+def config(ctx: click.Context, key: str | None, value: str | None) -> None:
     """View or modify configuration.
 
     KEY: Configuration key to view or set

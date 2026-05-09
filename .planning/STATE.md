@@ -2,9 +2,9 @@
 
 ## Project Status
 
-**Current Phase**: Phase 2 Planned
+**Current Phase**: Phase 2 Complete
 **Last Updated**: 2026-05-09
-**Next Action**: Run `/gsd:execute-phase 2` to start Phase 2: Core Tagging Engine
+**Next Action**: Run `/gsd:plan-phase 3` to start Phase 3: Beets Integration
 
 ---
 
@@ -46,14 +46,14 @@
 ### Completed Phases
 - [x] Phase 0: Project Initialization
 - [x] Phase 1: Project Setup & Core Architecture (COMPLETE)
+- [x] Phase 2: Core Tagging Engine (COMPLETE)
 
 ### Current Phase
-- Phase 2: Core Tagging Engine
-- Status: **PLANNED** (Ready for execution)
-- Plans: plan-2-1, plan-2-2, plan-2-3, plan-2-4
+- Phase 3: Beets Integration
+- Status: **NOT STARTED** (Ready for planning)
+- Plans: plan-3-1, plan-3-2, plan-3-3, plan-3-4
 
 ### Upcoming Phases
-- Phase 2: Core Tagging Engine
 - Phase 3: Beets Integration
 - Phase 4: LLM Integration
 - Phase 5: Quality Assurance & Validation
@@ -64,13 +64,13 @@
 ## Requirements Status
 
 **Total v1 Requirements**: 26 REQ-IDs
-**Implemented**: 0
-**In Progress**: 0
-**Pending**: 26
+**Implemented**: 3
+**In Progress**: 1
+**Pending**: 22
 
 ### Category Breakdown
-- Core Tagging (REQ-CT): 3 active, 1 deferred
-- Navidrome Integration (REQ-ND): 4 active
+- Core Tagging (REQ-CT): 3 implemented, 1 deferred
+- Navidrome Integration (REQ-ND): 1 partial (ReplayGain tag read/write), 3 active
 - Beets Integration (REQ-BT): 4 active
 - LLM Integration (REQ-LM): 4 active
 - Quality Assurance (REQ-QA): 4 active
@@ -214,3 +214,20 @@ Ready for Phase 2: Core Tagging Engine
   - Wave 2.3: Tag writer implementation
   - Wave 2.4: Multi-value and ReplayGain support
 - Next action: execute Phase 2
+
+### 2026-05-09: Phase 2 Execution (COMPLETE)
+- Added `mutagen>=1.47.0` runtime dependency
+- Implemented core audio file detection/discovery/loading
+- Added normalized `TrackMetadata` and `ReplayGainTags` models
+- Implemented metadata readers and writers for MP3/ID3, FLAC/Vorbis-style tags, and MP4/M4A atoms
+- Added multi-valued artist and album artist mapping for Navidrome-compatible tags
+- Added ReplayGain tag read/write support (calculation remains Phase 5)
+- Updated `auto-tag tag --dry-run` to preview discovered file metadata
+- Added Phase 2 unit coverage for audio discovery, metadata normalization, format mappings, reader, writer, and CLI preview
+
+**Verification Results**:
+✓ `ruff check src tests`
+✓ `mypy src`
+✓ `pytest --cov=auto_tagger` (34 passed, 83% coverage)
+
+Ready for Phase 3: Beets Integration
