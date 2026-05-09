@@ -2,9 +2,9 @@
 
 ## Project Status
 
-**Current Phase**: Phase 3 Complete
+**Current Phase**: Phase 4 Planned
 **Last Updated**: 2026-05-09
-**Next Action**: Run `/gsd:plan-phase 4` to start Phase 4: LLM Integration
+**Next Action**: Run `/gsd:execute-phase 4` to start Phase 4: LLM Integration
 
 ---
 
@@ -51,7 +51,7 @@
 
 ### Current Phase
 - Phase 4: LLM Integration
-- Status: **NOT STARTED** (Ready for planning)
+- Status: **PLANNED** (Ready for execution)
 - Plans: plan-4-1, plan-4-2, plan-4-3, plan-4-4
 
 ### Upcoming Phases
@@ -259,3 +259,17 @@ Ready for Phase 3: Beets Integration
 ✓ `auto-tag tag "潘玮柏/2006-反转地球" --dry-run`
 
 Ready for Phase 4: LLM Integration
+
+### 2026-05-09: Phase 4 Planning
+- Created `.planning/phases/phase-4-plan.md`
+- Verified current OpenRouter API surface from official docs:
+  - `/api/v1/chat/completions`
+  - `response_format` structured-output support
+  - `usage` token statistics in responses
+- Defined an `auto_tagger.llm` layer for client, prompts, schemas, selection, fallback generation, and cost tracking
+- Broke work into 4 waves:
+  - Wave 4.1: OpenRouter client and cost models
+  - Wave 4.2: Structured prompts and response schemas
+  - Wave 4.3: Match selection service
+  - Wave 4.4: Fallback tag generation and cost reporting
+- Next action: execute Phase 4
