@@ -2,9 +2,9 @@
 
 ## Project Status
 
-**Current Phase**: Phase 2 Complete
+**Current Phase**: Phase 3 Planned
 **Last Updated**: 2026-05-09
-**Next Action**: Run `/gsd:plan-phase 3` to start Phase 3: Beets Integration
+**Next Action**: Run `/gsd:execute-phase 3` to start Phase 3: Beets Integration
 
 ---
 
@@ -50,7 +50,7 @@
 
 ### Current Phase
 - Phase 3: Beets Integration
-- Status: **NOT STARTED** (Ready for planning)
+- Status: **PLANNED** (Ready for execution)
 - Plans: plan-3-1, plan-3-2, plan-3-3, plan-3-4
 
 ### Upcoming Phases
@@ -231,3 +231,13 @@ Ready for Phase 2: Core Tagging Engine
 ✓ `pytest --cov=auto_tagger` (34 passed, 83% coverage)
 
 Ready for Phase 3: Beets Integration
+
+### 2026-05-09: Phase 3 Planning
+- Created `.planning/phases/phase-3-plan.md`
+- Defined an isolated Beets integration boundary under `auto_tagger.integrations`
+- Broke work into 4 waves:
+  - Wave 3.1: Beets library setup and candidate models
+  - Wave 3.2: MusicBrainz lookup implementation
+  - Wave 3.3: Folder structure fallback
+  - Wave 3.4: Match caching system
+- Next action: execute Phase 3
