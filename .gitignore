@@ -57,4 +57,4 @@ dmypy.json
 
 # Test data
 潘玮柏/
-tests/fixtures/data/
+tests/fixtures/data/coverage.json

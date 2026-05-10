@@ -6,8 +6,6 @@ issues instead of raising. These tests verify both paths.
 
 from pathlib import Path
 
-import pytest
-
 from auto_tagger.quality.replaygain import ReplayGainCalculator
 
 

@@ -12,7 +12,6 @@ from mutagen.flac import FLAC
 from auto_tagger.core.audio import detect_audio_format, iter_audio_files
 from auto_tagger.core.reader import read_metadata
 
-
 # ── album fixture ──────────────────────────────────────────────
 
 def test_album_fixture_has_eleven_flac_files(album_fixture: Path):
