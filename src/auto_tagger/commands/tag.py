@@ -1,16 +1,24 @@
 """Tag command implementation."""
 
+import json
 from pathlib import Path
 
 from auto_tagger.config import Settings
 from auto_tagger.core import iter_audio_files, read_metadata
+from auto_tagger.core.metadata import TrackMetadata
 from auto_tagger.exceptions import FileProcessingError
 from auto_tagger.integrations import LookupService
 from auto_tagger.llm import CandidateSelectionService, OpenRouterClient
+from auto_tagger.quality import build_album_health_report, render_health_report
 from auto_tagger.utils import console, print_info, print_success, print_table
 
 
-def execute(settings: Settings, path: Path, dry_run: bool) -> None:
+def execute(
+    settings: Settings,
+    path: Path,
+    dry_run: bool,
+    health_report_path: Path | None = None,
+) -> None:
     """Execute tag command.
 
     Args:
@@ -36,13 +44,24 @@ def execute(settings: Settings, path: Path, dry_run: bool) -> None:
         )
         return
 
+    metadata_by_path: dict[Path, TrackMetadata] = {}
     for audio_file in audio_files:
         metadata = read_metadata(audio_file)
+        metadata_by_path[audio_file] = metadata
         rows = metadata.to_display_rows()
         if rows:
             print_table(f"Metadata preview: {audio_file.name}", ["Field", "Value"], rows)
         else:
             console.print(f"[yellow]No metadata tags found:[/yellow] {audio_file}")
+
+    health_report = build_album_health_report(path, audio_files, metadata_by_path, settings)
+    console.print(render_health_report(health_report))
+    if health_report_path is not None:
+        health_report_path.write_text(
+            json.dumps(health_report.to_dict(), indent=2),
+            encoding="utf-8",
+        )
+        print_info(f"Wrote health report: {health_report_path}")
 
     _print_lookup_candidates(settings, path)
     print_success(f"Previewed metadata for {len(audio_files)} audio file(s)")

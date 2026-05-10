@@ -2,9 +2,9 @@
 
 ## Project Status
 
-**Current Phase**: Phase 5 Planned
+**Current Phase**: Phase 5 Complete
 **Last Updated**: 2026-05-10
-**Next Action**: Run `/gsd:execute-phase 5` to implement Phase 5: Quality Assurance & Validation
+**Next Action**: Run `/gsd:plan-phase 6` to start Phase 6: Navidrome Features & Distribution
 
 ---
 
@@ -49,11 +49,12 @@
 - [x] Phase 2: Core Tagging Engine (COMPLETE)
 - [x] Phase 3: Beets Integration (COMPLETE)
 - [x] Phase 4: LLM Integration (COMPLETE)
+- [x] Phase 5: Quality Assurance & Validation (COMPLETE)
 
 ### Current Phase
-- Phase 5: Quality Assurance & Validation
-- Status: **PLANNED** (Ready for execution)
-- Plans: plan-5-1, plan-5-2, plan-5-3, plan-5-4, plan-5-5
+- Phase 6: Navidrome Features & Distribution
+- Status: **NOT STARTED** (Ready for planning)
+- Plans: plan-6-1, plan-6-2, plan-6-3, plan-6-4
 
 ### Upcoming Phases
 - Phase 6: Navidrome Features & Distribution
@@ -63,16 +64,16 @@
 ## Requirements Status
 
 **Total v1 Requirements**: 26 REQ-IDs
-**Implemented**: 11
-**In Progress**: 1
-**Pending**: 14
+**Implemented**: 16
+**In Progress**: 0
+**Pending**: 10
 
 ### Category Breakdown
 - Core Tagging (REQ-CT): 3 implemented, 1 deferred
-- Navidrome Integration (REQ-ND): 1 partial (ReplayGain tag read/write), 3 active
+- Navidrome Integration (REQ-ND): 1 implemented (ReplayGain calculation/tag application), 3 active
 - Beets Integration (REQ-BT): 4 implemented
 - LLM Integration (REQ-LM): 4 implemented
-- Quality Assurance (REQ-QA): 4 active
+- Quality Assurance (REQ-QA): 4 implemented
 - CLI & Distribution (REQ-CL): 6 active
 
 ---
@@ -304,3 +305,21 @@ Ready for Phase 5: Quality Assurance & Validation
   - Wave 5.5: ReplayGain calculation
 - Planned external-tool boundaries for `ffprobe`, `rgain3`, and `loudgain` with mocked test runners
 - Next action: execute Phase 5
+
+### 2026-05-10: Phase 5 Execution (COMPLETE)
+- Added `auto_tagger.quality` package for audio validation, LRC validation/conversion, metadata validation, health reporting, and ReplayGain orchestration
+- Implemented `FFProbeValidator` with injectable command runner and graceful missing-tool warnings
+- Implemented LRC discovery, strict UTF-8 validation, conservative legacy decode fallback, malformed timing-tag warnings, and safe UTF-8 conversion
+- Implemented track-level and album-level metadata validation for required Navidrome fields, track/disc numbering, album consistency, ReplayGain value shape, duplicates, and gaps
+- Implemented `AlbumHealthReport` and Rich console rendering plus optional JSON export through `auto-tag tag --health-report`
+- Implemented `ReplayGainCalculator` and dry-run-safe ReplayGain tag application using Phase 2 `ReplayGainTags`
+- Extended `auto-tag tag --dry-run` to build and display album health summaries
+- Added Phase 5 unit coverage for audio validation, LRC validation, metadata validation, health reports, ReplayGain, config defaults, and CLI report output
+
+**Verification Results**:
+✓ `ruff check src tests`
+✓ `mypy src`
+✓ `pytest --cov=auto_tagger` (89 passed, 88% coverage)
+✓ `auto-tag tag "潘玮柏/2006-反转地球" --dry-run`
+
+Ready for Phase 6: Navidrome Features & Distribution

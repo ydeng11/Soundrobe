@@ -74,8 +74,19 @@ def cli(ctx: click.Context, config: Path | None, verbose: bool, output: str | No
 @click.argument("path", type=click.Path(exists=True, path_type=Path))
 @click.option("--dry-run", is_flag=True, help="Preview changes without applying")
 @click.option("--yolo", is_flag=True, help="Auto-approve all changes")
+@click.option(
+    "--health-report",
+    type=click.Path(dir_okay=False, path_type=Path),
+    help="Write album health report JSON to this path",
+)
 @click.pass_context
-def tag(ctx: click.Context, path: Path, dry_run: bool, yolo: bool) -> None:
+def tag(
+    ctx: click.Context,
+    path: Path,
+    dry_run: bool,
+    yolo: bool,
+    health_report: Path | None,
+) -> None:
     """Tag a single album or directory.
 
     PATH: Path to album directory or audio file
@@ -87,7 +98,7 @@ def tag(ctx: click.Context, path: Path, dry_run: bool, yolo: bool) -> None:
     if yolo:
         settings.yolo = True
 
-    execute(settings, path, dry_run)
+    execute(settings, path, dry_run, health_report)
 
 
 @cli.command()

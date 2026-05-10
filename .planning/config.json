@@ -1,5 +1,8 @@
 {
   "mode": "yolo",
   "depth": "standard",
-  "parallel": true
+  "parallel": true,
+  "workflow": {
+    "_auto_chain_active": false
+  }
 }

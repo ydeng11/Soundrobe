@@ -17,6 +17,11 @@ def test_settings_defaults():
     assert settings.recursive is False
     assert settings.yolo is False
     assert settings.cache_enabled is True
+    assert settings.ffprobe_path == "ffprobe"
+    assert settings.ffprobe_timeout_seconds == 20
+    assert settings.replaygain_command == "rgain3"
+    assert settings.replaygain_timeout_seconds == 600
+    assert settings.lrc_convert_encoding is False
 
 
 def test_settings_env_override(monkeypatch):

@@ -83,6 +83,7 @@ def test_tag_command_dry_run_previews_audio_metadata(tmp_path, monkeypatch):
     """Dry-run tag command previews discovered audio metadata."""
     from auto_tagger.core.metadata import TrackMetadata
     from auto_tagger.integrations.candidates import AlbumCandidate, LookupSource
+    from auto_tagger.quality.health import AlbumHealthReport
 
     audio_file = tmp_path / "01.flac"
     audio_file.write_bytes(b"")
@@ -114,6 +115,15 @@ def test_tag_command_dry_run_previews_audio_metadata(tmp_path, monkeypatch):
             },
         )(),
     )
+    monkeypatch.setattr(
+        "auto_tagger.commands.tag.build_album_health_report",
+        lambda album_path, audio_files, metadata_by_path, settings: AlbumHealthReport(
+            album_path=album_path,
+            tracks_checked=1,
+            lrc_files_checked=0,
+            issues=[],
+        ),
+    )
 
     runner = CliRunner()
     result = runner.invoke(cli, ["tag", str(tmp_path), "--dry-run"])
@@ -121,8 +131,61 @@ def test_tag_command_dry_run_previews_audio_metadata(tmp_path, monkeypatch):
     assert result.exit_code == 0
     assert "Metadata preview" in result.output
     assert "Lookup candidates" in result.output
+    assert "Health report" in result.output
     assert "Song" in result.output
     assert "album-id" in result.output
+
+
+def test_tag_command_writes_health_report_json(tmp_path, monkeypatch):
+    """Dry-run tag command writes a machine-readable health report when requested."""
+    import json
+
+    from auto_tagger.core.metadata import TrackMetadata
+    from auto_tagger.quality.health import AlbumHealthReport, HealthIssue, HealthSeverity
+
+    audio_file = tmp_path / "01.flac"
+    report_path = tmp_path / "health.json"
+    audio_file.write_bytes(b"")
+
+    monkeypatch.setattr(
+        "auto_tagger.commands.tag.iter_audio_files",
+        lambda path, recursive=False: [audio_file],
+    )
+    monkeypatch.setattr(
+        "auto_tagger.commands.tag.read_metadata",
+        lambda path: TrackMetadata(title="Song", artist="Artist", album="Album"),
+    )
+    monkeypatch.setattr(
+        "auto_tagger.commands.tag._print_lookup_candidates",
+        lambda settings, path: None,
+    )
+    monkeypatch.setattr(
+        "auto_tagger.commands.tag.build_album_health_report",
+        lambda album_path, audio_files, metadata_by_path, settings: AlbumHealthReport(
+            album_path=album_path,
+            tracks_checked=1,
+            lrc_files_checked=0,
+            issues=[
+                HealthIssue(
+                    "metadata",
+                    HealthSeverity.WARNING,
+                    audio_file,
+                    "metadata.missing_album_artist",
+                    "Missing album artist",
+                )
+            ],
+        ),
+    )
+
+    runner = CliRunner()
+    result = runner.invoke(
+        cli,
+        ["tag", str(tmp_path), "--dry-run", "--health-report", str(report_path)],
+    )
+
+    assert result.exit_code == 0
+    data = json.loads(report_path.read_text(encoding="utf-8"))
+    assert data["summary"] == {"errors": 0, "warnings": 1, "info": 0}
 
 
 def test_tag_command_dry_run_notes_llm_unavailable_without_key(tmp_path, monkeypatch):

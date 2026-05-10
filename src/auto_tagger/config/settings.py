@@ -106,6 +106,30 @@ class Settings(BaseSettings):
         default=Path(".planning") / "cache.db",
         description="Path to cache database",
     )
+    ffprobe_path: str = Field(
+        default="ffprobe",
+        description="Path or command name for ffprobe validation",
+    )
+    ffprobe_timeout_seconds: int = Field(
+        default=20,
+        ge=1,
+        le=300,
+        description="Per-file ffprobe timeout in seconds",
+    )
+    replaygain_command: str = Field(
+        default="rgain3",
+        description="ReplayGain command to use for calculation",
+    )
+    replaygain_timeout_seconds: int = Field(
+        default=600,
+        ge=1,
+        le=7200,
+        description="ReplayGain album calculation timeout in seconds",
+    )
+    lrc_convert_encoding: bool = Field(
+        default=False,
+        description="Convert non-UTF-8 LRC files when applying changes",
+    )
 
     @field_validator("output_format")
     @classmethod
