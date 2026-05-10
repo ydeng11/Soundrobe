@@ -4,7 +4,7 @@
 
 **Current Phase**: v1 Phases Complete
 **Last Updated**: 2026-05-10
-**Next Action**: Run `/gsd:complete-milestone` or audit v1 release readiness
+**Next Action**: Run `/gsd:new-milestone` to define v1.1 work, or perform manual v1.0 release publishing
 
 ---
 
@@ -54,7 +54,7 @@
 
 ### Current Phase
 - v1 milestone implementation
-- Status: **COMPLETE** (Ready for milestone audit/release readiness review)
+- Status: **ARCHIVED** (v1.0 milestone complete)
 - Plans: Phase 1 through Phase 6 complete
 
 ### Upcoming Phases
@@ -358,3 +358,13 @@ Ready for Phase 6: Navidrome Features & Distribution
 ✓ `python -m build` (built sdist and wheel)
 
 Ready for v1 milestone audit and release readiness review
+
+### 2026-05-10: v1.0 Milestone Completion
+- Created `.planning/v1.0-MILESTONE-AUDIT.md` with passed audit status and known gaps
+- Created `.planning/milestones/v1.0-ROADMAP.md`
+- Created `.planning/milestones/v1.0-REQUIREMENTS.md`
+- Created `.planning/MILESTONES.md`
+- Collapsed `.planning/ROADMAP.md` to completed milestone summary and next-milestone pointer
+- Removed active `.planning/REQUIREMENTS.md` so the next milestone can define fresh requirements
+- Updated `.planning/PROJECT.md` with current state and recommended v1.1 discovery topics
+- Next action: start a new milestone or manually complete v1.0 release publishing

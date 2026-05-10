@@ -1,5 +1,27 @@
 # Auto Tagger
 
+## Current State
+
+**Shipped version:** v1.0 MVP (2026-05-10)
+
+Auto Tagger is now an installable Python CLI for Navidrome-oriented audio metadata automation. v1.0 includes project/config infrastructure, multi-format metadata read/write support, Beets/MusicBrainz lookup, LLM-assisted candidate selection and fallback generation, quality validation, Navidrome enrichment features, batch/interactive command surfaces, and release packaging artifacts.
+
+**Verification baseline:**
+- `ruff check src tests`
+- `mypy src`
+- `pytest --cov=auto_tagger` (110 passed, 87% coverage)
+- `auto-tag tag "潘玮柏/2006-反转地球" --dry-run`
+- `auto-tag batch "潘玮柏" --dry-run`
+- `python -m build`
+
+## Next Milestone Goals
+
+No v1.1 milestone is defined yet. Recommended discovery topics:
+- Harden real-media apply flows with fixture-backed integration tests.
+- Decide whether REQ-CT-004 additional artist fields should move into v1.1.
+- Replace Homebrew formula placeholder SHA after publishing a real PyPI source archive.
+- Add release automation only after credential handling and manual approval gates are defined.
+
 ## Vision
 
 A Python CLI tool that automates audio file tagging using beets and LLM (via OpenRouter). Eliminates the tedious manual work of tagging while handling edge cases where beets struggles.
