@@ -26,16 +26,28 @@ def test_settings_defaults():
     assert settings.lyrics_enabled is True
     assert settings.compilation_detection_enabled is True
     assert settings.interactive_default is False
+    assert settings.data_dir == Path.home() / ".auto-tagger"
+    assert settings.dataset_lookup_enabled is True
+    assert settings.dataset_warn_when_unavailable is True
+    assert settings.remote_lookup_enabled is True
+    assert settings.dataset_services == ["musicbrainz"]
+    assert settings.dataset_downloads_dir == settings.data_dir / "datasets"
+    assert settings.dataset_staging_dir == settings.data_dir / "staging"
+    assert settings.dataset_index_path == settings.data_dir / "dataset-index.sqlite"
+    assert settings.dataset_state_path == settings.data_dir / "dataset-state.json"
 
 
 def test_settings_env_override(monkeypatch):
     """Test environment variable overrides."""
     monkeypatch.setenv("AUTO_TAG_VERBOSE", "true")
     monkeypatch.setenv("AUTO_TAG_OUTPUT_FORMAT", "json")
+    monkeypatch.setenv("AUTO_TAG_DATA_DIR", "/tmp/auto-tag-data")
 
     settings = Settings()
     assert settings.verbose is True
     assert settings.output_format == "json"
+    assert settings.data_dir == Path("/tmp/auto-tag-data")
+    assert settings.dataset_index_path == Path("/tmp/auto-tag-data/dataset-index.sqlite")
 
 
 def test_settings_validation():

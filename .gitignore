@@ -46,8 +46,14 @@ htmlcov/
 .dmypy.json
 dmypy.json
 
+# OS
+.DS_Store
+
 # Project specific
 .env
 *.log
 .cache/
 *.db
+
+# Test data
+潘玮柏/

@@ -12,6 +12,7 @@ External tools used by optional quality features:
 
 - `ffmpeg` / `ffprobe` for audio validation
 - `rgain3` or `loudgain` for ReplayGain calculation
+- `aria2c` and `7z` for optional local MusicMoveArr dataset setup
 
 ## Usage
 
@@ -32,6 +33,33 @@ auto-tag tag /path/to/Artist/Album --yolo
 auto-tag batch /path/to/library --dry-run
 ```
 
+## Local Dataset Lookup
+
+Auto Tagger can use the MusicMoveArr dataset before remote Beets/MusicBrainz
+lookup. Dataset setup is explicit because the upstream archives are large.
+
+```bash
+# Show whether the local dataset index is installed
+auto-tag dataset status
+
+# Preview the dataset setup plan without downloading
+auto-tag dataset setup --dry-run
+
+# Download the default MusicBrainz dataset and build the local SQLite index
+auto-tag dataset setup
+```
+
+By default, setup stores files under `~/.auto-tagger`:
+
+- `~/.auto-tagger/datasets/` for downloaded archives
+- `~/.auto-tagger/staging/` for extracted CSV files
+- `~/.auto-tagger/dataset-index.sqlite` for lookup
+- `~/.auto-tagger/dataset-state.json` for setup status
+
+Override the location with `AUTO_TAG_DATA_DIR` or `data_dir` in config.
+When the local index is missing, tagging prints a warning and continues with
+the existing API fallback.
+
 Configuration loads from CLI args, environment variables, YAML config, then defaults.
 The default config location is `~/.config/auto-tagger/config.yaml`.
 
@@ -42,6 +70,7 @@ AUTO_TAG_LLM_API_KEY=...
 AUTO_TAG_OUTPUT_FORMAT=table
 AUTO_TAG_FFPROBE_PATH=ffprobe
 AUTO_TAG_REPLAYGAIN_COMMAND=rgain3
+AUTO_TAG_DATA_DIR=~/.auto-tagger
 ```
 
 ## Development

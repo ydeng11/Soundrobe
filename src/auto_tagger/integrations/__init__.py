@@ -8,11 +8,15 @@ from auto_tagger.integrations.candidates import (
     LookupSource,
     TrackCandidate,
 )
+from auto_tagger.integrations.dataset import DatasetAsset, DatasetIndexClient, DatasetIndexWriter
 from auto_tagger.integrations.lookup import LookupService
 
 __all__ = [
     "AlbumCandidate",
     "BeetsClient",
+    "DatasetAsset",
+    "DatasetIndexClient",
+    "DatasetIndexWriter",
     "LookupRequest",
     "LookupService",
     "LookupSource",

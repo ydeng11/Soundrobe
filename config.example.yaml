@@ -30,3 +30,15 @@ llm_model: anthropic/claude-3.5-haiku
 # Caching Configuration
 cache_enabled: true
 cache_path: ~/.cache/auto-tagger/cache.db
+
+# Local MusicMoveArr dataset lookup
+# Setup stores downloads, state, and the SQLite index under this dot folder.
+data_dir: ~/.auto-tagger
+dataset_lookup_enabled: true
+dataset_warn_when_unavailable: true
+remote_lookup_enabled: true
+dataset_services:
+  - musicbrainz
+dataset_max_candidates: 5
+dataset_downloader_command: aria2c
+dataset_extractor_command: 7z

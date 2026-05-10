@@ -14,6 +14,7 @@ class LookupSource(Enum):
     """Source for a lookup candidate."""
 
     BEETS = "beets"
+    DATASET = "dataset"
     FOLDER = "folder"
 
 
