@@ -76,3 +76,9 @@ testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
+markers = [
+    "needs_ffmpeg: tests that require ffmpeg and ffprobe",
+    "needs_beets: tests that require the beets CLI",
+    "needs_rgain: tests that require rgain3 or loudgain",
+    "network: tests that require network access",
+]
