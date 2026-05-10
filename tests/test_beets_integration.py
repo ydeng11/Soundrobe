@@ -3,21 +3,14 @@
 These tests exercise the actual beets autotag matching code, not injected fakes.
 They require an internet connection (MusicBrainz API) and are skipped when beets
 is unavailable.
-
-Note: beets 2.x `tag_album` requires non-empty items. The `_match_album_with_beets`
-path in `BeetsClient` currently passes an empty list, which causes an assertion
-error before reaching MusicBrainz. This is a known bug — the album lookup path
-needs to either create dummy items from the path or bypass items extraction.
-Track lookup (`tag_item`) works correctly.
 """
 
 from pathlib import Path
 
 import pytest
 
-from auto_tagger.exceptions import TaggingError
 from auto_tagger.integrations.beets_client import BeetsClient, RateLimiter
-from auto_tagger.integrations.candidates import LookupRequest
+from auto_tagger.integrations.candidates import LookupRequest, LookupSource
 
 pytestmark = pytest.mark.needs_beets
 
@@ -36,20 +29,33 @@ def test_real_beets_lookup_track_does_not_raise(album_fixture: Path):
     assert isinstance(candidates, list)
 
 
-def test_real_beets_lookup_album_empty_items_raises(album_fixture: Path):
-    """Album lookup with empty items raises TaggingError (known beets 2.x limitation).
-
-    The _match_album_with_beets method currently passes items=[] to beets.tag_album,
-    which asserts items must be non-empty. This test documents the current behavior.
-    """
+def test_real_beets_lookup_album_returns_candidates(album_fixture: Path):
+    """Real beets album lookup returns candidates from MusicBrainz."""
     client = BeetsClient()
     request = LookupRequest(
         path=album_fixture,
         artist_hint="潘玮柏",
         album_hint="反转地球",
     )
-    with pytest.raises(TaggingError, match="Could not query beets"):
-        client.lookup_album(request)
+    candidates = client.lookup_album(request)
+    # A well-known Chinese album should return at least one candidate
+    assert isinstance(candidates, list)
+    if candidates:
+        assert candidates[0].source is LookupSource.BEETS
+
+
+def test_real_beets_lookup_album_empty_dir_returns_empty(tmp_path: Path):
+    """Album lookup on an empty directory returns empty list."""
+    empty = tmp_path / "Empty" / "Album"
+    empty.mkdir(parents=True)
+    client = BeetsClient()
+    request = LookupRequest(
+        path=empty,
+        artist_hint="Nobody",
+        album_hint="Nothing",
+    )
+    candidates = client.lookup_album(request)
+    assert isinstance(candidates, list)
 
 
 def test_real_beets_rate_limiter_works():

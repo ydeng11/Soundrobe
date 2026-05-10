@@ -102,16 +102,44 @@ class BeetsClient:
         self.configure_beets()
         try:
             from beets.autotag.match import tag_album
+            from beets.library import Item
         except ImportError as exc:
             raise TaggingError("beets autotag album lookup is unavailable") from exc
 
-        items: list[Any] = []
+        items = self._items_from_album_path(request.path)
+        if not items:
+            return []  # no audio files to extract hints from
         _, _, proposal = tag_album(
             items,
             search_artist=request.artist_hint,
             search_name=request.album_hint,
         )
         return [proposal] if proposal else []
+
+    @staticmethod
+    def _items_from_album_path(path: Path) -> list[Any]:
+        """Create beets Item objects from audio files in an album directory."""
+        from beets.library import Item
+
+        supported = {".flac", ".mp3", ".m4a", ".mp4", ".ogg", ".wma", ".aiff", ".wav"}
+        audio_files = sorted(
+            candidate
+            for candidate in path.iterdir()
+            if candidate.is_file() and candidate.suffix.lower() in supported
+        )
+        if not audio_files:
+            audio_files = sorted(
+                candidate
+                for candidate in path.rglob("*")
+                if candidate.is_file() and candidate.suffix.lower() in supported
+            )
+        items = []
+        for file_path in audio_files:
+            try:
+                items.append(Item.from_path(str(file_path)))
+            except Exception:
+                continue
+        return items
 
     def _match_track_with_beets(self, path: Path) -> list[Any]:
         self.configure_beets()
