@@ -2,9 +2,9 @@
 
 ## Project Status
 
-**Current Phase**: Phase 4 Complete
-**Last Updated**: 2026-05-09
-**Next Action**: Run `/gsd:plan-phase 5` to start Phase 5: Quality Assurance & Validation
+**Current Phase**: Phase 5 Planned
+**Last Updated**: 2026-05-10
+**Next Action**: Run `/gsd:execute-phase 5` to implement Phase 5: Quality Assurance & Validation
 
 ---
 
@@ -52,11 +52,10 @@
 
 ### Current Phase
 - Phase 5: Quality Assurance & Validation
-- Status: **NOT STARTED** (Ready for planning)
+- Status: **PLANNED** (Ready for execution)
 - Plans: plan-5-1, plan-5-2, plan-5-3, plan-5-4, plan-5-5
 
 ### Upcoming Phases
-- Phase 5: Quality Assurance & Validation
 - Phase 6: Navidrome Features & Distribution
 
 ---
@@ -293,3 +292,15 @@ Ready for Phase 4: LLM Integration
 ✓ `auto-tag tag "潘玮柏/2006-反转地球" --dry-run`
 
 Ready for Phase 5: Quality Assurance & Validation
+
+### 2026-05-10: Phase 5 Planning
+- Created `.planning/phases/phase-5-plan.md`
+- Defined a quality validation layer under `auto_tagger.quality`
+- Broke work into 5 waves:
+  - Wave 5.1: Audio file validation
+  - Wave 5.2: LRC encoding and format validation
+  - Wave 5.3: Metadata validation
+  - Wave 5.4: Health report generation
+  - Wave 5.5: ReplayGain calculation
+- Planned external-tool boundaries for `ffprobe`, `rgain3`, and `loudgain` with mocked test runners
+- Next action: execute Phase 5
