@@ -2,9 +2,9 @@
 
 ## Project Status
 
-**Current Phase**: Phase 5 Complete
+**Current Phase**: Phase 6 Planned
 **Last Updated**: 2026-05-10
-**Next Action**: Run `/gsd:plan-phase 6` to start Phase 6: Navidrome Features & Distribution
+**Next Action**: Run `/gsd:execute-phase 6` to implement Phase 6: Navidrome Features & Distribution
 
 ---
 
@@ -53,8 +53,8 @@
 
 ### Current Phase
 - Phase 6: Navidrome Features & Distribution
-- Status: **NOT STARTED** (Ready for planning)
-- Plans: plan-6-1, plan-6-2, plan-6-3, plan-6-4
+- Status: **PLANNED** (Ready for execution)
+- Plans: plan-6-1, plan-6-2, plan-6-3, plan-6-4, plan-6-5, plan-6-6, plan-6-7
 
 ### Upcoming Phases
 - Phase 6: Navidrome Features & Distribution
@@ -323,3 +323,18 @@ Ready for Phase 5: Quality Assurance & Validation
 ✓ `auto-tag tag "潘玮柏/2006-反转地球" --dry-run`
 
 Ready for Phase 6: Navidrome Features & Distribution
+
+### 2026-05-10: Phase 6 Planning
+- Created `.planning/phases/phase-6-plan.md`
+- Defined feature modules for cover art, compilation detection, and lyrics integration
+- Defined workflow modules for single-album orchestration, batch processing, and interactive decisions
+- Broke work into 7 waves:
+  - Wave 6.1: Cover art handling
+  - Wave 6.2: Compilation detection and tagging
+  - Wave 6.3: Lyrics integration
+  - Wave 6.4: Single album workflow completion
+  - Wave 6.5: Batch mode completion
+  - Wave 6.6: Interactive mode
+  - Wave 6.7: Distribution and release readiness
+- Planned credential-free distribution work: local package build, Homebrew formula template, and release checklist
+- Next action: execute Phase 6
