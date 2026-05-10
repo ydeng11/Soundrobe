@@ -82,6 +82,8 @@ class TrackMetadata:
     musicbrainz_trackid: str | None = None
     musicbrainz_albumid: str | None = None
     musicbrainz_artistid: str | None = None
+    lyrics: str | None = None
+    compilation: bool | None = None
     replaygain: ReplayGainTags = field(default_factory=ReplayGainTags)
 
     def normalized(self) -> TrackMetadata:
@@ -117,6 +119,8 @@ class TrackMetadata:
             ("musicbrainz_trackid", self.musicbrainz_trackid),
             ("musicbrainz_albumid", self.musicbrainz_albumid),
             ("musicbrainz_artistid", self.musicbrainz_artistid),
+            ("lyrics", "embedded" if self.lyrics else None),
+            ("compilation", "1" if self.compilation else None),
             ("replaygain_track_gain", self.replaygain.track_gain),
             ("replaygain_track_peak", self.replaygain.track_peak),
             ("replaygain_album_gain", self.replaygain.album_gain),

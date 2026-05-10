@@ -1,6 +1,6 @@
 # Auto Tagger
 
-Intelligent audio file tagging CLI tool.
+Intelligent audio file tagging CLI tool for Navidrome-oriented libraries.
 
 ## Installation
 
@@ -8,39 +8,56 @@ Intelligent audio file tagging CLI tool.
 pip install auto-tagger
 ```
 
-## Development
+External tools used by optional quality features:
 
-```bash
-# Clone repository
-git clone https://github.com/yourusername/auto-tagger.git
-cd auto-tagger
-
-# Create virtual environment
-python -m venv .venv
-source .venv/bin/activate  # or `.\.venv\Scripts\activate` on Windows
-
-# Install in development mode
-pip install -e ".[dev]"
-
-# Run tests
-pytest
-
-# Run CLI
-auto-tag --help
-```
+- `ffmpeg` / `ffprobe` for audio validation
+- `rgain3` or `loudgain` for ReplayGain calculation
 
 ## Usage
 
 ```bash
-# Tag a single album
-auto-tag tag /path/to/album
+# Preview one album without writing
+auto-tag tag /path/to/Artist/Album --dry-run
 
-# Batch process library
-auto-tag batch /path/to/library
+# Preview and write a machine-readable health report
+auto-tag tag /path/to/Artist/Album --dry-run --health-report health.json
 
-# View configuration
-auto-tag config
+# Prompt before applying changes
+auto-tag tag /path/to/Artist/Album --interactive
+
+# Apply safe changes without prompts
+auto-tag tag /path/to/Artist/Album --yolo
+
+# Preview a full library
+auto-tag batch /path/to/library --dry-run
 ```
+
+Configuration loads from CLI args, environment variables, YAML config, then defaults.
+The default config location is `~/.config/auto-tagger/config.yaml`.
+
+Common environment variables:
+
+```bash
+AUTO_TAG_LLM_API_KEY=...
+AUTO_TAG_OUTPUT_FORMAT=table
+AUTO_TAG_FFPROBE_PATH=ffprobe
+AUTO_TAG_REPLAYGAIN_COMMAND=rgain3
+```
+
+## Development
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -e ".[dev]"
+pytest
+auto-tag --help
+```
+
+## Release
+
+Release packaging is documented in `docs/release-checklist.md`. Homebrew formula
+template lives in `packaging/homebrew/auto-tagger.rb`.
 
 ## License
 

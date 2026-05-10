@@ -130,6 +130,40 @@ class Settings(BaseSettings):
         default=False,
         description="Convert non-UTF-8 LRC files when applying changes",
     )
+    cover_art_enabled: bool = Field(
+        default=True,
+        description="Enable cover art discovery and embedding",
+    )
+    cover_art_archive_enabled: bool = Field(
+        default=True,
+        description="Enable Cover Art Archive lookups",
+    )
+    cover_art_timeout_seconds: int = Field(
+        default=20,
+        ge=1,
+        le=300,
+        description="Cover Art Archive request timeout in seconds",
+    )
+    lyrics_enabled: bool = Field(
+        default=True,
+        description="Enable lyrics discovery and embedding",
+    )
+    embed_lyrics: bool = Field(
+        default=True,
+        description="Embed unsynchronized lyrics when applying tags",
+    )
+    compilation_detection_enabled: bool = Field(
+        default=True,
+        description="Enable compilation album detection",
+    )
+    batch_summary_path: Path | None = Field(
+        default=None,
+        description="Optional path for batch JSON summary",
+    )
+    interactive_default: bool = Field(
+        default=False,
+        description="Prompt interactively when neither dry-run nor YOLO is set",
+    )
 
     @field_validator("output_format")
     @classmethod

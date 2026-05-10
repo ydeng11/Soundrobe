@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from base64 import b64encode
 from typing import Any
 
 from auto_tagger.core.audio import AudioFormat
@@ -50,6 +51,8 @@ def _read_vorbis_tags(tags: Any) -> TrackMetadata:
         musicbrainz_trackid=_first(tags, "MUSICBRAINZ_TRACKID"),
         musicbrainz_albumid=_first(tags, "MUSICBRAINZ_ALBUMID"),
         musicbrainz_artistid=_first(tags, "MUSICBRAINZ_ARTISTID"),
+        lyrics=_first(tags, "LYRICS") or _first(tags, "UNSYNCEDLYRICS"),
+        compilation=_parse_bool(_first(tags, "COMPILATION")),
         replaygain=ReplayGainTags(
             track_gain=_first(tags, "REPLAYGAIN_TRACK_GAIN"),
             track_peak=_first(tags, "REPLAYGAIN_TRACK_PEAK"),
@@ -75,6 +78,8 @@ def _write_vorbis_tags(tags: Any, metadata: TrackMetadata) -> None:
     _set_list(tags, "MUSICBRAINZ_TRACKID", _one(metadata.musicbrainz_trackid))
     _set_list(tags, "MUSICBRAINZ_ALBUMID", _one(metadata.musicbrainz_albumid))
     _set_list(tags, "MUSICBRAINZ_ARTISTID", _one(metadata.musicbrainz_artistid))
+    _set_list(tags, "LYRICS", _one(metadata.lyrics))
+    _set_list(tags, "COMPILATION", _one_bool(metadata.compilation))
     _set_list(tags, "REPLAYGAIN_TRACK_GAIN", _one(metadata.replaygain.track_gain))
     _set_list(tags, "REPLAYGAIN_TRACK_PEAK", _one(metadata.replaygain.track_peak))
     _set_list(tags, "REPLAYGAIN_ALBUM_GAIN", _one(metadata.replaygain.album_gain))
@@ -101,6 +106,8 @@ def _read_mp3_tags(tags: Any) -> TrackMetadata:
         musicbrainz_trackid=_first(tags, "TXXX:MusicBrainz Track Id"),
         musicbrainz_albumid=_first(tags, "TXXX:MusicBrainz Album Id"),
         musicbrainz_artistid=_first(tags, "TXXX:MusicBrainz Artist Id"),
+        lyrics=_first(tags, "USLT::eng"),
+        compilation=_parse_bool(_first(tags, "TCMP") or _first(tags, "TXXX:COMPILATION")),
         replaygain=ReplayGainTags(
             track_gain=_first(tags, "TXXX:REPLAYGAIN_TRACK_GAIN"),
             track_peak=_first(tags, "TXXX:REPLAYGAIN_TRACK_PEAK"),
@@ -111,7 +118,7 @@ def _read_mp3_tags(tags: Any) -> TrackMetadata:
 
 
 def _write_mp3_tags(tags: Any, metadata: TrackMetadata) -> None:
-    from mutagen.id3 import TALB, TCON, TDRC, TIT2, TPE1, TPE2, TPOS, TRCK, TXXX
+    from mutagen.id3 import TALB, TCON, TDRC, TIT2, TPE1, TPE2, TPOS, TRCK, TXXX, USLT
 
     _set_id3_frame(tags, "TIT2", TIT2(encoding=3, text=_one(metadata.title)))
     _set_id3_frame(tags, "TPE1", TPE1(encoding=3, text=_one(metadata.artist)))
@@ -128,6 +135,8 @@ def _write_mp3_tags(tags: Any, metadata: TrackMetadata) -> None:
     _set_txxx(tags, TXXX, "MusicBrainz Track Id", _one(metadata.musicbrainz_trackid))
     _set_txxx(tags, TXXX, "MusicBrainz Album Id", _one(metadata.musicbrainz_albumid))
     _set_txxx(tags, TXXX, "MusicBrainz Artist Id", _one(metadata.musicbrainz_artistid))
+    _set_uslt(tags, USLT, metadata.lyrics)
+    _set_txxx(tags, TXXX, "COMPILATION", _one_bool(metadata.compilation))
     _set_txxx(tags, TXXX, "REPLAYGAIN_TRACK_GAIN", _one(metadata.replaygain.track_gain))
     _set_txxx(tags, TXXX, "REPLAYGAIN_TRACK_PEAK", _one(metadata.replaygain.track_peak))
     _set_txxx(tags, TXXX, "REPLAYGAIN_ALBUM_GAIN", _one(metadata.replaygain.album_gain))
@@ -154,6 +163,8 @@ def _read_mp4_tags(tags: Any) -> TrackMetadata:
         musicbrainz_trackid=_first(tags, f"{MP4_FREEFORM_PREFIX}MUSICBRAINZ_TRACKID"),
         musicbrainz_albumid=_first(tags, f"{MP4_FREEFORM_PREFIX}MUSICBRAINZ_ALBUMID"),
         musicbrainz_artistid=_first(tags, f"{MP4_FREEFORM_PREFIX}MUSICBRAINZ_ARTISTID"),
+        lyrics=_first(tags, "©lyr"),
+        compilation=_parse_bool(_first_raw(tags, "cpil")),
         replaygain=ReplayGainTags(
             track_gain=_first(tags, f"{MP4_FREEFORM_PREFIX}REPLAYGAIN_TRACK_GAIN"),
             track_peak=_first(tags, f"{MP4_FREEFORM_PREFIX}REPLAYGAIN_TRACK_PEAK"),
@@ -177,6 +188,9 @@ def _write_mp4_tags(tags: Any, metadata: TrackMetadata) -> None:
     _set_mp4_freeform(tags, "MUSICBRAINZ_TRACKID", _one(metadata.musicbrainz_trackid))
     _set_mp4_freeform(tags, "MUSICBRAINZ_ALBUMID", _one(metadata.musicbrainz_albumid))
     _set_mp4_freeform(tags, "MUSICBRAINZ_ARTISTID", _one(metadata.musicbrainz_artistid))
+    _set_list(tags, "©lyr", _one(metadata.lyrics))
+    if metadata.compilation is not None:
+        tags["cpil"] = [bool(metadata.compilation)]
     _set_mp4_freeform(tags, "REPLAYGAIN_TRACK_GAIN", _one(metadata.replaygain.track_gain))
     _set_mp4_freeform(tags, "REPLAYGAIN_TRACK_PEAK", _one(metadata.replaygain.track_peak))
     _set_mp4_freeform(tags, "REPLAYGAIN_ALBUM_GAIN", _one(metadata.replaygain.album_gain))
@@ -260,6 +274,20 @@ def _one_int(value: int | None) -> list[str]:
     return [str(value)] if value is not None else []
 
 
+def _one_bool(value: bool | None) -> list[str]:
+    return ["1"] if value else []
+
+
+def _parse_bool(value: Any) -> bool | None:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (list, tuple)) and value:
+        return _parse_bool(value[0])
+    if value is None:
+        return None
+    return str(value).strip().lower() in {"1", "true", "yes"}
+
+
 def _set_list(tags: Any, key: str, values: list[str]) -> None:
     if values:
         tags[key] = values
@@ -277,6 +305,12 @@ def _set_txxx(tags: Any, frame_type: Any, desc: str, values: list[str]) -> None:
         tags.add(frame_type(encoding=3, desc=desc, text=values))
 
 
+def _set_uslt(tags: Any, frame_type: Any, lyrics: str | None) -> None:
+    if lyrics:
+        tags.delall("USLT")
+        tags.add(frame_type(encoding=3, lang="eng", desc="", text=lyrics))
+
+
 def _set_mp4_position(tags: Any, key: str, current: int | None, total: int | None) -> None:
     if current is not None:
         tags[key] = [(current, total or 0)]
@@ -288,3 +322,16 @@ def _set_mp4_freeform(tags: Any, name: str, values: list[str]) -> None:
     from mutagen.mp4 import MP4FreeForm
 
     tags[f"{MP4_FREEFORM_PREFIX}{name}"] = [MP4FreeForm(value.encode("utf-8")) for value in values]
+
+
+def embed_cover_art(audio_format: AudioFormat, tags: Any, data: bytes, mime_type: str) -> None:
+    """Embed front cover art into format-specific tags."""
+    if audio_format is AudioFormat.MP3:
+        from mutagen.id3 import APIC
+
+        tags.delall("APIC")
+        tags.add(APIC(encoding=3, mime=mime_type, type=3, desc="Cover", data=data))
+    elif audio_format is AudioFormat.M4A:
+        tags["covr"] = [data]
+    else:
+        tags["METADATA_BLOCK_PICTURE"] = [b64encode(data).decode("ascii")]

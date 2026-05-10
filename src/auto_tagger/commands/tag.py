@@ -18,6 +18,7 @@ def execute(
     path: Path,
     dry_run: bool,
     health_report_path: Path | None = None,
+    interactive: bool = False,
 ) -> None:
     """Execute tag command.
 
@@ -29,6 +30,7 @@ def execute(
     print_info(f"Tagging: {path}")
     console.print(f"  Dry run: {dry_run}")
     console.print(f"  YOLO mode: {settings.yolo}")
+    console.print(f"  Interactive: {interactive or settings.interactive_default}")
     console.print(f"  Output format: {settings.output_format}")
 
     try:
@@ -64,6 +66,10 @@ def execute(
         print_info(f"Wrote health report: {health_report_path}")
 
     _print_lookup_candidates(settings, path)
+    if not dry_run and settings.yolo and health_report.can_tag:
+        print_success("YOLO apply path available for safe albums")
+    elif interactive or settings.interactive_default:
+        print_info("Interactive preview ready; apply flow will prompt before writing")
     print_success(f"Previewed metadata for {len(audio_files)} audio file(s)")
 
 

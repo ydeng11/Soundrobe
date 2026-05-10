@@ -22,6 +22,10 @@ def test_settings_defaults():
     assert settings.replaygain_command == "rgain3"
     assert settings.replaygain_timeout_seconds == 600
     assert settings.lrc_convert_encoding is False
+    assert settings.cover_art_enabled is True
+    assert settings.lyrics_enabled is True
+    assert settings.compilation_detection_enabled is True
+    assert settings.interactive_default is False
 
 
 def test_settings_env_override(monkeypatch):

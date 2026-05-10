@@ -74,6 +74,7 @@ def cli(ctx: click.Context, config: Path | None, verbose: bool, output: str | No
 @click.argument("path", type=click.Path(exists=True, path_type=Path))
 @click.option("--dry-run", is_flag=True, help="Preview changes without applying")
 @click.option("--yolo", is_flag=True, help="Auto-approve all changes")
+@click.option("--interactive", is_flag=True, help="Prompt before applying album changes")
 @click.option(
     "--health-report",
     type=click.Path(dir_okay=False, path_type=Path),
@@ -85,6 +86,7 @@ def tag(
     path: Path,
     dry_run: bool,
     yolo: bool,
+    interactive: bool,
     health_report: Path | None,
 ) -> None:
     """Tag a single album or directory.
@@ -98,13 +100,14 @@ def tag(
     if yolo:
         settings.yolo = True
 
-    execute(settings, path, dry_run, health_report)
+    execute(settings, path, dry_run, health_report, interactive)
 
 
 @cli.command()
 @click.argument("path", type=click.Path(exists=True, path_type=Path))
 @click.option("--dry-run", is_flag=True, help="Preview changes without applying")
 @click.option("--yolo", is_flag=True, help="Auto-approve all changes")
+@click.option("--interactive", is_flag=True, help="Prompt before applying each album")
 @click.option(
     "--parallel",
     "-j",
@@ -113,7 +116,14 @@ def tag(
     help="Number of parallel processes",
 )
 @click.pass_context
-def batch(ctx: click.Context, path: Path, dry_run: bool, yolo: bool, parallel: int) -> None:
+def batch(
+    ctx: click.Context,
+    path: Path,
+    dry_run: bool,
+    yolo: bool,
+    interactive: bool,
+    parallel: int,
+) -> None:
     """Batch process entire music library.
 
     PATH: Path to music library root
@@ -125,7 +135,7 @@ def batch(ctx: click.Context, path: Path, dry_run: bool, yolo: bool, parallel: i
     if yolo:
         settings.yolo = True
 
-    execute(settings, path, dry_run, parallel)
+    execute(settings, path, dry_run, parallel, interactive)
 
 
 @cli.command()

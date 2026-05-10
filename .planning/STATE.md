@@ -2,9 +2,9 @@
 
 ## Project Status
 
-**Current Phase**: Phase 6 Planned
+**Current Phase**: v1 Phases Complete
 **Last Updated**: 2026-05-10
-**Next Action**: Run `/gsd:execute-phase 6` to implement Phase 6: Navidrome Features & Distribution
+**Next Action**: Run `/gsd:complete-milestone` or audit v1 release readiness
 
 ---
 
@@ -50,31 +50,32 @@
 - [x] Phase 3: Beets Integration (COMPLETE)
 - [x] Phase 4: LLM Integration (COMPLETE)
 - [x] Phase 5: Quality Assurance & Validation (COMPLETE)
+- [x] Phase 6: Navidrome Features & Distribution (COMPLETE)
 
 ### Current Phase
-- Phase 6: Navidrome Features & Distribution
-- Status: **PLANNED** (Ready for execution)
-- Plans: plan-6-1, plan-6-2, plan-6-3, plan-6-4, plan-6-5, plan-6-6, plan-6-7
+- v1 milestone implementation
+- Status: **COMPLETE** (Ready for milestone audit/release readiness review)
+- Plans: Phase 1 through Phase 6 complete
 
 ### Upcoming Phases
-- Phase 6: Navidrome Features & Distribution
+- None in current roadmap
 
 ---
 
 ## Requirements Status
 
 **Total v1 Requirements**: 26 REQ-IDs
-**Implemented**: 16
+**Implemented**: 25
 **In Progress**: 0
-**Pending**: 10
+**Pending**: 1
 
 ### Category Breakdown
 - Core Tagging (REQ-CT): 3 implemented, 1 deferred
-- Navidrome Integration (REQ-ND): 1 implemented (ReplayGain calculation/tag application), 3 active
+- Navidrome Integration (REQ-ND): 4 implemented
 - Beets Integration (REQ-BT): 4 implemented
 - LLM Integration (REQ-LM): 4 implemented
 - Quality Assurance (REQ-QA): 4 implemented
-- CLI & Distribution (REQ-CL): 6 active
+- CLI & Distribution (REQ-CL): 6 implemented
 
 ---
 
@@ -338,3 +339,22 @@ Ready for Phase 6: Navidrome Features & Distribution
   - Wave 6.7: Distribution and release readiness
 - Planned credential-free distribution work: local package build, Homebrew formula template, and release checklist
 - Next action: execute Phase 6
+
+### 2026-05-10: Phase 6 Execution (COMPLETE)
+- Added Navidrome feature modules for cover art discovery/fetching/embedding, compilation detection/tagging, and lyrics discovery/embedding
+- Extended normalized metadata and format mappings with lyrics and compilation tags
+- Added workflow modules for single-album orchestration, batch library processing, and interactive accept/skip/edit/abort decisions
+- Completed batch command with album discovery, per-album processing, and summary output
+- Added interactive CLI flags for `tag` and `batch`, while keeping dry-run safe and YOLO guarded by health checks
+- Added release documentation, Homebrew formula template, package metadata cleanup, and README usage/configuration examples
+- Added Phase 6 unit coverage for cover art, compilations, lyrics, album workflow, batch workflow, interactive workflow, distribution artifacts, and config defaults
+
+**Verification Results**:
+✓ `ruff check src tests`
+✓ `mypy src`
+✓ `pytest --cov=auto_tagger` (110 passed, 87% coverage)
+✓ `auto-tag tag "潘玮柏/2006-反转地球" --dry-run`
+✓ `auto-tag batch "潘玮柏" --dry-run`
+✓ `python -m build` (built sdist and wheel)
+
+Ready for v1 milestone audit and release readiness review

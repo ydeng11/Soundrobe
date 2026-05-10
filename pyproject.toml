@@ -38,6 +38,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
+    "build>=1.0",
     "pytest>=7.0",
     "pytest-cov>=4.0",
     "mypy>=1.0",
@@ -48,8 +49,8 @@ dev = [
 auto-tag = "auto_tagger.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/yourusername/auto-tagger"
-Repository = "https://github.com/yourusername/auto-tagger.git"
+Homepage = "https://github.com/auto-tagger/auto-tagger"
+Repository = "https://github.com/auto-tagger/auto-tagger.git"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/auto_tagger"]
