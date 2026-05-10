@@ -65,7 +65,13 @@ class FixtureFactory:
         for track in _TRACKS:
             filename = f"{_ARTIST} - {track['num']:02d}.{track['title']}"
             flac_path = album_dir / f"{filename}.flac"
-            self._create_silent_flac(flac_path, num=track["num"], title=track["title"])
+            self._create_silent_flac(
+                flac_path,
+                num=track["num"],
+                title=track["title"],
+                artist=_ARTIST,
+                album=_ALBUM,
+            )
             self._create_lrc(album_dir / f"{filename}.lrc", num=track["num"], title=track["title"])
 
         self._create_cover_jpeg(album_dir / "cover.jpg")
@@ -261,9 +267,9 @@ class FixtureFactory:
 
         audio = MP4(path)
         tags: Any = audio.tags or MP4Tags()
-        tags["\xa9nam"] = title
-        tags["\xa9ART"] = artist
-        tags["\xa9alb"] = album
+        tags["©nam"] = title
+        tags["©art"] = artist
+        tags["©alb"] = album
         tags["trkn"] = [(num, 0)]
         audio.tags = tags
         audio.save()

@@ -42,14 +42,14 @@ def fixtures_dir(tmp_path_factory: pytest.TempPathFactory) -> Path:
 
 @pytest.fixture(scope="session")
 def album_fixture(fixtures_dir: Path) -> Path:
-    """Path to a synthetic 潘玮柏/2006-反转地球 album."""
-    return fixtures_dir / "album"
+    """Path to a synthetic 潘玮柏/2006-反转地球 album directory."""
+    return fixtures_dir / "album" / "潘玮柏" / "反转地球"
 
 
 @pytest.fixture(scope="session")
 def compilation_fixture(fixtures_dir: Path) -> Path:
-    """Path to a synthetic multi-artist compilation album."""
-    return fixtures_dir / "compilation"
+    """Path to a synthetic multi-artist compilation album directory."""
+    return fixtures_dir / "compilation" / "Various Artists" / "Greatest Hits"
 
 
 @pytest.fixture(scope="session")
