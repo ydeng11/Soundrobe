@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 from auto_tagger.config import Settings
 from auto_tagger.core.audio import SUPPORTED_EXTENSIONS
@@ -20,6 +21,7 @@ class BatchSummary:
     skipped: int = 0
     failed: int = 0
     errors: list[str] = field(default_factory=list)
+    health_reports: list[Any] = field(default_factory=list)
 
 
 def discover_album_paths(library_path: Path) -> list[Path]:
@@ -48,6 +50,7 @@ class BatchWorkflow:
         albums = discover_album_paths(path)
         processed = applied = skipped = failed = 0
         errors: list[str] = []
+        health_reports: list[Any] = []
 
         for album in albums:
             processed += 1
@@ -59,5 +62,7 @@ class BatchWorkflow:
                 continue
             applied += result.applied_writes
             skipped += result.skipped_writes
+            if result.health_report is not None:
+                health_reports.append(result.health_report.to_dict())
 
-        return BatchSummary(processed, applied, skipped, failed, errors)
+        return BatchSummary(processed, applied, skipped, failed, errors, health_reports)

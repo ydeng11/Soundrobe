@@ -115,6 +115,11 @@ def tag(
     default=1,
     help="Number of parallel processes",
 )
+@click.option(
+    "--health-report",
+    type=click.Path(dir_okay=False, path_type=Path),
+    help="Write combined health report JSON for all albums",
+)
 @click.pass_context
 def batch(
     ctx: click.Context,
@@ -123,6 +128,7 @@ def batch(
     yolo: bool,
     interactive: bool,
     parallel: int,
+    health_report: Path | None,
 ) -> None:
     """Batch process entire music library.
 
@@ -135,7 +141,7 @@ def batch(
     if yolo:
         settings.yolo = True
 
-    execute(settings, path, dry_run, parallel, interactive)
+    execute(settings, path, dry_run, parallel, interactive, health_report)
 
 
 @cli.command()
