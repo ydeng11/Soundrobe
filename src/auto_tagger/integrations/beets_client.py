@@ -102,7 +102,6 @@ class BeetsClient:
         self.configure_beets()
         try:
             from beets.autotag.match import tag_album
-            from beets.library import Item
         except ImportError as exc:
             raise TaggingError("beets autotag album lookup is unavailable") from exc
 

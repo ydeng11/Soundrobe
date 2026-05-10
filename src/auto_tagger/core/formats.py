@@ -24,6 +24,9 @@ def write_tags(audio_format: AudioFormat, tags: Any, metadata: TrackMetadata) ->
     """Write normalized metadata to a format-specific tag object."""
     normalized = metadata.normalized()
     if audio_format is AudioFormat.MP3:
+        # MP3 wrapper doesn't proxy delall — unwrap to ID3
+        if hasattr(tags, "tags") and hasattr(tags.tags, "delall"):
+            tags = tags.tags
         _write_mp3_tags(tags, normalized)
     elif audio_format is AudioFormat.M4A:
         _write_mp4_tags(tags, normalized)
