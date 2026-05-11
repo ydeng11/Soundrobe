@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 from auto_tagger.core import iter_audio_files, read_metadata
@@ -16,12 +17,39 @@ from auto_tagger.integrations.candidates import (
 
 COMPILATION_HINTS = {"various artists", "va", "soundtrack", "ost"}
 
+# Common patterns in folder names that aren't part of the album name
+_DATE_PREFIX_RE = re.compile(r"^\d{4}[-.]\d{2}\s*")  # "2003-04" or "2005.08"
+_BOOKMARKS_RE = re.compile(r"[《》「」【】\[\]]")  # Chinese/Western bookmarks
+_EXTRA_SUFFIX_RE = re.compile(r"\s*\([^)]*\)\s*$")  # trailing "(FLAC分轨)" etc.
+
+
+def clean_folder_name(name: str) -> str:
+    """Clean a folder name for use as a lookup hint.
+
+    Strips common metadata prefixes/suffixes that aren't part of the
+    actual album or artist name:
+      - Date prefixes: "2003-04《挚爱》" → "挚爱"
+      - Bookmarks: "《挚爱》" → "挚爱"
+      - Extra suffixes: "Hello (Bonus)" → "Hello"
+
+    Returns the cleaned name, or the original if nothing to strip.
+    """
+    cleaned = _DATE_PREFIX_RE.sub("", name)
+    cleaned = _BOOKMARKS_RE.sub("", cleaned)
+    cleaned = _EXTRA_SUFFIX_RE.sub("", cleaned)
+    cleaned = cleaned.strip()
+    return cleaned or name
+
 
 def parse_album_path(path: Path) -> LookupRequest:
-    """Parse artist and album hints from an Artist/Album path."""
+    """Parse artist and album hints from an Artist/Album path.
+
+    Folder names are cleaned of date prefixes, bookmarks, and extra
+    suffixes before being used as lookup hints.
+    """
     album_path = path.parent if path.is_file() else path
-    album_hint = album_path.name or None
-    artist_hint = album_path.parent.name or None
+    album_hint = clean_folder_name(album_path.name) if album_path.name else None
+    artist_hint = clean_folder_name(album_path.parent.name) if album_path.parent.name else None
     return LookupRequest(path=path, artist_hint=artist_hint, album_hint=album_hint)
 
 
