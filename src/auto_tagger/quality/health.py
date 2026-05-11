@@ -119,6 +119,7 @@ def build_album_health_report(
         validate_album_metadata,
         validate_track_metadata,
     )
+    from auto_tagger.features.cover_art import discover_local_cover_art
 
     issues: list[HealthIssue] = []
     track_health: list[TrackHealth] = []
@@ -146,6 +147,19 @@ def build_album_health_report(
     for lrc_file in lrc_files:
         lrc_result = validate_lrc_file(lrc_file)
         issues.extend(lrc_result.issues)
+
+    # Cover art check
+    cover = discover_local_cover_art(album_path)
+    if cover is None:
+        issues.append(
+            HealthIssue(
+                "cover_art",
+                HealthSeverity.WARNING,
+                album_path,
+                "missing_local",
+                "No local cover art found (cover.jpg, folder.jpg, front.jpg, etc.)",
+            )
+        )
 
     return AlbumHealthReport(
         album_path=album_path,
