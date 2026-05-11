@@ -148,8 +148,11 @@ def build_album_health_report(
         lrc_result = validate_lrc_file(lrc_file)
         issues.extend(lrc_result.issues)
 
-    # Cover art check
-    cover = discover_local_cover_art(album_path)
+    # Cover art check — prefer album-name cover, then generic names
+    album_name = next(
+        (m.album for m in metadata_by_path.values() if m.album), None
+    )
+    cover = discover_local_cover_art(album_path, album_name)
     if cover is None:
         issues.append(
             HealthIssue(

@@ -106,8 +106,11 @@ class AlbumWorkflow:
         if not audio_files:
             return False, CoverArtStatus.MISSING, "No audio files to embed into"
 
-        # 1. Try local cover art
-        image = discover_local_cover_art(album_path)
+        # 1. Try local cover art (album-name first, then generic)
+        album_name = next(
+            (m.album for m in metadata_by_path.values() if m.album), None
+        )
+        image = discover_local_cover_art(album_path, album_name)
         if image is not None:
             self._embed_into_all(audio_files, image)
             return True, CoverArtStatus.FOUND_LOCAL, "Embedded local cover art"
