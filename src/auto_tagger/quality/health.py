@@ -113,13 +113,13 @@ def build_album_health_report(
     settings: Settings,
 ) -> AlbumHealthReport:
     """Build a health report by running Phase 5 validators."""
+    from auto_tagger.features.cover_art import discover_local_cover_art
     from auto_tagger.quality.audio_validation import FFProbeValidator
     from auto_tagger.quality.lrc import discover_lrc_files, validate_lrc_file
     from auto_tagger.quality.metadata_validation import (
         validate_album_metadata,
         validate_track_metadata,
     )
-    from auto_tagger.features.cover_art import discover_local_cover_art
 
     issues: list[HealthIssue] = []
     track_health: list[TrackHealth] = []

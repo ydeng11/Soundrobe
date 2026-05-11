@@ -20,6 +20,7 @@ class BatchSummary:
     applied: int = 0
     skipped: int = 0
     failed: int = 0
+    cover_art_fixed: int = 0
     errors: list[str] = field(default_factory=list)
     health_reports: list[Any] = field(default_factory=list)
 
@@ -48,7 +49,7 @@ class BatchWorkflow:
     def run(self, path: Path, dry_run: bool, parallel: int = 1) -> BatchSummary:
         """Run batch processing with deterministic sequential execution."""
         albums = discover_album_paths(path)
-        processed = applied = skipped = failed = 0
+        processed = applied = skipped = failed = cover_art_fixed = 0
         errors: list[str] = []
         health_reports: list[Any] = []
 
@@ -62,7 +63,11 @@ class BatchWorkflow:
                 continue
             applied += result.applied_writes
             skipped += result.skipped_writes
+            if result.cover_art_fixed:
+                cover_art_fixed += 1
             if result.health_report is not None:
                 health_reports.append(result.health_report.to_dict())
 
-        return BatchSummary(processed, applied, skipped, failed, errors, health_reports)
+        return BatchSummary(
+            processed, applied, skipped, failed, cover_art_fixed, errors, health_reports
+        )

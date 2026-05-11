@@ -37,6 +37,8 @@ def execute(
     console.print(f"  Applied writes: {summary.applied}")
     console.print(f"  Skipped writes: {summary.skipped}")
     console.print(f"  Failed albums: {summary.failed}")
+    if summary.cover_art_fixed:
+        console.print(f"  Cover art fixed: {summary.cover_art_fixed}")
 
     if health_report_path and summary.health_reports:
         total_errors = sum(r["summary"]["errors"] for r in summary.health_reports)

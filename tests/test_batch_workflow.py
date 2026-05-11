@@ -41,7 +41,8 @@ def test_batch_workflow_continues_after_album_failure(tmp_path: Path):
             return type(
                 "Result",
                 (),
-                {"applied_writes": 1, "skipped_writes": 0, "health_report": None},
+                {"applied_writes": 1, "skipped_writes": 0, "health_report": None,
+                 "cover_art_fixed": False},
             )()
 
     summary = BatchWorkflow(Settings(), album_workflow_factory=FakeAlbumWorkflow).run(
