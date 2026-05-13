@@ -208,6 +208,23 @@ def dataset_setup(ctx: click.Context, services: tuple[str, ...], dry_run: bool) 
     execute_setup(settings, services, dry_run)
 
 
+@dataset.command("build")
+@click.option(
+    "--service",
+    "services",
+    multiple=True,
+    type=click.Choice(["musicbrainz", "spotify", "tidal", "deezer"]),
+    help="Services to index; defaults to all configured services",
+)
+@click.pass_context
+def dataset_build(ctx: click.Context, services: tuple[str, ...]) -> None:
+    """Build the SQLite index from already-staged dataset files."""
+    from auto_tagger.commands.dataset import execute_build
+
+    settings: Settings = ctx.obj["settings"]
+    execute_build(settings, services)
+
+
 def main() -> None:
     """Main entry point."""
     try:

@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import re
+import unicodedata
 from dataclasses import dataclass, field
 from enum import Enum
 from hashlib import sha256
@@ -15,6 +17,7 @@ class LookupSource(Enum):
 
     BEETS = "beets"
     DATASET = "dataset"
+    DISCOGS = "discogs"
     FOLDER = "folder"
 
 
@@ -78,6 +81,7 @@ class AlbumCandidate:
     tracks: list[TrackCandidate] = field(default_factory=list)
     distance: float | None = None
     source: LookupSource = LookupSource.BEETS
+    verification: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize to JSON-compatible data."""
@@ -94,6 +98,7 @@ class AlbumCandidate:
             "tracks": [track.to_dict() for track in self.tracks],
             "distance": self.distance,
             "source": self.source.value,
+            "verification": self.verification,
         }
 
     @classmethod
@@ -112,6 +117,7 @@ class AlbumCandidate:
             tracks=[TrackCandidate.from_dict(item) for item in data.get("tracks", [])],
             distance=data.get("distance"),
             source=LookupSource(data.get("source", LookupSource.BEETS.value)),
+            verification=data.get("verification"),
         )
 
     def to_display_row(self) -> list[str]:
@@ -124,6 +130,7 @@ class AlbumCandidate:
             self.year or "",
             distance,
             self.musicbrainz_albumid or "",
+            self.verification or "",
         ]
 
 
@@ -134,6 +141,7 @@ class LookupRequest:
     path: Path
     artist_hint: str | None = None
     album_hint: str | None = None
+    year_hint: str | None = None
     tracks: list[TrackCandidate] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
@@ -142,6 +150,7 @@ class LookupRequest:
             "path": str(self.path),
             "artist_hint": self.artist_hint,
             "album_hint": self.album_hint,
+            "year_hint": self.year_hint,
             "tracks": [track.to_dict() for track in self.tracks],
         }
 
@@ -152,6 +161,7 @@ class LookupRequest:
             path=Path(data["path"]),
             artist_hint=data.get("artist_hint"),
             album_hint=data.get("album_hint"),
+            year_hint=data.get("year_hint"),
             tracks=[TrackCandidate.from_dict(item) for item in data.get("tracks", [])],
         )
 
@@ -182,3 +192,92 @@ def candidates_to_json(candidates: list[AlbumCandidate]) -> str:
 def candidates_from_json(payload: str) -> list[AlbumCandidate]:
     """Deserialize album candidates from JSON."""
     return [AlbumCandidate.from_dict(item) for item in json.loads(payload)]
+
+
+def _chinese_variants_match(a: str, b: str) -> bool:
+    """Check if two strings match after converting between simplified and traditional Chinese.
+
+    Uses opencc if available. Falls back gracefully if not installed.
+    """
+    try:
+        import opencc
+    except ImportError:
+        return False
+
+    try:
+        t2s = opencc.OpenCC("t2s")
+        s2t = opencc.OpenCC("s2t")
+    except Exception:
+        return False
+
+    a_norm = normalize_lookup_text(a)
+    b_norm = normalize_lookup_text(b)
+
+    # Try converting a to simplified, b to simplified
+    try:
+        if normalize_lookup_text(t2s.convert(a)) == normalize_lookup_text(t2s.convert(b)):
+            return True
+    except Exception:
+        pass
+
+    # Try converting both to traditional
+    try:
+        if normalize_lookup_text(s2t.convert(a)) == normalize_lookup_text(s2t.convert(b)):
+            return True
+    except Exception:
+        pass
+
+    # Try cross: a simplified vs b simplified, a traditional vs b traditional
+    try:
+        if normalize_lookup_text(t2s.convert(a)) == b_norm:
+            return True
+        if a_norm == normalize_lookup_text(t2s.convert(b)):
+            return True
+    except Exception:
+        pass
+
+    return False
+
+
+def normalize_lookup_text(value: str | None) -> str:
+    """Normalize lookup text for comparison.
+
+    Applies Unicode NFKC normalization to handle fullwidth/halfwidth
+    variants and canonical equivalences, then case-folds and strips
+    punctuation.
+
+    Note: This does NOT convert between simplified and traditional
+    Chinese (e.g., 挚 → 摯). That requires a dedicated library like
+    opencc. For now, those pairs will register as 'close' if one
+    is a substring of the other, or 'mismatch' otherwise.
+    """
+    if not value:
+        return ""
+    text = unicodedata.normalize("NFKC", value.casefold())
+    text = re.sub(r"[^\w\s]", " ", text)
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def verify_album_name(hint: str | None, candidate: AlbumCandidate) -> str:
+    """Compare a lookup hint against a candidate's album name.
+
+    Handles simplified/traditional Chinese variants via opencc when available.
+
+    Returns:
+        "match" — hint and candidate album name are identical after normalization
+        "close" — hint text is contained within candidate or vice versa
+        "mismatch" — hint does not match candidate album name
+        "match" — when either hint or candidate album is None (can't verify)
+    """
+    if not hint or not candidate.album:
+        return "match"
+    hint_norm = normalize_lookup_text(hint)
+    cand_norm = normalize_lookup_text(candidate.album)
+    if hint_norm == cand_norm:
+        return "match"
+    # Try simplified/traditional Chinese conversion
+    if _chinese_variants_match(hint, candidate.album):
+        return "match"
+    if hint_norm in cand_norm or cand_norm in hint_norm:
+        return "close"
+    return "mismatch"

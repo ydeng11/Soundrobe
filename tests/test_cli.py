@@ -191,7 +191,7 @@ def test_tag_command_writes_health_report_json(tmp_path, monkeypatch):
 def test_tag_command_dry_run_notes_llm_unavailable_without_key(tmp_path, monkeypatch):
     """Dry-run lookup preview does not call LLM without an API key."""
     from auto_tagger.core.metadata import TrackMetadata
-    from auto_tagger.integrations.candidates import AlbumCandidate, LookupSource
+    from auto_tagger.integrations.candidates import AlbumCandidate, LookupRequest, LookupSource
 
     audio_file = tmp_path / "01.flac"
     audio_file.write_bytes(b"")
@@ -213,13 +213,16 @@ def test_tag_command_dry_run_notes_llm_unavailable_without_key(tmp_path, monkeyp
                 "lookup_album": lambda self, path: [
                     AlbumCandidate(artist="Artist", album="A", source=LookupSource.BEETS),
                     AlbumCandidate(artist="Artist", album="B", source=LookupSource.BEETS),
-                ]
+                ],
+                "request_from_path": lambda self, path: LookupRequest(
+                    path=path, artist_hint="A", album_hint="A"
+                ),
             },
         )(),
     )
 
     runner = CliRunner()
-    result = runner.invoke(cli, ["tag", str(tmp_path), "--dry-run"])
+    result = runner.invoke(cli, ["tag", str(tmp_path), "--dry-run"], env={"AUTO_TAG_LLM_API_KEY": ""})
 
     assert result.exit_code == 0
     assert "LLM selection unavailable" in result.output

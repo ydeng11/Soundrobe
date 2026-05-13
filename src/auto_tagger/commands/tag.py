@@ -94,7 +94,7 @@ def _print_lookup_candidates(settings: Settings, path: Path) -> None:
 
     print_table(
         "Lookup candidates",
-        ["Source", "Artist", "Album", "Year", "Distance", "MusicBrainz Album ID"],
+        ["Source", "Artist", "Album", "Year", "Distance", "MusicBrainz Album ID", "Verify"],
         [candidate.to_display_row() for candidate in candidates],
     )
 

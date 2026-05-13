@@ -25,8 +25,11 @@ def write_tags(audio_format: AudioFormat, tags: Any, metadata: TrackMetadata) ->
     normalized = metadata.normalized()
     if audio_format in (AudioFormat.MP3, AudioFormat.WAV):
         # MP3/WAV wrapper doesn't proxy delall — unwrap to ID3
-        if hasattr(tags, "tags") and hasattr(tags.tags, "delall"):
-            tags = tags.tags
+        if hasattr(tags, "tags"):
+            if tags.tags is None and hasattr(tags, "add_tags"):
+                tags.add_tags()
+            if tags.tags is not None and hasattr(tags.tags, "delall"):
+                tags = tags.tags
         _write_mp3_tags(tags, normalized)
     elif audio_format is AudioFormat.M4A:
         _write_mp4_tags(tags, normalized)
@@ -329,11 +332,17 @@ def _set_mp4_freeform(tags: Any, name: str, values: list[str]) -> None:
 
 def embed_cover_art(audio_format: AudioFormat, tags: Any, data: bytes, mime_type: str) -> None:
     """Embed front cover art into format-specific tags."""
-    if audio_format is AudioFormat.MP3:
+    if audio_format in (AudioFormat.MP3, AudioFormat.WAV):
         from mutagen.id3 import APIC
 
-        tags.delall("APIC")
-        tags.add(APIC(encoding=3, mime=mime_type, type=3, desc="Cover", data=data))
+        # WAV uses _WaveID3 wrapper — unwrap if needed
+        if hasattr(tags, "tags") and hasattr(tags.tags, "delall"):
+            real_tags = tags.tags
+        else:
+            real_tags = tags
+
+        real_tags.delall("APIC")
+        real_tags.add(APIC(encoding=3, mime=mime_type, type=3, desc="Cover", data=data))
     elif audio_format is AudioFormat.M4A:
         tags["covr"] = [data]
     else:

@@ -19,6 +19,7 @@ from auto_tagger.integrations.dataset import (
     load_dataset_state,
     save_dataset_state,
 )
+from auto_tagger.integrations.dataset_raw import import_raw_tables
 from auto_tagger.utils import console, print_info, print_success, print_table, print_warning
 
 SUPPORTED_SERVICES = ("musicbrainz", "spotify", "tidal", "deezer")
@@ -97,11 +98,22 @@ def execute_setup(
         selected_services,
     )
 
-    album_rows, track_rows = build_index_from_csv_tree(
-        settings.dataset_staging_dir,
-        settings.dataset_index_path,
-        selected_services,
-    )
+    # Detect whether staging contains SQL dumps or CSV files
+    sql_files = list(settings.dataset_staging_dir.rglob("*.sql"))
+    if sql_files:
+        counts = import_raw_tables(
+            settings.dataset_staging_dir,
+            settings.dataset_index_path,
+            selected_services,
+        )
+        album_rows = sum(counts.values())
+        track_rows = 0  # tracks are part of the raw tables
+    else:
+        album_rows, track_rows = build_index_from_csv_tree(
+            settings.dataset_staging_dir,
+            settings.dataset_index_path,
+            selected_services,
+        )
     state = DatasetState(
         version=asset.version,
         services=list(selected_services),
@@ -112,6 +124,44 @@ def execute_setup(
     )
     save_dataset_state(settings.dataset_state_path, state)
     print_success(f"Built local dataset index with {album_rows} album row(s)")
+
+
+def execute_build(settings: Settings, services: tuple[str, ...]) -> None:
+    """Build SQLite index from already-staged dataset files (no download)."""
+    selected_services = _selected_services(settings, services)
+
+    if not any(settings.dataset_staging_dir.iterdir()):
+        raise ConfigError(
+            f"No staged dataset files found in {settings.dataset_staging_dir}. "
+            "Run 'auto-tag dataset setup' first or place .sql/.csv files there."
+        )
+
+    sql_files = list(settings.dataset_staging_dir.rglob("*.sql"))
+    if sql_files:
+        counts = import_raw_tables(
+            settings.dataset_staging_dir,
+            settings.dataset_index_path,
+            selected_services,
+        )
+        album_rows = sum(counts.values())
+        track_rows = 0
+    else:
+        album_rows, track_rows = build_index_from_csv_tree(
+            settings.dataset_staging_dir,
+            settings.dataset_index_path,
+            selected_services,
+        )
+
+    state = DatasetState(
+        version="manual-build",
+        services=list(selected_services),
+        source_file="staged data",
+        built_at=datetime.now(timezone.utc).isoformat(),
+        album_rows=album_rows,
+        track_rows=track_rows,
+    )
+    save_dataset_state(settings.dataset_state_path, state)
+    print_success(f"Built local dataset index with {album_rows} total rows imported")
 
 
 def _selected_services(settings: Settings, services: tuple[str, ...]) -> tuple[str, ...]:

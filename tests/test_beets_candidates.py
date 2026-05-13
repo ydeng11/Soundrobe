@@ -46,6 +46,7 @@ def test_album_candidate_round_trips_through_json():
         "2024",
         "0.12",
         "album-id",
+        "",
     ]
 
 

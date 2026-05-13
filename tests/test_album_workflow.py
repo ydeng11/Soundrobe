@@ -4,7 +4,7 @@ from pathlib import Path
 
 from auto_tagger.config import Settings
 from auto_tagger.core.metadata import TrackMetadata
-from auto_tagger.features.cover_art import CoverArtStatus
+from auto_tagger.features.cover_art import CoverArtResult, CoverArtStatus
 from auto_tagger.workflows.album import AlbumWorkflow
 
 
@@ -32,7 +32,7 @@ def test_album_workflow_dry_run_collects_preview(monkeypatch, tmp_path: Path):
 
 
 def test_album_workflow_yolo_blocks_writes_on_health_errors(monkeypatch, tmp_path: Path):
-    """YOLO mode still refuses writes when health report has errors."""
+    """YOLO mode tries to fix via lookup, but falls back when lookup fails."""
     from auto_tagger.quality.health import AlbumHealthReport, HealthIssue, HealthSeverity
 
     audio = tmp_path / "01.flac"
@@ -56,6 +56,12 @@ def test_album_workflow_yolo_blocks_writes_on_health_errors(monkeypatch, tmp_pat
                 HealthIssue("audio", HealthSeverity.ERROR, audio, "audio.bad", "Bad audio")
             ],
         ),
+    )
+    # Mock _fix_metadata to simulate lookup failure
+    monkeypatch.setattr(
+        AlbumWorkflow,
+        "_fix_metadata",
+        lambda self, path, af, mbp: (False, "", "No candidates"),
     )
 
     result = AlbumWorkflow(Settings(yolo=True)).run(tmp_path, dry_run=False)
@@ -145,6 +151,13 @@ def test_cover_art_fix_no_local_no_mbid(monkeypatch, tmp_path: Path):
     monkeypatch.setattr(
         "auto_tagger.workflows.album.write_metadata",
         lambda path, metadata, dry_run=False: metadata,
+    )
+    # Mock Discogs to prevent live API call
+    monkeypatch.setattr(
+        "auto_tagger.integrations.discogs_client.DiscogsClient.fetch_cover_art",
+        lambda self, artist, album: CoverArtResult(
+            CoverArtStatus.MISSING, message="No cover art"
+        ),
     )
 
     result = AlbumWorkflow(Settings(yolo=True)).run(tmp_path, dry_run=False)

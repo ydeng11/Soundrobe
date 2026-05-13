@@ -167,7 +167,7 @@ class _DefaultHTTPClient:
     def get(self, url: str, timeout: int) -> HTTPResponse:
         import httpx
 
-        response = httpx.get(url, timeout=timeout)
+        response = httpx.get(url, timeout=timeout, follow_redirects=True)
         return _SimpleHTTPResponse(
             status_code=response.status_code,
             content=response.content,

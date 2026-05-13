@@ -2,7 +2,23 @@
 
 from pathlib import Path
 
-from auto_tagger.integrations.fallback import clean_folder_name, parse_album_path
+from auto_tagger.integrations.fallback import (
+    clean_folder_name,
+    extract_year_from_name,
+    parse_album_path,
+)
+
+
+def test_extract_year_from_name():
+    """Year is extracted from leading date prefix."""
+    assert extract_year_from_name("2003-04《挚爱》") == "2003"
+    assert extract_year_from_name("2005-08《好久不见》") == "2005"
+    assert extract_year_from_name("2008-01《喝采》") == "2008"
+    assert extract_year_from_name("2005.08 Album Name") == "2005"
+    assert extract_year_from_name("2017- Album") == "2017"
+    assert extract_year_from_name("Album Name") is None
+    assert extract_year_from_name("5566") is None
+    assert extract_year_from_name("挚爱") is None
 
 
 def test_clean_date_prefix():
@@ -56,4 +72,17 @@ def test_parse_album_path_cleans_names(tmp_path: Path):
     request = parse_album_path(album)
     assert request.artist_hint == "5566"
     assert request.album_hint == "挚爱"
+    assert request.year_hint == "2003"
     assert request.path == album
+
+
+def test_parse_album_path_no_year(tmp_path: Path):
+    """parse_album_path returns None year_hint when folder has no date prefix."""
+    album = tmp_path / "Artist" / "Album Name"
+    album.mkdir(parents=True)
+    (album / "01.flac").touch()
+
+    request = parse_album_path(album)
+    assert request.artist_hint == "Artist"
+    assert request.album_hint == "Album Name"
+    assert request.year_hint is None

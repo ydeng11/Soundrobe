@@ -204,6 +204,114 @@ class DatasetIndexWriter:
 
         return album_id
 
+    def add_albums_bulk(
+        self,
+        batch: Iterable[dict[str, Any]],
+    ) -> None:
+        """Add multiple albums with their tracks in efficient bulk INSERTs.
+
+        Each dict in batch must have the same keys as add_album kwargs:
+        source, artist, album, album_artist, artists, album_artists,
+        year, genre, musicbrainz_albumid, musicbrainz_artistid,
+        source_album_id, source_artist_id, tracks.
+        """
+        album_rows: list[tuple[Any, ...]] = []
+        track_rows: list[tuple[Any, ...]] = []
+        album_ids: list[tuple[int, int]] = []  # (batch_index, album_row_count)
+
+        for item in batch:
+            display_artist = _clean_text(item.get("artist"))
+            display_album = _clean_text(item.get("album"))
+            if not display_artist or not display_album:
+                continue
+
+            display_album_artist = _clean_text(item.get("album_artist")) or display_artist
+            artist_values = _clean_list(item.get("artists")) or [display_artist]
+            album_artist_values = _clean_list(item.get("album_artists")) or [display_album_artist]
+            tracks = item.get("tracks") or []
+
+            album_rows.append((
+                _clean_text(item.get("source")) or "unknown",
+                _clean_text(item.get("source_album_id")),
+                _clean_text(item.get("source_artist_id")),
+                display_artist,
+                json.dumps(artist_values),
+                display_album,
+                display_album_artist,
+                json.dumps(album_artist_values),
+                _clean_text(item.get("year")),
+                _clean_text(item.get("genre")),
+                _clean_text(item.get("musicbrainz_albumid")),
+                _clean_text(item.get("musicbrainz_artistid")),
+                normalize_lookup_text(display_artist),
+                normalize_lookup_text(display_album),
+                datetime.now(timezone.utc).isoformat(),
+            ))
+            album_ids.append((len(album_rows) - 1, len(tracks)))
+
+            for track in tracks:
+                track_rows.append((
+                    0,  # placeholder album_id, filled after INSERT
+                    _clean_text(track.get("title")),
+                    _clean_text(track.get("artist")),
+                    json.dumps(_clean_list(track.get("artists"))),
+                    _int_or_none(track.get("track_number")),
+                    _int_or_none(track.get("track_total")),
+                    _int_or_none(track.get("disc_number")),
+                    _int_or_none(track.get("disc_total")),
+                    _clean_text(track.get("musicbrainz_trackid")),
+                    _float_or_none(track.get("length")),
+                ))
+
+        if not album_rows:
+            return
+
+        with self.conn:
+            # Bulk insert albums
+            self.conn.executemany(
+                """
+                INSERT INTO dataset_albums (
+                    source, source_album_id, source_artist_id,
+                    artist, artists_json, album, album_artist,
+                    album_artists_json, year, genre,
+                    musicbrainz_albumid, musicbrainz_artistid,
+                    normalized_artist, normalized_album, imported_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                album_rows,
+            )
+            inserted_albums = len(album_rows)
+            last_id_row = self.conn.execute("SELECT MAX(id) FROM dataset_albums").fetchone()
+            last_id = last_id_row[0] if last_id_row and last_id_row[0] else 0
+            first_album_id = last_id - inserted_albums + 1
+            self.album_rows += inserted_albums
+
+            # Fix up track album_ids: first album gets first_album_id, then +1 per album
+            if track_rows:
+                # Build track rows with correct album_ids
+                fixed_tracks: list[tuple[Any, ...]] = []
+                track_offset = 0
+                for batch_idx in range(inserted_albums):
+                    album_idx, num_tracks = album_ids[batch_idx]
+                    album_id = first_album_id + batch_idx
+                    for t in range(num_tracks):
+                        row = track_rows[track_offset + t]
+                        fixed_tracks.append((album_id,) + row[1:])
+                    track_offset += num_tracks
+
+                self.conn.executemany(
+                    """
+                    INSERT INTO dataset_tracks (
+                        album_id, title, artist, artists_json,
+                        track_number, track_total,
+                        disc_number, disc_total,
+                        musicbrainz_trackid, length
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    fixed_tracks,
+                )
+                self.track_rows += len(fixed_tracks)
+
     def close(self) -> None:
         """Close the SQLite connection."""
         self.conn.close()

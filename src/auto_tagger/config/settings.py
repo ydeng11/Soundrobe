@@ -62,11 +62,11 @@ class Settings(BaseSettings):
         description="LLM API endpoint",
     )
     llm_model: str = Field(
-        default="anthropic/claude-3.5-haiku",
+        default="mistralai/mistral-nemo",
         description="LLM model to use",
     )
     llm_fallback_model: str = Field(
-        default="google/gemini-flash-1.5-8b",
+        default="meta-llama/llama-3.1-8b-instruct",
         description="Fallback LLM model to use",
     )
     llm_max_candidates: int = Field(
@@ -88,12 +88,12 @@ class Settings(BaseSettings):
         description="LLM sampling temperature",
     )
     llm_cost_per_1k_prompt_tokens: float = Field(
-        default=0.001,
+        default=0.00002,
         ge=0.0,
         description="Estimated prompt token cost per 1K tokens",
     )
     llm_cost_per_1k_completion_tokens: float = Field(
-        default=0.002,
+        default=0.00003,
         ge=0.0,
         description="Estimated completion token cost per 1K tokens",
     )
@@ -193,6 +193,26 @@ class Settings(BaseSettings):
     compilation_detection_enabled: bool = Field(
         default=True,
         description="Enable compilation album detection",
+    )
+    discogs_enabled: bool = Field(
+        default=True,
+        description="Enable Discogs API lookup after cache, dataset, and beets miss",
+    )
+    discogs_max_candidates: int = Field(
+        default=3,
+        ge=1,
+        le=10,
+        description="Maximum Discogs lookup candidates",
+    )
+    discogs_timeout_seconds: int = Field(
+        default=20,
+        ge=1,
+        le=60,
+        description="Discogs API request timeout in seconds",
+    )
+    discogs_token: str | None = Field(
+        default=None,
+        description="Optional Discogs personal access token for higher rate limits",
     )
     batch_summary_path: Path | None = Field(
         default=None,
