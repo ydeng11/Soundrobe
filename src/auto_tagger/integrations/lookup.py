@@ -4,8 +4,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import opencc
+
 from auto_tagger.config import Settings
 from auto_tagger.exceptions import TaggingError
+from auto_tagger.integrations.aliases import get_aliases
 from auto_tagger.integrations.beets_client import BeetsClient
 from auto_tagger.integrations.cache import MatchCache
 from auto_tagger.integrations.candidates import (
@@ -19,6 +22,34 @@ from auto_tagger.integrations.fallback import (
     candidate_from_folder,
     parse_album_with_tags,
 )
+
+
+# ── SC/TC Chinese variant helpers ────────────────────────────────────
+
+
+_t2s_converter: opencc.OpenCC | None = None
+_s2t_converter: opencc.OpenCC | None = None
+
+
+def _get_converters() -> tuple[opencc.OpenCC, opencc.OpenCC]:
+    """Lazy-init OpenCC converters (singleton)."""
+    global _t2s_converter, _s2t_converter
+    if _t2s_converter is None:
+        _t2s_converter = opencc.OpenCC("t2s")
+        _s2t_converter = opencc.OpenCC("s2t")
+    return _t2s_converter, _s2t_converter
+
+
+def _sc_variant(text: str) -> str:
+    """Convert text to Simplified Chinese (if it contains Chinese)."""
+    t2s, _ = _get_converters()
+    return t2s.convert(text)
+
+
+def _tc_variant(text: str) -> str:
+    """Convert text to Traditional Chinese (if it contains Chinese)."""
+    _, s2t = _get_converters()
+    return s2t.convert(text)
 
 
 class LookupService:
@@ -102,25 +133,130 @@ class LookupService:
     def _lookup_beets(self, request: LookupRequest) -> list[AlbumCandidate]:
         if self.beets_client is None:
             return []
-        try:
-            return self.beets_client.lookup_album(request)
-        except TaggingError:
-            return []
+        seen: set[tuple[str | None, str | None]] = set()
+        results: list[AlbumCandidate] = []
+
+        def _try_search(
+            artist_hint: str | None, album_hint: str | None
+        ) -> list[AlbumCandidate]:
+            key = (artist_hint, album_hint)
+            if key in seen:
+                return []
+            seen.add(key)
+            try:
+                variant_request = LookupRequest(
+                    path=request.path,
+                    artist_hint=artist_hint,
+                    album_hint=album_hint,
+                    year_hint=request.year_hint,
+                    tracks=request.tracks,
+                )
+                return self.beets_client.lookup_album(variant_request)
+            except TaggingError:
+                return []
+
+        # 1. Try original + SC/TC variants
+        variants = self._hint_variants(request.artist_hint, request.album_hint)
+        for artist_hint, album_hint in variants:
+            candidates = _try_search(artist_hint, album_hint)
+            results.extend(candidates)
+            if candidates:
+                return results
+
+        # 2. Try known aliases of the artist
+        for alias in get_aliases(request.artist_hint):
+            candidates = _try_search(alias, request.album_hint)
+            results.extend(candidates)
+            if candidates:
+                return results
+
+        # 3. Album-only fallback (no artist constraint)
+        candidates = _try_search(None, request.album_hint)
+        results.extend(candidates)
+        return results
 
     def _lookup_discogs(self, request: LookupRequest) -> list[AlbumCandidate]:
-        """Search Discogs for album candidates."""
+        """Search Discogs for album candidates.
+
+        Tries in order:
+          1. Original artist + album + SC/TC variants
+          2. Known aliases of the artist hint
+          3. Album-only search (catch cross-script mismatches like 蔡健雅 vs Tanya Chua)
+        """
         if not request.artist_hint or not request.album_hint:
             return []
+
+        client = DiscogsClient(
+            token=self.settings.discogs_token,
+            max_candidates=self.settings.discogs_max_candidates,
+            timeout_seconds=self.settings.discogs_timeout_seconds,
+        )
+        seen: set[tuple[str | None, str | None]] = set()
+        results: list[AlbumCandidate] = []
+
+        # 1. Try original + SC/TC variants
+        variants = self._hint_variants(request.artist_hint, request.album_hint)
+        for artist_hint, album_hint in variants:
+            key = (artist_hint, album_hint)
+            if key in seen:
+                continue
+            seen.add(key)
+            try:
+                candidates = client.search_album(
+                    artist_hint or "", album_hint or ""
+                )
+                results.extend(candidates)
+            except DiscogsError as exc:
+                self._record_warning(f"Discogs lookup failed: {exc}")
+                continue
+            if candidates:
+                return results
+
+        # 2. Try known aliases of the artist (e.g. 蔡健雅 → tanya chua)
+        for alias in get_aliases(request.artist_hint):
+            key = (alias, request.album_hint)
+            if key in seen:
+                continue
+            seen.add(key)
+            try:
+                candidates = client.search_album(alias, request.album_hint)
+                results.extend(candidates)
+            except DiscogsError:
+                continue
+            if candidates:
+                return results
+
+        # 3. Album-only fallback — catches cases where the artist name
+        #    is in a completely different script (Chinese vs Latin).
+        #    The LLM selection step will filter out wrong artists.
         try:
-            client = DiscogsClient(
-                token=self.settings.discogs_token,
-                max_candidates=self.settings.discogs_max_candidates,
-                timeout_seconds=self.settings.discogs_timeout_seconds,
-            )
-            return client.search_album(request.artist_hint, request.album_hint)
-        except DiscogsError as exc:
-            self._record_warning(f"Discogs lookup failed: {exc}")
-            return []
+            candidates = client.search_album("", request.album_hint)
+            results.extend(candidates)
+        except DiscogsError:
+            pass
+        return results
+
+    @staticmethod
+    def _hint_variants(
+        artist: str | None, album: str | None
+    ) -> list[tuple[str | None, str | None]]:
+        """Yield (artist, album) pairs trying original and SC/TC variants.
+
+        Returns: [(original, original), (sc, sc), (tc, tc)] with dupes removed.
+        """
+        pairs: list[tuple[str | None, str | None]] = [(artist, album)]
+        if artist:
+            sc_a, tc_a = _sc_variant(artist), _tc_variant(artist)
+        else:
+            sc_a = tc_a = None
+        if album:
+            sc_b, tc_b = _sc_variant(album), _tc_variant(album)
+        else:
+            sc_b = tc_b = None
+        for a, b in [(sc_a, sc_b), (tc_a, tc_b)]:
+            if (a, b) not in pairs:
+                pairs.append((a, b))
+        return pairs
 
     @staticmethod
     def _annotate_verification(

@@ -65,7 +65,12 @@ def build_fallback_messages(
                 "Generate conservative fallback music tags as JSON. "
                 "Do not invent MusicBrainz IDs. Leave uncertain fields empty. "
                 "Return artist, artists, album, album_artist, album_artists, "
-                "tracks, confidence, and reason."
+                "tracks, genre, confidence, and reason. "
+                "For genre, use Discogs-style comma-separated tags "
+                "(e.g. 'Electronic, House, Deep House' or 'Rock, Alternative, Indie' "
+                "or 'Stage & Screen, Score, Contemporary Classical'). "
+                "Only include genre if you are confident in the classification; "
+                "leave null otherwise."
             ),
         },
         {"role": "user", "content": json.dumps(payload, ensure_ascii=False, sort_keys=True)},

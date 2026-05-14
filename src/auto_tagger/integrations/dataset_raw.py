@@ -15,6 +15,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+import opencc
+
 from auto_tagger.integrations.candidates import (
     AlbumCandidate,
     LookupSource,
@@ -430,12 +432,64 @@ _TRACK_TABLES: dict[str, tuple[str, str]] = {
 def normalize_lookup_text(value: str | None) -> str:
     """Normalize text for case/punctuation-insensitive matching.
 
-    Must match the Python implementation in dataset.py exactly.
+    Must match the SQL normalization in _create_lookup_indexes() exactly:
+      LOWER(REPLACE(REPLACE(REPLACE(name, '.', ' '), ',', ' '), '''', ''))
     """
     if not value:
         return ""
-    text = re.sub(r"[^\w\s]", " ", value.casefold())
+    text = value.casefold()
+    text = text.replace(".", " ").replace(",", " ").replace("'", "")
     return re.sub(r"\s+", " ", text).strip()
+
+
+# ── SC/TC variant helpers ───────────────────────────────────────────
+
+
+def _sc_tc_variants(text: str) -> list[str]:
+    """Return Simplified Chinese and Traditional Chinese variants of text.
+
+    Returns a deduplicated list ordered as: [simplified, traditional, original].
+    If text has no Chinese characters, all variants are the same and only
+    one entry is returned.
+    """
+    t2s = opencc.OpenCC("t2s")
+    s2t = opencc.OpenCC("s2t")
+    sc = t2s.convert(text)
+    tc = s2t.convert(text)
+    seen: set[str] = set()
+    result: list[str] = []
+    for v in (sc, tc, text):
+        if v not in seen:
+            seen.add(v)
+            result.append(v)
+    return result
+
+
+def _lookup_variants(
+    artist: str, album: str
+) -> list[tuple[str, str]]:
+    """Build (artist, album) pairs for both SC and TC variants.
+
+    Yields unique pairs: (sc_artist, sc_album), (tc_artist, tc_album),
+    (original_artist, original_album). Deduplicates to avoid querying
+    the same pair twice.
+    """
+    artist_variants = _sc_tc_variants(artist)
+    album_variants = _sc_tc_variants(album)
+    seen: set[tuple[str, str]] = set()
+    pairs: list[tuple[str, str]] = []
+    # Try SC+SC, TC+TC, then original+original
+    for a, b in [
+        (artist_variants[0], album_variants[0]),
+        (artist_variants[1] if len(artist_variants) > 1 else artist_variants[0],
+         album_variants[1] if len(album_variants) > 1 else album_variants[0]),
+        (artist_variants[-1], album_variants[-1]),
+    ]:
+        key = (a, b)
+        if key not in seen:
+            seen.add(key)
+            pairs.append(key)
+    return pairs
 
 
 def _create_lookup_indexes(conn: sqlite3.Connection) -> None:
@@ -659,12 +713,24 @@ def query_album(
 
         if has_lookup:
             # Fast path: use pre-computed normalized lookup table
+            # Try both Simplified and Traditional Chinese variants since the
+            # dataset may store either form and user input may be the other.
+            variants = _lookup_variants(norm_artist, norm_album)
+            where_clauses: list[str] = []
+            query_params: list[str] = []
+            for a, b in variants:
+                where_clauses.append(
+                    "(normalized_artist = ? AND normalized_album = ?)"
+                )
+                query_params.append(a)
+                query_params.append(b)
+            where_sql = " OR ".join(where_clauses) if where_clauses else "0"
+
             rows = conn.execute(
-                """
+                f"""
                 SELECT service, artist, album, year, album_id, artist_id
                 FROM dataset_lookup
-                WHERE normalized_artist = ?
-                  AND normalized_album = ?
+                WHERE ({where_sql})
                 ORDER BY
                     CASE service
                         WHEN 'musicbrainz' THEN 0
@@ -675,7 +741,7 @@ def query_album(
                     END
                 LIMIT ?
                 """,
-                (norm_artist, norm_album, max_candidates),
+                (*query_params, max_candidates),
             ).fetchall()
 
             for row in rows:
@@ -712,6 +778,79 @@ def query_album(
                     ],
                     source=LookupSource.DATASET,
                 ))
+
+            # If exact match returned no candidates, try progressive prefix
+            # fallback to handle folder names with extra subtitle/edition info
+            # (e.g. "T-TIME 新歌+精选" vs DB "T-time",
+            #  "Close To 蔡健雅 Original x Tanya" vs DB "Close to 蔡健雅")
+            if not candidates:
+                seen_ids: set[tuple[str, str]] = set()
+                album_words = norm_album.split()
+                for word_count in range(len(album_words) - 1, 0, -1):
+                    prefix = " ".join(album_words[:word_count])
+                    if len(prefix) < 2:
+                        continue
+                    prefix_rows = conn.execute(
+                        """
+                        SELECT service, artist, album, year, album_id, artist_id
+                        FROM dataset_lookup
+                        WHERE normalized_artist = ?
+                          AND normalized_album LIKE ? || '%'
+                        ORDER BY
+                            CASE service
+                                WHEN 'musicbrainz' THEN 0
+                                WHEN 'spotify' THEN 1
+                                WHEN 'tidal' THEN 2
+                                WHEN 'deezer' THEN 3
+                                ELSE 4
+                            END
+                        LIMIT ?
+                        """,
+                        (norm_artist, prefix, max_candidates),
+                    ).fetchall()
+                    for row in prefix_rows:
+                        key = (row["service"], row["album_id"])
+                        if key in seen_ids:
+                            continue
+                        seen_ids.add(key)
+                        service = row["service"]
+                        track_table = _track_table_for_service(service)
+                        album_table = _album_table_for_service(service)
+                        if album_table is None:
+                            continue
+                        tracks = _load_tracks_by_id(
+                            conn, track_table, album_table,
+                            row["album_id"], service, row["artist"]
+                        )
+                        if tracks is None:
+                            continue
+                        candidates.append(AlbumCandidate(
+                            artist=row["artist"],
+                            artists=[row["artist"]],
+                            album=row["album"],
+                            album_artist=row["artist"],
+                            album_artists=[row["artist"]],
+                            year=row["year"],
+                            musicbrainz_albumid=row["album_id"] if service == "musicbrainz" else None,
+                            musicbrainz_artistid=row["artist_id"] if service == "musicbrainz" else None,
+                            tracks=[
+                                TrackCandidate(
+                                    title=t.get("title"),
+                                    artist=t.get("artist"),
+                                    artists=t.get("artists") or [],
+                                    track_number=t.get("track_number"),
+                                    track_total=len(tracks) if tracks else None,
+                                    disc_number=t.get("disc_number"),
+                                    disc_total=t.get("disc_total"),
+                                    musicbrainz_trackid=t.get("musicbrainz_trackid"),
+                                    length=t.get("length"),
+                                )
+                                for t in tracks
+                            ],
+                            source=LookupSource.DATASET,
+                        ))
+                    if candidates:
+                        break
 
             return candidates
 

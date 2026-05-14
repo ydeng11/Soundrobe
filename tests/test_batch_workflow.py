@@ -35,7 +35,7 @@ def test_batch_workflow_continues_after_album_failure(tmp_path: Path):
         def __init__(self, settings):
             self.settings = settings
 
-        def run(self, path, dry_run, interactive=False):
+        def run(self, path, dry_run, interactive=False, artist_mbid_map=None, artist_genre_map=None):
             if path == album_a:
                 raise RuntimeError("boom")
             return type(

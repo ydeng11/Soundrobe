@@ -159,6 +159,7 @@ class BeetsClient:
                 "album": release.get("title"),
                 "album_id": release_id,
                 "artist": _artist_name_from_release(release),
+                "artist_id": _artist_id_from_release(release),
                 "artists": _artist_list_from_release(release),
                 "year": release.get("date", "")[:4] if release.get("date") else None,
                 "genre": genre_str,
@@ -301,6 +302,14 @@ def _artist_name_from_release(release: dict[str, Any]) -> str | None:
     ac = release.get("artist-credit", [])
     if ac:
         return ac[0].get("artist", {}).get("name")
+    return None
+
+
+def _artist_id_from_release(release: dict[str, Any]) -> str | None:
+    """Extract the primary artist MusicBrainz ID from a release dict."""
+    ac = release.get("artist-credit", [])
+    if ac:
+        return ac[0].get("artist", {}).get("id")
     return None
 
 

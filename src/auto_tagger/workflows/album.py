@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 from auto_tagger.config import Settings
 from auto_tagger.core import iter_audio_files, load_audio_file, read_metadata, write_metadata
@@ -16,8 +17,11 @@ from auto_tagger.features.cover_art import (
     embed_cover_art,
 )
 from auto_tagger.integrations import LookupService
-from auto_tagger.integrations.candidates import AlbumCandidate, LookupSource
+from auto_tagger.integrations.aliases import artist_matches_any, get_aliases, save_alias
+from auto_tagger.integrations.candidates import AlbumCandidate, LookupRequest, LookupSource
 from auto_tagger.integrations.discogs_client import DiscogsClient, DiscogsError
+from auto_tagger.llm.client import OpenRouterClient
+from auto_tagger.llm.schemas import GenreEnrichmentResponse
 from auto_tagger.quality import AlbumHealthReport, build_album_health_report
 
 
@@ -39,6 +43,127 @@ class AlbumWorkflowResult:
     messages: list[str] = field(default_factory=list)
 
 
+def _artist_variant_keys(name: str) -> list[str]:
+    """Generate all variant keys for an artist name for map lookups/storage.
+
+    Returns the original casefolded name plus all script variants (SC, TC, etc.)
+    and any known aliases. Ensures lookups match regardless of the script
+    variant used by album folders vs lookup results.
+    """
+    import unicodedata
+    keys: list[str] = []
+    raw = name.strip()
+    if not raw:
+        return keys
+
+    norm = unicodedata.normalize("NFKC", raw.casefold())
+    keys.append(norm)
+
+    try:
+        import opencc
+        for cfg in ("s2t", "t2s", "s2tw", "tw2s", "s2hk", "hk2s"):
+            try:
+                conv = opencc.OpenCC(cfg)
+                converted = unicodedata.normalize("NFKC", conv.convert(raw).casefold().strip())
+                if converted and converted not in keys:
+                    keys.append(converted)
+            except Exception:
+                continue
+    except Exception:
+        pass
+
+    # Add known aliases
+    for alias in get_aliases(raw):
+        alias_norm = unicodedata.normalize("NFKC", alias.casefold().strip())
+        if alias_norm not in keys:
+            keys.append(alias_norm)
+
+    return keys
+
+
+def _store_mbid_in_map(
+    artist_mbid_map: dict[str, str],
+    artist_name: str,
+    mbid: str,
+) -> None:
+    """Store an MB artist ID in the map under all script-variant keys.
+
+    Stores the MBID under every variant of *artist_name* (original, SC, TC,
+    HK, TW, known aliases) so lookups always succeed regardless of which
+    script variant the next album uses.
+    """
+    for key in _artist_variant_keys(artist_name):
+        if key:
+            artist_mbid_map.setdefault(key, mbid)
+
+
+def _lookup_mbid_in_map(
+    artist_mbid_map: dict[str, str] | None,
+    artist_name: str | None,
+) -> str | None:
+    """Look up an MB artist ID using any script-variant key of *artist_name*.
+
+    Checks every variant (original, SC, TC, HK, TW, known aliases) against
+    the map so that e.g. a folder named 久石让 finds the MBID stored under
+    久石譲.
+    """
+    if artist_mbid_map is None or not artist_name:
+        return None
+    for key in _artist_variant_keys(artist_name):
+        mbid = artist_mbid_map.get(key)
+        if mbid:
+            return mbid
+    return None
+
+
+def _detect_compilation(tracks: list[Any]) -> bool:
+    """Detect if a set of tracks represents a compilation album.
+
+    Counts unique track-level artist names. If two or more distinct
+    artists appear across tracks, it is treated as a compilation and
+    album_artist should be 'Various Artists'.
+
+    Falls back to non-compilation (False) when no track has an artist.
+    """
+    unique_artists: set[str] = set()
+    for t in tracks:
+        artist = getattr(t, "artist", None)
+        if artist:
+            unique_artists.add(artist.casefold().strip())
+    return len(unique_artists) >= 2
+
+
+def _store_genre_in_map(
+    artist_genre_map: dict[str, list[str]],
+    artist_name: str,
+    genre: str,
+) -> None:
+    """Store a genre string for an artist in the cross-album genre map.
+
+    Deduplicates genres — if the same genre string is already stored
+    for this artist, it is not added again.
+    """
+    if not genre or not artist_name:
+        return
+    genres = artist_genre_map.setdefault(artist_name.casefold().strip(), [])
+    if genre not in genres:
+        genres.append(genre)
+
+
+def _get_context_genres(
+    artist_genre_map: dict[str, list[str]] | None,
+    artist_name: str | None,
+) -> list[str]:
+    """Get deduplicated genres known for an artist from the cross-album map.
+
+    Returns an empty list if the artist has no known genres or the map
+    is not available.
+    """
+    if artist_genre_map is None or not artist_name:
+        return []
+    return artist_genre_map.get(artist_name.casefold().strip(), [])
+
+
 class AlbumWorkflow:
     """Coordinate single-album preview and safe apply behavior."""
 
@@ -50,8 +175,23 @@ class AlbumWorkflow:
         path: Path,
         dry_run: bool,
         interactive: bool = False,
+        artist_mbid_map: dict[str, str] | None = None,
+        artist_genre_map: dict[str, list[str]] | None = None,
     ) -> AlbumWorkflowResult:
-        """Run album workflow in dry-run, interactive, or YOLO mode."""
+        """Run album workflow in dry-run, interactive, or YOLO mode.
+
+        Args:
+            path: Album directory to process.
+            dry_run: If True, only preview changes without writing.
+            interactive: If True, prompt before applying changes.
+            artist_mbid_map: Optional mutable dict shared across batch runs.
+                Maps all script variants of artist name -> MusicBrainz artist ID.
+                Enables cross-album MBID propagation: all albums under the
+                same artist folder inherit the same album artist MBID.
+            artist_genre_map: Optional mutable dict shared across batch runs.
+                Maps artist name -> [genre strings] discovered in previous albums.
+                Enables cross-album genre enrichment using known genres as LLM context.
+        """
         audio_files = iter_audio_files(path, recursive=self.settings.recursive)
         metadata_by_path = {audio_file: read_metadata(audio_file) for audio_file in audio_files}
         health_report = build_album_health_report(
@@ -75,13 +215,22 @@ class AlbumWorkflow:
             m.genre is None or m.genre in bad_genres
             for m in metadata_by_path.values()
         )
+        has_missing_mbid = any(
+            m.musicbrainz_artistid is None or m.musicbrainz_albumid is None
+            for m in metadata_by_path.values()
+        )
         needs_fix = (
             not health_report.can_tag
             or self._artist_mismatches_folder(path, metadata_by_path)
             or has_bad_genre
+            or has_missing_mbid
         )
         if not dry_run and self.settings.yolo and not interactive and needs_fix:
-            fixed, source, msg = self._fix_metadata(path, audio_files, metadata_by_path)
+            fixed, source, msg = self._fix_metadata(
+                path, audio_files, metadata_by_path,
+                artist_mbid_map=artist_mbid_map,
+                artist_genre_map=artist_genre_map,
+            )
             if fixed:
                 metadata_fixed = True
                 fix_source = source
@@ -211,10 +360,15 @@ class AlbumWorkflow:
         album_path: Path,
         audio_files: list[Path],
         metadata_by_path: dict[Path, TrackMetadata],
+        artist_mbid_map: dict[str, str] | None = None,
+        artist_genre_map: dict[str, list[str]] | None = None,
     ) -> tuple[bool, str, str]:
         """Fix missing metadata by looking up the best candidate and writing tags.
 
         Falls back to LLM tag generation when no database candidate matches.
+        Propagates MusicBrainz artist IDs across albums via artist_mbid_map.
+        Enriches genre from Discogs / LLM with cross-album genre context.
+        Enforces the folder artist as the canonical album artist.
 
         Returns (fixed, source_label, message).
         """
@@ -222,15 +376,48 @@ class AlbumWorkflow:
         candidates = lookup.lookup_album(album_path)
         request = lookup.request_from_path(album_path)
 
+        # The folder name is the definitive artist for this album
+        folder_artist = request.artist_hint
+
         # Find the best verified candidate (match > close > first available)
-        best = self._select_best_candidate(candidates, request.artist_hint)
+        best = self._select_best_candidate(candidates, folder_artist)
         if best is None:
             # Fall back to LLM generation when no candidate matches
-            return self._fix_via_llm(album_path, audio_files, metadata_by_path, request)
+            return self._fix_via_llm(
+                album_path, audio_files, metadata_by_path, request,
+                artist_mbid_map=artist_mbid_map,
+                artist_genre_map=artist_genre_map,
+            )
 
-        # Write tags from database candidate
+        # Inject MB artist ID if the candidate is missing one.
+        # Try the cross-album map first, then resolve via MusicBrainz API.
+        if not best.musicbrainz_artistid:
+            mapped_id = self._ensure_artist_mbid(folder_artist, artist_mbid_map)
+            if not mapped_id:
+                mapped_id = self._ensure_artist_mbid(best.artist, artist_mbid_map)
+            if mapped_id:
+                best = AlbumCandidate(
+                    artist=best.artist,
+                    artists=best.artists,
+                    album=best.album,
+                    album_artist=best.album_artist,
+                    album_artists=best.album_artists,
+                    year=best.year,
+                    genre=best.genre,
+                    musicbrainz_albumid=best.musicbrainz_albumid,
+                    musicbrainz_artistid=mapped_id,
+                    tracks=best.tracks,
+                    distance=best.distance,
+                    source=best.source,
+                    verification=best.verification,
+                )
+
+        # Write tags from database candidate, enforcing folder artist
         return self._write_candidate_metadata(
-            audio_files, metadata_by_path, best
+            audio_files, metadata_by_path, best,
+            artist_mbid_map=artist_mbid_map,
+            folder_artist=folder_artist,
+            artist_genre_map=artist_genre_map,
         )
 
     def _fix_via_llm(
@@ -239,13 +426,19 @@ class AlbumWorkflow:
         audio_files: list[Path],
         metadata_by_path: dict[Path, TrackMetadata],
         request: LookupRequest,
+        artist_mbid_map: dict[str, str] | None = None,
+        artist_genre_map: dict[str, list[str]] | None = None,
     ) -> tuple[bool, str, str]:
-        """Use LLM to generate tags when no database candidate matches correctly."""
+        """Use LLM to generate tags when no database candidate matches correctly.
+
+        Enforces the folder artist as the canonical album artist and propagates
+        MB artist IDs from the cross-album map. Enriches genre with LLM context
+        from known-genre albums by the same artist.
+        """
         if not self.settings.llm_api_key:
             return False, "", "No verified candidate and no LLM API key configured"
 
         from auto_tagger.integrations.fallback import candidate_from_folder
-        from auto_tagger.llm.client import OpenRouterClient
         from auto_tagger.llm.fallback import FallbackTagGenerationService
 
         folder_candidate = candidate_from_folder(request)
@@ -261,6 +454,25 @@ class AlbumWorkflow:
         if not result.tracks:
             return False, "", f"LLM returned no tracks: {result.reason}"
 
+        folder_artist = request.artist_hint
+        llm_artist = result.tracks[0].artist or result.tracks[0].album_artist
+
+        # Learn artist alias if the LLM used a different name than the hint
+        if llm_artist and folder_artist:
+            save_alias(folder_artist, llm_artist)
+
+        # Resolve MB artist ID: check map first, then MusicBrainz API
+        folder_mbid = self._ensure_artist_mbid(folder_artist, artist_mbid_map)
+
+        # Store MBID in map for cross-album propagation
+        if folder_mbid and folder_artist and artist_mbid_map is not None:
+            _store_mbid_in_map(artist_mbid_map, folder_artist, folder_mbid)
+
+        # Determine if this is a compilation based on track-level artists
+        is_compilation = _detect_compilation(result.tracks)
+        effective_album_artist = "Various Artists" if is_compilation else (folder_artist or llm_artist or "")
+        effective_album_artists = [effective_album_artist] if effective_album_artist else []
+
         # Sort audio files by filename for stable track ordering
         sorted_files = sorted(audio_files, key=lambda p: p.name)
 
@@ -270,28 +482,63 @@ class AlbumWorkflow:
             if metadata is None or llm_track is None:
                 continue
 
+            track_artist = llm_track.artist or metadata.artist
+            track_artists = llm_track.artists or metadata.artists or (
+                [track_artist] if track_artist else []
+            )
+
             new_metadata = TrackMetadata(
                 title=llm_track.title or metadata.title,
-                artist=llm_track.artist or metadata.artist,
-                artists=llm_track.artists or metadata.artists or (
-                    [llm_track.artist] if llm_track.artist else []
-                ),
+                artist=track_artist,
+                artists=track_artists,
                 album=llm_track.album or metadata.album,
-                album_artist=llm_track.album_artist or llm_track.artist or metadata.album_artist,
-                album_artists=(
-                    llm_track.album_artists
-                    or [llm_track.album_artist]
-                    if llm_track.album_artist else []
-                ),
+                album_artist=effective_album_artist,
+                album_artists=effective_album_artists,
                 track_number=llm_track.track_number or i + 1,
                 track_total=result.tracks[-1].track_number or len(sorted_files) if result.tracks else len(sorted_files),
                 year=metadata.year,
-                genre=metadata.genre,
+                genre=llm_track.genre or metadata.genre,
+                musicbrainz_artistid=folder_mbid or metadata.musicbrainz_artistid,
             )
             try:
                 write_metadata(audio_file, new_metadata, dry_run=False)
             except Exception:
                 continue
+
+        # Store genre in cross-album map for enrichment of subsequent albums
+        genre = result.tracks[0].genre if result.tracks else None
+        if genre and artist_genre_map is not None and folder_artist:
+            _store_genre_in_map(artist_genre_map, folder_artist, genre)
+
+        # Enrich genre from Discogs/LLM if the LLM output didn't include one
+        if not any(t.genre for t in result.tracks):
+            known_genres = _get_context_genres(artist_genre_map, folder_artist)
+            enriched_genre = self._enrich_genre_fallback(
+                folder_artist or llm_artist or "",
+                result.tracks[0].album or "",
+                known_genres=known_genres,
+            )
+            if enriched_genre:
+                if artist_genre_map is not None and folder_artist:
+                    _store_genre_in_map(artist_genre_map, folder_artist, enriched_genre)
+                for audio_file in sorted_files:
+                    meta = read_metadata(audio_file)
+                    if meta and meta.genre is None:
+                        enriched = TrackMetadata(
+                            title=meta.title, artist=meta.artist, artists=meta.artists,
+                            album=meta.album,
+                            album_artist=effective_album_artist,
+                            album_artists=effective_album_artists,
+                            track_number=meta.track_number, track_total=meta.track_total,
+                            disc_number=meta.disc_number, disc_total=meta.disc_total,
+                            year=meta.year, genre=enriched_genre,
+                            musicbrainz_albumid=meta.musicbrainz_albumid,
+                            musicbrainz_artistid=meta.musicbrainz_artistid,
+                        )
+                        try:
+                            write_metadata(audio_file, enriched, dry_run=False)
+                        except Exception:
+                            continue
 
         return True, "llm", f"Generated via LLM ({result.confidence:.0%} confidence): {result.tracks[0].album}"
 
@@ -300,16 +547,66 @@ class AlbumWorkflow:
         audio_files: list[Path],
         metadata_by_path: dict[Path, TrackMetadata],
         candidate: AlbumCandidate,
+        artist_mbid_map: dict[str, str] | None = None,
+        folder_artist: str | None = None,
+        artist_genre_map: dict[str, list[str]] | None = None,
     ) -> tuple[bool, str, str]:
         """Write candidate metadata to all audio files.
 
-        Enriches the candidate with genre data from Discogs if missing.
+        Enforces the folder artist as the canonical album artist (or "Various Artists"
+        for compilations) and propagates MB artist IDs across albums via
+        artist_mbid_map. Enriches genre from Discogs, then LLM with cross-album
+        genre context.
+
+        Returns (fixed, source_label, message).
         """
+        # Update cross-album MB artist ID map with all script variants
+        if artist_mbid_map is not None and candidate.musicbrainz_artistid:
+            # Store under the candidate artist name
+            if candidate.artist:
+                _store_mbid_in_map(artist_mbid_map, candidate.artist, candidate.musicbrainz_artistid)
+            # Also store under the folder artist if different (handles SC/TC variants)
+            if folder_artist and candidate.artist and not artist_matches_any(candidate.artist, folder_artist):
+                _store_mbid_in_map(artist_mbid_map, folder_artist, candidate.musicbrainz_artistid)
+
+        # Determine if this is a compilation based on track-level artists
+        is_compilation = _detect_compilation(candidate.tracks)
+        effective_album_artist = "Various Artists" if is_compilation else (folder_artist or candidate.album_artist or candidate.artist or "")
+        effective_album_artists = [effective_album_artist] if effective_album_artist else []
+
         # Enrich genre from Discogs if candidate has none
         if not candidate.genre:
             enriched = self._enrich_genre_from_discogs(candidate)
             if enriched:
                 candidate = enriched
+
+        # If still no genre, fall back to LLM genre suggestion with context
+        if not candidate.genre:
+            known_genres = _get_context_genres(artist_genre_map, folder_artist)
+            llm_genre = self._enrich_genre_from_llm(
+                candidate.artist or "", candidate.album or "",
+                known_genres=known_genres,
+            )
+            if llm_genre:
+                candidate = AlbumCandidate(
+                    artist=candidate.artist,
+                    artists=candidate.artists,
+                    album=candidate.album,
+                    album_artist=candidate.album_artist,
+                    album_artists=candidate.album_artists,
+                    year=candidate.year,
+                    genre=llm_genre,
+                    musicbrainz_albumid=candidate.musicbrainz_albumid,
+                    musicbrainz_artistid=candidate.musicbrainz_artistid,
+                    tracks=candidate.tracks,
+                    distance=candidate.distance,
+                    source=candidate.source,
+                    verification=candidate.verification,
+                )
+
+        # Store genre in cross-album map for enrichment of subsequent albums
+        if candidate.genre and artist_genre_map is not None and folder_artist:
+            _store_genre_in_map(artist_genre_map, folder_artist, candidate.genre)
 
         sorted_files = sorted(audio_files, key=lambda p: p.name)
 
@@ -323,6 +620,28 @@ class AlbumWorkflow:
                 metadata, candidate, candidate_track, i + 1, len(sorted_files),
                 force=True,
             )
+
+            # Enforce album artist: "Various Artists" for compilations, folder artist otherwise
+            new_metadata = TrackMetadata(
+                title=new_metadata.title,
+                artist=new_metadata.artist,
+                artists=new_metadata.artists,
+                album=new_metadata.album,
+                album_artist=effective_album_artist,
+                album_artists=effective_album_artists,
+                track_number=new_metadata.track_number,
+                track_total=new_metadata.track_total,
+                disc_number=new_metadata.disc_number,
+                disc_total=new_metadata.disc_total,
+                year=new_metadata.year,
+                genre=new_metadata.genre,
+                musicbrainz_albumid=new_metadata.musicbrainz_albumid,
+                musicbrainz_artistid=(
+                    _lookup_mbid_in_map(artist_mbid_map, folder_artist)
+                    or new_metadata.musicbrainz_artistid
+                ),
+            )
+
             try:
                 write_metadata(audio_file, new_metadata, dry_run=False)
             except Exception:
@@ -338,14 +657,13 @@ class AlbumWorkflow:
         candidates: list[AlbumCandidate],
         artist_hint: str | None = None,
     ) -> AlbumCandidate | None:
-        """Select the best candidate: match with artist > match > close > first non-folder."""
-        # Normalize artist hint for comparison
-        hint_normalized = artist_hint.casefold().strip() if artist_hint else None
+        """Select the best candidate: match with artist > match > close > first non-folder.
 
+        Artist matching checks both direct name match and known aliases
+        (e.g. hint "蔡健雅" matches candidate artist "Tanya Chua" via alias).
+        """
         def _artist_matches(c: AlbumCandidate) -> bool:
-            if not hint_normalized or not c.artist:
-                return False
-            return hint_normalized in c.artist.casefold()
+            return artist_matches_any(c.artist, artist_hint)
 
         # Prefer verified match with matching artist
         for c in candidates:
@@ -492,12 +810,99 @@ class AlbumWorkflow:
                 )
         return None
 
+    def _enrich_genre_from_llm(
+        self, artist: str, album: str,
+        known_genres: list[str] | None = None,
+    ) -> str | None:
+        """Ask the LLM to suggest genre tags for an album.
+
+        When *known_genres* is provided (from other albums by the same artist
+        processed earlier in the batch), the LLM selects the best match from
+        that list rather than generating from scratch. This improves accuracy
+        and reduces cost.
+
+        Returns a Discogs-style genre string (e.g. 'Electronic, Ambient,
+        Modern Classical') or None if the API is unavailable or uncertain.
+        """
+        if not self.settings.llm_api_key:
+            return None
+
+        import json
+
+        payload: dict[str, object] = {
+            "artist": artist,
+            "album": album,
+        }
+        if known_genres:
+            payload["known_genres"] = known_genres
+
+        if known_genres:
+            system_prompt = (
+                "Suggest a genre for this album. You are given known genres "
+                "from other albums by the same artist. Select the best matching "
+                "genre from the known list, or return null if none fit. "
+                "Output Discogs-style comma-separated tags "
+                "(e.g. 'Electronic, House, Deep House'). "
+                "Return JSON with a single 'genre' field (string or null)."
+            )
+        else:
+            system_prompt = (
+                "Suggest a genre for this album. Output Discogs-style "
+                "comma-separated tags (e.g. 'Electronic, House, Deep House' "
+                "or 'Stage & Screen, Score, Contemporary Classical'). "
+                "Return JSON with a single 'genre' field (string or null). "
+                "Return null if you are not confident."
+            )
+
+        try:
+            client = OpenRouterClient(self.settings)
+            response = client.complete_json(
+                [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
+                ],
+                GenreEnrichmentResponse,
+            )
+            parsed = GenreEnrichmentResponse.model_validate(response.data)
+            return parsed.genre if parsed.genre else None
+        except Exception:
+            return None
+
+    def _enrich_genre_fallback(
+        self,
+        artist: str,
+        album: str,
+        known_genres: list[str] | None = None,
+    ) -> str | None:
+        """Try to get genre from Discogs, then fall back to LLM.
+
+        When falling back to the LLM, provides known genres from other albums
+        by the same artist as context for more accurate selection.
+
+        Returns a genre string or None.
+        """
+        # Try Discogs first
+        try:
+            client = DiscogsClient(max_candidates=3)
+            dc_results = client.search_album(artist, album)
+            for dc in dc_results:
+                if dc.genre:
+                    return dc.genre
+        except Exception:
+            pass
+
+        # Fall back to LLM genre suggestion with known-genre context
+        return self._enrich_genre_from_llm(artist, album, known_genres=known_genres)
+
     @staticmethod
     def _enrich_genre_from_lookup(
         album_path: Path,
         metadata_by_path: dict[Path, TrackMetadata],
     ) -> dict[Path, TrackMetadata] | None:
-        """Look up genre from Discogs and enrich metadata if genre is missing."""
+        """Look up genre from Discogs and enrich metadata if genre is missing.
+
+        Falls back to LLM genre suggestion when Discogs returns nothing.
+        """
         if not metadata_by_path:
             return None
 
@@ -562,9 +967,60 @@ class AlbumWorkflow:
         """Check if the tagged artist differs from the folder's artist name.
 
         This detects cases where a previous auto-tag run wrote wrong tags.
+        Uses artist_matches_any to handle SC/TC and alias matching.
         """
         folder_artist = album_path.parent.name
         for metadata in metadata_by_path.values():
-            if metadata.artist and metadata.artist.casefold() != folder_artist.casefold():
-                return True
+            if metadata.artist:
+                from auto_tagger.integrations.aliases import artist_matches_any
+
+                if not artist_matches_any(metadata.artist, folder_artist):
+                    return True
         return False
+
+    @staticmethod
+    def _ensure_artist_mbid(
+        artist_name: str | None,
+        artist_mbid_map: dict[str, str] | None,
+    ) -> str | None:
+        """Resolve a MusicBrainz artist ID for an artist name.
+
+        Checks the cross-album map first. If not found, queries the
+        MusicBrainz API via musicbrainzngs with the artist name and
+        stores the result in the map for future lookups.
+
+        Returns the MBID (UUID string) or None if the artist is not
+        found in MusicBrainz.
+        """
+        if not artist_name:
+            return None
+
+        # Check cross-album map first
+        if artist_mbid_map is not None:
+            mapped = _lookup_mbid_in_map(artist_mbid_map, artist_name)
+            if mapped:
+                return mapped
+
+        # Query MusicBrainz API via musicbrainzngs
+        try:
+            import musicbrainzngs as mb  # type: ignore[import-untyped]
+
+            try:
+                mb.set_useragent(
+                    "auto-tagger", "0.1.0",
+                    "https://github.com/auto-tagger/auto-tagger",
+                )
+            except Exception:
+                pass
+
+            result = mb.search_artists(artist=artist_name, limit=1)
+            artist_list = result.get("artist-list") or []
+            if artist_list:
+                mbid = artist_list[0].get("id")
+                if mbid and artist_mbid_map is not None:
+                    _store_mbid_in_map(artist_mbid_map, artist_name, mbid)
+                return mbid  # type: ignore[no-any-return]
+        except Exception:
+            pass
+
+        return None

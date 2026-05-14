@@ -61,7 +61,7 @@ def test_album_workflow_yolo_blocks_writes_on_health_errors(monkeypatch, tmp_pat
     monkeypatch.setattr(
         AlbumWorkflow,
         "_fix_metadata",
-        lambda self, path, af, mbp: (False, "", "No candidates"),
+        lambda self, path, af, mbp, artist_mbid_map=None, artist_genre_map=None: (False, "", "No candidates"),
     )
 
     result = AlbumWorkflow(Settings(yolo=True)).run(tmp_path, dry_run=False)

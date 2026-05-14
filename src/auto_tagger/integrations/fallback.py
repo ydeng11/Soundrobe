@@ -15,10 +15,8 @@ from auto_tagger.integrations.candidates import (
     TrackCandidate,
 )
 
-COMPILATION_HINTS = {"various artists", "va", "soundtrack", "ost"}
-
 # Common patterns in folder names that aren't part of the album name
-_DATE_PREFIX_RE = re.compile(r"^(\d{4})[-.]\d{2}\s*")  # "2003-04" or "2005.08"
+_DATE_PREFIX_RE = re.compile(r"^(\d{4})[-.](?:0[1-9]|1[0-2])\s*")  # "2003-06" or "2005.08"
 _YEAR_PREFIX_RE = re.compile(r"^(\d{4})[.-]\s*")  # "2017-" or "2018." alone
 _YEAR_FROM_PREFIX_RE = re.compile(r"^(\d{4})[-.]")  # capture year from date prefix (e.g. "2003" from "2003-04《挚爱》")
 _BOOKMARKS_RE = re.compile(r"[《》「」【】\[\]]")  # Chinese/Western bookmarks
@@ -137,11 +135,13 @@ def _read_album_tags_from_first_file(path: Path) -> dict[str, str | None]:
 
 
 def candidate_from_folder(request: LookupRequest) -> AlbumCandidate:
-    """Build a low-confidence fallback candidate from folder and file hints."""
+    """Build a low-confidence fallback candidate from folder and file hints.
+
+    Compilation detection is handled by the workflow methods based on
+    track-level artist counts, not folder-name heuristics.
+    """
     tracks = request.tracks or _track_hints_from_path(request.path)
     album_artist = request.artist_hint
-    if _is_compilation_hint(request.artist_hint) or _is_compilation_hint(request.album_hint):
-        album_artist = "Various Artists"
 
     return AlbumCandidate(
         artist=request.artist_hint,
@@ -188,5 +188,3 @@ def _read_metadata_or_none(path: Path) -> TrackMetadata | None:
         return None
 
 
-def _is_compilation_hint(value: str | None) -> bool:
-    return bool(value and value.strip().lower() in COMPILATION_HINTS)
