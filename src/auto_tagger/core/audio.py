@@ -16,6 +16,7 @@ class AudioFormat(Enum):
     MP3 = "mp3"
     FLAC = "flac"
     M4A = "m4a"
+    WAV = "wav"
 
 
 SUPPORTED_EXTENSIONS = {
@@ -23,6 +24,7 @@ SUPPORTED_EXTENSIONS = {
     ".flac": AudioFormat.FLAC,
     ".m4a": AudioFormat.M4A,
     ".mp4": AudioFormat.M4A,
+    ".wav": AudioFormat.WAV,
 }
 
 

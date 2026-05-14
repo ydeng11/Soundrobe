@@ -13,7 +13,7 @@ MP4_FREEFORM_PREFIX = "----:com.apple.iTunes:"
 
 def read_tags(audio_format: AudioFormat, tags: Any) -> TrackMetadata:
     """Read format-specific tags into normalized metadata."""
-    if audio_format is AudioFormat.MP3:
+    if audio_format in (AudioFormat.MP3, AudioFormat.WAV):
         return _read_mp3_tags(tags)
     if audio_format is AudioFormat.M4A:
         return _read_mp4_tags(tags)
@@ -23,7 +23,13 @@ def read_tags(audio_format: AudioFormat, tags: Any) -> TrackMetadata:
 def write_tags(audio_format: AudioFormat, tags: Any, metadata: TrackMetadata) -> None:
     """Write normalized metadata to a format-specific tag object."""
     normalized = metadata.normalized()
-    if audio_format is AudioFormat.MP3:
+    if audio_format in (AudioFormat.MP3, AudioFormat.WAV):
+        # MP3/WAV wrapper doesn't proxy delall — unwrap to ID3
+        if hasattr(tags, "tags"):
+            if tags.tags is None and hasattr(tags, "add_tags"):
+                tags.add_tags()
+            if tags.tags is not None and hasattr(tags.tags, "delall"):
+                tags = tags.tags
         _write_mp3_tags(tags, normalized)
     elif audio_format is AudioFormat.M4A:
         _write_mp4_tags(tags, normalized)
@@ -52,6 +58,7 @@ def _read_vorbis_tags(tags: Any) -> TrackMetadata:
         musicbrainz_albumid=_first(tags, "MUSICBRAINZ_ALBUMID"),
         musicbrainz_artistid=_first(tags, "MUSICBRAINZ_ARTISTID"),
         lyrics=_first(tags, "LYRICS") or _first(tags, "UNSYNCEDLYRICS"),
+        composer=_first(tags, "COMPOSER"),
         compilation=_parse_bool(_first(tags, "COMPILATION")),
         replaygain=ReplayGainTags(
             track_gain=_first(tags, "REPLAYGAIN_TRACK_GAIN"),
@@ -79,6 +86,7 @@ def _write_vorbis_tags(tags: Any, metadata: TrackMetadata) -> None:
     _set_list(tags, "MUSICBRAINZ_ALBUMID", _one(metadata.musicbrainz_albumid))
     _set_list(tags, "MUSICBRAINZ_ARTISTID", _one(metadata.musicbrainz_artistid))
     _set_list(tags, "LYRICS", _one(metadata.lyrics))
+    _set_list(tags, "COMPOSER", _one(metadata.composer))
     _set_list(tags, "COMPILATION", _one_bool(metadata.compilation))
     _set_list(tags, "REPLAYGAIN_TRACK_GAIN", _one(metadata.replaygain.track_gain))
     _set_list(tags, "REPLAYGAIN_TRACK_PEAK", _one(metadata.replaygain.track_peak))
@@ -107,6 +115,7 @@ def _read_mp3_tags(tags: Any) -> TrackMetadata:
         musicbrainz_albumid=_first(tags, "TXXX:MusicBrainz Album Id"),
         musicbrainz_artistid=_first(tags, "TXXX:MusicBrainz Artist Id"),
         lyrics=_first(tags, "USLT::eng"),
+        composer=_first(tags, "TCOM"),
         compilation=_parse_bool(_first(tags, "TCMP") or _first(tags, "TXXX:COMPILATION")),
         replaygain=ReplayGainTags(
             track_gain=_first(tags, "TXXX:REPLAYGAIN_TRACK_GAIN"),
@@ -118,7 +127,7 @@ def _read_mp3_tags(tags: Any) -> TrackMetadata:
 
 
 def _write_mp3_tags(tags: Any, metadata: TrackMetadata) -> None:
-    from mutagen.id3 import TALB, TCON, TDRC, TIT2, TPE1, TPE2, TPOS, TRCK, TXXX, USLT
+    from mutagen.id3 import TALB, TCOM, TCON, TDRC, TIT2, TPE1, TPE2, TPOS, TRCK, TXXX, USLT
 
     _set_id3_frame(tags, "TIT2", TIT2(encoding=3, text=_one(metadata.title)))
     _set_id3_frame(tags, "TPE1", TPE1(encoding=3, text=_one(metadata.artist)))
@@ -130,6 +139,7 @@ def _write_mp3_tags(tags: Any, metadata: TrackMetadata) -> None:
     _set_id3_frame(tags, "TPOS", TPOS(encoding=3, text=_one(disc_position)))
     _set_id3_frame(tags, "TDRC", TDRC(encoding=3, text=_one(metadata.year)))
     _set_id3_frame(tags, "TCON", TCON(encoding=3, text=_one(metadata.genre)))
+    _set_id3_frame(tags, "TCOM", TCOM(encoding=3, text=_one(metadata.composer)))
     _set_txxx(tags, TXXX, "ARTISTS", metadata.artists)
     _set_txxx(tags, TXXX, "ALBUMARTISTS", metadata.album_artists)
     _set_txxx(tags, TXXX, "MusicBrainz Track Id", _one(metadata.musicbrainz_trackid))
@@ -164,6 +174,7 @@ def _read_mp4_tags(tags: Any) -> TrackMetadata:
         musicbrainz_albumid=_first(tags, f"{MP4_FREEFORM_PREFIX}MUSICBRAINZ_ALBUMID"),
         musicbrainz_artistid=_first(tags, f"{MP4_FREEFORM_PREFIX}MUSICBRAINZ_ARTISTID"),
         lyrics=_first(tags, "©lyr"),
+        composer=_first(tags, "©com") or _first(tags, f"{MP4_FREEFORM_PREFIX}COMPOSER"),
         compilation=_parse_bool(_first_raw(tags, "cpil")),
         replaygain=ReplayGainTags(
             track_gain=_first(tags, f"{MP4_FREEFORM_PREFIX}REPLAYGAIN_TRACK_GAIN"),
@@ -189,6 +200,7 @@ def _write_mp4_tags(tags: Any, metadata: TrackMetadata) -> None:
     _set_mp4_freeform(tags, "MUSICBRAINZ_ALBUMID", _one(metadata.musicbrainz_albumid))
     _set_mp4_freeform(tags, "MUSICBRAINZ_ARTISTID", _one(metadata.musicbrainz_artistid))
     _set_list(tags, "©lyr", _one(metadata.lyrics))
+    _set_list(tags, "©com", _one(metadata.composer))
     if metadata.compilation is not None:
         tags["cpil"] = [bool(metadata.compilation)]
     _set_mp4_freeform(tags, "REPLAYGAIN_TRACK_GAIN", _one(metadata.replaygain.track_gain))
@@ -326,11 +338,17 @@ def _set_mp4_freeform(tags: Any, name: str, values: list[str]) -> None:
 
 def embed_cover_art(audio_format: AudioFormat, tags: Any, data: bytes, mime_type: str) -> None:
     """Embed front cover art into format-specific tags."""
-    if audio_format is AudioFormat.MP3:
+    if audio_format in (AudioFormat.MP3, AudioFormat.WAV):
         from mutagen.id3 import APIC
 
-        tags.delall("APIC")
-        tags.add(APIC(encoding=3, mime=mime_type, type=3, desc="Cover", data=data))
+        # WAV uses _WaveID3 wrapper — unwrap if needed
+        if hasattr(tags, "tags") and hasattr(tags.tags, "delall"):
+            real_tags = tags.tags
+        else:
+            real_tags = tags
+
+        real_tags.delall("APIC")
+        real_tags.add(APIC(encoding=3, mime=mime_type, type=3, desc="Cover", data=data))
     elif audio_format is AudioFormat.M4A:
         tags["covr"] = [data]
     else:

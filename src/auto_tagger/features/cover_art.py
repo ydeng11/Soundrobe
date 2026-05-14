@@ -111,9 +111,22 @@ class CoverArtArchiveClient:
         )
 
 
-def discover_local_cover_art(album_path: Path) -> CoverArtImage | None:
-    """Find the preferred local cover art image in an album folder."""
-    for name in COVER_NAMES:
+def discover_local_cover_art(
+    album_path: Path, album_name: str | None = None
+) -> CoverArtImage | None:
+    """Find the preferred local cover art image in an album folder.
+
+    Priority order:
+    1. {album_name}.jpg/png (e.g., "Goodbye & Hello.jpg")
+    2. cover.jpg, folder.jpg, front.jpg, album.jpg/png
+    """
+    # Build search names: album-specific first, then generic
+    search_names: list[str] = []
+    if album_name:
+        search_names.append(album_name)
+    search_names.extend(COVER_NAMES)
+
+    for name in search_names:
         for suffix in COVER_SUFFIXES:
             candidate = album_path / f"{name}{suffix}"
             if not candidate.exists():
@@ -154,7 +167,7 @@ class _DefaultHTTPClient:
     def get(self, url: str, timeout: int) -> HTTPResponse:
         import httpx
 
-        response = httpx.get(url, timeout=timeout)
+        response = httpx.get(url, timeout=timeout, follow_redirects=True)
         return _SimpleHTTPResponse(
             status_code=response.status_code,
             content=response.content,

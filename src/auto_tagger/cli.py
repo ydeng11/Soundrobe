@@ -115,6 +115,11 @@ def tag(
     default=1,
     help="Number of parallel processes",
 )
+@click.option(
+    "--health-report",
+    type=click.Path(dir_okay=False, path_type=Path),
+    help="Write combined health report JSON for all albums",
+)
 @click.pass_context
 def batch(
     ctx: click.Context,
@@ -123,6 +128,7 @@ def batch(
     yolo: bool,
     interactive: bool,
     parallel: int,
+    health_report: Path | None,
 ) -> None:
     """Batch process entire music library.
 
@@ -135,7 +141,7 @@ def batch(
     if yolo:
         settings.yolo = True
 
-    execute(settings, path, dry_run, parallel, interactive)
+    execute(settings, path, dry_run, parallel, interactive, health_report)
 
 
 @cli.command()
@@ -159,6 +165,64 @@ def config(ctx: click.Context, key: str | None, value: str | None) -> None:
 def version(ctx: click.Context) -> None:
     """Show version information."""
     console.print(f"[bold]auto-tag[/bold] version [cyan]{__version__}[/cyan]")
+
+
+@cli.group()
+@click.pass_context
+def dataset(ctx: click.Context) -> None:
+    """Manage the local MusicMoveArr dataset index."""
+
+
+@dataset.command("status")
+@click.pass_context
+def dataset_status(ctx: click.Context) -> None:
+    """Show local dataset setup status."""
+    from auto_tagger.commands.dataset import execute_status
+
+    settings: Settings = ctx.obj["settings"]
+    execute_status(settings)
+
+
+@dataset.command("setup")
+@click.option(
+    "--service",
+    "services",
+    multiple=True,
+    type=click.Choice(["musicbrainz", "spotify", "tidal", "deezer"]),
+    help="Dataset service to install; can be passed multiple times",
+)
+@click.option("--dry-run", is_flag=True, help="Show setup plan without downloading")
+@click.pass_context
+def dataset_setup(ctx: click.Context, services: tuple[str, ...], dry_run: bool) -> None:
+    """Download the dataset and build a local SQLite lookup index."""
+    from auto_tagger.commands.dataset import execute_setup
+
+    settings: Settings = ctx.obj["settings"]
+    if not services and not dry_run and sys.stdin.isatty():
+        answer = click.prompt(
+            "Services to install (comma-separated)",
+            default=",".join(settings.dataset_services),
+            show_default=True,
+        )
+        services = tuple(item.strip() for item in answer.split(",") if item.strip())
+    execute_setup(settings, services, dry_run)
+
+
+@dataset.command("build")
+@click.option(
+    "--service",
+    "services",
+    multiple=True,
+    type=click.Choice(["musicbrainz", "spotify", "tidal", "deezer"]),
+    help="Services to index; defaults to all configured services",
+)
+@click.pass_context
+def dataset_build(ctx: click.Context, services: tuple[str, ...]) -> None:
+    """Build the SQLite index from already-staged dataset files."""
+    from auto_tagger.commands.dataset import execute_build
+
+    settings: Settings = ctx.obj["settings"]
+    execute_build(settings, services)
 
 
 def main() -> None:

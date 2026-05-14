@@ -38,6 +38,18 @@ class GeneratedTrackTags(BaseModel):
     disc_number: int | None = Field(default=None, gt=0)
 
 
+class GenreEnrichmentResponse(BaseModel):
+    """Structured response for genre enrichment via LLM.
+
+    Returns a Discogs-style genre string (e.g. 'Electronic, Ambient, Modern Classical')
+    or None when uncertain.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    genre: str | None = None
+
+
 class FallbackTagResponse(BaseModel):
     """Structured response for fallback tag generation."""
 

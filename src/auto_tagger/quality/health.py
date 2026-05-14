@@ -113,6 +113,7 @@ def build_album_health_report(
     settings: Settings,
 ) -> AlbumHealthReport:
     """Build a health report by running Phase 5 validators."""
+    from auto_tagger.features.cover_art import discover_local_cover_art
     from auto_tagger.quality.audio_validation import FFProbeValidator
     from auto_tagger.quality.lrc import discover_lrc_files, validate_lrc_file
     from auto_tagger.quality.metadata_validation import (
@@ -146,6 +147,22 @@ def build_album_health_report(
     for lrc_file in lrc_files:
         lrc_result = validate_lrc_file(lrc_file)
         issues.extend(lrc_result.issues)
+
+    # Cover art check — prefer album-name cover, then generic names
+    album_name = next(
+        (m.album for m in metadata_by_path.values() if m.album), None
+    )
+    cover = discover_local_cover_art(album_path, album_name)
+    if cover is None:
+        issues.append(
+            HealthIssue(
+                "cover_art",
+                HealthSeverity.WARNING,
+                album_path,
+                "missing_local",
+                "No local cover art found (cover.jpg, folder.jpg, front.jpg, etc.)",
+            )
+        )
 
     return AlbumHealthReport(
         album_path=album_path,

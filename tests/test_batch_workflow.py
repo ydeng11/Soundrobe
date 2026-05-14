@@ -35,13 +35,14 @@ def test_batch_workflow_continues_after_album_failure(tmp_path: Path):
         def __init__(self, settings):
             self.settings = settings
 
-        def run(self, path, dry_run, interactive=False):
+        def run(self, path, dry_run, interactive=False, artist_mbid_map=None, artist_genre_map=None):
             if path == album_a:
                 raise RuntimeError("boom")
             return type(
                 "Result",
                 (),
-                {"applied_writes": 1, "skipped_writes": 0, "health_report": None},
+                {"applied_writes": 1, "skipped_writes": 0, "health_report": None,
+                 "cover_art_fixed": False},
             )()
 
     summary = BatchWorkflow(Settings(), album_workflow_factory=FakeAlbumWorkflow).run(

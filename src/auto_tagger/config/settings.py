@@ -62,11 +62,11 @@ class Settings(BaseSettings):
         description="LLM API endpoint",
     )
     llm_model: str = Field(
-        default="anthropic/claude-3.5-haiku",
+        default="mistralai/mistral-nemo",
         description="LLM model to use",
     )
     llm_fallback_model: str = Field(
-        default="google/gemini-flash-1.5-8b",
+        default="meta-llama/llama-3.1-8b-instruct",
         description="Fallback LLM model to use",
     )
     llm_max_candidates: int = Field(
@@ -88,12 +88,12 @@ class Settings(BaseSettings):
         description="LLM sampling temperature",
     )
     llm_cost_per_1k_prompt_tokens: float = Field(
-        default=0.001,
+        default=0.00002,
         ge=0.0,
         description="Estimated prompt token cost per 1K tokens",
     )
     llm_cost_per_1k_completion_tokens: float = Field(
-        default=0.002,
+        default=0.00003,
         ge=0.0,
         description="Estimated completion token cost per 1K tokens",
     )
@@ -105,6 +105,44 @@ class Settings(BaseSettings):
     cache_path: Path = Field(
         default=Path(".planning") / "cache.db",
         description="Path to cache database",
+    )
+    data_dir: Path = Field(
+        default_factory=lambda: Path.home() / ".auto-tagger",
+        description="Directory for auto-tagger local data",
+    )
+    dataset_lookup_enabled: bool = Field(
+        default=True,
+        description="Enable local dataset lookup before remote lookup",
+    )
+    dataset_warn_when_unavailable: bool = Field(
+        default=True,
+        description="Warn once when local dataset lookup is enabled but not installed",
+    )
+    remote_lookup_enabled: bool = Field(
+        default=True,
+        description="Enable remote Beets/MusicBrainz lookup after cache and dataset miss",
+    )
+    dataset_services: list[str] = Field(
+        default_factory=lambda: ["musicbrainz"],
+        description="Dataset services to install or query by default",
+    )
+    dataset_max_candidates: int = Field(
+        default=5,
+        ge=1,
+        le=50,
+        description="Maximum local dataset lookup candidates",
+    )
+    dataset_github_api_url: str = Field(
+        default="https://api.github.com/repos/MusicMoveArr/Datasets/contents",
+        description="GitHub Contents API URL for dataset torrent metadata",
+    )
+    dataset_downloader_command: str = Field(
+        default="aria2c",
+        description="External downloader command for dataset torrents",
+    )
+    dataset_extractor_command: str = Field(
+        default="7z",
+        description="External extractor command for downloaded dataset archives",
     )
     ffprobe_path: str = Field(
         default="ffprobe",
@@ -156,6 +194,26 @@ class Settings(BaseSettings):
         default=True,
         description="Enable compilation album detection",
     )
+    discogs_enabled: bool = Field(
+        default=True,
+        description="Enable Discogs API lookup after cache, dataset, and beets miss",
+    )
+    discogs_max_candidates: int = Field(
+        default=3,
+        ge=1,
+        le=10,
+        description="Maximum Discogs lookup candidates",
+    )
+    discogs_timeout_seconds: int = Field(
+        default=20,
+        ge=1,
+        le=60,
+        description="Discogs API request timeout in seconds",
+    )
+    discogs_token: str | None = Field(
+        default=None,
+        description="Optional Discogs personal access token for higher rate limits",
+    )
     batch_summary_path: Path | None = Field(
         default=None,
         description="Optional path for batch JSON summary",
@@ -182,9 +240,51 @@ class Settings(BaseSettings):
             raise ValueError(f"Config file not found: {v}")
         return v
 
+    @field_validator("data_dir", mode="before")
+    @classmethod
+    def expand_data_dir(cls, v: Path | str) -> Path:
+        """Expand the configured local data directory."""
+        return Path(v).expanduser()
+
+    @field_validator("dataset_services", mode="before")
+    @classmethod
+    def normalize_dataset_services(cls, v: Any) -> list[str]:
+        """Normalize configured dataset service names."""
+        if isinstance(v, str):
+            values = [item.strip() for item in v.split(",")]
+        else:
+            values = list(v or [])
+
+        services = [str(item).strip().lower() for item in values if str(item).strip()]
+        allowed = {"musicbrainz", "spotify", "tidal", "deezer"}
+        invalid = sorted(set(services) - allowed)
+        if invalid:
+            raise ValueError(f"dataset_services contains unsupported services: {invalid}")
+        return services or ["musicbrainz"]
+
     def merge_with_cli_args(self, **cli_args: Any) -> "Settings":
         """Merge settings with CLI arguments (CLI takes precedence)."""
         update_dict = {
             k: v for k, v in cli_args.items() if v is not None
         }
         return self.model_copy(update=update_dict)
+
+    @property
+    def dataset_downloads_dir(self) -> Path:
+        """Directory where raw dataset torrent downloads are stored."""
+        return self.data_dir / "datasets"
+
+    @property
+    def dataset_staging_dir(self) -> Path:
+        """Directory where dataset archives are extracted before indexing."""
+        return self.data_dir / "staging"
+
+    @property
+    def dataset_index_path(self) -> Path:
+        """Path to the local SQLite dataset lookup index."""
+        return self.data_dir / "dataset-index.sqlite"
+
+    @property
+    def dataset_state_path(self) -> Path:
+        """Path to the local dataset setup state file."""
+        return self.data_dir / "dataset-state.json"

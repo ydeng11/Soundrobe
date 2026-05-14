@@ -46,7 +46,19 @@ def test_album_candidate_round_trips_through_json():
         "2024",
         "0.12",
         "album-id",
+        "",
     ]
+
+
+def test_dataset_lookup_source_round_trips_through_json():
+    """Dataset candidates preserve their source through JSON-compatible dictionaries."""
+    from auto_tagger.integrations.candidates import AlbumCandidate, LookupSource
+
+    candidate = AlbumCandidate(artist="Artist", album="Album", source=LookupSource.DATASET)
+    restored = AlbumCandidate.from_dict(candidate.to_dict())
+
+    assert restored.source is LookupSource.DATASET
+    assert restored.to_display_row()[0] == "dataset"
 
 
 def test_lookup_request_hash_is_stable_for_same_query():

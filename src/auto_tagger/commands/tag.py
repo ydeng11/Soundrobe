@@ -12,6 +12,8 @@ from auto_tagger.llm import CandidateSelectionService, OpenRouterClient
 from auto_tagger.quality import build_album_health_report, render_health_report
 from auto_tagger.utils import console, print_info, print_success, print_table
 
+_LOOKUP_WARNINGS_SHOWN: set[str] = set()
+
 
 def execute(
     settings: Settings,
@@ -81,13 +83,18 @@ def _print_lookup_candidates(settings: Settings, path: Path) -> None:
         console.print(f"[yellow]Lookup unavailable:[/yellow] {exc}")
         return
 
+    for warning in getattr(lookup_service, "warnings", []):
+        if warning not in _LOOKUP_WARNINGS_SHOWN:
+            console.print(f"[yellow]Dataset lookup unavailable:[/yellow] {warning}")
+            _LOOKUP_WARNINGS_SHOWN.add(warning)
+
     if not candidates:
         console.print("[yellow]No lookup candidates found[/yellow]")
         return
 
     print_table(
         "Lookup candidates",
-        ["Source", "Artist", "Album", "Year", "Distance", "MusicBrainz Album ID"],
+        ["Source", "Artist", "Album", "Year", "Distance", "MusicBrainz Album ID", "Verify"],
         [candidate.to_display_row() for candidate in candidates],
     )
 

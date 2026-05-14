@@ -79,7 +79,7 @@ def test_openrouter_client_requires_api_key():
     from auto_tagger.llm.schemas import CandidateSelectionResponse
 
     with pytest.raises(ConfigError, match="LLM API key"):
-        OpenRouterClient(Settings()).complete_json([], CandidateSelectionResponse)
+        OpenRouterClient(Settings(llm_api_key=None)).complete_json([], CandidateSelectionResponse)
 
 
 def test_openrouter_client_retries_retryable_status():
