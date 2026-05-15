@@ -42,62 +42,58 @@ def execute(
         console.print(f"[yellow]{exc}[/yellow]")
         return
 
-    if dry_run:
-        metadata_by_path: dict[Path, TrackMetadata] = {}
-        for audio_file in audio_files:
-            metadata = read_metadata(audio_file)
-            metadata_by_path[audio_file] = metadata
-            rows = metadata.to_display_rows()
-            if rows:
-                print_table(
-                    f"Metadata preview: {audio_file.name}",
-                    ["Field", "Value"],
-                    rows,
-                )
-            else:
-                console.print(f"[yellow]No metadata tags found:[/yellow] {audio_file}")
-
-        health_report = build_album_health_report(
-            path, audio_files, metadata_by_path, settings
-        )
-        console.print(render_health_report(health_report))
-        if health_report_path is not None:
-            health_report_path.write_text(
-                json.dumps(health_report.to_dict(), indent=2),
-                encoding="utf-8",
-            )
-            print_info(f"Wrote health report: {health_report_path}")
-
-        _print_lookup_candidates(settings, path)
-        if settings.yolo and health_report.can_tag:
-            print_success("YOLO apply path available for safe albums")
-        elif interactive or settings.interactive_default:
-            print_info("Interactive preview ready; apply flow will prompt before writing")
-        print_success(f"Previewed metadata for {len(audio_files)} audio file(s)")
-    else:
+    if not dry_run:
+        # Write mode: delegate to AlbumWorkflow for actual tagging
         workflow = AlbumWorkflow(settings)
         result = workflow.run(path, dry_run=False, interactive=interactive)
 
-        if result.applied_writes > 0:
-            print_success(f"Applied tags to {result.applied_writes} file(s)")
-        for msg in result.messages:
-            print_info(msg)
-        if result.skipped_writes > 0:
-            print_info(f"Skipped {result.skipped_writes} file(s)")
+        print_info(f"Album: {path.name}")
+        print_success(f"Wrote tags to {result.applied_writes} file(s)")
+        if result.skipped_writes:
+            console.print(f"  Skipped: {result.skipped_writes} file(s)")
 
-        if health_report_path:
-            health_report_path.parent.mkdir(parents=True, exist_ok=True)
+        if result.messages:
+            for msg in result.messages:
+                console.print(f"  [green]{msg}[/green]")
+
+        if result.cover_art_fixed:
+            print_success(
+                f"Cover art: {result.cover_art_status} — {result.cover_art_message}"
+            )
+
+        if health_report_path is not None:
             health_report_path.write_text(
                 json.dumps(result.health_report.to_dict(), indent=2),
                 encoding="utf-8",
             )
             print_info(f"Wrote health report: {health_report_path}")
+        return
 
-        if result.cover_art_fixed:
-            print_info(f"Cover art: {result.cover_art_status}")
-        if not result.applied_writes and not result.messages and not health_report_path:
-            print_info("No changes applied (use --yolo to auto-apply, or --interactive for review)")
-        print_success(f"Processed {len(audio_files)} audio file(s)")
+    metadata_by_path: dict[Path, TrackMetadata] = {}
+    for audio_file in audio_files:
+        metadata = read_metadata(audio_file)
+        metadata_by_path[audio_file] = metadata
+        rows = metadata.to_display_rows()
+        if rows:
+            print_table(f"Metadata preview: {audio_file.name}", ["Field", "Value"], rows)
+        else:
+            console.print(f"[yellow]No metadata tags found:[/yellow] {audio_file}")
+
+    health_report = build_album_health_report(path, audio_files, metadata_by_path, settings)
+    console.print(render_health_report(health_report))
+    if health_report_path is not None:
+        health_report_path.write_text(
+            json.dumps(health_report.to_dict(), indent=2),
+            encoding="utf-8",
+        )
+        print_info(f"Wrote health report: {health_report_path}")
+
+    _print_lookup_candidates(settings, path)
+    if not dry_run and settings.yolo and health_report.can_tag:
+        print_success("YOLO apply path available for safe albums")
+    elif interactive or settings.interactive_default:
+        print_info("Interactive preview ready; apply flow will prompt before writing")
+    print_success(f"Previewed metadata for {len(audio_files)} audio file(s)")
 
 
 def _print_lookup_candidates(settings: Settings, path: Path) -> None:
