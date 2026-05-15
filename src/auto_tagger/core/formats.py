@@ -352,4 +352,18 @@ def embed_cover_art(audio_format: AudioFormat, tags: Any, data: bytes, mime_type
     elif audio_format is AudioFormat.M4A:
         tags["covr"] = [data]
     else:
-        tags["METADATA_BLOCK_PICTURE"] = [b64encode(data).decode("ascii")]
+        # FLAC / Ogg Vorbis / similar — prefer FLAC-native Picture API
+        from mutagen.flac import Picture
+
+        pic = Picture()
+        pic.type = 3  # Front cover
+        pic.mime = mime_type
+        pic.desc = "Cover"
+        if data:
+            pic.data = data
+
+        if hasattr(tags, "clear_pictures") and hasattr(tags, "add_picture"):
+            tags.clear_pictures()
+            tags.add_picture(pic)
+        else:
+            tags["METADATA_BLOCK_PICTURE"] = [b64encode(data).decode("ascii")]

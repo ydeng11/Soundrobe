@@ -11,6 +11,7 @@ from auto_tagger.integrations import LookupService
 from auto_tagger.llm import CandidateSelectionService, OpenRouterClient
 from auto_tagger.quality import build_album_health_report, render_health_report
 from auto_tagger.utils import console, print_info, print_success, print_table
+from auto_tagger.workflows.album import AlbumWorkflow
 
 _LOOKUP_WARNINGS_SHOWN: set[str] = set()
 
@@ -42,10 +43,30 @@ def execute(
         return
 
     if not dry_run:
-        print_info(
-            "Phase 3 supports metadata and lookup preview only; "
-            "use --dry-run to preview tags"
-        )
+        # Write mode: delegate to AlbumWorkflow for actual tagging
+        workflow = AlbumWorkflow(settings)
+        result = workflow.run(path, dry_run=False, interactive=interactive)
+
+        print_info(f"Album: {path.name}")
+        print_success(f"Wrote tags to {result.applied_writes} file(s)")
+        if result.skipped_writes:
+            console.print(f"  Skipped: {result.skipped_writes} file(s)")
+
+        if result.messages:
+            for msg in result.messages:
+                console.print(f"  [green]{msg}[/green]")
+
+        if result.cover_art_fixed:
+            print_success(
+                f"Cover art: {result.cover_art_status} — {result.cover_art_message}"
+            )
+
+        if health_report_path is not None:
+            health_report_path.write_text(
+                json.dumps(result.health_report.to_dict(), indent=2),
+                encoding="utf-8",
+            )
+            print_info(f"Wrote health report: {health_report_path}")
         return
 
     metadata_by_path: dict[Path, TrackMetadata] = {}

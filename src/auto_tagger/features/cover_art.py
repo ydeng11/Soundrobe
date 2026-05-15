@@ -119,6 +119,8 @@ def discover_local_cover_art(
     Priority order:
     1. {album_name}.jpg/png (e.g., "Goodbye & Hello.jpg")
     2. cover.jpg, folder.jpg, front.jpg, album.jpg/png
+    3. Lenient scan: any .jpg/.jpeg/.png in the album dir (skip files
+       starting with 'a_' prefix, which are typically alternate artwork)
     """
     # Build search names: album-specific first, then generic
     search_names: list[str] = []
@@ -135,6 +137,20 @@ def discover_local_cover_art(
             mime_type = _mime_type_for_bytes(data) or _mime_type_for_suffix(candidate.suffix)
             if mime_type and _valid_image_data(data):
                 return CoverArtImage(data, mime_type, "local", candidate)
+
+    # Lenient fallback: scan for any image file in the album directory.
+    # Handles cases like album folder "2004-WuHa" with cover file "Wu Ha.jpg"
+    # (exact album-name match "WuHa" vs "Wu Ha" fails above).
+    for suffix in COVER_SUFFIXES:
+        for candidate in sorted(album_path.glob(f"*{suffix}")):
+            # Skip alternate artwork files with 'a_' prefix
+            if candidate.stem.startswith("a_"):
+                continue
+            data = candidate.read_bytes()
+            mime_type = _mime_type_for_bytes(data) or _mime_type_for_suffix(candidate.suffix)
+            if mime_type and _valid_image_data(data):
+                return CoverArtImage(data, mime_type, "local", candidate)
+
     return None
 
 

@@ -16,6 +16,7 @@ from typing import Any
 import httpx
 
 from auto_tagger.features.cover_art import CoverArtImage, CoverArtResult, CoverArtStatus
+from auto_tagger.integrations.aliases import get_aliases
 from auto_tagger.integrations.candidates import (
     AlbumCandidate,
     LookupSource,
@@ -242,55 +243,99 @@ class DiscogsClient:
     def fetch_cover_art(self, artist: str, album: str) -> CoverArtResult:
         """Fetch cover art for an album from Discogs.
 
-        Searches Discogs for the album, gets the first matching release,
-        and downloads the primary cover image.
+        Tries in order:
+          1. artist + album (exact)
+          2. known aliases of the artist
+          3. album-only (catches cross-script mismatches)
 
-        Returns CoverArtResult with FOUND_LOCAL status on success, or
+        For each query, checks the search result's cover_image field first.
+        If missing, fetches the full release detail for images.
+
+        Returns CoverArtResult with FETCHED_REMOTE on success, or
         MISSING/FETCH_FAILED on failure.
         """
-        candidates = self.search_album(artist, album)
-        if not candidates:
-            return CoverArtResult(CoverArtStatus.MISSING, message="No Discogs results found")
+        if not album:
+            return CoverArtResult(CoverArtStatus.MISSING, message="No album name provided")
 
-        # Use raw search to get release IDs
-        try:
-            raw_results = self._search(f"{artist} {album}", per_page=5)
-        except DiscogsError as exc:
-            return CoverArtResult(CoverArtStatus.FETCH_FAILED, message=str(exc))
+        # Build ordered list of search queries to try
+        queries: list[str] = []
 
-        for item in raw_results:
-            release_id = item.get("id")
-            if not release_id:
-                continue
+        # 1. Exact artist + album
+        if artist:
+            queries.append(f"{artist} {album}")
 
+        # 2. Known aliases of the artist
+        for alias in get_aliases(artist):
+            alias_query = f"{alias} {album}"
+            if alias_query not in queries:
+                queries.append(alias_query)
+
+        # 3. Album-only fallback (catches cross-script mismatches)
+        if album not in queries:
+            queries.append(album)
+
+        seen_ids: set[int] = set()
+
+        for query in queries:
             try:
-                release_data = self._get(f"/releases/{release_id}")
-            except (DiscogsError, httpx.HTTPError):
+                raw_results = self._search(query, per_page=5)
+            except DiscogsError:
                 continue
 
-            images = release_data.get("images", [])
-            primary = next((img for img in images if img.get("type") == "primary"), None)
-            target = primary or (images[0] if images else None)
-            if not target:
-                continue
+            for item in raw_results:
+                release_id = item.get("id")
+                if not release_id or release_id in seen_ids:
+                    continue
+                seen_ids.add(release_id)
 
-            image_url = target.get("uri")
-            if not image_url:
-                continue
+                # Check cover_image in search result first (avoids extra GET)
+                cover_url = item.get("cover_image")
+                if cover_url:
+                    try:
+                        response = httpx.get(
+                            cover_url, timeout=self.timeout_seconds, follow_redirects=True
+                        )
+                    except httpx.HTTPError:
+                        cover_url = None
+                    else:
+                        if response.status_code == 200 and response.content:
+                            mime_type = self._mime_from_url(cover_url) or "image/jpeg"
+                            return CoverArtResult(
+                                CoverArtStatus.FETCHED_REMOTE,
+                                CoverArtImage(response.content, mime_type, "discogs"),
+                            )
 
-            try:
-                response = httpx.get(image_url, timeout=self.timeout_seconds, follow_redirects=True)
-            except httpx.HTTPError:
-                continue
+                # Fall through to full release GET for images
+                try:
+                    release_data = self._get(f"/releases/{release_id}")
+                except (DiscogsError, httpx.HTTPError):
+                    continue
 
-            if response.status_code != 200 or not response.content:
-                continue
+                images = release_data.get("images", [])
+                primary = next((img for img in images if img.get("type") == "primary"), None)
+                target = primary or (images[0] if images else None)
+                if not target:
+                    continue
 
-            mime_type = self._mime_from_url(image_url) or "image/jpeg"
-            return CoverArtResult(
-                CoverArtStatus.FETCHED_REMOTE,
-                CoverArtImage(response.content, mime_type, "discogs"),
-            )
+                image_url = target.get("uri")
+                if not image_url:
+                    continue
+
+                try:
+                    response = httpx.get(
+                        image_url, timeout=self.timeout_seconds, follow_redirects=True
+                    )
+                except httpx.HTTPError:
+                    continue
+
+                if response.status_code != 200 or not response.content:
+                    continue
+
+                mime_type = self._mime_from_url(image_url) or "image/jpeg"
+                return CoverArtResult(
+                    CoverArtStatus.FETCHED_REMOTE,
+                    CoverArtImage(response.content, mime_type, "discogs"),
+                )
 
         return CoverArtResult(
             CoverArtStatus.MISSING,
