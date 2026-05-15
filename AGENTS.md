@@ -185,23 +185,30 @@ Prerequisite: Install [just](https://github.com/casey/just) (`brew install just`
 
 ### CLI commands (auto-tag)
 
-| Command                                  | Description                                          |
-|------------------------------------------|------------------------------------------------------|
-| `auto-tag tag <path>`                    | Tag a single album/directory                         |
-| `auto-tag tag <path> --dry-run`          | Preview changes without writing                      |
-| `auto-tag tag <path> --interactive`      | Prompt before applying changes                       |
-| `auto-tag tag <path> --yolo`             | Auto-approve all changes                             |
-| `auto-tag tag <path> --health-report`    | Generate a health report JSON                       |
-| `auto-tag batch <path>`                  | Batch process an entire library                      |
-| `auto-tag batch <path> --parallel <N>`   | Batch process with N parallel workers                |
-| `auto-tag config`                        | View current configuration                           |
-| `auto-tag config <key> <value>`          | Set a configuration value                            |
-| `auto-tag dataset status`                | Show dataset setup status                            |
-| `auto-tag dataset setup`                 | Download dataset and build SQLite index              |
-| `auto-tag dataset setup --dry-run`       | Show setup plan without downloading                   |
-| `auto-tag dataset build`                 | Build index from already-staged dataset files        |
-| `auto-tag version`                       | Show version information                             |
-| `auto-tag --help`                        | Show full help                                       |
+| Command / Flag                                               | Description                                                |
+|--------------------------------------------------------------|------------------------------------------------------------|
+| `auto-tag tag <path>`                                        | Tag a single album/directory                               |
+| `  --dry-run`                                                | Preview changes without applying                           |
+| `  --yolo`                                                   | Auto-approve all changes                                   |
+| `  --interactive`                                            | Prompt before applying album changes                       |
+| `  --health-report <path>`                                   | Write album health report JSON to this path                |
+| `auto-tag batch <path>`                                      | Batch process an entire music library                      |
+| `  --dry-run`                                                | Preview changes without applying                           |
+| `  --yolo`                                                   | Auto-approve all changes                                   |
+| `  --interactive`                                            | Prompt before applying each album                          |
+| `  --parallel / -j <N>`                                      | Number of parallel processes (default: 1)                  |
+| `  --health-report <path>`                                   | Write combined health report JSON for all albums           |
+| `auto-tag config [key] [value]`                              | View or modify configuration                               |
+| `auto-tag dataset status`                                   | Show local dataset setup status                            |
+| `auto-tag dataset setup`                                    | Download dataset and build SQLite index                    |
+| `  --service <name>`                                         | Dataset service(s) to install (can repeat; choices: `musicbrainz`, `spotify`, `tidal`, `deezer`) |
+| `  --dry-run`                                                | Show setup plan without downloading                        |
+| `auto-tag dataset build`                                    | Build SQLite index from already-staged dataset files       |
+| `  --service <name>`                                         | Service(s) to index (can repeat; choices: `musicbrainz`, `spotify`, `tidal`, `deezer`) |
+| `auto-tag clean <path>`                                      | Strip junk tags (description, comment, c) from audio files |
+| `  --dry-run`                                                | Preview junk tags that would be removed                    |
+| `auto-tag version`                                          | Show version information                                   |
+| `auto-tag --help`                                            | Show full help                                             |
 
 Global CLI flags (before subcommand):
 

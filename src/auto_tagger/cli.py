@@ -58,7 +58,6 @@ def cli(ctx: click.Context, config: Path | None, verbose: bool, output: str | No
 
         ctx.ensure_object(dict)
         ctx.obj["settings"] = settings
-        ctx.obj["verbose"] = settings.verbose
 
     except ConfigError as e:
         console.print(f"[red]Configuration error:[/red] {e}")
@@ -165,6 +164,21 @@ def config(ctx: click.Context, key: str | None, value: str | None) -> None:
 def version(ctx: click.Context) -> None:
     """Show version information."""
     console.print(f"[bold]auto-tag[/bold] version [cyan]{__version__}[/cyan]")
+
+
+@cli.command()
+@click.argument("path", type=click.Path(exists=True, path_type=Path))
+@click.option("--dry-run", is_flag=True, help="Preview junk tags that would be removed")
+@click.pass_context
+def clean(ctx: click.Context, path: Path, dry_run: bool) -> None:
+    """Strip junk tags (description, comment, c) from audio files.
+
+    PATH: Path to an audio file or album/library directory
+    """
+    from auto_tagger.commands.clean import execute
+
+    settings: Settings = ctx.obj["settings"]
+    execute(settings, path, dry_run)
 
 
 @cli.group()

@@ -10,6 +10,9 @@ from auto_tagger.core.metadata import ReplayGainTags, TrackMetadata, format_posi
 
 MP4_FREEFORM_PREFIX = "----:com.apple.iTunes:"
 
+# Tag names that are known junk/spam and should be stripped when writing tags.
+JUNK_TAG_NAMES: frozenset[str] = frozenset({"description", "comment", "c"})
+
 
 def read_tags(audio_format: AudioFormat, tags: Any) -> TrackMetadata:
     """Read format-specific tags into normalized metadata."""
@@ -70,6 +73,7 @@ def _read_vorbis_tags(tags: Any) -> TrackMetadata:
 
 
 def _write_vorbis_tags(tags: Any, metadata: TrackMetadata) -> None:
+    _strip_junk_dict_tags(tags)
     _set_list(tags, "TITLE", _one(metadata.title))
     _set_list(tags, "ARTIST", _one(metadata.artist))
     _set_list(tags, "ARTISTS", metadata.artists)
@@ -127,6 +131,7 @@ def _read_mp3_tags(tags: Any) -> TrackMetadata:
 
 
 def _write_mp3_tags(tags: Any, metadata: TrackMetadata) -> None:
+    _strip_junk_mp3(tags)
     from mutagen.id3 import TALB, TCOM, TCON, TDRC, TIT2, TPE1, TPE2, TPOS, TRCK, TXXX, USLT
 
     _set_id3_frame(tags, "TIT2", TIT2(encoding=3, text=_one(metadata.title)))
@@ -186,6 +191,7 @@ def _read_mp4_tags(tags: Any) -> TrackMetadata:
 
 
 def _write_mp4_tags(tags: Any, metadata: TrackMetadata) -> None:
+    _strip_junk_dict_tags(tags)
     _set_list(tags, "©nam", _one(metadata.title))
     _set_list(tags, "©art", _one(metadata.artist))
     _set_list(tags, "©alb", _one(metadata.album))
@@ -334,6 +340,29 @@ def _set_mp4_freeform(tags: Any, name: str, values: list[str]) -> None:
     from mutagen.mp4 import MP4FreeForm
 
     tags[f"{MP4_FREEFORM_PREFIX}{name}"] = [MP4FreeForm(value.encode("utf-8")) for value in values]
+
+
+def _strip_junk_dict_tags(tags: Any) -> None:
+    """Remove junk tags from dict-style tag containers (Vorbis, MP4)."""
+    for junk_key in JUNK_TAG_NAMES:
+        if junk_key in tags:
+            try:
+                del tags[junk_key]
+            except (KeyError, TypeError):
+                pass
+
+
+def _strip_junk_mp3(tags: Any) -> None:
+    """Remove junk ID3 frames before writing.
+
+    The caller (write_tags) already unwraps WAV/ID3 wrappers,
+    so tags is the raw ID3 tags object here.
+    """
+    for junk_key in JUNK_TAG_NAMES:
+        try:
+            tags.delall(junk_key)
+        except AttributeError:
+            pass
 
 
 def embed_cover_art(audio_format: AudioFormat, tags: Any, data: bytes, mime_type: str) -> None:
