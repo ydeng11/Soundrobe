@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -826,8 +827,6 @@ class AlbumWorkflow:
         """
         if not self.settings.llm_api_key:
             return None
-
-        import json
 
         payload: dict[str, object] = {
             "artist": artist,

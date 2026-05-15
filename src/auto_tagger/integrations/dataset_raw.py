@@ -381,19 +381,6 @@ def _split_column_defs(block: str) -> list[str]:
     return result
 
 
-def _convert_booleans(text: str) -> str:
-    """Replace PostgreSQL boolean literals with SQLite integers.
-
-    Careful: only replace standalone true/false tokens, not substrings.
-    """
-    # Match word-boundary true/false that are NOT inside quotes
-    # Simple approach: replace 'true' and 'false' when surrounded by
-    # non-word characters (comma, parens, whitespace, newline, tab)
-    text = re.sub(r'(?<=[\s,(\t])true(?=[\s,)\t;\n])', '1', text)
-    text = re.sub(r'(?<=[\s,(\t])false(?=[\s,)\t;\n])', '0', text)
-    return text
-
-
 # ── normalized columns ──────────────────────────────────────────────
 
 _ARTIST_NAME_COLUMNS: dict[str, str] = {
@@ -592,90 +579,6 @@ def _create_lookup_indexes(conn: sqlite3.Connection) -> None:
             )
         except sqlite3.OperationalError:
             pass
-
-
-def _add_normalized_columns(conn: sqlite3.Connection) -> None:
-    """Add normalized_artist and normalized_album columns to album tables.
-
-    These are populated from the joined artist/album names and indexed
-    for fast lookup.
-    """
-    for album_table, (fk_col, artist_table, artist_id_col) in _ALBUM_ARTIST_JOINS.items():
-        # Check if tables exist
-        exists = conn.execute(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
-            (album_table,),
-        ).fetchone()
-        if not exists:
-            continue
-        artist_exists = conn.execute(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
-            (artist_table,),
-        ).fetchone()
-        if not artist_exists:
-            continue
-
-        artist_name_col = _ARTIST_NAME_COLUMNS.get(artist_table, "name")
-        album_title_col = _ALBUM_TITLE_COLUMNS.get(album_table, "title")
-
-        # Add normalized columns if they don't exist
-        for col in ("normalized_artist", "normalized_album"):
-            try:
-                conn.execute(
-                    f'ALTER TABLE "{album_table}" ADD COLUMN "{col}" TEXT'
-                )
-            except sqlite3.OperationalError:
-                pass  # column already exists
-
-        # Populate via JOIN
-        conn.execute(f"""
-            UPDATE "{album_table}" SET
-                "normalized_artist" = LOWER(
-                    REPLACE(REPLACE(REPLACE(REPLACE(
-                        (SELECT "{artist_name_col}" FROM "{artist_table}"
-                         WHERE "{artist_table}"."{artist_id_col}" = "{album_table}"."{fk_col}")
-                    , '.', ' '), ',', ' '), '''', ''), '-', ' ')
-                ),
-                "normalized_album" = LOWER(
-                    REPLACE(REPLACE(REPLACE(REPLACE(
-                        "{album_table}"."{album_title_col}"
-                    , '.', ' '), ',', ' '), '''', ''), '-', ' ')
-                )
-            WHERE "normalized_artist" IS NULL
-        """)
-
-        # Create indexes
-        conn.execute(f"""
-            CREATE INDEX IF NOT EXISTS "idx_{album_table}_norm"
-            ON "{album_table}" ("normalized_artist", "normalized_album")
-        """)
-
-    # Also add normalized columns to artist tables (for artist-only lookups)
-    for artist_table, name_col in _ARTIST_NAME_COLUMNS.items():
-        exists = conn.execute(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
-            (artist_table,),
-        ).fetchone()
-        if not exists:
-            continue
-        try:
-            conn.execute(
-                f'ALTER TABLE "{artist_table}" ADD COLUMN "normalized_name" TEXT'
-            )
-        except sqlite3.OperationalError:
-            pass
-        conn.execute(f"""
-            UPDATE "{artist_table}" SET "normalized_name" = LOWER(
-                REPLACE(REPLACE(REPLACE(REPLACE(
-                    "{name_col}"
-                , '.', ' '), ',', ' '), '''', ''), '-', ' ')
-            )
-            WHERE "normalized_name" IS NULL
-        """)
-        conn.execute(f"""
-            CREATE INDEX IF NOT EXISTS "idx_{artist_table}_norm"
-            ON "{artist_table}" ("normalized_name")
-        """)
 
 
 # ── lookup queries ──────────────────────────────────────────────────
@@ -1020,109 +923,13 @@ def _load_tracks(
     album_row: sqlite3.Row,
     service: str,
 ) -> list[dict[str, Any]]:
-    """Load tracks for an album from the track table."""
+    """Load tracks for an album from the track table. Delegates to _load_tracks_by_id."""
     if track_table is None:
         return []
-
-    exists = conn.execute(
-        "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
-        (track_table,),
-    ).fetchone()
-    if not exists:
-        return []
-
-    # Determine album_id column and FK
-    track_info = _TRACK_TABLES.get(track_table)
-    if track_info is None:
-        return []
-    fk_col, _ = track_info
-
-    # Determine album_id value from the album row
     album_id_col = "releaseid" if service == "musicbrainz" else "albumid"
     album_id = album_row[album_id_col]
-
-    # Determine track columns
-    if service == "musicbrainz":
-        title_col = "COALESCE(title, recordingtitle)"
-        num_col = "COALESCE(number, position)"
-        order = "COALESCE(mediaposition, 1), COALESCE(number, position, releasetrackid)"
-        track_rows = conn.execute(
-            f"""
-            SELECT {title_col} AS track_title,
-                   {num_col} AS track_number,
-                   mediaposition AS disc_number,
-                   mediatrackcount AS disc_total,
-                   length, recordingid AS musicbrainz_trackid
-            FROM "{track_table}"
-            WHERE "{fk_col}" = ?
-            ORDER BY {order}
-            """,
-            (album_id,),
-        ).fetchall()
-        return [
-            {
-                "title": r["track_title"],
-                "artist": album_row["artist_name"],
-                "artists": [album_row["artist_name"]],
-                "track_number": r["track_number"],
-                "disc_number": r["disc_number"],
-                "disc_total": r["disc_total"],
-                "musicbrainz_trackid": r["musicbrainz_trackid"],
-                "length": r["length"],
-            }
-            for r in track_rows
-            if r["track_title"]
-        ]
-    else:
-        # Spotify / Tidal / Deezer
-        if service == "spotify":
-            title_col = "name"
-            num_col = "tracknumber"
-            disc_col = "discnumber"
-            dur_col = "durationms"
-            dur_is_ms = True
-        elif service == "tidal":
-            title_col = "title"
-            num_col = "tracknumber"
-            disc_col = "volumenumber"
-            dur_col = "duration"
-            dur_is_ms = False
-        else:  # deezer
-            title_col = "title"
-            num_col = "trackposition"
-            disc_col = "disknumber"
-            dur_col = "duration"
-            dur_is_ms = False
-
-        order = f"COALESCE({disc_col}, 1), COALESCE({num_col}, trackid)"
-        track_rows = conn.execute(
-            f"""
-            SELECT "{title_col}" AS track_title,
-                   "{num_col}" AS track_number,
-                   "{disc_col}" AS disc_number,
-                   "{dur_col}" AS duration_raw
-            FROM "{track_table}"
-            WHERE "{fk_col}" = ?
-            ORDER BY {order}
-            """,
-            (album_id,),
-        ).fetchall()
-
-        result = []
-        for r in track_rows:
-            if not r["track_title"]:
-                continue
-            dur = r["duration_raw"]
-            length = _parse_raw_duration(dur, dur_is_ms)
-            result.append({
-                "title": r["track_title"],
-                "artist": album_row["artist_name"],
-                "artists": [album_row["artist_name"]],
-                "track_number": r["track_number"],
-                "disc_number": r["disc_number"],
-                "length": length,
-            })
-        return result
+    artist_name = album_row["artist_name"]
+    return _load_tracks_by_id(conn, track_table, album_table, album_id, service, artist_name)
 
 
 def _candidate_from_raw_row(

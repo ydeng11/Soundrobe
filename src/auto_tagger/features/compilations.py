@@ -170,9 +170,9 @@ def analyze_compilation(
         is_compilation = False
         confidence = min(1.0, 0.4 * len(reasons))
     # Single primary performer strongly suggests NOT a compilation
-    elif has_single_primary and "collaboration" not in " ".join(reasons).lower():
-        # Reduce compilation signal — primary performer shared means it's
-        # a classical/performer-album, not a compilation
+    # Reduce compilation signal — primary performer shared means it's
+    # a classical/performer-album, not a compilation
+    elif has_single_primary:
         confidence = max(0.0, confidence - 0.3)
         is_compilation = confidence >= 0.65
     else:
