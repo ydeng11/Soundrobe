@@ -246,17 +246,26 @@ class AlbumWorkflow:
                 applied_writes = len(audio_files)
 
         if can_write:
-            # Check if genre is missing — do a quick lookup to enrich
+            # Check if genre or year is missing — do a quick lookup to enrich
             first_meta = next(iter(metadata_by_path.values()), None)
-            if first_meta and (
-                first_meta.genre is None
-                or first_meta.genre in ("未知流派", "unknown", "Unknown", "?")
-            ):
+            needs_enrich = False
+            if first_meta:
+                if (
+                    first_meta.genre is None
+                    or first_meta.genre in ("未知流派", "unknown", "Unknown", "?")
+                ):
+                    needs_enrich = True
+                elif not first_meta.year:
+                    # Year is missing but genre exists — still try to enrich
+                    # since Discogs also provides year data.
+                    needs_enrich = True
+
+            if needs_enrich:
                 try:
                     enriched = self._enrich_genre_from_lookup(path, metadata_by_path)
                     if enriched:
                         metadata_by_path = enriched
-                        fix_messages.append("Enriched genre from Discogs")
+                        fix_messages.append("Enriched genre/year from Discogs")
                 except Exception:
                     pass
 
@@ -496,7 +505,7 @@ class AlbumWorkflow:
                 album_artist=effective_album_artist,
                 album_artists=effective_album_artists,
                 track_number=llm_track.track_number or i + 1,
-                track_total=result.tracks[-1].track_number or len(sorted_files) if result.tracks else len(sorted_files),
+                track_total=result.tracks[-1].track_number or len(sorted_files),
                 year=metadata.year,
                 genre=llm_track.genre or metadata.genre,
                 musicbrainz_artistid=folder_mbid or metadata.musicbrainz_artistid,
@@ -794,13 +803,15 @@ class AlbumWorkflow:
             if dc.genre:
                 # Use genre from any Discogs result — even if album name doesn't
                 # match exactly, the genre is likely relevant for the artist.
+                # Prefer the Discogs year over the candidate year (Discogs data
+                # is often richer, especially for folder-derived candidates).
                 return AlbumCandidate(
                     artist=candidate.artist,
                     artists=candidate.artists,
                     album=candidate.album,
                     album_artist=candidate.album_artist,
                     album_artists=candidate.album_artists,
-                    year=candidate.year,
+                    year=dc.year or candidate.year,
                     genre=dc.genre,
                     musicbrainz_albumid=candidate.musicbrainz_albumid,
                     musicbrainz_artistid=candidate.musicbrainz_artistid,
@@ -911,23 +922,25 @@ class AlbumWorkflow:
         best = AlbumWorkflow._select_best_candidate(candidates, request.artist_hint)
 
         genre = None
+        year = None
         if best and best.genre:
             genre = best.genre
+            year = best.year
         elif best:
             enriched = AlbumWorkflow._enrich_genre_from_discogs(best)
             if enriched and enriched.genre:
                 genre = enriched.genre
+                year = enriched.year
 
         if not genre:
-            # Try Discogs search directly for any genre
+            # Try Discogs search directly using the original hint
             try:
-                from auto_tagger.integrations.discogs_client import DiscogsClient
-
-                client = DiscogsClient(max_candidates=3)
                 if request.artist_hint and request.album_hint:
-                    for dc in client.search_album(request.artist_hint, request.album_hint):
+                    discogs = DiscogsClient(max_candidates=3)
+                    for dc in discogs.search_album(request.artist_hint, request.album_hint):
                         if dc.genre:
                             genre = dc.genre
+                            year = dc.year or year
                             break
             except Exception:
                 pass
@@ -948,7 +961,7 @@ class AlbumWorkflow:
                 track_total=meta.track_total,
                 disc_number=meta.disc_number,
                 disc_total=meta.disc_total,
-                year=meta.year,
+                year=year or meta.year,
                 genre=genre,
                 musicbrainz_albumid=meta.musicbrainz_albumid,
                 musicbrainz_artistid=meta.musicbrainz_artistid,
@@ -971,8 +984,6 @@ class AlbumWorkflow:
         folder_artist = album_path.parent.name
         for metadata in metadata_by_path.values():
             if metadata.artist:
-                from auto_tagger.integrations.aliases import artist_matches_any
-
                 if not artist_matches_any(metadata.artist, folder_artist):
                     return True
         return False
@@ -987,6 +998,11 @@ class AlbumWorkflow:
         Checks the cross-album map first. If not found, queries the
         MusicBrainz API via musicbrainzngs with the artist name and
         stores the result in the map for future lookups.
+
+        For Chinese artists with no learned aliases, also harvests
+        alias data from MusicBrainz (English names, Pinyin, TC)
+        and persists them via `save_alias()` so downstream lookups
+        (Discogs, etc.) can use the English/Latin name.
 
         Returns the MBID (UUID string) or None if the artist is not
         found in MusicBrainz.
@@ -1018,6 +1034,22 @@ class AlbumWorkflow:
                 mbid = artist_list[0].get("id")
                 if mbid and artist_mbid_map is not None:
                     _store_mbid_in_map(artist_mbid_map, artist_name, mbid)
+
+                # Seed aliases from MusicBrainz for Chinese artists with no existing aliases.
+                # This bridges Chinese→English name gap for Discogs lookups.
+                from auto_tagger.integrations.aliases import (
+                    get_aliases,
+                    is_chinese_name,
+                    save_alias,
+                )
+
+                if is_chinese_name(artist_name) and not get_aliases(artist_name):
+                    alias_list = artist_list[0].get("alias-list") or []
+                    for alias_entry in alias_list:
+                        alias_text = alias_entry.get("alias") or alias_entry.get("name")
+                        if alias_text and alias_text.strip():
+                            save_alias(artist_name, alias_text.strip())
+
                 return mbid  # type: ignore[no-any-return]
         except Exception:
             pass

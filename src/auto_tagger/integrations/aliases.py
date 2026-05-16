@@ -35,14 +35,17 @@ def save_alias(hint: str, alias: str) -> None:
     if not hint or not alias:
         return
     hint_key = hint.casefold().strip()
-    alias_val = alias.casefold().strip()
-    if hint_key == alias_val:
+    alias_stripped = alias.strip()
+    alias_cf = alias_stripped.casefold()
+    if hint_key == alias_cf:
         return  # same name, not an alias
 
     aliases = load_aliases()
     existing = aliases.setdefault(hint_key, [])
-    if alias_val not in existing:
-        existing.append(alias_val)
+    # Dedup by casefolded value, but store the original casing
+    seen_cf = {a.strip().casefold() for a in existing}
+    if alias_cf not in seen_cf:
+        existing.append(alias_stripped)
     ALIAS_FILE.parent.mkdir(parents=True, exist_ok=True)
     ALIAS_FILE.write_text(json.dumps(aliases, ensure_ascii=False, indent=2))
 
@@ -106,7 +109,79 @@ def _characters_overlap(name_a: str, name_b: str) -> float:
         if found:
             matches += 1
 
-    return matches / len(shorter) if shorter else 0.0
+    return matches / len(shorter)
+
+
+def is_chinese_name(name: str) -> bool:
+    """Return True if *name* contains any CJK Unified Ideograph.
+
+    Covers the main CJK block (U+4E00–U+9FFF), which is sufficient
+    to detect Chinese, Japanese shinjitai, and Korean Hanja names.
+    """
+    if not name:
+        return False
+    for ch in name:
+        if "\u4e00" <= ch <= "\u9fff":
+            return True
+    return False
+
+
+def get_all_name_variants(name: str) -> list[str]:
+    """Return all variant forms of *name* for querying external services.
+
+    Priority order:
+      1. Learned aliases that are Latin-script (English names, Pinyin)
+      2. Traditional Chinese (from `_convert_script`)
+      3. Simplified Chinese (from `_convert_script`)
+      4. Other script variants (HK, TW from `_convert_script`)
+      5. The original name
+      6. All remaining learned aliases (non-Latin)
+
+    Deduplicated, ordered by expected usefulness to external services
+    (Discogs, MusicBrainz, etc.) which primarily use Latin scripts.
+    """
+    seen: set[str] = set()
+    result: list[str] = []
+
+    def _add(v: str) -> None:
+        key = v.casefold().strip()
+        if key and key not in seen:
+            seen.add(key)
+            # Keep original casing for display/query, but use
+            # the stripped version for dedup
+            result.append(v.strip())
+
+    # 1. Learned aliases that are Latin-script, sorted by length descending.
+    #    Longer aliases are more specific (e.g. "joe hisaishi" vs "joe hisaish"),
+    #    so they should be tried first to avoid wasting API calls on misspellings.
+    latin_aliases = [a for a in get_aliases(name) if a.isascii()]
+    # Sort by:
+    #   1. Title-cased (starts with uppercase) first — more likely canonical
+    #   2. Length descending (longer = more specific = more likely correct)
+    #   3. Highest character sum (heuristic: more complete spellings like
+    #      "hisaishi" > "hisaichi")
+    latin_aliases.sort(key=lambda a: (
+        0 if a and a[0].isupper() else 1,
+        -len(a),
+        -sum(ord(c) for c in a),
+    ))
+    for alias in latin_aliases:
+        _add(alias)
+
+    # 2-4. Script variants (TC, SC, others)
+    for variant in _convert_script(name):
+        if variant != name:
+            _add(variant)
+
+    # 5. Original name
+    _add(name)
+
+    # 6. Remaining learned aliases (non-Latin)
+    for alias in get_aliases(name):
+        if not alias.isascii():
+            _add(alias)
+
+    return result
 
 
 def artist_matches_any(artist: str | None, hint: str | None) -> bool:

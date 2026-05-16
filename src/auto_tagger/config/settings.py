@@ -182,6 +182,20 @@ class Settings(BaseSettings):
         le=300,
         description="Cover Art Archive request timeout in seconds",
     )
+    artist_artwork_enabled: bool = Field(
+        default=True,
+        description="Enable artist artwork fetching from Discogs",
+    )
+    artist_artwork_timeout_seconds: int = Field(
+        default=20,
+        ge=1,
+        le=300,
+        description="Artist artwork request timeout in seconds",
+    )
+    artist_artwork_skip_dirs: list[str] = Field(
+        default=["Compilations", "Various Artists", "VA"],
+        description="Directory names to skip when scanning for artist folders",
+    )
     lyrics_enabled: bool = Field(
         default=True,
         description="Enable lyrics discovery and embedding",

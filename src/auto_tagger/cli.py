@@ -183,6 +183,69 @@ def clean(ctx: click.Context, path: Path, dry_run: bool) -> None:
 
 @cli.group()
 @click.pass_context
+def aliases(ctx: click.Context) -> None:
+    """Manage artist name aliases for cross-script matching."""
+
+
+@aliases.command("enrich")
+@click.option(
+    "--dry-run",
+    is_flag=True,
+    help="Show which aliases would be enriched without saving",
+)
+@click.pass_context
+def aliases_enrich(ctx: click.Context, dry_run: bool) -> None:
+    """Enrich existing Chinese artist aliases with English/Pinyin/TC names from
+    MusicBrainz. Only processes Chinese-named entries that have no Latin-script
+    alias yet."""
+    from auto_tagger.commands.aliases import execute_enrich
+
+    settings: Settings = ctx.obj["settings"]
+    execute_enrich(settings, dry_run)
+
+
+@cli.group()
+@click.pass_context
+def artist(ctx: click.Context) -> None:
+    """Manage artist metadata and imagery."""
+
+
+@artist.command("artwork")
+@click.argument("path", type=click.Path(exists=True, path_type=Path))
+@click.option("--dry-run", is_flag=True, help="Preview what would be fetched without downloading")
+@click.option("--force", is_flag=True, help="Re-fetch even if valid artist.jpg already exists")
+@click.option(
+    "--parallel",
+    "-j",
+    type=int,
+    default=1,
+    help="Number of parallel fetches (experimental)",
+)
+@click.pass_context
+def artist_artwork(
+    ctx: click.Context,
+    path: Path,
+    dry_run: bool,
+    force: bool,
+    parallel: int,
+) -> None:
+    """Download artist images from Discogs for all artists in your library.
+
+    Scans top-level directories under PATH for artist folders, then fetches
+    the primary artist image from Discogs and saves it as artist.jpg inside
+    each artist directory. This enables Navidrome to display the image on
+    the artist page.
+
+    Skips Compilations and Various Artists directories automatically.
+    """
+    from auto_tagger.commands.artist import execute_artwork
+
+    settings: Settings = ctx.obj["settings"]
+    execute_artwork(settings, path, dry_run, force, parallel)
+
+
+@cli.group()
+@click.pass_context
 def dataset(ctx: click.Context) -> None:
     """Manage the local MusicMoveArr dataset index."""
 
