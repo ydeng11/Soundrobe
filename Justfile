@@ -66,17 +66,36 @@ show:
 # Development CLI
 # ============================================================================
 
-# Run the CLI (pass args after --, e.g. just run -- --help)
-run args="":
+# Run the CLI (passes remaining args directly)
+# Examples:
+#   just run --help
+#   just run version
+#   just run tag path --interactive
+#   just run batch path --parallel 4 --health-report report.json
+#   just run dataset setup
+#   just run config
+run *args:
     {{ python }} -m auto_tagger {{ args }}
 
-# Tag a single album (dry-run preview)
-tag path=".":
-    {{ python }} -m auto_tagger tag "{{ path }}" --dry-run
+# Tag a single album with optional flags
+# Examples:
+#   just tag                          # tag current dir (dry-run)
+#   just tag /path/to/album           # tag specific album (dry-run)
+#   just tag /path --yolo             # auto-approve and apply
+#   just tag /path --interactive      # prompt before applying
+#   just tag /path --health-report r.json
+tag path="." *flags:
+    {{ python }} -m auto_tagger tag "{{ path }}" {{ flags }}
 
-# Batch process a library (dry-run preview)
-batch path=".":
-    {{ python }} -m auto_tagger batch "{{ path }}" --dry-run
+# Batch process a music library with optional flags
+# Examples:
+#   just batch /library               # dry-run preview of entire library
+#   just batch /library --yolo        # apply all changes automatically
+#   just batch /library --parallel 4  # process 4 albums in parallel
+#   just batch /library --interactive # prompt per album
+#   just batch /library --health-report report.json
+batch path="." *flags:
+    {{ python }} -m auto_tagger batch "{{ path }}" {{ flags }}
 
 # ============================================================================
 # Dataset
