@@ -5,11 +5,11 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
 
 from auto_tagger.config import Settings
 from auto_tagger.core import iter_audio_files, load_audio_file, read_metadata, write_metadata
 from auto_tagger.core.metadata import TrackMetadata
+from auto_tagger.features.compilations import analyze_compilation, apply_smart_album_tags
 from auto_tagger.features.cover_art import (
     CoverArtArchiveClient,
     CoverArtImage,
@@ -116,22 +116,6 @@ def _lookup_mbid_in_map(
             return mbid
     return None
 
-
-def _detect_compilation(tracks: list[Any]) -> bool:
-    """Detect if a set of tracks represents a compilation album.
-
-    Counts unique track-level artist names. If two or more distinct
-    artists appear across tracks, it is treated as a compilation and
-    album_artist should be 'Various Artists'.
-
-    Falls back to non-compilation (False) when no track has an artist.
-    """
-    unique_artists: set[str] = set()
-    for t in tracks:
-        artist = getattr(t, "artist", None)
-        if artist:
-            unique_artists.add(artist.casefold().strip())
-    return len(unique_artists) >= 2
 
 
 def _store_genre_in_map(
@@ -479,9 +463,27 @@ class AlbumWorkflow:
             _store_mbid_in_map(artist_mbid_map, folder_artist, folder_mbid)
 
         # Determine if this is a compilation based on track-level artists
-        is_compilation = _detect_compilation(result.tracks)
-        effective_album_artist = "Various Artists" if is_compilation else (folder_artist or llm_artist or "")
-        effective_album_artists = [effective_album_artist] if effective_album_artist else []
+        analysis = analyze_compilation(result.tracks, album_path_hint=str(request.path))
+
+        if analysis.is_compilation:
+            effective_album_artist = "Various Artists"
+            effective_album_artists = ["Various Artists"]
+            is_collaboration = False
+            smart_tagged_tracks = None
+        elif analysis.is_collaboration:
+            is_collaboration = True
+            smart_tagged_tracks = apply_smart_album_tags(result.tracks, analysis)
+            effective_album_artist = smart_tagged_tracks[0].album_artist or (
+                folder_artist or llm_artist or ""
+            )
+            effective_album_artists = smart_tagged_tracks[0].album_artists or (
+                [effective_album_artist] if effective_album_artist else []
+            )
+        else:
+            is_collaboration = False
+            smart_tagged_tracks = None
+            effective_album_artist = folder_artist or llm_artist or ""
+            effective_album_artists = [effective_album_artist] if effective_album_artist else []
 
         # Sort audio files by filename for stable track ordering
         sorted_files = sorted(audio_files, key=lambda p: p.name)
@@ -492,10 +494,18 @@ class AlbumWorkflow:
             if metadata is None or llm_track is None:
                 continue
 
-            track_artist = llm_track.artist or metadata.artist
-            track_artists = llm_track.artists or metadata.artists or (
-                [track_artist] if track_artist else []
-            )
+            # For collaborations, use smart-tagged per-track artist/artists
+            if is_collaboration and smart_tagged_tracks and i < len(smart_tagged_tracks):
+                st = smart_tagged_tracks[i]
+                track_artist = st.artist or llm_track.artist or metadata.artist
+                track_artists = st.artists or llm_track.artists or metadata.artists or (
+                    [track_artist] if track_artist else []
+                )
+            else:
+                track_artist = llm_track.artist or metadata.artist
+                track_artists = llm_track.artists or metadata.artists or (
+                    [track_artist] if track_artist else []
+                )
 
             new_metadata = TrackMetadata(
                 title=llm_track.title or metadata.title,
@@ -508,6 +518,7 @@ class AlbumWorkflow:
                 track_total=result.tracks[-1].track_number or len(sorted_files),
                 year=metadata.year,
                 genre=llm_track.genre or metadata.genre,
+                compilation=analysis.is_compilation,
                 musicbrainz_artistid=folder_mbid or metadata.musicbrainz_artistid,
             )
             try:
@@ -542,6 +553,7 @@ class AlbumWorkflow:
                             track_number=meta.track_number, track_total=meta.track_total,
                             disc_number=meta.disc_number, disc_total=meta.disc_total,
                             year=meta.year, genre=enriched_genre,
+                            compilation=analysis.is_compilation,
                             musicbrainz_albumid=meta.musicbrainz_albumid,
                             musicbrainz_artistid=meta.musicbrainz_artistid,
                         )
@@ -579,10 +591,43 @@ class AlbumWorkflow:
             if folder_artist and candidate.artist and not artist_matches_any(candidate.artist, folder_artist):
                 _store_mbid_in_map(artist_mbid_map, folder_artist, candidate.musicbrainz_artistid)
 
-        # Determine if this is a compilation based on track-level artists
-        is_compilation = _detect_compilation(candidate.tracks)
-        effective_album_artist = "Various Artists" if is_compilation else (folder_artist or candidate.album_artist or candidate.artist or "")
-        effective_album_artists = [effective_album_artist] if effective_album_artist else []
+        # Analyze compilation pattern (compilation, collaboration, classical, etc.)
+        tracks_for_analysis = [
+            TrackMetadata(
+                title=t.title or "",
+                artist=t.artist,
+                artists=t.artists,
+                album=candidate.album or "",
+                album_artist=candidate.album_artist,
+                album_artists=candidate.album_artists,
+                track_number=t.track_number,
+            )
+            for t in candidate.tracks
+        ]
+        analysis = analyze_compilation(
+            tracks_for_analysis,
+            album_path_hint=candidate.album or "",
+        )
+
+        if analysis.is_compilation:
+            effective_album_artist = "Various Artists"
+            effective_album_artists = ["Various Artists"]
+            is_collaboration = False
+            smart_tagged_tracks = None
+        elif analysis.is_collaboration:
+            is_collaboration = True
+            smart_tagged_tracks = apply_smart_album_tags(tracks_for_analysis, analysis)
+            effective_album_artist = smart_tagged_tracks[0].album_artist or (
+                folder_artist or candidate.album_artist or candidate.artist or ""
+            )
+            effective_album_artists = smart_tagged_tracks[0].album_artists or (
+                [effective_album_artist] if effective_album_artist else []
+            )
+        else:
+            is_collaboration = False
+            smart_tagged_tracks = None
+            effective_album_artist = folder_artist or candidate.album_artist or candidate.artist or ""
+            effective_album_artists = [effective_album_artist] if effective_album_artist else []
 
         # Enrich genre from Discogs if candidate has none
         if not candidate.genre:
@@ -631,11 +676,20 @@ class AlbumWorkflow:
                 force=True,
             )
 
-            # Enforce album artist: "Various Artists" for compilations, folder artist otherwise
+            # For collaborations, use smart-tagged per-track artist/artists
+            if is_collaboration and smart_tagged_tracks and i < len(smart_tagged_tracks):
+                st = smart_tagged_tracks[i]
+                track_artist = st.artist or new_metadata.artist
+                track_artists = st.artists or new_metadata.artists
+            else:
+                track_artist = new_metadata.artist
+                track_artists = new_metadata.artists
+
+            # Enforce album artist based on compilation analysis
             new_metadata = TrackMetadata(
                 title=new_metadata.title,
-                artist=new_metadata.artist,
-                artists=new_metadata.artists,
+                artist=track_artist,
+                artists=track_artists,
                 album=new_metadata.album,
                 album_artist=effective_album_artist,
                 album_artists=effective_album_artists,
@@ -645,6 +699,7 @@ class AlbumWorkflow:
                 disc_total=new_metadata.disc_total,
                 year=new_metadata.year,
                 genre=new_metadata.genre,
+                compilation=analysis.is_compilation,
                 musicbrainz_albumid=new_metadata.musicbrainz_albumid,
                 musicbrainz_artistid=(
                     _lookup_mbid_in_map(artist_mbid_map, folder_artist)

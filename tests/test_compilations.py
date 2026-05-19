@@ -244,6 +244,77 @@ def test_smart_tags_preserves_soundtrack_compilation():
     assert updated[1].artist == "小时姑娘"
 
 
+# ── &-separated duo patterns ──────────────────────────────────
+
+
+def test_has_multi_artist_ampersand_duo():
+    """Two artists joined by & are multi-artist (e.g., Adele & Beyoncé)."""
+    from auto_tagger.features.compilations import _has_multi_artist_track
+
+    track = TrackMetadata(
+        title="Crazy in Love",
+        artist="Beyoncé & Jay-Z",
+        album="The Album",
+        track_number=1,
+    )
+    assert _has_multi_artist_track(track) is True
+
+
+def test_has_multi_artist_comma_duo_not_multi():
+    """Two-part comma names (conductor+orchestra) are NOT multi-artist."""
+    from auto_tagger.features.compilations import _has_multi_artist_track
+
+    track = TrackMetadata(
+        title="Symphony No. 2",
+        artist="Herbert Blomstedt, San Francisco Symphony",
+        album="Symphony No. 2",
+        track_number=1,
+    )
+    assert _has_multi_artist_track(track) is False
+
+
+def test_ampersand_duo_detected_as_collaboration():
+    """Album where every track is A & B is a collaboration, not compilation."""
+    tracks = [
+        TrackMetadata(
+            title="Crazy in Love",
+            artist="Beyoncé & Jay-Z",
+            album="Collaboration Album",
+            track_number=1,
+        ),
+        TrackMetadata(
+            title="Empire State of Mind",
+            artist="Jay-Z & Alicia Keys",
+            album="Collaboration Album",
+            track_number=2,
+        ),
+    ]
+    analysis = analyze_compilation(tracks)
+
+    assert analysis.is_collaboration is True
+    assert analysis.is_compilation is False
+
+
+def test_smart_tags_ampersand_duo_preserves_combined_artist():
+    """For A & B duos, artist keeps the combined name, artists gets individuals."""
+    tracks = [
+        TrackMetadata(
+            title="Crazy in Love",
+            artist="Beyoncé & Jay-Z",
+            album="The Album",
+            track_number=1,
+        ),
+    ]
+    analysis = analyze_compilation(tracks)
+    updated = apply_smart_album_tags(tracks, analysis)
+
+    assert updated[0].artist == "Beyoncé & Jay-Z"
+    assert "Beyoncé" in updated[0].artists
+    assert "Jay-Z" in updated[0].artists
+    assert updated[0].compilation is False
+    assert updated[0].album_artist == "Beyoncé & Jay-Z"
+
+
 def test_composer_round_trip_vorbis():
     """Composer tag reads and writes correctly for Vorbis."""
     tags = {"TITLE": ["Song"], "ARTIST": ["A"], "COMPOSER": ["Beethoven"]}

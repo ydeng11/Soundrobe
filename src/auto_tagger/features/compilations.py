@@ -48,18 +48,20 @@ def _has_multi_artist_track(track: TrackMetadata) -> bool:
     """Check if a single track has multiple credited artists.
 
     Detects: populated artists list, or comma/ampersand/semicolon in artist
-    field with **more than 2 distinct names**.
+    field with multiple distinct names.
 
-    Two-part names like "Herbert Blomstedt, San Francisco Symphony"
-    (conductor + orchestra) are NOT considered multi-artist — they represent
-    a single performing entity.  Three-plus names like
-    "U.S.A. For Africa, Michael Jackson, Lionel Richie, ..." signal a true
-    collaboration.
+    * **&** is an unambiguous collaboration signal — even 2 names (e.g.,
+      "Adele & Beyoncé") are treated as multi-artist.
+    * Comma- or semicolon-separated names require **3+ parts** to avoid
+      treating conductor+orchestra pairs ("Herbert Blomstedt, San Francisco
+      Symphony") as multi-artist.
     """
     if len(track.artists) > 1:
         return True
     if track.artist and _COMMA_SEPARATED_ARTIST_RE.search(track.artist):
         parts = [p.strip() for p in _COMMA_SEPARATED_ARTIST_RE.split(track.artist) if p.strip()]
+        if "&" in track.artist:
+            return len(parts) >= 2
         return len(parts) >= 3
     return False
 
@@ -210,9 +212,13 @@ def _suggest_album_artist(
     # Collaboration → use the group name from artist field
     if is_collaboration and tracks:
         candidate = tracks[0].artist
-        # If artist is a comma-separated list of all members,
-        # use only the group name part (before the first comma)
         if candidate and _COMMA_SEPARATED_ARTIST_RE.search(candidate):
+            parts = [p.strip() for p in _COMMA_SEPARATED_ARTIST_RE.split(candidate) if p.strip()]
+            # For 2-part &-separated duos, return the full combined name
+            # (e.g., "Adele & Beyoncé"), not just the first part.
+            if len(parts) == 2 and "&" in candidate:
+                return candidate
+            # For 3+ parts, use the group name (first part before separator)
             first = _extract_primary_performer(candidate)
             if first:
                 return first
@@ -282,11 +288,16 @@ def apply_smart_album_tags(
                 for p in _COMMA_SEPARATED_ARTIST_RE.split(artist_str)
                 if p.strip()
             ]
-            # If we have a proper group name + members list, the first part is the group
             if len(parts) > 1:
-                # Group name is the first part, remaining are individual artists
-                group_name = parts[0]
                 individual_artists = parts
+                # For 2-part names (&-separated duos), keep the original
+                # combined string as artist (e.g., "Adele & Beyoncé").
+                # For 3+ parts, the first part is the group name
+                # (e.g., "U.S.A. For Africa" in "We Are The World").
+                if len(parts) == 2:
+                    group_name = artist_str
+                else:
+                    group_name = parts[0]
             else:
                 group_name = artist_str
                 individual_artists = [artist_str] if artist_str else []
@@ -297,7 +308,7 @@ def apply_smart_album_tags(
                     album_artist=album_artist,
                     album_artists=[album_artist],
                     artists=individual_artists,
-                    artist=group_name,  # primary = group name
+                    artist=group_name,
                     compilation=False,
                 ).normalized()
             )

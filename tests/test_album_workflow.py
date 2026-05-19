@@ -166,6 +166,284 @@ def test_cover_art_fix_no_local_no_mbid(monkeypatch, tmp_path: Path):
     assert result.cover_art_status == CoverArtStatus.MISSING
 
 
+def test_write_candidate_handles_collaboration(monkeypatch, tmp_path: Path):
+    """Collaboration single (We Are The World) gets group name as album_artist
+    and individual performers in artists list, not mislabeled as compilation.
+    """
+    from auto_tagger.integrations.candidates import AlbumCandidate, TrackCandidate, LookupSource
+
+    audio = tmp_path / "01.flac"
+    audio.touch()
+
+    candidate = AlbumCandidate(
+        artist="U.S.A. For Africa",
+        artists=["U.S.A. For Africa"],
+        album="We Are The World",
+        album_artist="U.S.A. For Africa",
+        album_artists=["U.S.A. For Africa"],
+        tracks=[
+            TrackCandidate(
+                title="We Are The World",
+                artist="U.S.A. For Africa, Michael Jackson, Lionel Richie, Stevie Wonder",
+                artists=[],
+                track_number=1,
+            ),
+        ],
+        source=LookupSource.BEETS,
+    )
+
+    existing_meta = TrackMetadata(
+        title="We Are The World",
+        artist="U.S.A. For Africa",
+        album="We Are The World",
+        album_artist="U.S.A. For Africa",
+        track_number=1,
+    )
+
+    written: list[TrackMetadata] = []
+    monkeypatch.setattr(
+        "auto_tagger.workflows.album.write_metadata",
+        lambda p, m, dry_run=False: written.append(m),
+    )
+
+    workflow = AlbumWorkflow(Settings())
+    monkeypatch.setattr(workflow, "_enrich_genre_from_discogs", lambda c: None)
+    monkeypatch.setattr(workflow, "_enrich_genre_from_llm", lambda a, b, known_genres=None: None)
+
+    fixed, source_label, message = workflow._write_candidate_metadata(
+        audio_files=[audio],
+        metadata_by_path={audio: existing_meta},
+        candidate=candidate,
+    )
+
+    assert fixed is True
+    assert len(written) == 1
+    meta = written[0]
+    # Group name as album_artist, not Various Artists
+    assert meta.album_artist == "U.S.A. For Africa"
+    assert meta.compilation is False
+    # Individual performers populated in artists (plural) list
+    assert "Michael Jackson" in meta.artists
+    assert "Lionel Richie" in meta.artists
+    assert "Stevie Wonder" in meta.artists
+
+
+def test_write_candidate_handles_classical(monkeypatch, tmp_path: Path):
+    """Classical album with same primary performer across tracks
+    is not mislabeled as Various Artists.
+    """
+    from auto_tagger.integrations.candidates import AlbumCandidate, TrackCandidate, LookupSource
+
+    audio = tmp_path / "01.flac"
+    audio.touch()
+
+    candidate = AlbumCandidate(
+        artist="Anne‑Sophie Mutter",
+        artists=["Anne‑Sophie Mutter"],
+        album="East Meets West",
+        album_artist="Anne‑Sophie Mutter",
+        album_artists=["Anne‑Sophie Mutter"],
+        tracks=[
+            TrackCandidate(title="Likoo", artist="Anne‑Sophie Mutter", artists=[], track_number=1),
+            TrackCandidate(title="Studie II", artist="Anne‑Sophie Mutter, Yo-Yo Ma", artists=[], track_number=3),
+            TrackCandidate(title="Air-Homage", artist="Anne‑Sophie Mutter, LSO", artists=[], track_number=14),
+        ],
+        source=LookupSource.BEETS,
+    )
+
+    existing_meta = TrackMetadata(
+        title="Likoo", artist="Anne‑Sophie Mutter",
+        album="East Meets West", album_artist="Anne‑Sophie Mutter",
+        track_number=1,
+    )
+
+    written: list[TrackMetadata] = []
+    monkeypatch.setattr(
+        "auto_tagger.workflows.album.write_metadata",
+        lambda p, m, dry_run=False: written.append(m),
+    )
+
+    workflow = AlbumWorkflow(Settings())
+    monkeypatch.setattr(workflow, "_enrich_genre_from_discogs", lambda c: None)
+    monkeypatch.setattr(workflow, "_enrich_genre_from_llm", lambda a, b, known_genres=None: None)
+
+    fixed, source_label, message = workflow._write_candidate_metadata(
+        audio_files=[audio],
+        metadata_by_path={audio: existing_meta},
+        candidate=candidate,
+    )
+
+    assert fixed is True
+    assert len(written) == 1
+    meta = written[0]
+    # Primary performer as album_artist, NOT Various Artists
+    assert meta.album_artist == "Anne‑Sophie Mutter"
+    assert meta.compilation is False
+
+
+def test_write_candidate_handles_compilation(monkeypatch, tmp_path: Path):
+    """True compilation (different artists per track) still gets Various Artists."""
+    from auto_tagger.integrations.candidates import AlbumCandidate, TrackCandidate, LookupSource
+
+    audio = tmp_path / "01.flac"
+    audio.touch()
+
+    candidate = AlbumCandidate(
+        artist="Various Artists",
+        artists=["Various Artists"],
+        album="Now That's What I Call Music",
+        album_artist="Various Artists",
+        album_artists=["Various Artists"],
+        tracks=[
+            TrackCandidate(title="A", artist="Artist One", artists=["Artist One"], track_number=1),
+            TrackCandidate(title="B", artist="Artist Two", artists=["Artist Two"], track_number=2),
+            TrackCandidate(title="C", artist="Artist Three", artists=["Artist Three"], track_number=3),
+        ],
+        source=LookupSource.BEETS,
+    )
+
+    existing_meta = TrackMetadata(
+        title="A", artist="Artist One",
+        album="Now That's What I Call Music",
+        track_number=1,
+    )
+
+    written: list[TrackMetadata] = []
+    monkeypatch.setattr(
+        "auto_tagger.workflows.album.write_metadata",
+        lambda p, m, dry_run=False: written.append(m),
+    )
+
+    workflow = AlbumWorkflow(Settings())
+    monkeypatch.setattr(workflow, "_enrich_genre_from_discogs", lambda c: None)
+    monkeypatch.setattr(workflow, "_enrich_genre_from_llm", lambda a, b, known_genres=None: None)
+
+    fixed, source_label, message = workflow._write_candidate_metadata(
+        audio_files=[audio],
+        metadata_by_path={audio: existing_meta},
+        candidate=candidate,
+    )
+
+    assert fixed is True
+    assert len(written) == 1
+    meta = written[0]
+    assert meta.album_artist == "Various Artists"
+    assert meta.compilation is True
+    # Per-track artist preserved
+    assert meta.artist == "Artist One"
+
+
+def test_write_candidate_handles_ampersand_duo(monkeypatch, tmp_path: Path):
+    """A & B duo album keeps combined artist, populates ARTISTS, not a compilation."""
+    from auto_tagger.integrations.candidates import AlbumCandidate, TrackCandidate, LookupSource
+
+    audio = tmp_path / "01.flac"
+    audio.touch()
+
+    candidate = AlbumCandidate(
+        artist="Beyoncé & Jay-Z",
+        artists=["Beyoncé", "Jay-Z"],
+        album="The Album",
+        album_artist="Beyoncé & Jay-Z",
+        album_artists=["Beyoncé & Jay-Z"],
+        tracks=[
+            TrackCandidate(
+                title="Crazy in Love",
+                artist="Beyoncé & Jay-Z",
+                artists=[],
+                track_number=1,
+            ),
+        ],
+        source=LookupSource.BEETS,
+    )
+
+    existing_meta = TrackMetadata(
+        title="Crazy in Love",
+        artist="Beyoncé & Jay-Z",
+        album="The Album",
+        album_artist="Beyoncé & Jay-Z",
+        track_number=1,
+    )
+
+    written: list[TrackMetadata] = []
+    monkeypatch.setattr(
+        "auto_tagger.workflows.album.write_metadata",
+        lambda p, m, dry_run=False: written.append(m),
+    )
+
+    workflow = AlbumWorkflow(Settings())
+    monkeypatch.setattr(workflow, "_enrich_genre_from_discogs", lambda c: None)
+    monkeypatch.setattr(workflow, "_enrich_genre_from_llm", lambda a, b, known_genres=None: None)
+
+    fixed, source_label, message = workflow._write_candidate_metadata(
+        audio_files=[audio],
+        metadata_by_path={audio: existing_meta},
+        candidate=candidate,
+    )
+
+    assert fixed is True
+    assert len(written) == 1
+    meta = written[0]
+    # Combined duo name preserved as artist
+    assert meta.artist == "Beyoncé & Jay-Z"
+    # Individual artists in ARTISTS list
+    assert "Beyoncé" in meta.artists
+    assert "Jay-Z" in meta.artists
+    # Not a compilation
+    assert meta.compilation is False
+    assert meta.album_artist == "Beyoncé & Jay-Z"
+
+
+def test_write_candidate_handles_single_artist(monkeypatch, tmp_path: Path):
+    """Normal single-artist album is unchanged — not a compilation."""
+    from auto_tagger.integrations.candidates import AlbumCandidate, TrackCandidate, LookupSource
+
+    audio = tmp_path / "01.flac"
+    audio.touch()
+
+    candidate = AlbumCandidate(
+        artist="Tanya Chua",
+        artists=["Tanya Chua"],
+        album="Goodbye & Hello",
+        album_artist="Tanya Chua",
+        album_artists=["Tanya Chua"],
+        tracks=[
+            TrackCandidate(title="Darwin", artist="Tanya Chua", artists=["Tanya Chua"], track_number=1),
+            TrackCandidate(title="Goodbye & Hello", artist="Tanya Chua", artists=["Tanya Chua"], track_number=2),
+        ],
+        source=LookupSource.BEETS,
+    )
+
+    existing_meta = TrackMetadata(
+        title="Darwin", artist="Tanya Chua",
+        album="Goodbye & Hello", album_artist="Tanya Chua",
+        track_number=1,
+    )
+
+    written: list[TrackMetadata] = []
+    monkeypatch.setattr(
+        "auto_tagger.workflows.album.write_metadata",
+        lambda p, m, dry_run=False: written.append(m),
+    )
+
+    workflow = AlbumWorkflow(Settings())
+    monkeypatch.setattr(workflow, "_enrich_genre_from_discogs", lambda c: None)
+    monkeypatch.setattr(workflow, "_enrich_genre_from_llm", lambda a, b, known_genres=None: None)
+
+    fixed, source_label, message = workflow._write_candidate_metadata(
+        audio_files=[audio],
+        metadata_by_path={audio: existing_meta},
+        candidate=candidate,
+    )
+
+    assert fixed is True
+    assert len(written) == 1
+    meta = written[0]
+    assert meta.album_artist == "Tanya Chua"
+    assert meta.compilation is False
+    assert meta.artist == "Tanya Chua"
+
+
 def test_cover_art_fix_skipped_in_dry_run(monkeypatch, tmp_path: Path):
     """Dry-run mode does not attempt cover art fix."""
     audio = tmp_path / "01.flac"
