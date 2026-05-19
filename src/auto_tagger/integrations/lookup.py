@@ -190,6 +190,9 @@ class LookupService:
             token=self.settings.discogs_token,
             max_candidates=self.settings.discogs_max_candidates,
             timeout_seconds=self.settings.discogs_timeout_seconds,
+            proxy_url=self.settings.discogs_proxy_url,
+            cache_ttl_seconds=self.settings.discogs_cache_ttl,
+            image_cache_dir=self.settings.discogs_image_cache_dir,
         )
         seen: set[tuple[str | None, str | None]] = set()
         results: list[AlbumCandidate] = []

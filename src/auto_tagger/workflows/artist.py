@@ -34,6 +34,9 @@ class ArtistWorkflowConfig:
             token=self.discogs_token or settings.discogs_token,
             timeout_seconds=settings.artist_artwork_timeout_seconds,
             max_candidates=5,
+            proxy_url=settings.discogs_proxy_url,
+            cache_ttl_seconds=settings.discogs_cache_ttl,
+            image_cache_dir=settings.discogs_image_cache_dir,
         )
 
 

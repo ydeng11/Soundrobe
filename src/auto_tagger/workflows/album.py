@@ -25,6 +25,8 @@ from auto_tagger.llm.client import OpenRouterClient
 from auto_tagger.llm.schemas import GenreEnrichmentResponse
 from auto_tagger.quality import AlbumHealthReport, build_album_health_report
 
+_BAD_GENRES = {"未知流派", "unknown", "Unknown", "?"}
+
 
 @dataclass(frozen=True)
 class AlbumWorkflowResult:
@@ -62,6 +64,10 @@ def _artist_variant_keys(name: str) -> list[str]:
 
     try:
         import opencc
+    except ImportError:
+        opencc = None  # type: ignore[assignment]
+
+    if opencc is not None:
         for cfg in ("s2t", "t2s", "s2tw", "tw2s", "s2hk", "hk2s"):
             try:
                 conv = opencc.OpenCC(cfg)
@@ -70,8 +76,6 @@ def _artist_variant_keys(name: str) -> list[str]:
                     keys.append(converted)
             except Exception:
                 continue
-    except Exception:
-        pass
 
     # Add known aliases
     for alias in get_aliases(raw):
@@ -154,6 +158,21 @@ class AlbumWorkflow:
 
     def __init__(self, settings: Settings):
         self.settings = settings
+        self._discogs_client: DiscogsClient | None = None
+
+    @property
+    def _shared_discogs_client(self) -> DiscogsClient:
+        """Return a shared DiscogsClient instance for this workflow run."""
+        if self._discogs_client is None:
+            self._discogs_client = DiscogsClient(
+                token=self.settings.discogs_token,
+                max_candidates=self.settings.discogs_max_candidates,
+                timeout_seconds=self.settings.discogs_timeout_seconds,
+                proxy_url=self.settings.discogs_proxy_url,
+                cache_ttl_seconds=self.settings.discogs_cache_ttl,
+                image_cache_dir=self.settings.discogs_image_cache_dir,
+            )
+        return self._discogs_client
 
     def run(
         self,
@@ -195,9 +214,8 @@ class AlbumWorkflow:
         fix_messages: list[str] = []
 
         # YOLO mode: if tags are missing/error, try to fix from lookup cascade
-        bad_genres = {"未知流派", "unknown", "Unknown", "?"}
         has_bad_genre = any(
-            m.genre is None or m.genre in bad_genres
+            m.genre is None or m.genre in _BAD_GENRES
             for m in metadata_by_path.values()
         )
         has_missing_mbid = any(
@@ -236,7 +254,7 @@ class AlbumWorkflow:
             if first_meta:
                 if (
                     first_meta.genre is None
-                    or first_meta.genre in ("未知流派", "unknown", "Unknown", "?")
+                    or first_meta.genre in _BAD_GENRES
                 ):
                     needs_enrich = True
                 elif not first_meta.year:
@@ -325,10 +343,7 @@ class AlbumWorkflow:
             (m.artist for m in metadata_by_path.values() if m.artist), None
         )
         if artist_name and album_name:
-            discogs = DiscogsClient(
-                timeout_seconds=self.settings.cover_art_timeout_seconds
-            )
-            result = discogs.fetch_cover_art(artist_name, album_name)
+            result = self._shared_discogs_client.fetch_cover_art(artist_name, album_name)
             if result.status == CoverArtStatus.FETCHED_REMOTE and result.image is not None:
                 self._embed_into_all(audio_files, result.image)
                 return (
@@ -841,16 +856,17 @@ class AlbumWorkflow:
             except Exception:
                 continue
 
-    @staticmethod
     def _enrich_genre_from_discogs(
+        self,
         candidate: AlbumCandidate,
     ) -> AlbumCandidate | None:
         """Try to get genre data from Discogs when candidate has none."""
         if not candidate.artist or not candidate.album:
             return None
         try:
-            client = DiscogsClient(max_candidates=3)
-            discogs_results = client.search_album(candidate.artist, candidate.album)
+            discogs_results = self._shared_discogs_client.search_album(
+                candidate.artist, candidate.album
+            )
         except DiscogsError:
             return None
 
@@ -948,8 +964,7 @@ class AlbumWorkflow:
         """
         # Try Discogs first
         try:
-            client = DiscogsClient(max_candidates=3)
-            dc_results = client.search_album(artist, album)
+            dc_results = self._shared_discogs_client.search_album(artist, album)
             for dc in dc_results:
                 if dc.genre:
                     return dc.genre
@@ -959,8 +974,8 @@ class AlbumWorkflow:
         # Fall back to LLM genre suggestion with known-genre context
         return self._enrich_genre_from_llm(artist, album, known_genres=known_genres)
 
-    @staticmethod
     def _enrich_genre_from_lookup(
+        self,
         album_path: Path,
         metadata_by_path: dict[Path, TrackMetadata],
     ) -> dict[Path, TrackMetadata] | None:
@@ -974,7 +989,7 @@ class AlbumWorkflow:
         lookup = LookupService()
         candidates = lookup.lookup_album(album_path)
         request = lookup.request_from_path(album_path)
-        best = AlbumWorkflow._select_best_candidate(candidates, request.artist_hint)
+        best = self._select_best_candidate(candidates, request.artist_hint)
 
         genre = None
         year = None
@@ -982,7 +997,7 @@ class AlbumWorkflow:
             genre = best.genre
             year = best.year
         elif best:
-            enriched = AlbumWorkflow._enrich_genre_from_discogs(best)
+            enriched = self._enrich_genre_from_discogs(best)
             if enriched and enriched.genre:
                 genre = enriched.genre
                 year = enriched.year
@@ -991,8 +1006,9 @@ class AlbumWorkflow:
             # Try Discogs search directly using the original hint
             try:
                 if request.artist_hint and request.album_hint:
-                    discogs = DiscogsClient(max_candidates=3)
-                    for dc in discogs.search_album(request.artist_hint, request.album_hint):
+                    for dc in self._shared_discogs_client.search_album(
+                        request.artist_hint, request.album_hint
+                    ):
                         if dc.genre:
                             genre = dc.genre
                             year = dc.year or year

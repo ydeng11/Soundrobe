@@ -42,3 +42,13 @@ dataset_services:
 dataset_max_candidates: 5
 dataset_downloader_command: aria2c
 dataset_extractor_command: 7z
+
+# Discogs Configuration
+# Token raises rate limit from 25 to 60 req/min
+discogs_token: null
+# Webshare proxy list URL for round-robin rotation on rate limit (used when no token)
+discogs_proxy_url: null
+# TTL in seconds for in-memory Discogs API response cache (default: 3600)
+discogs_cache_ttl: 3600
+# Directory for on-disk cache of downloaded cover art and artist images
+discogs_image_cache_dir: ~/.cache/auto-tagger/discogs-images/
