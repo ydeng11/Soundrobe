@@ -21,21 +21,36 @@ _YEAR_PREFIX_RE = re.compile(r"^(\d{4})[.-]\s*")  # "2017-" or "2018." alone
 _YEAR_FROM_PREFIX_RE = re.compile(r"^(\d{4})[-.]")  # capture year from date prefix (e.g. "2003" from "2003-04《挚爱》")
 _BOOKMARKS_RE = re.compile(r"[《》「」【】\[\]]")  # Chinese/Western bookmarks
 _EXTRA_SUFFIX_RE = re.compile(r"\s*\([^)]*\)\s*$")  # trailing "(FLAC分轨)" etc.
-_FORMAT_SUFFIX_RE = re.compile(r"\[?(flac|mp3|wav|aac|ogg|m4a|wma|ape|flac分轨|wav分轨)\]?\s*$", re.IGNORECASE)  # trailing [flac] etc.
+_FORMAT_SUFFIX_RE = re.compile(r"\[?(flac|mp3|wav|aac|ogg|m4a|wma|ape|flac\s*分轨|wav\s*分轨)\]?\s*$", re.IGNORECASE)  # trailing [flac] etc.
 
 
 def extract_year_from_name(name: str) -> str | None:
-    """Extract a 4-digit year from a folder name's leading date prefix.
+    """Extract a 4-digit year from a folder name.
 
-    "2003-04《挚爱》" → "2003"
+    Tries, in order:
+      1. Leading date prefix: "2003-04《挚爱》" → "2003"
+      2. Inside bookmark brackets: "Artist-《2011-重译》" → "2011"
+      3. Inside parentheses: "Artist (2011) Album" → "2011"
+
     "2005.08 Album" → "2005"
     "2017- Album" → "2017"
     "Album Name" → None
 
     Returns the year string (e.g. "2003") or None.
     """
+    # 1. Leading date prefix
     match = _YEAR_FROM_PREFIX_RE.match(name)
-    return match.group(1) if match else None
+    if match:
+        return match.group(1)
+    # 2. Inside Chinese bookmarks: 《2011-重译》
+    m = re.search(r'[《（（\[]\s*(\d{4})\s*[-.]', name)
+    if m:
+        return m.group(1)
+    # 3. Parenthesized year anywhere: (2011) or [2011]
+    m = re.search(r'[\[(（]\s*(\d{4})\s*[\])）]', name)
+    if m:
+        return m.group(1)
+    return None
 
 
 def clean_folder_name(name: str) -> str:
@@ -47,8 +62,24 @@ def clean_folder_name(name: str) -> str:
       - Bookmarks: "《挚爱》" → "挚爱"
       - Extra suffixes: "Hello (Bonus)" → "Hello"
 
+    For folder names containing paired bookmarks (e.g. "Artist-《2011-Album》[FLAC]"),
+    the content inside the bookmarks is extracted first, then cleaned.
+    This ensures the album hint is just the album name without artist/year prefixes.
+
     Returns the cleaned name, or the original if nothing to strip.
     """
+    # First try extracting content from inside Chinese bookmarks:
+    # "Artist-《2011-Album》[FLAC]" → extract "2011-Album" → clean → "Album"
+    bracketed = re.search(r'《([^》]+)》', name)
+    if bracketed:
+        inner = bracketed.group(1)
+        cleaned = _DATE_PREFIX_RE.sub("", inner)
+        cleaned = _YEAR_PREFIX_RE.sub("", cleaned)
+        cleaned = cleaned.strip()
+        if cleaned:
+            return cleaned
+
+    # Fallback: standard cleanup on full name
     cleaned = _DATE_PREFIX_RE.sub("", name)
     cleaned = _YEAR_PREFIX_RE.sub("", cleaned)
     cleaned = _BOOKMARKS_RE.sub("", cleaned)

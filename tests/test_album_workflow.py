@@ -208,7 +208,7 @@ def test_write_candidate_handles_collaboration(monkeypatch, tmp_path: Path):
     )
 
     workflow = AlbumWorkflow(Settings())
-    monkeypatch.setattr(workflow, "_enrich_genre_from_discogs", lambda c: None)
+    monkeypatch.setattr(workflow, "_enrich_genre_from_discogs", lambda c, discogs_token=None: None)
     monkeypatch.setattr(workflow, "_enrich_genre_from_llm", lambda a, b, known_genres=None: None)
 
     fixed, source_label, message = workflow._write_candidate_metadata(
@@ -265,7 +265,7 @@ def test_write_candidate_handles_classical(monkeypatch, tmp_path: Path):
     )
 
     workflow = AlbumWorkflow(Settings())
-    monkeypatch.setattr(workflow, "_enrich_genre_from_discogs", lambda c: None)
+    monkeypatch.setattr(workflow, "_enrich_genre_from_discogs", lambda c, discogs_token=None: None)
     monkeypatch.setattr(workflow, "_enrich_genre_from_llm", lambda a, b, known_genres=None: None)
 
     fixed, source_label, message = workflow._write_candidate_metadata(
@@ -316,7 +316,7 @@ def test_write_candidate_handles_compilation(monkeypatch, tmp_path: Path):
     )
 
     workflow = AlbumWorkflow(Settings())
-    monkeypatch.setattr(workflow, "_enrich_genre_from_discogs", lambda c: None)
+    monkeypatch.setattr(workflow, "_enrich_genre_from_discogs", lambda c, discogs_token=None: None)
     monkeypatch.setattr(workflow, "_enrich_genre_from_llm", lambda a, b, known_genres=None: None)
 
     fixed, source_label, message = workflow._write_candidate_metadata(
@@ -373,7 +373,7 @@ def test_write_candidate_handles_ampersand_duo(monkeypatch, tmp_path: Path):
     )
 
     workflow = AlbumWorkflow(Settings())
-    monkeypatch.setattr(workflow, "_enrich_genre_from_discogs", lambda c: None)
+    monkeypatch.setattr(workflow, "_enrich_genre_from_discogs", lambda c, discogs_token=None: None)
     monkeypatch.setattr(workflow, "_enrich_genre_from_llm", lambda a, b, known_genres=None: None)
 
     fixed, source_label, message = workflow._write_candidate_metadata(
@@ -428,7 +428,7 @@ def test_write_candidate_handles_single_artist(monkeypatch, tmp_path: Path):
     )
 
     workflow = AlbumWorkflow(Settings())
-    monkeypatch.setattr(workflow, "_enrich_genre_from_discogs", lambda c: None)
+    monkeypatch.setattr(workflow, "_enrich_genre_from_discogs", lambda c, discogs_token=None: None)
     monkeypatch.setattr(workflow, "_enrich_genre_from_llm", lambda a, b, known_genres=None: None)
 
     fixed, source_label, message = workflow._write_candidate_metadata(

@@ -10,12 +10,15 @@ from auto_tagger.integrations.fallback import (
 
 
 def test_extract_year_from_name():
-    """Year is extracted from leading date prefix."""
+    """Year is extracted from leading date prefix or inside bookmarks."""
     assert extract_year_from_name("2003-04《挚爱》") == "2003"
     assert extract_year_from_name("2005-08《好久不见》") == "2005"
     assert extract_year_from_name("2008-01《喝采》") == "2008"
     assert extract_year_from_name("2005.08 Album Name") == "2005"
     assert extract_year_from_name("2017- Album") == "2017"
+    # Year inside Chinese bookmarks (e.g. Artist-《2011-Album》[Format])
+    assert extract_year_from_name("陈洁仪-《2011-重译》[WAV 分轨]") == "2011"
+    assert extract_year_from_name("Artist-《1994-Album》") == "1994"
     assert extract_year_from_name("Album Name") is None
     assert extract_year_from_name("5566") is None
     assert extract_year_from_name("挚爱") is None
@@ -44,6 +47,21 @@ def test_clean_extra_suffix():
     """Trailing parenthetical suffixes are stripped."""
     assert clean_folder_name("Album Name (FLAC分轨)") == "Album Name"
     assert clean_folder_name("Hello (Bonus Track Edition)") == "Hello"
+
+
+def test_clean_format_suffix_with_space():
+    """Format suffix with space between code and 分轨 is stripped."""
+    # "WAV 分轨" has a space between "WAV" and "分轨"
+    assert clean_folder_name("陈洁仪-《2011-重译》[WAV 分轨]") == "重译"
+    assert clean_folder_name("Artist-《2000-Album》[FLAC 分轨]") == "Album"
+
+
+def test_clean_artist_album_bookmark_pattern():
+    """Artist-《Year-Album》[Format] extracts just the album name."""
+    # The full pattern: Artist-《Year-Album》[FLAC]
+    assert clean_folder_name("陈洁仪-《2011-重译》[WAV 分轨]") == "重译"
+    assert clean_folder_name("陈洁仪-《1994-心痛》[WAV 分轨]") == "心痛"
+    assert clean_folder_name("Artist-《2005-Album Name》") == "Album Name"
 
 
 def test_clean_combined():
