@@ -8,6 +8,8 @@ from pathlib import Path
 
 from auto_tagger.config import Settings
 from auto_tagger.core import iter_audio_files, load_audio_file, read_metadata, write_metadata
+from auto_tagger.core.audio import AudioFormat
+from auto_tagger.core.formats import strip_wav_list_chunks
 from auto_tagger.core.metadata import TrackMetadata
 from auto_tagger.features.compilations import analyze_compilation, apply_smart_album_tags
 from auto_tagger.features.cover_art import (
@@ -414,7 +416,7 @@ class AlbumWorkflow:
 
                 if needs_enrich:
                     try:
-                        enriched = self._enrich_genre_from_lookup(path, metadata_by_path)
+                        enriched = self._enrich_genre_from_lookup(path, metadata_by_path, discogs_token=self.settings.discogs_token)
                         if enriched:
                             metadata_by_path = enriched
                             fix_messages.append("Enriched genre/year from Discogs")
@@ -733,7 +735,8 @@ class AlbumWorkflow:
         )
         if artist_name and album_name:
             discogs = DiscogsClient(
-                timeout_seconds=self.settings.cover_art_timeout_seconds
+                token=self.settings.discogs_token,
+                timeout_seconds=self.settings.cover_art_timeout_seconds,
             )
             result = discogs.fetch_cover_art(artist_name, album_name)
             if result.status == CoverArtStatus.FETCHED_REMOTE and result.image is not None:
@@ -1082,7 +1085,7 @@ class AlbumWorkflow:
 
         # Enrich genre from Discogs if candidate has none
         if not candidate.genre:
-            enriched = self._enrich_genre_from_discogs(candidate)
+            enriched = self._enrich_genre_from_discogs(candidate, discogs_token=self.settings.discogs_token)
             if enriched:
                 candidate = enriched
 
@@ -1527,18 +1530,24 @@ class AlbumWorkflow:
                 af = load_audio_file(audio_file)
                 embed_cover_art(af.format, af.mutagen_file, image)
                 af.mutagen_file.save()
+                if af.format == AudioFormat.WAV:
+                    strip_wav_list_chunks(audio_file)
             except Exception:
                 continue
 
     @staticmethod
     def _enrich_genre_from_discogs(
         candidate: AlbumCandidate,
+        discogs_token: str | None = None,
     ) -> AlbumCandidate | None:
         """Try to get genre data from Discogs when candidate has none."""
         if not candidate.artist or not candidate.album:
             return None
         try:
-            client = DiscogsClient(max_candidates=3)
+            client = DiscogsClient(
+                token=discogs_token,
+                max_candidates=3,
+            )
             discogs_results = client.search_album(candidate.artist, candidate.album)
         except DiscogsError:
             return None
@@ -1637,7 +1646,10 @@ class AlbumWorkflow:
         """
         # Try Discogs first
         try:
-            client = DiscogsClient(max_candidates=3)
+            client = DiscogsClient(
+                token=self.settings.discogs_token,
+                max_candidates=3,
+            )
             dc_results = client.search_album(artist, album)
             for dc in dc_results:
                 if dc.genre:
@@ -1652,6 +1664,7 @@ class AlbumWorkflow:
     def _enrich_genre_from_lookup(
         album_path: Path,
         metadata_by_path: dict[Path, TrackMetadata],
+        discogs_token: str | None = None,
     ) -> dict[Path, TrackMetadata] | None:
         """Look up genre from Discogs and enrich metadata if genre is missing.
 
@@ -1671,7 +1684,7 @@ class AlbumWorkflow:
             genre = best.genre
             year = best.year
         elif best:
-            enriched = AlbumWorkflow._enrich_genre_from_discogs(best)
+            enriched = AlbumWorkflow._enrich_genre_from_discogs(best, discogs_token=discogs_token)
             if enriched and enriched.genre:
                 genre = enriched.genre
                 year = enriched.year
@@ -1680,7 +1693,10 @@ class AlbumWorkflow:
             # Try Discogs search directly using the original hint
             try:
                 if request.artist_hint and request.album_hint:
-                    discogs = DiscogsClient(max_candidates=3)
+                    discogs = DiscogsClient(
+                        token=discogs_token,
+                        max_candidates=3,
+                    )
                     for dc in discogs.search_album(request.artist_hint, request.album_hint):
                         if dc.genre:
                             genre = dc.genre

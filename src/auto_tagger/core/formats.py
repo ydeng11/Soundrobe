@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
+import logging
 from base64 import b64encode
+from pathlib import Path
 from typing import Any
 
 from auto_tagger.core.audio import AudioFormat
 from auto_tagger.core.metadata import ReplayGainTags, TrackMetadata, format_position, parse_position
+
+LOG = logging.getLogger(__name__)
 
 MP4_FREEFORM_PREFIX = "----:com.apple.iTunes:"
 
@@ -26,14 +30,27 @@ def read_tags(audio_format: AudioFormat, tags: Any) -> TrackMetadata:
 def write_tags(audio_format: AudioFormat, tags: Any, metadata: TrackMetadata) -> None:
     """Write normalized metadata to a format-specific tag object."""
     normalized = metadata.normalized()
+    save_path: Path | None = None
     if audio_format in (AudioFormat.MP3, AudioFormat.WAV):
         # MP3/WAV wrapper doesn't proxy delall — unwrap to ID3
         if hasattr(tags, "tags"):
+            # Grab the file path from the outer mutagen wrapper *before*
+            # unwrapping, because _WaveID3 may have a None filename when
+            # created fresh via add_tags().
+            save_path = Path(tags.filename) if tags.filename else None
+
             if tags.tags is None and hasattr(tags, "add_tags"):
                 tags.add_tags()
             if tags.tags is not None and hasattr(tags.tags, "delall"):
                 tags = tags.tags
         _write_mp3_tags(tags, normalized)
+
+        # Strip legacy LIST/INFO chunks from WAV files *before* the caller's
+        # save(), so that when mutagen re-writes the file it never serialises
+        # the LIST chunk back.  The stale LIST metadata shows as "unsupported
+        # data" in tag editors like mp3tag.
+        if audio_format is AudioFormat.WAV and save_path is not None:
+            strip_wav_list_chunks(save_path)
     elif audio_format is AudioFormat.M4A:
         _write_mp4_tags(tags, normalized)
     else:
@@ -363,6 +380,79 @@ def _strip_junk_mp3(tags: Any) -> None:
             tags.delall(junk_key)
         except AttributeError:
             pass
+
+
+def strip_wav_list_chunks(path: Path) -> bool:
+    """Remove all LIST/INFO chunks from a WAV file.
+
+    WAV files can contain both standard RIFF LIST/INFO metadata
+    (sub-chunks like IART for artist, IPRD for album, etc.) and
+    non-standard embedded ID3 ``id3 `` chunks.  The LIST metadata
+    often carries stale or conflicting values that cause tag editors
+    such as mp3tag to display "unsupported data".
+
+    This function physically removes every LIST chunk from the file.
+    It is safe to call on files with no LIST chunks (returns False).
+
+    Returns:
+        True if at least one LIST chunk was removed.
+
+    Raises:
+        TaggingError if the file is not a valid WAV file.
+    """
+    with open(path, "rb") as f:
+        data = bytearray(f.read())
+
+    if len(data) < 12 or data[0:4] != b"RIFF" or data[8:12] != b"WAVE":
+        from auto_tagger.exceptions import TaggingError
+
+        raise TaggingError(f"Not a valid WAV file: {path}")
+
+    # Scan all chunks, copy everything except LIST chunks.
+    cleaned = bytearray()
+    cleaned.extend(data[0:12])  # RIFF marker + size placeholder + WAVE ID
+    pos = 12
+    removed = False
+
+    while pos < len(data) - 8:
+        chunk_id = data[pos : pos + 4]
+        chunk_size = int.from_bytes(data[pos + 4 : pos + 8], "little")
+
+        # Protect against bogus sizes (e.g. trailing garbage in the file)
+        remaining = len(data) - (pos + 8)
+        if chunk_size > remaining:
+            LOG.warning(
+                "Truncating chunk %r in %s: declared %d bytes, %d available",
+                chunk_id,
+                path,
+                chunk_size,
+                remaining,
+            )
+            break  # treat remaining bytes as dead data, not a valid chunk
+
+        if chunk_id == b"LIST":
+            removed = True
+            pos += 8 + chunk_size
+            if chunk_size % 2:
+                pos += 1  # RIFF padding byte
+            continue
+
+        chunk_end = pos + 8 + chunk_size
+        if chunk_size % 2:
+            chunk_end += 1  # RIFF padding byte
+        cleaned.extend(data[pos : min(chunk_end, len(data))])
+        pos = chunk_end
+
+    # Update the RIFF size field.
+    new_size = len(cleaned) - 8
+    cleaned[4:8] = new_size.to_bytes(4, "little")
+
+    with open(path, "wb") as f:
+        f.write(cleaned)
+
+    if removed:
+        LOG.info("Stripped LIST chunk(s) from %s", path)
+    return removed
 
 
 def embed_cover_art(audio_format: AudioFormat, tags: Any, data: bytes, mime_type: str) -> None:
