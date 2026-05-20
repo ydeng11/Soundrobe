@@ -25,8 +25,6 @@ from auto_tagger.llm.client import OpenRouterClient
 from auto_tagger.llm.schemas import GenreEnrichmentResponse
 from auto_tagger.quality import AlbumHealthReport, build_album_health_report
 
-_BAD_GENRES = {"未知流派", "unknown", "Unknown", "?"}
-
 
 @dataclass(frozen=True)
 class AlbumWorkflowResult:
@@ -64,10 +62,6 @@ def _artist_variant_keys(name: str) -> list[str]:
 
     try:
         import opencc
-    except ImportError:
-        opencc = None  # type: ignore[assignment]
-
-    if opencc is not None:
         for cfg in ("s2t", "t2s", "s2tw", "tw2s", "s2hk", "hk2s"):
             try:
                 conv = opencc.OpenCC(cfg)
@@ -76,6 +70,8 @@ def _artist_variant_keys(name: str) -> list[str]:
                     keys.append(converted)
             except Exception:
                 continue
+    except Exception:
+        pass
 
     # Add known aliases
     for alias in get_aliases(raw):
@@ -153,26 +149,41 @@ def _get_context_genres(
     return artist_genre_map.get(artist_name.casefold().strip(), [])
 
 
+def _stem_track_number(stem: str) -> int | None:
+    """Extract leading track number from a filename stem.
+
+    Handles: "01 Song" → 1, "01-Song" → 1, "01_Song" → 1,
+    "1.Song" → 1, "01Song" → 1.
+    Returns None when no leading digits are found.
+    """
+    import re
+    m = re.match(r"^(\d{1,2})", stem)
+    return int(m.group(1)) if m else None
+
+
+def _clean_stem(stem: str) -> str:
+    """Strip leading track-number prefix from a filename stem.
+
+    Handles: "01 爷爷" → "爷爷", "01.爷爷" → "爷爷",
+    "01-爷爷" → "爷爷", "01_爷爷" → "爷爷", "1.爷爷" → "爷爷",
+    "01爷爷" → "爷爷".
+    Returns the original stem when no prefix is found.
+    """
+    import re
+    m = re.match(r"^(\d{1,2})\s*[\.\-\s_]\s*(.+)$", stem)
+    if m:
+        return m.group(2)
+    m = re.match(r"^(\d{1,2})\s*(\S.+)$", stem)
+    if m:
+        return m.group(2)
+    return stem
+
+
 class AlbumWorkflow:
     """Coordinate single-album preview and safe apply behavior."""
 
     def __init__(self, settings: Settings):
         self.settings = settings
-        self._discogs_client: DiscogsClient | None = None
-
-    @property
-    def _shared_discogs_client(self) -> DiscogsClient:
-        """Return a shared DiscogsClient instance for this workflow run."""
-        if self._discogs_client is None:
-            self._discogs_client = DiscogsClient(
-                token=self.settings.discogs_token,
-                max_candidates=self.settings.discogs_max_candidates,
-                timeout_seconds=self.settings.discogs_timeout_seconds,
-                proxy_url=self.settings.discogs_proxy_url,
-                cache_ttl_seconds=self.settings.discogs_cache_ttl,
-                image_cache_dir=self.settings.discogs_image_cache_dir,
-            )
-        return self._discogs_client
 
     def run(
         self,
@@ -204,76 +215,195 @@ class AlbumWorkflow:
             metadata_by_path,
             self.settings,
         )
-        planned_writes = len(audio_files)
-        can_write = (
-            not dry_run and self.settings.yolo and health_report.can_tag and not interactive
-        )
-        applied_writes = 0
-        metadata_fixed = False
-        fix_source = ""
+
         fix_messages: list[str] = []
 
-        # YOLO mode: if tags are missing/error, try to fix from lookup cascade
-        has_bad_genre = any(
-            m.genre is None or m.genre in _BAD_GENRES
-            for m in metadata_by_path.values()
+        # ── Fix duplicate track numbers before exclusion checks ──
+        # Run early so that Pattern 3 (discard strays from duplicate groups)
+        # does not false-positive on all-track-1 albums: once duplicates are
+        # resolved, each file has a unique track number and no duplicate
+        # groups exist to trigger the stray-detection heuristic.
+        dup_fixed, metadata_by_path, health_report = self._fix_duplicate_track_numbers(
+            audio_files, metadata_by_path, health_report, dry_run,
         )
-        has_missing_mbid = any(
-            m.musicbrainz_artistid is None or m.musicbrainz_albumid is None
-            for m in metadata_by_path.values()
-        )
-        needs_fix = (
-            not health_report.can_tag
-            or self._artist_mismatches_folder(path, metadata_by_path)
-            or has_bad_genre
-            or has_missing_mbid
-        )
-        if not dry_run and self.settings.yolo and not interactive and needs_fix:
-            fixed, source, msg = self._fix_metadata(
-                path, audio_files, metadata_by_path,
-                artist_mbid_map=artist_mbid_map,
-                artist_genre_map=artist_genre_map,
+        if dup_fixed:
+            fix_messages.append(
+                "Renumbered tracks (filename prefixes or sequential)"
             )
-            if fixed:
-                metadata_fixed = True
-                fix_source = source
-                fix_messages.append(msg)
-                # Re-read metadata and rebuild health after fix
-                metadata_by_path = {
-                    audio_file: read_metadata(audio_file) for audio_file in audio_files
-                }
-                health_report = build_album_health_report(
-                    path, audio_files, metadata_by_path, self.settings
+
+        # ── Exclude tracks that don't belong to this album ───────────────
+        # Several patterns indicate a file does not belong to the album:
+        #   1. track_number > track_total (stray from another release)
+        #   2. disc_number > disc_total
+        #   3. duplicate track number where one file has disc_number=None
+        #      and another has a real disc number (the disc=None one is stray)
+        #   4. missing track_number on a single-track album — auto-assign
+        #
+        # These tracks are excluded from processing and deleted in YOLO mode.
+        excluded_paths: set[Path] = set()
+
+        # Pattern 1 & 2: track/disc exceeds total
+        exceeded_codes = {"metadata.track_exceeds_total", "metadata.disc_exceeds_total"}
+        for th in health_report.track_health:
+            for issue in th.issues:
+                if issue.code in exceeded_codes:
+                    excluded_paths.add(th.path)
+                    break
+
+        # Pattern 3: duplicate track number caused by missing disc number.
+        # When two files share the same track number (same disc) and one
+        # has disc_number=None while the other has a real disc number,
+        # the disc=None file is likely a stray from another disc/release.
+        dup_code = "metadata.duplicate_track_number"
+        for issue in health_report.issues:
+            if issue.code != dup_code:
+                continue
+            dup_paths = [Path(p) for p in (issue.details.get("paths") or [])]
+            if len(dup_paths) < 2:
+                continue
+            # Check if some have disc_number=None while others have a real disc
+            has_disc: set[Path] = set()
+            no_disc: set[Path] = set()
+            for dp in dup_paths:
+                meta = metadata_by_path.get(dp)
+                if meta is not None and meta.disc_number is not None:
+                    has_disc.add(dp)
+                else:
+                    no_disc.add(dp)
+            # If some have disc and some don't, the disc=None ones are stray
+            if has_disc and no_disc:
+                excluded_paths.update(no_disc)
+
+        # Pattern 4: missing track number. For single-track folders,
+        # auto-assign track_number=1 immediately so the lookup path
+        # doesn't have to re-discover it.
+        missing_code = "metadata.missing_track_number"
+        for th in health_report.track_health:
+            for issue in th.issues:
+                if issue.code != missing_code:
+                    continue
+                if len(audio_files) == 1 and not dry_run:
+                    meta = metadata_by_path.get(th.path)
+                    if meta is not None:
+                        fixed = TrackMetadata(
+                            title=meta.title, artist=meta.artist,
+                            artists=meta.artists,
+                            album=meta.album, album_artist=meta.album_artist,
+                            album_artists=meta.album_artists,
+                            track_number=1, track_total=1,
+                            disc_number=meta.disc_number,
+                            disc_total=meta.disc_total,
+                            year=meta.year, genre=meta.genre,
+                            musicbrainz_trackid=meta.musicbrainz_trackid,
+                            musicbrainz_albumid=meta.musicbrainz_albumid,
+                            musicbrainz_artistid=meta.musicbrainz_artistid,
+                            lyrics=meta.lyrics,
+                            compilation=meta.compilation,
+                            replaygain=meta.replaygain,
+                        )
+                        write_metadata(th.path, fixed, dry_run=False)
+                        metadata_by_path[th.path] = fixed
+                    break
+
+        if excluded_paths:
+            audio_files = [f for f in audio_files if f not in excluded_paths]
+            for ep in excluded_paths:
+                metadata_by_path.pop(ep, None)
+            # Rebuild health report without excluded tracks
+            health_report = build_album_health_report(
+                path,
+                audio_files,
+                metadata_by_path,
+                self.settings,
+            )
+
+        planned_writes = len(audio_files)
+        applied_writes = 0
+        wrote_all = False  # tracks whether we already wrote metadata via the fix path
+
+        if excluded_paths:
+            excluded_names = ", ".join(p.name for p in sorted(excluded_paths))
+            if not dry_run and self.settings.yolo and not interactive:
+                deleted = 0
+                for ep in sorted(excluded_paths):
+                    try:
+                        ep.unlink()
+                        deleted += 1
+                    except Exception:
+                        pass
+                fix_messages.append(
+                    f"Deleted {deleted} track(s) not belonging to album: {excluded_names}"
                 )
-                applied_writes = len(audio_files)
+            else:
+                fix_messages.append(
+                    f"Would delete {len(excluded_paths)} track(s) not belonging to album: {excluded_names}"
+                )
 
-        if can_write:
-            # Check if genre or year is missing — do a quick lookup to enrich
-            first_meta = next(iter(metadata_by_path.values()), None)
-            needs_enrich = False
-            if first_meta:
-                if (
-                    first_meta.genre is None
-                    or first_meta.genre in _BAD_GENRES
-                ):
-                    needs_enrich = True
-                elif not first_meta.year:
-                    # Year is missing but genre exists — still try to enrich
-                    # since Discogs also provides year data.
-                    needs_enrich = True
+        # YOLO mode: fix tags via lookup cascade, or write existing metadata
+        if not dry_run and self.settings.yolo and not interactive:
+            # Check if tags need fixing (health errors, missing MBID, bad genre,
+            # or artist mismatch)
+            bad_genres = {"未知流派", "unknown", "Unknown", "?"}
+            has_bad_genre = any(
+                m.genre is None or m.genre in bad_genres
+                for m in metadata_by_path.values()
+            )
+            has_missing_mbid = any(
+                m.musicbrainz_artistid is None or m.musicbrainz_albumid is None
+                for m in metadata_by_path.values()
+            )
+            needs_fix = (
+                not health_report.can_tag
+                or self._artist_mismatches_folder(path, metadata_by_path)
+                or has_bad_genre
+                or has_missing_mbid
+            )
 
-            if needs_enrich:
-                try:
-                    enriched = self._enrich_genre_from_lookup(path, metadata_by_path)
-                    if enriched:
-                        metadata_by_path = enriched
-                        fix_messages.append("Enriched genre/year from Discogs")
-                except Exception:
-                    pass
+            if needs_fix:
+                fixed, source, msg = self._fix_metadata(
+                    path, audio_files, metadata_by_path,
+                    artist_mbid_map=artist_mbid_map,
+                    artist_genre_map=artist_genre_map,
+                )
+                if fixed:
+                    fix_messages.append(msg)
+                    # Re-read metadata and rebuild health after fix
+                    metadata_by_path = {
+                        audio_file: read_metadata(audio_file) for audio_file in audio_files
+                    }
+                    health_report = build_album_health_report(
+                        path, audio_files, metadata_by_path, self.settings
+                    )
+                    applied_writes = len(audio_files)
+                    wrote_all = True
 
-            for audio_file, metadata in metadata_by_path.items():
-                write_metadata(audio_file, metadata, dry_run=False)
-                applied_writes += 1
+            if not wrote_all:
+                # No fix needed, or fix failed — write whatever metadata we have
+                # (YOLO mode always writes)
+                first_meta = next(iter(metadata_by_path.values()), None)
+                needs_enrich = False
+                if first_meta:
+                    if (
+                        first_meta.genre is None
+                        or first_meta.genre in ("未知流派", "unknown", "Unknown", "?")
+                    ):
+                        needs_enrich = True
+                    elif not first_meta.year:
+                        needs_enrich = True
+
+                if needs_enrich:
+                    try:
+                        enriched = self._enrich_genre_from_lookup(path, metadata_by_path)
+                        if enriched:
+                            metadata_by_path = enriched
+                            fix_messages.append("Enriched genre/year from Discogs")
+                    except Exception:
+                        pass
+
+                for audio_file, metadata in metadata_by_path.items():
+                    write_metadata(audio_file, metadata, dry_run=False)
+                    applied_writes += 1
+                wrote_all = True
 
         skipped_writes = planned_writes - applied_writes if not dry_run else 0
 
@@ -300,6 +430,244 @@ class AlbumWorkflow:
             cover_art_message=cover_art_message,
             messages=fix_messages,
         )
+
+    def _fix_duplicate_track_numbers(
+        self,
+        audio_files: list[Path],
+        metadata_by_path: dict[Path, TrackMetadata],
+        health_report: AlbumHealthReport,
+        dry_run: bool,
+    ) -> tuple[bool, dict[Path, TrackMetadata], AlbumHealthReport]:
+        """Fix duplicate track numbers using two strategies:
+
+        **Strategy 1 (prefix-based):** Extract track numbers from leading
+        digits in filenames (e.g. ``01 Song.flac`` → 1) and apply if the
+        filename-based numbers are present on all duplicate files, unique
+        within the group, and don't conflict with non-duplicate tracks.
+
+        **Strategy 2 (sequential fallback):** When Strategy 1 resolves nothing
+        and all files on a disc share the SAME track number (e.g. all
+        track_number=1), assign them sequentially 1..N based on filename
+        order. This is safe because all-tracks-same-number is unambiguously
+        a metadata error.
+
+        Returns (fixed, updated_metadata_by_path, updated_health_report).
+        """
+        dup_code = "metadata.duplicate_track_number"
+        has_any_dup = any(i.code == dup_code for i in health_report.issues)
+        if not has_any_dup:
+            return False, metadata_by_path, health_report
+
+        # ── Strategy 1: Prefix-based renumbering ──────────────────────
+
+        # Build map of existing track numbers for non-duplicate conflict checking
+        existing_numbers: dict[Path, int | None] = {}
+        for af in audio_files:
+            meta = metadata_by_path.get(af)
+            if meta is not None and meta.track_number is not None:
+                existing_numbers[af] = meta.track_number
+
+        fixed = False
+        fixed_paths: set[Path] = set()
+
+        for issue in health_report.issues:
+            if issue.code != dup_code:
+                continue
+
+            dup_paths = [Path(p) for p in (issue.details.get("paths") or [])]
+            if len(dup_paths) < 2:
+                continue
+
+            # Extract stem numbers for these paths
+            stem_map: dict[Path, int | None] = {}
+            for dp in dup_paths:
+                stem_map[dp] = _stem_track_number(dp.stem)
+
+            # All must have stem numbers
+            if any(v is None for v in stem_map.values()):
+                continue
+
+            # Stem numbers must be unique within the group
+            nums = [v for v in stem_map.values() if v is not None]
+            if len(nums) != len(set(nums)):
+                continue
+
+            # Check stem numbers don't conflict with non-duplicate tracks on same disc
+            non_dup_paths = set(existing_numbers.keys()) - set(dup_paths)
+            existing_non_dup_numbers = {
+                existing_numbers[p] for p in non_dup_paths
+                if existing_numbers[p] is not None
+            }
+            if any(n in existing_non_dup_numbers for n in nums):
+                continue
+
+            # Apply renumbering
+            for dp in dup_paths:
+                if dp in fixed_paths:
+                    continue
+                stem_num = stem_map[dp]
+                if stem_num is None:
+                    continue
+                meta = metadata_by_path.get(dp)
+                if meta is None:
+                    continue
+
+                fixed_meta = TrackMetadata(
+                    title=meta.title, artist=meta.artist,
+                    artists=meta.artists,
+                    album=meta.album, album_artist=meta.album_artist,
+                    album_artists=meta.album_artists,
+                    track_number=stem_num,
+                    track_total=meta.track_total,
+                    disc_number=meta.disc_number,
+                    disc_total=meta.disc_total,
+                    year=meta.year, genre=meta.genre,
+                    musicbrainz_trackid=meta.musicbrainz_trackid,
+                    musicbrainz_albumid=meta.musicbrainz_albumid,
+                    musicbrainz_artistid=meta.musicbrainz_artistid,
+                    lyrics=meta.lyrics,
+                    compilation=meta.compilation,
+                    replaygain=meta.replaygain,
+                )
+                if not dry_run:
+                    try:
+                        write_metadata(dp, fixed_meta, dry_run=False)
+                        metadata_by_path[dp] = fixed_meta
+                        fixed_paths.add(dp)
+                        fixed = True
+                    except Exception:
+                        # Skip files that can't be written (corrupt, unsupported)
+                        continue
+
+        # ── Strategy 2: Sequential fallback ───────────────────────────
+        # If Strategy 1 didn't fix everything, check if there are discs where
+        # ALL files share the same track number (e.g. all track=1). This is
+        # clearly a metadata error — assign sequential numbers 1..N.
+
+        if not fixed or any(i.code == dup_code for i in health_report.issues):
+            seq_fixed = self._fix_duplicate_tracks_sequential(
+                audio_files, metadata_by_path, health_report, dry_run,
+            )
+            if seq_fixed:
+                fixed = True
+
+        if not fixed:
+            return False, metadata_by_path, health_report
+
+        updated_health = build_album_health_report(
+            health_report.album_path,
+            audio_files,
+            metadata_by_path,
+            self.settings,
+        )
+        return True, metadata_by_path, updated_health
+
+    def _fix_duplicate_tracks_sequential(
+        self,
+        audio_files: list[Path],
+        metadata_by_path: dict[Path, TrackMetadata],
+        health_report: AlbumHealthReport,
+        dry_run: bool,
+    ) -> bool:
+        """Sequential track renumbering fallback.
+
+        When all files on a given effective disc (treating disc=None as
+        disc=1) share the same track number (e.g. all track_number=1),
+        assign them sequentially 1..N based on filename sort order. This
+        is safe because all-tracks-same-number on the same disc is
+        unambiguously a metadata error.
+
+        Normalises disc_number: files with disc=None are treated as
+        disc=1 for grouping, and are also written with disc=1 so the
+        health check (which defaults None to 1) doesn't create
+        overlapping duplicate groups.
+
+        Returns True if any tracks were renumbered.
+        """
+        from collections import defaultdict
+
+        dup_code = "metadata.duplicate_track_number"
+
+        # Normalise disc_number: treat None as 1 for grouping
+        def _effective_disc(path: Path) -> int:
+            meta = metadata_by_path.get(path)
+            return (meta.disc_number if meta is not None and meta.disc_number is not None else 1)
+
+        # Group files by effective disc number
+        files_by_disc: dict[int, list[Path]] = defaultdict(list)
+        for af in audio_files:
+            files_by_disc[_effective_disc(af)].append(af)
+
+        # Collect all paths that appear in duplicate-track-number issues
+        existing_dup_paths: set[Path] = set()
+        for issue in health_report.issues:
+            if issue.code != dup_code:
+                continue
+            for p in (issue.details.get("paths") or []):
+                existing_dup_paths.add(Path(p))
+
+        any_fixed = False
+
+        for disc, disc_files in files_by_disc.items():
+            if len(disc_files) < 2:
+                continue
+
+            # Check if ALL files on this effective disc share the same
+            # track number (treating disc=None as disc=1)
+            track_numbers: set[int | None] = set()
+            for af in disc_files:
+                meta = metadata_by_path.get(af)
+                tn = meta.track_number if meta is not None else None
+                track_numbers.add(tn)
+
+            if len(track_numbers) != 1:
+                continue
+            common_tn = next(iter(track_numbers))
+            if common_tn is None:
+                continue
+
+            # Verify at least one of these files is still in a
+            # duplicate-track-number issue
+            if not any(af in existing_dup_paths for af in disc_files):
+                continue
+
+            # Sort files by filename for consistent sequential numbering
+            sorted_files = sorted(disc_files, key=lambda p: p.name)
+
+            for track_num, af in enumerate(sorted_files, start=1):
+                meta = metadata_by_path.get(af)
+                if meta is None:
+                    continue
+
+                # Normalise disc_number to 1 when it was None
+                new_disc = meta.disc_number if meta.disc_number is not None else 1
+
+                fixed_meta = TrackMetadata(
+                    title=meta.title, artist=meta.artist,
+                    artists=meta.artists,
+                    album=meta.album, album_artist=meta.album_artist,
+                    album_artists=meta.album_artists,
+                    track_number=track_num,
+                    track_total=meta.track_total,
+                    disc_number=new_disc,
+                    disc_total=meta.disc_total,
+                    year=meta.year, genre=meta.genre,
+                    musicbrainz_trackid=meta.musicbrainz_trackid,
+                    musicbrainz_albumid=meta.musicbrainz_albumid,
+                    musicbrainz_artistid=meta.musicbrainz_artistid,
+                    lyrics=meta.lyrics,
+                    compilation=meta.compilation,
+                    replaygain=meta.replaygain,
+                )
+                if not dry_run:
+                    try:
+                        write_metadata(af, fixed_meta, dry_run=False)
+                        metadata_by_path[af] = fixed_meta
+                        any_fixed = True
+                    except Exception:
+                        continue
+
+        return any_fixed
 
     def _fix_cover_art(
         self,
@@ -343,13 +711,16 @@ class AlbumWorkflow:
             (m.artist for m in metadata_by_path.values() if m.artist), None
         )
         if artist_name and album_name:
-            result = self._shared_discogs_client.fetch_cover_art(artist_name, album_name)
+            discogs = DiscogsClient(
+                timeout_seconds=self.settings.cover_art_timeout_seconds
+            )
+            result = discogs.fetch_cover_art(artist_name, album_name)
             if result.status == CoverArtStatus.FETCHED_REMOTE and result.image is not None:
                 self._embed_into_all(audio_files, result.image)
                 return (
                     True,
                     CoverArtStatus.FETCHED_REMOTE,
-                    f"Fetched and embedded cover from Discogs",
+                    "Fetched and embedded cover from Discogs",
                 )
 
         return False, CoverArtStatus.MISSING, "No local cover and no online cover found"
@@ -500,39 +871,83 @@ class AlbumWorkflow:
             effective_album_artist = folder_artist or llm_artist or ""
             effective_album_artists = [effective_album_artist] if effective_album_artist else []
 
-        # Sort audio files by filename for stable track ordering
-        sorted_files = sorted(audio_files, key=lambda p: p.name)
+        # Match LLM tracks to audio files using multi-signal scoring
+        match_map = self._match_tracks_to_files(
+            audio_files, metadata_by_path, result.tracks,
+        )
 
-        for i, audio_file in enumerate(sorted_files):
-            llm_track = result.tracks[i] if i < len(result.tracks) else result.tracks[-1] if result.tracks else None
+        track_total = max(
+            (t.track_number or 0) for t in result.tracks if t.track_number
+        ) if any(t.track_number for t in result.tracks) else len(audio_files)
+        llm_album_genre = result.tracks[0].genre if result.tracks else None
+
+        for idx, audio_file in enumerate(audio_files):
+            matched_track = match_map.get(audio_file)
             metadata = metadata_by_path.get(audio_file)
-            if metadata is None or llm_track is None:
+            if metadata is None:
                 continue
 
+            title = (
+                getattr(matched_track, "title", None)
+                if matched_track
+                else None
+            ) or metadata.title
+            track_number = (
+                getattr(matched_track, "track_number", None)
+                if matched_track
+                else None
+            ) or metadata.track_number
+            track_artist = (
+                getattr(matched_track, "artist", None)
+                if matched_track
+                else None
+            ) or metadata.artist
+            if matched_track:
+                matched_artists = getattr(matched_track, "artists", None)
+            else:
+                matched_artists = None
+            track_artists = (
+                list(matched_artists)
+                if matched_artists
+                else metadata.artists or ([track_artist] if track_artist else [])
+            )
+
             # For collaborations, use smart-tagged per-track artist/artists
-            if is_collaboration and smart_tagged_tracks and i < len(smart_tagged_tracks):
-                st = smart_tagged_tracks[i]
-                track_artist = st.artist or llm_track.artist or metadata.artist
-                track_artists = st.artists or llm_track.artists or metadata.artists or (
-                    [track_artist] if track_artist else []
+            if is_collaboration and smart_tagged_tracks and idx < len(smart_tagged_tracks):
+                st = smart_tagged_tracks[idx]
+                track_artist = st.artist or track_artist
+                track_artists = st.artists or track_artists
+
+            # Fall back to filename stem when LLM didn't provide a title
+            if not title:
+                title = _clean_stem(audio_file.stem)
+
+            # For non-compilation albums, track artist matches the normalized
+            # album artist (folder name), not the raw LLM output.
+            if is_collaboration:
+                # For collaborations, preserve the smart-tagged artist/artists
+                llm_artist_normalized = track_artist
+                llm_artists_normalized = track_artists
+            elif not analysis.is_compilation:
+                llm_artist_normalized = effective_album_artist
+                llm_artists_normalized = (
+                    [effective_album_artist] if effective_album_artist else []
                 )
             else:
-                track_artist = llm_track.artist or metadata.artist
-                track_artists = llm_track.artists or metadata.artists or (
-                    [track_artist] if track_artist else []
-                )
+                llm_artist_normalized = track_artist
+                llm_artists_normalized = track_artists
 
             new_metadata = TrackMetadata(
-                title=llm_track.title or metadata.title,
-                artist=track_artist,
-                artists=track_artists,
-                album=llm_track.album or metadata.album,
+                title=title,
+                artist=llm_artist_normalized,
+                artists=llm_artists_normalized,
+                album=metadata.album,
                 album_artist=effective_album_artist,
                 album_artists=effective_album_artists,
-                track_number=llm_track.track_number or i + 1,
-                track_total=result.tracks[-1].track_number or len(sorted_files),
+                track_number=track_number,
+                track_total=track_total,
                 year=metadata.year,
-                genre=llm_track.genre or metadata.genre,
+                genre=llm_album_genre or metadata.genre,
                 compilation=analysis.is_compilation,
                 musicbrainz_artistid=folder_mbid or metadata.musicbrainz_artistid,
             )
@@ -557,7 +972,7 @@ class AlbumWorkflow:
             if enriched_genre:
                 if artist_genre_map is not None and folder_artist:
                     _store_genre_in_map(artist_genre_map, folder_artist, enriched_genre)
-                for audio_file in sorted_files:
+                for audio_file in audio_files:
                     meta = read_metadata(audio_file)
                     if meta and meta.genre is None:
                         enriched = TrackMetadata(
@@ -678,38 +1093,60 @@ class AlbumWorkflow:
         if candidate.genre and artist_genre_map is not None and folder_artist:
             _store_genre_in_map(artist_genre_map, folder_artist, candidate.genre)
 
-        sorted_files = sorted(audio_files, key=lambda p: p.name)
+        match_map = self._match_tracks_to_files(
+            audio_files, metadata_by_path, candidate.tracks,
+        )
 
-        for i, audio_file in enumerate(sorted_files):
-            candidate_track = candidate.tracks[i] if i < len(candidate.tracks) else None
+        track_total = max(
+            (t.track_number or 0) for t in candidate.tracks if t.track_number
+        ) if any(t.track_number for t in candidate.tracks) else len(audio_files)
+
+        for idx, audio_file in enumerate(audio_files):
+            matched_track = match_map.get(audio_file)
             metadata = metadata_by_path.get(audio_file)
             if metadata is None:
                 continue
 
             new_metadata = self._merge_candidate_metadata(
-                metadata, candidate, candidate_track, i + 1, len(sorted_files),
+                metadata, candidate, matched_track,
+                track_number=(
+                    getattr(matched_track, "track_number", None)
+                    if matched_track
+                    else None
+                ) or metadata.track_number or 1,
+                track_total=track_total,
                 force=True,
             )
 
+            # Fall back to filename stem when no candidate matched
+            title = new_metadata.title
+            if not title:
+                title = _clean_stem(audio_file.stem)
+
             # For collaborations, use smart-tagged per-track artist/artists
-            if is_collaboration and smart_tagged_tracks and i < len(smart_tagged_tracks):
-                st = smart_tagged_tracks[i]
+            if is_collaboration and smart_tagged_tracks and idx < len(smart_tagged_tracks):
+                st = smart_tagged_tracks[idx]
                 track_artist = st.artist or new_metadata.artist
                 track_artists = st.artists or new_metadata.artists
+            elif not analysis.is_compilation:
+                # For non-compilation albums, track artist matches the normalized
+                # album artist (folder name), not the raw candidate artist.
+                track_artist = effective_album_artist
+                track_artists = [effective_album_artist] if effective_album_artist else new_metadata.artists
             else:
                 track_artist = new_metadata.artist
                 track_artists = new_metadata.artists
 
             # Enforce album artist based on compilation analysis
             new_metadata = TrackMetadata(
-                title=new_metadata.title,
+                title=title,
                 artist=track_artist,
                 artists=track_artists,
                 album=new_metadata.album,
                 album_artist=effective_album_artist,
                 album_artists=effective_album_artists,
                 track_number=new_metadata.track_number,
-                track_total=new_metadata.track_total,
+                track_total=track_total,
                 disc_number=new_metadata.disc_number,
                 disc_total=new_metadata.disc_total,
                 year=new_metadata.year,
@@ -759,6 +1196,222 @@ class AlbumWorkflow:
                 return c
         # No candidate matches the artist hint — return None so LLM fallback triggers
         return None
+
+    @staticmethod
+    def _match_tracks_to_files(
+        audio_files: list[Path],
+        metadata_by_path: dict[Path, TrackMetadata],
+        candidates: list,
+        min_confidence: float = 0.25,
+    ) -> dict[Path, object | None]:
+        """Match audio files to candidate tracks using multi-signal scoring.
+
+        Scoring signals (in priority order):
+          1. Exact filename match (short-circuit) — if cleaned file stem equals
+             candidate title, score=1.0 immediately, no greedy matrix needed.
+          2. Filename similarity (weight 0.6) — token overlap (Jaccard).
+          3. Track number match (weight 0.2) — exact match of track numbers,
+             falling back to track number parsed from filename prefix.
+          4. Duration proximity (weight 0.2) — tiebreaker, decays to 0 at 15s.
+
+        Track numbers are extracted from filename prefixes when no existing
+        tag is present (e.g. "01 爷爷.wav" → track_number=1). The prefix is
+        also stripped before filename-vs-title comparison.
+
+        Greedy assignment: the best (file, candidate) pair is locked first,
+        then both are removed, and the process repeats. Files below
+        *min_confidence* return None (no match / keep existing title).
+
+        Works with both TrackCandidate and TrackMetadata objects — uses
+        getattr for the optional ``length`` field (only TrackCandidate has it).
+
+        Returns dict mapping each audio file to its best-matching candidate
+        or None when no match meets the confidence threshold.
+        """
+        if not candidates:
+            return {f: None for f in audio_files}
+
+        import re
+        import unicodedata
+
+        def _sc(text: str) -> str:
+            """Convert text to Simplified Chinese for token matching.
+            Gracefully degrades if opencc is not installed.
+            """
+            try:
+                import opencc  # type: ignore[import-untyped]
+                return opencc.OpenCC("t2s").convert(text)  # type: ignore[no-any-return]
+            except Exception:
+                return text
+
+        # ── helpers ──────────────────────────────────────────────
+        def _normalize(text: str) -> str:
+            """Normalize: NFKC, SC conversion, strip punctuation, lowercase."""
+            t = unicodedata.normalize("NFKC", text)
+            t = _sc(t)
+            t = re.sub(r"[^\w\s\u4e00-\u9fff]", " ", t)
+            return re.sub(r"\s+", " ", t).strip().lower()
+
+        # _clean_stem and _stem_track_number are now module-level helpers
+
+        def _filename_similarity(file_stem: str, candidate_title: str) -> float:
+            """Token overlap (Jaccard) between filename stem and candidate title (0-1)."""
+            a_tokens = set(_normalize(file_stem).split())
+            b_tokens = set(_normalize(candidate_title).split())
+            if not a_tokens or not b_tokens:
+                return 0.0
+            intersection = a_tokens & b_tokens
+            union = a_tokens | b_tokens
+            return len(intersection) / len(union) if union else 0.0
+
+        def _duration_similarity(file_dur: float | None, cand_len: object) -> float:
+            """Duration proximity score (0-1). 1.0 = exact match, decays to 0 at 15s diff.
+
+            Defensive against string-typed lengths from some lookup clients.
+            """
+            if file_dur is None or cand_len is None:
+                return 0.0
+            try:
+                cl = float(str(cand_len))
+            except (TypeError, ValueError):
+                return 0.0
+            if cl <= 0:
+                return 0.0
+            return max(0.0, 1.0 - abs(file_dur - cl) / 15.0)
+
+        # ── Pre-compute file metadata ────────────────────────────
+        file_durations: dict[Path, float | None] = {}
+        file_stems: dict[Path, str] = {}  # cleaned stem (track prefix removed)
+        file_track_numbers: dict[Path, int | None] = {}  # from filename prefix
+        for f in audio_files:
+            try:
+                af = load_audio_file(f)
+                dur = getattr(af.mutagen_file.info, "length", None)
+                file_durations[f] = float(dur) if dur is not None else None
+            except Exception:
+                file_durations[f] = None
+            file_stems[f] = _clean_stem(f.stem)
+            file_track_numbers[f] = _stem_track_number(f.stem)
+
+        # Build candidate lookup by track number for exact match
+        cand_by_tracknum: dict[int, object] = {}
+        for c in candidates:
+            tn = getattr(c, "track_number", None)
+            if tn is not None:
+                cand_by_tracknum[tn] = c
+
+        # ── Phase 1: Exact filename match (short-circuit) ────────
+        # If cleaned filename stem equals a candidate title after
+        # normalization, lock immediately. This is the most reliable signal.
+        assignment: dict[int, int] = {}  # file_idx -> candidate_idx
+        used_candidates: set[int] = set()
+
+        for fi, fpath in enumerate(audio_files):
+            cleaned = _normalize(file_stems[fpath])
+            if not cleaned:
+                continue
+            for ci, cand in enumerate(candidates):
+                if ci in used_candidates:
+                    continue
+                cand_title = _normalize(getattr(cand, "title", None) or "")
+                if cleaned == cand_title:
+                    assignment[fi] = ci
+                    used_candidates.add(ci)
+                    break
+
+        # ── Phase 2: Track number match (from filename prefix) ───
+        # If file has a track number prefix AND a candidate has the same
+        # track number, lock it (unless already assigned).
+        for fi, fpath in enumerate(audio_files):
+            if fi in assignment:
+                continue
+            fn_track = file_track_numbers[fpath]
+            if fn_track is not None and fn_track in cand_by_tracknum:
+                cand = cand_by_tracknum[fn_track]
+                for ci, c in enumerate(candidates):
+                    if ci in used_candidates:
+                        continue
+                    if c is cand:
+                        # Score the match first — only lock if plausible
+                        meta = metadata_by_path.get(fpath)
+                        dur = file_durations.get(fpath)
+                        cand_dur = getattr(cand, "length", None)
+                        dur_score = _duration_similarity(dur, cand_dur)
+                        fn_score = _filename_similarity(
+                            file_stems[fpath],
+                            getattr(cand, "title", None) or "",
+                        )
+                        # Combined score: filename (0.6) + duration (0.2) + track (0.2)
+                        score = (fn_score * 0.6 + dur_score * 0.2 + 1.0 * 0.2) / 1.0
+                        if score >= min_confidence:
+                            assignment[fi] = ci
+                            used_candidates.add(ci)
+                        break
+
+        # ── Phase 3: Matrix-based greedy for remaining files ─────
+        remaining_files = [
+            (fi, f) for fi, f in enumerate(audio_files) if fi not in assignment
+        ]
+        remaining_candidates = [
+            (ci, c) for ci, c in enumerate(candidates) if ci not in used_candidates
+        ]
+
+        while remaining_files and remaining_candidates:
+            best_score = -1.0
+            best_fi = best_ci = -1
+
+            for ri, (orig_fi, fpath) in enumerate(remaining_files):
+                meta = metadata_by_path.get(fpath)
+                dur = file_durations.get(fpath)
+                cleaned_stem = file_stems[fpath]
+                fn_track = file_track_numbers[fpath]
+                existing_track = meta.track_number if meta else None
+
+                for ci, (orig_ci, cand) in enumerate(remaining_candidates):
+                    cand_dur = getattr(cand, "length", None)
+                    cand_title = getattr(cand, "title", None) or ""
+                    cand_tn = getattr(cand, "track_number", None)
+
+                    # Filename vs title: primary signal (weight 0.6)
+                    fn_score = _filename_similarity(cleaned_stem, cand_title)
+
+                    # Duration: tiebreaker (weight 0.2)
+                    dur_score = _duration_similarity(dur, cand_dur)
+
+                    # Track number: exact (weight 0.2)
+                    track_score = 0.0
+                    if (
+                        existing_track is not None
+                        and cand_tn is not None
+                        and existing_track == cand_tn
+                    ):
+                        track_score = 1.0
+                    elif (
+                        fn_track is not None
+                        and cand_tn is not None
+                        and fn_track == cand_tn
+                    ):
+                        track_score = 1.0
+
+                    score = fn_score * 0.6 + dur_score * 0.2 + track_score * 0.2
+
+                    if score > best_score:
+                        best_score = score
+                        best_fi = ri
+                        best_ci = ci
+
+            if best_score < min_confidence or best_fi < 0:
+                break
+
+            orig_fi, _ = remaining_files.pop(best_fi)
+            orig_ci, _ = remaining_candidates.pop(best_ci)
+            assignment[orig_fi] = orig_ci
+
+        result: dict[Path, object | None] = {}
+        for i, f in enumerate(audio_files):
+            result[f] = candidates[assignment[i]] if i in assignment else None
+
+        return result
 
     @staticmethod
     def _merge_candidate_metadata(
@@ -856,17 +1509,16 @@ class AlbumWorkflow:
             except Exception:
                 continue
 
+    @staticmethod
     def _enrich_genre_from_discogs(
-        self,
         candidate: AlbumCandidate,
     ) -> AlbumCandidate | None:
         """Try to get genre data from Discogs when candidate has none."""
         if not candidate.artist or not candidate.album:
             return None
         try:
-            discogs_results = self._shared_discogs_client.search_album(
-                candidate.artist, candidate.album
-            )
+            client = DiscogsClient(max_candidates=3)
+            discogs_results = client.search_album(candidate.artist, candidate.album)
         except DiscogsError:
             return None
 
@@ -964,7 +1616,8 @@ class AlbumWorkflow:
         """
         # Try Discogs first
         try:
-            dc_results = self._shared_discogs_client.search_album(artist, album)
+            client = DiscogsClient(max_candidates=3)
+            dc_results = client.search_album(artist, album)
             for dc in dc_results:
                 if dc.genre:
                     return dc.genre
@@ -974,8 +1627,8 @@ class AlbumWorkflow:
         # Fall back to LLM genre suggestion with known-genre context
         return self._enrich_genre_from_llm(artist, album, known_genres=known_genres)
 
+    @staticmethod
     def _enrich_genre_from_lookup(
-        self,
         album_path: Path,
         metadata_by_path: dict[Path, TrackMetadata],
     ) -> dict[Path, TrackMetadata] | None:
@@ -989,7 +1642,7 @@ class AlbumWorkflow:
         lookup = LookupService()
         candidates = lookup.lookup_album(album_path)
         request = lookup.request_from_path(album_path)
-        best = self._select_best_candidate(candidates, request.artist_hint)
+        best = AlbumWorkflow._select_best_candidate(candidates, request.artist_hint)
 
         genre = None
         year = None
@@ -997,7 +1650,7 @@ class AlbumWorkflow:
             genre = best.genre
             year = best.year
         elif best:
-            enriched = self._enrich_genre_from_discogs(best)
+            enriched = AlbumWorkflow._enrich_genre_from_discogs(best)
             if enriched and enriched.genre:
                 genre = enriched.genre
                 year = enriched.year
@@ -1006,9 +1659,8 @@ class AlbumWorkflow:
             # Try Discogs search directly using the original hint
             try:
                 if request.artist_hint and request.album_hint:
-                    for dc in self._shared_discogs_client.search_album(
-                        request.artist_hint, request.album_hint
-                    ):
+                    discogs = DiscogsClient(max_candidates=3)
+                    for dc in discogs.search_album(request.artist_hint, request.album_hint):
                         if dc.genre:
                             genre = dc.genre
                             year = dc.year or year

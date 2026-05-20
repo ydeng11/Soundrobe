@@ -350,15 +350,17 @@ def _fetch_release_tracks(release_id: str | None) -> tuple[list[dict[str, Any]],
             recording = track.get("recording", {})
             length_ms = track.get("length")
             length_s = int(length_ms) / 1000.0 if length_ms else None
+            # Use beets-compatible key names so _track_candidate_from_info
+            # can parse them via _int_attr(info, "track") etc.
             tracks.append({
                 "title": recording.get("title"),
                 "artist": _artist_name_from_recording(recording),
                 "artists": _artist_list_from_recording(recording),
-                "track_number": int(track.get("position", track_num) or track_num),
-                "track_total": len(medium.get("track-list", [])),
-                "disc_number": disc_num,
-                "disc_total": len(release.get("medium-list", [])),
-                "musicbrainz_trackid": recording.get("id"),
+                "track": int(track.get("position", track_num) or track_num),
+                "tracktotal": len(medium.get("track-list", [])),
+                "disc": disc_num,
+                "disctotal": len(release.get("medium-list", [])),
+                "track_id": recording.get("id"),
                 "length": length_s,
             })
     return tracks, genre

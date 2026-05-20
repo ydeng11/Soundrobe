@@ -9,7 +9,12 @@ from auto_tagger.core.metadata import TrackMetadata
 from auto_tagger.exceptions import FileProcessingError
 from auto_tagger.integrations import LookupService
 from auto_tagger.llm import CandidateSelectionService, OpenRouterClient
-from auto_tagger.quality import build_album_health_report, render_health_report
+from auto_tagger.quality import (
+    build_album_health_report,
+    health_report_paths,
+    render_health_report,
+    report_dict_to_markdown,
+)
 from auto_tagger.utils import console, print_info, print_success, print_table
 from auto_tagger.workflows.album import AlbumWorkflow
 
@@ -43,7 +48,6 @@ def execute(
         return
 
     if not dry_run:
-        # Write mode: delegate to AlbumWorkflow for actual tagging
         workflow = AlbumWorkflow(settings)
         result = workflow.run(path, dry_run=False, interactive=interactive)
 
@@ -58,15 +62,9 @@ def execute(
 
         if result.cover_art_fixed:
             print_success(
-                f"Cover art: {result.cover_art_status} — {result.cover_art_message}"
-            )
+                f"Cover art: {result.cover_art_status} — {result.cover_art_message}")
 
-        if health_report_path is not None:
-            health_report_path.write_text(
-                json.dumps(result.health_report.to_dict(), indent=2),
-                encoding="utf-8",
-            )
-            print_info(f"Wrote health report: {health_report_path}")
+        _write_health_reports(path, result.health_report.to_dict(), settings, health_report_path)
         return
 
     metadata_by_path: dict[Path, TrackMetadata] = {}
@@ -81,12 +79,7 @@ def execute(
 
     health_report = build_album_health_report(path, audio_files, metadata_by_path, settings)
     console.print(render_health_report(health_report))
-    if health_report_path is not None:
-        health_report_path.write_text(
-            json.dumps(health_report.to_dict(), indent=2),
-            encoding="utf-8",
-        )
-        print_info(f"Wrote health report: {health_report_path}")
+    _write_health_reports(path, health_report.to_dict(), settings, health_report_path)
 
     _print_lookup_candidates(settings, path)
     if not dry_run and settings.yolo and health_report.can_tag:
@@ -143,3 +136,40 @@ def _print_lookup_candidates(settings: Settings, path: Path) -> None:
                 ]
             ],
         )
+
+
+def _write_health_reports(
+    album_path: Path,
+    report_dict: dict,
+    settings: Settings,
+    explicit_path: Path | None = None,
+) -> None:
+    """Write health report files (MD + JSON) to the default directory.
+
+    If *explicit_path* is provided, it is used as a single-file override
+    (backwards-compatible with ``--health-report``).
+    """
+    if explicit_path is not None:
+        explicit_path.parent.mkdir(parents=True, exist_ok=True)
+        explicit_path.write_text(
+            json.dumps(report_dict, indent=2),
+            encoding="utf-8",
+        )
+        print_info(f"Wrote health report: {explicit_path}")
+        return
+
+    md_path, json_path = health_report_paths(album_path, settings.health_report_dir)
+    md_path.parent.mkdir(parents=True, exist_ok=True)
+
+    md_content = report_dict_to_markdown(report_dict, album_path)
+    md_path.write_text(md_content, encoding="utf-8")
+
+    json_path.write_text(
+        json.dumps(report_dict, indent=2),
+        encoding="utf-8",
+    )
+
+    print_info(f"Health report: {md_path}")
+
+
+

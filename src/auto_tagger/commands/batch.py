@@ -4,6 +4,11 @@ import json
 from pathlib import Path
 
 from auto_tagger.config import Settings
+from auto_tagger.quality import (
+    health_report_paths,
+    render_combined_health_report_markdown,
+    report_dict_to_markdown,
+)
 from auto_tagger.utils import console, print_info, print_success
 from auto_tagger.workflows.batch import BatchWorkflow
 
@@ -37,28 +42,95 @@ def execute(
     console.print(f"  Applied writes: {summary.applied}")
     console.print(f"  Skipped writes: {summary.skipped}")
     console.print(f"  Failed albums: {summary.failed}")
+    if summary.errors:
+        for err in summary.errors:
+            console.print(f"  [red]Error:[/red] {err}")
     if summary.cover_art_fixed:
         console.print(f"  Cover art fixed: {summary.cover_art_fixed}")
 
-    if health_report_path and summary.health_reports:
-        total_errors = sum(r["summary"]["errors"] for r in summary.health_reports)
-        total_warnings = sum(r["summary"]["warnings"] for r in summary.health_reports)
-        total_info = sum(r["summary"]["info"] for r in summary.health_reports)
-        report = {
-            "library_path": str(path),
-            "albums_checked": len(summary.health_reports),
-            "summary": {
-                "errors": total_errors,
-                "warnings": total_warnings,
-                "info": total_info,
-            },
-            "albums": summary.health_reports,
-        }
-        health_report_path.parent.mkdir(parents=True, exist_ok=True)
-        health_report_path.write_text(
+    # Write per-album health reports
+    for report_dict in summary.health_reports:
+        album_path = Path(report_dict.get("album_path", ""))
+        if album_path:
+            _write_health_reports(album_path, report_dict, settings)
+
+    # Write combined batch report (MD + JSON)
+    if summary.health_reports:
+        _write_combined_batch_report(path, summary.health_reports, settings, health_report_path)
+
+    print_success("Batch processing complete")
+
+
+def _write_health_reports(
+    album_path: Path,
+    report_dict: dict,
+    settings: Settings,
+) -> None:
+    """Write per-album health report MD + JSON to the default directory."""
+    md_path, json_path = health_report_paths(album_path, settings.health_report_dir)
+    md_path.parent.mkdir(parents=True, exist_ok=True)
+
+    md_content = report_dict_to_markdown(report_dict, album_path)
+    md_path.write_text(md_content, encoding="utf-8")
+
+    json_path.write_text(
+        json.dumps(report_dict, indent=2),
+        encoding="utf-8",
+    )
+
+
+def _write_combined_batch_report(
+    library_path: Path,
+    album_reports: list[dict],
+    settings: Settings,
+    explicit_path: Path | None = None,
+) -> None:
+    """Write combined batch report (MD + JSON) for the whole library."""
+    if explicit_path is not None:
+        explicit_path.parent.mkdir(parents=True, exist_ok=True)
+        report = _build_batch_report_dict(library_path, album_reports)
+        explicit_path.write_text(
             json.dumps(report, indent=2, ensure_ascii=False),
             encoding="utf-8",
         )
-        print_info(f"Wrote combined health report: {health_report_path}")
+        print_info(f"Wrote combined health report: {explicit_path}")
+        return
 
-    print_success("Batch processing complete")
+    # Default: write under health_report_dir with the library folder name
+    _, json_path = health_report_paths(library_path, settings.health_report_dir)
+    batch_name = f"batch-{library_path.name}"
+    md_path = settings.health_report_dir / f"{batch_name}.md"
+    json_path = settings.health_report_dir / f"{batch_name}.json"
+
+    settings.health_report_dir.mkdir(parents=True, exist_ok=True)
+
+    md_content = render_combined_health_report_markdown(album_reports, library_path)
+    md_path.write_text(md_content, encoding="utf-8")
+
+    report = _build_batch_report_dict(library_path, album_reports)
+    json_path.write_text(
+        json.dumps(report, indent=2, ensure_ascii=False),
+        encoding="utf-8",
+    )
+
+    print_info(f"Batch health report: {md_path}")
+
+
+def _build_batch_report_dict(
+    library_path: Path,
+    album_reports: list[dict],
+) -> dict:
+    """Build the combined batch report dict (JSON structure)."""
+    total_errors = sum(r["summary"]["errors"] for r in album_reports)
+    total_warnings = sum(r["summary"]["warnings"] for r in album_reports)
+    total_info = sum(r["summary"]["info"] for r in album_reports)
+    return {
+        "library_path": str(library_path),
+        "albums_checked": len(album_reports),
+        "summary": {
+            "errors": total_errors,
+            "warnings": total_warnings,
+            "info": total_info,
+        },
+        "albums": album_reports,
+    }

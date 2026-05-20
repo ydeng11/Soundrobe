@@ -110,6 +110,10 @@ class Settings(BaseSettings):
         default_factory=lambda: Path.home() / ".auto-tagger",
         description="Directory for auto-tagger local data",
     )
+    health_report_dir: Path = Field(
+        default_factory=lambda: Path.home() / ".auto-tagger" / "health-reports",
+        description="Directory for health report output (MD + JSON)",
+    )
     dataset_lookup_enabled: bool = Field(
         default=True,
         description="Enable local dataset lookup before remote lookup",
@@ -228,20 +232,6 @@ class Settings(BaseSettings):
         default=None,
         description="Optional Discogs personal access token for higher rate limits",
     )
-    discogs_proxy_url: str | None = Field(
-        default=None,
-        description="Webshare proxy list URL for round-robin proxy rotation on rate limit",
-    )
-    discogs_cache_ttl: int = Field(
-        default=3600,
-        ge=0,
-        le=86400,
-        description="TTL in seconds for in-memory Discogs API response cache (0 = disabled)",
-    )
-    discogs_image_cache_dir: Path = Field(
-        default=Path.home() / ".cache" / "auto-tagger" / "discogs-images",
-        description="Directory for on-disk cache of downloaded Discogs cover art and artist images",
-    )
     batch_summary_path: Path | None = Field(
         default=None,
         description="Optional path for batch JSON summary",
@@ -268,10 +258,10 @@ class Settings(BaseSettings):
             raise ValueError(f"Config file not found: {v}")
         return v
 
-    @field_validator("data_dir", mode="before")
+    @field_validator("data_dir", "health_report_dir", mode="before")
     @classmethod
-    def expand_data_dir(cls, v: Path | str) -> Path:
-        """Expand the configured local data directory."""
+    def expand_path(cls, v: Path | str) -> Path:
+        """Expand user home directory (~) in path settings."""
         return Path(v).expanduser()
 
     @field_validator("dataset_services", mode="before")

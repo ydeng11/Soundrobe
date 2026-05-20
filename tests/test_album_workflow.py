@@ -166,6 +166,7 @@ def test_cover_art_fix_no_local_no_mbid(monkeypatch, tmp_path: Path):
     assert result.cover_art_status == CoverArtStatus.MISSING
 
 
+# (merged from pi-wt branch)
 def test_write_candidate_handles_collaboration(monkeypatch, tmp_path: Path):
     """Collaboration single (We Are The World) gets group name as album_artist
     and individual performers in artists list, not mislabeled as compilation.
@@ -442,6 +443,280 @@ def test_write_candidate_handles_single_artist(monkeypatch, tmp_path: Path):
     assert meta.album_artist == "Tanya Chua"
     assert meta.compilation is False
     assert meta.artist == "Tanya Chua"
+# ── duplicate track number fix ──────────────────────────────────
+
+
+def test_fix_duplicate_track_numbers_renumbers_from_filenames(monkeypatch, tmp_path: Path):
+    """Duplicate track numbers are fixed by renumbering from filename prefixes."""
+    from auto_tagger.quality.health import AlbumHealthReport, HealthIssue, HealthSeverity
+
+    # Mock write_metadata to avoid touching real audio files
+    write_calls: list[tuple[Path, TrackMetadata]] = []
+    monkeypatch.setattr(
+        "auto_tagger.workflows.album.write_metadata",
+        lambda path, metadata, dry_run=False: write_calls.append((path, metadata)),
+    )
+    # Mock build_album_health_report for the rebuild to return a clean report
+    monkeypatch.setattr(
+        "auto_tagger.workflows.album.build_album_health_report",
+        lambda album_path, audio_files, metadata_by_path, settings: AlbumHealthReport(
+            album_path=album_path,
+            tracks_checked=len(audio_files),
+            lrc_files_checked=0,
+        ),
+    )
+
+    # Create audio files with unique filename prefixes
+    audio_a = tmp_path / "01 SongA.flac"
+    audio_b = tmp_path / "02 SongB.flac"
+    audio_c = tmp_path / "03 SongC.flac"
+    audio_a.touch()
+    audio_b.touch()
+    audio_c.touch()
+    audio_files = [audio_a, audio_b, audio_c]
+
+    # Both SongA and SongB have track_number=1 (the duplicate)
+    metadata_by_path = {
+        audio_a: TrackMetadata(title="SongA", artist="A", album="Album", track_number=1),
+        audio_b: TrackMetadata(title="SongB", artist="A", album="Album", track_number=1),
+        audio_c: TrackMetadata(title="SongC", artist="A", album="Album", track_number=3),
+    }
+
+    # Health report with duplicate track number error
+    health_report = AlbumHealthReport(
+        album_path=tmp_path,
+        tracks_checked=3,
+        lrc_files_checked=0,
+        issues=[
+            HealthIssue(
+                "metadata", HealthSeverity.ERROR, None,
+                "metadata.duplicate_track_number",
+                "Duplicate track number 1 on disc 1",
+                {"paths": [str(audio_a), str(audio_b)]},
+            ),
+            HealthIssue(
+                "metadata", HealthSeverity.WARNING, None,
+                "metadata.track_sequence_gap",
+                "Track sequence has gaps on disc 1",
+            ),
+        ],
+    )
+
+    workflow = AlbumWorkflow(Settings())
+    fixed, updated_meta, updated_health = workflow._fix_duplicate_track_numbers(
+        audio_files, metadata_by_path, health_report, dry_run=False,
+    )
+
+    assert fixed is True
+    # SongA should still be track 1 (filename says 01)
+    assert updated_meta[audio_a].track_number == 1
+    # SongB should now be track 2 (filename says 02)
+    assert updated_meta[audio_b].track_number == 2
+    # SongC should still be track 3 (filename says 03)
+    assert updated_meta[audio_c].track_number == 3
+    # Health report should no longer have duplicate error
+    assert updated_health.can_tag is True
+    # write_metadata was called for the two fixed files
+    assert len(write_calls) == 2
+
+
+def test_fix_duplicate_track_numbers_skipped_when_no_duplicates(monkeypatch, tmp_path: Path):
+    """No-op when health report has no duplicate track number issues."""
+    from auto_tagger.quality.health import AlbumHealthReport
+
+    monkeypatch.setattr(
+        "auto_tagger.workflows.album.write_metadata",
+        lambda path, metadata, dry_run=False: None,
+    )
+
+    audio = tmp_path / "01.flac"
+    audio.touch()
+    metadata = {audio: TrackMetadata(title="Song", artist="A", album="Album", track_number=1)}
+    health_report = AlbumHealthReport(
+        album_path=tmp_path, tracks_checked=1, lrc_files_checked=0,
+    )
+
+    workflow = AlbumWorkflow(Settings())
+    fixed, meta, hr = workflow._fix_duplicate_track_numbers(
+        [audio], metadata, health_report, dry_run=False,
+    )
+
+    assert fixed is False
+    assert meta is metadata
+    assert hr is health_report
+
+
+def test_fix_duplicate_track_numbers_renumbers_sequentially_when_filenames_lack_prefix(monkeypatch, tmp_path: Path):
+    """Sequential fallback fixes tracks when all files share same track number
+    and filenames have no leading prefix."""
+    from auto_tagger.quality.health import AlbumHealthReport, HealthIssue, HealthSeverity
+
+    monkeypatch.setattr(
+        "auto_tagger.workflows.album.write_metadata",
+        lambda path, metadata, dry_run=False: None,
+    )
+
+    audio_a = tmp_path / "SongA.flac"
+    audio_b = tmp_path / "SongB.flac"
+    audio_a.touch()
+    audio_b.touch()
+
+    metadata = {
+        audio_a: TrackMetadata(title="SongA", artist="A", album="Album", track_number=1),
+        audio_b: TrackMetadata(title="SongB", artist="A", album="Album", track_number=1),
+    }
+    health_report = AlbumHealthReport(
+        album_path=tmp_path,
+        tracks_checked=2,
+        lrc_files_checked=0,
+        issues=[
+            HealthIssue(
+                "metadata", HealthSeverity.ERROR, None,
+                "metadata.duplicate_track_number",
+                "Duplicate track number 1 on disc 1",
+                {"paths": [str(audio_a), str(audio_b)]},
+            ),
+        ],
+    )
+
+    workflow = AlbumWorkflow(Settings())
+    fixed, updated_meta, _ = workflow._fix_duplicate_track_numbers(
+        [audio_a, audio_b], metadata, health_report, dry_run=False,
+    )
+
+    assert fixed is True
+    # Sequential: SongA → track 1, SongB → track 2
+    assert updated_meta[audio_a].track_number == 1
+    assert updated_meta[audio_b].track_number == 2
+
+
+def test_fix_duplicate_track_numbers_skipped_when_stem_numbers_not_unique(monkeypatch, tmp_path: Path):
+    """Strategy 1 is skipped when stem numbers aren't unique, but Strategy 2
+    sequential fallback handles it when all files share the same track number."""
+    from auto_tagger.quality.health import AlbumHealthReport, HealthIssue, HealthSeverity
+
+    monkeypatch.setattr(
+        "auto_tagger.workflows.album.write_metadata",
+        lambda path, metadata, dry_run=False: None,
+    )
+
+    audio_a = tmp_path / "01 Intro.flac"
+    audio_b = tmp_path / "01 Song.flac"  # same prefix
+    audio_a.touch()
+    audio_b.touch()
+
+    metadata = {
+        audio_a: TrackMetadata(title="Intro", artist="A", album="Album", track_number=1),
+        audio_b: TrackMetadata(title="Song", artist="A", album="Album", track_number=1),
+    }
+    health_report = AlbumHealthReport(
+        album_path=tmp_path,
+        tracks_checked=2,
+        lrc_files_checked=0,
+        issues=[
+            HealthIssue(
+                "metadata", HealthSeverity.ERROR, None,
+                "metadata.duplicate_track_number",
+                "Duplicate track number 1 on disc 1",
+                {"paths": [str(audio_a), str(audio_b)]},
+            ),
+        ],
+    )
+
+    workflow = AlbumWorkflow(Settings())
+    fixed, updated_meta, _ = workflow._fix_duplicate_track_numbers(
+        [audio_a, audio_b], metadata, health_report, dry_run=False,
+    )
+
+    assert fixed is True
+    # Sequential fallback: 01 Intro → track 1, 01 Song → track 2
+    assert updated_meta[audio_a].track_number == 1
+    assert updated_meta[audio_b].track_number == 2
+
+
+def test_fix_duplicate_track_numbers_end_to_end_via_workflow_yolo(monkeypatch, tmp_path: Path):
+    """YOLO workflow fixes duplicate track numbers before the lookup cascade."""
+    from auto_tagger.quality.health import AlbumHealthReport, HealthIssue, HealthSeverity
+
+    audio_a = tmp_path / "01 SongA.flac"
+    audio_b = tmp_path / "02 SongB.flac"
+    audio_c = tmp_path / "03 SongC.flac"
+    audio_a.touch()
+    audio_b.touch()
+    audio_c.touch()
+    audio_files = [audio_a, audio_b, audio_c]
+
+    # Two tracks share track_number=1
+    def _mock_read(path: Path) -> TrackMetadata:
+        mapping = {
+            audio_a: TrackMetadata(title="SongA", artist="Artist", album="Album", track_number=1),
+            audio_b: TrackMetadata(title="SongB", artist="Artist", album="Album", track_number=1),
+            audio_c: TrackMetadata(title="SongC", artist="Artist", album="Album", track_number=3),
+        }
+        return mapping[path]
+
+    # Track whether we're in the initial call or rebuild call
+    health_call_count: list[int] = [0]
+
+    def _mock_health(album_path, af, mbp, settings):
+        health_call_count[0] += 1
+        if health_call_count[0] == 2:
+            # Second call (rebuild after fix) returns clean report
+            return AlbumHealthReport(
+                album_path=album_path,
+                tracks_checked=len(af),
+                lrc_files_checked=0,
+            )
+        # First call returns report with duplicates
+        return AlbumHealthReport(
+            album_path=album_path,
+            tracks_checked=3,
+            lrc_files_checked=0,
+            issues=[
+                HealthIssue(
+                    "metadata", HealthSeverity.ERROR, None,
+                    "metadata.duplicate_track_number",
+                    "Duplicate track number 1 on disc 1",
+                    {"paths": [str(audio_a), str(audio_b)]},
+                ),
+                HealthIssue(
+                    "metadata", HealthSeverity.WARNING, None,
+                    "metadata.track_sequence_gap",
+                    "Track sequence has gaps on disc 1",
+                ),
+            ],
+        )
+
+    monkeypatch.setattr(
+        "auto_tagger.workflows.album.iter_audio_files",
+        lambda path, recursive=False: audio_files,
+    )
+    monkeypatch.setattr(
+        "auto_tagger.workflows.album.read_metadata",
+        _mock_read,
+    )
+    monkeypatch.setattr(
+        "auto_tagger.workflows.album.build_album_health_report",
+        _mock_health,
+    )
+    # Prevent actual disk writes from interfering
+    monkeypatch.setattr(
+        "auto_tagger.workflows.album.write_metadata",
+        lambda path, metadata, dry_run=False: None,
+    )
+    # Prevent _fix_metadata lookup from running (it would fail without real data)
+    monkeypatch.setattr(
+        AlbumWorkflow,
+        "_fix_metadata",
+        lambda self, path, af, mbp, artist_mbid_map=None, artist_genre_map=None: (False, "", "No candidates"),
+    )
+
+    result = AlbumWorkflow(Settings(yolo=True)).run(tmp_path, dry_run=False)
+
+    # The duplicate fix should have been applied before can_write
+    assert "Renumbered tracks (filename prefixes or sequential)" in result.messages
+    # Health report should allow tagging
+    assert result.health_report.can_tag is True
 
 
 def test_cover_art_fix_skipped_in_dry_run(monkeypatch, tmp_path: Path):

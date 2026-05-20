@@ -7,7 +7,11 @@ from auto_tagger.quality.health import (
     HealthSeverity,
     TrackHealth,
     build_album_health_report,
+    health_report_paths,
+    render_combined_health_report_markdown,
     render_health_report,
+    render_health_report_markdown,
+    report_dict_to_markdown,
 )
 from auto_tagger.quality.lrc import convert_lrc_to_utf8, discover_lrc_files, validate_lrc_file
 from auto_tagger.quality.metadata_validation import validate_album_metadata, validate_track_metadata
@@ -24,7 +28,11 @@ __all__ = [
     "build_album_health_report",
     "convert_lrc_to_utf8",
     "discover_lrc_files",
+    "health_report_paths",
+    "render_combined_health_report_markdown",
     "render_health_report",
+    "render_health_report_markdown",
+    "report_dict_to_markdown",
     "validate_album_metadata",
     "validate_lrc_file",
     "validate_track_metadata",

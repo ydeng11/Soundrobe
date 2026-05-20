@@ -1,9 +1,5 @@
 """Tests for Discogs cover art fetching."""
 
-from pathlib import Path
-from unittest.mock import MagicMock, PropertyMock
-
-import httpx
 import pytest
 
 from auto_tagger.features.cover_art import CoverArtStatus
@@ -14,6 +10,7 @@ def test_fetch_cover_art_returns_missing_when_no_results(monkeypatch):
     """When Discogs search returns nothing, cover art result is MISSING."""
     client = DiscogsClient()
 
+    # Mock search to return empty
     def fake_search(*args, **kwargs):
         return []
 
@@ -29,7 +26,23 @@ def test_fetch_cover_art_returns_missing_when_no_images(monkeypatch):
     """When Discogs release has no images, cover art result is MISSING."""
     client = DiscogsClient()
 
-    monkeypatch.setattr(client, "search_album", lambda *a, **kw: [{"api": "discogs"}])
+    def fake_search(*args, **kwargs):
+        return [{"api": "discogs"}]
+
+    class FakeResponse:
+        def json(self):
+            return {"images": []}
+        @property
+        def status_code(self):
+            return 200
+        @property
+        def content(self):
+            return b""
+
+    def fake_get(path):
+        return FakeResponse().json()
+
+    monkeypatch.setattr(client, "search_album", fake_search)
     monkeypatch.setattr(client, "_search", lambda *a, **kw: [{"id": 123}])
     monkeypatch.setattr(client, "_get", lambda path: {"images": []})
 
@@ -38,15 +51,9 @@ def test_fetch_cover_art_returns_missing_when_no_images(monkeypatch):
     assert result.status == CoverArtStatus.MISSING
 
 
-def test_fetch_cover_art_downloads_image(tmp_path, monkeypatch):
+def test_fetch_cover_art_downloads_image(monkeypatch):
     """When Discogs has a primary image, it's downloaded and returned."""
-    mock_client = MagicMock(spec=httpx.Client)
-    mock_client.request.return_value = _response(200, b"data")
-
-    client = DiscogsClient(
-        http_client=mock_client,
-        image_cache_dir=tmp_path / "discogs-images",
-    )
+    client = DiscogsClient()
 
     monkeypatch.setattr(client, "search_album", lambda *a, **kw: [{"api": "discogs"}])
     monkeypatch.setattr(client, "_search", lambda *a, **kw: [{"id": 123}])
@@ -56,47 +63,48 @@ def test_fetch_cover_art_downloads_image(tmp_path, monkeypatch):
         ]
     })
 
+    import httpx
+
+    def fake_httpx_get(url, **kwargs):
+        class FakeResp:
+            status_code = 200
+            content = b"fake-image-data"
+        return FakeResp()
+
+    monkeypatch.setattr(httpx, "get", fake_httpx_get)
+
     result = client.fetch_cover_art("Artist", "Album")
 
     assert result.status == CoverArtStatus.FETCHED_REMOTE
     assert result.image is not None
-    assert result.image.data == b"data"
+    assert result.image.data == b"fake-image-data"
     assert result.image.source == "discogs"
 
 
-def test_fetch_cover_art_prefers_primary_image(tmp_path):
+def test_fetch_cover_art_prefers_primary_image(monkeypatch):
     """Discogs primary image is preferred over secondary."""
-    urls_downloaded = []
+    client = DiscogsClient()
 
-    def tracking_request(method, url, **kwargs):
-        urls_downloaded.append(url)
-        return _response(200, b"data")
-
-    mock_client = MagicMock(spec=httpx.Client)
-    mock_client.request = tracking_request
-
-    client = DiscogsClient(
-        http_client=mock_client,
-        image_cache_dir=tmp_path / "discogs-images",
-    )
-
-    # We only need to set _search and _get since those are called by fetch_cover_art
-    client._search = lambda *a, **kw: [{"id": 123}]  # type: ignore[method-assign]
-    client._get = lambda path: {  # type: ignore[method-assign]
+    monkeypatch.setattr(client, "search_album", lambda *a, **kw: [{"api": "discogs"}])
+    monkeypatch.setattr(client, "_search", lambda *a, **kw: [{"id": 123}])
+    monkeypatch.setattr(client, "_get", lambda path: {
         "images": [
             {"type": "secondary", "uri": "https://example.com/secondary.jpg"},
             {"type": "primary", "uri": "https://example.com/primary.jpg"},
         ]
-    }
+    })
+
+    import httpx
+    urls_downloaded = []
+
+    def fake_httpx_get(url, **kwargs):
+        urls_downloaded.append(url)
+        class FakeResp:
+            status_code = 200
+            content = b"data"
+        return FakeResp()
+
+    monkeypatch.setattr(httpx, "get", fake_httpx_get)
 
     client.fetch_cover_art("Artist", "Album")
     assert "primary.jpg" in urls_downloaded[0]
-
-
-def _response(status_code: int, content: bytes) -> MagicMock:
-    """Build a minimal mock httpx.Response."""
-    resp = MagicMock(spec=httpx.Response)
-    type(resp).status_code = PropertyMock(return_value=status_code)
-    resp.content = content
-    resp.text = content.decode("utf-8", errors="replace")
-    return resp

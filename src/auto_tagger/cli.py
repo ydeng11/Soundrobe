@@ -77,7 +77,7 @@ def cli(ctx: click.Context, config: Path | None, verbose: bool, output: str | No
 @click.option(
     "--health-report",
     type=click.Path(dir_okay=False, path_type=Path),
-    help="Write album health report JSON to this path",
+    help="Explicit path for health report (default: auto-generated MD+JSON under health_report_dir)",
 )
 @click.pass_context
 def tag(
@@ -117,7 +117,7 @@ def tag(
 @click.option(
     "--health-report",
     type=click.Path(dir_okay=False, path_type=Path),
-    help="Write combined health report JSON for all albums",
+    help="Explicit path for combined health report (default: auto-generated per-album + combined MD+JSON)",
 )
 @click.pass_context
 def batch(
