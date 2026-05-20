@@ -33,8 +33,9 @@ class Settings(BaseSettings):
     )
 
     recursive: bool = Field(
-        default=False,
-        description="Process directories recursively",
+        default=True,
+        description="Process directories recursively (needed for multi-disc albums "
+        "where tracks are in CD1/CD2 subdirectories)",
     )
     recursive_depth: int = Field(
         default=10,

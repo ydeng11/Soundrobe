@@ -153,10 +153,13 @@ def _stem_track_number(stem: str) -> int | None:
     """Extract leading track number from a filename stem.
 
     Handles: "01 Song" → 1, "01-Song" → 1, "01_Song" → 1,
-    "1.Song" → 1, "01Song" → 1.
+    "1.Song" → 1, "01Song" → 1, "(01) Song" → 1, "(01)Artist" → 1.
     Returns None when no leading digits are found.
     """
     import re
+    m = re.match(r"^\((\d{1,2})\)", stem)
+    if m:
+        return int(m.group(1))
     m = re.match(r"^(\d{1,2})", stem)
     return int(m.group(1)) if m else None
 
@@ -166,13 +169,19 @@ def _clean_stem(stem: str) -> str:
 
     Handles: "01 爷爷" → "爷爷", "01.爷爷" → "爷爷",
     "01-爷爷" → "爷爷", "01_爷爷" → "爷爷", "1.爷爷" → "爷爷",
-    "01爷爷" → "爷爷".
+    "01爷爷" → "爷爷", "(01) 爷爷" → "爷爷", "(01)Artist" → "Artist".
     Returns the original stem when no prefix is found.
     """
     import re
+    # (NN) prefix: e.g. "(01) Song Title"
+    m = re.match(r"^\((\d{1,2})\)\s*(.+)$", stem)
+    if m:
+        return m.group(2)
+    # NN<sep> prefix: e.g. "01 Song Title", "01.Song", "01-Song", "01_Song"
     m = re.match(r"^(\d{1,2})\s*[\.\-\s_]\s*(.+)$", stem)
     if m:
         return m.group(2)
+    # NN prefix without separator: e.g. "01SongTitle"
     m = re.match(r"^(\d{1,2})\s*(\S.+)$", stem)
     if m:
         return m.group(2)
@@ -254,7 +263,17 @@ class AlbumWorkflow:
         # When two files share the same track number (same disc) and one
         # has disc_number=None while the other has a real disc number,
         # the disc=None file is likely a stray from another disc/release.
+        #
+        # BUT: only apply this heuristic when the album actually uses
+        # multiple discs (any file has disc > 1). When all files are on
+        # disc 1, a missing disc_number just means incomplete metadata —
+        # the file is NOT a stray and should not be deleted.
         dup_code = "metadata.duplicate_track_number"
+        # Check if this album has multiple discs (disc > 1 anywhere)
+        album_has_multi_disc = any(
+            meta.disc_number is not None and meta.disc_number > 1
+            for meta in metadata_by_path.values()
+        )
         for issue in health_report.issues:
             if issue.code != dup_code:
                 continue
@@ -271,7 +290,9 @@ class AlbumWorkflow:
                 else:
                     no_disc.add(dp)
             # If some have disc and some don't, the disc=None ones are stray
-            if has_disc and no_disc:
+            # ONLY when this is a multi-disc album. Single-disc albums
+            # with incomplete disc_number metadata are not strays.
+            if has_disc and no_disc and album_has_multi_disc:
                 excluded_paths.update(no_disc)
 
         # Pattern 4: missing track number. For single-track folders,

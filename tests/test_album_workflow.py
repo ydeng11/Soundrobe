@@ -5,7 +5,7 @@ from pathlib import Path
 from auto_tagger.config import Settings
 from auto_tagger.core.metadata import TrackMetadata
 from auto_tagger.features.cover_art import CoverArtResult, CoverArtStatus
-from auto_tagger.workflows.album import AlbumWorkflow
+from auto_tagger.workflows.album import AlbumWorkflow, _clean_stem, _stem_track_number
 
 
 def test_album_workflow_dry_run_collects_preview(monkeypatch, tmp_path: Path):
@@ -739,3 +739,263 @@ def test_cover_art_fix_skipped_in_dry_run(monkeypatch, tmp_path: Path):
 
     assert result.cover_art_fixed is False
     assert result.cover_art_status == ""
+
+
+# ── _stem_track_number with (NN) parenthesized prefix ───────────
+
+
+def test_stem_track_number_handles_parenthesized_prefix():
+    """_stem_track_number extracts leading digits from parenthesized prefixes.
+
+    Regression test: the regex ``r"^(\\d{1,2})"`` did not match filenames
+    starting with ``(`` such as ``(01) Song.flac``, causing Strategy 1 to
+    silently skip all parenthesized-prefix files.
+    """
+    # (NN) format — newly supported
+    assert _stem_track_number("(01) Song") == 1
+    assert _stem_track_number("(12) [Artist] Title") == 12
+    assert _stem_track_number("(99) Song") == 99
+
+    # Bare NN prefix — existing behavior, must still work
+    assert _stem_track_number("01 Song") == 1
+    assert _stem_track_number("01.Song") == 1
+    assert _stem_track_number("01-Song") == 1
+    assert _stem_track_number("01_Song") == 1
+    assert _stem_track_number("01Song") == 1
+
+    # No prefix
+    assert _stem_track_number("Song") is None
+    assert _stem_track_number("Artist - Song") is None
+
+    # Three-digit prefix matches the first two digits (\d{1,2})
+    assert _stem_track_number("100 Songs") == 10
+
+    # Edge: empty stem
+    assert _stem_track_number("") is None
+
+
+# ── _clean_stem with (NN) parenthesized prefix ─────────────────
+
+
+def test_clean_stem_cleans_parenthesized_prefix():
+    """_clean_stem strips parenthesized track-number prefixes.
+
+    Regression test: the regex only matched bare ``NN`` at start, missing
+    ``(NN)`` prefixed filenames and leaving the raw prefix in the title.
+    """
+    # (NN) format — newly supported
+    assert _clean_stem("(01) Song") == "Song"
+    assert _clean_stem("(01) [Artist] Title") == "[Artist] Title"
+    assert _clean_stem("(12) Artist - Title") == "Artist - Title"
+
+    # Bare NN prefix — existing behavior, must still work
+    assert _clean_stem("01 Song") == "Song"
+    assert _clean_stem("01.Song") == "Song"
+    assert _clean_stem("01-Song") == "Song"
+    assert _clean_stem("01_Song") == "Song"
+    assert _clean_stem("01Song") == "Song"
+
+    # No prefix — returned unchanged
+    assert _clean_stem("Song Title") == "Song Title"
+    assert _clean_stem("Artist - Song") == "Artist - Song"
+
+    # Edge: empty stem
+    assert _clean_stem("") == ""
+
+
+# ── Pattern 3 exclusion (duplicate + disc number heuristic) ────
+
+
+def _mock_health_with_duplicates_and_meta(
+    album_path: Path,
+    audio_files: list[Path],
+    metadata_by_path: dict[Path, TrackMetadata],
+    settings: Settings,
+):
+    """Build a health report with duplicate track number issues based on
+    the actual metadata, so Pattern 3's disc-number check uses real values.
+    """
+    from auto_tagger.quality.health import AlbumHealthReport, HealthIssue, HealthSeverity
+    from collections import defaultdict
+
+    paths_by_pos: dict[tuple[int, int], list[str]] = defaultdict(list)
+    for f in audio_files:
+        meta = metadata_by_path.get(f)
+        if meta is not None and meta.track_number is not None:
+            disc = meta.disc_number or 1
+            paths_by_pos[(disc, meta.track_number)].append(str(f))
+
+    issues: list[HealthIssue] = []
+    for (disc, track), paths in paths_by_pos.items():
+        if len(paths) > 1:
+            issues.append(
+                HealthIssue(
+                    "metadata", HealthSeverity.ERROR, None,
+                    "metadata.duplicate_track_number",
+                    f"Duplicate track number {track} on disc {disc}",
+                    {"paths": paths},
+                )
+            )
+
+    return AlbumHealthReport(
+        album_path=album_path,
+        tracks_checked=len(audio_files),
+        lrc_files_checked=0,
+        issues=issues,
+    )
+
+
+def test_pattern_3_does_not_exclude_disc_none_on_single_disc(
+    monkeypatch,
+    tmp_path: Path,
+):
+    """Pattern 3 must NOT exclude disc=None files when the album has no
+    files with disc > 1. On single-disc albums, missing disc_number is
+    incomplete metadata, not a stray from another disc.
+
+    Regression test: the original heuristic unconditionally excluded
+    disc=None files in any duplicate group, deleting legitimate tracks
+    from albums like 陈洁仪-2018-A Time For Everything.
+    """
+    from auto_tagger.quality.health import AlbumHealthReport
+
+    # 4 files, 2 share track=1 (one disc=1, one disc=None), others disc=1
+    audio_a = tmp_path / "SongA.flac"
+    audio_b = tmp_path / "SongB.flac"
+    audio_c = tmp_path / "SongC.flac"
+    audio_d = tmp_path / "SongD.flac"
+    for f in (audio_a, audio_b, audio_c, audio_d):
+        f.touch()
+    all_files = [audio_a, audio_b, audio_c, audio_d]
+
+    metadata = {
+        audio_a: TrackMetadata(title="A", artist="X", album="Album",
+                               album_artist="X", track_number=1, disc_number=1),
+        audio_b: TrackMetadata(title="B", artist="X", album="Album",
+                               album_artist="X", track_number=1, disc_number=None),
+        audio_c: TrackMetadata(title="C", artist="X", album="Album",
+                               album_artist="X", track_number=3, disc_number=1),
+        audio_d: TrackMetadata(title="D", artist="X", album="Album",
+                               album_artist="X", track_number=4, disc_number=None),
+    }
+
+    monkeypatch.setattr(
+        "auto_tagger.workflows.album.iter_audio_files",
+        lambda path, recursive=False: all_files,
+    )
+    monkeypatch.setattr(
+        "auto_tagger.workflows.album.read_metadata",
+        lambda path: metadata[path],
+    )
+    monkeypatch.setattr(
+        "auto_tagger.workflows.album.build_album_health_report",
+        _mock_health_with_duplicates_and_meta,
+    )
+    monkeypatch.setattr(
+        "auto_tagger.workflows.album.write_metadata",
+        lambda path, md, dry_run=False: None,
+    )
+
+    # Stub _fix_metadata so the lookup cascade doesn't run
+    monkeypatch.setattr(
+        AlbumWorkflow,
+        "_fix_metadata",
+        lambda self, path, af, mbp, artist_mbid_map=None, artist_genre_map=None: (
+            False, "", "No candidates"
+        ),
+    )
+
+    # Stub _fix_cover_art so it doesn't run
+    monkeypatch.setattr(
+        AlbumWorkflow,
+        "_fix_cover_art",
+        lambda self, path, af, mbp: (False, "", ""),
+    )
+
+    result = AlbumWorkflow(Settings(yolo=True)).run(tmp_path, dry_run=False)
+
+    # All 4 files should still be present — Pattern 3 must not exclude
+    assert len(result.audio_files) == 4, (
+        f"Expected 4 files, got {len(result.audio_files)} — "
+        "Pattern 3 wrongly excluded disc=None files on single-disc album"
+    )
+    # No "Deleted" message should appear
+    assert not any("Deleted" in m for m in result.messages), (
+        f"Unexpected deletion messages: {result.messages}"
+    )
+
+
+def test_pattern_3_excludes_disc_none_on_multi_disc(monkeypatch, tmp_path: Path):
+    """Pattern 3 SHOULD exclude disc=None files when the album has files
+    with disc > 1. The disc=None file may be a stray from another disc.
+
+    This preserves the existing heuristic for legitimate multi-disc scenarios.
+    """
+    # 4 files on a multi-disc album (has disc > 1 elsewhere):
+    #   - audio_a: disc 1, track 1 — legitimate track
+    #   - audio_b: disc None, track 1 — stray that leaked into disc 1's group
+    #   - audio_c: disc 1, track 3 — another legitimate track
+    #   - audio_d: disc 2, track 1 — proves this is a multi-disc album
+    #
+    # audio_a and audio_b both normalize to (disc=1, track=1) so they
+    # appear in the same duplicate group. Since album_has_multi_disc=True
+    # (audio_d has disc=2), Pattern 3 should exclude the disc=None stray.
+    audio_a = tmp_path / "SongA.flac"
+    audio_b = tmp_path / "Stray.flac"
+    audio_c = tmp_path / "SongC.flac"
+    audio_d = tmp_path / "2-01 SongD.flac"
+    for f in (audio_a, audio_b, audio_c, audio_d):
+        f.touch()
+    all_files = [audio_a, audio_b, audio_c, audio_d]
+
+    metadata = {
+        audio_a: TrackMetadata(title="SongA", artist="X", album="Album",
+                               album_artist="X", track_number=1, disc_number=1),
+        audio_b: TrackMetadata(title="Stray", artist="X", album="Album",
+                               album_artist="X", track_number=1, disc_number=None),
+        audio_c: TrackMetadata(title="SongC", artist="X", album="Album",
+                               album_artist="X", track_number=3, disc_number=1),
+        audio_d: TrackMetadata(title="SongD", artist="X", album="Album",
+                               album_artist="X", track_number=1, disc_number=2),
+    }
+
+    monkeypatch.setattr(
+        "auto_tagger.workflows.album.iter_audio_files",
+        lambda path, recursive=False: all_files,
+    )
+    monkeypatch.setattr(
+        "auto_tagger.workflows.album.read_metadata",
+        lambda path: metadata[path],
+    )
+    monkeypatch.setattr(
+        "auto_tagger.workflows.album.build_album_health_report",
+        _mock_health_with_duplicates_and_meta,
+    )
+    monkeypatch.setattr(
+        "auto_tagger.workflows.album.write_metadata",
+        lambda path, md, dry_run=False: None,
+    )
+    monkeypatch.setattr(
+        AlbumWorkflow,
+        "_fix_metadata",
+        lambda self, path, af, mbp, artist_mbid_map=None, artist_genre_map=None: (
+            False, "", "No candidates"
+        ),
+    )
+    monkeypatch.setattr(
+        AlbumWorkflow,
+        "_fix_cover_art",
+        lambda self, path, af, mbp: (False, "", ""),
+    )
+
+    result = AlbumWorkflow(Settings(yolo=True)).run(tmp_path, dry_run=False)
+
+    # The disc=None file should have been excluded + deleted
+    # Pattern 3 should see disc=2 exists and mark the disc=None file as stray
+    messages_str = " ".join(result.messages)
+    assert "Deleted" in messages_str, (
+        f"Expected Pattern 3 to exclude stray on multi-disc, messages: {result.messages}"
+    )
+    assert audio_b not in result.audio_files, (
+        "Stray disc=None file should have been excluded on multi-disc album"
+    )

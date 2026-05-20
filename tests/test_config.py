@@ -14,7 +14,7 @@ def test_settings_defaults():
     settings = Settings()
     assert settings.output_format == "table"
     assert settings.verbose is False
-    assert settings.recursive is False
+    assert settings.recursive is True
     assert settings.yolo is False
     assert settings.cache_enabled is True
     assert settings.ffprobe_path == "ffprobe"

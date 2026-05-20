@@ -85,11 +85,24 @@ def _characters_overlap(name_a: str, name_b: str) -> float:
 
     Used to match names like 久石让 vs 久石譲 where individual characters
     differ between simplified Chinese and Japanese shinjitai.
+
+    Returns 0.0 when one string is significantly longer than the other
+    (ratio < 0.5), since character-level presence is not meaningful when
+    comparing e.g. a 3-char name against a 24-char junk-appended string.
     """
     if not name_a or not name_b:
         return 0.0
 
     shorter, longer = (name_a, name_b) if len(name_a) <= len(name_b) else (name_b, name_a)
+
+    # Reject when the shorter string accounts for less than 20% of the
+    # longer string's length. This prevents false positives from
+    # junk-appended names (e.g. "陈洁仪" vs
+    # "陈洁仪-2002-异想世界 2CD WAV 分轨" at 12.5%), while still
+    # allowing legitimate matches (e.g. "小娟" vs
+    # "小娟&山谷里的居民" at 22.2%).
+    if len(shorter) <= len(longer) * 0.2:
+        return 0.0
 
     # Precompute per-character variants for the longer string
     longer_chars: list[set[str]] = []
@@ -196,8 +209,20 @@ def artist_matches_any(artist: str | None, hint: str | None) -> bool:
     norm_artist = artist.casefold().strip()
     norm_hint = hint.casefold().strip()
 
-    # Direct match (substring in either direction)
-    if norm_hint in norm_artist or norm_artist in norm_hint:
+    # Substring match: hint in artist (hint shorter)
+    # Guard against junk-appended names by requiring the shorter string
+    # to account for at least 20% of the longer string's length.
+    # This prevents false positives like hint="陈洁仪" matching
+    # artist="陈洁仪-2002-异想世界 2CD WAV 分轨" (12.5%), while still
+    # allowing legitimate matches like "小娟" vs
+    # "小娟&山谷里的居民" (22.2%) or "Jay Chou" vs
+    # "Jay Chou ft. Lara Veronin" (32%).
+    if norm_hint in norm_artist:
+        if len(norm_hint) > len(norm_artist) * 0.2:
+            return True
+    elif norm_artist in norm_hint:
+        # artist in hint: tag is a subset of folder name — usually
+        # legitimate (e.g. tag="小娟" in folder "小娟&山谷里的居民")
         return True
 
     # Full string variant match (simplified <-> traditional Chinese)
@@ -207,7 +232,10 @@ def artist_matches_any(artist: str | None, hint: str | None) -> bool:
         return True
     for hv in hint_variants:
         for av in artist_variants:
-            if hv in av or av in hv:
+            if hv in av:
+                if len(hv) > len(av) * 0.2:
+                    return True
+            elif av in hv:
                 return True
 
     # Character-level overlap (handles Japanese shinjitai vs simplified Chinese)
@@ -218,14 +246,20 @@ def artist_matches_any(artist: str | None, hint: str | None) -> bool:
 
     # Alias match (with SC/TC variants)
     for alias in get_aliases(hint):
-        if alias in norm_artist or norm_artist in alias:
+        if alias in norm_artist:
+            if len(alias) > len(norm_artist) * 0.2:
+                return True
+        elif norm_artist in alias:
             return True
         alias_variants = set(_convert_script(alias))
         if alias_variants & artist_variants:
             return True
         for av in alias_variants:
             for av2 in artist_variants:
-                if av in av2 or av2 in av:
+                if av in av2:
+                    if len(av) > len(av2) * 0.2:
+                        return True
+                elif av2 in av:
                     return True
         # Character-level overlap for alias too
         if _characters_overlap(alias, norm_artist) >= 0.5:
