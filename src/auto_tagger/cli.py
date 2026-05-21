@@ -44,14 +44,13 @@ def cli(ctx: click.Context, config: Path | None, verbose: bool, output: str | No
     Automatically tag audio files with metadata from MusicBrainz and LLM assistance.
     """
     try:
-        cli_overrides: dict[str, Any] = {}
-        if verbose:
-            cli_overrides["verbose"] = True
-        if output:
-            cli_overrides["output_format"] = output
-        if config:
-            cli_overrides["config_file"] = config
-
+        cli_overrides: dict[str, Any] = {
+            k: v for k, v in [
+                ("verbose", verbose),
+                ("output_format", output),
+                ("config_file", config),
+            ] if v
+        }
         settings = load_settings(config_file=config, **cli_overrides)
 
         setup_logging(verbose=settings.verbose)
@@ -75,6 +74,11 @@ def cli(ctx: click.Context, config: Path | None, verbose: bool, output: str | No
 @click.option("--yolo", is_flag=True, help="Auto-approve all changes")
 @click.option("--interactive", is_flag=True, help="Prompt before applying album changes")
 @click.option(
+    "--force",
+    is_flag=True,
+    help="Ignore album state cache, reprocess even if already tagged",
+)
+@click.option(
     "--health-report",
     type=click.Path(dir_okay=False, path_type=Path),
     help="Explicit path for health report (default: auto-generated MD+JSON under health_report_dir)",
@@ -86,6 +90,7 @@ def tag(
     dry_run: bool,
     yolo: bool,
     interactive: bool,
+    force: bool,
     health_report: Path | None,
 ) -> None:
     """Tag a single album or directory.
@@ -99,7 +104,7 @@ def tag(
     if yolo:
         settings.yolo = True
 
-    execute(settings, path, dry_run, health_report, interactive)
+    execute(settings, path, dry_run, health_report, interactive, force=force)
 
 
 @cli.command()
@@ -107,6 +112,11 @@ def tag(
 @click.option("--dry-run", is_flag=True, help="Preview changes without applying")
 @click.option("--yolo", is_flag=True, help="Auto-approve all changes")
 @click.option("--interactive", is_flag=True, help="Prompt before applying each album")
+@click.option(
+    "--force",
+    is_flag=True,
+    help="Ignore album state cache, reprocess even if already tagged",
+)
 @click.option(
     "--parallel",
     "-j",
@@ -126,6 +136,7 @@ def batch(
     dry_run: bool,
     yolo: bool,
     interactive: bool,
+    force: bool,
     parallel: int,
     health_report: Path | None,
 ) -> None:
@@ -140,7 +151,7 @@ def batch(
     if yolo:
         settings.yolo = True
 
-    execute(settings, path, dry_run, parallel, interactive, health_report)
+    execute(settings, path, dry_run, parallel, interactive, health_report, force=force)
 
 
 @cli.command()

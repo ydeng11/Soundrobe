@@ -46,5 +46,7 @@ def test_candidate_from_folder_uses_file_names_when_tags_missing(tmp_path):
     assert candidate.artist == "Various Artists"
     assert candidate.album == "Soundtrack"
     assert candidate.album_artist == "Various Artists"
-    assert [track.title for track in candidate.tracks] == ["01 First", "02 Second"]
+    # Filename parsing now strips track-number prefixes
+    assert [track.title for track in candidate.tracks] == ["First", "Second"]
+    assert [track.track_number for track in candidate.tracks] == [1, 2]
     assert candidate.musicbrainz_albumid is None

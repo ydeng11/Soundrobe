@@ -98,3 +98,43 @@ def test_embed_cover_art_writes_mp4_cover_atom(tmp_path: Path):
     embed_cover_art(AudioFormat.M4A, tags, image)
 
     assert tags["covr"][0]
+
+
+def test_discover_local_cover_art_falls_back_to_parent(tmp_path: Path):
+    """When no cover art in album dir, search the parent directory."""
+    parent = tmp_path / "2006.陈慧琳.Especial 新曲+精选 3CD"
+    album_dir = parent / "陈慧琳.Especial 新曲+精选 CD1"
+    album_dir.mkdir(parents=True)
+    cover_path = parent / "陈慧琳.Especial 新曲+精选.jpg"
+    cover_path.write_bytes(JPEG_BYTES)
+
+    image = discover_local_cover_art(album_dir)
+
+    assert image is not None
+    assert image.path == cover_path
+    assert image.mime_type == "image/jpeg"
+
+
+def test_discover_local_cover_art_prefers_own_dir_over_parent(tmp_path: Path):
+    """Cover art in the album directory takes priority over parent."""
+    parent = tmp_path / "Album 3CD"
+    album_dir = parent / "Album CD1"
+    album_dir.mkdir(parents=True)
+    (parent / "cover.jpg").write_bytes(b"\xff\xd8\xff\xe0parent")
+    (album_dir / "cover.jpg").write_bytes(JPEG_BYTES)
+
+    image = discover_local_cover_art(album_dir)
+
+    assert image is not None
+    assert image.path == album_dir / "cover.jpg"
+
+
+def test_discover_local_cover_art_no_parent_fallback_for_top_level(tmp_path: Path):
+    """For a top-level album (no parent artist dir), parent search is harmless."""
+    album_dir = tmp_path / "Album"
+    album_dir.mkdir(parents=True)
+    # Parent is tmp_path root which has no images
+    (album_dir / "01.flac").touch()
+
+    image = discover_local_cover_art(album_dir)
+    assert image is None

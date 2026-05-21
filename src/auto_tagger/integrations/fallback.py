@@ -7,6 +7,7 @@ from pathlib import Path
 
 from auto_tagger.core import iter_audio_files, read_metadata
 from auto_tagger.core.metadata import TrackMetadata
+from auto_tagger.core.parse_filename import parse_album_folder_name, parse_track_filename
 from auto_tagger.exceptions import AutoTaggerError
 from auto_tagger.integrations.candidates import (
     AlbumCandidate,
@@ -168,25 +169,43 @@ def _read_album_tags_from_first_file(path: Path) -> dict[str, str | None]:
 def candidate_from_folder(request: LookupRequest) -> AlbumCandidate:
     """Build a low-confidence fallback candidate from folder and file hints.
 
-    Compilation detection is handled by the workflow methods based on
-    track-level artist counts, not folder-name heuristics.
+    Enriches ``LookupRequest`` hints with structured folder-name parsing.
+    Compilation detection is handled upstream by the workflow.
     """
     tracks = request.tracks or _track_hints_from_path(request.path)
-    album_artist = request.artist_hint
+
+    # Enrich hints using structured folder-name parsing
+    album_path = request.path.parent if request.path.is_file() else request.path
+    parsed_folder = parse_album_folder_name(album_path.name) if album_path.name else None
+
+    # Use parsed values as fallback when request hints are missing
+    artist = request.artist_hint or (parsed_folder.artist if parsed_folder else None)
+    album = request.album_hint or (parsed_folder.album if parsed_folder else None)
+    year = request.year_hint or (parsed_folder.year if parsed_folder else None)
+    album_artist = artist
 
     return AlbumCandidate(
-        artist=request.artist_hint,
-        artists=[request.artist_hint] if request.artist_hint else [],
-        album=request.album_hint,
+        artist=artist,
+        artists=[artist] if artist else [],
+        album=album,
         album_artist=album_artist,
         album_artists=[album_artist] if album_artist else [],
-        year=request.year_hint,
+        year=year,
         tracks=tracks,
         source=LookupSource.FOLDER,
     )
 
 
+def _tag_or_parsed(meta_value, parsed_value, fallback=None):
+    """Return *meta_value* if truthy, else *parsed_value*, else *fallback*."""
+    return meta_value if meta_value else (parsed_value if parsed_value else fallback)
+
+
 def _track_hints_from_path(path: Path) -> list[TrackCandidate]:
+    """Build track candidates from audio file metadata and filename parsing.
+
+    Priority: embedded tags > filename parsing > raw file stem / index.
+    """
     try:
         audio_paths = iter_audio_files(path)
     except AutoTaggerError:
@@ -194,19 +213,19 @@ def _track_hints_from_path(path: Path) -> list[TrackCandidate]:
 
     tracks: list[TrackCandidate] = []
     for index, audio_path in enumerate(audio_paths, start=1):
-        metadata = _read_metadata_or_none(audio_path)
-        title = metadata.title if metadata and metadata.title else audio_path.stem
-        track_number = metadata.track_number if metadata else index
+        m = _read_metadata_or_none(audio_path)
+        p = parse_track_filename(audio_path.stem)
+
         tracks.append(
             TrackCandidate(
-                title=title,
-                artist=metadata.artist if metadata else None,
-                artists=metadata.artists if metadata else [],
-                track_number=track_number or index,
+                title=_tag_or_parsed(m.title if m else None, p.title, audio_path.stem),
+                artist=_tag_or_parsed(m.artist if m else None, p.artist),
+                artists=(m.artists if m and m.artists else p.artists),
+                track_number=_tag_or_parsed(m.track_number if m else None, p.track_number, index),
                 track_total=len(audio_paths),
-                disc_number=metadata.disc_number if metadata else None,
-                disc_total=metadata.disc_total if metadata else None,
-                musicbrainz_trackid=metadata.musicbrainz_trackid if metadata else None,
+                disc_number=_tag_or_parsed(m.disc_number if m else None, p.disc_number),
+                disc_total=m.disc_total if m else None,
+                musicbrainz_trackid=m.musicbrainz_trackid if m else None,
             )
         )
     return tracks

@@ -39,7 +39,7 @@ def test_missing_album_artist_is_error(album_fixture: Path):
         metadata_by_path[af] = meta
 
     report = build_album_health_report(album_fixture, audio_files, metadata_by_path, settings)
-    assert not report.can_tag
+    assert report.has_blocking_errors
     missing = [i for i in report.issues if i.code == "metadata.missing_album_artist"]
     assert len(missing) == len(audio_files)
 
@@ -80,7 +80,7 @@ def test_fix_album_artist_clears_error(album_fixture: Path, tmp_path: Path):
     report_after = build_album_health_report(
         tmp_path, [dest], {dest: meta_fixed}, settings
     )
-    assert report_after.can_tag
+    assert not report_after.has_blocking_errors
     assert not any(i.code == "metadata.missing_album_artist" for i in report_after.issues)
 
 
@@ -216,7 +216,7 @@ def test_inconsistent_album_is_error(tmp_path: Path):
 
     inconsistent = [i for i in report.issues if i.code == "metadata.inconsistent_album"]
     assert len(inconsistent) >= 1
-    assert not report.can_tag
+    assert report.has_blocking_errors
 
 
 def test_consistent_album_is_clean(album_fixture: Path):

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import opencc
@@ -75,6 +76,13 @@ class LookupService:
     def lookup_album(self, path: Path) -> list[AlbumCandidate]:
         """Return album candidates from cache, Beets, or folder fallback."""
         request = self.request_from_path(path)
+
+        # Try LLM hint enhancement when deterministic parsing is ambiguous
+        if self._hints_are_ambiguous(request):
+            enhanced = self._enhance_hints_with_llm(request)
+            if enhanced is not None:
+                request = enhanced
+
         cached = self.cache.get(request)
         if cached is not None:
             return cached
@@ -283,3 +291,136 @@ class LookupService:
     def _record_warning(self, warning: str) -> None:
         if warning not in self.warnings:
             self.warnings.append(warning)
+
+    # ── LLM hint enhancement ────────────────────────────────────────
+
+    def _hints_are_ambiguous(self, request: LookupRequest) -> bool:
+        """Check if deterministic parsing produced ambiguous hints.
+
+        Returns True when:
+        - No year was extracted AND the album name contains dots or
+          artist-prefix patterns suggesting Year.Artist.Album convention
+        - The album hint still looks like a concatenation (contains
+          Chinese dots or separator chars not part of the album name)
+        """
+        album_hint = request.album_hint or ""
+        artist_hint = request.artist_hint or ""
+
+        # If deterministic parsing got a year AND a clean album, hints are fine
+        if request.year_hint and album_hint:
+            return False
+
+        # Check for Chinese dot convention: album name that contains
+        # Chinese characters with dots likely has an artist prefix
+        if album_hint and "。" in album_hint:
+            return True
+
+        # If the artist hint contains dots + Chinese chars, it's likely
+        # an uncleaned Year.Artist.Album string
+        if "。" in artist_hint or (artist_hint and "." in artist_hint):
+            return True
+
+        # If we're processing a CD subdirectory under a year-prefixed parent
+        # and no year was found, it's likely the year is in the parent name
+        if not request.year_hint and not album_hint:
+            return True
+
+        # Check for dot convention: Year.Artist.Album style names use
+        # ASCII dots as separators between Chinese segments
+        if not request.year_hint and "." in album_hint:
+            return True
+        if "." in artist_hint and any(ord(c) > 127 for c in artist_hint):
+            return True
+
+        return False
+
+    def _enhance_hints_with_llm(
+        self,
+        request: LookupRequest,
+    ) -> LookupRequest | None:
+        """Try to enhance ambiguous hints using cached or fresh LLM extraction.
+
+        Checks the album state cache first (regardless of LLM availability),
+        and only calls the LLM if no cached extraction exists.
+
+        Returns an updated LookupRequest with clean hints, or None if
+        no enhancement was possible.
+        """
+        # Determine the album folder name to use as the cache/call key
+        album_path = request.path.parent if request.path.is_file() else request.path
+        folder_name = album_path.name if album_path.name else ""
+        parent_name = album_path.parent.name if album_path.parent else None
+
+        if not folder_name:
+            return None
+
+        # Check cache first (works even without LLM key)
+        cached = self.cache.get_llm_extraction(folder_name)
+        if cached is not None:
+            return self._apply_extraction(request, cached)
+
+        # Also try with parent name as the key (CD subdirs share parent)
+        if parent_name and parent_name != folder_name:
+            cached = self.cache.get_llm_extraction(parent_name)
+            if cached is not None:
+                return self._apply_extraction(request, cached)
+
+        # No cache hit → need to call LLM
+        if not self.settings.llm_api_key:
+            return None
+
+        try:
+            from auto_tagger.llm.client import OpenRouterClient
+            from auto_tagger.llm.prompts import build_folder_extraction_messages
+            from auto_tagger.llm.schemas import FolderExtractionResponse
+
+            client = OpenRouterClient(self.settings)
+            messages = build_folder_extraction_messages(folder_name, parent_name)
+
+            response = client.complete_json(
+                messages=messages,
+                schema=FolderExtractionResponse,
+            )
+
+            extraction = response.data
+            if not isinstance(extraction, dict):
+                return None
+
+            # Normalize keys
+            normalized = {
+                "artist": extraction.get("artist") or None,
+                "album": extraction.get("album") or None,
+                "year": str(extraction["year"]) if extraction.get("year") else None,
+                "disc": str(extraction["disc"]) if extraction.get("disc") else None,
+            }
+
+            # Cache the result under the folder name
+            self.cache.set_llm_extraction(folder_name, normalized)
+            # Also cache under parent name so CD subdirs can share
+            if parent_name and parent_name != folder_name:
+                self.cache.set_llm_extraction(parent_name, normalized)
+
+            return self._apply_extraction(request, normalized)
+
+        except Exception:
+            if self.settings.verbose:
+                self._record_warning(f"LLM folder extraction failed for '{folder_name}'")
+            return None
+
+    @staticmethod
+    def _apply_extraction(
+        request: LookupRequest,
+        extraction: dict[str, str | None],
+    ) -> LookupRequest:
+        """Apply LLM extraction results to a lookup request."""
+        artist = extraction.get("artist") or request.artist_hint
+        album = extraction.get("album") or request.album_hint
+        year = extraction.get("year") or request.year_hint
+
+        return LookupRequest(
+            path=request.path,
+            artist_hint=artist,
+            album_hint=album,
+            year_hint=year,
+            tracks=request.tracks,
+        )

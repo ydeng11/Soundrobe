@@ -27,6 +27,7 @@ def execute(
     dry_run: bool,
     health_report_path: Path | None = None,
     interactive: bool = False,
+    force: bool = False,
 ) -> None:
     """Execute tag command.
 
@@ -49,7 +50,7 @@ def execute(
 
     if not dry_run:
         workflow = AlbumWorkflow(settings)
-        result = workflow.run(path, dry_run=False, interactive=interactive)
+        result = workflow.run(path, dry_run=False, interactive=interactive, force=force)
 
         print_info(f"Album: {path.name}")
         print_success(f"Wrote tags to {result.applied_writes} file(s)")
@@ -82,7 +83,7 @@ def execute(
     _write_health_reports(path, health_report.to_dict(), settings, health_report_path)
 
     _print_lookup_candidates(settings, path)
-    if not dry_run and settings.yolo and health_report.can_tag:
+    if not dry_run and settings.yolo and not health_report.has_blocking_errors:
         print_success("YOLO apply path available for safe albums")
     elif interactive or settings.interactive_default:
         print_info("Interactive preview ready; apply flow will prompt before writing")

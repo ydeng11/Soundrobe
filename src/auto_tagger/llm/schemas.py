@@ -50,6 +50,17 @@ class GenreEnrichmentResponse(BaseModel):
     genre: str | None = None
 
 
+class FolderExtractionResponse(BaseModel):
+    """Structured response for folder name metadata extraction."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    artist: str | None = None
+    album: str | None = None
+    year: str | None = None
+    disc: str | None = None
+
+
 class FallbackTagResponse(BaseModel):
     """Structured response for fallback tag generation."""
 

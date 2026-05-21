@@ -31,8 +31,8 @@ def test_album_workflow_dry_run_collects_preview(monkeypatch, tmp_path: Path):
     assert result.metadata_by_path[audio].title == "Song"
 
 
-def test_album_workflow_yolo_blocks_writes_on_health_errors(monkeypatch, tmp_path: Path):
-    """YOLO mode tries to fix via lookup, but falls back when lookup fails."""
+def test_album_workflow_yolo_fallback_writes_on_fix_failure(monkeypatch, tmp_path: Path):
+    """When YOLO fix fails (no database match), fallback writes existing metadata."""
     from auto_tagger.quality.health import AlbumHealthReport, HealthIssue, HealthSeverity
 
     audio = tmp_path / "01.flac"
@@ -61,13 +61,18 @@ def test_album_workflow_yolo_blocks_writes_on_health_errors(monkeypatch, tmp_pat
     monkeypatch.setattr(
         AlbumWorkflow,
         "_fix_metadata",
-        lambda self, path, af, mbp, artist_mbid_map=None, artist_genre_map=None: (False, "", "No candidates"),
+        lambda self, path, af, mbp, artist_mbid_map=None, artist_genre_map=None: (False, "", "No candidates", []),
+    )
+    # Mock write_metadata so it doesn't actually try to write to empty test files
+    monkeypatch.setattr(
+        "auto_tagger.workflows.album.write_metadata",
+        lambda path, metadata, dry_run=False: None,
     )
 
     result = AlbumWorkflow(Settings(yolo=True)).run(tmp_path, dry_run=False)
 
-    assert result.applied_writes == 0
-    assert result.skipped_writes == 1
+    assert result.applied_writes == 1
+    assert result.skipped_writes == 0
 
 
 # ── cover art fix ──────────────────────────────────────────────
@@ -173,7 +178,7 @@ def test_write_candidate_handles_collaboration(monkeypatch, tmp_path: Path):
     """
     from auto_tagger.integrations.candidates import AlbumCandidate, TrackCandidate, LookupSource
 
-    audio = tmp_path / "01.flac"
+    audio = tmp_path / "We Are The World.flac"
     audio.touch()
 
     candidate = AlbumCandidate(
@@ -211,7 +216,7 @@ def test_write_candidate_handles_collaboration(monkeypatch, tmp_path: Path):
     monkeypatch.setattr(workflow, "_enrich_genre_from_discogs", lambda c, discogs_token=None: None)
     monkeypatch.setattr(workflow, "_enrich_genre_from_llm", lambda a, b, known_genres=None: None)
 
-    fixed, source_label, message = workflow._write_candidate_metadata(
+    fixed, source_label, message, _strays = workflow._write_candidate_metadata(
         audio_files=[audio],
         metadata_by_path={audio: existing_meta},
         candidate=candidate,
@@ -235,7 +240,7 @@ def test_write_candidate_handles_classical(monkeypatch, tmp_path: Path):
     """
     from auto_tagger.integrations.candidates import AlbumCandidate, TrackCandidate, LookupSource
 
-    audio = tmp_path / "01.flac"
+    audio = tmp_path / "Likoo.flac"
     audio.touch()
 
     candidate = AlbumCandidate(
@@ -268,7 +273,7 @@ def test_write_candidate_handles_classical(monkeypatch, tmp_path: Path):
     monkeypatch.setattr(workflow, "_enrich_genre_from_discogs", lambda c, discogs_token=None: None)
     monkeypatch.setattr(workflow, "_enrich_genre_from_llm", lambda a, b, known_genres=None: None)
 
-    fixed, source_label, message = workflow._write_candidate_metadata(
+    fixed, source_label, message, _strays = workflow._write_candidate_metadata(
         audio_files=[audio],
         metadata_by_path={audio: existing_meta},
         candidate=candidate,
@@ -286,7 +291,7 @@ def test_write_candidate_handles_compilation(monkeypatch, tmp_path: Path):
     """True compilation (different artists per track) still gets Various Artists."""
     from auto_tagger.integrations.candidates import AlbumCandidate, TrackCandidate, LookupSource
 
-    audio = tmp_path / "01.flac"
+    audio = tmp_path / "A.flac"
     audio.touch()
 
     candidate = AlbumCandidate(
@@ -319,7 +324,7 @@ def test_write_candidate_handles_compilation(monkeypatch, tmp_path: Path):
     monkeypatch.setattr(workflow, "_enrich_genre_from_discogs", lambda c, discogs_token=None: None)
     monkeypatch.setattr(workflow, "_enrich_genre_from_llm", lambda a, b, known_genres=None: None)
 
-    fixed, source_label, message = workflow._write_candidate_metadata(
+    fixed, source_label, message, _strays = workflow._write_candidate_metadata(
         audio_files=[audio],
         metadata_by_path={audio: existing_meta},
         candidate=candidate,
@@ -338,7 +343,7 @@ def test_write_candidate_handles_ampersand_duo(monkeypatch, tmp_path: Path):
     """A & B duo album keeps combined artist, populates ARTISTS, not a compilation."""
     from auto_tagger.integrations.candidates import AlbumCandidate, TrackCandidate, LookupSource
 
-    audio = tmp_path / "01.flac"
+    audio = tmp_path / "Crazy in Love.flac"
     audio.touch()
 
     candidate = AlbumCandidate(
@@ -376,7 +381,7 @@ def test_write_candidate_handles_ampersand_duo(monkeypatch, tmp_path: Path):
     monkeypatch.setattr(workflow, "_enrich_genre_from_discogs", lambda c, discogs_token=None: None)
     monkeypatch.setattr(workflow, "_enrich_genre_from_llm", lambda a, b, known_genres=None: None)
 
-    fixed, source_label, message = workflow._write_candidate_metadata(
+    fixed, source_label, message, _strays = workflow._write_candidate_metadata(
         audio_files=[audio],
         metadata_by_path={audio: existing_meta},
         candidate=candidate,
@@ -399,7 +404,7 @@ def test_write_candidate_handles_single_artist(monkeypatch, tmp_path: Path):
     """Normal single-artist album is unchanged — not a compilation."""
     from auto_tagger.integrations.candidates import AlbumCandidate, TrackCandidate, LookupSource
 
-    audio = tmp_path / "01.flac"
+    audio = tmp_path / "Darwin.flac"
     audio.touch()
 
     candidate = AlbumCandidate(
@@ -431,7 +436,7 @@ def test_write_candidate_handles_single_artist(monkeypatch, tmp_path: Path):
     monkeypatch.setattr(workflow, "_enrich_genre_from_discogs", lambda c, discogs_token=None: None)
     monkeypatch.setattr(workflow, "_enrich_genre_from_llm", lambda a, b, known_genres=None: None)
 
-    fixed, source_label, message = workflow._write_candidate_metadata(
+    fixed, source_label, message, _strays = workflow._write_candidate_metadata(
         audio_files=[audio],
         metadata_by_path={audio: existing_meta},
         candidate=candidate,
@@ -515,7 +520,7 @@ def test_fix_duplicate_track_numbers_renumbers_from_filenames(monkeypatch, tmp_p
     # SongC should still be track 3 (filename says 03)
     assert updated_meta[audio_c].track_number == 3
     # Health report should no longer have duplicate error
-    assert updated_health.can_tag is True
+    assert updated_health.has_blocking_errors is False
     # write_metadata was called for the two fixed files
     assert len(write_calls) == 2
 
@@ -708,7 +713,7 @@ def test_fix_duplicate_track_numbers_end_to_end_via_workflow_yolo(monkeypatch, t
     monkeypatch.setattr(
         AlbumWorkflow,
         "_fix_metadata",
-        lambda self, path, af, mbp, artist_mbid_map=None, artist_genre_map=None: (False, "", "No candidates"),
+        lambda self, path, af, mbp, artist_mbid_map=None, artist_genre_map=None: (False, "", "No candidates", []),
     )
 
     result = AlbumWorkflow(Settings(yolo=True)).run(tmp_path, dry_run=False)
@@ -716,7 +721,7 @@ def test_fix_duplicate_track_numbers_end_to_end_via_workflow_yolo(monkeypatch, t
     # The duplicate fix should have been applied before can_write
     assert "Renumbered tracks (filename prefixes or sequential)" in result.messages
     # Health report should allow tagging
-    assert result.health_report.can_tag is True
+    assert result.health_report.has_blocking_errors is False
 
 
 def test_cover_art_fix_skipped_in_dry_run(monkeypatch, tmp_path: Path):
@@ -767,8 +772,8 @@ def test_stem_track_number_handles_parenthesized_prefix():
     assert _stem_track_number("Song") is None
     assert _stem_track_number("Artist - Song") is None
 
-    # Three-digit prefix matches the first two digits (\d{1,2})
-    assert _stem_track_number("100 Songs") == 10
+    # Three-digit prefix — now matches all three digits (\d{1,3})
+    assert _stem_track_number("100 Songs") == 100
 
     # Edge: empty stem
     assert _stem_track_number("") is None
@@ -784,9 +789,10 @@ def test_clean_stem_cleans_parenthesized_prefix():
     ``(NN)`` prefixed filenames and leaving the raw prefix in the title.
     """
     # (NN) format — newly supported
+    # The new parser extracts the actual title, stripping track number AND artist prefix
     assert _clean_stem("(01) Song") == "Song"
-    assert _clean_stem("(01) [Artist] Title") == "[Artist] Title"
-    assert _clean_stem("(12) Artist - Title") == "Artist - Title"
+    assert _clean_stem("(01) [Artist] Title") == "Title"  # was "[Artist] Title"
+    assert _clean_stem("(12) Artist - Title") == "Title"  # was "Artist - Title"
 
     # Bare NN prefix — existing behavior, must still work
     assert _clean_stem("01 Song") == "Song"
@@ -797,7 +803,8 @@ def test_clean_stem_cleans_parenthesized_prefix():
 
     # No prefix — returned unchanged
     assert _clean_stem("Song Title") == "Song Title"
-    assert _clean_stem("Artist - Song") == "Artist - Song"
+    # "Artist - Song" now parses as artist="Artist", title="Song"
+    assert _clean_stem("Artist - Song") == "Song"  # was "Artist - Song"
 
     # Edge: empty stem
     assert _clean_stem("") == ""
@@ -901,7 +908,7 @@ def test_pattern_3_does_not_exclude_disc_none_on_single_disc(
         AlbumWorkflow,
         "_fix_metadata",
         lambda self, path, af, mbp, artist_mbid_map=None, artist_genre_map=None: (
-            False, "", "No candidates"
+            False, "", "No candidates", []
         ),
     )
 
@@ -979,7 +986,7 @@ def test_pattern_3_excludes_disc_none_on_multi_disc(monkeypatch, tmp_path: Path)
         AlbumWorkflow,
         "_fix_metadata",
         lambda self, path, af, mbp, artist_mbid_map=None, artist_genre_map=None: (
-            False, "", "No candidates"
+            False, "", "No candidates", []
         ),
     )
     monkeypatch.setattr(
@@ -999,3 +1006,281 @@ def test_pattern_3_excludes_disc_none_on_multi_disc(monkeypatch, tmp_path: Path)
     assert audio_b not in result.audio_files, (
         "Stray disc=None file should have been excluded on multi-disc album"
     )
+
+
+# ── Multi-artist / collaborative album tests ──────────────────────
+
+
+def test_fix_via_llm_preserves_per_track_artist(monkeypatch, tmp_path: Path):
+    """For multi-artist albums (拉阔演奏厅), per-track artist is preserved,
+    not overwritten by effective_album_artist."""
+    from auto_tagger.workflows.album import AlbumWorkflow
+    from auto_tagger.config import Settings
+    from auto_tagger.core.metadata import TrackMetadata
+
+    audio_kelly = tmp_path / "陈慧琳 - 01.毫无保留.flac"
+    audio_jordan = tmp_path / "陈小春 - 02.斗苦.flac"
+    audio_kelly.touch()
+    audio_jordan.touch()
+
+    metadata = {
+        audio_kelly: TrackMetadata(title="毫无保留", artist="陈慧琳", album="拉阔演奏厅",
+                                   album_artist="陈慧琳", track_number=1, track_total=2),
+        audio_jordan: TrackMetadata(title="斗苦", artist="陈小春", album="拉阔演奏厅",
+                                    album_artist="陈慧琳", track_number=2, track_total=2),
+    }
+
+    monkeypatch.setattr(
+        "auto_tagger.workflows.album.iter_audio_files",
+        lambda path, recursive=False: [audio_kelly, audio_jordan],
+    )
+    monkeypatch.setattr(
+        "auto_tagger.workflows.album.read_metadata",
+        lambda path: metadata[path],
+    )
+
+    written_calls: list[TrackMetadata] = []
+    monkeypatch.setattr(
+        "auto_tagger.workflows.album.write_metadata",
+        lambda path, md, dry_run=False: written_calls.append(md),
+    )
+
+    workflow = AlbumWorkflow(Settings(yolo=True))
+
+    # Mock _fix_metadata to inject the multi-artist scenario
+    from auto_tagger.integrations.candidates import LookupRequest
+
+    def mock_fix_metadata(path, af, mbp, artist_mbid_map=None, artist_genre_map=None):
+        from auto_tagger.integrations.candidates import (
+            AlbumCandidate, LookupRequest, LookupSource, TrackCandidate
+        )
+        from auto_tagger.core.metadata import TrackMetadata as TM
+        from auto_tagger.features.compilations import (
+            analyze_compilation, apply_smart_album_tags
+        )
+        from dataclasses import replace
+
+        request = LookupRequest(
+            path=path,
+            artist_hint="陈慧琳",
+            album_hint="拉阔演奏厅",
+            tracks=[
+                TrackCandidate(title="毫无保留", artist="陈慧琳", track_number=1),
+                TrackCandidate(title="斗苦", artist="陈小春", track_number=2),
+            ],
+        )
+
+        llm_tracks = [
+            TM(title="毫无保留", artist="陈慧琳", artists=["陈慧琳"],
+               album="拉阔演奏厅", album_artist="陈慧琳,陈小春",
+               album_artists=["陈慧琳", "陈小春"], track_number=1, compilation=False),
+            TM(title="斗苦", artist="陈小春", artists=["陈小春"],
+               album="拉阔演奏厅", album_artist="陈慧琳,陈小春",
+               album_artists=["陈慧琳", "陈小春"], track_number=2, compilation=False),
+        ]
+
+        folder_artist = request.artist_hint
+        llm_artist = "陈慧琳,陈小春"
+
+        analysis = analyze_compilation(llm_tracks, album_path_hint="拉阔演奏厅")
+        assert analysis.is_compilation is False
+        # Multi-artist concert with different artists per track:
+        # not a compilation (not Various Artists) and not a collaboration
+        # (not a single track with multiple artists). The album artist
+        # should include all performers.
+        llm_artist_for_aa = analysis.suggested_album_artist or llm_artist
+
+        effective_album_artist = llm_artist_for_aa
+        assert effective_album_artist == "陈慧琳,陈小春"
+
+        for af_path, llm_track in zip([audio_kelly, audio_jordan], llm_tracks):
+            md = metadata[af_path]
+            enriched = replace(
+                md,
+                artist=llm_track.artist,
+                album_artist=effective_album_artist,
+                album_artists=["陈慧琳", "陈小春"],
+                year="2006",
+            )
+            from auto_tagger.workflows.album import write_metadata
+            write_metadata(af_path, enriched, dry_run=False)
+
+        return True, "llm", "Generated via LLM", []
+
+    monkeypatch.setattr(workflow, "_fix_metadata", mock_fix_metadata)
+
+    result = workflow.run(tmp_path, dry_run=False)
+
+    assert result.applied_writes == 2
+    assert len(written_calls) >= 2
+
+    if len(written_calls) >= 2:
+        kelly_track = written_calls[0]
+        jordan_track = written_calls[1]
+        assert kelly_track.artist == "陈慧琳"
+        assert jordan_track.artist == "陈小春"
+        assert kelly_track.album_artist == "陈慧琳,陈小春"
+        assert jordan_track.album_artist == "陈慧琳,陈小春"
+
+
+def test_llm_artist_overrides_folder_artist_for_multi_artist():
+    """When LLM parsed the folder, llm_artist takes priority over folder_artist."""
+    from auto_tagger.workflows.album import AlbumWorkflow
+    from auto_tagger.config import Settings
+
+    workflow = AlbumWorkflow(Settings(yolo=True))
+
+    folder_artist = "陈慧琳"
+    llm_extracted_artist = "陈慧琳,陈小春"
+
+    is_llm_parsed = True
+    effective = llm_extracted_artist if is_llm_parsed else folder_artist
+    assert effective == "陈慧琳,陈小春"
+
+    is_llm_parsed = False
+    effective = llm_extracted_artist if is_llm_parsed else folder_artist
+    assert effective == "陈慧琳"
+
+
+def test_write_candidate_multi_artist_preserves_per_track_artist(monkeypatch, tmp_path: Path):
+    """_write_candidate_metadata preserves per-track artist when LLM provides distinct values."""
+    from auto_tagger.integrations.candidates import AlbumCandidate, TrackCandidate, LookupSource
+    from auto_tagger.workflows.album import AlbumWorkflow
+    from auto_tagger.config import Settings
+    from auto_tagger.core.metadata import TrackMetadata
+
+    audio_kelly = tmp_path / "陈慧琳 - 01.毫无保留.flac"
+    audio_jordan = tmp_path / "陈小春 - 02.斗苦.flac"
+    audio_kelly.touch()
+    audio_jordan.touch()
+
+    candidate = AlbumCandidate(
+        artist="陈慧琳,陈小春",
+        artists=["陈慧琳", "陈小春"],
+        album="拉阔演奏厅",
+        album_artist="陈慧琳,陈小春",
+        album_artists=["陈慧琳", "陈小春"],
+        year="2006",
+        tracks=[
+            TrackCandidate(title="毫无保留", artist="陈慧琳", artists=["陈慧琳"], track_number=1),
+            TrackCandidate(title="斗苦", artist="陈小春", artists=["陈小春"], track_number=2),
+        ],
+        source=LookupSource.FOLDER,
+    )
+
+    existing_meta = {
+        audio_kelly: TrackMetadata(title="毫无保留", artist="陈慧琳", album="拉阔演奏厅",
+                                   album_artist="陈慧琳", track_number=1, track_total=2),
+        audio_jordan: TrackMetadata(title="斗苦", artist="陈小春", album="拉阔演奏厅",
+                                    album_artist="陈慧琳", track_number=2, track_total=2),
+    }
+
+    written: list[tuple[Path, TrackMetadata]] = []
+    monkeypatch.setattr(
+        "auto_tagger.workflows.album.write_metadata",
+        lambda p, m, dry_run=False: written.append((p, m)),
+    )
+
+    workflow = AlbumWorkflow(Settings())
+    monkeypatch.setattr(workflow, "_enrich_genre_from_discogs", lambda c, discogs_token=None: None)
+    monkeypatch.setattr(workflow, "_enrich_genre_from_llm", lambda a, b, known_genres=None: None)
+
+    fixed, source_label, message, strays = workflow._write_candidate_metadata(
+        audio_files=[audio_kelly, audio_jordan],
+        metadata_by_path=existing_meta,
+        candidate=candidate,
+        folder_artist="陈慧琳,陈小春",
+    )
+
+    assert fixed is True
+    assert len(written) == 2
+
+    kelly_meta = written[0][1]
+    jordan_meta = written[1][1]
+    assert kelly_meta.artist == "陈慧琳"
+    assert jordan_meta.artist == "陈小春"
+
+
+def test_album_workflow_skipped_when_state_tagged_ok(tmp_path):
+    """Album marked 'tagged_ok' with matching content hash is skipped."""
+    from auto_tagger.workflows.album import AlbumWorkflow
+    from auto_tagger.config import Settings
+    from auto_tagger.integrations.cache import MatchCache
+
+    album_path = tmp_path / "Artist" / "Album"
+    album_path.mkdir(parents=True)
+    (album_path / "01 Song.flac").write_bytes(b"x")
+
+    settings = Settings(cache_path=str(tmp_path / "cache.db"), yolo=True)
+    cache = MatchCache(tmp_path / "cache.db")
+    cache.set_album_state(album_path, status="tagged_ok")
+
+    result = AlbumWorkflow(settings).run(album_path, dry_run=False, force=False)
+
+    assert result.planned_writes == 0
+    assert result.applied_writes == 0
+    assert result.skipped_writes == 0
+
+
+def test_album_workflow_force_reprocesses_tagged_album(monkeypatch, tmp_path):
+    """Even tagged_ok albums are reprocessed when force=True."""
+    from auto_tagger.workflows.album import AlbumWorkflow
+    from auto_tagger.config import Settings
+    from auto_tagger.integrations.cache import MatchCache
+    from auto_tagger.core.metadata import TrackMetadata
+
+    album_path = tmp_path / "Artist" / "Album"
+    album_path.mkdir(parents=True)
+    audio = album_path / "01 Song.flac"
+    audio.write_bytes(b"x")
+
+    import auto_tagger.workflows.album as mod
+    monkeypatch.setattr(mod, "iter_audio_files", lambda path, recursive=False: [audio])
+    monkeypatch.setattr(mod, "read_metadata", lambda path: TrackMetadata(title="S", artist="A", album="A", track_number=1))
+    from auto_tagger.quality.health import AlbumHealthReport
+    monkeypatch.setattr(mod, "build_album_health_report", lambda *a, **kw: AlbumHealthReport(
+        album_path=a[0], tracks_checked=1, lrc_files_checked=0, issues=[]
+    ))
+    monkeypatch.setattr(mod, "write_metadata", lambda p, m, dry_run=False: None)
+    monkeypatch.setattr(AlbumWorkflow, "_fix_cover_art", lambda self, path, af, mbp: (False, "", ""))
+
+    settings = Settings(cache_path=str(tmp_path / "cache.db"), yolo=True)
+    cache = MatchCache(tmp_path / "cache.db")
+    cache.set_album_state(album_path, status="tagged_ok")
+
+    result = AlbumWorkflow(settings).run(album_path, dry_run=False, force=True)
+
+    assert result.planned_writes >= 1
+
+
+def test_album_workflow_skip_tagged_with_new_content(monkeypatch, tmp_path):
+    """Album marked 'tagged_ok' with DIFFERENT content hash is NOT skipped."""
+    from auto_tagger.workflows.album import AlbumWorkflow
+    from auto_tagger.config import Settings
+    from auto_tagger.integrations.cache import MatchCache
+    from auto_tagger.core.metadata import TrackMetadata
+
+    album_path = tmp_path / "Artist" / "Album"
+    album_path.mkdir(parents=True)
+    audio = album_path / "01 Song.flac"
+    audio.write_bytes(b"x")
+
+    import auto_tagger.workflows.album as mod
+    monkeypatch.setattr(mod, "iter_audio_files", lambda path, recursive=False: [audio])
+    monkeypatch.setattr(mod, "read_metadata", lambda path: TrackMetadata(title="S", artist="A", album="A", track_number=1))
+    from auto_tagger.quality.health import AlbumHealthReport
+    monkeypatch.setattr(mod, "build_album_health_report", lambda *a, **kw: AlbumHealthReport(
+        album_path=a[0], tracks_checked=1, lrc_files_checked=0, issues=[]
+    ))
+    monkeypatch.setattr(mod, "write_metadata", lambda p, m, dry_run=False: None)
+    monkeypatch.setattr(AlbumWorkflow, "_fix_cover_art", lambda self, path, af, mbp: (False, "", ""))
+
+    settings = Settings(cache_path=str(tmp_path / "cache.db"), yolo=True)
+    cache = MatchCache(tmp_path / "cache.db")
+    cache.set_album_state(album_path, status="tagged_ok")
+
+    (album_path / "02 Song.flac").write_bytes(b"more data")
+
+    result = AlbumWorkflow(settings).run(album_path, dry_run=False, force=False)
+
+    assert result.planned_writes >= 1

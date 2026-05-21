@@ -302,3 +302,19 @@ def test_tag_nonexistent_path():
     runner = CliRunner()
     result = runner.invoke(cli, ["tag", "/nonexistent/path"])
     assert result.exit_code != 0
+
+
+def test_tag_command_has_force_flag():
+    """Tag command help shows --force flag."""
+    runner = CliRunner()
+    result = runner.invoke(cli, ["tag", "--help"])
+    assert "--force" in result.output
+    assert "Ignore album state cache" in result.output
+
+
+def test_batch_command_has_force_flag():
+    """Batch command help shows --force flag."""
+    runner = CliRunner()
+    result = runner.invoke(cli, ["batch", "--help"])
+    assert "--force" in result.output
+    assert "Ignore album state cache" in result.output

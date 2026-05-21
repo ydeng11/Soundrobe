@@ -9,6 +9,7 @@ from typing import Any
 
 from auto_tagger.config import Settings
 from auto_tagger.core.audio import SUPPORTED_EXTENSIONS
+from auto_tagger.quality.metadata_validation import check_cross_album_artist_consistency
 from auto_tagger.workflows.album import AlbumWorkflow
 
 
@@ -23,6 +24,7 @@ class BatchSummary:
     cover_art_fixed: int = 0
     errors: list[str] = field(default_factory=list)
     health_reports: list[Any] = field(default_factory=list)
+    cross_album_issues: list[dict] = field(default_factory=list)
 
 
 def discover_album_paths(library_path: Path) -> list[Path]:
@@ -46,7 +48,7 @@ class BatchWorkflow:
         self.settings = settings
         self.album_workflow_factory = album_workflow_factory
 
-    def run(self, path: Path, dry_run: bool, parallel: int = 1) -> BatchSummary:
+    def run(self, path: Path, dry_run: bool, parallel: int = 1, force: bool = False) -> BatchSummary:
         """Run batch processing with deterministic sequential execution.
 
         Maintains a cross-album MusicBrainz artist ID map so that MBIDs
@@ -62,17 +64,21 @@ class BatchWorkflow:
         artist_mbid_map: dict[str, str] = {}
         artist_genre_map: dict[str, list[str]] = {}
 
+        # Collect album_artist values for cross-album consistency check
+        album_artist_data: list[tuple[Path, str | None]] = []
+
         for album in albums:
             processed += 1
             try:
                 result = self.album_workflow_factory(self.settings).run(
-                    album, dry_run=dry_run,
+                    album, dry_run=dry_run, force=force,
                     artist_mbid_map=artist_mbid_map,
                     artist_genre_map=artist_genre_map,
                 )
             except Exception as exc:
                 failed += 1
                 errors.append(f"{album}: {exc}")
+                album_artist_data.append((album, None))
                 continue
             applied += result.applied_writes
             skipped += result.skipped_writes
@@ -80,7 +86,16 @@ class BatchWorkflow:
                 cover_art_fixed += 1
             if result.health_report is not None:
                 health_reports.append(result.health_report.to_dict())
+            # Extract album_artist from first track's metadata
+            first_meta = next(iter(result.metadata_by_path.values()), None)
+            aa = first_meta.album_artist if first_meta is not None else None
+            album_artist_data.append((album, aa))
+
+        # Run cross-album consistency check
+        cross_album_issues = check_cross_album_artist_consistency(album_artist_data)
 
         return BatchSummary(
-            processed, applied, skipped, failed, cover_art_fixed, errors, health_reports
+            processed, applied, skipped, failed, cover_art_fixed, errors,
+            health_reports,
+            [issue.to_dict() for issue in cross_album_issues],
         )

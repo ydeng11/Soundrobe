@@ -61,9 +61,9 @@ def test_album_health_report_summarizes_errors_and_warnings(tmp_path: Path):
         ],
     )
 
-    assert report.can_tag is False
+    assert report.has_blocking_errors is True
     assert report.summary == {"errors": 1, "warnings": 1, "info": 0}
-    assert report.to_dict()["can_tag"] is False
+    assert report.to_dict()["has_blocking_errors"] is True
 
 
 def test_track_health_allows_tagging_without_error(tmp_path: Path):
@@ -81,7 +81,7 @@ def test_track_health_allows_tagging_without_error(tmp_path: Path):
         ],
     )
 
-    assert track.can_tag is True
+    assert track.has_blocking_errors is False
 
 
 # ── Path derivation ──────────────────────────────────────────
@@ -162,7 +162,7 @@ class TestRenderHealthReportMarkdown:
         md = render_health_report_markdown(report)
         assert "# Health Report: Adele — 21" in md
         assert "| 2 audio / 1 LRC" in md
-        assert "✅ yes" in md
+        assert "✅ no" in md
 
     def test_album_level_issues_listed(self):
         """Album-level issues appear under an Album-level Issues section."""
@@ -223,7 +223,7 @@ class TestRenderHealthReportMarkdown:
             ],
         )
         md = render_health_report_markdown(report)
-        assert "✅ yes" in md
+        assert "✅ no" in md
         assert "✅ 2 track(s) with no issues." in md
         assert "✅ 2 LRC file(s) valid." in md
         assert "## Album-level Issues" not in md
@@ -260,7 +260,7 @@ class TestRenderCombinedHealthReportMarkdown:
                 "album_path": "/Music/Adele/21",
                 "tracks_checked": 2,
                 "lrc_files_checked": 0,
-                "can_tag": True,
+                "has_blocking_errors": False,
                 "summary": {"errors": 0, "warnings": 1, "info": 0},
                 "issues": [],
                 "track_health": [],
@@ -268,7 +268,7 @@ class TestRenderCombinedHealthReportMarkdown:
         ]
         md = render_combined_health_report_markdown(reports, Path("/Music"))
         assert "# Batch Health Report: /Music" in md
-        assert "| 0 | 1 |" in md  # albums blocked | total warnings
+        assert "| 0 | 1 |" in md  # albums with errors | total warnings
 
     def test_per_album_overview(self):
         """Combined report lists each album in a table."""
@@ -277,7 +277,7 @@ class TestRenderCombinedHealthReportMarkdown:
                 "album_path": "/Music/Adele/21",
                 "tracks_checked": 2,
                 "lrc_files_checked": 0,
-                "can_tag": True,
+                "has_blocking_errors": False,
                 "summary": {"errors": 0, "warnings": 0, "info": 0},
                 "issues": [],
                 "track_health": [],
@@ -298,7 +298,7 @@ class TestRenderCombinedHealthReportMarkdown:
                 "album_path": "/Music/Adele/21",
                 "tracks_checked": 1,
                 "lrc_files_checked": 0,
-                "can_tag": False,
+                "has_blocking_errors": True,
                 "summary": {"errors": 1, "warnings": 0, "info": 0},
                 "issues": [
                     {
@@ -317,3 +317,50 @@ class TestRenderCombinedHealthReportMarkdown:
         assert "🔴 ERROR" in md
         assert "metadata.missing_album_artist" in md
         assert "❌" in md
+
+    def test_cross_album_issues_section(self):
+        """Cross-album issues render under a Cross-album Issues heading."""
+        cross = [
+            {
+                "category": "cross_album",
+                "severity": "warning",
+                "path": None,
+                "code": "cross_album.inconsistent_album_artist",
+                "message": "Inconsistent album_artist across albums in 'Pink Floyd': Pink Floyd, Pink Flyod",
+                "details": {
+                    "artist_directory": "/Music/Pink Floyd",
+                    "values": ["Pink Floyd", "Pink Flyod"],
+                    "albums": {"Dark Side": "Pink Floyd", "Wall": "Pink Flyod"},
+                },
+            },
+        ]
+        md = render_combined_health_report_markdown(
+            [], Path("/Music"), cross_album_issues=cross,
+        )
+        assert "## Cross-album Issues" in md
+        assert "cross_album.inconsistent_album_artist" in md
+        assert "Pink Floyd, Pink Flyod" in md
+        assert "⚠ WARNING" in md
+
+    def test_cross_album_issues_counted_in_totals(self):
+        """Cross-album warnings are reflected in summary totals."""
+        cross = [
+            {
+                "category": "cross_album",
+                "severity": "warning",
+                "path": None,
+                "code": "cross_album.inconsistent_album_artist",
+                "message": "Inconsistent album_artist in 'Pink Floyd'",
+                "details": {},
+            },
+        ]
+        md = render_combined_health_report_markdown(
+            [], Path("/Music"), cross_album_issues=cross,
+        )
+        # Total warnings should be 1 (from the cross-album issue)
+        assert "| 0 | 0 | 1 |" in md  # albums blocked | total errors | total warnings
+
+    def test_no_cross_album_issues_omits_section(self):
+        """Without cross-album issues, the section is omitted."""
+        md = render_combined_health_report_markdown([], Path("/Music"))
+        assert "## Cross-album Issues" not in md

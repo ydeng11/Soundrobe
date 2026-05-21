@@ -96,3 +96,43 @@ def _candidate_summary(index: int, candidate: AlbumCandidate) -> dict[str, Any]:
             for track in candidate.tracks[:20]
         ],
     }
+
+
+def build_folder_extraction_messages(
+    folder_name: str,
+    parent_name: str | None = None,
+) -> list[dict[str, str]]:
+    """Build messages for extracting structured metadata from a folder name.
+
+    The deterministic parser couldn't extract clean artist/album/year from
+    this folder name (e.g., dot-separated ``Year.Artist.Album`` convention
+    or multi-artist names). The LLM is asked to extract the fields.
+
+    The ``parent_name`` (if provided) gives context — for CD subdirectories
+    like ``Album CD1``, the parent folder ``Year.Artist.Album 3CD`` contains
+    the year and artist info.
+    """
+    payload: dict[str, Any] = {
+        "folder_name": folder_name,
+        "instruction": (
+            "Extract the artist, album name, and release year from this music folder name. "
+            "If the folder name also indicates a disc number (e.g., CD1, Disc 2), "
+            "include it. Return only JSON with these fields: "
+            "artist (str), album (str), year (str or null), disc (str or null)."
+        ),
+    }
+    if parent_name:
+        payload["parent_name"] = parent_name
+
+    return [
+        {
+            "role": "system",
+            "content": (
+                "You extract structured music metadata from folder names. "
+                "Handle Chinese naming conventions like Year.Artist.Album "
+                "and multi-artist folders (e.g., '2006.Artist1.Artist2.Album'). "
+                "Return only valid JSON."
+            ),
+        },
+        {"role": "user", "content": json.dumps(payload, ensure_ascii=False, sort_keys=True)},
+    ]

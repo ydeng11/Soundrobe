@@ -45,3 +45,73 @@ def test_fallback_prompt_warns_not_to_invent_musicbrainz_ids():
 
     assert "Do not invent MusicBrainz IDs" in content
     assert "tracks" in content
+
+
+def test_folder_name_extraction_prompt_includes_folder_and_parent(tmp_path):
+    """Extraction prompt includes the album folder name and parent context."""
+    from auto_tagger.llm.prompts import build_folder_extraction_messages
+
+    messages = build_folder_extraction_messages(
+        folder_name="陈慧琳.Especial 新曲+精选 CD1",
+        parent_name="2006.陈慧琳.Especial 新曲+精选 3CD",
+    )
+    content = "\n".join(message["content"] for message in messages)
+
+    assert "folder_name" in content
+    assert "陈慧琳.Especial" in content
+    assert "parent_name" in content
+    assert "2006.陈慧琳" in content
+
+
+def test_folder_name_extraction_prompt_requests_json_output():
+    """Prompt asks for structured JSON with artist, album, year, disc."""
+    from auto_tagger.llm.prompts import build_folder_extraction_messages
+
+    messages = build_folder_extraction_messages(
+        folder_name="陈慧琳.Especial 新曲+精选 CD1",
+        parent_name="2006.陈慧琳.Especial 新曲+精选 3CD",
+    )
+    content = "\n".join(message["content"] for message in messages)
+
+    assert "artist" in content
+    assert "album" in content
+    assert "year" in content
+    assert "disc" in content
+
+
+def test_folder_name_extraction_without_parent(tmp_path):
+    """Parent name is optional — extraction works on folder name alone."""
+    from auto_tagger.llm.prompts import build_folder_extraction_messages
+
+    messages = build_folder_extraction_messages(folder_name="2006 - Greatest Hits")
+    content = "\n".join(message["content"] for message in messages)
+
+    assert "2006 - Greatest Hits" in content
+    assert "parent" not in content or "parent_name" not in content or "null" in content
+
+
+def test_folder_name_extraction_multi_artist():    
+    """Prompt handles multi-artist folder like 陈慧琳.陈小春.拉阔演奏厅."""
+    from auto_tagger.llm.prompts import build_folder_extraction_messages
+
+    messages = build_folder_extraction_messages(
+        folder_name="2006.陈慧琳.陈小春.拉阔演奏厅",
+    )
+    content = "\n".join(message["content"] for message in messages)
+
+    assert "2006.陈慧琳.陈小春.拉阔演奏厅" in content
+    assert "artist" in content
+    assert "album" in content
+
+
+def test_folder_name_extraction_cd_subfolder_disc_hint():
+    """CD1 in the folder name should hint at disc number."""
+    from auto_tagger.llm.prompts import build_folder_extraction_messages
+
+    messages = build_folder_extraction_messages(
+        folder_name="陈慧琳.Especial 新曲+精选 CD1",
+        parent_name="2006.陈慧琳.Especial 新曲+精选 3CD",
+    )
+    content = "\n".join(message["content"] for message in messages)
+
+    assert "disc" in content

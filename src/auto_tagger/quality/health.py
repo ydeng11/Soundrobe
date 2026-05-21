@@ -53,15 +53,20 @@ class TrackHealth:
     issues: list[HealthIssue] = field(default_factory=list)
 
     @property
-    def can_tag(self) -> bool:
-        """Return whether this track has no blocking health errors."""
-        return not any(issue.severity == HealthSeverity.ERROR for issue in self.issues)
+    def has_blocking_errors(self) -> bool:
+        """Return whether this track has blocking health errors.
+
+        This is a post-hoc diagnostic — not a pre-tagging gate.
+        Tags may still have been written successfully even when
+        this returns True (e.g. bonus tracks with track_number > track_total).
+        """
+        return any(issue.severity == HealthSeverity.ERROR for issue in self.issues)
 
     def to_dict(self) -> dict[str, Any]:
         """Return a JSON-safe representation."""
         return {
             "path": str(self.path),
-            "can_tag": self.can_tag,
+            "has_blocking_errors": self.has_blocking_errors,
             "issues": [issue.to_dict() for issue in self.issues],
         }
 
@@ -77,9 +82,14 @@ class AlbumHealthReport:
     track_health: list[TrackHealth] = field(default_factory=list)
 
     @property
-    def can_tag(self) -> bool:
-        """Return whether the album has no blocking health errors."""
-        return not any(issue.severity == HealthSeverity.ERROR for issue in self.issues)
+    def has_blocking_errors(self) -> bool:
+        """Return whether the album has blocking health errors.
+
+        This is a post-hoc diagnostic — not a pre-tagging gate.
+        Tags may still have been written successfully even when
+        this returns True (e.g. bonus tracks with track_number > track_total).
+        """
+        return any(issue.severity == HealthSeverity.ERROR for issue in self.issues)
 
     @property
     def summary(self) -> dict[str, int]:
@@ -100,7 +110,7 @@ class AlbumHealthReport:
             "album_path": str(self.album_path),
             "tracks_checked": self.tracks_checked,
             "lrc_files_checked": self.lrc_files_checked,
-            "can_tag": self.can_tag,
+            "has_blocking_errors": self.has_blocking_errors,
             "summary": self.summary,
             "issues": [issue.to_dict() for issue in self.issues],
             "track_health": [track.to_dict() for track in self.track_health],
@@ -182,15 +192,27 @@ def render_health_report(report: AlbumHealthReport) -> Table:
     table.add_column("Errors")
     table.add_column("Warnings")
     table.add_column("Info")
-    table.add_column("Can tag")
+    table.add_column("Blocking errors")
     table.add_row(
         f"{report.tracks_checked} audio / {report.lrc_files_checked} LRC",
         str(summary["errors"]),
         str(summary["warnings"]),
         str(summary["info"]),
-        "yes" if report.can_tag else "no",
+        "yes" if report.has_blocking_errors else "no",
     )
     return table
+
+
+def _dict_to_issue(i: dict[str, Any]) -> HealthIssue:
+    """Convert a JSON-safe dict back to a HealthIssue."""
+    return HealthIssue(
+        category=i.get("category", ""),
+        severity=HealthSeverity(i.get("severity", "info")),
+        path=Path(i["path"]) if i.get("path") else None,
+        code=i.get("code", ""),
+        message=i.get("message", ""),
+        details=i.get("details", {}),
+    )
 
 
 def _severity_icon(severity: HealthSeverity) -> str:
@@ -209,9 +231,9 @@ def _artist_album_from_path(album_path: Path) -> tuple[str, str]:
     Falls back to ('_', leaf) when there's no useful parent.
     """
     name = album_path.name or "_"
-    parent = album_path.parent
-    if parent and parent.name and parent.name not in ("", "/", "."):
-        return parent.name, name
+    parent_name = album_path.parent.name
+    if parent_name not in ("", "/", "."):
+        return parent_name, name
     return "_", name
 
 
@@ -237,9 +259,9 @@ def render_health_report_markdown(report: AlbumHealthReport) -> str:
     lines.append("## Summary")
     lines.append("")
     s = report.summary
-    lines.append("| Checked | Errors | Warnings | Info | Can tag |")
-    lines.append("|---------|--------|----------|------|---------")
-    tag_icon = "✅ yes" if report.can_tag else "❌ no"
+    lines.append("| Checked | Errors | Warnings | Info | Blocking errors |")
+    lines.append("|---------|--------|----------|------|-----------------")
+    tag_icon = "❌ yes" if report.has_blocking_errors else "✅ no"
     lines.append(f"| {report.tracks_checked} audio / {report.lrc_files_checked} LRC | {s['errors']} | {s['warnings']} | {s['info']} | {tag_icon} |")
     lines.append("")
 
@@ -299,10 +321,15 @@ def render_health_report_markdown(report: AlbumHealthReport) -> str:
 def render_combined_health_report_markdown(
     album_reports: list[dict[str, Any]],
     library_path: Path,
+    cross_album_issues: list[dict[str, Any]] | None = None,
 ) -> str:
     """Render a combined batch health report as Markdown.
 
     *album_reports* items are the ``to_dict()`` output from each album.
+
+    *cross_album_issues* are ``to_dict()`` outputs from the cross-album
+    consistency check, e.g. inconsistent album_artist across albums
+    under the same artist directory.
     """
     lines: list[str] = []
     lines.append(f"# Batch Health Report: {library_path}")
@@ -312,21 +339,42 @@ def render_combined_health_report_markdown(
     lines.append("")
 
     # ── Cross-album summary ────────────────────────────────
-    albums_with_errors = sum(1 for r in album_reports if not r.get("can_tag", True))
+    albums_with_errors = sum(1 for r in album_reports if r.get("has_blocking_errors", False))
     total_errors = sum(r["summary"]["errors"] for r in album_reports)
     total_warnings = sum(r["summary"]["warnings"] for r in album_reports)
 
+    # Add cross-album issues to totals
+    if cross_album_issues:
+        for issue in cross_album_issues:
+            sev = issue.get("severity", "info")
+            if sev == "error":
+                total_errors += 1
+            elif sev == "warning":
+                total_warnings += 1
+
     lines.append("## Cross-album Summary")
     lines.append("")
-    lines.append("| Albums blocked | Total errors | Total warnings |")
+    lines.append("| Albums with errors | Total errors | Total warnings |")
     lines.append("|---------------|--------------|----------------|")
     lines.append(f"| {albums_with_errors} | {total_errors} | {total_warnings} |")
     lines.append("")
 
+    # ── Cross-album issues section ──────────────────────────
+    if cross_album_issues:
+        lines.append("## Cross-album Issues")
+        lines.append("")
+        lines.append("| Category | Severity | Code | Message |")
+        lines.append("|----------|----------|------|---------|")
+        for issue in cross_album_issues:
+            sev = issue.get("severity", "info")
+            icon = _severity_icon(HealthSeverity(sev))
+            lines.append(f"| {issue.get('category', '')} | {icon} | `{issue.get('code', '')}` | {issue.get('message', '')} |")
+        lines.append("")
+
     # ── Per-album summary table ─────────────────────────────
     lines.append("## Per-album Overview")
     lines.append("")
-    lines.append("| Artist / Album | Errors | Warnings | Can tag |")
+    lines.append("| Artist / Album | Errors | Warnings | Blocking errors |")
     lines.append("|----------------|--------|----------|---------|")
     for report_dict in sorted(album_reports, key=lambda r: r.get("album_path", "")):
         ap = Path(report_dict.get("album_path", ""))
@@ -335,7 +383,8 @@ def render_combined_health_report_markdown(
         s = report_dict.get("summary", {})
         errs = s.get("errors", 0)
         warns = s.get("warnings", 0)
-        tag_icon = "✅" if report_dict.get("can_tag", True) else "❌"
+        has_errors = report_dict.get("has_blocking_errors", False)
+        tag_icon = "❌" if has_errors else "✅"
         lines.append(f"| {label} | {errs} | {warns} | {tag_icon} |")
     lines.append("")
 
@@ -346,7 +395,8 @@ def render_combined_health_report_markdown(
         s = report_dict.get("summary", {})
         issues = report_dict.get("issues", [])
         track_health = report_dict.get("track_health", [])
-        tag_icon = "✅" if report_dict.get("can_tag", True) else "❌"
+        has_errors = report_dict.get("has_blocking_errors", False)
+        tag_icon = "❌" if has_errors else "✅"
 
         lines.append("---")
         lines.append("")
@@ -377,29 +427,11 @@ def render_combined_health_report_markdown(
 
 def report_dict_to_markdown(report_dict: dict, album_path: Path) -> str:
     """Render a ``to_dict()`` output as Markdown via ``render_health_report_markdown``."""
-    issues: list[HealthIssue] = []
-    for i in report_dict.get("issues", []):
-        issues.append(HealthIssue(
-            category=i.get("category", ""),
-            severity=HealthSeverity(i.get("severity", "info")),
-            path=Path(i["path"]) if i.get("path") else None,
-            code=i.get("code", ""),
-            message=i.get("message", ""),
-            details=i.get("details", {}),
-        ))
+    issues = [_dict_to_issue(i) for i in report_dict.get("issues", [])]
 
     track_health: list[TrackHealth] = []
     for t in report_dict.get("track_health", []):
-        t_issues: list[HealthIssue] = []
-        for i in t.get("issues", []):
-            t_issues.append(HealthIssue(
-                category=i.get("category", ""),
-                severity=HealthSeverity(i.get("severity", "info")),
-                path=Path(t["path"]) if t.get("path") else None,
-                code=i.get("code", ""),
-                message=i.get("message", ""),
-                details=i.get("details", {}),
-            ))
+        t_issues = [_dict_to_issue(i) for i in t.get("issues", [])]
         track_health.append(TrackHealth(path=Path(t["path"]), issues=t_issues))
 
     report = AlbumHealthReport(

@@ -111,6 +111,32 @@ class CoverArtArchiveClient:
         )
 
 
+def _scan_directory_for_cover(path: Path, search_names: list[str]) -> CoverArtImage | None:
+    """Search *path* for cover art by exact name match, then lenient glob."""
+    # Exact name match: {album_name}.jpg, cover.jpg, folder.jpg, etc.
+    for name in search_names:
+        for suffix in COVER_SUFFIXES:
+            candidate = path / f"{name}{suffix}"
+            if not candidate.exists():
+                continue
+            data = candidate.read_bytes()
+            mime_type = _mime_type_for_bytes(data) or _mime_type_for_suffix(candidate.suffix)
+            if mime_type and _valid_image_data(data):
+                return CoverArtImage(data, mime_type, "local", candidate)
+
+    # Lenient fallback: any image file in the directory.
+    for suffix in COVER_SUFFIXES:
+        for candidate in sorted(path.glob(f"*{suffix}")):
+            if candidate.stem.startswith("a_"):
+                continue
+            data = candidate.read_bytes()
+            mime_type = _mime_type_for_bytes(data) or _mime_type_for_suffix(candidate.suffix)
+            if mime_type and _valid_image_data(data):
+                return CoverArtImage(data, mime_type, "local", candidate)
+
+    return None
+
+
 def discover_local_cover_art(
     album_path: Path, album_name: str | None = None
 ) -> CoverArtImage | None:
@@ -121,35 +147,18 @@ def discover_local_cover_art(
     2. cover.jpg, folder.jpg, front.jpg, album.jpg/png
     3. Lenient scan: any .jpg/.jpeg/.png in the album dir (skip files
        starting with 'a_' prefix, which are typically alternate artwork)
+    4. Parent directory (multi-CD fallback: "Album CD1/" → parent "Album 3CD/")
     """
-    # Build search names: album-specific first, then generic
-    search_names: list[str] = []
-    if album_name:
-        search_names.append(album_name)
-    search_names.extend(COVER_NAMES)
+    search_names = ([album_name] if album_name else []) + list(COVER_NAMES)
 
-    for name in search_names:
-        for suffix in COVER_SUFFIXES:
-            candidate = album_path / f"{name}{suffix}"
-            if not candidate.exists():
-                continue
-            data = candidate.read_bytes()
-            mime_type = _mime_type_for_bytes(data) or _mime_type_for_suffix(candidate.suffix)
-            if mime_type and _valid_image_data(data):
-                return CoverArtImage(data, mime_type, "local", candidate)
+    image = _scan_directory_for_cover(album_path, search_names)
+    if image is not None:
+        return image
 
-    # Lenient fallback: scan for any image file in the album directory.
-    # Handles cases like album folder "2004-WuHa" with cover file "Wu Ha.jpg"
-    # (exact album-name match "WuHa" vs "Wu Ha" fails above).
-    for suffix in COVER_SUFFIXES:
-        for candidate in sorted(album_path.glob(f"*{suffix}")):
-            # Skip alternate artwork files with 'a_' prefix
-            if candidate.stem.startswith("a_"):
-                continue
-            data = candidate.read_bytes()
-            mime_type = _mime_type_for_bytes(data) or _mime_type_for_suffix(candidate.suffix)
-            if mime_type and _valid_image_data(data):
-                return CoverArtImage(data, mime_type, "local", candidate)
+    # Multi-CD fallback: search parent directory.
+    parent = album_path.parent
+    if parent != album_path:
+        return _scan_directory_for_cover(parent, search_names)
 
     return None
 

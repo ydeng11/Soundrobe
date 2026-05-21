@@ -235,3 +235,60 @@ def _check_total_consistency(
                 {"values": dict(counts)},
             )
         )
+
+
+def check_cross_album_artist_consistency(
+    albums: list[tuple[Path, str | None]],
+) -> list[HealthIssue]:
+    """Check album_artist consistency across albums in the same artist directory.
+
+    Groups albums by their parent directory (artist folder). If a directory
+    contains albums with multiple different album_artist values, an issue is
+    raised for that directory. Albums with ``None`` album_artist are excluded
+    from comparison (no data yet) but still listed in the per-album breakdown.
+
+    Args:
+        albums: List of ``(album_path, album_artist)`` tuples, one per album
+            in the library.
+
+    Returns:
+        A list of cross-album ``HealthIssue`` instances, one per artist
+        directory with inconsistencies.
+    """
+    issues: list[HealthIssue] = []
+
+    # Group by parent directory (artist folder)
+    by_parent: dict[Path, list[tuple[Path, str | None]]] = defaultdict(list)
+    for album_path, artist_name in albums:
+        by_parent[album_path.parent].append((album_path, artist_name))
+
+    for parent_dir, album_list in by_parent.items():
+        unique_artists: set[str] = set()
+        for album_path, artist_name in album_list:
+            if artist_name and artist_name.strip():
+                unique_artists.add(artist_name.strip())
+
+        if len(unique_artists) <= 1:
+            continue
+
+        albums_detail = {
+            ap.name: (an or "(missing)")
+            for ap, an in album_list
+        }
+        issues.append(
+            HealthIssue(
+                "cross_album",
+                HealthSeverity.WARNING,
+                None,
+                "cross_album.inconsistent_album_artist",
+                f"Inconsistent album_artist across albums in '{parent_dir.name}': "
+                f"{', '.join(sorted(unique_artists))}",
+                {
+                    "artist_directory": str(parent_dir),
+                    "values": sorted(unique_artists),
+                    "albums": dict(sorted(albums_detail.items())),
+                },
+            )
+        )
+
+    return issues
