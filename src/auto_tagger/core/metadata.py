@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field, replace
 from typing import Any
 
@@ -43,6 +44,45 @@ def _parse_int(value: str) -> int | None:
         return int(value)
     except ValueError:
         return None
+
+
+# Regex to split multi-artist strings on known collaboration markers.
+# Order matters — more specific/longer patterns come first to avoid
+# partial matches.  The dot-only pattern uses CJK lookarounds so that
+# names like "Mr. Bungle" or "J.D. Souther" are not accidentally split.
+_MULTI_ARTIST_RE = re.compile(
+    r"\s+[Ff]eat\.\s+"       # feat.
+    r"|\s+[Ff]t\.\s+"        # ft.
+    r"|\s+[Ff]eaturing\s+"   # featuring
+    r"|\s*/\s*"              # /
+    r"|\s+&\s+"              # & (with spaces)
+    r"|\s*[＋+\uFF0B]\s*"    # +, ＋ (fullwidth plus)
+    r"|\s*[·‧\u00B7]\s*"    # middle dot variants
+    r"|、"                     # Chinese enumeration comma
+    r"|(?<=[\u4e00-\u9fff\u3400-\u4dbf])\.(?=[\u4e00-\u9fff\u3400-\u4dbf])"
+    # dot between CJK characters only
+)
+
+
+def split_artist_strings(values: list[str]) -> list[str]:
+    """Split multi-artist entries in a list into individual artists.
+
+    If a single value contains a known multi-artist separator (e.g.
+    ``"Alice / Bob"`` or ``"\u9673\u6167\u73b3.\u9673\u5c0f\u6625"``), it is
+    split into separate entries.  Values without separators are kept
+    as-is.
+
+    Returns a new list with leading/trailing whitespace stripped from
+    each part and empty strings removed.
+    """
+    result: list[str] = []
+    for value in values:
+        parts = _MULTI_ARTIST_RE.split(value)
+        for part in parts:
+            cleaned = part.strip()
+            if cleaned:
+                result.append(cleaned)
+    return result
 
 
 def _clean_list(values: list[str]) -> list[str]:
@@ -88,14 +128,23 @@ class TrackMetadata:
     replaygain: ReplayGainTags = field(default_factory=ReplayGainTags)
 
     def normalized(self) -> TrackMetadata:
-        """Return a copy with cleaned list fields and display fallbacks."""
+        """Return a copy with cleaned list fields and display fallbacks.
+
+        Multi-artist name strings containing known collaboration markers
+        (`` / ``, `` feat. ``, `` & ``, ``.`` between CJK chars, etc.)
+        are automatically split into individual entries so that the
+        ``ARTISTS`` tag is written as proper multi-valued Vorbis comments
+        rather than a single joined string.
+        """
         artists = _clean_list(self.artists)
         if not artists and self.artist:
             artists = [self.artist.strip()]
+        artists = split_artist_strings(artists)
 
         album_artists = _clean_list(self.album_artists)
         if not album_artists and self.album_artist:
             album_artists = [self.album_artist.strip()]
+        album_artists = split_artist_strings(album_artists)
 
         return replace(
             self,

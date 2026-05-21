@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from collections import defaultdict
 from dataclasses import dataclass, field, replace
 from pathlib import Path
@@ -23,6 +24,9 @@ from auto_tagger.features.cover_art import (
 )
 from auto_tagger.integrations import LookupService
 from auto_tagger.integrations.aliases import artist_matches_any, get_aliases, save_alias
+
+# Regex matching CD/Disc subfolder names (e.g. "Artist - Album CD1").
+_CD_SUBFOLDER_RE = re.compile(r"(?:[Cc][Dd]|[Dd][Ii][Ss][CcKk]|ディスク)\s*\d+\s*$")
 from auto_tagger.integrations.candidates import AlbumCandidate, LookupRequest, LookupSource
 from auto_tagger.integrations.discogs_client import DiscogsClient, DiscogsError
 from auto_tagger.llm.client import OpenRouterClient
@@ -1909,12 +1913,42 @@ class AlbumWorkflow:
 
         This detects cases where a previous auto-tag run wrote wrong tags.
         Uses artist_matches_any to handle SC/TC and alias matching.
+
+        For CD subfolder paths (e.g. "Album CD1"), the grandparent folder
+        is used as the artist reference instead of the immediate parent.
         """
-        folder_artist = album_path.parent.name
+        if (
+            album_path.name
+            and _CD_SUBFOLDER_RE.search(album_path.name)
+            and album_path.parent.parent
+        ):
+            folder_artist = album_path.parent.parent.name
+        else:
+            folder_artist = album_path.parent.name
         for metadata in metadata_by_path.values():
+            # Check track artist — the most common signal
             if metadata.artist:
                 if not artist_matches_any(metadata.artist, folder_artist):
                     return True
+            # Also check album artist — a previous auto-tag run may have
+            # written the album bundle folder name ("Artist.Album 2CD")
+            # instead of just the artist name.  The fuzzy alias matching
+            # in artist_matches_any may miss this because "陈慧琳.GRACE"
+            # shares many characters with "陈慧琳".  Do a direct check
+            # for CD/Disc bundle patterns, which never appear in a
+            # legitimate artist name.
+            if metadata.album_artist:
+                if not artist_matches_any(metadata.album_artist, folder_artist):
+                    return True
+                # Direct heuristic: if folder_artist is a prefix of
+                # album_artist followed by a delimiter and extra text,
+                # the album_artist is likely the bundle folder name.
+                aa_norm = metadata.album_artist.casefold().strip()
+                fa_norm = folder_artist.casefold().strip()
+                if aa_norm != fa_norm and aa_norm.startswith(fa_norm):
+                    suffix = aa_norm[len(fa_norm):]
+                    if suffix and suffix[0] in ". _-":
+                        return True
         return False
 
     @staticmethod

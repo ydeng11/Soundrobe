@@ -23,6 +23,7 @@ _YEAR_FROM_PREFIX_RE = re.compile(r"^(\d{4})[-.]")  # capture year from date pre
 _BOOKMARKS_RE = re.compile(r"[《》「」【】\[\]]")  # Chinese/Western bookmarks
 _EXTRA_SUFFIX_RE = re.compile(r"\s*\([^)]*\)\s*$")  # trailing "(FLAC分轨)" etc.
 _FORMAT_SUFFIX_RE = re.compile(r"\[?(flac|mp3|wav|aac|ogg|m4a|wma|ape|flac\s*分轨|wav\s*分轨)\]?\s*$", re.IGNORECASE)  # trailing [flac] etc.
+_CD_SUBFOLDER_RE = re.compile(r"(?:[Cc][Dd]|[Dd][Ii][Ss][CcKk]|ディスク)\s*\d+\s*$")  # CD1, Disc 1, Disk1, ディスク1
 
 
 def extract_year_from_name(name: str) -> str | None:
@@ -100,7 +101,20 @@ def parse_album_path(path: Path) -> LookupRequest:
     """
     album_path = path.parent if path.is_file() else path
     album_hint = clean_folder_name(album_path.name) if album_path.name else None
-    artist_hint = clean_folder_name(album_path.parent.name) if album_path.parent.name else None
+
+    # Detect CD subfolder pattern (e.g. "Artist - Album CD1" or
+    # "Artist.Album CD2").  When inside a CD subfolder the immediate
+    # parent is the album bundle folder ("Album (2CD)"), and the
+    # grandparent is the true artist folder.
+    if album_path.name and _CD_SUBFOLDER_RE.search(album_path.name):
+        artist_hint = (
+            clean_folder_name(album_path.parent.parent.name)
+            if album_path.parent.parent and album_path.parent.parent.name
+            else None
+        )
+    else:
+        artist_hint = clean_folder_name(album_path.parent.name) if album_path.parent.name else None
+
     year_hint = extract_year_from_name(album_path.name) if album_path.name else None
     return LookupRequest(
         path=path,
