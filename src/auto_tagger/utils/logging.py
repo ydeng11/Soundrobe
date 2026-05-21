@@ -58,7 +58,7 @@ def setup_logging(
     logger.setLevel(level)
 
     # Suppress noisy dependency loggers at INFO level
-    for noisy_logger in ("musicbrainzngs.mbxml", "httpx"):
+    for noisy_logger in ("musicbrainzngs", "httpx"):
         logging.getLogger(noisy_logger).setLevel(logging.WARNING)
 
     return logger
