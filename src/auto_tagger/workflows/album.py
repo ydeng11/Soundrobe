@@ -1079,8 +1079,15 @@ class AlbumWorkflow:
                 llm_artists_normalized = track_artists
             elif not analysis.is_compilation:
                 # For non-compilation multi-artist albums, preserve per-track artist
-                # when the LLM returned distinct values for each track
-                if track_artist and effective_album_artist and track_artist.strip() != effective_album_artist.strip():
+                # when the LLM returned distinct values for each track or
+                # multiple artists (e.g. a duet on a solo album).
+                if (
+                    track_artist and effective_album_artist
+                    and (
+                        track_artist.strip() != effective_album_artist.strip()
+                        or len(track_artists) > 1
+                    )
+                ):
                     llm_artist_normalized = track_artist
                     llm_artists_normalized = track_artists or [track_artist]
                 else:
@@ -1313,18 +1320,20 @@ class AlbumWorkflow:
                     if matched_track
                     else None
                 )
+                matched_track_artists = (
+                    getattr(matched_track, "artists", None)
+                    if matched_track
+                    else None
+                )
                 if (
                     matched_track_artist
                     and candidate.artist
                     and matched_track_artist.strip() != candidate.artist.strip()
+                ) or (
+                    matched_track_artists and len(matched_track_artists) > 1
                 ):
-                    track_artist = matched_track_artist
-                    matched_track_artists = (
-                        getattr(matched_track, "artists", None)
-                        if matched_track
-                        else None
-                    )
-                    track_artists = matched_track_artists or [matched_track_artist]
+                    track_artist = matched_track_artist or matched_track_artists[0]
+                    track_artists = matched_track_artists or [track_artist]
                 else:
                     # Single-artist album: track artist matches the normalized
                     # album artist (folder name), not the raw candidate artist.
