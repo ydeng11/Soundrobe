@@ -134,5 +134,25 @@ nuke: clean
 # ============================================================================
 
 # Show all available commands
+# ============================================================================
+# CUE / WAV slicer
+# ============================================================================
+
+# Slice WAV files using CUE sheets and write metadata.
+# Passes all arguments through to slice_cue.py.
+#
+# Examples:
+#   just cue-slice /Volumes/downloads/陈小春          # process full library
+#   just cue-slice ./album --dry-run                  # preview only
+#   just cue-slice ./album --output ./out             # custom output root
+#   just cue-slice ./album --format flac              # output as FLAC
+cue-slice *args:
+    python3 slice_cue.py {{ args }}
+
+# ============================================================================
+# Help
+# ============================================================================
+
+# Show all available commands
 default:
     @just --list
