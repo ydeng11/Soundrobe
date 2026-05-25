@@ -35,6 +35,10 @@ cache_path: ~/.cache/auto-tagger/cache.db
 # Setup stores downloads, state, and the SQLite index under this dot folder.
 data_dir: ~/.auto-tagger
 
+# Log file path
+# All log output is written here (in addition to stderr).
+log_path: ~/.auto-tagger/auto-tagger.log
+
 # Health report output directory
 # Per-album MD + JSON reports are written here automatically.
 health_report_dir: ~/.auto-tagger/health-reports

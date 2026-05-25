@@ -1,0 +1,12 @@
+{
+  "SessionStart": [
+    {
+      "hooks": [
+        {
+          "type": "command",
+          "command": "\"/opt/homebrew/bin/node\" \"/Users/ihelio/code/auto_tagger/.codex/hooks/gsd-check-update.js\""
+        }
+      ]
+    }
+  ]
+}

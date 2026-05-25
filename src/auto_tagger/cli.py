@@ -31,6 +31,11 @@ CONTEXT_SETTINGS = {
     help="Enable verbose output",
 )
 @click.option(
+    "--debug",
+    is_flag=True,
+    help="Enable debug logging with metadata tracing (implies --verbose)",
+)
+@click.option(
     "--output",
     "-o",
     type=click.Choice(["table", "json", "plain"]),
@@ -38,22 +43,24 @@ CONTEXT_SETTINGS = {
 )
 @click.version_option(version=__version__, prog_name="auto-tag")
 @click.pass_context
-def cli(ctx: click.Context, config: Path | None, verbose: bool, output: str | None) -> None:
+def cli(ctx: click.Context, config: Path | None, verbose: bool, debug: bool, output: str | None) -> None:
     """Auto Tagger - Intelligent audio file tagging CLI tool.
 
     Automatically tag audio files with metadata from MusicBrainz and LLM assistance.
     """
     try:
-        cli_overrides: dict[str, Any] = {
-            k: v for k, v in [
-                ("verbose", verbose),
-                ("output_format", output),
-                ("config_file", config),
-            ] if v
-        }
-        settings = load_settings(config_file=config, **cli_overrides)
+        settings = load_settings(
+            config_file=config,
+            verbose=verbose or debug,
+            debug=debug,
+            output_format=output,
+        )
 
-        setup_logging(verbose=settings.verbose)
+        setup_logging(
+            verbose=settings.verbose,
+            debug=settings.debug,
+            log_file=str(settings.log_path),
+        )
 
         ctx.ensure_object(dict)
         ctx.obj["settings"] = settings
@@ -129,6 +136,11 @@ def tag(
     type=click.Path(dir_okay=False, path_type=Path),
     help="Explicit path for combined health report (default: auto-generated per-album + combined MD+JSON)",
 )
+@click.option(
+    "--json-stream",
+    is_flag=True,
+    help="Output incremental JSON lines for UI consumption",
+)
 @click.pass_context
 def batch(
     ctx: click.Context,
@@ -139,6 +151,7 @@ def batch(
     force: bool,
     parallel: int,
     health_report: Path | None,
+    json_stream: bool,
 ) -> None:
     """Batch process entire music library.
 
@@ -151,7 +164,7 @@ def batch(
     if yolo:
         settings.yolo = True
 
-    execute(settings, path, dry_run, parallel, interactive, health_report, force=force)
+    execute(settings, path, dry_run, parallel, interactive, health_report, force=force, json_stream=json_stream)
 
 
 @cli.command()
@@ -178,7 +191,7 @@ def version(ctx: click.Context) -> None:
 
 
 @cli.command()
-@click.argument("path", type=click.Path(exists=True, path_type=Path))
+@click.argument("path", type=click.Path(exists=True, path_type=Path), required=False)
 @click.option("--dry-run", is_flag=True, help="Preview junk tags that would be removed")
 @click.pass_context
 def clean(ctx: click.Context, path: Path, dry_run: bool) -> None:
@@ -190,6 +203,57 @@ def clean(ctx: click.Context, path: Path, dry_run: bool) -> None:
 
     settings: Settings = ctx.obj["settings"]
     execute(settings, path, dry_run)
+
+
+@cli.command()
+@click.argument("path", type=click.Path(exists=True, path_type=Path), required=True)
+@click.option(
+    "--json-stream",
+    is_flag=True,
+    help="Output incremental JSON lines for UI consumption",
+)
+@click.option(
+    "--fix",
+    is_flag=True,
+    help="Apply LLM-suggested fixes to the actual files",
+)
+@click.pass_context
+def audit(ctx: click.Context, path: Path, json_stream: bool, fix: bool) -> None:
+    """Run an LLM-powered metadata quality audit on audio files.
+
+    PATH: Path to a music library directory or album directory
+    """
+    from auto_tagger.commands.audit import execute
+
+    settings: Settings = ctx.obj["settings"]
+    execute(settings, path, json_stream=json_stream, fix=fix)
+
+
+@cli.command()
+@click.argument(
+    "path",
+    type=click.Path(exists=True, path_type=Path),
+    required=False,
+)
+@click.pass_context
+def ui(ctx: click.Context, path: Path | None) -> None:
+    """Launch the terminal UI for browsing and editing tags.
+
+    PATH: Optional path to a music library directory
+    """
+    try:
+        from auto_tagger.ui.app import AutoTaggerApp
+    except ImportError as exc:
+        from auto_tagger.utils.output import console
+
+        console.print(
+            "[red]Error:[/red] The UI dependencies are not installed.\n"
+            "Install them with: [bold]pip install auto-tagger[ui][/bold]"
+        )
+        raise SystemExit(1) from exc
+
+    app = AutoTaggerApp(library_path=path)
+    app.run()
 
 
 @cli.group()

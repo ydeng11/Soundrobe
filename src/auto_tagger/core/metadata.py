@@ -59,6 +59,8 @@ _MULTI_ARTIST_RE = re.compile(
     r"|\s*[＋+\uFF0B]\s*"    # +, ＋ (fullwidth plus)
     r"|\s*[·‧\u00B7]\s*"    # middle dot variants
     r"|、"                     # Chinese enumeration comma
+    r"|(?<=[\u4e00-\u9fff\u3400-\u4dbf])&(?=[\u4e00-\u9fff\u3400-\u4dbf])"
+    # & between CJK characters only (no-space "郑伊健&陈小春" → split)
     r"|(?<=[\u4e00-\u9fff\u3400-\u4dbf])\.(?=[\u4e00-\u9fff\u3400-\u4dbf])"
     # dot between CJK characters only
 )

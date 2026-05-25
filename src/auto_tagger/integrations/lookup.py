@@ -3,12 +3,18 @@
 from __future__ import annotations
 
 import json
+import logging
+import re
+from dataclasses import replace
+from functools import cache
 from pathlib import Path
 
 import opencc
 
 from auto_tagger.config import Settings
 from auto_tagger.exceptions import TaggingError
+
+logger = logging.getLogger(__name__)
 from auto_tagger.integrations.aliases import get_aliases
 from auto_tagger.integrations.beets_client import BeetsClient
 from auto_tagger.integrations.cache import MatchCache
@@ -28,29 +34,20 @@ from auto_tagger.integrations.fallback import (
 # ── SC/TC Chinese variant helpers ────────────────────────────────────
 
 
-_t2s_converter: opencc.OpenCC | None = None
-_s2t_converter: opencc.OpenCC | None = None
-
-
+@cache
 def _get_converters() -> tuple[opencc.OpenCC, opencc.OpenCC]:
-    """Lazy-init OpenCC converters (singleton)."""
-    global _t2s_converter, _s2t_converter
-    if _t2s_converter is None:
-        _t2s_converter = opencc.OpenCC("t2s")
-        _s2t_converter = opencc.OpenCC("s2t")
-    return _t2s_converter, _s2t_converter
+    """Lazy-init OpenCC converters (singleton via functools.cache)."""
+    return opencc.OpenCC("t2s"), opencc.OpenCC("s2t")
 
 
 def _sc_variant(text: str) -> str:
-    """Convert text to Simplified Chinese (if it contains Chinese)."""
-    t2s, _ = _get_converters()
-    return t2s.convert(text)
+    """Convert text to Simplified Chinese."""
+    return _get_converters()[0].convert(text)
 
 
 def _tc_variant(text: str) -> str:
-    """Convert text to Traditional Chinese (if it contains Chinese)."""
-    _, s2t = _get_converters()
-    return s2t.convert(text)
+    """Convert text to Traditional Chinese."""
+    return _get_converters()[1].convert(text)
 
 
 class LookupService:
@@ -59,13 +56,11 @@ class LookupService:
     def __init__(
         self,
         beets_client: BeetsClient | None = None,
-        dataset_client: DatasetIndexClient | None = None,
         cache: MatchCache | None = None,
         settings: Settings | None = None,
     ):
         self.settings = settings or Settings()
         self.beets_client = beets_client if beets_client is not None else BeetsClient()
-        self.dataset_client = dataset_client  # kept for backward compat
         self.cache = cache if cache is not None else MatchCache(self.settings.cache_path)
         self.warnings: list[str] = []
 
@@ -77,22 +72,53 @@ class LookupService:
         """Return album candidates from cache, Beets, or folder fallback."""
         request = self.request_from_path(path)
 
+        if self.settings.debug:
+            logger.debug(
+                "Lookup request from %s: artist=%s album=%s year=%s tracks=%d",
+                path.name, request.artist_hint or "?",
+                request.album_hint or "?", request.year_hint or "?",
+                len(request.tracks) if request.tracks else 0,
+            )
+
         # Try LLM hint enhancement when deterministic parsing is ambiguous
         if self._hints_are_ambiguous(request):
             enhanced = self._enhance_hints_with_llm(request)
             if enhanced is not None:
+                if self.settings.debug:
+                    logger.debug(
+                        "LLM enhanced hints: artist=%s album=%s year=%s",
+                        enhanced.artist_hint or "?",
+                        enhanced.album_hint or "?",
+                        enhanced.year_hint or "?",
+                    )
                 request = enhanced
 
         cached = self.cache.get(request)
         if cached is not None:
+            if self.settings.debug:
+                logger.debug(
+                    "Cache hit for %s — %d candidate(s)",
+                    path.name, len(cached),
+                )
             return cached
 
+        if self.settings.debug:
+            logger.debug("Cache miss — running lookups")
+
         candidates = self._lookup_dataset(request)
+        if self.settings.debug:
+            logger.debug("Dataset candidates: %d", len(candidates))
+
         if not candidates and self.settings.remote_lookup_enabled:
             candidates = self._lookup_beets(request)
+            if self.settings.debug:
+                logger.debug("Beets/MusicBrainz candidates: %d", len(candidates))
+
         # Always try Discogs — merge with existing results
         if self.settings.discogs_enabled:
             discogs_candidates = self._lookup_discogs(request)
+            if self.settings.debug:
+                logger.debug("Discogs candidates: %d", len(discogs_candidates))
             if discogs_candidates:
                 candidates = list(candidates) + discogs_candidates
 
@@ -112,6 +138,11 @@ class LookupService:
             )
             # Don't duplicate if the folder candidate is already present
             candidates = list(candidates) + [folder]
+            if self.settings.debug:
+                logger.debug(
+                    "No matching candidates — added folder fallback: %s — %s",
+                    folder.artist or "?", folder.album or "?",
+                )
 
         self.cache.set(request, candidates)
         return candidates
@@ -272,21 +303,7 @@ class LookupService:
     ) -> AlbumCandidate:
         """Add verification status to a candidate."""
         status = verify_album_name(request.album_hint, candidate)
-        return AlbumCandidate(
-            artist=candidate.artist,
-            artists=candidate.artists,
-            album=candidate.album,
-            album_artist=candidate.album_artist,
-            album_artists=candidate.album_artists,
-            year=candidate.year,
-            genre=candidate.genre,
-            musicbrainz_albumid=candidate.musicbrainz_albumid,
-            musicbrainz_artistid=candidate.musicbrainz_artistid,
-            tracks=candidate.tracks,
-            distance=candidate.distance,
-            source=candidate.source,
-            verification=status,
-        )
+        return replace(candidate, verification=status)
 
     def _record_warning(self, warning: str) -> None:
         if warning not in self.warnings:
@@ -297,37 +314,56 @@ class LookupService:
     def _hints_are_ambiguous(self, request: LookupRequest) -> bool:
         """Check if deterministic parsing produced ambiguous hints.
 
-        Returns True when:
-        - No year was extracted AND the album name contains dots or
-          artist-prefix patterns suggesting Year.Artist.Album convention
-        - The album hint still looks like a concatenation (contains
-          Chinese dots or separator chars not part of the album name)
+        Returns True when the folder name contains patterns that suggest
+        the raw metadata was not fully extracted by deterministic parsing:
+        - Bracket annotations: ``[香港首版]``, ``[FLAC]``, ``[引进版]``
+        - Chinese bookmark separators: ``《》「」【】``
+        - Chinese dots between CJK characters (multi-artist or Year.Artist.Album)
+        - ASCII dots in CJK contexts
+        - No album/artist hint at all
+
+        Checks the original folder name (not the cleaned hint) so that
+        even after deterministic ``clean_folder_name()`` processes the
+        name, the LLM still has a chance to extract from the raw form.
         """
         album_hint = request.album_hint or ""
         artist_hint = request.artist_hint or ""
 
-        # If deterministic parsing got a year AND a clean album, hints are fine
+        # If we couldn't get any useful hint, definitely ambiguous
+        if not album_hint or not artist_hint:
+            return True
+
+        # Check the original folder name for metadata annotation markers
+        # that deterministic cleanup may not have fully resolved.
+        folder_name = request.path.name if request.path else ""
+        if re.search(r"[\[\]《》「」【】]", folder_name):
+            return True
+
+        # Chinese dot between CJK characters → likely multi-artist/album
+        # separator that deterministic parsing doesn't handle
+        if re.search(r"[\u4e00-\u9fff]\.[\u4e00-\u9fff]", folder_name):
+            return True
+        if "。" in folder_name:
+            return True
+
+        # Year prefix without a clean album: "1997-大件事[香港首版]" still has
+        # annotations that the LLM can extract better than regex
+        # (only flag when deterministic cleanup clearly left artifacts)
         if request.year_hint and album_hint:
+            # If the cleaned album hint looks like it has concatenated
+            # metadata (no natural word boundaries), try LLM
+            if len(album_hint) > 3 and album_hint.isalnum() and album_hint.isascii():
+                clean = album_hint.replace(" ", "").replace("-", "")
+                if clean.isalnum() and len(clean) > 10:
+                    return True
             return False
 
-        # Check for Chinese dot convention: album name that contains
-        # Chinese characters with dots likely has an artist prefix
-        if album_hint and "。" in album_hint:
-            return True
-
-        # If the artist hint contains dots + Chinese chars, it's likely
-        # an uncleaned Year.Artist.Album string
-        if "。" in artist_hint or (artist_hint and "." in artist_hint):
-            return True
-
-        # If we're processing a CD subdirectory under a year-prefixed parent
-        # and no year was found, it's likely the year is in the parent name
+        # CD subdirectory without year in album name → year likely in parent
         if not request.year_hint and not album_hint:
             return True
 
-        # Check for dot convention: Year.Artist.Album style names use
-        # ASCII dots as separators between Chinese segments
-        if not request.year_hint and "." in album_hint:
+        # Dot convention: Year.Artist.Album with ASCII dots
+        if "." in album_hint and not request.year_hint:
             return True
         if "." in artist_hint and any(ord(c) > 127 for c in artist_hint):
             return True
@@ -354,19 +390,39 @@ class LookupService:
         if not folder_name:
             return None
 
+        if self.settings.debug:
+            logger.debug(
+                "LLM hint enhancement: folder=%s parent=%s ambiguous=True",
+                folder_name, parent_name or "-",
+            )
+
         # Check cache first (works even without LLM key)
         cached = self.cache.get_llm_extraction(folder_name)
         if cached is not None:
+            if self.settings.debug:
+                logger.debug(
+                    "Cache hit for LLM extraction: folder=%s → %s",
+                    folder_name, cached,
+                )
             return self._apply_extraction(request, cached)
 
         # Also try with parent name as the key (CD subdirs share parent)
         if parent_name and parent_name != folder_name:
             cached = self.cache.get_llm_extraction(parent_name)
             if cached is not None:
+                if self.settings.debug:
+                    logger.debug(
+                        "Cache hit for LLM extraction: parent=%s → %s",
+                        parent_name, cached,
+                    )
                 return self._apply_extraction(request, cached)
 
         # No cache hit → need to call LLM
         if not self.settings.llm_api_key:
+            if self.settings.debug:
+                logger.debug(
+                    "No cached LLM extraction and no API key — skipping hint enhancement"
+                )
             return None
 
         try:
@@ -394,6 +450,16 @@ class LookupService:
                 "disc": str(extraction["disc"]) if extraction.get("disc") else None,
             }
 
+            if self.settings.debug:
+                logger.debug(
+                    "LLM extracted: folder=%s → artist=%s album=%s year=%s disc=%s",
+                    folder_name,
+                    normalized["artist"] or "?",
+                    normalized["album"] or "?",
+                    normalized["year"] or "?",
+                    normalized["disc"] or "?",
+                )
+
             # Cache the result under the folder name
             self.cache.set_llm_extraction(folder_name, normalized)
             # Also cache under parent name so CD subdirs can share
@@ -403,7 +469,7 @@ class LookupService:
             return self._apply_extraction(request, normalized)
 
         except Exception:
-            if self.settings.verbose:
+            if self.settings.verbose or self.settings.debug:
                 self._record_warning(f"LLM folder extraction failed for '{folder_name}'")
             return None
 

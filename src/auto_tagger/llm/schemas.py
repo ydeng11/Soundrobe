@@ -86,3 +86,43 @@ class FallbackTagResponse(BaseModel):
             if invented:
                 raise ValueError("fallback output must not include MusicBrainz IDs")
         return data
+
+
+class CorrectedTrack(BaseModel):
+    """Complete corrected metadata for one track returned by LLM audit.
+
+    Only populated for tracks with issues (warning/error). The code writes
+    these values verbatim — no field mapping or transformation.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    title: str | None = None
+    artist: str | None = None
+    artists: list[str] | None = None
+    album: str | None = None
+    album_artist: str | None = None
+    year: str | None = None
+    genre: str | None = None
+
+
+class AuditTrackResult(BaseModel):
+    """LLM audit result for a single track field."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    index: int = Field(..., ge=0, description="Track index within the album")
+    field: str = Field(..., description="Audited field name (artist, title, album, album_artist, artists, path)")
+    status: str = Field(..., description="'correct' | 'warning' | 'error'")
+    message: str = Field(..., description="Human-readable explanation")
+    suggestion: str | None = Field(default=None, description="Suggested fix value (deprecated in favor of corrected)")
+    corrected: CorrectedTrack | None = Field(default=None, description="Complete corrected metadata for problematic tracks")
+
+
+class AuditResponse(BaseModel):
+    """Structured response for LLM album audit."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    tracks: list[AuditTrackResult] = Field(..., description="Per-track audit results")
+

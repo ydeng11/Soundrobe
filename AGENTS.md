@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-Auto Tagger is a Python CLI tool for intelligent audio file tagging. It automates metadata tagging for Navidrome-oriented music libraries using MusicBrainz, Beets, LLM assistance, and local dataset lookups. The tool handles everything from single-album tagging to full library batch processing.
+Auto Tagger is a Python CLI + TUI tool for intelligent audio file tagging. It automates metadata tagging for Navidrome-oriented music libraries using MusicBrainz, Beets, LLM assistance, and local dataset lookups. The tool handles everything from single-album tagging to full library batch processing, with a full terminal UI built on [Textual](https://textual.textualize.io/).
 
 **Version:** 0.1.0  
 **License:** MIT  
@@ -97,8 +97,23 @@ auto_tagger/
         ├── utils/            # Utilities
         │   ├── logging.py    # Logging configuration
         │   └── output.py     # Rich console output
+        ├── ui/               # Terminal UI (Textual framework)
+        │   ├── app.py            # App entry point, key bindings, screen management
+        │   ├── state.py          # In-memory state (AppState, AlbumData, TrackData, TrackAuditResult)
+        │   ├── undo.py           # Undo stack (UndoManager, TrackSnapshot)
+        │   ├── workflow.py       # Subprocess management for auto-tag & audit (JSON streaming)
+        │   ├── render_cover.py   # Cover art as terminal coloured blocks (half-block Unicode)
+        │   ├── screens/
+        │   │   ├── main_screen.py    # Main layout: toolbar, tag panel, track table, status bar
+        │   │   └── settings_screen.py # Settings modal (auto-audit, LLM model, output format)
+        │   └── widgets/
+        │       ├── tag_panel.py       # Metadata form fields + cover art preview with validation
+        │       ├── track_table.py     # Album browser + per-album track DataTable
+        │       ├── toolbar.py         # Action buttons (Open, Auto-Tag, Stop, Undo, Filter, Settings)
+        │       └── status_bar.py      # Filter input + file statistics with debounce
         └── workflows/        # Orchestration
             ├── album.py      # Single album workflow
+            ├── artist.py     # Artist-level workflow
             ├── batch.py      # Batch processing workflow
             └── interactive.py # Interactive prompting workflow
 ```
@@ -111,6 +126,7 @@ auto_tagger/
 |-----------------|-------------------------------------------------|
 | Language        | Python 3.10+                                    |
 | CLI Framework   | Click                                           |
+| TUI Framework   | Textual                                         |
 | Settings        | Pydantic + pydantic-settings                    |
 | Format          | YAML (config), JSON (health reports, output)    |
 | Metadata        | Mutagen (read/write tags), MusicBrainz (lookup) |
@@ -120,6 +136,7 @@ auto_tagger/
 | ReplayGain      | rgain3 or loudgain                              |
 | Data Processing | OpenCC (Chinese text conversion)                |
 | HTTP Client     | HTTPx                                           |
+| Image           | Pillow (cover art rendering in TUI)             |
 | Output          | Rich (terminal tables, formatting)              |
 | Quality         | ruff (lint), mypy (types), pytest (tests)       |
 | Build           | Hatchling + build                               |
@@ -207,8 +224,12 @@ Prerequisite: Install [just](https://github.com/casey/just) (`brew install just`
 | `  --service <name>`                                         | Service(s) to index (can repeat; choices: `musicbrainz`, `spotify`, `tidal`, `deezer`) |
 | `auto-tag clean <path>`                                      | Strip junk tags (description, comment, c) from audio files |
 | `  --dry-run`                                                | Preview junk tags that would be removed                    |
+| `auto-tag ui [path]`                                         | Launch the terminal UI for browsing and editing tags       |
 | `auto-tag version`                                          | Show version information                                   |
 | `auto-tag --help`                                            | Show full help                                             |
+
+The `ui` subcommand has an optional `[path]` argument pointing to a music library directory.
+It requires the `[ui]` extra: `pip install auto-tagger[ui]`.
 
 Global CLI flags (before subcommand):
 
@@ -232,10 +253,11 @@ Configuration is loaded (in priority order):
 |-------------------------------|----------------------------------|------------------------------|
 | `AUTO_TAG_LLM_API_KEY`        | —                                | OpenRouter API key           |
 | `AUTO_TAG_LLM_ENDPOINT`       | `https://openrouter.ai/api/v1`   | LLM API endpoint             |
-| `AUTO_TAG_LLM_MODEL`          | `anthropic/claude-3.5-haiku`     | LLM model                    |
+| `AUTO_TAG_LLM_MODEL`          | `deepseek/deepseek-v4-flash:free` | LLM model                    |
 | `AUTO_TAG_OUTPUT_FORMAT`      | `table`                          | Output format                |
 | `AUTO_TAG_VERBOSE`            | `false`                          | Verbose logging              |
 | `AUTO_TAG_DATA_DIR`           | `~/.auto-tagger`                 | Data directory (datasets)    |
+| `AUTO_TAG_LOG_PATH`           | `~/.auto-tagger/auto-tagger.log` | Log file path                |
 | `AUTO_TAG_FFPROBE_PATH`       | `ffprobe`                        | Path to ffprobe binary       |
 | `AUTO_TAG_REPLAYGAIN_COMMAND` | `rgain3`                         | ReplayGain command           |
 
@@ -309,3 +331,4 @@ See `docs/release-checklist.md` for the full release process.
 - **Zero-interaction goal**: Entire library can be tagged without prompts (use `--yolo`)
 - **Local dataset**: MusicMoveArr SQLite index provides faster lookups and offline capability
 - **Health reports**: Machine-readable JSON output for tracking tagging quality over time
+- **Terminal UI**: Full interactive editor built on [Textual](https://textual.textualize.io/) with two-panel layout (album browser + per-album track view), live metadata editing with immediate disk writes, embedded undo stack, JSON-streaming subprocess for async auto-tag + audit, cover art preview as coloured terminal blocks (via Pillow + Unicode half-blocks), right-click cover context menu, multi-track batch editing with `<keep>` placeholders, field validation with audit flag overlays, debounced regex filter, and sortable DataTable views

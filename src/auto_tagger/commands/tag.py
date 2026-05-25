@@ -41,6 +41,8 @@ def execute(
     console.print(f"  YOLO mode: {settings.yolo}")
     console.print(f"  Interactive: {interactive or settings.interactive_default}")
     console.print(f"  Output format: {settings.output_format}")
+    if settings.debug:
+        console.print(f"  [dim]Debug mode: enabled[/dim]")
 
     try:
         audio_files = iter_audio_files(path, recursive=settings.recursive)
@@ -49,8 +51,17 @@ def execute(
         return
 
     if not dry_run:
+        from rich.progress import Progress, SpinnerColumn, TextColumn
+
         workflow = AlbumWorkflow(settings)
-        result = workflow.run(path, dry_run=False, interactive=interactive, force=force)
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            console=console,
+            transient=True,
+        ) as progress:
+            progress.add_task(description="Looking up tags…", total=None)
+            result = workflow.run(path, dry_run=False, interactive=interactive, force=force)
 
         print_info(f"Album: {path.name}")
         print_success(f"Wrote tags to {result.applied_writes} file(s)")
@@ -113,11 +124,10 @@ def _print_lookup_candidates(settings: Settings, path: Path) -> None:
         [candidate.to_display_row() for candidate in candidates],
     )
 
-    if len(candidates) > 1 and not settings.llm_api_key:
-        console.print("[yellow]LLM selection unavailable:[/yellow] missing API key")
-        return
-
-    if len(candidates) > 1 and settings.llm_api_key:
+    if len(candidates) > 1:
+        if not settings.llm_api_key:
+            console.print("[yellow]LLM selection unavailable:[/yellow] missing API key")
+            return
         result = CandidateSelectionService(
             OpenRouterClient(settings),
             settings,

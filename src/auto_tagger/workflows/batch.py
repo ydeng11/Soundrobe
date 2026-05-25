@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol
 
 from auto_tagger.config import Settings
 from auto_tagger.core.audio import SUPPORTED_EXTENSIONS
@@ -37,6 +37,12 @@ def discover_album_paths(library_path: Path) -> list[Path]:
     return sorted(albums)
 
 
+class ProgressCallback(Protocol):
+    """Protocol for a progress callback: (current, total) -> None."""
+
+    def __call__(self, current: int, total: int) -> None: ...
+
+
 class BatchWorkflow:
     """Process a library by running the album workflow per album."""
 
@@ -48,14 +54,30 @@ class BatchWorkflow:
         self.settings = settings
         self.album_workflow_factory = album_workflow_factory
 
-    def run(self, path: Path, dry_run: bool, parallel: int = 1, force: bool = False) -> BatchSummary:
+    def run(
+        self,
+        path: Path,
+        dry_run: bool,
+        parallel: int = 1,
+        force: bool = False,
+        progress_callback: ProgressCallback | None = None,
+    ) -> BatchSummary:
         """Run batch processing with deterministic sequential execution.
 
         Maintains a cross-album MusicBrainz artist ID map so that MBIDs
         discovered in one album can propagate to other albums by the same artist
         that lack MBIDs in the lookup results.
+
+        Args:
+            path: Music library root directory.
+            dry_run: If True, preview only.
+            parallel: Number of parallel workers (unused; always sequential).
+            force: If True, ignore album state cache.
+            progress_callback: Optional callback invoked after each album with
+                (current: int, total: int).
         """
         albums = discover_album_paths(path)
+        total = len(albums)
         processed = applied = skipped = failed = cover_art_fixed = 0
         errors: list[str] = []
         health_reports: list[Any] = []
@@ -69,6 +91,8 @@ class BatchWorkflow:
 
         for album in albums:
             processed += 1
+            if progress_callback is not None:
+                progress_callback(processed, total)
             try:
                 result = self.album_workflow_factory(self.settings).run(
                     album, dry_run=dry_run, force=force,

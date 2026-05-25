@@ -43,8 +43,14 @@ dev = [
     "build>=1.0",
     "pytest>=7.0",
     "pytest-cov>=4.0",
+    "pytest-asyncio>=0.21",
     "mypy>=1.0",
     "ruff>=0.1.0",
+]
+
+ui = [
+    "Pillow>=10.0.0",
+    "textual>=1.0.0",
 ]
 
 [project.scripts]
@@ -78,6 +84,7 @@ testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
+asyncio_mode = "auto"
 markers = [
     "needs_ffmpeg: tests that require ffmpeg and ffprobe",
     "needs_beets: tests that require the beets CLI",

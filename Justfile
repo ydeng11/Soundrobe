@@ -114,6 +114,30 @@ dataset-setup:
     {{ python }} -m auto_tagger dataset setup
 
 # ============================================================================
+# Frontend (Electron v2)
+# ============================================================================
+
+# Install frontend dependencies
+fe-install:
+    cd frontend && npm install
+
+# Run frontend dev server (Vite HMR + Electron)
+fe-dev:
+    cd frontend && npm run dev
+
+# Build frontend for production
+fe-build:
+    cd frontend && npm run build
+
+# Run frontend tests
+fe-test:
+    cd frontend && npm test
+
+# Run frontend type check
+fe-typecheck:
+    cd frontend && npm run typecheck
+
+# ============================================================================
 # Cleanup
 # ============================================================================
 
@@ -128,26 +152,6 @@ clean:
 # Remove everything including the virtual env
 nuke: clean
     rm -rf .venv
-
-# ============================================================================
-# Help
-# ============================================================================
-
-# Show all available commands
-# ============================================================================
-# CUE / WAV slicer
-# ============================================================================
-
-# Slice WAV files using CUE sheets and write metadata.
-# Passes all arguments through to slice_cue.py.
-#
-# Examples:
-#   just cue-slice /Volumes/downloads/陈小春          # process full library
-#   just cue-slice ./album --dry-run                  # preview only
-#   just cue-slice ./album --output ./out             # custom output root
-#   just cue-slice ./album --format flac              # output as FLAC
-cue-slice *args:
-    python3 slice_cue.py {{ args }}
 
 # ============================================================================
 # Help

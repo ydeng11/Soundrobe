@@ -159,6 +159,50 @@ def test_normalized_does_not_split_ascii_dots():
     assert normalized.artists == ["Mr. Bungle"]
 
 
+def test_normalized_splits_chinese_slash_artist():
+    """normalized() splits Chinese slash-separated collaborative artists."""
+    metadata = TrackMetadata(
+        title="古古惑惑(清清楚楚系我)",
+        artist="陈小春/郑伊健",
+        artists=[],
+    )
+    normalized = metadata.normalized()
+    # "陈小春/郑伊健" has 2 singers → artists should have 2 entries
+    assert len(normalized.artists) == 2
+    assert normalized.artists == ["陈小春", "郑伊健"]
+    assert normalized.artist == "陈小春/郑伊健"
+
+
+def test_normalized_splits_ampersand_artist():
+    """normalized() splits ' & '-separated collaborative artists, strips spaces."""
+    metadata = TrackMetadata(
+        title="Under Pressure",
+        artist="Queen & David Bowie",
+        artists=[],
+    )
+    normalized = metadata.normalized()
+    # "Queen & David Bowie" has 2 singers → 2 ARTISTS entries
+    assert len(normalized.artists) == 2
+    assert normalized.artists == ["Queen", "David Bowie"]
+    assert normalized.artist == "Queen & David Bowie"
+
+
+def test_normalized_splits_cjk_ampersand_no_spaces():
+    """normalized() splits & between CJK chars even without spaces."""
+    metadata = TrackMetadata(
+        title="一起飞",
+        artist="郑伊健&陈小春&林晓峰",
+        artists=[],
+    )
+    normalized = metadata.normalized()
+    # "郑伊健&陈小春&林晓峰" has 3 singers → 3 ARTISTS entries
+    assert len(normalized.artists) == 3
+    assert normalized.artists == ["郑伊健", "陈小春", "林晓峰"]
+    assert normalized.artist == "郑伊健&陈小春&林晓峰"
+    # Non-CJK "&" without spaces is NOT split (e.g. R&B)
+    assert split_artist_strings(["R&B"]) == ["R&B"]
+
+
 def test_normalized_splits_album_artists_too():
     """normalized() splits album_artists with separators."""
     metadata = TrackMetadata(
@@ -167,6 +211,41 @@ def test_normalized_splits_album_artists_too():
     )
     normalized = metadata.normalized()
     assert normalized.album_artists == ["Alice", "Bob"]
+
+
+def test_write_metadata_normalizes_collaborative_artist(tmp_path):
+    """write_metadata() splits collaborative artists via normalized()."""
+    audio = tmp_path / "01-古古惑惑.flac"
+    audio.touch()
+
+    meta = TrackMetadata(
+        title="古古惑惑(清清楚楚系我)",
+        artist="陈小春/郑伊健",
+        artists=[],
+        album="友情岁月",
+        album_artist="陈小春",
+    )
+
+    from auto_tagger.core.writer import write_metadata
+    from unittest.mock import patch
+
+    with patch("auto_tagger.core.writer.load_audio_file") as mock_load, \
+         patch("auto_tagger.core.writer.write_tags") as mock_write:
+        mock_af = __import__("unittest").mock.MagicMock()
+        mock_load.return_value = mock_af
+
+        result = write_metadata(audio, meta, dry_run=False)
+
+    # normalized() splits the artist before writing
+    # "陈小春/郑伊健" = 2 singers → 2 ARTISTS entries
+    assert len(result.artists) == 2
+    assert result.artists == ["陈小春", "郑伊健"]
+    assert result.artist == "陈小春/郑伊健"
+    mock_write.assert_called_once()
+    # write_tags receives the normalized metadata
+    written_meta = mock_write.call_args[0][2]
+    assert len(written_meta.artists) == 2
+    assert written_meta.artists == ["陈小春", "郑伊健"]
 
 
 def test_metadata_to_display_rows_skips_empty_fields():

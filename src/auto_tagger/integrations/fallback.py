@@ -25,6 +25,24 @@ _EXTRA_SUFFIX_RE = re.compile(r"\s*\([^)]*\)\s*$")  # trailing "(FLAC分轨)" et
 _FORMAT_SUFFIX_RE = re.compile(r"\[?(flac|mp3|wav|aac|ogg|m4a|wma|ape|flac\s*分轨|wav\s*分轨)\]?\s*$", re.IGNORECASE)  # trailing [flac] etc.
 _CD_SUBFOLDER_RE = re.compile(r"(?:[Cc][Dd]|[Dd][Ii][Ss][CcKk]|ディスク)\s*\d+\s*$")  # CD1, Disc 1, Disk1, ディスク1
 
+# Edition annotations that appear as bracketed suffixes in folder names.
+# After _BOOKMARKS_RE strips the brackets, these keywords remain embedded.
+# Each is a known edition/region tag that is never part of the actual album title.
+_EDITION_KEYWORDS_RE = re.compile(
+    r"\s*"
+    r"(?:香港首版|台湾首版|引进版|日本版|欧版|美版|内地版|中国大陆版|大陆版|德国版|澳洲版|新加坡版|马来西亚版|韩版)"
+    r"\s*",
+    re.IGNORECASE,
+)
+
+# Disc-count suffix (e.g. "2CD", "3CD", "2 Disc", "3Disc") that follows
+# the album name and precedes edition/format annotations.  Never part of
+# the real album title — these describe the physical packaging.
+_DISC_COUNT_RE = re.compile(
+    r"\s*\d+\s*(?:CD|Disc|ディスク)\s*$",
+    re.IGNORECASE,
+)
+
 
 def extract_year_from_name(name: str) -> str | None:
     """Extract a 4-digit year from a folder name.
@@ -62,6 +80,8 @@ def clean_folder_name(name: str) -> str:
     actual album or artist name:
       - Date prefixes: "2003-04《挚爱》" → "挚爱"
       - Bookmarks: "《挚爱》" → "挚爱"
+      - Edition annotations: "挚爱[香港首版]" → "挚爱"
+      - Disc counts: "专辑 2CD" → "专辑"
       - Extra suffixes: "Hello (Bonus)" → "Hello"
 
     For folder names containing paired bookmarks (e.g. "Artist-《2011-Album》[FLAC]"),
@@ -77,6 +97,8 @@ def clean_folder_name(name: str) -> str:
         inner = bracketed.group(1)
         cleaned = _DATE_PREFIX_RE.sub("", inner)
         cleaned = _YEAR_PREFIX_RE.sub("", cleaned)
+        cleaned = _EDITION_KEYWORDS_RE.sub("", cleaned)
+        cleaned = _DISC_COUNT_RE.sub("", cleaned)
         cleaned = cleaned.strip()
         if cleaned:
             return cleaned
@@ -85,9 +107,13 @@ def clean_folder_name(name: str) -> str:
     cleaned = _DATE_PREFIX_RE.sub("", name)
     cleaned = _YEAR_PREFIX_RE.sub("", cleaned)
     cleaned = _BOOKMARKS_RE.sub("", cleaned)
-    # Strip format suffix first so parenthetical suffix can be matched
+    # Strip edition keywords exposed by bracket removal
+    cleaned = _EDITION_KEYWORDS_RE.sub("", cleaned)
+    # Strip format suffix before disc count so "2CDWAV" → "2CD"
     cleaned = _FORMAT_SUFFIX_RE.sub("", cleaned)
     cleaned = _EXTRA_SUFFIX_RE.sub("", cleaned)
+    # Strip disc-count suffix that may sit between album name and edition tag
+    cleaned = _DISC_COUNT_RE.sub("", cleaned)
     cleaned = cleaned.strip()
     return cleaned or name
 
@@ -106,16 +132,28 @@ def parse_album_path(path: Path) -> LookupRequest:
     # "Artist.Album CD2").  When inside a CD subfolder the immediate
     # parent is the album bundle folder ("Album (2CD)"), and the
     # grandparent is the true artist folder.
+    # The album name and year should come from the parent folder,
+    # not the "CD1"/"CD2" subfolder name.
     if album_path.name and _CD_SUBFOLDER_RE.search(album_path.name):
         artist_hint = (
             clean_folder_name(album_path.parent.parent.name)
             if album_path.parent.parent and album_path.parent.parent.name
             else None
         )
+        album_hint = (
+            clean_folder_name(album_path.parent.name)
+            if album_path.parent and album_path.parent.name
+            else album_hint
+        )
+        year_hint = (
+            extract_year_from_name(album_path.parent.name)
+            if album_path.parent and album_path.parent.name
+            else None
+        )
     else:
         artist_hint = clean_folder_name(album_path.parent.name) if album_path.parent.name else None
+        year_hint = extract_year_from_name(album_path.name) if album_path.name else None
 
-    year_hint = extract_year_from_name(album_path.name) if album_path.name else None
     return LookupRequest(
         path=path,
         artist_hint=artist_hint,
@@ -210,11 +248,6 @@ def candidate_from_folder(request: LookupRequest) -> AlbumCandidate:
     )
 
 
-def _tag_or_parsed(meta_value, parsed_value, fallback=None):
-    """Return *meta_value* if truthy, else *parsed_value*, else *fallback*."""
-    return meta_value if meta_value else (parsed_value if parsed_value else fallback)
-
-
 def _track_hints_from_path(path: Path) -> list[TrackCandidate]:
     """Build track candidates from audio file metadata and filename parsing.
 
@@ -232,12 +265,12 @@ def _track_hints_from_path(path: Path) -> list[TrackCandidate]:
 
         tracks.append(
             TrackCandidate(
-                title=_tag_or_parsed(m.title if m else None, p.title, audio_path.stem),
-                artist=_tag_or_parsed(m.artist if m else None, p.artist),
+                title=m.title if (m and m.title) else (p.title or audio_path.stem),
+                artist=m.artist if (m and m.artist) else p.artist,
                 artists=(m.artists if m and m.artists else p.artists),
-                track_number=_tag_or_parsed(m.track_number if m else None, p.track_number, index),
+                track_number=m.track_number if (m and m.track_number is not None) else (p.track_number or index),
                 track_total=len(audio_paths),
-                disc_number=_tag_or_parsed(m.disc_number if m else None, p.disc_number),
+                disc_number=m.disc_number if (m and m.disc_number is not None) else p.disc_number,
                 disc_total=m.disc_total if m else None,
                 musicbrainz_trackid=m.musicbrainz_trackid if m else None,
             )

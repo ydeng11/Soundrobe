@@ -27,6 +27,11 @@ class Settings(BaseSettings):
         default=False,
         description="Enable verbose output",
     )
+    debug: bool = Field(
+        default=False,
+        description="Enable debug logging with step-by-step metadata tracing"
+        " (implies --verbose)",
+    )
     config_file: Path | None = Field(
         default=None,
         description="Path to configuration file",
@@ -63,11 +68,11 @@ class Settings(BaseSettings):
         description="LLM API endpoint",
     )
     llm_model: str = Field(
-        default="mistralai/mistral-nemo",
+        default="deepseek/deepseek-v4-flash:free",
         description="LLM model to use",
     )
     llm_fallback_model: str = Field(
-        default="meta-llama/llama-3.1-8b-instruct",
+        default="deepseek/deepseek-v4-flash:free",
         description="Fallback LLM model to use",
     )
     llm_max_candidates: int = Field(
@@ -77,9 +82,9 @@ class Settings(BaseSettings):
         description="Maximum lookup candidates to include in LLM prompts",
     )
     llm_max_tokens: int = Field(
-        default=800,
+        default=2048,
         ge=64,
-        le=8000,
+        le=16000,
         description="Maximum LLM completion tokens",
     )
     llm_temperature: float = Field(
@@ -110,6 +115,10 @@ class Settings(BaseSettings):
     data_dir: Path = Field(
         default_factory=lambda: Path.home() / ".auto-tagger",
         description="Directory for auto-tagger local data",
+    )
+    log_path: Path = Field(
+        default_factory=lambda: Path.home() / ".auto-tagger" / "auto-tagger.log",
+        description="Path to the log file",
     )
     health_report_dir: Path = Field(
         default_factory=lambda: Path.home() / ".auto-tagger" / "health-reports",
@@ -259,7 +268,7 @@ class Settings(BaseSettings):
             raise ValueError(f"Config file not found: {v}")
         return v
 
-    @field_validator("data_dir", "health_report_dir", mode="before")
+    @field_validator("data_dir", "health_report_dir", "log_path", mode="before")
     @classmethod
     def expand_path(cls, v: Path | str) -> Path:
         """Expand user home directory (~) in path settings."""

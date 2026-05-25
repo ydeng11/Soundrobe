@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "appliedMigrations": [
+    {
+      "id": "2026-05-11-first-time-baseline-scan",
+      "appliedAt": "2026-05-21T21:13:55.100Z",
+      "journal": null,
+      "checksum": "sha256:34608ea4e2f4e1c53b069604892860e603600d8573cc6a5584e4194044b48e67"
+    },
+    {
+      "id": "2026-05-11-legacy-orphan-files",
+      "appliedAt": "2026-05-21T21:13:55.100Z",
+      "journal": null,
+      "checksum": "sha256:4488e38c127a5225b31016918bcbc85ba3fd3139291ad407b94e76c03c0b89d3"
+    },
+    {
+      "id": "2026-05-11-codex-legacy-hooks-json",
+      "appliedAt": "2026-05-21T21:13:55.100Z",
+      "journal": null,
+      "checksum": "sha256:41f1545704dc72dfc3ab019207677a8652e389b200e8c450d52317df5bc198da"
+    }
+  ]
+}

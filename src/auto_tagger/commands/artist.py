@@ -27,14 +27,47 @@ def execute_artwork(
     console.print(f"  Dry run: {dry_run}")
     console.print(f"  Force:   {force}")
     console.print(f"  Parallel: {parallel}")
+    console.print()
 
-    workflow = ArtistWorkflow(settings)
-    summary = workflow.run(
-        library_path,
-        dry_run=dry_run,
-        force=force,
-        parallel=parallel,
+    from rich.progress import (
+        BarColumn,
+        Progress,
+        SpinnerColumn,
+        TaskProgressColumn,
+        TextColumn,
+        TimeRemainingColumn,
     )
+
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        BarColumn(),
+        TaskProgressColumn(),
+        TimeRemainingColumn(),
+        console=console,
+        transient=True,
+    ) as progress:
+        # Discover artists to get a total count first
+        from auto_tagger.features.artist_artwork import discover_artist_directories
+
+        skip = set(settings.artist_artwork_skip_dirs)
+        artist_dirs = discover_artist_directories(library_path, skip_dirs=skip)
+        task = progress.add_task(
+            description="Fetching artist artwork…",
+            total=len(artist_dirs),
+        )
+
+        def _on_artist(current: int, total: int) -> None:
+            progress.update(task, completed=current, total=total)
+
+        workflow = ArtistWorkflow(settings)
+        summary = workflow.run(
+            library_path,
+            dry_run=dry_run,
+            force=force,
+            parallel=parallel,
+            progress_callback=_on_artist,
+        )
 
     _render_summary(summary, dry_run=dry_run)
 

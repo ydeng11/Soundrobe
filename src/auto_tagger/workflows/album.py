@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import json
+import logging
 import re
 from collections import defaultdict
 from dataclasses import dataclass, field, replace
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 from auto_tagger.config import Settings
 from auto_tagger.core import iter_audio_files, load_audio_file, read_metadata, write_metadata
@@ -221,6 +224,26 @@ class AlbumWorkflow:
 
         audio_files = iter_audio_files(path, recursive=self.settings.recursive)
         metadata_by_path = {audio_file: read_metadata(audio_file) for audio_file in audio_files}
+
+        if self.settings.debug:
+            logger.debug(
+                "[%s] Found %d audio file(s)",
+                path.name, len(audio_files),
+            )
+            for af in sorted(audio_files):
+                meta = metadata_by_path.get(af)
+                if meta:
+                    logger.debug(
+                        "  %s → track=%s title=%s artist=%s album=%s genre=%s year=%s disc=%s/%s",
+                        af.name,
+                        meta.track_number, meta.title or "-",
+                        meta.artist or "-", meta.album or "-",
+                        meta.genre or "-", meta.year or "-",
+                        meta.disc_number or "-", meta.disc_total or "-",
+                    )
+                else:
+                    logger.debug("  %s → no metadata", af.name)
+
         health_report = build_album_health_report(
             path,
             audio_files,
@@ -242,6 +265,16 @@ class AlbumWorkflow:
             fix_messages.append(
                 "Renumbered tracks (filename prefixes or sequential)"
             )
+            if self.settings.debug:
+                logger.debug("[%s] After duplicate renumbering:", path.name)
+                for af in sorted(audio_files):
+                    meta = metadata_by_path.get(af)
+                    if meta:
+                        logger.debug(
+                            "  %s → track=%s disc=%s/%s",
+                            af.name, meta.track_number,
+                            meta.disc_number or "-", meta.disc_total or "-",
+                        )
 
         # ── Fix track_number from filename prefix ──────────────────────
         # Some files come with pre-existing metadata where track_number is
@@ -338,6 +371,12 @@ class AlbumWorkflow:
                     break
 
         if excluded_paths:
+            if self.settings.debug:
+                logger.debug(
+                    "[%s] Excluded %d file(s): %s",
+                    path.name, len(excluded_paths),
+                    ", ".join(p.name for p in sorted(excluded_paths)),
+                )
             audio_files = [f for f in audio_files if f not in excluded_paths]
             for ep in excluded_paths:
                 metadata_by_path.pop(ep, None)
@@ -391,6 +430,16 @@ class AlbumWorkflow:
                 or has_missing_mbid
             )
 
+            if self.settings.debug:
+                logger.debug(
+                    "[%s] Needs fix: blocking_errors=%s artist_mismatch=%s bad_genre=%s missing_mbid=%s",
+                    path.name,
+                    health_report.has_blocking_errors,
+                    self._artist_mismatches_folder(path, metadata_by_path),
+                    has_bad_genre,
+                    has_missing_mbid,
+                )
+
             if needs_fix:
                 fixed, source, msg, strays = self._fix_metadata(
                     path, audio_files, metadata_by_path,
@@ -399,6 +448,8 @@ class AlbumWorkflow:
                 )
                 if fixed:
                     fix_messages.append(msg)
+                    if self.settings.debug:
+                        logger.debug("[%s] Fix result: source=%s msg=%s strays=%d", path.name, source, msg, len(strays))
 
                     # ── Remove stray files not belonging to the album ──
                     # Database is ground truth. Files that didn't match any
@@ -421,6 +472,20 @@ class AlbumWorkflow:
                     metadata_by_path = {
                         audio_file: read_metadata(audio_file) for audio_file in audio_files
                     }
+                    if self.settings.debug:
+                        logger.debug("[%s] After fix — metadata re-read:", path.name)
+                        for af in sorted(audio_files):
+                            meta = metadata_by_path.get(af)
+                            if meta:
+                                logger.debug(
+                                    "  %s → track=%s title=%s artist=%s album=%s genre=%s year=%s disc=%s/%s mb_album=%s",
+                                    af.name,
+                                    meta.track_number, meta.title or "-",
+                                    meta.artist or "-", meta.album or "-",
+                                    meta.genre or "-", meta.year or "-",
+                                    meta.disc_number or "-", meta.disc_total or "-",
+                                    (meta.musicbrainz_albumid or "-")[:12],
+                                )
                     health_report = build_album_health_report(
                         path, audio_files, metadata_by_path, self.settings
                     )
@@ -524,6 +589,20 @@ class AlbumWorkflow:
         if not dry_run and self.settings.yolo and not interactive:
             cover_art_fixed, cover_art_status, cover_art_message = self._fix_cover_art(
                 path, audio_files, metadata_by_path
+            )
+            if self.settings.debug:
+                logger.debug(
+                    "[%s] Cover art: fixed=%s status=%s msg=%s",
+                    path.name, cover_art_fixed, cover_art_status, cover_art_message,
+                )
+
+        if self.settings.debug:
+            logger.debug(
+                "[%s] Final: planned=%d applied=%d skipped=%d cover=%s health_errors=%d health_warnings=%d",
+                path.name, planned_writes, applied_writes, skipped_writes,
+                "yes" if cover_art_fixed else "no",
+                health_report.summary["errors"],
+                health_report.summary["warnings"],
             )
 
         # ── Update album state after successful tagging ────────────────
@@ -891,14 +970,81 @@ class AlbumWorkflow:
         # The folder name is the definitive artist for this album
         folder_artist = request.artist_hint
 
+        if self.settings.debug:
+            logger.debug(
+                "[%s] Lookup request: artist=%s album=%s year=%s",
+                album_path.name,
+                request.artist_hint or "?",
+                request.album_hint or "?",
+                request.year_hint or "?",
+            )
+            logger.debug(
+                "[%s] Candidates (%d):",
+                album_path.name, len(candidates),
+            )
+            for c in candidates:
+                logger.debug(
+                    "  src=%-10s artist=%-20s album=%-40s year=%s genre=%s verify=%s mbid=%s",
+                    c.source.value,
+                    c.artist or "-",
+                    c.album or "-",
+                    c.year or "-",
+                    c.genre or "-",
+                    c.verification or "?",
+                    (c.musicbrainz_albumid or "-")[:12],
+                )
+
         # Find the best verified candidate (match > close > first available)
         best = self._select_best_candidate(candidates, folder_artist)
+
+        # ── Compilation folder override ─────────────────────────────
+        # When the album lives under a known "collection" parent folder
+        # (e.g. "/Compilations/SomeAlbum") the folder fallback's artist
+        # is the collection name, not a real artist.  Discard the folder
+        # fallback so the LLM path can properly detect the compilation
+        # and set album_artist="Various Artists" with per-track artists.
+        _KNOWN_COLLECTION_FOLDERS = frozenset({
+            "compilations", "various artists", "various", "compilation",
+            "sampler", "samplers", "collections", "合集", "合辑",
+        })
+        if (
+            best is not None
+            and best.source == LookupSource.FOLDER
+            and folder_artist
+            and folder_artist.casefold().strip() in _KNOWN_COLLECTION_FOLDERS
+        ):
+            if self.settings.debug:
+                logger.debug(
+                    "[%s] Parent folder '%s' is a known collection name — "
+                    "rejecting folder fallback, deferring to LLM",
+                    album_path.name, folder_artist,
+                )
+            return self._fix_via_llm(
+                album_path, audio_files, metadata_by_path, request,
+                artist_mbid_map=artist_mbid_map,
+                artist_genre_map=artist_genre_map,
+            )
+
         if best is None:
+            if self.settings.debug:
+                logger.debug(
+                    "[%s] No candidate matches artist hint \"%s\" — falling back to LLM",
+                    album_path.name, folder_artist or "?",
+                )
             # Fall back to LLM generation when no candidate matches
             return self._fix_via_llm(
                 album_path, audio_files, metadata_by_path, request,
                 artist_mbid_map=artist_mbid_map,
                 artist_genre_map=artist_genre_map,
+            )
+
+        if self.settings.debug:
+            logger.debug(
+                "[%s] Selected candidate: src=%s artist=%s album=%s year=%s genre=%s verify=%s",
+                album_path.name,
+                best.source.value, best.artist or "-",
+                best.album or "-", best.year or "-",
+                best.genre or "-", best.verification or "?",
             )
 
         # Inject MB artist ID if the candidate is missing one.
@@ -953,6 +1099,14 @@ class AlbumWorkflow:
 
         Returns (fixed, source_label, message, stray_paths).
         """
+        if self.settings.debug:
+            logger.debug(
+                "[%s] LLM fallback: artist=%s album=%s year=%s tracks=%d",
+                album_path.name,
+                request.artist_hint or "?", request.album_hint or "?",
+                request.year_hint or "?", len(audio_files),
+            )
+
         if not self.settings.llm_api_key:
             return False, "", "No verified candidate and no LLM API key configured", []
 
@@ -968,6 +1122,22 @@ class AlbumWorkflow:
             result = service.generate_tags(request, folder_candidate, current_metadata)
         except Exception as exc:
             return False, "", f"LLM fallback failed: {exc}", []
+
+        if self.settings.debug:
+            logger.debug(
+                "[%s] LLM result: confidence=%.0f%% tracks=%d reason=%s",
+                album_path.name,
+                result.confidence * 100 if hasattr(result, 'confidence') and result.confidence else 0,
+                len(result.tracks),
+                result.reason or "?",
+            )
+            for t in result.tracks:
+                logger.debug(
+                    "  track=%s title=%s artist=%s album=%s genre=%s year=%s",
+                    t.track_number or "?", t.title or "-",
+                    t.artist or "-", t.album or "-",
+                    t.genre or "-", t.year or "-",
+                )
 
         if not result.tracks:
             return False, "", f"LLM returned no tracks: {result.reason}", []
@@ -1029,6 +1199,7 @@ class AlbumWorkflow:
             (t.track_number or 0) for t in result.tracks if t.track_number
         ) if any(t.track_number for t in result.tracks) else len(matched_files)
         llm_album_genre = result.tracks[0].genre if result.tracks else None
+        llm_album = result.tracks[0].album if result.tracks else None
 
         for idx, audio_file in enumerate(matched_files):
             matched_track = match_map.get(audio_file)
@@ -1103,7 +1274,7 @@ class AlbumWorkflow:
                 title=title,
                 artist=llm_artist_normalized,
                 artists=llm_artists_normalized,
-                album=metadata.album,
+                album=llm_album or metadata.album,
                 album_artist=effective_album_artist,
                 album_artists=effective_album_artists,
                 track_number=track_number,
@@ -1113,6 +1284,17 @@ class AlbumWorkflow:
                 compilation=analysis.is_compilation,
                 musicbrainz_artistid=folder_mbid or metadata.musicbrainz_artistid,
             )
+            if self.settings.debug:
+                logger.debug(
+                    "[%s] LLM write %s → track=%s title=%s artist=%s album=%s genre=%s year=%s disc=%s/%s comp=%s",
+                    album_path.name if hasattr(album_path, 'name') else str(album_path),
+                    audio_file.name,
+                    new_metadata.track_number, new_metadata.title or "-",
+                    new_metadata.artist or "-", new_metadata.album or "-",
+                    new_metadata.genre or "-", new_metadata.year or "-",
+                    new_metadata.disc_number or "-", new_metadata.disc_total or "-",
+                    new_metadata.compilation,
+                )
             try:
                 write_metadata(audio_file, new_metadata, dry_run=False)
             except Exception:
@@ -1264,24 +1446,34 @@ class AlbumWorkflow:
         if candidate.genre and artist_genre_map is not None and folder_artist:
             _store_genre_in_map(artist_genre_map, folder_artist, candidate.genre)
 
-        match_map = self._match_tracks_to_files(
-            audio_files, metadata_by_path, candidate.tracks,
-        )
+        # ── When candidate has no tracks (folder fallback), skip matching ──
+        # and treat all files as matched. Apply album-level metadata while
+        # preserving per-file track metadata. Prevents the folder fallback
+        # from deleting all files as "strays."
+        if not candidate.tracks:
+            matched_files = list(audio_files)
+            strays = []
+            track_total = len(audio_files)
+            match_map: dict[Path, object | None] = {}
+        else:
+            match_map = self._match_tracks_to_files(
+                audio_files, metadata_by_path, candidate.tracks,
+            )
 
-        # ── Partition files into matched and stray ──────────────────
-        # Database candidate is ground truth. Matched files get tagged.
-        # Unmatched files are strays — they don't belong to this album.
-        matched_files: list[Path] = []
-        strays: list[Path] = []
-        for f in audio_files:
-            if match_map.get(f) is not None:
-                matched_files.append(f)
-            else:
-                strays.append(f)
+            # ── Partition files into matched and stray ──────────────────
+            # Database candidate is ground truth. Matched files get tagged.
+            # Unmatched files are strays — they don't belong to this album.
+            matched_files: list[Path] = []
+            strays: list[Path] = []
+            for f in audio_files:
+                if match_map.get(f) is not None:
+                    matched_files.append(f)
+                else:
+                    strays.append(f)
 
-        track_total = max(
-            (int(t.track_number) for t in candidate.tracks if t.track_number is not None)
-        ) if any(t.track_number is not None for t in candidate.tracks) else len(matched_files)
+            track_total = max(
+                (int(t.track_number) for t in candidate.tracks if t.track_number is not None)
+            ) if any(t.track_number is not None for t in candidate.tracks) else len(matched_files)
 
         for idx, audio_file in enumerate(matched_files):
             matched_track = match_map.get(audio_file)
@@ -1365,6 +1557,16 @@ class AlbumWorkflow:
                 ),
             )
 
+            if self.settings.debug:
+                logger.debug(
+                    "DB write %s → track=%s title=%s artist=%s album=%s genre=%s year=%s disc=%s/%s comp=%s",
+                    audio_file.name,
+                    new_metadata.track_number, new_metadata.title or "-",
+                    new_metadata.artist or "-", new_metadata.album or "-",
+                    new_metadata.genre or "-", new_metadata.year or "-",
+                    new_metadata.disc_number or "-", new_metadata.disc_total or "-",
+                    new_metadata.compilation,
+                )
             try:
                 write_metadata(audio_file, new_metadata, dry_run=False)
             except Exception:
@@ -1373,6 +1575,11 @@ class AlbumWorkflow:
         source_label = f"{candidate.source.value}"
         if candidate.musicbrainz_albumid:
             source_label += f" (MBID: {candidate.musicbrainz_albumid[:8]}...)"
+        if self.settings.debug:
+            logger.debug(
+                "Done writing %d track(s) via %s",
+                len(matched_files), source_label,
+            )
         return True, source_label, f"Fixed via {candidate.source.value}: {candidate.artist} — {candidate.album}", strays
 
     @staticmethod

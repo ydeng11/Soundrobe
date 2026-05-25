@@ -75,6 +75,65 @@ def test_album_workflow_yolo_fallback_writes_on_fix_failure(monkeypatch, tmp_pat
     assert result.skipped_writes == 0
 
 
+def test_yolo_writes_collaborative_artists(monkeypatch, tmp_path: Path):
+    """YOLO mode writes collaborative artist as proper multi-valued artists.
+
+    When a track has ``artist="陈小春/郑伊健"`` and ``artists=[]``, the
+    auto-tag write path should populate ``artists`` via ``normalized()``.
+    """
+    audio = tmp_path / "01-古古惑惑.flac"
+    audio.touch()
+
+    monkeypatch.setattr(
+        "auto_tagger.workflows.album.iter_audio_files",
+        lambda path, recursive=False: [audio],
+    )
+    monkeypatch.setattr(
+        "auto_tagger.workflows.album.read_metadata",
+        lambda path: TrackMetadata(
+            title="古古惑惑(清清楚楚系我)",
+            artist="陈小春/郑伊健",
+            artists=[],
+            album="友情岁月",
+            album_artist="陈小春",
+            track_number=1,
+        ),
+    )
+    # Simulate lookup failure → folder fallback path (preserves existing metadata)
+    monkeypatch.setattr(
+        AlbumWorkflow,
+        "_fix_metadata",
+        lambda self, path, af, mbp, artist_mbid_map=None, artist_genre_map=None: (
+            False, "", "No candidates", []
+        ),
+    )
+
+    captured_normalized: list[TrackMetadata] = []
+
+    def _capture_write(path, meta, dry_run=False):
+        # Simulate what write_metadata does: call normalized()
+        normalized_write = meta.normalized()
+        captured_normalized.append(normalized_write)
+        return normalized_write
+
+    monkeypatch.setattr(
+        "auto_tagger.workflows.album.write_metadata",
+        _capture_write,
+    )
+
+    result = AlbumWorkflow(Settings(yolo=True)).run(tmp_path, dry_run=False)
+
+    assert result.applied_writes == 1
+    assert len(captured_normalized) == 1
+    write_result = captured_normalized[0]
+    # "陈小春/郑伊健" = 2 singers → artists should have exactly 2 entries
+    assert len(write_result.artists) == 2, (
+        f"Expected 2 ARTISTS from '陈小春/郑伊健', got {len(write_result.artists)}"
+    )
+    assert write_result.artists == ["陈小春", "郑伊健"]
+    assert write_result.artist == "陈小春/郑伊健"
+
+
 # ── cover art fix ──────────────────────────────────────────────
 
 
@@ -1284,3 +1343,98 @@ def test_album_workflow_skip_tagged_with_new_content(monkeypatch, tmp_path):
     result = AlbumWorkflow(settings).run(album_path, dry_run=False, force=False)
 
     assert result.planned_writes >= 1
+
+
+def test_fix_metadata_under_compilations_folder_rejects_folder_fallback(monkeypatch, tmp_path):
+    """When the parent folder is "Compilations", the folder fallback is rejected
+    and the LLM path (_fix_via_llm) is used instead, so compilation detection works."""
+    from auto_tagger.integrations.candidates import AlbumCandidate, LookupSource, LookupRequest
+    from auto_tagger.quality.health import AlbumHealthReport
+
+    # Album under a Compilations parent folder
+    album_path = tmp_path / "Compilations" / "Now That\'s What I Call Music"
+    album_path.mkdir(parents=True)
+    audio = album_path / "01 Song One.flac"
+    audio.touch()
+
+    monkeypatch.setattr(
+        "auto_tagger.workflows.album.iter_audio_files",
+        lambda path, recursive=False: [audio],
+    )
+    monkeypatch.setattr(
+        "auto_tagger.workflows.album.read_metadata",
+        lambda path: TrackMetadata(
+            title="Song One", artist="Artist One", album="Greatest Hits",
+            track_number=1, track_total=3,
+        ),
+    )
+    monkeypatch.setattr(
+        "auto_tagger.workflows.album.build_album_health_report",
+        lambda *a, **kw: AlbumHealthReport(
+            album_path=a[0], tracks_checked=1, lrc_files_checked=0, issues=[],
+        ),
+    )
+    monkeypatch.setattr(
+        "auto_tagger.workflows.album.write_metadata",
+        lambda p, m, dry_run=False: None,
+    )
+    monkeypatch.setattr(
+        AlbumWorkflow,
+        "_fix_cover_art",
+        lambda self, path, af, mbp: (False, "", ""),
+    )
+
+    # Track whether _fix_via_llm was called
+    llm_called = False
+
+    def mock_fix_via_llm(
+        self, album_path, audio_files, metadata_by_path, request,
+        artist_mbid_map=None, artist_genre_map=None,
+    ):
+        nonlocal llm_called
+        llm_called = True
+        # Verify the request has the expected hints
+        assert request.artist_hint == "Compilations"
+        assert request.album_hint is not None
+        return (True, "llm", "LLM fallback", [])
+
+    monkeypatch.setattr(AlbumWorkflow, "_fix_via_llm", mock_fix_via_llm)
+
+    # Mock _write_candidate_metadata to raise — should NOT be called
+    def should_not_be_called(*args, **kwargs):
+        raise AssertionError("_write_candidate_metadata should not be called "
+                              "when folder fallback has collection parent")
+
+    monkeypatch.setattr(
+        AlbumWorkflow, "_write_candidate_metadata", should_not_be_called,
+    )
+
+    # Mock the lookup to return only a folder fallback candidate
+    folder_candidate = AlbumCandidate(
+        artist="Compilations",
+        artists=["Compilations"],
+        album="Now That\'s What I Call Music",
+        album_artist="Compilations",
+        album_artists=["Compilations"],
+        source=LookupSource.FOLDER,
+        tracks=[],
+        verification="match",
+    )
+
+    class MockLookupService:
+        def lookup_album(self, path):
+            return [folder_candidate]
+        def request_from_path(self, path):
+            return LookupRequest(
+                path=path,
+                artist_hint="Compilations",
+                album_hint="Now That\'s What I Call Music",
+            )
+
+    import auto_tagger.workflows.album as mod
+    monkeypatch.setattr(mod, "LookupService", lambda settings=None: MockLookupService())
+
+    result = AlbumWorkflow(Settings(yolo=True)).run(album_path, dry_run=False)
+
+    assert llm_called, "_fix_via_llm should have been called"
+    assert result.applied_writes == 1

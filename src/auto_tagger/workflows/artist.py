@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -49,6 +50,7 @@ class ArtistWorkflow:
         dry_run: bool = False,
         force: bool = False,
         parallel: int = 1,
+        progress_callback: Callable[[int, int], None] | None = None,
     ) -> ArtistArtworkSummary:
         """Run the artist artwork workflow.
 
@@ -63,6 +65,8 @@ class ArtistWorkflow:
             dry_run: If True, only report what would be done, don't fetch or save.
             force: If True, re-fetch even when a valid local image exists.
             parallel: Number of parallel fetches (currently unused; sequential only).
+            progress_callback: Optional callback invoked after each artist with
+                (current: int, total: int).
 
         Returns:
             An ``ArtistArtworkSummary`` with counts and per-artist outcomes.
@@ -82,6 +86,7 @@ class ArtistWorkflow:
                 errors=[f"No artist directories found under: {library_path}"],
             )
 
+        total = len(artist_dirs)
         config = ArtistWorkflowConfig(
             dry_run=dry_run,
             force=force,
@@ -94,11 +99,13 @@ class ArtistWorkflow:
         outcomes: list[ArtistArtworkOutcome] = []
         errors: list[str] = []
 
-        for artist_dir in artist_dirs:
+        for processed, artist_dir in enumerate(artist_dirs, start=1):
             outcome = self._process_artist(
                 artist_dir, config, discogs,
             )
             outcomes.append(outcome)
+            if progress_callback is not None:
+                progress_callback(processed, total)
 
         missing_count = sum(1 for o in outcomes if o.status == ArtistArtworkStatus.MISSING)
         failed_count = sum(1 for o in outcomes if o.status == ArtistArtworkStatus.FAILED)

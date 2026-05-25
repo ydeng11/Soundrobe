@@ -2,6 +2,7 @@
 
 import logging
 import sys
+from pathlib import Path
 from typing import TextIO
 
 from rich.console import Console
@@ -10,6 +11,7 @@ from rich.logging import RichHandler
 
 def setup_logging(
     verbose: bool = False,
+    debug: bool = False,
     log_file: str | None = None,
     console_output: TextIO | None = None,
 ) -> logging.Logger:
@@ -17,13 +19,15 @@ def setup_logging(
 
     Args:
         verbose: Enable debug-level logging
-        log_file: Optional file path for logging
+        debug: Enable detailed metadata-tracing debug logs (implies verbose)
+        log_file: Optional file path for logging. Parent directory is
+            created automatically if it does not exist.
         console_output: Optional console output stream (default: sys.stderr)
 
     Returns:
         Configured logger instance
     """
-    level = logging.DEBUG if verbose else logging.INFO
+    level = logging.DEBUG if (verbose or debug) else logging.INFO
 
     handlers: list[logging.Handler] = [
         RichHandler(
@@ -36,7 +40,9 @@ def setup_logging(
     ]
 
     if log_file:
-        file_handler = logging.FileHandler(log_file)
+        log_path = Path(log_file)
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        file_handler = logging.FileHandler(str(log_path))
         file_handler.setLevel(level)
         file_handler.setFormatter(
             logging.Formatter(

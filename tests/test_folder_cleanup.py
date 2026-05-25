@@ -81,6 +81,37 @@ def test_clean_empty_returns_original():
     assert clean_folder_name("( )") == "( )"
 
 
+def test_clean_edition_suffixes():
+    """Edition annotations like [香港首版] are stripped after bracket removal."""
+    assert clean_folder_name("挚爱[香港首版]") == "挚爱"
+    assert clean_folder_name("挚爱[台湾首版]") == "挚爱"
+    assert clean_folder_name("下半辈子[引进版]") == "下半辈子"
+    assert clean_folder_name("Album[日本版]") == "Album"
+    assert clean_folder_name("Album[内地版]") == "Album"
+    assert clean_folder_name("Album[欧版]") == "Album"
+
+
+def test_clean_disc_count_suffix():
+    """Disc-count markers like 2CD are stripped after format removal."""
+    assert clean_folder_name("爱妻号 2CD[香港首版][WAV]") == "爱妻号"
+    assert clean_folder_name("精采完结篇全辑 2CD[台湾首版][WAV]") == "精采完结篇全辑"
+    assert clean_folder_name("友情岁月 3CD[香港首版][WAV]") == "友情岁月"
+    assert clean_folder_name("Album 2CD[FLAC]") == "Album"
+
+
+def test_clean_edition_and_disc_stacked():
+    """Year + album + disc count + edition + format all cleaned together."""
+    assert clean_folder_name("2000-精采完结篇全辑 2CD[台湾首版][WAV]") == "精采完结篇全辑"
+    assert clean_folder_name("2013-友情岁月 3CD[香港首版][WAV]") == "友情岁月"
+    assert clean_folder_name("2015-相依为命·20年精彩印记 3CD[香港首版][WAV]") == "相依为命·20年精彩印记"
+
+
+def test_clean_preserves_real_album_suffixes():
+    """Actual album-name suffixes like 新曲+精选 are NOT stripped."""
+    assert clean_folder_name("夜生活 新曲+精选[香港首版][WAV]") == "夜生活 新曲+精选"
+    assert clean_folder_name("SING·十年纪念新歌精选辑[香港首版][WAV]") == "SING·十年纪念新歌精选辑"
+
+
 def test_parse_album_path_cleans_names(tmp_path: Path):
     """parse_album_path uses cleaned folder names for hints."""
     album = tmp_path / "5566" / "2003-04《挚爱》"
