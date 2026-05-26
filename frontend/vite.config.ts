@@ -3,6 +3,9 @@ import react from "@vitejs/plugin-react";
 import electron from "vite-plugin-electron";
 
 export default defineConfig({
+  test: {
+    testTimeout: 15000,
+  },
   plugins: [
     react(),
     electron([

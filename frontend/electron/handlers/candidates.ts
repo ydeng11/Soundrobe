@@ -1,0 +1,274 @@
+/**
+ * Normalized lookup candidate types, ported from Python auto_tagger.integrations.candidates.
+ *
+ * Used by every handler in the auto-tag chain to pass album/track metadata
+ * between cache, dataset, MusicBrainz, Discogs, LLM, and fallback steps.
+ */
+
+import { createHash } from "node:crypto";
+
+// ── Enums ───────────────────────────────────────────────────────────
+
+export type LookupSource = "beets" | "dataset" | "discogs" | "folder" | "musicbrainz";
+
+export const LookupSources = {
+  BEETS: "beets" as LookupSource,
+  DATASET: "dataset" as LookupSource,
+  DISCOGS: "discogs" as LookupSource,
+  FOLDER: "folder" as LookupSource,
+};
+
+// ── TrackCandidate ──────────────────────────────────────────────────
+
+export interface TrackCandidate {
+  title: string | null;
+  artist: string | null;
+  artists: string[];
+  trackNumber: number | null;
+  trackTotal: number | null;
+  discNumber: number | null;
+  discTotal: number | null;
+  musicbrainzTrackId: string | null;
+  length: number | null;
+}
+
+export function makeTrackCandidate(
+  overrides?: Partial<TrackCandidate>,
+): TrackCandidate {
+  return {
+    title: null,
+    artist: null,
+    artists: [],
+    trackNumber: null,
+    trackTotal: null,
+    discNumber: null,
+    discTotal: null,
+    musicbrainzTrackId: null,
+    length: null,
+    ...overrides,
+  };
+}
+
+export function trackCandidateToJson(t: TrackCandidate): Record<string, unknown> {
+  return {
+    title: t.title,
+    artist: t.artist,
+    artists: t.artists,
+    track_number: t.trackNumber,
+    track_total: t.trackTotal,
+    disc_number: t.discNumber,
+    disc_total: t.discTotal,
+    musicbrainz_trackid: t.musicbrainzTrackId,
+    length: t.length,
+  };
+}
+
+export function trackCandidateFromJson(data: Record<string, unknown>): TrackCandidate {
+  return makeTrackCandidate({
+    title: (data.title as string) ?? null,
+    artist: (data.artist as string) ?? null,
+    artists: (data.artists as string[]) ?? [],
+    trackNumber: (data.track_number as number) ?? null,
+    trackTotal: (data.track_total as number) ?? null,
+    discNumber: (data.disc_number as number) ?? null,
+    discTotal: (data.disc_total as number) ?? null,
+    musicbrainzTrackId: (data.musicbrainz_trackid as string) ?? null,
+    length: (data.length as number) ?? null,
+  });
+}
+
+// ── AlbumCandidate ──────────────────────────────────────────────────
+
+export interface AlbumCandidate {
+  artist: string | null;
+  artists: string[];
+  album: string | null;
+  albumArtist: string | null;
+  albumArtists: string[];
+  year: string | null;
+  genre: string | null;
+  musicbrainzAlbumId: string | null;
+  musicbrainzArtistId: string | null;
+  tracks: TrackCandidate[];
+  distance: number | null;
+  source: LookupSource;
+  verification: string | null;
+}
+
+export function makeAlbumCandidate(
+  overrides?: Partial<AlbumCandidate>,
+): AlbumCandidate {
+  return {
+    artist: null,
+    artists: [],
+    album: null,
+    albumArtist: null,
+    albumArtists: [],
+    year: null,
+    genre: null,
+    musicbrainzAlbumId: null,
+    musicbrainzArtistId: null,
+    tracks: [],
+    distance: null,
+    source: "beets",
+    verification: null,
+    ...overrides,
+  };
+}
+
+export function albumCandidateToJson(c: AlbumCandidate): Record<string, unknown> {
+  return {
+    artist: c.artist,
+    artists: c.artists,
+    album: c.album,
+    album_artist: c.albumArtist,
+    album_artists: c.albumArtists,
+    year: c.year,
+    genre: c.genre,
+    musicbrainz_albumid: c.musicbrainzAlbumId,
+    musicbrainz_artistid: c.musicbrainzArtistId,
+    tracks: c.tracks.map(trackCandidateToJson),
+    distance: c.distance,
+    source: c.source,
+    verification: c.verification,
+  };
+}
+
+export function albumCandidateFromJson(data: Record<string, unknown>): AlbumCandidate {
+  return makeAlbumCandidate({
+    artist: (data.artist as string) ?? null,
+    artists: (data.artists as string[]) ?? [],
+    album: (data.album as string) ?? null,
+    albumArtist: (data.album_artist as string) ?? null,
+    albumArtists: (data.album_artists as string[]) ?? [],
+    year: (data.year as string) ?? null,
+    genre: (data.genre as string) ?? null,
+    musicbrainzAlbumId: (data.musicbrainz_albumid as string) ?? null,
+    musicbrainzArtistId: (data.musicbrainz_artistid as string) ?? null,
+    tracks: ((data.tracks as Record<string, unknown>[]) ?? []).map(trackCandidateFromJson),
+    distance: (data.distance as number) ?? null,
+    source: (data.source as LookupSource) ?? "beets",
+    verification: (data.verification as string) ?? null,
+  });
+}
+
+export function candidatesToJson(candidates: AlbumCandidate[]): string {
+  return JSON.stringify(candidates.map(albumCandidateToJson));
+}
+
+export function candidatesFromJson(payload: string): AlbumCandidate[] {
+  return (JSON.parse(payload) as Record<string, unknown>[]).map(albumCandidateFromJson);
+}
+
+// ── LookupRequest ───────────────────────────────────────────────────
+
+export interface LookupRequest {
+  path: string;
+  artistHint: string | null;
+  albumHint: string | null;
+  yearHint: string | null;
+  tracks: TrackCandidate[];
+}
+
+export function makeLookupRequest(
+  overrides?: Partial<LookupRequest>,
+): LookupRequest {
+  return {
+    path: "",
+    artistHint: null,
+    albumHint: null,
+    yearHint: null,
+    tracks: [],
+    ...overrides,
+  };
+}
+
+export function lookupRequestToJson(r: LookupRequest): Record<string, unknown> {
+  return {
+    path: r.path,
+    artist_hint: r.artistHint,
+    album_hint: r.albumHint,
+    year_hint: r.yearHint,
+    tracks: r.tracks.map(trackCandidateToJson),
+  };
+}
+
+export function lookupRequestFromJson(data: Record<string, unknown>): LookupRequest {
+  return makeLookupRequest({
+    path: (data.path as string) ?? "",
+    artistHint: (data.artist_hint as string) ?? null,
+    albumHint: (data.album_hint as string) ?? null,
+    yearHint: (data.year_hint as string) ?? null,
+    tracks: ((data.tracks as Record<string, unknown>[]) ?? []).map(trackCandidateFromJson),
+  });
+}
+
+/**
+ * Stable hash for cache keys.
+ * Mirrors Python's query_hash() — uses sorted JSON keys for stability.
+ */
+export function queryHash(request: LookupRequest): string {
+  const query: Record<string, unknown> = {
+    artist_hint: request.artistHint,
+    album_hint: request.albumHint,
+    tracks: request.tracks.map((t) => ({
+      title: t.title,
+      track_number: t.trackNumber,
+      disc_number: t.discNumber,
+    })),
+    track_count: request.tracks.length,
+  };
+  const payload = JSON.stringify(query, Object.keys(query).sort());
+  return createHash("sha256").update(payload).digest("hex");
+}
+
+// ── Text normalization ──────────────────────────────────────────────
+
+const WHITESPACE_RE = /\s+/g;
+
+/**
+ * Strip ASCII punctuation characters (leaves CJK and other scripts intact).
+ * Unlike `[^\w\s]` we explicitly list the ASCII punctuation to avoid
+ * stripping CJK ideographs which are not matched by `\w` in JavaScript.
+ */
+const ASCII_PUNCTUATION_RE = /[!"#$%&'()*+,\-./:;<=>?@[\\\]^_`{|}~]/g;
+
+/**
+ * Normalize text for case/punctuation-insensitive comparison.
+ * Applies NFKC normalization, case-folds, strips ASCII punctuation, trims whitespace.
+ * Preserves CJK, Cyrillic, and other non-ASCII characters.
+ */
+export function normalizeLookupText(value: string | null): string {
+  if (!value) return "";
+  return value
+    .normalize("NFKC")
+    .toLowerCase()
+    .replace(ASCII_PUNCTUATION_RE, " ")
+    .replace(WHITESPACE_RE, " ")
+    .trim();
+}
+
+/**
+ * Compare a lookup hint against a candidate's album name.
+ *
+ * Returns:
+ *   "match" — identical after normalization or SC/TC conversion
+ *   "close" — one string contains the other
+ *   "mismatch" — no match
+ *   "match" — when either hint or candidate album is null (can't verify)
+ */
+export function verifyAlbumName(
+  hint: string | null,
+  candidate: AlbumCandidate,
+): string {
+  if (!hint || !candidate.album) return "match";
+
+  const hintNorm = normalizeLookupText(hint);
+  const candNorm = normalizeLookupText(candidate.album);
+  if (hintNorm === candNorm) return "match";
+
+  // Substring check
+  if (hintNorm.includes(candNorm) || candNorm.includes(hintNorm)) return "close";
+
+  return "mismatch";
+}

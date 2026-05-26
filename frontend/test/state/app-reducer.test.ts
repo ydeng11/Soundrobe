@@ -35,16 +35,14 @@ function makeTrack(path: string, overrides?: Partial<TrackData>): TrackData {
 }
 
 describe("appReducer", () => {
-  describe("SET_DIRECTORY", () => {
-    it("sets currentDir and clears selection", () => {
+  describe("SET_LIBRARY", () => {
+    it("sets libraryPath and clears selection", () => {
       const state = { ...initialAppState, selectedTrackPath: "/old/track.mp3" };
       const next = appReducer(state, {
-        type: "SET_DIRECTORY",
+        type: "SET_LIBRARY",
         path: "/music",
-        name: "music",
       });
-      expect(next.currentDir).toBe("/music");
-      expect(next.currentDirName).toBe("music");
+      expect(next.libraryPath).toBe("/music");
       expect(next.selectedTrackPath).toBeNull();
       expect(next.selectedTrack).toBeNull();
       expect(next.coverDataUrl).toBeNull();
@@ -232,23 +230,34 @@ describe("appReducer", () => {
     });
   });
 
-  describe("TOGGLE_DIR", () => {
-    it("adds a dir path when not expanded", () => {
-      const next = appReducer(initialAppState, {
-        type: "TOGGLE_DIR",
-        path: "/music",
-      });
-      expect(next.expandedDirs.has("/music")).toBe(true);
-    });
-
-    it("removes a dir path when already expanded", () => {
+  describe("SET_ACTIVE_ALBUM", () => {
+    it("sets activeAlbumPath and clears selection", () => {
       const state = {
         ...initialAppState,
-        expandedDirs: new Set(["/music", "/other"]),
+        selectedTrackPath: "/music/track.mp3",
+        selectedTrack: {} as any,
+        coverDataUrl: "data:,",
       };
-      const next = appReducer(state, { type: "TOGGLE_DIR", path: "/music" });
-      expect(next.expandedDirs.has("/music")).toBe(false);
-      expect(next.expandedDirs.has("/other")).toBe(true);
+      const next = appReducer(state, {
+        type: "SET_ACTIVE_ALBUM",
+        path: "/music/My Album",
+      });
+      expect(next.activeAlbumPath).toBe("/music/My Album");
+      expect(next.selectedTrackPath).toBeNull();
+      expect(next.selectedTrack).toBeNull();
+      expect(next.coverDataUrl).toBeNull();
+    });
+
+    it("sets activeAlbumPath to null (show all albums)", () => {
+      const state = {
+        ...initialAppState,
+        activeAlbumPath: "/music/Album",
+      };
+      const next = appReducer(state, {
+        type: "SET_ACTIVE_ALBUM",
+        path: null,
+      });
+      expect(next.activeAlbumPath).toBeNull();
     });
   });
 
@@ -268,16 +277,35 @@ describe("appReducer", () => {
     });
   });
 
+  describe("TOGGLE_SETTINGS", () => {
+    it("shows the settings modal", () => {
+      const next = appReducer(initialAppState, {
+        type: "TOGGLE_SETTINGS",
+        show: true,
+      });
+      expect(next.showSettings).toBe(true);
+    });
+
+    it("hides the settings modal", () => {
+      const state = { ...initialAppState, showSettings: true };
+      const next = appReducer(state, {
+        type: "TOGGLE_SETTINGS",
+        show: false,
+      });
+      expect(next.showSettings).toBe(false);
+    });
+  });
+
   describe("CLEAR_ALL", () => {
     it("resets to initial state", () => {
       const state = {
         ...initialAppState,
-        currentDir: "/music",
+        libraryPath: "/music",
         tracks: [makeTrack("/music/s.mp3")],
         error: "Some error",
       };
       const next = appReducer(state, { type: "CLEAR_ALL" });
-      expect(next.currentDir).toBeNull();
+      expect(next.libraryPath).toBeNull();
       expect(next.tracks).toHaveLength(0);
       expect(next.error).toBeNull();
     });

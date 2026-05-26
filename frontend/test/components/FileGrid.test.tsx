@@ -150,7 +150,7 @@ describe("FileGrid", () => {
       />
     );
 
-    expect(screen.getByText(/No audio files in this directory/i)).toBeTruthy();
+    expect(screen.getByText(/No audio files found/i)).toBeTruthy();
   });
 
   it("calls onSelectTrack when a row is clicked", () => {

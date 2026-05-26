@@ -16,6 +16,7 @@ interface TitleBarProps {
   onConvert: () => void;
   onAutonumber: () => void;
   onRename: () => void;
+  onOpenSettings: () => void;
 }
 
 export function TitleBar({
@@ -34,6 +35,7 @@ export function TitleBar({
   onConvert,
   onAutonumber,
   onRename,
+  onOpenSettings,
 }: TitleBarProps) {
   return (
     <div className="flex items-center h-10 pl-20 pr-4 bg-surface border-b border-gray-700/30 drag-region select-none gap-2">
@@ -93,8 +95,8 @@ export function TitleBar({
 
       <div className="w-px h-5 bg-gray-700/30 no-drag" />
 
-      {/* Help */}
-      <ActionButton icon="?" label="" onClick={() => {}} />
+      {/* Settings */}
+      <ActionButton icon="⚙️" label="" onClick={onOpenSettings} />
 
       {/* Stats */}
       <div className="flex items-center gap-2 text-[10px] text-text-muted ml-auto no-drag">

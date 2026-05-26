@@ -1,0 +1,222 @@
+/**
+ * SQLite cache for lookup candidates and album processing state.
+ * Ported from Python auto_tagger.integrations.cache.
+ *
+ * Uses better-sqlite3 for synchronous SQLite access from the main process.
+ */
+
+import Database from "better-sqlite3";
+import { createHash } from "node:crypto";
+import { mkdirSync } from "node:fs";
+import { readdirSync, statSync } from "node:fs";
+import { dirname, join } from "node:path";
+import {
+  type AlbumCandidate,
+  type LookupRequest,
+  candidatesToJson,
+  candidatesFromJson,
+  lookupRequestToJson,
+  queryHash,
+} from "./candidates";
+
+const VALID_STATUSES = new Set(["pending", "llm_parsed", "tagged_ok", "error"]);
+
+function sha256(text: string): string {
+  return createHash("sha256").update(text).digest("hex");
+}
+
+function pathHash(filePath: string): string {
+  return sha256(filePath);
+}
+
+function folderNameHash(name: string): string {
+  return sha256(name.trim());
+}
+
+/** Hash of (sorted filenames + sizes) for change detection. */
+function contentHash(albumPath: string): string {
+  try {
+    if (!statSync(albumPath).isDirectory()) return "";
+    const entries: string[] = [];
+    for (const f of readdirSync(albumPath).sort()) {
+      const fullPath = join(albumPath, f);
+      try {
+        const stat = statSync(fullPath);
+        if (stat.isFile()) {
+          entries.push(`${f}:${stat.size}`);
+        }
+      } catch {
+        // skip unreadable files
+      }
+    }
+    return sha256(entries.join("|"));
+  } catch {
+    return "";
+  }
+}
+
+export class MatchCache {
+  private db: Database;
+
+  constructor(cachePath: string) {
+    try {
+      mkdirSync(dirname(cachePath), { recursive: true });
+    } catch {
+      // directory may already exist
+    }
+    this.db = new Database(cachePath);
+    this.db.pragma("journal_mode = WAL");
+    this.initSchema();
+  }
+
+  close(): void {
+    this.db.close();
+  }
+
+  // ── lookup cache ──────────────────────────────────────────────────
+
+  get(request: LookupRequest): AlbumCandidate[] | null {
+    const hash = queryHash(request);
+    const row = this.db
+      .prepare("SELECT response_json FROM lookup_cache WHERE query_hash = ?")
+      .get(hash) as { response_json: string } | undefined;
+    if (!row) return null;
+    return candidatesFromJson(row.response_json);
+  }
+
+  set(request: LookupRequest, candidates: AlbumCandidate[]): void {
+    if (candidates.length === 0) return;
+    const hash = queryHash(request);
+    const now = new Date().toISOString();
+    const source = candidates[0].source;
+    this.db
+      .prepare(
+        `INSERT OR REPLACE INTO lookup_cache
+         (query_hash, query_json, response_json, created_at, source)
+         VALUES (?, ?, ?, ?, ?)`,
+      )
+      .run(
+        hash,
+        JSON.stringify(lookupRequestToJson(request)),
+        candidatesToJson(candidates),
+        now,
+        source,
+      );
+  }
+
+  // ── album state ledger ────────────────────────────────────────────
+
+  getAlbumState(
+    albumPath: string,
+  ): Record<string, string | number | null> | null {
+    const ph = pathHash(albumPath);
+    const row = this.db
+      .prepare(
+        `SELECT status, content_hash, folder_name_hash, llm_extraction,
+                disc_count, error, processed_at
+         FROM album_state WHERE path_hash = ?`,
+      )
+      .get(ph) as Record<string, unknown> | undefined;
+    if (!row) return null;
+    return {
+      status: row.status as string,
+      pathHash: ph,
+      contentHash: row.content_hash as string,
+      folderNameHash: (row.folder_name_hash as string) ?? null,
+      llmExtraction: row.llm_extraction
+        ? JSON.parse(row.llm_extraction as string)
+        : null,
+      discCount: (row.disc_count as number) ?? 0,
+      error: (row.error as string) ?? null,
+      processedAt: (row.processed_at as string) ?? null,
+    };
+  }
+
+  setAlbumState(
+    albumPath: string,
+    status: string,
+    discCount = 0,
+    error: string | null = null,
+  ): void {
+    if (!VALID_STATUSES.has(status)) {
+      throw new Error(
+        `Invalid album status: ${status}. Valid: ${[...VALID_STATUSES].sort().join(", ")}`,
+      );
+    }
+    const ph = pathHash(albumPath);
+    const ch = contentHash(albumPath);
+    const now = new Date().toISOString();
+    const parent = dirname(albumPath);
+    const fnh = parent ? folderNameHash(parent) : null;
+
+    this.db
+      .prepare(
+        `INSERT OR REPLACE INTO album_state
+         (path_hash, status, content_hash, folder_name_hash,
+          disc_count, error, processed_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .run(ph, status, ch, fnh, discCount, error, now);
+  }
+
+  clearAlbumState(albumPath: string): void {
+    const ph = pathHash(albumPath);
+    this.db.prepare("DELETE FROM album_state WHERE path_hash = ?").run(ph);
+  }
+
+  // ── LLM folder extraction cache ──────────────────────────────────
+
+  getLlmExtraction(folderName: string): Record<string, string | null> | null {
+    const fnh = folderNameHash(folderName);
+    const row = this.db
+      .prepare(
+        `SELECT llm_extraction FROM album_state
+         WHERE folder_name_hash = ? AND llm_extraction IS NOT NULL
+         LIMIT 1`,
+      )
+      .get(fnh) as { llm_extraction: string } | undefined;
+    if (!row) return null;
+    return JSON.parse(row.llm_extraction);
+  }
+
+  setLlmExtraction(
+    folderName: string,
+    extraction: Record<string, string | null>,
+  ): void {
+    const fnh = folderNameHash(folderName);
+    const raw = JSON.stringify(extraction);
+    const now = new Date().toISOString();
+    this.db
+      .prepare(
+        `INSERT OR REPLACE INTO album_state
+         (path_hash, status, content_hash, folder_name_hash,
+          llm_extraction, disc_count, error, processed_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .run(`_llm_${fnh}`, "llm_parsed", "", fnh, raw, 0, null, now);
+  }
+
+  // ── schema ────────────────────────────────────────────────────────
+
+  private initSchema(): void {
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS lookup_cache (
+        query_hash TEXT PRIMARY KEY,
+        query_json TEXT NOT NULL,
+        response_json TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        source TEXT NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS album_state (
+        path_hash TEXT PRIMARY KEY,
+        status TEXT NOT NULL,
+        content_hash TEXT NOT NULL,
+        folder_name_hash TEXT,
+        llm_extraction TEXT,
+        disc_count INTEGER DEFAULT 0,
+        error TEXT,
+        processed_at TEXT
+      );
+    `);
+  }
+}

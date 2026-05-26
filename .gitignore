@@ -63,3 +63,4 @@ tests/fixtures/data/coverage.json
 frontend/node_modules/
 frontend/dist/
 frontend/dist-electron/
+frontend/release/

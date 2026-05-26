@@ -1,21 +1,85 @@
-import { app, BrowserWindow, ipcMain, dialog } from "electron";
+import { app, BrowserWindow, ipcMain, dialog, screen } from "electron";
 import path from "path";
+import fs from "fs";
 import { fileURLToPath } from "url";
 import { registerLibraryHandlers } from "./handlers/library";
 import { registerTrackHandlers } from "./handlers/tracks";
 import { registerCoverHandlers } from "./handlers/cover";
 import { registerDirectoryHandlers } from "./handlers/directory";
-
+import {
+  startAutoTag,
+  getProgress,
+  cancelTask,
+  getDatasetStatus,
+  getConfig,
+  refreshConfig,
+  saveConfig,
+} from "./handlers/auto-tag";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const isDev = !app.isPackaged;
 
 let mainWindow: BrowserWindow | null = null;
 
+// ── Window state persistence ─────────────────────────────────────
+
+const WINDOW_STATE_PATH = path.join(
+  app.getPath("home"),
+  ".auto-tagger",
+  "window-state.json",
+);
+
+interface WindowState {
+  x?: number;
+  y?: number;
+  width: number;
+  height: number;
+  isMaximized?: boolean;
+}
+
+function loadWindowState(): WindowState | null {
+  try {
+    if (fs.existsSync(WINDOW_STATE_PATH)) {
+      const raw = fs.readFileSync(WINDOW_STATE_PATH, "utf-8");
+      return JSON.parse(raw);
+    }
+  } catch {
+    // Corrupted state — ignore
+  }
+  return null;
+}
+
+function saveWindowState(win: BrowserWindow): void {
+  try {
+    // Don't save if minimized or destroyed
+    if (win.isMinimized() || win.isDestroyed()) return;
+
+    const bounds = win.getBounds();
+    const state: WindowState = {
+      x: bounds.x,
+      y: bounds.y,
+      width: bounds.width,
+      height: bounds.height,
+      isMaximized: win.isMaximized(),
+    };
+
+    const dir = path.dirname(WINDOW_STATE_PATH);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    fs.writeFileSync(WINDOW_STATE_PATH, JSON.stringify(state, null, 2));
+  } catch {
+    // Best-effort
+  }
+}
+
 function createWindow() {
+  const savedState = loadWindowState();
   mainWindow = new BrowserWindow({
-    width: 1200,
-    height: 800,
+    width: savedState?.width ?? 1200,
+    height: savedState?.height ?? 800,
+    x: savedState?.x,
+    y: savedState?.y,
     minWidth: 900,
     minHeight: 600,
     backgroundColor: "#1a1a2e",
@@ -28,6 +92,41 @@ function createWindow() {
     titleBarStyle: "hiddenInset",
     show: false,
   });
+
+  // Check saved position is on an available display
+  if (savedState?.x != null && savedState?.y != null) {
+    const displays = screen.getAllDisplays();
+    const onScreen = displays.some((d) => {
+      const { x, y, width, height } = d.workArea;
+      return (
+        savedState.x! >= x &&
+        savedState.x! < x + width - 100 &&
+        savedState.y! >= y &&
+        savedState.y! < y + height - 100
+      );
+    });
+    if (!onScreen) {
+      // Center on primary display if saved position is off-screen
+      mainWindow.center();
+    }
+  }
+
+  // Restore maximized state
+  if (savedState?.isMaximized) {
+    mainWindow.maximize();
+  }
+
+  // Save window state on changes
+  const debouncedSave = debounce(() => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      saveWindowState(mainWindow);
+    }
+  }, 300);
+
+  mainWindow.on("resize", debouncedSave);
+  mainWindow.on("move", debouncedSave);
+  mainWindow.on("maximize", () => saveWindowState(mainWindow!));
+  mainWindow.on("unmaximize", () => saveWindowState(mainWindow!));
 
   mainWindow.once("ready-to-show", () => {
     mainWindow?.show();
@@ -49,9 +148,28 @@ function createWindow() {
     mainWindow.loadFile(path.join(__dirname, "../dist/index.html"));
   }
 
+  // Save state on close
+  mainWindow.on("close", () => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      saveWindowState(mainWindow);
+    }
+  });
+
   mainWindow.on("closed", () => {
     mainWindow = null;
   });
+}
+
+// Simple debounce helper
+function debounce<T extends (...args: unknown[]) => void>(
+  fn: T,
+  delay: number,
+): (...args: Parameters<T>) => void {
+  let timer: ReturnType<typeof setTimeout>;
+  return (...args: Parameters<T>) => {
+    clearTimeout(timer);
+    timer = setTimeout(() => fn(...args), delay);
+  };
 }
 
 app.whenReady().then(() => {
@@ -84,32 +202,65 @@ app.whenReady().then(() => {
     }
   });
 
-  // Stub handlers for Phase 3 (auto-tag)
-  ipcMain.handle("album:auto-tag", async (_event, _albumPath: string) => {
-    throw new Error("Auto-tag not yet implemented (Phase 3)");
+  // Auto-tag handlers
+  ipcMain.handle("album:auto-tag", async (_event, albumPath: string) => {
+    try {
+      return startAutoTag(albumPath);
+    } catch (error) {
+      console.error("Failed to start auto-tag:", error);
+      throw error;
+    }
   });
 
-  ipcMain.handle("task:progress", async (_event, _taskId: string) => {
-    throw new Error("Task polling not yet implemented (Phase 3)");
+  ipcMain.handle("task:progress", async (_event, taskId: string) => {
+    try {
+      return getProgress(taskId);
+    } catch (error) {
+      console.error("Failed to get task progress:", error);
+      throw error;
+    }
   });
 
-  ipcMain.handle("task:cancel", async (_event, _taskId: string) => {
-    throw new Error("Task cancellation not yet implemented (Phase 3)");
+  ipcMain.handle("task:cancel", async (_event, taskId: string) => {
+    try {
+      cancelTask(taskId);
+    } catch (error) {
+      console.error("Failed to cancel task:", error);
+      throw error;
+    }
   });
 
   ipcMain.handle("dataset:status", async () => {
-    return {
-      musicbrainz: false,
-      spotify: false,
-      totalRecords: 0,
-      lastUpdated: null,
-    };
+    try {
+      return getDatasetStatus();
+    } catch (error) {
+      console.error("Failed to get dataset status:", error);
+      return {
+        available: false,
+        musicbrainz: false,
+        totalRecords: 0,
+        lastUpdated: null,
+      };
+    }
   });
 
-  ipcMain.handle("config:get", async () => ({}));
-  ipcMain.handle("config:set", async (_event, _key: string, _value: unknown) => {});
+  ipcMain.handle("config:get", async () => {
+    try {
+      return getConfig();
+    } catch (error) {
+      console.error("Failed to get config:", error);
+      return {};
+    }
+  });
 
-  ipcMain.handle("window:focused", async () => {});
+  ipcMain.handle("config:set", async (_event, key: string, value: unknown) => {
+    try {
+      saveConfig(key, value);
+      refreshConfig();
+    } catch (error) {
+      console.error("Failed to set config:", error);
+    }
+  });
 
   createWindow();
 

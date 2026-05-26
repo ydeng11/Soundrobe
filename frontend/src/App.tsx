@@ -4,6 +4,7 @@ import type { TrackSnapshot } from "./state/UndoManager";
 import { TitleBar } from "./components/TitleBar";
 import { FileGrid } from "./components/FileGrid";
 import { MetadataEditor } from "./components/MetadataEditor";
+import { SettingsModal } from "./components/SettingsModal";
 import type { TrackData } from "../electron/preload";
 
 export default function App() {
@@ -55,8 +56,6 @@ export default function App() {
       });
     }
   }, []);
-
-  // --- Track selection ---
 
   // --- Track selection ---
 
@@ -232,6 +231,16 @@ export default function App() {
     dispatch({ type: "SET_ERROR", error: "Rename not yet implemented" });
   }, []);
 
+  // --- Settings ---
+
+  const handleOpenSettings = useCallback(() => {
+    dispatch({ type: "TOGGLE_SETTINGS", show: true });
+  }, []);
+
+  const handleCloseSettings = useCallback(() => {
+    dispatch({ type: "TOGGLE_SETTINGS", show: false });
+  }, []);
+
   // --- Filter ---
 
   const handleFilterChange = useCallback((text: string) => {
@@ -255,6 +264,24 @@ export default function App() {
     return () => window.removeEventListener("keydown", handler);
   }, [handleOpenLibrary, handleRevert]);
 
+  // --- File watching: re-scan on page visibility change ---
+
+  useEffect(() => {
+    const handleVisibility = async () => {
+      if (document.visibilityState === "visible") {
+        try {
+          await window.api.onFocus();
+        } catch {
+          // Best-effort
+        }
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () =>
+      document.removeEventListener("visibilitychange", handleVisibility);
+  }, []);
+
   return (
     <div className="flex flex-col h-screen bg-surface text-text-primary">
       {/* Top bar — library, filter, actions, stats */}
@@ -274,6 +301,7 @@ export default function App() {
         onConvert={handleConvert}
         onAutonumber={handleAutonumber}
         onRename={handleRename}
+        onOpenSettings={handleOpenSettings}
       />
 
       {/* Two-pane layout */}
@@ -312,7 +340,11 @@ export default function App() {
         </div>
       </div>
 
-
+      {/* Settings Modal */}
+      <SettingsModal
+        open={state.showSettings}
+        onClose={handleCloseSettings}
+      />
     </div>
   );
 }

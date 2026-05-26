@@ -41,6 +41,9 @@ export interface AppState {
 
   /** Currently saving flag */
   saving: boolean;
+
+  /** Settings modal visibility */
+  showSettings: boolean;
 }
 
 export const initialAppState: AppState = {
@@ -58,6 +61,7 @@ export const initialAppState: AppState = {
   undoManager: new UndoManager(),
   dirtyTracks: new Set(),
   saving: false,
+  showSettings: false,
 };
 
 export type AppAction =
@@ -79,6 +83,7 @@ export type AppAction =
   | { type: "POP_UNDO"; snapshots: TrackSnapshot[] | null }
   | { type: "CLEAR_UNDO" }
   | { type: "SET_SAVING"; saving: boolean }
+  | { type: "TOGGLE_SETTINGS"; show: boolean }
   | { type: "CLEAR_ALL" };
 
 export function appReducer(state: AppState, action: AppAction): AppState {
@@ -178,10 +183,9 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       state.undoManager.push(action.description, action.snapshots);
       return { ...state };
 
-    case "POP_UNDO": {
-      const op = state.undoManager.pop();
+    case "POP_UNDO":
+      state.undoManager.pop();
       return { ...state };
-    }
 
     case "CLEAR_UNDO":
       state.undoManager.clear();
@@ -189,6 +193,9 @@ export function appReducer(state: AppState, action: AppAction): AppState {
 
     case "SET_SAVING":
       return { ...state, saving: action.saving };
+
+    case "TOGGLE_SETTINGS":
+      return { ...state, showSettings: action.show };
 
     default:
       return state;

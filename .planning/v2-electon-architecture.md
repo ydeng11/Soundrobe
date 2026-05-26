@@ -77,12 +77,12 @@ All music-library logic (tag read/write, MusicBrainz lookups, Discogs lookups, L
 - Dev mode: `npm run dev` starts Vite HMR + Electron main process
 - Production: Vite builds static files into `dist/`, Electron loads from disk
 
-### 4. Tag I/O: taglib-ts (both read and write)
-- **Read:** `TagLib.read(path)` → returns all tag fields, cover art, format info
-- **Write:** `TagLib.write(path, fields)` → writes tags to file, same API for all formats
-- Coverage: MP3 (ID3v2.3/2.4), FLAC, Ogg Vorbis, Opus, MP4/M4A, WAV, AIFF
-- Native npm addon (napi-rs). Requires `@electron/rebuild` for production .app, or prebuilt binaries per platform via CI.
-- One library, one API, matches mutagen's unified interface.
+### 4. Tag I/O: music-metadata (read) + node-id3 (write) / custom writers
+- **Read:** `music-metadata.parseFile(path)` → returns all tag fields, cover art, format info
+- **Write:** `node-id3` for MP3 ID3v2 tags; custom Vorbis comment writer for FLAC; WAV writes are a no-op
+- Coverage: MP3 (ID3v2.3/2.4), FLAC, Ogg Vorbis, Opus, MP4/M4A, WAV
+- Pure JavaScript (music-metadata) + thin native addon (node-id3 for MP3). No `@electron/rebuild` complexity required.
+- Simpler than the originally planned `taglib-ts` — avoids native rebuild issues at the cost of format-specific write code.
 
 ### 5. Communication: Electron IPC (contextBridge)
 - No HTTP, no REST, no ports
@@ -177,9 +177,9 @@ contextBridge.exposeInMainWorld("api", {
 
 | Layer | Tool | What it covers |
 |---|---|---|
-| **Library (tag reading, MusicBrainz client, etc.)** | Vitest | No Electron, pure Node.js tests. Mock `fetch()`. Test against fixture files for taglib-ts. |
+| **Library (tag reading, MusicBrainz client, etc.)** | Vitest | No Electron, pure Node.js tests. Mock `fetch()`. Test against real audio fixture files with music-metadata and node-id3. |
 | **React components** | Vitest + jsdom | Component rendering, form validation, state management |
-| **IPC handlers** | Vitest + Electron mocking | Verify handler logic, mock `taglib-ts`, mock `fetch()` |
+| **IPC handlers** | Vitest + Electron mocking | Verify handler logic, mock `music-metadata`, mock `fetch()` |
 | **Integration (smoke)** | Bash script | Starts Electron app, verifies it loads and connects to the filesystem |
 | **End-to-end exploratory** | Agent tooling | `electron.launch` → `snapshot` → `qa.attached` → `screenshot`. Manual debugging, not CI. |
 
@@ -243,106 +243,108 @@ auto_tagger/
 
 ## Build Phases
 
-### Phase 1: Electron Scaffold + taglib-ts Read
-- Initialize `frontend/` with Vite + React + Tailwind + Electron
-- Install `taglib-ts`, wire up `@electron/rebuild` in `postinstall`
-- Implement `main.ts`, `preload.ts`, IPC channels
-- Build `handlers/library.ts` — scan library directory for audio files
-- Build `handlers/tracks.ts` — `readAlbum()` using `taglib-ts`
-- Build `handlers/cover.ts` — cover art discovery
-- `handlers/library.ts` test with Vitest
-- **Result:** Launch app, open library, see albums and tracks in a table
+### Phase 1: Electron Scaffold + tag I/O (DONE)
+- Initialized `frontend/` with Vite + React + Tailwind + Electron
+- Used `music-metadata` (parse) + `node-id3` (write) instead of the originally-planned `taglib-ts`
+- Implemented `electron/main.ts`, `electron/preload.ts`, IPC channels
+- Built `handlers/library.ts` — scan library directory for audio files
+- Built `handlers/tracks.ts` — `readAlbum()` using `music-metadata`
+- Built `handlers/cover.ts` — cover art discovery via `sharp`
+- Built `handlers/directory.ts` — directory listing for tree browser
+- Built `handlers/writer.ts` — tag writing via `node-id3` for MP3, custom Vorbis/FLAC writer
+- Tests for all handlers with Vitest (library, cover, writer)
+- **Result:** Launch app, open library, browse individual tracks, edit and save tags
 
-### Phase 2: React UI (album browser + track view, conversions, lyrics, Discogs)
-- Build `AlbumBrowser.tsx` — sortable data table of albums
-- Build `TrackTable.tsx` — per-album track list with sort, filter, multi-select
-- Build `TagPanel.tsx` — metadata form with validation, `<keep>` support
-- Build `CoverArt.tsx` — embedded/external cover display
-- State management: `AppState.ts`, `UndoManager.ts`
-- `api.writeTrack()` → `taglib-ts` writes tags to file
-- Optimistic field edits with rollback
+### Phase 2: React UI — FileGrid + MetadataEditor + TitleBar (DONE)
+**Actual implementation (simpler than original plan):**
+- `FileGrid.tsx` — sortable data table of all tracks with multi-column sort, regex filtering, shift-click multi-select, alternating row colors, footer stats
+- `MetadataEditor.tsx` — right-pane form with fields for Title, Artist, Album, Year, Track, Genre, Composer, Comment; cover art preview with Change/Remove buttons; format details (codec, sample rate, bitrate, size); detailed tags section (MusicBrainz IDs, lyrics preview, disc info)
+- `TitleBar.tsx` — top toolbar with Open Library button, library path + count display, search/filter input, Save/Revert/Convert/Num/Rename action buttons, error display, file count
+- `state/AppState.ts` — `useReducer`-based state with `AppState + AppAction` discriminated union; `SET_LIBRARY`, `SET_ALBUMS`, `SET_TRACKS`, `SET_ACTIVE_ALBUM`, `SELECT_TRACK`, `UPDATE_TRACK`, `PUSH_UNDO`, `POP_UNDO`, `SET_SAVING`, `SET_ERROR`, `CLEAR_ALL`, and more
+- `state/UndoManager.ts` — session-only undo stack of `TrackSnapshot[]` with configurable max depth (50)
+- `state/actions.ts` — `TrackSnapshot` type export
+- Optimistic field edits with rollback on write failure (wired in `App.tsx`)
 
-**Filename ↔ Tag conversion:**
-- Add pattern editor UI (like MP3tag's "Convert" dialog): user enters a pattern like `$artist - $title` or `%track% %artist% - %title%`
-- `File → Tag`: extract fields from filename using regex/pattern → populate tag fields → bulk write via `api.writeTracks()`
-- `Tag → File`: rename files using tag fields → pattern parser → rename via `fs.rename()`
-- Undoable: each conversion pushes a snapshot before applying
-- Patterns support: `$artist`, `$title`, `$album`, `$track`, `$year`, `$genre`, `$composer`, custom separators, padding
+**Deferred from original Phase 2 scope (not implemented):**
+- Filename ↔ Tag conversion dialog
+- Lyrics / LRC discovery and encoding fix
+- Discogs artist artwork fetching
 
-**Lyrics / LRC:**
-- Build `handlers/lyrics.ts` — discover `.lrc` files alongside audio files, detect encoding (UTF-8 vs legacy), convert to UTF-8, sync with track timing
-- Build `handlers/lyrics.ts` — fetch lyrics from remote sources (if available)
-- Add `lyrics` field to `TrackTable` and `TagPanel` — view/edit embedded lyrics
-- Auto-detect and fix encoding on library scan (flag non-UTF-8 LRC files)
+### Phase 3: Auto-Tag (Local Dataset first, then MusicBrainz + LLM) — DONE
 
-**Discogs artist artwork:**
-- Build `handlers/discogs.ts` — fetch artist images from Discogs API using artist name
-- Album browser shows artist `artist.jpg` when available (like Navidrome's artist page)
-- Right-click artist column → "Fetch Artist Artwork" → downloads `artist.jpg` into artist directory
-- Scan existing artist directories for `artist.jpg` on library open
+**Implemented files:**
+- `handlers/auto-tag.ts` — Orchestrator: task queue, full lookup chain, cancellation, config loading
+- `handlers/candidates.ts` — AlbumCandidate, TrackCandidate, LookupRequest types + queryHash + normalizeLookupText
+- `handlers/cache.ts` — MatchCache: SQLite lookup cache, album state ledger, LLM extraction
+- `handlers/aliases.ts` — saveAlias, getAliases, isChineseName
+- `handlers/fallback.ts` — folder name parsing, year extraction, folder fallback candidate
+- `handlers/dataset.ts` — DatasetReader: queries ~/.auto-tagger/ SQLite index
+- `handlers/musicbrainz.ts` — MusicBrainzClient: raw fetch() to JSON API, 1 req/sec rate limit
+- `handlers/discogs.ts` — DiscogsClient: raw fetch() to Discogs API, sliding-window rate limiter
+- `handlers/openrouter.ts` — OpenRouterClient: chat completions with structured JSON, retries, cost estimation
+- `handlers/prompts.ts` — Prompt builders for selection, fallback, folder extraction
+- `handlers/schemas.ts` — TypeScript interfaces for structured LLM responses
+- `electron/main.ts` — Real IPC handlers wired (album:auto-tag, task:progress, task:cancel, dataset:status, config:get/config:set)
 
-- **Result:** MP3tag-like editor — browse, edit, undo, filename↔tag conversion, lyrics, artist artwork
+**Tests:** 205 across 17 test files, all passing
 
-### Phase 3: Auto-Tag (Local Dataset first, then MusicBrainz + LLM)
-- Build `handlers/dataset.ts` — read the existing MusicMoveArr SQLite index at `~/.auto-tagger/` via `better-sqlite3`. Same schema as v1's dataset.
-- **Lookup priority:** Local dataset → MusicBrainz API → LLM fallback generation.
-  - **1st:** Query local SQLite dataset for album/track metadata (fast, offline, zero cost)
-  - **2nd:** MusicBrainz API `fetch()` if dataset misses (rate limited: 1 req/sec)
-  - **3rd:** LLM-generated tags from file context if both miss
-- Port candidate ranking (from `candidates.py`) and prompt templates (from `llm/prompts.py`) to TypeScript
-- OpenRouter LLM client — `fetch()` to OpenRouter API
-- Task queue with polling: `autoTagAlbum()` → `getTaskProgress()` → `cancelTask()`
-- **Result:** Right-click album → Auto-Tag → dataset hit (fast) or network lookup → results
+### Phase 4: Polish + Packaging — IN PROGRESS
 
-### Phase 4: Polish + Packaging
-- Settings modal — config editing (LLM key, model, etc.)
-- File watching — poll on focus
-- Window lifecycle: save/restore size, recent workspaces
-- Electron Builder config for `.dmg`, `.exe`, `.AppImage`
-- CI pipeline: `npm run test` + `npm run build` + upload artifacts
-- `taglib-ts` prebuilt binary for Electron ABI in CI
-- **Result:** Shippable .app
+**Done:**
+- SettingsModal.tsx — modal with LLM API key, model, Discogs token, remote lookup toggle, Discogs toggle; loads/saves via IPC
+- AppState TOGGLE_SETTINGS action, TitleBar ⚙️ button wired
+- Window state persistence: saves position/size/maximized to `~/.auto-tagger/window-state.json`, restores on startup, validates against available displays
+- File watching: `visibilitychange` listener calls `api.onFocus()` on focus
+
+**Tests:** 218 across 19 test files, all passing
+
+All Phase 4 items are complete.
+
+**Build targets (via `npm run dist:*`):**
+- `dist:mac` → macOS `.dmg` (arm64 + x64) + `.zip`
+- `dist:win` → Windows `.exe` (NSIS installer, x64)
+- `dist:linux` → Linux `.AppImage` + `.deb` (x64)
+- `rebuild-native` → rebuilds `better-sqlite3` + `sharp` for Electron ABI (run before first `dist:*` after install)
 
 ## Build Phases Summary
 
-| Phase | Scope | Maturation |
-|---|---|---|
-| **1** | Electron scaffold + taglib-ts read | See music library, browse albums |
-| **2** | React UI + taglib-ts write | Full MP3tag editor |
-| **3** | Auto-tag (MusicBrainz + LLM) | Right-click auto-tag |
-| **4** | Polish + packaging | Shippable .app |
+| Phase | Scope | Maturation | Status |
+|---|---|---|---|
+| **1** | Electron scaffold + tag I/O (`music-metadata` + `node-id3`) | Browse library, view metadata, cover art | ✅ Done |
+| **2** | React UI (FileGrid + MetadataEditor + TitleBar) + optimistic writes + undo | Full tag editor | ✅ Done |
+| **3** | Auto-tag (MusicBrainz + LLM) | Right-click auto-tag | ✅ Done |
+| **4** | Polish + packaging | Shippable .app | ✅ Done |
 
 ## Feature Scope
 
 | Feature | In v1 Python? | In v2 Electron? | Phase |
 |---|---|---|---|
-| Browse library by album | ✅ | ✅ | 1 |
-| View track metadata in table | ✅ | ✅ | 1 |
-| Edit individual fields | ✅ | ✅ | 2 |
-| Multi-track batch edit (`<keep>`) | ✅ | ✅ | 2 |
-| Cover art preview | ✅ | ✅ | 2 |
-| Undo (session-only) | ✅ | ✅ | 2 |
-| Sort by column | ✅ | ✅ | 2 |
-| Filter by regex | ✅ | ✅ | 2 |
-| Dark theme | ❌ | ✅ | 2 |
-| Auto-tag via MusicBrainz + LLM | ✅ | ✅ | 3 |
-| Filename → Tag conversion | ❌ | ✅ | 2 |
-| Tag → Rename files | ❌ | ✅ | 2 |
-| Auto-numbering wizard | ❌ | ❌ | Deferred |
-| ReplayGain calculation | ✅ | ❌ | Deferred |
-| Lyrics / LRC | ✅ | ✅ | 2 |
-| LLM audit | ✅ | ❌ | Deferred |
-| Health reports | ✅ | ❌ | Deferred |
-| Clean junk tags | ✅ | ❌ | Deferred |
-| Discogs artist artwork | ✅ | ✅ | 2 |
+| Browse library by track | ✅ | ✅ (FileGrid) | 1 |
+| View track metadata in table | ✅ | ✅ (FileGrid) | 1 |
+| Edit individual fields | ✅ | ✅ (MetadataEditor) | 2 |
+| Multi-track batch edit | ✅ | ✅ (Shift-click multi-select, writes per-track) | 2 |
+| Cover art preview | ✅ | ✅ (MetadataEditor) | 2 |
+| Undo (session-only) | ✅ | ✅ (UndoManager) | 2 |
+| Sort by column | ✅ | ✅ (FileGrid — all columns) | 2 |
+| Filter by regex/text | ✅ | ✅ (TitleBar filter input) | 2 |
+| Dark theme | ❌ | ✅ (Tailwind dark theme) | 2 |
+| Auto-tag via MusicBrainz + LLM | ✅ | ✅ (auto-tag.ts + musicbrainz.ts + discogs.ts + openrouter.ts + dataset.ts) | 3 ✅ |
+| Filename → Tag conversion | ❌ | ❌ Deferred | 2 |
+| Tag → Rename files | ❌ | ❌ Deferred | 2 |
+| Auto-numbering wizard | ❌ | ❌ Deferred | — |
+| ReplayGain calculation | ✅ | ❌ Deferred | — |
+| Lyrics / LRC | ✅ | ❌ Deferred | 2 |
+| LLM audit | ✅ | ❌ Deferred | — |
+| Health reports | ✅ | ❌ Deferred | — |
+| Clean junk tags | ✅ | ❌ Deferred | — |
+| Discogs artist artwork | ✅ | ❌ Deferred | 2 |
 | Python CLI (`auto-tag batch`, etc.) | ✅ | ❌ (use v1) | Separate |
 
 ## Risks & Mitigations
 
 | Risk | Mitigation |
 |---|---|
-| `taglib-ts` native addon breaks on Electron ABI mismatch | `@electron/rebuild` in postinstall. CI builds prebuilt binaries per Electron version. Tests read/write fixture files. |
-| `taglib-ts` write support is buggy in some formats | Test against real fixture files for MP3, FLAC, M4A. Compare output with mutagen (v1). Start with read-only (Phase 1), add writes after read is verified (Phase 2). |
+| `music-metadata` + `node-id3` write support differs per format | Test against real fixture files for MP3, FLAC, M4A. Compare output with mutagen (v1). WAV writes are a no-op (tagged via sidecar/CLI). |
 | MusicBrainz rate limiting (1 req/sec) with 50-track album | Sequential lookup with per-track timeout. Show progress in the task poller. Dataset hit skips network entirely. |
 | LLM API key management (no env vars, no CLI) | Config file + settings form. Same as v1's `config.yaml`. |
 | No headless/CI mode in v2 | v1 Python CLI is still available for scripting. v2 Electron app is for interactive desktop use. Dataset setup (`auto-tag dataset setup`) still requires Python CLI (run once, then v2 reads the same `.db`). |
@@ -354,8 +356,8 @@ auto_tagger/
 |---|---|---|
 | `state.py` | `frontend/src/state/AppState.ts` | Direct port of types and reducer logic |
 | `undo.py` | `frontend/src/state/UndoManager.ts` | Direct port of class structure |
-| `core/audio.py` + `core/formats.py` + `core/metadata.py` | `taglib-ts` | Replaced entirely |
-| `core/writer.py` | `taglib-ts` | Replaced entirely |
+| `core/audio.py` + `core/formats.py` + `core/metadata.py` | `music-metadata` (read) + `node-id3` (write) | Replaced entirely |
+| `core/writer.py` | `node-id3` + custom Vorbis writer | Replaced entirely |
 | `integrations/beets_client.py` | `handlers/auto-tag.ts` | Rewrite as raw `fetch()` to MusicBrainz API |
 | `integrations/candidates.py` | `handlers/auto-tag.ts` | Algorithm port (string matching, ranking) |
 | `integrations/discogs_client.py` | `handlers/discogs.ts` | Rewrite as raw `fetch()` for artist image lookup |

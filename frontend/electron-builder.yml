@@ -1,0 +1,66 @@
+# Electron Builder configuration for Auto Tagger
+# See https://www.electron.build/configuration
+
+appId: com.auto-tagger.app
+productName: Auto Tagger
+copyright: Copyright © 2026
+
+directories:
+  output: release
+
+files:
+  - dist/**/*
+  - dist-electron/**/*
+
+# Node.js native modules are external (not bundled by Vite).
+# electron-builder will rebuild them for the target Electron ABI.
+npmRebuild: true
+nodeGypRebuild: false
+
+asar: true
+
+# ── macOS ─────────────────────────────────────────────────────
+mac:
+  category: public.app-category.utilities
+  target:
+    - target: dmg
+      arch:
+        - arm64
+        - x64
+    - target: zip
+      arch:
+        - arm64
+        - x64
+  # Notarization requires an Apple Developer account — disabled for now
+  hardenedRuntime: false
+  gatekeeperAssess: false
+
+dmg:
+  title: Auto Tagger
+  artifactName: ${productName}-${version}-mac-${arch}.${ext}
+
+# ── Windows ───────────────────────────────────────────────────
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+  signAndEditExecutable: false
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  artifactName: ${productName}-Setup-${version}-${arch}.${ext}
+
+# ── Linux ─────────────────────────────────────────────────────
+linux:
+  target:
+    - target: AppImage
+      arch:
+        - x64
+    - target: deb
+      arch:
+        - x64
+  category: Audio
+  synopsis: Desktop audio file tag editor
+  description: Auto Tagger is an intelligent audio file editor with auto-tagging via MusicBrainz, Discogs, and LLM assistance.
