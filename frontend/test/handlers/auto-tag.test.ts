@@ -56,7 +56,7 @@ describe("startAutoTag / getProgress / cancelTask", () => {
     expect(progress).not.toBeNull();
     expect(progress!.taskId).toBe(taskId);
     expect(progress!.status).toBe("running");
-    expect(progress!.total).toBe(7);
+    expect(progress!.total).toBe(8);
   });
 
   it("returns null for unknown task", () => {

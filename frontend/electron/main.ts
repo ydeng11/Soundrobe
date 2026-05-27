@@ -1,7 +1,8 @@
-import { app, BrowserWindow, ipcMain, dialog, screen } from "electron";
+import { app, BrowserWindow, ipcMain, dialog, screen, Menu, clipboard } from "electron";
 import path from "path";
 import fs from "fs";
 import { fileURLToPath } from "url";
+import { ensureNativeModules } from "./handlers/native-check";
 import { registerLibraryHandlers } from "./handlers/library";
 import { registerTrackHandlers } from "./handlers/tracks";
 import { registerCoverHandlers } from "./handlers/cover";
@@ -14,7 +15,9 @@ import {
   getConfig,
   refreshConfig,
   saveConfig,
+  setDebugMode,
 } from "./handlers/auto-tag";
+import { registerDebugIpc } from "./handlers/debug";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const isDev = !app.isPackaged;
@@ -90,6 +93,11 @@ function createWindow() {
       sandbox: false,
     },
     titleBarStyle: "hiddenInset",
+    titleBarOverlay: {
+      color: "rgba(255, 255, 255, 0.95)",
+      symbolColor: "#1d1d1f",
+      height: 38,
+    },
     show: false,
   });
 
@@ -172,15 +180,34 @@ function debounce<T extends (...args: unknown[]) => void>(
   };
 }
 
-app.whenReady().then(() => {
+/**
+ * Verify native modules (better-sqlite3) are compiled for Electron's ABI.
+ * If not, offer to auto-rebuild. Returns false if the user chose to quit.
+ */
+
+app.whenReady().then(async () => {
+  // Verify native modules are compiled for Electron's ABI before proceeding
+  const modulesOk = await ensureNativeModules();
+  if (!modulesOk) {
+    // User chose to quit rather than rebuild
+    app.quit();
+    return;
+  }
+
   // Register all IPC handlers
   registerLibraryHandlers();
   registerTrackHandlers();
   registerCoverHandlers();
   registerDirectoryHandlers();
+  registerDebugIpc();
 
   // Native folder picker — use event.sender to get the invoking window, with a
   // mainWindow fallback for stale/reloaded dev renderers.
+  // Window focus handler — signals that the window regained focus
+  ipcMain.handle("window:focused", async () => {
+    // Could trigger a background library re-scan here if needed
+  });
+
   ipcMain.handle("dialog:open-folder", async (event) => {
     try {
       const senderWindow = BrowserWindow.fromWebContents(event.sender);
@@ -202,9 +229,64 @@ app.whenReady().then(() => {
     }
   });
 
+  ipcMain.handle(
+    "track:context-menu",
+    async (event, trackPath: string, labels: Record<string, string>) => {
+      const senderWindow = BrowserWindow.fromWebContents(event.sender);
+      const win =
+        senderWindow && !senderWindow.isDestroyed() ? senderWindow : mainWindow;
+      if (!win || win.isDestroyed()) return null;
+
+      return new Promise<"extra-tags" | null>((resolve) => {
+        let resolved = false;
+        const finish = (action: "extra-tags" | null) => {
+          if (resolved) return;
+          resolved = true;
+          resolve(action);
+        };
+
+        const copy = (text: string | undefined) => {
+          if (text) clipboard.writeText(text);
+          finish(null);
+        };
+
+        const menu = Menu.buildFromTemplate([
+          { label: "Extra Tags...", click: () => finish("extra-tags") },
+          { type: "separator" },
+          { label: "Copy Title", click: () => copy(labels.title) },
+          { label: "Copy Artist", click: () => copy(labels.artist) },
+          { label: "Copy Album", click: () => copy(labels.album) },
+          { label: "Copy Path", click: () => copy(trackPath) },
+          { type: "separator" },
+          {
+            label: "Copy All Details",
+            click: () =>
+              copy(
+                [
+                  `Title: ${labels.title || "-"}`,
+                  `Artist: ${labels.artist || "-"}`,
+                  `Album: ${labels.album || "-"}`,
+                  `Year: ${labels.year || "-"}`,
+                  `Track: ${labels.track || "-"}`,
+                  `Genre: ${labels.genre || "-"}`,
+                  `Path: ${trackPath}`,
+                ].join("\n"),
+              ),
+          },
+        ]);
+
+        menu.popup({
+          window: win,
+          callback: () => finish(null),
+        });
+      });
+    },
+  );
+
   // Auto-tag handlers
   ipcMain.handle("album:auto-tag", async (_event, albumPath: string) => {
     try {
+      refreshConfig();
       return startAutoTag(albumPath);
     } catch (error) {
       console.error("Failed to start auto-tag:", error);
@@ -260,6 +342,12 @@ app.whenReady().then(() => {
     } catch (error) {
       console.error("Failed to set config:", error);
     }
+  });
+
+  // Debug mode toggle — also saved to config
+  ipcMain.handle("debug:set-mode", async (_event, enabled: boolean) => {
+    setDebugMode(enabled);
+    saveConfig("debug", enabled);
   });
 
   createWindow();

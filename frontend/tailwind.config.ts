@@ -7,20 +7,36 @@ export default {
     extend: {
       colors: {
         surface: {
-          DEFAULT: "#1a1b2e",
-          alt: "#222336",
-          card: "#2a2b40",
-          hover: "#323350",
+          DEFAULT: "#ffffff",
+          alt: "#f5f5f7",
+          card: "#ffffff",
+          hover: "#ebebed",
+        },
+        sidebar: {
+          DEFAULT: "rgba(255, 255, 255, 0.72)",
+          hover: "rgba(0, 0, 0, 0.05)",
+          active: "rgba(0, 122, 255, 0.12)",
+          border: "rgba(0, 0, 0, 0.08)",
         },
         accent: {
-          DEFAULT: "#0d9488",
-          light: "#14b8a6",
-          dim: "#0f766e",
+          DEFAULT: "#007aff",
+          light: "#4da6ff",
+          dim: "#0062cc",
         },
         text: {
-          primary: "#e8e8ed",
-          secondary: "#a1a1b5",
-          muted: "#6b6b80",
+          primary: "#1d1d1f",
+          secondary: "#6e6e73",
+          muted: "#aeaeb2",
+        },
+        border: {
+          DEFAULT: "#d2d2d7",
+          light: "#e5e5ea",
+        },
+        table: {
+          row: "#ffffff",
+          alt: "#f9f9fb",
+          selected: "rgba(0, 122, 255, 0.12)",
+          selectedBorder: "rgba(0, 122, 255, 0.3)",
         },
       },
     },

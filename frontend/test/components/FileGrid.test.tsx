@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, afterEach } from "vitest";
 import React from "react";
-import { render, screen, fireEvent, cleanup } from "@testing-library/react";
+import { render, screen, fireEvent, cleanup, waitFor } from "@testing-library/react";
 
 afterEach(() => cleanup());
 import { FileGrid } from "../../src/components/FileGrid";
@@ -88,10 +88,10 @@ describe("FileGrid", () => {
       />
     );
 
-    // All three filenames should be visible
-    expect(screen.getByText("song1.mp3")).toBeTruthy();
-    expect(screen.getByText("song2.mp3")).toBeTruthy();
-    expect(screen.getByText("song3.mp3")).toBeTruthy();
+    // All three files should be visible (shows last 3 parent dirs + filename)
+    expect(screen.getByText("music/song1.mp3")).toBeTruthy();
+    expect(screen.getByText("music/song2.mp3")).toBeTruthy();
+    expect(screen.getByText("music/song3.mp3")).toBeTruthy();
   });
 
   it("filters files by filter text (title match)", () => {
@@ -105,8 +105,8 @@ describe("FileGrid", () => {
       />
     );
 
-    expect(screen.getByText("song1.mp3")).toBeTruthy();
-    expect(screen.getByText("song2.mp3")).toBeTruthy();
+    expect(screen.getByText("music/song1.mp3")).toBeTruthy();
+    expect(screen.getByText("music/song2.mp3")).toBeTruthy();
     expect(screen.queryByText("Another Song")).toBeTruthy();
   });
 
@@ -121,8 +121,8 @@ describe("FileGrid", () => {
       />
     );
 
-    expect(screen.getByText("song2.mp3")).toBeTruthy();
-    expect(screen.queryByText("song1.mp3")).toBeFalsy();
+    expect(screen.getByText("music/song2.mp3")).toBeTruthy();
+    expect(screen.queryByText("music/song1.mp3")).toBeFalsy();
   });
 
   it("shows empty message when filter matches nothing", () => {
@@ -164,11 +164,38 @@ describe("FileGrid", () => {
       />
     );
 
-    fireEvent.click(screen.getByText("song1.mp3"));
+    fireEvent.click(screen.getByText("music/song1.mp3"));
     expect(onSelect).toHaveBeenCalledWith(
       "/music/song1.mp3",
       expect.objectContaining({ title: "Song One" })
     );
+  });
+
+  it("opens Extra Tags from the native row context menu", async () => {
+    const onSelect = vi.fn();
+    const onEditExtraTags = vi.fn();
+    window.api = {
+      showTrackContextMenu: vi.fn().mockResolvedValue("extra-tags"),
+    } as unknown as Window["api"];
+
+    render(
+      <FileGrid
+        tracks={tracks}
+        selectedTrackPath={null}
+        filterText=""
+        onSelectTrack={onSelect}
+        onEditExtraTags={onEditExtraTags}
+      />
+    );
+
+    fireEvent.contextMenu(screen.getByText("music/song1.mp3"));
+
+    await waitFor(() => {
+      expect(window.api.showTrackContextMenu).toHaveBeenCalled();
+      expect(onEditExtraTags).toHaveBeenCalledWith(
+        expect.objectContaining({ path: "/music/song1.mp3" }),
+      );
+    });
   });
 
   it("shows file count in footer", () => {
@@ -235,7 +262,7 @@ describe("FileGrid", () => {
     );
 
     // The selected row should have the accent background class
-    const rows = container.querySelectorAll('[class*="flex items-center px-2 py-1"]');
+    const rows = container.querySelectorAll('[class*="flex items-center px-3 py-1"]');
     expect(rows.length).toBeGreaterThan(0);
   });
 
@@ -250,17 +277,15 @@ describe("FileGrid", () => {
       />
     );
 
-    // Click "Filename" column header
-    const filenameHeader = screen.getByText("Filename");
+    // Click "Path" column header
+    const filenameHeader = screen.getByText("Path");
     fireEvent.click(filenameHeader);
 
     // Now click again to reverse sort
     fireEvent.click(filenameHeader);
 
-    // Rows should be in reverse order (3 data rows, plus 0 header rows now)
-    const dataRows = container.querySelectorAll('[class*="flex items-center px-2 py-1"]');
-    // The header row + footer row use different styles now
-    // Data rows have class "flex items-center px-2 py-1" but header is different
+    // Rows should be in reverse order (3 data rows)
+    const dataRows = container.querySelectorAll('[class*="flex items-center px-3 py-1"]');
     expect(dataRows.length).toBeGreaterThanOrEqual(3);
   });
 });

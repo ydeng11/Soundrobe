@@ -44,7 +44,8 @@ describe("MetadataEditor", () => {
     dirPath: "/music",
     coverDataUrl: null,
     saving: false,
-    onFieldChange: vi.fn(),
+    onSave: vi.fn(),
+    onCancel: vi.fn(),
     onChangeCover: vi.fn(),
     onRemoveCover: vi.fn(),
   };
@@ -65,47 +66,56 @@ describe("MetadataEditor", () => {
     expect(screen.getByDisplayValue("Test Composer")).toBeTruthy();
   });
 
-  it("calls onFieldChange when a text field is edited", () => {
-    const onFieldChange = vi.fn();
+  it("shows unsaved indicator when a field is edited", () => {
+    render(<MetadataEditor {...baseProps} />);
+    const titleInput = screen.getByDisplayValue("Test Title");
+    fireEvent.change(titleInput, { target: { value: "New Title" } });
+    expect(screen.getByText(/Unsaved/i)).toBeTruthy();
+  });
+
+  it("calls onSave with changed fields when Save Changes is clicked", () => {
+    const onSave = vi.fn();
     render(
-      <MetadataEditor {...baseProps} onFieldChange={onFieldChange} />
+      <MetadataEditor {...baseProps} onSave={onSave} />
     );
 
     const titleInput = screen.getByDisplayValue("Test Title");
     fireEvent.change(titleInput, { target: { value: "New Title" } });
-    expect(onFieldChange).toHaveBeenCalledWith("title", "New Title");
-  });
-
-  it("calls onFieldChange when artist is edited", () => {
-    const onFieldChange = vi.fn();
-    render(
-      <MetadataEditor {...baseProps} onFieldChange={onFieldChange} />
-    );
 
     const artistInput = screen.getByDisplayValue("Test Artist");
     fireEvent.change(artistInput, { target: { value: "New Artist" } });
-    expect(onFieldChange).toHaveBeenCalledWith("artist", "New Artist");
+
+    fireEvent.click(screen.getByText(/Save Changes/));
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect(onSave).toHaveBeenCalledWith({
+      title: "New Title",
+      artist: "New Artist",
+    });
   });
 
-  it("calls onFieldChange when year is edited", () => {
-    const onFieldChange = vi.fn();
+  it("calls onSave when year is edited and saved", () => {
+    const onSave = vi.fn();
     render(
-      <MetadataEditor {...baseProps} onFieldChange={onFieldChange} />
+      <MetadataEditor {...baseProps} onSave={onSave} />
     );
 
     const yearInput = screen.getByDisplayValue("2023");
     fireEvent.change(yearInput, { target: { value: "1999" } });
-    expect(onFieldChange).toHaveBeenCalledWith("year", "1999");
+    fireEvent.click(screen.getByText(/Save Changes/));
+    expect(onSave).toHaveBeenCalledWith({ year: "1999" });
   });
 
   it("shows saving indicator when saving is true", () => {
     render(<MetadataEditor {...baseProps} saving={true} />);
-    expect(screen.getByText("● saving")).toBeTruthy();
+    // The header shows "Saving"; use getAllByText since the Save button
+    // also shows "Saving…" when disabled
+    const savingIndicators = screen.getAllByText(/Saving/i);
+    expect(savingIndicators.length).toBeGreaterThanOrEqual(1);
   });
 
   it("does not show saving indicator when saving is false", () => {
     render(<MetadataEditor {...baseProps} saving={false} />);
-    expect(screen.queryByText("● saving")).toBeFalsy();
+    expect(screen.queryByText(/Saving/i)).toBeFalsy();
   });
 
   it("shows cover image when coverDataUrl is provided", () => {
@@ -130,14 +140,23 @@ describe("MetadataEditor", () => {
     render(
       <MetadataEditor {...baseProps} onChangeCover={onChangeCover} />
     );
-    fireEvent.click(screen.getByText(/Change/));
+    // The "Change" cover button; avoid matching "Save Changes"
+    const changeButton = screen
+      .getAllByRole("button")
+      .find((btn) => btn.textContent === "Change");
+    expect(changeButton).toBeTruthy();
+    if (changeButton) fireEvent.click(changeButton);
     expect(onChangeCover).toHaveBeenCalledOnce();
   });
 
   it("calls onRemoveCover when Remove button is clicked", () => {
     const onRemoveCover = vi.fn();
     render(
-      <MetadataEditor {...baseProps} onRemoveCover={onRemoveCover} />
+      <MetadataEditor
+        {...baseProps}
+        coverDataUrl="data:image/jpeg;base64,abc123"
+        onRemoveCover={onRemoveCover}
+      />
     );
     fireEvent.click(screen.getByText(/Remove/));
     expect(onRemoveCover).toHaveBeenCalledOnce();
@@ -175,19 +194,36 @@ describe("MetadataEditor", () => {
       composer: null,
     });
     render(<MetadataEditor {...baseProps} track={emptyTrack} />);
-    // All fields should render with empty values
     const emptyInputs = screen.getAllByDisplayValue("");
     expect(emptyInputs.length).toBeGreaterThanOrEqual(6);
   });
 
-  it("calls onFieldChange when composer (textarea) is edited", () => {
-    const onFieldChange = vi.fn();
+  it("calls onSave when composer (textarea) is edited and saved", () => {
+    const onSave = vi.fn();
     render(
-      <MetadataEditor {...baseProps} onFieldChange={onFieldChange} />
+      <MetadataEditor {...baseProps} onSave={onSave} />
     );
     const composerInputs = screen.getAllByDisplayValue("Test Composer");
     expect(composerInputs.length).toBeGreaterThanOrEqual(1);
     fireEvent.change(composerInputs[0], { target: { value: "New Composer" } });
-    expect(onFieldChange).toHaveBeenCalledWith("composer", "New Composer");
+    fireEvent.click(screen.getByText(/Save Changes/));
+    expect(onSave).toHaveBeenCalledWith({ composer: "New Composer" });
+  });
+
+  it("discards changes when Discard is clicked", () => {
+    const onSave = vi.fn();
+    render(
+      <MetadataEditor {...baseProps} onSave={onSave} />
+    );
+
+    const titleInput = screen.getByDisplayValue("Test Title");
+    fireEvent.change(titleInput, { target: { value: "New Title" } });
+    expect(screen.getByText(/Discard/)).toBeTruthy();
+
+    fireEvent.click(screen.getByText(/Discard/));
+    // Input should be back to original value
+    expect(screen.getByDisplayValue("Test Title")).toBeTruthy();
+    // Save Changes button should not be present (nothing to save)
+    expect(screen.queryByText(/Save Changes/)).toBeNull();
   });
 });

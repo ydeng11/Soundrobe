@@ -1,9 +1,8 @@
-import React, { useMemo, useState, useRef, useCallback } from "react";
+import React, { useMemo, useState, useRef, useCallback, useEffect, useLayoutEffect } from "react";
 import type { TrackData } from "../../electron/preload";
 
 type SortKey =
   | "filename"
-  | "path"
   | "title"
   | "artist"
   | "album"
@@ -18,19 +17,35 @@ interface Column {
   label: string;
   width: string;
   align: "left" | "right";
+  defaultHidden?: boolean;
 }
 
-const COLUMNS: Column[] = [
-  { key: "filename", label: "Filename", width: "flex-[2]", align: "left" },
-  { key: "path", label: "Path", width: "flex-[3]", align: "left" },
+// Flex proportions used to compute initial pixel widths
+const COLUMN_FLEX: Record<string, number> = {
+  filename: 3,
+  title: 2,
+  artist: 1.5,
+  album: 1.5,
+  year: 0.7,
+  track: 0.7,
+  genre: 1,
+  duration: 0.85,
+  bitrate: 0.85,
+};
+
+// Minimum pixel width per column
+const MIN_COL_WIDTH = 40;
+
+const ALL_COLUMNS: Column[] = [
+  { key: "filename", label: "Path", width: "flex-[3]", align: "left" },
   { key: "title", label: "Title", width: "flex-[2]", align: "left" },
   { key: "artist", label: "Artist", width: "flex-[1.5]", align: "left" },
   { key: "album", label: "Album", width: "flex-[1.5]", align: "left" },
-  { key: "year", label: "Year", width: "w-14", align: "right" },
-  { key: "track", label: "Track", width: "w-12", align: "right" },
+  { key: "year", label: "Year", width: "w-16", align: "right" },
+  { key: "track", label: "Track", width: "w-16", align: "right" },
   { key: "genre", label: "Genre", width: "flex-[1]", align: "left" },
-  { key: "duration", label: "Duration", width: "w-16", align: "right" },
-  { key: "bitrate", label: "Bitrate", width: "w-16", align: "right" },
+  { key: "duration", label: "Duration", width: "w-20", align: "right" },
+  { key: "bitrate", label: "Bitrate", width: "w-20", align: "right" },
 ];
 
 interface FileGridProps {
@@ -38,6 +53,8 @@ interface FileGridProps {
   selectedTrackPath: string | null;
   filterText: string;
   onSelectTrack: (path: string, track: TrackData) => void;
+  onMultiSelect?: (paths: string[]) => void;
+  onEditExtraTags?: (track: TrackData) => void;
 }
 
 export function FileGrid({
@@ -45,11 +62,140 @@ export function FileGrid({
   selectedTrackPath,
   filterText,
   onSelectTrack,
+  onMultiSelect,
+  onEditExtraTags,
 }: FileGridProps) {
-  const [sortKey, setSortKey] = useState<SortKey>("filename");
+  const [sortKey, setSortKey] = useState<SortKey>("track");
   const [sortAsc, setSortAsc] = useState(true);
   const [multiSelected, setMultiSelected] = useState<Set<string>>(new Set());
   const lastClickedRef = useRef<number>(-1);
+
+  const [visibleColumns, setVisibleColumns] = useState<Set<string>>(
+    () => new Set(ALL_COLUMNS.filter((c) => !c.defaultHidden).map((c) => c.key))
+  );
+
+  // Draggable column widths (pixel values)
+  const headerRef = useRef<HTMLDivElement>(null);
+  const [columnWidths, setColumnWidths] = useState<Record<string, number> | null>(null);
+
+  // Compute initial pixel widths from flex proportions and container width
+  useLayoutEffect(() => {
+    if (columnWidths) return; // Already initialized
+    const container = headerRef.current?.parentElement;
+    if (!container) return;
+    // Use the full grid width minus padding (px-3 = 24px)
+    const totalWidth = container.clientWidth - 24;
+    if (totalWidth <= 0) return;
+
+    const visKeys = ALL_COLUMNS.filter((c) => visibleColumns.has(c.key));
+    const totalFlex = visKeys.reduce(
+      (sum, c) => sum + (COLUMN_FLEX[c.key] ?? 1),
+      0
+    );
+    const widths: Record<string, number> = {};
+    let remainder = totalWidth;
+    visKeys.forEach((c, i) => {
+      const flex = COLUMN_FLEX[c.key] ?? 1;
+      const px = Math.max(
+        MIN_COL_WIDTH,
+        Math.round((flex / totalFlex) * totalWidth)
+      );
+      widths[c.key] = i === visKeys.length - 1 ? Math.max(MIN_COL_WIDTH, remainder) : px;
+      remainder -= px;
+    });
+    setColumnWidths(widths);
+  }, [visibleColumns, columnWidths]);
+
+  // Column resize drag state
+  const dragRef = useRef<{
+    colIndex: number;
+    startX: number;
+    startW: number;
+    nextStartW: number;
+  } | null>(null);
+
+  const handleResizeStart = useCallback(
+    (e: React.MouseEvent, colIndex: number) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const container = headerRef.current?.parentElement;
+      if (!container || !visibleColumns || !columnWidths) {
+        return;
+      }
+      const visKeys = ALL_COLUMNS.filter((c) =>
+        visibleColumns.has(c.key)
+      );
+      const curCol = visKeys[colIndex];
+      const nextCol = visKeys[colIndex + 1];
+      if (!curCol || !nextCol) return;
+
+      dragRef.current = {
+        colIndex,
+        startX: e.clientX,
+        startW: columnWidths[curCol.key],
+        nextStartW: columnWidths[nextCol.key],
+      };
+
+      const handleMouseMove = (ev: MouseEvent) => {
+        if (!dragRef.current) return;
+        const { startX, startW, nextStartW } = dragRef.current;
+        const delta = ev.clientX - startX;
+        const newW = Math.max(MIN_COL_WIDTH, startW + delta);
+        const newNext = Math.max(MIN_COL_WIDTH, nextStartW - delta);
+
+        setColumnWidths((prev) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            [curCol.key]: newW,
+            [nextCol.key]: newNext,
+          };
+        });
+      };
+
+      const handleMouseUp = () => {
+        dragRef.current = null;
+        window.removeEventListener("mousemove", handleMouseMove);
+        window.removeEventListener("mouseup", handleMouseUp);
+        document.body.style.cursor = "";
+        document.body.style.userSelect = "";
+      };
+
+      window.addEventListener("mousemove", handleMouseMove);
+      window.addEventListener("mouseup", handleMouseUp);
+      document.body.style.cursor = "col-resize";
+      document.body.style.userSelect = "none";
+    },
+    [visibleColumns, columnWidths]
+  );
+
+  // Right-click context menu state
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
+
+  // Close context menu on any click outside
+  useEffect(() => {
+    const close = () => setContextMenu(null);
+    if (contextMenu) {
+      window.addEventListener("click", close);
+      return () => window.removeEventListener("click", close);
+    }
+  }, [contextMenu]);
+
+  const COLUMNS = ALL_COLUMNS.filter((c) => visibleColumns.has(c.key));
+
+  const toggleColumn = (key: string) => {
+    setVisibleColumns((prev) => {
+      const next = new Set(prev);
+      // Don't allow hiding the last column
+      if (next.has(key)) {
+        if (next.size <= 1) return prev;
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
+  };
 
   const toggleSort = (key: SortKey) => {
     if (key === sortKey) {
@@ -71,8 +217,7 @@ export function FileGrid({
           (t.title ?? "").toLowerCase().includes(lower) ||
           (t.artist ?? "").toLowerCase().includes(lower) ||
           (t.album ?? "").toLowerCase().includes(lower) ||
-          t.path.toLowerCase().includes(lower) ||
-          pathBasename(t.path).toLowerCase().includes(lower)
+          shortPath(t.path).toLowerCase().includes(lower)
       );
     }
 
@@ -80,10 +225,7 @@ export function FileGrid({
       let cmp = 0;
       switch (sortKey) {
         case "filename":
-          cmp = pathBasename(a.path).localeCompare(pathBasename(b.path));
-          break;
-        case "path":
-          cmp = a.path.localeCompare(b.path);
+          cmp = shortPath(a.path).localeCompare(shortPath(b.path));
           break;
         case "title":
           cmp = (a.title ?? "").localeCompare(b.title ?? "");
@@ -114,36 +256,74 @@ export function FileGrid({
     });
   }, [tracks, filterText, sortKey, sortAsc]);
 
-  const formatDuration = (sec: number): string => {
-    const m = Math.floor(sec / 60);
-    const s = Math.floor(sec % 60);
-    return `${m}:${s.toString().padStart(2, "0")}`;
-  };
-
-  const handleRowClick = useCallback((track: TrackData, index: number, event: React.MouseEvent) => {
-    if (event.shiftKey && lastClickedRef.current >= 0) {
-      // Shift+click: select a range from last clicked to current
-      const from = Math.min(lastClickedRef.current, index);
-      const to = Math.max(lastClickedRef.current, index);
-      const range = new Set<string>();
-      for (let i = from; i <= to; i++) {
-        range.add(sorted[i].path);
+  // Select all with Cmd+A (when focus is not in an input/textarea)
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "a") {
+        const active = document.activeElement?.tagName?.toLowerCase();
+        if (active === "input" || active === "textarea" || active === "select") {
+          return; // Let native select-all work in text fields
+        }
+        e.preventDefault();
+        const allPaths = sorted.map((t) => t.path);
+        setMultiSelected(new Set(allPaths));
+        onMultiSelect?.(allPaths);
       }
-      setMultiSelected(range);
-    } else {
-      // Regular click: select just this track
-      setMultiSelected(new Set([track.path]));
-    }
-    lastClickedRef.current = index;
-    onSelectTrack(track.path, track);
-  }, [sorted, onSelectTrack]);
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [sorted, onMultiSelect]);
+
+  const handleRowContextMenu = useCallback(
+    async (e: React.MouseEvent, track: TrackData) => {
+      e.preventDefault();
+      e.stopPropagation();
+      onSelectTrack(track.path, track);
+
+      const action = await window.api.showTrackContextMenu(track.path, {
+        title: track.title ?? "",
+        artist: track.artist ?? "",
+        album: track.album ?? "",
+        year: track.year ?? "",
+        track:
+          track.trackNumber != null
+            ? `${track.trackNumber}${track.trackTotal ? `/${track.trackTotal}` : ""}`
+            : "",
+        genre: track.genre ?? "",
+      });
+
+      if (action === "extra-tags") {
+        onEditExtraTags?.(track);
+      }
+    },
+    [onEditExtraTags, onSelectTrack],
+  );
+
+  const handleRowClick = useCallback(
+    (track: TrackData, index: number, event: React.MouseEvent) => {
+      if (event.shiftKey && lastClickedRef.current >= 0) {
+        const from = Math.min(lastClickedRef.current, index);
+        const to = Math.max(lastClickedRef.current, index);
+        const range = new Set<string>();
+        for (let i = from; i <= to; i++) {
+          range.add(sorted[i].path);
+        }
+        setMultiSelected(range);
+        onMultiSelect?.(Array.from(range));
+      } else {
+        setMultiSelected(new Set([track.path]));
+        onMultiSelect?.([track.path]);
+      }
+      lastClickedRef.current = index;
+      onSelectTrack(track.path, track);
+    },
+    [sorted, onSelectTrack]
+  );
 
   const getCellValue = (track: TrackData, key: SortKey): string => {
     switch (key) {
       case "filename":
-        return pathBasename(track.path);
-      case "path":
-        return track.path;
+        return shortPath(track.path);
       case "title":
         return track.title ?? "—";
       case "artist":
@@ -161,41 +341,121 @@ export function FileGrid({
       case "genre":
         return track.genre ?? "—";
       case "duration":
-        return track.duration ? formatDuration(track.duration) : "—";
+        return formatDuration(track.duration);
       case "bitrate":
         return track.bitrate ? `${Math.round(track.bitrate / 1000)}k` : "—";
     }
   };
 
+  const handleHeaderContextMenu = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    setContextMenu({ x: e.clientX, y: e.clientY });
+  }, []);
+
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full bg-white">
       {/* Column headers */}
-      <div className="flex items-center px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-text-muted bg-surface-alt/80 border-b border-gray-700/30">
-        {COLUMNS.map((col) => (
-          <button
-            key={col.key}
-            onClick={() => toggleSort(col.key)}
-            className={`${col.width} ${col.align === "right" ? "text-right" : "text-left"} px-1.5 hover:text-text-secondary transition-colors truncate`}
-          >
-            {col.label}
-            <span className="ml-0.5 w-3 inline-block text-center">
-              {col.key === sortKey ? (
-                <span className="text-accent-light">{sortAsc ? "▲" : "▼"}</span>
-              ) : (
-                <span className="text-text-muted/30">⇅</span>
-              )}
-            </span>
-          </button>
+      <div
+        ref={headerRef}
+        className="flex items-center px-3 py-1.5 text-[11px] font-medium text-text-muted bg-surface-alt/60 border-b border-border select-none"
+        onContextMenu={handleHeaderContextMenu}
+      >
+        {COLUMNS.map((col, ci) => (
+          <React.Fragment key={col.key}>
+            <button
+              onClick={() => toggleSort(col.key)}
+              className={`flex items-center gap-1 px-1.5 hover:text-text-secondary transition-colors truncate shrink-0 ${
+                col.align === "right" ? "text-right justify-end" : "text-left"
+              }`}
+              style={{
+                width: columnWidths?.[col.key] ?? (col.width.includes("-") ? 80 : 120),
+                minWidth: MIN_COL_WIDTH,
+              }}
+            >
+              <span className="truncate">{col.label}</span>
+              <span className="inline-flex items-center justify-center w-3 h-3 shrink-0">
+                {col.key === sortKey ? (
+                  <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="text-accent">
+                    {sortAsc ? (
+                      <polyline points="18 15 12 9 6 15" />
+                    ) : (
+                      <polyline points="6 9 12 15 18 9" />
+                    )}
+                  </svg>
+                ) : (
+                  <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="opacity-30">
+                    <line x1="12" y1="5" x2="12" y2="19" />
+                    <polyline points="19 12 12 19 5 12" />
+                  </svg>
+                )}
+              </span>
+            </button>
+            {/* Resize handle */}
+            {ci < COLUMNS.length - 1 && (
+              <div
+                onMouseDown={(e) => handleResizeStart(e, ci)}
+                className="shrink-0 w-[5px] cursor-col-resize hover:bg-accent/40 active:bg-accent/60 transition-colors self-stretch mx-0 rounded-sm"
+              />
+            )}
+          </React.Fragment>
         ))}
       </div>
+
+      {/* Column visibility context menu */}
+      {contextMenu && (
+        <div
+          className="fixed z-50 bg-white border border-border rounded-lg shadow-lg py-1 min-w-[140px]"
+          style={{ left: contextMenu.x, top: contextMenu.y }}
+        >
+          <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-widest text-text-muted">
+            Columns
+          </div>
+          <div className="h-px bg-border/50 mx-2 my-0.5" />
+          {ALL_COLUMNS.map((col) => (
+            <button
+              key={col.key}
+              onClick={(e) => {
+                e.stopPropagation();
+                toggleColumn(col.key);
+              }}
+              className={`w-full flex items-center gap-2 px-3 py-1.5 text-[12px] text-left hover:bg-surface-hover transition-colors ${
+                visibleColumns.has(col.key)
+                  ? "text-text-primary font-medium"
+                  : "text-text-muted"
+              }`}
+            >
+              <span className="w-4 h-4 flex items-center justify-center">
+                {visibleColumns.has(col.key) ? (
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-accent">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                ) : (
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                  </svg>
+                )}
+              </span>
+              {col.label}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* File rows */}
       <div className="flex-1 overflow-y-auto">
         {sorted.length === 0 ? (
-          <div className="flex items-center justify-center h-full text-text-muted text-xs">
-            {tracks.length === 0
-              ? "No audio files found"
-              : "No files match the filter"}
+          <div className="flex items-center justify-center h-full text-text-muted text-[12px]">
+            <div className="flex flex-col items-center gap-2">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" className="opacity-40">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                <polyline points="14 2 14 8 20 8" />
+                <line x1="12" y1="18" x2="12" y2="12" />
+                <line x1="9" y1="15" x2="15" y2="15" />
+              </svg>
+              {tracks.length === 0
+                ? "No audio files found"
+                : "No files match the filter"}
+            </div>
           </div>
         ) : (
           sorted.map((track, i) => {
@@ -205,25 +465,45 @@ export function FileGrid({
             return (
               <div
                 key={track.path}
-                className={`flex items-center px-2 py-1 text-xs cursor-pointer transition-colors select-none ${
-                  isPrimary
-                    ? "bg-accent/20 text-text-primary"
-                    : isMulti
-                      ? "bg-accent/10 text-text-primary"
-                      : altRow
-                        ? "bg-surface/30"
-                        : "bg-surface/10"
-                } hover:bg-surface-hover`}
                 onClick={(e) => handleRowClick(track, i, e)}
+                onContextMenu={(e) => handleRowContextMenu(e, track)}
+                className={`flex items-center px-3 py-1 text-[12.5px] cursor-pointer select-none border-b border-border/30 transition-colors ${
+                  isPrimary
+                    ? "bg-table-selected border-table-selectedBorder"
+                    : isMulti
+                      ? "bg-table-selected/60"
+                      : altRow
+                        ? "bg-table-alt"
+                        : "bg-table-row"
+                } hover:bg-table-selected/40`}
               >
                 {COLUMNS.map((col) => (
                   <span
                     key={col.key}
-                    className={`${col.width} ${col.align === "right" ? "text-right" : "text-left"} px-1.5 truncate ${
-                      isPrimary || isMulti ? "text-text-primary" : "text-text-secondary"
+                    className={`shrink-0 ${
+                      col.align === "right" ? "text-right" : "text-left"
+                    } px-1.5 truncate ${
+                      isPrimary
+                        ? "text-text-primary font-medium"
+                        : "text-text-secondary"
                     }`}
+                    style={{
+                      width: columnWidths?.[col.key] ?? (col.width.includes("-") ? 80 : 120),
+                      minWidth: MIN_COL_WIDTH,
+                    }}
                   >
-                    {getCellValue(track, col.key)}
+                    {col.key === "filename" ? (
+                      <span className="flex items-center gap-2">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-text-muted">
+                          <path d="M9 18V5l12-2v13" />
+                          <circle cx="6" cy="18" r="3" />
+                          <circle cx="18" cy="16" r="3" />
+                        </svg>
+                        <span>{getCellValue(track, col.key)}</span>
+                      </span>
+                    ) : (
+                      getCellValue(track, col.key)
+                    )}
                   </span>
                 ))}
               </div>
@@ -233,14 +513,32 @@ export function FileGrid({
       </div>
 
       {/* Footer bar */}
-      <div className="flex items-center px-3 py-1 text-[10px] text-text-muted bg-surface-alt/50 border-t border-gray-700/30 gap-2">
-        <span>{sorted.length} files</span>
+      <div className="flex items-center px-4 py-1.5 text-[11px] text-text-muted bg-surface-alt/60 border-t border-border gap-3">
+        <span className="tabular-nums">{sorted.length} file{sorted.length !== 1 ? "s" : ""}</span>
         {multiSelected.size > 1 && (
-          <span className="text-accent-light">{multiSelected.size} selected</span>
+          <span className="text-accent tabular-nums">{multiSelected.size} selected</span>
         )}
         {filterText && (
-          <span className="text-accent-dim">
-            (filtered from {tracks.length})
+          <span className="text-text-muted/60 tabular-nums">
+            filtered from {tracks.length}
+          </span>
+        )}
+        <div className="flex-1" />
+        <button
+          onClick={() => setContextMenu({ x: 0, y: 0 })}
+          className="inline-flex items-center gap-1 text-[10px] hover:text-text-secondary transition-colors"
+          title="Toggle columns"
+        >
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+            <line x1="3" y1="9" x2="21" y2="9" />
+            <line x1="9" y1="21" x2="9" y2="9" />
+          </svg>
+          Columns
+        </button>
+        {sorted.length > 0 && (
+          <span className="text-text-muted/40 text-[10px]">
+            Right-click header · Click to select · Shift+click for range
           </span>
         )}
       </div>
@@ -248,8 +546,13 @@ export function FileGrid({
   );
 }
 
-/** Extract filename from a path string (no path import in renderer). */
-function pathBasename(p: string): string {
-  const sep = p.replace(/\\/g, "/");
-  return sep.split("/").pop() ?? p;
+function shortPath(p: string): string {
+  return p.split("/").slice(-4).join("/").replace(/^\//, "");
 }
+
+function formatDuration(sec: number): string {
+  const m = Math.floor(sec / 60);
+  const s = Math.floor(sec % 60);
+  return `${m}:${s.toString().padStart(2, "0")}`;
+}
+

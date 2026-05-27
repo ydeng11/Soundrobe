@@ -15,7 +15,13 @@ export default defineConfig({
           build: {
             outDir: "dist-electron",
             rollupOptions: {
-              external: ["music-metadata", "sharp"],
+              external: [
+                "better-sqlite3",
+                "music-metadata",
+                "node-id3",
+                "opencc-js",
+                "sharp",
+              ],
             },
           },
         },

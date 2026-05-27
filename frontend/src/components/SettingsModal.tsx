@@ -6,6 +6,7 @@ interface SettingsState {
   remoteLookupEnabled: boolean;
   discogsEnabled: boolean;
   discogsToken: string;
+  debug: boolean;
 }
 
 interface SettingsModalProps {
@@ -20,12 +21,12 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
     remoteLookupEnabled: true,
     discogsEnabled: true,
     discogsToken: "",
+    debug: false,
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
-  // Load current config when the modal opens
   useEffect(() => {
     if (!open) return;
     setLoading(true);
@@ -34,13 +35,13 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
     (async () => {
       try {
         const cfg = await window.api.getConfig();
-
         setSettings({
           llmApiKey: "",
           llmModel: (cfg.llmModel as string) ?? "deepseek/deepseek-chat:free",
           remoteLookupEnabled: (cfg.remoteLookupEnabled as boolean) ?? true,
           discogsEnabled: (cfg.discogsEnabled as boolean) ?? true,
           discogsToken: "",
+          debug: (cfg.debug as boolean) ?? false,
         });
       } catch (err) {
         setSaveError(
@@ -57,20 +58,24 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
     setSaveError(null);
 
     try {
-      // Only save fields that changed
+      const promises: Promise<void>[] = [];
       if (settings.llmApiKey) {
-        await window.api.setConfig("llmApiKey", settings.llmApiKey);
+        promises.push(window.api.setConfig("llmApiKey", settings.llmApiKey));
       }
       if (settings.discogsToken) {
-        await window.api.setConfig("discogsToken", settings.discogsToken);
+        promises.push(
+          window.api.setConfig("discogsToken", settings.discogsToken),
+        );
       }
-      await window.api.setConfig("llmModel", settings.llmModel);
-      await window.api.setConfig(
-        "remoteLookupEnabled",
-        settings.remoteLookupEnabled,
+      promises.push(window.api.setConfig("llmModel", settings.llmModel));
+      promises.push(
+        window.api.setConfig("remoteLookupEnabled", settings.remoteLookupEnabled),
       );
-      await window.api.setConfig("discogsEnabled", settings.discogsEnabled);
+      promises.push(window.api.setConfig("discogsEnabled", settings.discogsEnabled));
+      promises.push(window.api.setConfig("debug", settings.debug));
+      promises.push(window.api.setDebugMode(settings.debug));
 
+      await Promise.all(promises);
       onClose();
     } catch (err) {
       setSaveError(
@@ -84,115 +89,166 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="w-96 rounded-lg bg-surface border border-gray-700/50 shadow-2xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm">
+      <div className="w-[400px] rounded-xl bg-white border border-border shadow-xl shadow-black/10">
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-700/30">
-          <h2 className="text-sm font-semibold text-text-primary">
-            ⚙️ Settings
-          </h2>
+        <div className="flex items-center justify-between px-5 py-3.5 border-b border-border/60">
+          <div className="flex items-center gap-2.5">
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="#007aff"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <circle cx="12" cy="12" r="3" />
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+            </svg>
+            <h2 className="text-[13px] font-semibold text-text-primary">Settings</h2>
+          </div>
           <button
             onClick={onClose}
-            className="text-text-muted hover:text-text-primary transition-colors text-xs px-1 py-0.5 rounded hover:bg-surface-hover"
+            className="inline-flex items-center justify-center w-7 h-7 text-text-muted hover:text-text-primary rounded-lg hover:bg-surface-hover transition-all"
           >
-            ✕
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M18 6 6 18" />
+              <path d="m6 6 12 12" />
+            </svg>
           </button>
         </div>
 
         {/* Body */}
-        <div className="px-4 py-3 space-y-3">
+        <div className="px-5 py-4 space-y-4">
           {loading ? (
-            <div className="text-text-muted text-xs text-center py-4">
-              Loading…
+            <div className="flex items-center justify-center py-8">
+              <div className="flex items-center gap-2 text-text-muted text-[12px]">
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="animate-spin"
+                >
+                  <line x1="12" y1="2" x2="12" y2="6" />
+                  <line x1="12" y1="18" x2="12" y2="22" />
+                  <line x1="4.93" y1="4.93" x2="7.76" y2="7.76" />
+                  <line x1="16.24" y1="16.24" x2="19.07" y2="19.07" />
+                  <line x1="2" y1="12" x2="6" y2="12" />
+                  <line x1="18" y1="12" x2="22" y2="12" />
+                  <line x1="4.93" y1="19.07" x2="7.76" y2="16.24" />
+                  <line x1="16.24" y1="7.76" x2="19.07" y2="4.93" />
+                </svg>
+                Loading…
+              </div>
             </div>
           ) : (
             <>
-              {saveError && (
-                <div className="bg-red-900/20 border border-red-800/30 rounded px-3 py-2 text-red-400 text-[10px]">
-                  {saveError}
-                </div>
-              )}
+              {saveError && <ErrorBanner message={saveError} />}
 
-              {/* LLM API Key */}
-              <FieldRow label="LLM API Key">
-                <input
+              <FieldRow label="LLM API Key" description="OpenRouter or compatible API key">
+                <InputField
                   type="password"
                   value={settings.llmApiKey}
-                  onChange={(e) =>
-                    setSettings({ ...settings, llmApiKey: e.target.value })
-                  }
+                  onChange={(v) => setSettings({ ...settings, llmApiKey: v })}
                   placeholder="sk-or-v1-… (leave blank to keep current)"
-                  className="flex-1 bg-surface/60 border border-gray-700/40 rounded px-2 py-1 text-[11px] text-text-primary placeholder-text-muted/40 outline-none focus:border-accent/40 transition-colors"
                 />
               </FieldRow>
 
-              {/* LLM Model */}
-              <FieldRow label="LLM Model">
-                <input
-                  type="text"
+              <FieldRow label="LLM Model" description="Provider/model identifier">
+                <InputField
                   value={settings.llmModel}
-                  onChange={(e) =>
-                    setSettings({ ...settings, llmModel: e.target.value })
-                  }
+                  onChange={(v) => setSettings({ ...settings, llmModel: v })}
                   placeholder="deepseek/deepseek-chat:free"
-                  className="flex-1 bg-surface/60 border border-gray-700/40 rounded px-2 py-1 text-[11px] text-text-primary placeholder-text-muted/40 outline-none focus:border-accent/40 transition-colors"
                 />
               </FieldRow>
 
-              {/* Discogs Token */}
-              <FieldRow label="Discogs Token">
-                <input
+              <FieldRow label="Discogs Token" description="Personal access token for Discogs API">
+                <InputField
                   type="password"
                   value={settings.discogsToken}
-                  onChange={(e) =>
-                    setSettings({ ...settings, discogsToken: e.target.value })
-                  }
+                  onChange={(v) => setSettings({ ...settings, discogsToken: v })}
                   placeholder="(leave blank to keep current)"
-                  className="flex-1 bg-surface/60 border border-gray-700/40 rounded px-2 py-1 text-[11px] text-text-primary placeholder-text-muted/40 outline-none focus:border-accent/40 transition-colors"
                 />
               </FieldRow>
 
-              {/* Remote Lookup */}
-              <ToggleRow
-                label="Remote Lookup"
-                description="Search MusicBrainz & Discogs when dataset misses"
-                checked={settings.remoteLookupEnabled}
-                onChange={(v) =>
-                  setSettings({ ...settings, remoteLookupEnabled: v })
-                }
-              />
-
-              {/* Discogs */}
-              <ToggleRow
-                label="Discogs"
-                description="Enable Discogs as a lookup source"
-                checked={settings.discogsEnabled}
-                onChange={(v) =>
-                  setSettings({ ...settings, discogsEnabled: v })
-                }
-              />
+              <div className="pt-1 space-y-3">
+                <ToggleRow
+                  label="Remote Lookup"
+                  description="Search MusicBrainz &amp; Discogs when dataset misses"
+                  checked={settings.remoteLookupEnabled}
+                  onChange={(v) => setSettings({ ...settings, remoteLookupEnabled: v })}
+                />
+                <ToggleRow
+                  label="Discogs"
+                  description="Enable Discogs as a lookup source"
+                  checked={settings.discogsEnabled}
+                  onChange={(v) => setSettings({ ...settings, discogsEnabled: v })}
+                />
+                <ToggleRow
+                  label="Debug Mode"
+                  description="Verbose logging to DevTools console and ~/.auto-tagger/auto-tag-debug-*.log"
+                  checked={settings.debug}
+                  onChange={(v) => setSettings({ ...settings, debug: v })}
+                />
+              </div>
             </>
           )}
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-2 px-4 py-3 border-t border-gray-700/30">
+        <div className="flex items-center justify-end gap-2 px-5 py-3.5 border-t border-border/60 bg-surface-alt/30">
           <button
             onClick={onClose}
-            className="px-3 py-1.5 text-[10px] font-medium rounded text-text-muted hover:text-text-primary hover:bg-surface-hover transition-colors"
+            className="px-4 py-1.5 text-[11.5px] font-medium rounded-lg text-text-secondary hover:text-text-primary hover:bg-surface-hover transition-all"
           >
             Cancel
           </button>
           <button
             onClick={handleSave}
             disabled={loading || saving}
-            className={`px-3 py-1.5 text-[10px] font-medium rounded transition-colors ${
+            className={`px-4 py-1.5 text-[11.5px] font-medium rounded-lg transition-all ${
               loading || saving
-                ? "bg-accent/15 text-accent-light/50 cursor-not-allowed"
-                : "bg-accent/25 text-accent-light hover:bg-accent/35"
+                ? "bg-accent/20 text-accent/60 cursor-not-allowed"
+                : "bg-accent text-white hover:bg-accent/90 shadow-sm active:scale-[0.97]"
             }`}
           >
-            {saving ? "Saving…" : "Save"}
+            {saving ? (
+              <span className="flex items-center gap-1.5">
+                <svg
+                  width="12"
+                  height="12"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="animate-spin"
+                >
+                  <line x1="12" y1="2" x2="12" y2="6" />
+                  <line x1="12" y1="18" x2="12" y2="22" />
+                </svg>
+                Saving…
+              </span>
+            ) : (
+              "Save"
+            )}
           </button>
         </div>
       </div>
@@ -202,20 +258,48 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
 
 // ── Helpers ──────────────────────────────────────────────────────
 
+const INPUT_CLASS =
+  "w-full bg-white border border-border rounded-lg px-3 py-1.5 text-[12px] text-text-primary placeholder-text-muted/40 outline-none transition-all focus:border-accent/60 focus:shadow-[0_0_0_3px_rgba(0,122,255,0.2)]";
+
 function FieldRow({
   label,
+  description,
   children,
 }: {
   label: string;
+  description?: string;
   children: React.ReactNode;
 }) {
   return (
     <div className="flex flex-col gap-1">
-      <label className="text-[10px] font-medium text-text-muted uppercase tracking-wider">
-        {label}
-      </label>
+      <div className="flex items-baseline justify-between">
+        <label className="text-[11px] font-medium text-text-primary">{label}</label>
+        {description && <span className="text-[10px] text-text-muted">{description}</span>}
+      </div>
       {children}
     </div>
+  );
+}
+
+function InputField({
+  value,
+  onChange,
+  placeholder,
+  type,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+  type?: string;
+}) {
+  return (
+    <input
+      type={type ?? "text"}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      placeholder={placeholder}
+      className={INPUT_CLASS}
+    />
   );
 }
 
@@ -231,25 +315,46 @@ function ToggleRow({
   onChange: (v: boolean) => void;
 }) {
   return (
-    <div className="flex items-center justify-between">
+    <div className="flex items-center justify-between py-0.5">
       <div className="flex flex-col gap-0.5">
-        <span className="text-[11px] font-medium text-text-primary">
-          {label}
-        </span>
-        <span className="text-[9px] text-text-muted">{description}</span>
+        <span className="text-[12px] font-medium text-text-primary">{label}</span>
+        <span className="text-[10px] text-text-muted leading-tight">{description}</span>
       </div>
       <button
         onClick={() => onChange(!checked)}
-        className={`relative w-8 h-4 rounded-full transition-colors ${
-          checked ? "bg-accent/60" : "bg-gray-700/50"
+        className={`relative inline-flex h-5 w-9 shrink-0 rounded-full transition-colors ${
+          checked ? "bg-accent" : "bg-border"
         }`}
       >
         <span
-          className={`absolute top-0.5 w-3 h-3 rounded-full bg-white transition-transform ${
-            checked ? "translate-x-4" : "translate-x-0.5"
+          className={`absolute top-0.5 left-0.5 inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${
+            checked ? "translate-x-4" : "translate-x-0"
           }`}
         />
       </button>
+    </div>
+  );
+}
+
+function ErrorBanner({ message }: { message: string }) {
+  return (
+    <div className="bg-red-50 border border-red-200 rounded-lg px-3.5 py-2.5 text-[11px] text-[#ff3b30] flex items-center gap-2">
+      <svg
+        width="14"
+        height="14"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className="shrink-0"
+      >
+        <circle cx="12" cy="12" r="10" />
+        <line x1="12" y1="8" x2="12" y2="12" />
+        <line x1="12" y1="16" x2="12.01" y2="16" />
+      </svg>
+      {message}
     </div>
   );
 }

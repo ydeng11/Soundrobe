@@ -5,7 +5,6 @@
  * Uses better-sqlite3 for synchronous SQLite access from the main process.
  */
 
-import Database from "better-sqlite3";
 import { createHash } from "node:crypto";
 import { mkdirSync } from "node:fs";
 import { readdirSync, statSync } from "node:fs";
@@ -18,6 +17,7 @@ import {
   lookupRequestToJson,
   queryHash,
 } from "./candidates";
+import { getBetterSqlite3, type BetterSqlite3Database } from "./native-check";
 
 const VALID_STATUSES = new Set(["pending", "llm_parsed", "tagged_ok", "error"]);
 
@@ -56,7 +56,7 @@ function contentHash(albumPath: string): string {
 }
 
 export class MatchCache {
-  private db: Database;
+  private db: BetterSqlite3Database;
 
   constructor(cachePath: string) {
     try {
@@ -64,6 +64,7 @@ export class MatchCache {
     } catch {
       // directory may already exist
     }
+    const Database = getBetterSqlite3();
     this.db = new Database(cachePath);
     this.db.pragma("journal_mode = WAL");
     this.initSchema();

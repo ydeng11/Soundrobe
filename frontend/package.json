@@ -8,7 +8,7 @@
   "type": "module",
   "main": "dist-electron/main.js",
   "scripts": {
-    "dev": "vite",
+    "dev": "npm run rebuild:electron && vite",
     "build": "tsc && vite build",
     "dist": "npm run build && electron-builder",
     "dist:mac": "npm run build && electron-builder --mac",
@@ -18,7 +18,11 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
-    "rebuild-native": "electron-builder install-app-deps"
+    "postinstall": "npm run rebuild:electron",
+    "pretest": "npm rebuild better-sqlite3",
+    "posttest": "npm run rebuild:electron",
+    "rebuild:electron": "electron-rebuild -f -w better-sqlite3",
+    "rebuild:node": "npm rebuild better-sqlite3"
   },
   "dependencies": {
     "better-sqlite3": "^12.10.0",

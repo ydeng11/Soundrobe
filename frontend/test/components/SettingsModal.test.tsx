@@ -17,6 +17,8 @@ beforeEach(() => {
   window.api = {
     getConfig: vi.fn().mockResolvedValue(defaultMockConfig),
     setConfig: vi.fn().mockResolvedValue(undefined),
+    setDebugMode: vi.fn().mockResolvedValue(undefined),
+    subscribeDebugLogs: vi.fn().mockResolvedValue(undefined),
   } as any;
 });
 
@@ -65,6 +67,8 @@ describe("SettingsModal", () => {
     window.api = {
       getConfig: mockGetConfig,
       setConfig: vi.fn().mockResolvedValue(undefined),
+      setDebugMode: vi.fn().mockResolvedValue(undefined),
+      subscribeDebugLogs: vi.fn().mockResolvedValue(undefined),
     } as any;
 
     render(<SettingsModal open={true} onClose={() => {}} />);
@@ -97,6 +101,8 @@ describe("SettingsModal", () => {
         discogsEnabled: false,
       }),
       setConfig,
+      setDebugMode: vi.fn().mockResolvedValue(undefined),
+      subscribeDebugLogs: vi.fn().mockResolvedValue(undefined),
     } as any;
 
     render(<SettingsModal open={true} onClose={onClose} />);

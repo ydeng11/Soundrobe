@@ -6,8 +6,8 @@
  * track tables created by the Python CLI's `auto-tag dataset setup`.
  */
 
-import Database from "better-sqlite3";
 import { existsSync } from "node:fs";
+import { getBetterSqlite3, type BetterSqlite3Database } from "./native-check";
 import { join } from "node:path";
 import { homedir } from "node:os";
 import {
@@ -72,7 +72,7 @@ const TRACK_TABLES: Record<string, TrackTableConfig> = {
 };
 
 export class DatasetReader {
-  private db: Database | null = null;
+  private db: BetterSqlite3Database | null = null;
   private dbPath: string;
 
   constructor(dbPath?: string) {
@@ -99,8 +99,9 @@ export class DatasetReader {
    * Open (or reuse) the database connection.
    * Throws if the database doesn't exist.
    */
-  private open(): Database {
+  private open(): BetterSqlite3Database {
     if (this.db) return this.db;
+    const Database = getBetterSqlite3();
     this.db = new Database(this.dbPath);
     this.db.pragma("journal_mode = WAL");
     return this.db;
@@ -140,7 +141,7 @@ export class DatasetReader {
    * Builds SC/TC variant pairs for Chinese name matching.
    */
   private queryLookupTable(
-    db: Database,
+    db: BetterSqlite3Database,
     normArtist: string,
     normAlbum: string,
     maxCandidates: number,
@@ -202,7 +203,7 @@ export class DatasetReader {
    * Progressive prefix fallback: try shorter prefixes of the album hint.
    */
   private progressivePrefixFallback(
-    db: Database,
+    db: BetterSqlite3Database,
     normArtist: string,
     normAlbum: string,
     maxCandidates: number,
@@ -270,7 +271,7 @@ export class DatasetReader {
    * Load tracks for an album from service-specific track tables.
    */
   private loadTracks(
-    db: Database,
+    db: BetterSqlite3Database,
     service: string,
     albumId: string,
     artistName: string,

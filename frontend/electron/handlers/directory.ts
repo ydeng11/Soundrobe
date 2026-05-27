@@ -37,33 +37,10 @@ function listDirectoryEntries(dirPath: string): DirEntry[] {
   return results;
 }
 
-/** List audio files with metadata in a directory (flat, non-recursive). */
-async function listAudioFiles(dirPath: string) {
-  const results: Array<{ path: string; name: string }> = [];
-
-  if (!fs.existsSync(dirPath)) return results;
-
-  try {
-    const entries = fs.readdirSync(dirPath, { withFileTypes: true });
-    for (const entry of entries) {
-      if (entry.name.startsWith(".") || entry.isDirectory()) continue;
-      const fullPath = path.join(dirPath, entry.name);
-      if (isAudioFile(fullPath)) {
-        results.push({ path: fullPath, name: entry.name });
-      }
-    }
-  } catch {
-    // Permission errors — skip
-  }
-
-  results.sort((a, b) => a.name.localeCompare(b.name));
-  return results;
-}
-
 /**
  * Read a directory: return subdirectories + all audio files with full metadata.
  */
-async function readDirectory(dirPath: string) {
+export async function readDirectory(dirPath: string) {
   const subdirs = listDirectoryEntries(dirPath);
   const audioFiles: string[] = [];
 
@@ -88,6 +65,7 @@ async function readDirectory(dirPath: string) {
       const track = await readTrackMetadata(audioFile);
       tracks.push(track);
     } catch {
+      const fileStat = fs.statSync(audioFile);
       tracks.push({
         path: audioFile,
         title: path.basename(audioFile),
@@ -109,7 +87,7 @@ async function readDirectory(dirPath: string) {
         musicbrainzAlbumId: null,
         musicbrainzArtistId: null,
         hasCover: false,
-        sizeBytes: 0,
+        sizeBytes: fileStat.size,
         bitrate: null,
         sampleRate: null,
         codec: "unknown",

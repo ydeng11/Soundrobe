@@ -29,6 +29,35 @@ export interface WriteFields {
   compilation?: boolean | null;
 }
 
+export interface ExtraTagUpdate {
+  key: string;
+  value: string;
+}
+
+const STANDARD_VORBIS_TAGS = new Set([
+  "TITLE",
+  "ARTIST",
+  "ARTISTS",
+  "ALBUM",
+  "ALBUMARTIST",
+  "ALBUM ARTIST",
+  "ALBUMARTISTS",
+  "DATE",
+  "YEAR",
+  "GENRE",
+  "COMPOSER",
+  "COMMENT",
+  "TRACKNUMBER",
+  "TRACKTOTAL",
+  "TOTALTRACKS",
+  "DISCNUMBER",
+  "DISCTOTAL",
+  "TOTALDISCS",
+  "LYRICS",
+  "UNSYNCEDLYRICS",
+  "COMPILATION",
+]);
+
 /**
  * Convert our normalized fields into format-specific tag objects.
  */
@@ -61,16 +90,24 @@ function writeMp3(filePath: string, fields: WriteFields): void {
   NodeID3.write(mergedTags, filePath);
 }
 
+function writeMp3ExtraTags(filePath: string, extraTags: ExtraTagUpdate[]): void {
+  const existingTags = NodeID3.read(filePath);
+  const custom = normalizeExtraTags(extraTags).map((tag) => ({
+    description: tag.key,
+    value: tag.value,
+  }));
+  const nextTags: NodeID3.Tags = {
+    ...existingTags,
+    userDefinedText: custom,
+  };
+  NodeID3.write(nextTags, filePath);
+}
+
 /**
  * Write Vorbis comments to a FLAC / OGG / OPUS file.
  * Vorbis comments are stored as FLAC metadata blocks or OGG page comments
  * as a series of KEY=VALUE strings (UTF-8), prefixed by a 32-bit count.
  */
-/** Helper: produce a single-element string array or empty array for null. */
-function setOrClear(_existing: string[], value: string | null): string[] {
-  return value != null ? [value] : [];
-}
-
 function writeVorbis(
   filePath: string,
   fields: WriteFields,
@@ -80,30 +117,37 @@ function writeVorbis(
   const existing = readVorbisComments(data);
   const updated = { ...existing };
 
-  updated.TITLE = setOrClear(updated.TITLE, fields.title ?? null);
-  updated.ARTIST = setOrClear(updated.ARTIST, fields.artist ?? null);
-  updated.ALBUM = setOrClear(updated.ALBUM, fields.album ?? null);
-  updated.DATE = setOrClear(updated.DATE, fields.year ?? null);
-  updated.GENRE = setOrClear(updated.GENRE, fields.genre ?? null);
-  updated.COMPOSER = setOrClear(updated.COMPOSER, fields.composer ?? null);
-  updated.COMMENT = setOrClear(updated.COMMENT, fields.comment ?? null);
-  if (fields.track !== undefined)
-    updated.TRACKNUMBER = setOrClear(updated.TRACKNUMBER, fields.track ?? null);
-  if (fields.trackNumber !== undefined)
-    updated.TRACKNUMBER = [String(fields.trackNumber)];
-
-  // Remove any keys with empty string values (user cleared the field)
-  for (const [key, vals] of Object.entries(updated)) {
-    if (vals.length === 1 && vals[0] === "") {
-      delete updated[key];
-    }
-  }
+  setVorbisField(updated, "TITLE", fields.title);
+  setVorbisField(updated, "ARTIST", fields.artist);
+  setVorbisField(updated, "ALBUM", fields.album);
+  setVorbisField(updated, "DATE", fields.year);
+  setVorbisField(updated, "GENRE", fields.genre);
+  setVorbisField(updated, "COMPOSER", fields.composer);
+  setVorbisField(updated, "COMMENT", fields.comment);
+  setVorbisField(updated, "TRACKNUMBER", fields.trackNumber ?? fields.track);
+  setVorbisField(updated, "TRACKTOTAL", fields.trackTotal);
+  setVorbisField(updated, "DISCNUMBER", fields.discNumber);
+  setVorbisField(updated, "DISCTOTAL", fields.discTotal);
 
   writeVorbisComments(filePath, data, updated, blockType);
 }
 
 interface VorbisDict {
   [key: string]: string[];
+}
+
+function setVorbisField(
+  comments: VorbisDict,
+  key: string,
+  value: string | number | null | undefined
+): void {
+  if (value === undefined) return;
+  const text = value == null ? "" : String(value);
+  if (text === "") {
+    delete comments[key];
+  } else {
+    comments[key] = [text];
+  }
 }
 
 /**
@@ -146,21 +190,29 @@ function readVorbisComments(buf: Buffer): VorbisDict {
 function parseVorbisCommentBlock(
   buf: Buffer,
   offset: number,
-  _length: number
+  length: number
 ): VorbisDict {
   const result: VorbisDict = {};
+  const blockEnd = offset + length;
+
+  // Guard against truncated block
+  if (offset + 8 > blockEnd) return result;
 
   // Vendor string length + string
   const vendorLen = buf.readUInt32LE(offset);
   offset += 4 + vendorLen;
+
+  if (offset + 4 > blockEnd) return result;
 
   // Number of comments
   const numComments = buf.readUInt32LE(offset);
   offset += 4;
 
   for (let i = 0; i < numComments; i++) {
+    if (offset + 4 > blockEnd) break;
     const commentLen = buf.readUInt32LE(offset);
     offset += 4;
+    if (offset + commentLen > blockEnd) break;
     const comment = buf.toString("utf8", offset, offset + commentLen);
     offset += commentLen;
 
@@ -243,7 +295,7 @@ function writeFlacMetadataBlock(
   let offset = 4; // skip "fLaC"
   let found = false;
 
-  while (offset < buf.length) {
+  while (offset + 4 <= buf.length) {
     const isLastBlock = buf[offset] >> 7;
     const type = buf[offset] & 0x7f;
     const length =
@@ -255,17 +307,13 @@ function writeFlacMetadataBlock(
       // Replace this block
       const before = buf.subarray(0, blockStart);
       const after = buf.subarray(blockStart + 4 + length);
-      // Mark as last if it was the last block
       const newHeader = Buffer.from(header);
       if (isLastBlock) {
         newHeader[0] |= 0x80;
       } else {
-        // Clear isLast on our new block, keep existing layout
         newHeader[0] = blockType & 0x7f;
       }
-      // Find the *actual* last block marker
       const result = Buffer.concat([before, newHeader, blockData, after]);
-      // Fix the isLast flag
       fixLastFlacBlock(result);
       fs.writeFileSync(filePath, result);
       found = true;
@@ -273,12 +321,12 @@ function writeFlacMetadataBlock(
     }
 
     if (isLastBlock) break;
+    if (length === 0) break;
     offset += length;
   }
 
   if (!found) {
     // Insert after STREAMINFO (block 0)
-    // Rewrite the first metadatablock header to not mark it as last
     let insOffset = 4;
     const streamInfoLen =
       (buf[5] << 16) | (buf[6] << 8) | buf[7];
@@ -286,16 +334,10 @@ function writeFlacMetadataBlock(
 
     const before = buf.subarray(0, insOffset);
     const after = buf.subarray(insOffset);
-    // Unset isLast on the block before our insertion point
-    if (before.length > 4 && after.length > 12) {
-      // Find the block at insOffset in original — mark it not last
-      if (buf[insOffset] & 0x80) {
-        buf[insOffset] &= 0x7f; // clear isLast
-      }
-    }
     const newHeader = Buffer.from(header);
-    newHeader[0] |= 0x80; // our block is last
-    const result = Buffer.concat([buf.subarray(0, insOffset), newHeader, blockData, after]);
+    newHeader[0] = blockType & 0x7f;
+    const result = Buffer.concat([before, newHeader, blockData, after]);
+    result[4] &= 0x7f;
     fixLastFlacBlock(result);
     fs.writeFileSync(filePath, result);
   }
@@ -306,28 +348,27 @@ function writeFlacMetadataBlock(
  */
 function fixLastFlacBlock(buf: Buffer): void {
   let offset = 4;
-  let lastBlockOffset = -1;
+  let lastMetadataBlockOffset = -1;
 
-  while (offset < buf.length) {
-    const isLast = buf[offset] >> 7;
+  while (offset + 4 <= buf.length) {
     const type = buf[offset] & 0x7f;
     const length =
       (buf[offset + 1] << 16) | (buf[offset + 2] << 8) | buf[offset + 3];
+
+    const isLast = buf[offset] >> 7;
     const blockStart = offset;
-    offset += 4 + length;
+    const nextOffset = offset + 4 + length;
+    if (type > 6 || nextOffset > buf.length || length > 5_000_000) break;
 
-    if (isLast) {
-      // Clear it — we'll set the right one later
-      buf[blockStart] = type & 0x7f;
-      lastBlockOffset = blockStart;
-    }
+    buf[blockStart] = type & 0x7f;
+    lastMetadataBlockOffset = blockStart;
+    offset = nextOffset;
 
-    if (offset >= buf.length - 1) break;
+    if (isLast || offset >= buf.length) break;
   }
 
-  // Mark the actual last metadata block
-  if (lastBlockOffset >= 0) {
-    buf[lastBlockOffset] |= 0x80;
+  if (lastMetadataBlockOffset >= 0) {
+    buf[lastMetadataBlockOffset] |= 0x80;
   }
 }
 
@@ -448,6 +489,44 @@ function writeWav(_filePath: string, _fields: WriteFields): void {
   // Most WAV files don't have tag editing support.
 }
 
+function normalizeExtraTags(extraTags: ExtraTagUpdate[]): ExtraTagUpdate[] {
+  const result: ExtraTagUpdate[] = [];
+  const seen = new Set<string>();
+
+  for (const tag of extraTags) {
+    const key = tag.key.trim();
+    const value = tag.value.trim();
+    const normalizedKey = key.toUpperCase();
+    if (!key || !value || STANDARD_VORBIS_TAGS.has(normalizedKey)) continue;
+
+    const identity = `${normalizedKey}\0${value}`;
+    if (seen.has(identity)) continue;
+    seen.add(identity);
+    result.push({ key, value });
+  }
+
+  return result;
+}
+
+function writeVorbisExtraTags(filePath: string, extraTags: ExtraTagUpdate[]): void {
+  const data = fs.readFileSync(filePath);
+  const comments = readVorbisComments(data);
+
+  for (const key of Object.keys(comments)) {
+    if (!STANDARD_VORBIS_TAGS.has(key.toUpperCase())) {
+      delete comments[key];
+    }
+  }
+
+  for (const tag of normalizeExtraTags(extraTags)) {
+    const key = tag.key.toUpperCase();
+    comments[key] ??= [];
+    comments[key].push(tag.value);
+  }
+
+  writeVorbisComments(filePath, data, comments, 4);
+}
+
 /**
  * Main entry point: detect format and write tags.
  */
@@ -456,12 +535,6 @@ export async function writeTags(
   fields: WriteFields
 ): Promise<void> {
   const ext = path.extname(filePath).toLowerCase();
-
-  // Normalize fields: parse track number/total from "track" string
-  if (fields.track !== undefined && fields.track != null && !fields.trackNumber && !fields.trackTotal) {
-    const parts = fields.track.split("/");
-    // We'll cast here — the caller should prefer using trackNumber/trackTotal
-  }
 
   switch (ext) {
     case ".mp3":
@@ -484,6 +557,24 @@ export async function writeTags(
       break;
     default:
       throw new Error(`Unsupported format for writing: ${ext}`);
+  }
+}
+
+export async function writeExtraTags(
+  filePath: string,
+  extraTags: ExtraTagUpdate[]
+): Promise<void> {
+  const ext = path.extname(filePath).toLowerCase();
+
+  switch (ext) {
+    case ".mp3":
+      writeMp3ExtraTags(filePath, extraTags);
+      break;
+    case ".flac":
+      writeVorbisExtraTags(filePath, extraTags);
+      break;
+    default:
+      throw new Error(`Extra tag editing is not supported for ${ext || "this file type"}`);
   }
 }
 

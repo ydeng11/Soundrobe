@@ -145,7 +145,7 @@ describe("appReducer", () => {
       expect(afterPush.undoManager.length).toBe(1);
     });
 
-    it("pop removes from the undo stack", () => {
+    it("POP_UNDO triggers a re-render without modifying the undo stack", () => {
       const um = new UndoManager();
       um.push("Edit", [
         { path: "/music/s.mp3", fields: { title: "Old" } },
@@ -153,10 +153,11 @@ describe("appReducer", () => {
       const state = { ...initialAppState, undoManager: um };
       const afterPop = appReducer(state, {
         type: "POP_UNDO",
-        snapshots: null,
       });
-      expect(afterPop.undoManager.canUndo).toBe(false);
-      expect(afterPop.undoManager.length).toBe(0);
+      // POP_UNDO just returns the same state (triggers re-render).
+      // The actual pop is done by handleRevert before dispatching POP_UNDO.
+      expect(afterPop.undoManager.canUndo).toBe(true);
+      expect(afterPop.undoManager.length).toBe(1);
     });
   });
 

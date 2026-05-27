@@ -176,3 +176,46 @@ async def test_track_data_attributes():
     assert track.metadata.title == "Song Title"
     assert track.metadata.track_number == 1
     assert track.metadata.track_total == 10
+
+
+async def test_select_all_selects_all_tracks():
+    """Ctrl+A selects all tracks in the current album."""
+    app = AutoTaggerApp()
+    async with app.run_test() as pilot:
+        album_path = Path("/music/Artist/Album")
+        album = AlbumData(path=album_path, artist_hint="A", album_hint="B")
+        album.tracks = [
+            TrackData(path=Path("/t1.mp3"), metadata=TrackMetadata(title="T1")),
+            TrackData(path=Path("/t2.mp3"), metadata=TrackMetadata(title="T2")),
+            TrackData(path=Path("/t3.mp3"), metadata=TrackMetadata(title="T3")),
+        ]
+        album._tracks_loaded = True
+        app.state.albums[album_path] = album
+        app.state.loaded = True
+
+        tw = app.screen.query_one("#track-table")
+        # Must be in track view for select all to work
+        tw.select_album(album_path)
+
+        # Verify no tracks are selected yet
+        assert len(app.state.selected_track_paths) == 0
+
+        # Ctrl+A: select all
+        tw.action_select_all()
+        assert len(app.state.selected_track_paths) == 3
+        assert Path("/t1.mp3") in app.state.selected_track_paths
+        assert Path("/t2.mp3") in app.state.selected_track_paths
+        assert Path("/t3.mp3") in app.state.selected_track_paths
+
+
+async def test_select_all_noop_in_browser_view():
+    """Ctrl+A does nothing when in album browser view."""
+    app = AutoTaggerApp()
+    async with app.run_test() as pilot:
+        # No album loaded — staying in browser view
+        tw = app.screen.query_one("#track-table")
+        assert app.state.show_album_browser is True
+
+        # Should be a no-op
+        tw.action_select_all()
+        assert len(app.state.selected_track_paths) == 0

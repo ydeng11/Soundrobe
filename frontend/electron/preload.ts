@@ -29,6 +29,7 @@ export interface TrackData {
   year: string | null;
   genre: string | null;
   composer: string | null;
+  comment: string | null;
   lyrics: string | null;
   compilation: boolean | null;
   musicbrainzTrackId: string | null;
@@ -91,6 +92,25 @@ export interface DirectoryData {
   audioCount: number;
 }
 
+export interface LogEntry {
+  timestamp: string;
+  tag: string;
+  level: "info" | "warn" | "error" | "debug";
+  message: string;
+  data?: unknown;
+}
+
+export interface ExtraTag {
+  key: string;
+  value: string;
+  source: string;
+}
+
+export interface ExtraTagUpdate {
+  key: string;
+  value: string;
+}
+
 export interface ElectronAPI {
   // Library
   scanLibrary: (dirPath: string) => Promise<AlbumInfo[]>;
@@ -108,6 +128,15 @@ export interface ElectronAPI {
   writeTracks: (
     updates: Array<{ path: string; fields: Record<string, unknown> }>
   ) => Promise<TrackData[]>;
+  readExtraTags: (trackPath: string) => Promise<ExtraTag[]>;
+  writeExtraTags: (
+    trackPath: string,
+    tags: ExtraTagUpdate[]
+  ) => Promise<TrackData>;
+  showTrackContextMenu: (
+    trackPath: string,
+    labels: Record<string, string>
+  ) => Promise<"extra-tags" | null>;
 
   // Directory browser
   listDirectory: (dirPath: string) => Promise<DirEntry[]>;
@@ -127,6 +156,10 @@ export interface ElectronAPI {
   // Config
   getConfig: () => Promise<Record<string, unknown>>;
   setConfig: (key: string, value: unknown) => Promise<void>;
+
+  // Debug
+  subscribeDebugLogs: () => Promise<void>;
+  setDebugMode: (enabled: boolean) => Promise<void>;
 
   // Window events
   onFocus: () => Promise<void>;
@@ -154,6 +187,18 @@ contextBridge.exposeInMainWorld("api", {
     updates: Array<{ path: string; fields: Record<string, unknown> }>
   ): Promise<TrackData[]> =>
     ipcRenderer.invoke("tracks:batch-write", updates),
+  readExtraTags: (trackPath: string): Promise<ExtraTag[]> =>
+    ipcRenderer.invoke("track:extra-tags:read", trackPath),
+  writeExtraTags: (
+    trackPath: string,
+    tags: ExtraTagUpdate[]
+  ): Promise<TrackData> =>
+    ipcRenderer.invoke("track:extra-tags:write", trackPath, tags),
+  showTrackContextMenu: (
+    trackPath: string,
+    labels: Record<string, string>
+  ): Promise<"extra-tags" | null> =>
+    ipcRenderer.invoke("track:context-menu", trackPath, labels),
 
   // Cover
   getCoverDataUrl: (albumPath: string) =>
@@ -183,6 +228,27 @@ contextBridge.exposeInMainWorld("api", {
     ipcRenderer.invoke("task:cancel", taskId),
   getDatasetStatus: () => ipcRenderer.invoke("dataset:status"),
 
+  // Debug — subscribe to live log forwarding from main process
+  subscribeDebugLogs: () =>
+    ipcRenderer.invoke("debug:subscribe"),
+
+  // Debug — toggle debug mode
+  setDebugMode: (enabled: boolean) =>
+    ipcRenderer.invoke("debug:set-mode", enabled),
+
   // Window events
   onFocus: () => ipcRenderer.invoke("window:focused"),
+});
+
+const CONSOLE_METHOD: Record<string, "error" | "warn" | "debug" | "log"> = {
+  error: "error",
+  warn: "warn",
+  debug: "debug",
+};
+
+// Listen for debug log events pushed from main process
+ipcRenderer.on("debug:log", (_event, entry: LogEntry) => {
+  const prefix = `[${entry.tag}] ${entry.level.toUpperCase()}`;
+  const method = CONSOLE_METHOD[entry.level] ?? "log";
+  console[method](`[auto-tagger] ${prefix} ${entry.message}`, entry.data ?? "");
 });

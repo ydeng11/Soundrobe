@@ -1,14 +1,46 @@
-import React, { useReducer, useCallback, useEffect } from "react";
+import React, { useReducer, useCallback, useEffect, useMemo } from "react";
 import { appReducer, initialAppState } from "./state/AppState";
 import type { TrackSnapshot } from "./state/UndoManager";
 import { TitleBar } from "./components/TitleBar";
+import { Sidebar } from "./components/Sidebar";
 import { FileGrid } from "./components/FileGrid";
 import { MetadataEditor } from "./components/MetadataEditor";
+import { BatchEditor } from "./components/BatchEditor";
+import { ScanProgressBar } from "./components/ScanProgressBar";
 import { SettingsModal } from "./components/SettingsModal";
-import type { TrackData } from "../electron/preload";
+import { ConvertDialog } from "./components/ConvertDialog";
+import { ExtraTagsEditor } from "./components/ExtraTagsEditor";
+import type { ConvertDirection } from "./components/ConvertDialog";
+import type { TrackData, AlbumInfo } from "../electron/preload";
 
 export default function App() {
   const [state, dispatch] = useReducer(appReducer, initialAppState);
+  const [showConvertDialog, setShowConvertDialog] = React.useState(false);
+  const [extraTagsTrack, setExtraTagsTrack] = React.useState<TrackData | null>(null);
+
+  /** Read track data for every album and dispatch results. */
+  const loadAlbumTracks = useCallback(
+    async (albums: AlbumInfo[]) => {
+      const allTracks: TrackData[] = [];
+      for (let i = 0; i < albums.length; i++) {
+        dispatch({
+          type: "SET_SCANNING_PROGRESS",
+          progress: { current: i + 1, total: albums.length },
+        });
+        try {
+          const detail = await window.api.readAlbum(albums[i].path);
+          allTracks.push(...detail.tracks);
+        } catch {
+          // Skip albums that fail to read
+        }
+      }
+      dispatch({ type: "SET_SCANNING_PROGRESS", progress: null });
+      dispatch({ type: "SET_TRACKS", tracks: allTracks });
+    },
+    [],
+  );
+
+  const dirPath = (p: string) => p.split("/").slice(0, -1).join("/");
 
   // --- Library loading ---
 
@@ -26,20 +58,9 @@ export default function App() {
       dispatch({ type: "SET_ERROR", error: null });
 
       try {
-        // Scan library and read all tracks from all albums (flattened)
         const albums = await window.api.scanLibrary(selectedPath);
         dispatch({ type: "SET_ALBUMS", albums });
-
-        const allTracks: TrackData[] = [];
-        for (const album of albums) {
-          try {
-            const detail = await window.api.readAlbum(album.path);
-            allTracks.push(...detail.tracks);
-          } catch {
-            // Skip albums that fail to read
-          }
-        }
-        dispatch({ type: "SET_TRACKS", tracks: allTracks });
+        await loadAlbumTracks(albums);
       } catch (err: unknown) {
         const message =
           err instanceof Error ? err.message : "Failed to scan library";
@@ -55,7 +76,64 @@ export default function App() {
         error: `Failed to open library: ${message}`,
       });
     }
-  }, []);
+  }, [loadAlbumTracks]);
+
+  // --- Album selection ---
+
+  const handleSelectAlbum = useCallback(
+    async (albumPath: string | null) => {
+      dispatch({ type: "SET_ACTIVE_ALBUM", path: albumPath });
+
+      if (albumPath === null) {
+        if (state.libraryPath) {
+          dispatch({ type: "SET_SCANNING", scanning: true });
+          try {
+            const albums = await window.api.scanLibrary(state.libraryPath);
+            dispatch({ type: "SET_ALBUMS", albums });
+            await loadAlbumTracks(albums);
+          } catch {
+            // ignore
+          } finally {
+            dispatch({ type: "SET_SCANNING", scanning: false });
+          }
+        }
+      } else {
+        dispatch({ type: "SET_SCANNING", scanning: true });
+        try {
+          const detail = await window.api.readAlbum(albumPath);
+          dispatch({ type: "SET_TRACKS", tracks: detail.tracks });
+        } catch {
+          dispatch({
+            type: "SET_ERROR",
+            error: "Failed to read album",
+          });
+        } finally {
+          dispatch({ type: "SET_SCANNING", scanning: false });
+        }
+      }
+    },
+    [state.libraryPath, loadAlbumTracks],
+  );
+
+  // --- Multi-track selection ---
+
+  const handleMultiSelect = useCallback(
+    (paths: string[]) => {
+      dispatch({ type: "SET_SELECTED_TRACKS", paths });
+
+      // Still show the primary (first) track's cover art
+      if (paths.length > 0) {
+        const primary = state.tracks.find((t) => t.path === paths[0]);
+        if (primary) {
+          window.api.getCoverDataUrl(dirPath(primary.path)).then(
+            (url) => dispatch({ type: "SET_COVER_URL", url }),
+            () => dispatch({ type: "SET_COVER_URL", url: null }),
+          );
+        }
+      }
+    },
+    [state.tracks],
+  );
 
   // --- Track selection ---
 
@@ -63,118 +141,152 @@ export default function App() {
     async (path: string, track: TrackData) => {
       dispatch({ type: "SELECT_TRACK", path, track });
 
-      // Load cover art for the track's parent directory
-      const dirPath = path.split("/").slice(0, -1).join("/");
       try {
-        const url = await window.api.getCoverDataUrl(dirPath);
+        const url = await window.api.getCoverDataUrl(dirPath(path));
         dispatch({ type: "SET_COVER_URL", url });
       } catch {
         dispatch({ type: "SET_COVER_URL", url: null });
       }
     },
-    []
+    [],
   );
 
-  // --- Field editing with auto-save + undo ---
+  // --- Field editing (batch save via Save button, no auto-save) ---
 
-  const handleFieldChange = useCallback(
-    async (field: string, value: string) => {
+  const handleSaveMetadata = useCallback(
+    async (fields: Record<string, string>) => {
       if (!state.selectedTrack) return;
+      const track = state.selectedTrack;
 
-      // Save snapshot before editing
-      const prevTrack = state.selectedTrack;
+      // Create undo snapshot with previous state
       const snapshot: TrackSnapshot = {
-        path: prevTrack.path,
+        path: track.path,
         fields: {
-          title: prevTrack.title,
-          artist: prevTrack.artist,
-          album: prevTrack.album,
-          year: prevTrack.year,
-          track: prevTrack.trackNumber != null ? String(prevTrack.trackNumber) : null,
-          genre: prevTrack.genre,
-          composer: prevTrack.composer,
+          title: track.title,
+          artist: track.artist,
+          album: track.album,
+          albumArtist: track.albumArtist,
+          artists: track.artists?.join(", ") ?? null,
+          year: track.year,
+          track:
+            track.trackNumber != null ? String(track.trackNumber) : null,
+          disc:
+            track.discNumber != null ? String(track.discNumber) : null,
+          genre: track.genre,
+          composer: track.composer,
+          comment: track.comment ?? null,
         },
       };
       dispatch({
         type: "PUSH_UNDO",
-        description: `Edit ${field}`,
+        description: "Metadata save",
         snapshots: [snapshot],
       });
 
-      // Build the fields to write
-      const writeFields: Record<string, unknown> = { [field]: value || null };
+      // Build write fields and optimistic local state
+      const writeFields: Record<string, unknown> = {};
+      const updatedTrack = { ...track };
 
-      // Optimistically update local state
-      const updatedTrack = { ...prevTrack };
-      switch (field) {
-        case "title":
-          updatedTrack.title = value || null;
-          break;
-        case "artist":
-          updatedTrack.artist = value || null;
-          break;
-        case "album":
-          updatedTrack.album = value || null;
-          break;
-        case "year":
-          updatedTrack.year = value || null;
-          break;
-        case "track": {
-          const parts = value.split("/");
-          updatedTrack.trackNumber = parts[0] ? parseInt(parts[0], 10) || null : null;
-          updatedTrack.trackTotal = parts[1] ? parseInt(parts[1], 10) || null : null;
-          if (parts[0]) writeFields["trackNumber"] = updatedTrack.trackNumber;
-          if (parts[1]) writeFields["trackTotal"] = updatedTrack.trackTotal;
-          break;
+      for (const [field, value] of Object.entries(fields)) {
+        switch (field) {
+          case "track": {
+            const parts = value.split("/");
+            updatedTrack.trackNumber = parseNum(parts[0]);
+            updatedTrack.trackTotal = parseNum(parts[1]);
+            if (parts[0]) writeFields.trackNumber = updatedTrack.trackNumber;
+            if (parts[1]) writeFields.trackTotal = updatedTrack.trackTotal;
+            break;
+          }
+          case "disc": {
+            const parts = value.split("/");
+            updatedTrack.discNumber = parseNum(parts[0]);
+            updatedTrack.discTotal = parseNum(parts[1]);
+            if (parts[0]) writeFields.discNumber = updatedTrack.discNumber;
+            if (parts[1]) writeFields.discTotal = updatedTrack.discTotal;
+            break;
+          }
+          case "artists":
+            updatedTrack.artists = value
+              ? value.split(",").map((s) => s.trim()).filter(Boolean)
+              : [];
+            writeFields.artists = value || null;
+            break;
+          default:
+            (updatedTrack as Record<string, unknown>)[field] = value || null;
+            writeFields[field] = value || null;
         }
-        case "genre":
-          updatedTrack.genre = value || null;
-          break;
-        case "composer":
-          updatedTrack.composer = value || null;
-          break;
-        case "comment":
-          break; // Comments aren't in TrackData from music-metadata
       }
 
-      dispatch({ type: "UPDATE_TRACK", path: prevTrack.path, track: updatedTrack });
+      dispatch({
+        type: "UPDATE_TRACK",
+        path: track.path,
+        track: updatedTrack,
+      });
       dispatch({ type: "SET_SAVING", saving: true });
 
       try {
-        // Write to disk and get updated metadata back
-        const result = await window.api.writeTrack(prevTrack.path, writeFields);
-        dispatch({ type: "UPDATE_TRACK", path: prevTrack.path, track: result });
+        const result = await window.api.writeTrack(track.path, writeFields);
+        dispatch({
+          type: "UPDATE_TRACK",
+          path: track.path,
+          track: result,
+        });
 
-        // Refresh cover if album changed
-        if (field === "album" || field === "title") {
-          const dirPath = prevTrack.path.split("/").slice(0, -1).join("/");
+        // Refresh cover if album or title changed
+        if (fields.album !== undefined || fields.title !== undefined) {
           try {
-            const url = await window.api.getCoverDataUrl(dirPath);
+            const url = await window.api.getCoverDataUrl(
+              dirPath(track.path),
+            );
             dispatch({ type: "SET_COVER_URL", url });
           } catch {
             // ignore
           }
         }
       } catch (err: unknown) {
-        // Rollback on error
-        dispatch({ type: "UPDATE_TRACK", path: prevTrack.path, track: prevTrack });
+        dispatch({
+          type: "UPDATE_TRACK",
+          path: track.path,
+          track,
+        });
         const message =
-          err instanceof Error ? err.message : "Failed to save tag";
+          err instanceof Error ? err.message : "Failed to save tags";
         dispatch({ type: "SET_ERROR", error: message });
       } finally {
         dispatch({ type: "SET_SAVING", saving: false });
       }
     },
-    [state.selectedTrack]
+    [state.selectedTrack],
+  );
+
+  const handleSaveExtraTags = useCallback(
+    async (tags: Array<{ key: string; value: string }>) => {
+      if (!extraTagsTrack) return;
+      dispatch({ type: "SET_SAVING", saving: true });
+      dispatch({ type: "SET_ERROR", error: null });
+
+      try {
+        const result = await window.api.writeExtraTags(extraTagsTrack.path, tags);
+        dispatch({ type: "UPDATE_TRACK", path: extraTagsTrack.path, track: result });
+        setExtraTagsTrack(result);
+      } catch (err: unknown) {
+        const message =
+          err instanceof Error ? err.message : "Failed to save extra tags";
+        dispatch({ type: "SET_ERROR", error: message });
+        throw err;
+      } finally {
+        dispatch({ type: "SET_SAVING", saving: false });
+      }
+    },
+    [extraTagsTrack],
   );
 
   // --- Cover actions ---
 
   const handleChangeCover = useCallback(async () => {
     if (!state.selectedTrack) return;
-    const dirPath = state.selectedTrack.path.split("/").slice(0, -1).join("/");
     try {
-      const url = await window.api.setCover(dirPath);
+      const url = await window.api.setCover(dirPath(state.selectedTrack.path));
       if (url) {
         dispatch({ type: "SET_COVER_URL", url });
       }
@@ -185,9 +297,8 @@ export default function App() {
 
   const handleRemoveCover = useCallback(async () => {
     if (!state.selectedTrack) return;
-    const dirPath = state.selectedTrack.path.split("/").slice(0, -1).join("/");
     try {
-      await window.api.removeCover(dirPath);
+      await window.api.removeCover(dirPath(state.selectedTrack.path));
       dispatch({ type: "SET_COVER_URL", url: null });
     } catch {
       dispatch({ type: "SET_ERROR", error: "Failed to remove cover art" });
@@ -196,40 +307,256 @@ export default function App() {
 
   // --- Save / Revert ---
 
-  const handleSave = useCallback(async () => {
+  const handleSave = useCallback(() => {
     if (state.dirtyTracks.size === 0) return;
     dispatch({ type: "SET_SAVING", saving: true });
-    // Already auto-saved — just clear the dirty flag
-    dispatch({ type: "CLEAR_UNDO" });
     state.dirtyTracks.clear();
+    dispatch({ type: "CLEAR_UNDO" });
     dispatch({ type: "SET_SAVING", saving: false });
   }, [state.dirtyTracks]);
 
   const handleRevert = useCallback(() => {
     const op = state.undoManager.pop();
     if (!op) return;
-    // Restore each snapshot
     for (const snap of op.snapshots) {
-      const writeFields: Record<string, unknown> = { ...snap.fields };
-      window.api.writeTrack(snap.path, writeFields).then((track) => {
+      window.api.writeTrack(snap.path, { ...snap.fields }).then((track) => {
         dispatch({ type: "UPDATE_TRACK", path: snap.path, track });
       });
     }
+    dispatch({ type: "POP_UNDO" });
   }, [state.undoManager]);
 
-  // --- Stub handlers ---
+  // --- Auto-Tag ---
+
+  const handleAutoTag = useCallback(async () => {
+    if (!state.libraryPath || state.autoTagging) return;
+
+    // Determine which album paths to tag
+    const targetPaths = state.activeAlbumPath
+      ? [state.activeAlbumPath]
+      : state.albums.map((a) => a.path);
+
+    if (targetPaths.length === 0) {
+      dispatch({ type: "SET_ERROR", error: "No albums found to tag" });
+      return;
+    }
+
+    const isBatch = targetPaths.length > 1;
+
+    dispatch({ type: "SET_AUTO_TAGGING", autoTagging: true });
+    dispatch({ type: "SET_ERROR", error: null });
+
+    let completed = 0;
+    let totalErrors = 0;
+
+    try {
+      for (const albumPath of targetPaths) {
+        const albumName = albumPath.split("/").pop() ?? albumPath;
+        dispatch({
+          type: "SET_AUTO_TAG_PROGRESS",
+          progress: isBatch
+            ? { current: completed, total: targetPaths.length, message: `${albumName}` }
+            : { current: 0, total: 8, message: `Auto-tagging: ${albumName}` },
+        });
+
+        const taskId = await window.api.autoTagAlbum(albumPath);
+
+        let done = false;
+        while (!done) {
+          const progress = await window.api.getTaskProgress(taskId);
+          if (!progress) {
+            done = true;
+            break;
+          }
+
+          dispatch({
+            type: "SET_AUTO_TAG_PROGRESS",
+            progress: isBatch
+              ? { current: completed, total: targetPaths.length, message: progress.message }
+              : { current: progress.progress, total: progress.total, message: progress.message },
+          });
+
+          if (
+            progress.status === "completed" ||
+            progress.status === "failed" ||
+            progress.status === "cancelled"
+          ) {
+            done = true;
+            if (progress.status === "failed") {
+              totalErrors++;
+              console.debug(`[auto-tag] Auto-tag failed for ${albumName}: ${progress.message}`);
+            }
+          } else {
+            await new Promise((resolve) => setTimeout(resolve, 300));
+          }
+        }
+
+        completed++;
+      }
+
+      // Re-scan after all albums tagged
+      const albums = await window.api.scanLibrary(state.libraryPath);
+      dispatch({ type: "SET_ALBUMS", albums });
+
+      if (state.activeAlbumPath) {
+        try {
+          const detail = await window.api.readAlbum(state.activeAlbumPath);
+          dispatch({ type: "SET_TRACKS", tracks: detail.tracks });
+        } catch {
+          dispatch({ type: "SET_ERROR", error: "Failed to re-read album after auto-tag" });
+        }
+      } else {
+        await loadAlbumTracks(albums);
+      }
+
+      if (totalErrors > 0) {
+        dispatch({
+          type: "SET_ERROR",
+          error: `Auto-tag completed with ${totalErrors} album(s) with errors`,
+        });
+      }
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Auto-tag failed";
+      dispatch({ type: "SET_ERROR", error: message });
+    } finally {
+      dispatch({ type: "SET_AUTO_TAGGING", autoTagging: false });
+      dispatch({ type: "SET_AUTO_TAG_PROGRESS", progress: null });
+    }
+  }, [
+    state.libraryPath,
+    state.activeAlbumPath,
+    state.albums,
+    state.autoTagging,
+    loadAlbumTracks,
+  ]);
+
+  // --- Convert: prompt for direction + regex, then apply ---
 
   const handleConvert = useCallback(() => {
-    dispatch({ type: "SET_ERROR", error: "Convert not yet implemented" });
-  }, []);
+    if (!state.selectedTrack) {
+      dispatch({
+        type: "SET_ERROR",
+        error: "Select a file first to convert",
+      });
+      return;
+    }
+    setShowConvertDialog(true);
+  }, [state.selectedTrack]);
 
-  const handleAutonumber = useCallback(() => {
-    dispatch({ type: "SET_ERROR", error: "Autonumber not yet implemented" });
-  }, []);
+  const handleConvertAction = useCallback(
+    async (direction: ConvertDirection, pattern: string) => {
+      const track = state.selectedTrack;
+      if (!track) return;
 
-  const handleRename = useCallback(() => {
-    dispatch({ type: "SET_ERROR", error: "Rename not yet implemented" });
-  }, []);
+      const basename = track.path.split("/").pop() ?? track.path;
+
+      let derived: string | null = null;
+      let writeFields: Record<string, unknown> = {};
+      let undoFields: Record<string, unknown> = {};
+      let description = "";
+
+      if (direction === "title-to-filename") {
+        dispatch({
+          type: "SET_ERROR",
+          error: "Title→filename rename not yet supported by the backend",
+        });
+        return;
+      }
+
+      if (direction === "filename-to-title") {
+        let result = basename.replace(/\.[^.]+$/, "");
+        if (pattern === "strip-number") {
+          result = result.replace(/^\d+[\s.\-_)]*\s*/, "");
+        } else if (pattern) {
+          try {
+            const regex = new RegExp(pattern);
+            const m = result.match(regex);
+            if (m && m[1]) result = m[1];
+          } catch {
+            dispatch({
+              type: "SET_ERROR",
+              error: `Invalid regex pattern: ${pattern}`,
+            });
+            return;
+          }
+        }
+        derived = result.trim();
+        writeFields = { title: derived };
+        undoFields = { title: track.title };
+        description = `Convert title: ${derived}`;
+      } else if (direction === "custom-regex") {
+        let result = basename.replace(/\.[^.]+$/, "");
+        try {
+          const regex = new RegExp(pattern);
+          const m = result.match(regex);
+          derived = m && m[1] ? m[1] : null;
+          if (!derived) {
+            dispatch({
+              type: "SET_ERROR",
+              error: "Regex produced no capture groups",
+            });
+            return;
+          }
+        } catch {
+          dispatch({
+            type: "SET_ERROR",
+            error: `Invalid regex: ${pattern}`,
+          });
+          return;
+        }
+        derived = derived!.trim();
+        writeFields = { title: derived };
+        undoFields = { title: track.title };
+        description = `Convert (regex): ${derived}`;
+      }
+
+      if (!derived || derived === (track.title ?? "")) {
+        dispatch({
+          type: "SET_ERROR",
+          error: "Conversion produced no change",
+        });
+        return;
+      }
+
+      const snapshot: TrackSnapshot = { path: track.path, fields: undoFields };
+      dispatch({
+        type: "PUSH_UNDO",
+        description,
+        snapshots: [snapshot],
+      });
+
+      const updatedTrack = { ...track, ...writeFields };
+      dispatch({
+        type: "UPDATE_TRACK",
+        path: track.path,
+        track: updatedTrack,
+      });
+      dispatch({ type: "SET_SAVING", saving: true });
+
+      try {
+        const result = await window.api.writeTrack(track.path, writeFields);
+        dispatch({
+          type: "UPDATE_TRACK",
+          path: track.path,
+          track: result,
+        });
+      } catch (err: unknown) {
+        dispatch({
+          type: "UPDATE_TRACK",
+          path: track.path,
+          track,
+        });
+        const message =
+          err instanceof Error ? err.message : "Failed to save conversion";
+        dispatch({ type: "SET_ERROR", error: message });
+      } finally {
+        dispatch({ type: "SET_SAVING", saving: false });
+      }
+    },
+    [state.selectedTrack],
+  );
+
+
 
   // --- Settings ---
 
@@ -247,6 +574,22 @@ export default function App() {
     dispatch({ type: "SET_FILTER", filter: text });
   }, []);
 
+  // --- Debug log subscription (non-critical) ---
+
+  useEffect(() => {
+    window.api.subscribeDebugLogs().catch(() => {});
+  }, []);
+
+  // --- Dark mode toggle ---
+
+  useEffect(() => {
+    document.documentElement.classList.toggle("dark", state.darkMode);
+  }, [state.darkMode]);
+
+  const handleToggleDarkMode = useCallback(() => {
+    dispatch({ type: "TOGGLE_DARK_MODE" });
+  }, []);
+
   // --- Keyboard shortcuts ---
 
   useEffect(() => {
@@ -255,6 +598,10 @@ export default function App() {
         e.preventDefault();
         handleOpenLibrary();
       }
+      if ((e.metaKey || e.ctrlKey) && e.key === "t") {
+        e.preventDefault();
+        handleAutoTag();
+      }
       if ((e.metaKey || e.ctrlKey) && e.key === "z" && e.shiftKey) {
         e.preventDefault();
         handleRevert();
@@ -262,7 +609,7 @@ export default function App() {
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [handleOpenLibrary, handleRevert]);
+  }, [handleOpenLibrary, handleAutoTag, handleRevert]);
 
   // --- File watching: re-scan on page visibility change ---
 
@@ -276,75 +623,203 @@ export default function App() {
         }
       }
     };
-
     document.addEventListener("visibilitychange", handleVisibility);
     return () =>
       document.removeEventListener("visibilitychange", handleVisibility);
   }, []);
 
+  // Filter tracks by active album — currently a pass-through (logic in handleSelectAlbum)
+  const filteredTracks = state.tracks;
+
+  // Tracks for the currently multi-selected paths
+  const selectedTracksForBatch = useMemo(() => {
+    const pathSet = new Set(state.selectedTrackPaths);
+    return state.tracks.filter((t) => pathSet.has(t.path));
+  }, [state.selectedTrackPaths, state.tracks]);
+
+  // Handle batch field save from BatchEditor
+  const handleBatchSave = useCallback(
+    async (fields: Record<string, string>) => {
+      const paths = state.selectedTrackPaths;
+      if (paths.length === 0) return;
+
+      const snapshots: TrackSnapshot[] = [];
+
+      for (const path of paths) {
+        const track = state.tracks.find((t) => t.path === path);
+        if (!track) continue;
+
+        snapshots.push({
+          path,
+          fields: {
+            title: track.title,
+            artist: track.artist,
+            album: track.album,
+            albumArtist: track.albumArtist,
+            artists: track.artists?.join(", ") ?? null,
+            year: track.year,
+            track: track.trackNumber != null ? String(track.trackNumber) : null,
+            disc: track.discNumber != null ? String(track.discNumber) : null,
+            genre: track.genre,
+            composer: track.composer,
+            comment: track.comment ?? null,
+          },
+        });
+      }
+
+      dispatch({ type: "PUSH_UNDO", description: "Batch edit", snapshots });
+
+      const writeFields: Record<string, unknown> = {};
+      for (const [key, value] of Object.entries(fields)) {
+        writeFields[key] = value || null;
+      }
+
+      dispatch({ type: "SET_SAVING", saving: true });
+
+      try {
+        for (const path of paths) {
+          const result = await window.api.writeTrack(path, writeFields);
+          dispatch({ type: "UPDATE_TRACK", path, track: result });
+        }
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : "Batch save failed";
+        dispatch({ type: "SET_ERROR", error: message });
+      } finally {
+        dispatch({ type: "SET_SAVING", saving: false });
+      }
+    },
+    [state.selectedTrackPaths, state.tracks],
+  );
+
   return (
-    <div className="flex flex-col h-screen bg-surface text-text-primary">
-      {/* Top bar — library, filter, actions, stats */}
+    <div className="flex flex-col h-screen bg-surface text-text-primary overflow-hidden">
       <TitleBar
         libraryPath={state.libraryPath}
-        trackCount={state.tracks.length}
+        trackCount={filteredTracks.length}
         filterText={state.filterText}
         onFilterChange={handleFilterChange}
         selectedFilePath={state.selectedTrackPath}
         dirtyCount={state.dirtyTracks.size}
         canUndo={state.undoManager.canUndo}
         saving={state.saving}
+        autoTagging={state.autoTagging}
         error={state.error}
         onOpenLibrary={handleOpenLibrary}
         onSave={handleSave}
         onRevert={handleRevert}
         onConvert={handleConvert}
-        onAutonumber={handleAutonumber}
-        onRename={handleRename}
+        onAutoTag={handleAutoTag}
+        darkMode={state.darkMode}
+        onToggleDarkMode={handleToggleDarkMode}
         onOpenSettings={handleOpenSettings}
       />
 
-      {/* Two-pane layout */}
+      <ScanProgressBar
+        scanning={state.scanning || state.autoTagging}
+        progress={
+          state.autoTagProgress
+            ? {
+                current: state.autoTagProgress.current,
+                total: state.autoTagProgress.total,
+              }
+            : state.scanningProgress
+        }
+        label={state.autoTagProgress?.message ?? null}
+      />
+
       <div className="flex flex-1 overflow-hidden">
-        {/* Left: File grid */}
-        <div className="flex-1 flex flex-col min-w-0 border-r border-gray-700/30">
+        <Sidebar
+          albums={state.albums}
+          libraryPath={state.libraryPath}
+          activeAlbumPath={state.activeAlbumPath}
+          onSelectAlbum={handleSelectAlbum}
+          onOpenLibrary={handleOpenLibrary}
+        />
+
+        <div className="flex-1 flex flex-col min-w-0 border-r border-border">
           <FileGrid
-            tracks={state.tracks}
+            tracks={filteredTracks}
             selectedTrackPath={state.selectedTrackPath}
             filterText={state.filterText}
             onSelectTrack={handleSelectTrack}
+            onMultiSelect={handleMultiSelect}
+            onEditExtraTags={setExtraTagsTrack}
           />
         </div>
 
-        {/* Right: Metadata editor */}
-        <div className="w-72 min-w-60 border-l border-gray-700/30 flex flex-col overflow-y-auto">
-          {state.selectedTrack ? (
-            <MetadataEditor
-              track={state.selectedTrack}
-              dirPath={
-                state.selectedTrack.path.split("/").slice(0, -1).join("/")
-              }
+        <div className="w-[300px] min-w-[280px] max-w-[360px] flex flex-col overflow-y-auto">
+          {state.selectedTrackPaths.length > 1 ? (
+            <BatchEditor
+              tracks={selectedTracksForBatch}
               coverDataUrl={state.coverDataUrl}
               saving={state.saving}
-              onFieldChange={handleFieldChange}
+              onSave={handleBatchSave}
+            />
+          ) : state.selectedTrack ? (
+            <MetadataEditor
+              track={state.selectedTrack}
+              dirPath={dirPath(state.selectedTrack.path)}
+              coverDataUrl={state.coverDataUrl}
+              saving={state.saving}
+              onSave={handleSaveMetadata}
+              onCancel={() => {}}
               onChangeCover={handleChangeCover}
               onRemoveCover={handleRemoveCover}
             />
           ) : (
-            <div className="flex items-center justify-center h-full text-text-muted text-xs px-4 text-center leading-relaxed">
-              {state.tracks.length > 0
-                ? "Select a file to edit its tags"
-                : "Open a music library\nto get started"}
+            <div className="flex items-center justify-center h-full">
+              <div className="flex flex-col items-center gap-3 text-text-muted px-8 text-center">
+                <svg
+                  width="36"
+                  height="36"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="opacity-30"
+                >
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                  <polyline points="14 2 14 8 20 8" />
+                  <line x1="12" y1="18" x2="12" y2="12" />
+                  <line x1="9" y1="15" x2="15" y2="15" />
+                </svg>
+                <div className="text-[12px] leading-relaxed">
+                  {state.tracks.length > 0
+                    ? "Select a file to edit its tags"
+                    : "Open a music library\nto get started"}
+                </div>
+              </div>
             </div>
           )}
         </div>
       </div>
 
-      {/* Settings Modal */}
       <SettingsModal
         open={state.showSettings}
         onClose={handleCloseSettings}
       />
+
+      <ConvertDialog
+        open={showConvertDialog}
+        onClose={() => setShowConvertDialog(false)}
+        onConvert={handleConvertAction}
+      />
+
+      {extraTagsTrack && (
+        <ExtraTagsEditor
+          track={extraTagsTrack}
+          saving={state.saving}
+          onClose={() => setExtraTagsTrack(null)}
+          onSave={handleSaveExtraTags}
+        />
+      )}
     </div>
   );
+}
+
+/** Parse a string as track/disc number, returning null on invalid input. */
+function parseNum(s: string): number | null {
+  return s ? parseInt(s, 10) || null : null;
 }

@@ -14,10 +14,13 @@ export interface AppState {
   /** Filter to a specific album path (null = show all) */
   activeAlbumPath: string | null;
 
-  /** Currently selected file path */
+  /** Currently selected file paths (multi-select) */
+  selectedTrackPaths: string[];
+
+  /** Primary selected file path for single-track edits */
   selectedTrackPath: string | null;
 
-  /** Metadata for the selected file */
+  /** Metadata for the primary selected file */
   selectedTrack: TrackData | null;
 
   /** Cover art data URL for the selected file's directory */
@@ -26,8 +29,9 @@ export interface AppState {
   /** Filter text for the file grid */
   filterText: string;
 
-  /** Loading states */
+    /** Loading states */
   scanning: boolean;
+  scanningProgress: { current: number; total: number } | null;
   loaded: boolean;
 
   /** Error message */
@@ -44,6 +48,17 @@ export interface AppState {
 
   /** Settings modal visibility */
   showSettings: boolean;
+
+  /** Auto-tag in progress */
+  autoTagging: boolean;
+  autoTagProgress: {
+    current: number;
+    total: number;
+    message: string;
+  } | null;
+
+  /** Dark mode enabled */
+  darkMode: boolean;
 }
 
 export const initialAppState: AppState = {
@@ -51,17 +66,22 @@ export const initialAppState: AppState = {
   albums: [],
   tracks: [],
   activeAlbumPath: null,
+  selectedTrackPaths: [],
   selectedTrackPath: null,
   selectedTrack: null,
   coverDataUrl: null,
   filterText: "",
   scanning: false,
+  scanningProgress: null,
   loaded: false,
   error: null,
   undoManager: new UndoManager(),
   dirtyTracks: new Set(),
   saving: false,
   showSettings: false,
+  autoTagging: false,
+  autoTagProgress: null,
+  darkMode: false,
 };
 
 export type AppAction =
@@ -70,20 +90,32 @@ export type AppAction =
   | { type: "SET_TRACKS"; tracks: TrackData[] }
   | { type: "SET_ACTIVE_ALBUM"; path: string | null }
   | { type: "SELECT_TRACK"; path: string; track: TrackData }
+  | { type: "SET_SELECTED_TRACKS"; paths: string[] }
   | { type: "CLEAR_SELECTION" }
   | { type: "SET_COVER_URL"; url: string | null }
   | { type: "SET_FILTER"; filter: string }
-  | { type: "SET_SCANNING"; scanning: boolean }
+    | { type: "SET_SCANNING"; scanning: boolean }
+  | { type: "SET_SCANNING_PROGRESS"; progress: { current: number; total: number } | null }
   | { type: "SET_LOADED"; loaded: boolean }
   | { type: "SET_ERROR"; error: string | null }
   | { type: "UPDATE_TRACK"; path: string; track: TrackData }
   | { type: "SET_DIRTY"; paths: string[] }
   | { type: "CLEAR_DIRTY"; path: string }
   | { type: "PUSH_UNDO"; description: string; snapshots: TrackSnapshot[] }
-  | { type: "POP_UNDO"; snapshots: TrackSnapshot[] | null }
+  | { type: "POP_UNDO" }
   | { type: "CLEAR_UNDO" }
   | { type: "SET_SAVING"; saving: boolean }
   | { type: "TOGGLE_SETTINGS"; show: boolean }
+  | { type: "SET_AUTO_TAGGING"; autoTagging: boolean }
+  | {
+      type: "SET_AUTO_TAG_PROGRESS";
+      progress: {
+        current: number;
+        total: number;
+        message: string;
+      } | null;
+    }
+  | { type: "TOGGLE_DARK_MODE" }
   | { type: "CLEAR_ALL" };
 
 export function appReducer(state: AppState, action: AppAction): AppState {
@@ -93,6 +125,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         ...state,
         libraryPath: action.path,
         activeAlbumPath: null,
+        selectedTrackPaths: [],
         selectedTrackPath: null,
         selectedTrack: null,
         coverDataUrl: null,
@@ -116,6 +149,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       return {
         ...state,
         activeAlbumPath: action.path,
+        selectedTrackPaths: [],
         selectedTrackPath: null,
         selectedTrack: null,
         coverDataUrl: null,
@@ -124,13 +158,21 @@ export function appReducer(state: AppState, action: AppAction): AppState {
     case "SELECT_TRACK":
       return {
         ...state,
+        selectedTrackPaths: [action.path],
         selectedTrackPath: action.path,
         selectedTrack: action.track,
+      };
+
+    case "SET_SELECTED_TRACKS":
+      return {
+        ...state,
+        selectedTrackPaths: action.paths,
       };
 
     case "CLEAR_SELECTION":
       return {
         ...state,
+        selectedTrackPaths: [],
         selectedTrackPath: null,
         selectedTrack: null,
         coverDataUrl: null,
@@ -143,7 +185,10 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       return { ...state, filterText: action.filter };
 
     case "SET_SCANNING":
-      return { ...state, scanning: action.scanning };
+      return { ...state, scanning: action.scanning, scanningProgress: action.scanning ? state.scanningProgress : null };
+
+    case "SET_SCANNING_PROGRESS":
+      return { ...state, scanningProgress: action.progress };
 
     case "SET_LOADED":
       return { ...state, loaded: action.loaded };
@@ -184,7 +229,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       return { ...state };
 
     case "POP_UNDO":
-      state.undoManager.pop();
+      // handleRevert does the actual pop; this just triggers a re-render
       return { ...state };
 
     case "CLEAR_UNDO":
@@ -196,6 +241,19 @@ export function appReducer(state: AppState, action: AppAction): AppState {
 
     case "TOGGLE_SETTINGS":
       return { ...state, showSettings: action.show };
+
+    case "SET_AUTO_TAGGING":
+      return {
+        ...state,
+        autoTagging: action.autoTagging,
+        autoTagProgress: action.autoTagging ? state.autoTagProgress : null,
+      };
+
+    case "SET_AUTO_TAG_PROGRESS":
+      return { ...state, autoTagProgress: action.progress };
+
+    case "TOGGLE_DARK_MODE":
+      return { ...state, darkMode: !state.darkMode };
 
     default:
       return state;

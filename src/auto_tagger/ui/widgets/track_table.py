@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from textual import events
+from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
 from textual.screen import ModalScreen
 from textual.widget import Widget
@@ -31,7 +32,7 @@ ALBUM_COLUMNS: list[dict] = [
 
 TRACK_COLUMNS: list[dict] = [
     {"key": "track", "label": "#", "width": 4, "always": True},
-    {"key": "filename", "label": "Filename", "width": 28, "always": True},
+    {"key": "filename", "label": "Path", "width": 40, "always": True},
     {"key": "title", "label": "Title", "width": 24, "always": True},
     {"key": "artist", "label": "Artist", "width": 20, "always": True},
     {"key": "album_artist", "label": "Album Artist", "width": 20, "always": True},
@@ -144,6 +145,10 @@ class TrackTable(Widget):
     - **Album browser**: one row per album with aggregate stats
     - **Track view**: one row per track, sorted and filterable
     """
+
+    BINDINGS: list[Binding] = [
+        Binding("ctrl+a", "select_all", "Select All"),
+    ]
 
     DEFAULT_CSS = """
     TrackTable {
@@ -295,7 +300,6 @@ class TrackTable(Widget):
         track_str = f"{track_num:02d}" if meta.track_total and meta.track_total > 9 else str(track_num)
         if meta.disc_number is not None:
             return f"{meta.disc_number}-{track_str}"
-        # Show total only for single-digit tracks that have a total
         if meta.track_total:
             return f"{track_num}/{meta.track_total}"
         return str(track_num)
@@ -344,6 +348,18 @@ class TrackTable(Widget):
         if self._sort_col:
             self._do_sort(self._sort_col, self._sort_reverse)
 
+    def _relative_track_path(self, abs_path: Path) -> str:
+        """Return the path relative to the library root, or just the file name."""
+        try:
+            app_state = self.app.state  # type: ignore[attr-defined]
+            lib = app_state.library_path
+            if lib:
+                rel = abs_path.relative_to(lib)
+                return str(rel)
+        except (ValueError, AttributeError):
+            pass
+        return abs_path.name
+
     def _make_track_row(self, track, album_artist_hint: str = "") -> list[str]:
         meta = track.metadata
         track_str = self._format_track_number(meta)
@@ -357,7 +373,7 @@ class TrackTable(Widget):
 
         row_map: dict[str, str] = {
             "track": track_str,
-            "filename": track.path.name,
+            "filename": self._relative_track_path(track.path),
             "title": meta.title or "",
             "artist": meta.artist or "",
             "album_artist": album_artist,
@@ -487,6 +503,28 @@ class TrackTable(Widget):
                 row_key = ordered[cursor_row].key
                 if row_key is not None:
                     table.action_select_cursor()
+
+    def action_select_all(self) -> None:
+        """Select all tracks in the current track view (Ctrl+A)."""
+        app_state = self.app.state  # type: ignore[attr-defined]
+        if app_state.show_album_browser:
+            return
+        album = app_state.selected_album
+        if not album:
+            return
+        if not album.tracks_loaded:
+            album.ensure_tracks_loaded()
+        app_state.selected_track_paths = {t.path for t in album.tracks}
+        self._update_status_bar_selection()
+        # Populate tag panel with the first selected track
+        tag_panel = self.screen.query_one("#tag-panel")
+        if hasattr(tag_panel, "populate"):
+            first_track = next(
+                (t for t in album.tracks if t.path in app_state.selected_track_paths),
+                None,
+            )
+            if first_track:
+                tag_panel.populate(first_track.path)
 
     def _select_track(self, track_path: Path) -> None:
         app_state = self.app.state  # type: ignore[attr-defined]
