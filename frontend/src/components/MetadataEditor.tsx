@@ -50,8 +50,6 @@ export function MetadataEditor({
         return track.album ?? "";
       case "albumArtist":
         return track.albumArtist ?? "";
-      case "artists":
-        return (track.artists ?? []).join(", ");
       case "year":
         return track.year ?? "";
       case "track":
@@ -225,13 +223,6 @@ export function MetadataEditor({
             onChange={(v) => setField("albumArtist", v)}
             placeholder="Album artist"
             dirty={isDirty("albumArtist")}
-          />
-          <InspectorField
-            label="ARTISTS"
-            value={value("artists")}
-            onChange={(v) => setField("artists", v)}
-            placeholder="Artist1, Artist2, …"
-            dirty={isDirty("artists")}
           />
           <div className="grid grid-cols-2 gap-2.5">
             <InspectorField

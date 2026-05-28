@@ -12,6 +12,7 @@ import { AuditPanel } from "./components/AuditPanel";
 import { SettingsModal } from "./components/SettingsModal";
 import { ConvertDialog } from "./components/ConvertDialog";
 import { ExtraTagsEditor } from "./components/ExtraTagsEditor";
+import { BatchExtraTagsEditor } from "./components/BatchExtraTagsEditor";
 import type { ConvertDirection } from "./components/ConvertDialog";
 import type { TrackData, AlbumInfo } from "../electron/preload";
 
@@ -24,6 +25,7 @@ export default function App() {
   const [state, dispatch] = useReducer(appReducer, initialAppState);
   const [showConvertDialog, setShowConvertDialog] = React.useState(false);
   const [extraTagsTrack, setExtraTagsTrack] = React.useState<TrackData | null>(null);
+  const [batchExtraTagsOpen, setBatchExtraTagsOpen] = React.useState(false);
 
   /** Read track data for every album and dispatch results. */
   const loadAlbumTracks = useCallback(
@@ -156,6 +158,20 @@ export default function App() {
     [],
   );
 
+  const handleEditExtraTagsFromSelection = useCallback(
+    (track: TrackData, selectedPaths: string[]) => {
+      if (selectedPaths.length > 1) {
+        setExtraTagsTrack(null);
+        setBatchExtraTagsOpen(true);
+        return;
+      }
+
+      setBatchExtraTagsOpen(false);
+      setExtraTagsTrack(track);
+    },
+    [],
+  );
+
   // --- Field editing (batch save via Save button, no auto-save) ---
 
   const handleSaveMetadata = useCallback(
@@ -171,7 +187,6 @@ export default function App() {
           artist: track.artist,
           album: track.album,
           albumArtist: track.albumArtist,
-          artists: track.artists?.join(", ") ?? null,
           year: track.year,
           track:
             track.trackNumber != null ? String(track.trackNumber) : null,
@@ -210,12 +225,6 @@ export default function App() {
             if (parts[1]) writeFields.discTotal = updatedTrack.discTotal;
             break;
           }
-          case "artists":
-            updatedTrack.artists = value
-              ? value.split(",").map((s) => s.trim()).filter(Boolean)
-              : [];
-            writeFields.artists = value || null;
-            break;
           default:
             (updatedTrack as Record<string, unknown>)[field] = value || null;
             writeFields[field] = value || null;
@@ -772,7 +781,6 @@ export default function App() {
             artist: track.artist,
             album: track.album,
             albumArtist: track.albumArtist,
-            artists: track.artists?.join(", ") ?? null,
             year: track.year,
             track: track.trackNumber != null ? String(track.trackNumber) : null,
             disc: track.discNumber != null ? String(track.discNumber) : null,
@@ -805,6 +813,32 @@ export default function App() {
       }
     },
     [state.selectedTrackPaths, state.tracks],
+  );
+
+  // Handle batch extra tags save
+  const handleBatchExtraTagsSave = useCallback(
+    async (tags: Array<{ key: string; value: string }>) => {
+      const paths = state.selectedTrackPaths;
+      if (paths.length === 0) return;
+
+      dispatch({ type: "SET_SAVING", saving: true });
+      dispatch({ type: "SET_ERROR", error: null });
+
+      try {
+        const updates = paths.map((path) => ({ path, tags }));
+        const results = await window.api.writeExtraTagsBatch(updates);
+        for (let i = 0; i < paths.length; i++) {
+          dispatch({ type: "UPDATE_TRACK", path: paths[i], track: results[i] });
+        }
+        setBatchExtraTagsOpen(false);
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : "Batch extra tags save failed";
+        dispatch({ type: "SET_ERROR", error: message });
+      } finally {
+        dispatch({ type: "SET_SAVING", saving: false });
+      }
+    },
+    [state.selectedTrackPaths],
   );
 
   return (
@@ -876,10 +910,11 @@ export default function App() {
           <FileGrid
             tracks={filteredTracks}
             selectedTrackPath={state.selectedTrackPath}
+            selectedTrackPaths={state.selectedTrackPaths}
             filterText={state.filterText}
             onSelectTrack={handleSelectTrack}
             onMultiSelect={handleMultiSelect}
-            onEditExtraTags={setExtraTagsTrack}
+            onEditExtraTags={handleEditExtraTagsFromSelection}
           />
         </div>
 
@@ -954,6 +989,15 @@ export default function App() {
           saving={state.saving}
           onClose={() => setExtraTagsTrack(null)}
           onSave={handleSaveExtraTags}
+        />
+      )}
+
+      {batchExtraTagsOpen && state.selectedTrackPaths.length > 1 && (
+        <BatchExtraTagsEditor
+          tracks={selectedTracksForBatch}
+          saving={state.saving}
+          onClose={() => setBatchExtraTagsOpen(false)}
+          onSave={handleBatchExtraTagsSave}
         />
       )}
     </div>

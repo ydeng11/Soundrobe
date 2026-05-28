@@ -184,6 +184,9 @@ export interface ElectronAPI {
     trackPath: string,
     tags: ExtraTagUpdate[]
   ) => Promise<TrackData>;
+  writeExtraTagsBatch: (
+    updates: Array<{ path: string; tags: ExtraTagUpdate[] }>
+  ) => Promise<TrackData[]>;
   showTrackContextMenu: (
     trackPath: string,
     labels: Record<string, string>
@@ -252,6 +255,10 @@ contextBridge.exposeInMainWorld("api", {
     tags: ExtraTagUpdate[]
   ): Promise<TrackData> =>
     ipcRenderer.invoke("track:extra-tags:write", trackPath, tags),
+  writeExtraTagsBatch: (
+    updates: Array<{ path: string; tags: ExtraTagUpdate[] }>
+  ): Promise<TrackData[]> =>
+    ipcRenderer.invoke("tracks:batch-write-extra-tags", updates),
   showTrackContextMenu: (
     trackPath: string,
     labels: Record<string, string>

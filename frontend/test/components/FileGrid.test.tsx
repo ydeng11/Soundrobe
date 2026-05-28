@@ -198,8 +198,97 @@ describe("FileGrid", () => {
       );
       expect(onEditExtraTags).toHaveBeenCalledWith(
         expect.objectContaining({ path: "/music/song1.mp3" }),
+        ["/music/song1.mp3"],
       );
     });
+  });
+
+  it("preserves multi-selection when Extra Tags is opened from a selected row context menu", async () => {
+    const onSelect = vi.fn();
+    const onMulti = vi.fn();
+    const onEditExtraTags = vi.fn();
+    window.api = {
+      showTrackContextMenu: vi.fn().mockResolvedValue("extra-tags"),
+    } as unknown as Window["api"];
+
+    render(
+      <FileGrid
+        tracks={tracks}
+        selectedTrackPath="/music/song1.mp3"
+        selectedTrackPaths={["/music/song1.mp3", "/music/song2.mp3"]}
+        filterText=""
+        onSelectTrack={onSelect}
+        onMultiSelect={onMulti}
+        onEditExtraTags={onEditExtraTags}
+      />
+    );
+
+    fireEvent.contextMenu(screen.getByText("music/song1.mp3"));
+
+    await waitFor(() => {
+      expect(onSelect).not.toHaveBeenCalled();
+      expect(onMulti).not.toHaveBeenCalled();
+      expect(onEditExtraTags).toHaveBeenCalledWith(
+        expect.objectContaining({ path: "/music/song1.mp3" }),
+        ["/music/song1.mp3", "/music/song2.mp3"],
+      );
+    });
+  });
+
+  it("opens Extra Tags from blank table space when tracks are selected", async () => {
+    const onSelect = vi.fn();
+    const onEditExtraTags = vi.fn();
+    window.api = {
+      showTrackContextMenu: vi.fn().mockResolvedValue("extra-tags"),
+    } as unknown as Window["api"];
+
+    render(
+      <FileGrid
+        tracks={tracks}
+        selectedTrackPath="/music/song1.mp3"
+        selectedTrackPaths={["/music/song1.mp3", "/music/song2.mp3"]}
+        filterText=""
+        onSelectTrack={onSelect}
+        onEditExtraTags={onEditExtraTags}
+      />
+    );
+
+    fireEvent.contextMenu(screen.getByTestId("file-grid-body"));
+
+    await waitFor(() => {
+      expect(window.api.showTrackContextMenu).toHaveBeenCalledWith(
+        "/music/song1.mp3",
+        expect.objectContaining({ title: "Song One" }),
+      );
+      expect(onEditExtraTags).toHaveBeenCalledWith(
+        expect.objectContaining({ path: "/music/song1.mp3" }),
+        ["/music/song1.mp3", "/music/song2.mp3"],
+      );
+    });
+  });
+
+  it("ignores blank table-space context menus when no tracks are selected", () => {
+    const onSelect = vi.fn();
+    const onEditExtraTags = vi.fn();
+    window.api = {
+      showTrackContextMenu: vi.fn().mockResolvedValue("extra-tags"),
+    } as unknown as Window["api"];
+
+    render(
+      <FileGrid
+        tracks={tracks}
+        selectedTrackPath={null}
+        selectedTrackPaths={[]}
+        filterText=""
+        onSelectTrack={onSelect}
+        onEditExtraTags={onEditExtraTags}
+      />
+    );
+
+    fireEvent.contextMenu(screen.getByTestId("file-grid-body"));
+
+    expect(window.api.showTrackContextMenu).not.toHaveBeenCalled();
+    expect(onEditExtraTags).not.toHaveBeenCalled();
   });
 
   it("shows file count in footer", () => {
@@ -291,5 +380,47 @@ describe("FileGrid", () => {
     // Rows should be in reverse order (3 data rows)
     const dataRows = container.querySelectorAll('[class*="flex items-center px-3 py-1"]');
     expect(dataRows.length).toBeGreaterThanOrEqual(3);
+  });
+
+  it("shift-click range select calls onMultiSelect with all paths in range, not onSelectTrack", () => {
+    const onSelect = vi.fn();
+    const onMulti = vi.fn();
+    render(
+      <FileGrid
+        tracks={tracks}
+        selectedTrackPath={null}
+        filterText=""
+        onSelectTrack={onSelect}
+        onMultiSelect={onMulti}
+      />
+    );
+
+    // Click first row to set lastClickedRef
+    const rows = screen.getAllByText(/music\/song/);
+    expect(rows.length).toBeGreaterThanOrEqual(3);
+
+    // Click first row (no shift)
+    fireEvent.click(screen.getByText("music/song1.mp3"));
+    expect(onMulti).toHaveBeenCalledWith(["/music/song1.mp3"]);
+    expect(onSelect).toHaveBeenCalledWith(
+      "/music/song1.mp3",
+      expect.objectContaining({ title: "Song One" })
+    );
+
+    vi.clearAllMocks();
+
+    // Shift-click third row (song2, at sorted index 2) — should call onMulti with all 3
+    // paths and NOT call onSelectTrack (so BatchEditor stays visible).
+    // Default sort is by track number ascending: [song1, song3, song2]
+    fireEvent.click(screen.getByText("music/song2.mp3"), {
+      shiftKey: true,
+    });
+
+    expect(onMulti).toHaveBeenCalledWith([
+      "/music/song1.mp3",
+      "/music/song3.mp3",
+      "/music/song2.mp3",
+    ]);
+    expect(onSelect).not.toHaveBeenCalled();
   });
 });

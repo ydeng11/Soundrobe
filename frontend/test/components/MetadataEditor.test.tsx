@@ -66,6 +66,13 @@ describe("MetadataEditor", () => {
     expect(screen.getByDisplayValue("Test Composer")).toBeTruthy();
   });
 
+  it("does not render ARTISTS in the metadata panel", () => {
+    render(<MetadataEditor {...baseProps} track={makeTrack({ artists: ["foo", "bar"] })} />);
+
+    expect(screen.queryByText("ARTISTS")).toBeNull();
+    expect(screen.queryByDisplayValue("foo, bar")).toBeNull();
+  });
+
   it("shows unsaved indicator when a field is edited", () => {
     render(<MetadataEditor {...baseProps} />);
     const titleInput = screen.getByDisplayValue("Test Title");

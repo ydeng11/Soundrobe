@@ -2,9 +2,8 @@ import { ipcMain } from "electron";
 import { parseFile } from "music-metadata";
 import fs from "fs";
 import path from "path";
-import * as NodeID3 from "node-id3";
 import type { CoverInfo } from "../preload";
-import { writeTags, batchWriteTags, writeExtraTags } from "./writer";
+import { writeTags, batchWriteTags, writeExtraTags, batchWriteExtraTags } from "./writer";
 import type { ExtraTagUpdate, WriteFields } from "./writer";
 
 export interface TrackData {
@@ -53,22 +52,32 @@ const SUPPORTED_EXTENSIONS = new Set([
   ".aiff",
 ]);
 
-const STANDARD_EXTRA_TAG_KEYS = new Set([
+/**
+ * Tags that are already shown in the MetadataEditor sidebar.
+ * Extra Tags should NOT show these — they'd be duplicating the editor.
+ * This set covers both ID3 frame IDs and Vorbis comment key names.
+ */
+const METADATA_EDITOR_KEYS = new Set([
+  // Title
   "TIT2",
   "TITLE",
+  // Artist
   "TPE1",
   "ARTIST",
-  "ARTISTS",
+  // Album
   "TALB",
   "ALBUM",
+  // Album Artist
   "TPE2",
   "ALBUMARTIST",
   "ALBUM ARTIST",
   "ALBUMARTISTS",
+  // Year
   "TDRC",
   "TYER",
   "DATE",
   "YEAR",
+  // Track / Disc (numeric fields shown as range in editor)
   "TRCK",
   "TRACKNUMBER",
   "TRACKTOTAL",
@@ -77,21 +86,29 @@ const STANDARD_EXTRA_TAG_KEYS = new Set([
   "DISCNUMBER",
   "DISCTOTAL",
   "TOTALDISCS",
+  // Genre
   "TCON",
   "GENRE",
+  // Composer
   "TCOM",
   "COMPOSER",
+  // Comment
   "COMM",
   "COMMENT",
+  // Detailed metadata shown in the sidebar
   "USLT",
   "LYRICS",
-  "UNSYNCEDLYRICS",
-  "TCMP",
+  "SYLT",
   "COMPILATION",
-  "APIC",
+  "TCMP",
+  "MUSICBRAINZ TRACK ID",
+  "MUSICBRAINZ ALBUM ID",
+  "MUSICBRAINZ ARTIST ID",
+  "MUSICBRAINZ_TRACKID",
+  "MUSICBRAINZ_ALBUMID",
+  "MUSICBRAINZ_ARTISTID",
   "METADATA_BLOCK_PICTURE",
-  "COVERART",
-  "COVR",
+  "APIC",
 ]);
 
 export function isAudioFile(filePath: string): boolean {
@@ -175,10 +192,6 @@ export async function readTrackMetadata(filePath: string): Promise<TrackData> {
 }
 
 export async function readExtraTags(filePath: string): Promise<ExtraTag[]> {
-  if (path.extname(filePath).toLowerCase() === ".mp3") {
-    return readMp3UserDefinedTags(filePath);
-  }
-
   const metadata = await parseFile(filePath, { duration: false });
   const rows: ExtraTag[] = [];
   const seen = new Set<string>();
@@ -186,7 +199,7 @@ export async function readExtraTags(filePath: string): Promise<ExtraTag[]> {
   for (const [source, tags] of Object.entries(metadata.native)) {
     for (const tag of tags) {
       const key = normalizeNativeKey(tag.id, tag.value);
-      if (!key || STANDARD_EXTRA_TAG_KEYS.has(key.toUpperCase())) continue;
+      if (!key || METADATA_EDITOR_KEYS.has(key.toUpperCase())) continue;
 
       const value = stringifyTagValue(tag.value);
       if (!value) continue;
@@ -201,26 +214,11 @@ export async function readExtraTags(filePath: string): Promise<ExtraTag[]> {
   return rows.sort((a, b) => a.key.localeCompare(b.key));
 }
 
-function readMp3UserDefinedTags(filePath: string): ExtraTag[] {
-  const tags = NodeID3.read(filePath);
-  const userDefined = tags.userDefinedText;
-  const rows = Array.isArray(userDefined)
-    ? userDefined
-    : userDefined
-      ? [userDefined]
-      : [];
-
-  return rows
-    .filter((tag) => tag.description && tag.value)
-    .map((tag) => ({
-      key: tag.description,
-      value: tag.value,
-      source: "ID3v2 TXXX",
-    }))
-    .sort((a, b) => a.key.localeCompare(b.key));
-}
-
 function normalizeNativeKey(id: string, value: unknown): string {
+  if (id.startsWith("TXXX:")) {
+    const description = id.slice("TXXX:".length).trim();
+    if (description) return description;
+  }
   if (id === "TXXX" && isRecord(value)) {
     const description = value.description;
     if (typeof description === "string" && description.trim()) {
@@ -240,6 +238,12 @@ function stringifyTagValue(value: unknown): string | null {
   if (isRecord(value)) {
     if (typeof value.value === "string") return value.value;
     if (typeof value.text === "string") return value.text;
+    if (typeof value.value === "number" || typeof value.value === "boolean") {
+      return String(value.value);
+    }
+    if (typeof value.text === "number" || typeof value.text === "boolean") {
+      return String(value.text);
+    }
     if (Buffer.isBuffer(value.data) || Buffer.isBuffer(value.imageBuffer)) return null;
   }
   return null;
@@ -566,6 +570,17 @@ export function registerTrackHandlers(): void {
     ): Promise<TrackData> => {
       await writeExtraTags(trackPath, tags);
       return readTrackMetadata(trackPath);
+    }
+  );
+
+  ipcMain.handle(
+    "tracks:batch-write-extra-tags",
+    async (
+      _event,
+      updates: Array<{ path: string; tags: ExtraTagUpdate[] }>
+    ): Promise<TrackData[]> => {
+      await batchWriteExtraTags(updates);
+      return Promise.all(updates.map((u) => readTrackMetadata(u.path)));
     }
   );
 }

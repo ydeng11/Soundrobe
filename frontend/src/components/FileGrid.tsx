@@ -38,6 +38,7 @@ const COLUMN_FLEX: Record<string, number> = {
 // Minimum pixel width per column
 const MIN_COL_WIDTH = 40;
 const HANDLE_WIDTH = 5;
+const EMPTY_SELECTED_TRACK_PATHS: string[] = [];
 
 const ALL_COLUMNS: Column[] = [
   { key: "filename", label: "Path", width: "flex-[3]", align: "left" },
@@ -55,15 +56,17 @@ const ALL_COLUMNS: Column[] = [
 interface FileGridProps {
   tracks: TrackData[];
   selectedTrackPath: string | null;
+  selectedTrackPaths?: string[];
   filterText: string;
   onSelectTrack: (path: string, track: TrackData) => void;
   onMultiSelect?: (paths: string[]) => void;
-  onEditExtraTags?: (track: TrackData) => void;
+  onEditExtraTags?: (track: TrackData, selectedPaths: string[]) => void;
 }
 
 export function FileGrid({
   tracks,
   selectedTrackPath,
+  selectedTrackPaths = EMPTY_SELECTED_TRACK_PATHS,
   filterText,
   onSelectTrack,
   onMultiSelect,
@@ -226,6 +229,10 @@ export function FileGrid({
 
   const COLUMNS = ALL_COLUMNS.filter((c) => visibleColumns.has(c.key));
 
+  useEffect(() => {
+    setMultiSelected(new Set(selectedTrackPaths));
+  }, [selectedTrackPaths]);
+
   const toggleColumn = (key: string) => {
     setVisibleColumns((prev) => {
       const next = new Set(prev);
@@ -320,13 +327,9 @@ export function FileGrid({
     return () => window.removeEventListener("keydown", handler);
   }, [sorted, onMultiSelect]);
 
-  const handleRowContextMenu = useCallback(
-    async (e: React.MouseEvent, track: TrackData) => {
-      e.preventDefault();
-      e.stopPropagation();
-      onSelectTrack(track.path, track);
-
-      const action = await window.api.showTrackContextMenu(track.path, {
+  const showTrackMenu = useCallback(
+    async (track: TrackData) => {
+      return window.api.showTrackContextMenu(track.path, {
         title: track.title ?? "",
         artist: track.artist ?? "",
         albumArtist: track.albumArtist ?? "",
@@ -338,12 +341,58 @@ export function FileGrid({
             : "",
         genre: track.genre ?? "",
       });
+    },
+    [],
+  );
+
+  const handleRowContextMenu = useCallback(
+    async (e: React.MouseEvent, track: TrackData) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      const isSelected = selectedTrackPaths.includes(track.path);
+      const menuSelectedPaths =
+        isSelected && selectedTrackPaths.length > 1
+          ? selectedTrackPaths
+          : [track.path];
+
+      if (!isSelected || selectedTrackPaths.length <= 1) {
+        setMultiSelected(new Set([track.path]));
+        onMultiSelect?.([track.path]);
+        onSelectTrack(track.path, track);
+      }
+
+      const action = await showTrackMenu(track);
 
       if (action === "extra-tags") {
-        onEditExtraTags?.(track);
+        onEditExtraTags?.(track, menuSelectedPaths);
       }
     },
-    [onEditExtraTags, onSelectTrack],
+    [onEditExtraTags, onMultiSelect, onSelectTrack, selectedTrackPaths, showTrackMenu],
+  );
+
+  const handleFileAreaContextMenu = useCallback(
+    async (e: React.MouseEvent) => {
+      e.preventDefault();
+
+      if (selectedTrackPaths.length === 0) {
+        return;
+      }
+
+      const primary =
+        sorted.find((track) => track.path === selectedTrackPaths[0]) ??
+        tracks.find((track) => track.path === selectedTrackPaths[0]);
+      if (!primary) {
+        return;
+      }
+
+      const action = await showTrackMenu(primary);
+
+      if (action === "extra-tags") {
+        onEditExtraTags?.(primary, selectedTrackPaths);
+      }
+    },
+    [onEditExtraTags, selectedTrackPaths, showTrackMenu, sorted, tracks],
   );
 
   const handleRowClick = useCallback(
@@ -357,12 +406,16 @@ export function FileGrid({
         }
         setMultiSelected(range);
         onMultiSelect?.(Array.from(range));
+        // Don't call onSelectTrack for range selects — the SELECT_TRACK action would
+        // overwrite selectedTrackPaths to a single element, hiding the BatchEditor.
+        // The BatchEditor (shown when selectedTrackPaths.length > 1) gets cover art
+        // from handleMultiSelect's first-track logic anyway.
       } else {
         setMultiSelected(new Set([track.path]));
         onMultiSelect?.([track.path]);
+        lastClickedRef.current = index;
+        onSelectTrack(track.path, track);
       }
-      lastClickedRef.current = index;
-      onSelectTrack(track.path, track);
     },
     [sorted, onSelectTrack]
   );
@@ -491,7 +544,11 @@ export function FileGrid({
       )}
 
       {/* File rows */}
-      <div className="flex-1 overflow-y-auto">
+      <div
+        className="flex-1 overflow-y-auto"
+        data-testid="file-grid-body"
+        onContextMenu={handleFileAreaContextMenu}
+      >
         {sorted.length === 0 ? (
           <div className="flex items-center justify-center h-full text-text-muted text-[12px]">
             <div className="flex flex-col items-center gap-2">

@@ -54,16 +54,26 @@ const STANDARD_VORBIS_TAGS = new Set([
   "GENRE",
   "COMPOSER",
   "COMMENT",
+  "LYRICS",
+  "UNSYNCEDLYRICS",
+  "UNSYNCHRONISEDLYRICS",
   "TRACKNUMBER",
   "TRACKTOTAL",
   "TOTALTRACKS",
   "DISCNUMBER",
   "DISCTOTAL",
   "TOTALDISCS",
-  "LYRICS",
-  "UNSYNCEDLYRICS",
+  "MUSICBRAINZ TRACK ID",
+  "MUSICBRAINZ ALBUM ID",
+  "MUSICBRAINZ ARTIST ID",
+  "MUSICBRAINZ_TRACKID",
+  "MUSICBRAINZ_ALBUMID",
+  "MUSICBRAINZ_ARTISTID",
   "COMPILATION",
+  "METADATA_BLOCK_PICTURE",
 ]);
+
+const EXTRA_TAG_RESERVED_EXCEPTIONS = new Set(["ARTISTS"]);
 
 /**
  * Convert our normalized fields into format-specific tag objects.
@@ -153,13 +163,24 @@ function mergeMp3UserDefinedText(
 
 function writeMp3ExtraTags(filePath: string, extraTags: ExtraTagUpdate[]): void {
   const existingTags = NodeID3.read(filePath);
-  const custom = normalizeExtraTags(extraTags).map((tag) => ({
+  const preserved = (Array.isArray(existingTags.userDefinedText)
+    ? existingTags.userDefinedText
+    : existingTags.userDefinedText
+      ? [existingTags.userDefinedText]
+      : []
+  ).filter(
+    (tag) =>
+      tag.description &&
+      isReservedExtraTagKey(tag.description) &&
+      !EXTRA_TAG_RESERVED_EXCEPTIONS.has(tag.description.trim().toUpperCase()),
+  );
+  const custom = normalizeExtraTags(extraTags, EXTRA_TAG_RESERVED_EXCEPTIONS).map((tag) => ({
     description: tag.key,
     value: tag.value,
   }));
   const nextTags: NodeID3.Tags = {
     ...existingTags,
-    userDefinedText: custom,
+    userDefinedText: [...preserved, ...custom],
   };
   NodeID3.write(nextTags, filePath);
 }
@@ -350,11 +371,156 @@ function writeVorbisComments(
 
   if (filePath.toLowerCase().endsWith(".flac")) {
     writeFlacMetadataBlock(filePath, origBuf, 4, commentBlock);
+  } else if (
+    filePath.toLowerCase().endsWith(".ogg") ||
+    filePath.toLowerCase().endsWith(".opus")
+  ) {
+    writeOggVorbisComments(filePath, commentBlock);
   } else {
-    // OGG: need to rewrite the OGG page — for MVP write directly if small enough
-    // Fallback: write FLAC-style block for OGG (not correct but lets MVP work)
+    // Unsupported Vorbis container — fall through
     fs.writeFileSync(filePath, origBuf);
   }
+}
+
+/** CRC32 table for OGG page checksums. */
+const OGG_CRC_TABLE = new Int32Array(256);
+for (let i = 0; i < 256; i++) {
+  let c = i;
+  for (let j = 0; j < 8; j++) {
+    c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+  }
+  OGG_CRC_TABLE[i] = c;
+}
+
+function oggCrc32(buf: Buffer): number {
+  let crc = 0xffffffff;
+  for (let i = 0; i < buf.length; i++) {
+    crc = OGG_CRC_TABLE[(crc ^ buf[i]) & 0xff] ^ (crc >>> 8);
+  }
+  return (crc ^ 0xffffffff) >>> 0;
+}
+
+/**
+ * Write Vorbis comments to an OGG/OPUS file by finding and replacing the
+ * Vorbis comment page (packet type 3).
+ */
+function writeOggVorbisComments(filePath: string, commentBlock: Buffer): void {
+  const fileBuf = fs.readFileSync(filePath);
+  let offset = 0;
+
+  while (offset + 27 <= fileBuf.length) {
+    const magic = fileBuf.toString("ascii", offset, offset + 4);
+    if (magic !== "OggS") {
+      offset++;
+      continue;
+    }
+
+    const numSegments = fileBuf[offset + 26];
+
+    if (offset + 27 + numSegments > fileBuf.length) break;
+
+    // Read segment table and calculate total segment data size
+    const segTable: number[] = [];
+    let segDataSize = 0;
+    for (let s = 0; s < numSegments; s++) {
+      const sz = fileBuf[offset + 27 + s];
+      segTable.push(sz);
+      segDataSize += sz;
+    }
+
+    const pageDataStart = offset + 27 + numSegments;
+    const pageDataEnd = pageDataStart + segDataSize;
+    if (pageDataEnd > fileBuf.length) break;
+
+    // Check if this page contains a Vorbis comment header (packet type 3)
+    if (segDataSize >= 7) {
+      const firstByte = fileBuf[pageDataStart];
+      const magicVorbis = fileBuf.toString("ascii", pageDataStart + 1, pageDataStart + 7);
+      if (firstByte === 3 && magicVorbis === "vorbis") {
+        // Found the Vorbis comment page
+        const pageStart = offset;
+
+        // Find where the old Vorbis comment packet ends.
+        // In OGG, a packet ends when a segment has a value < 255.
+        // The old comment packet's end position within pageDataStart is
+        // the sum of segment sizes until the first segment < 255 (or all
+        // segments if they are all exactly 255, meaning it continues on
+        // the next page).
+        let oldPacketEnd = pageDataStart;
+        for (let s = 0; s < numSegments; s++) {
+          const sz = segTable[s];
+          oldPacketEnd += sz;
+          if (sz < 255) break; // packet boundary
+        }
+
+        // If oldPacketEnd > pageDataEnd, the packet spans multiple pages
+        // — skip to avoid corrupting the file
+        if (oldPacketEnd > pageDataEnd) {
+          offset = pageDataEnd;
+          continue;
+        }
+
+        // Data after the old comment packet within the same page
+        // (typically the Vorbis setup header) must be preserved.
+        const tailData = fileBuf.subarray(
+          Math.min(oldPacketEnd, pageDataEnd),
+          pageDataEnd,
+        );
+
+        // Build new comment packet
+        const newPacket = Buffer.concat([
+          Buffer.from([3]), // packet type
+          Buffer.from("vorbis", "ascii"),
+          commentBlock,
+          Buffer.from([1]), // framing flag
+        ]);
+
+        // Combined payload: new comment packet + preserved tail (setup header etc.)
+        const combinedPayload = Buffer.concat([newPacket, tailData]);
+
+        // Build segment table for the combined payload
+        const newSegTable: number[] = [];
+        let remaining = combinedPayload.length;
+        while (remaining > 0) {
+          newSegTable.push(Math.min(remaining, 255));
+          remaining -= 255;
+        }
+        const newSegTableBuf = Buffer.from(newSegTable);
+
+        const afterPage = fileBuf.subarray(pageDataEnd);
+
+        // Build new page header
+        const newPageHeader = Buffer.alloc(27);
+        fileBuf.copy(newPageHeader, 0, pageStart, pageStart + 22); // copy up to CRC
+        newPageHeader.writeUInt32LE(0, 22); // zero CRC for calculation
+        newPageHeader[26] = newSegTable.length; // num segments
+
+        const newPage = Buffer.concat([
+          newPageHeader,
+          newSegTableBuf,
+          combinedPayload,
+        ]);
+
+        // Calculate CRC
+        const crcVal = oggCrc32(newPage);
+        newPage.writeUInt32LE(crcVal, 22);
+
+        const result = Buffer.concat([
+          fileBuf.subarray(0, pageStart),
+          newPage,
+          afterPage,
+        ]);
+
+        fs.writeFileSync(filePath, result);
+        return;
+      }
+    }
+
+    offset = pageDataEnd;
+  }
+
+  // If no Vorbis comment page found, write unchanged
+  fs.writeFileSync(filePath, fileBuf);
 }
 
 /**
@@ -575,7 +741,10 @@ function writeWav(_filePath: string, _fields: WriteFields): void {
   // Most WAV files don't have tag editing support.
 }
 
-function normalizeExtraTags(extraTags: ExtraTagUpdate[]): ExtraTagUpdate[] {
+function normalizeExtraTags(
+  extraTags: ExtraTagUpdate[],
+  allowedReservedKeys: Set<string> = new Set(),
+): ExtraTagUpdate[] {
   const result: ExtraTagUpdate[] = [];
   const seen = new Set<string>();
 
@@ -583,7 +752,10 @@ function normalizeExtraTags(extraTags: ExtraTagUpdate[]): ExtraTagUpdate[] {
     const key = tag.key.trim();
     const value = tag.value.trim();
     const normalizedKey = key.toUpperCase();
-    if (!key || !value || STANDARD_VORBIS_TAGS.has(normalizedKey)) continue;
+    if (!key || !value) continue;
+    if (isReservedExtraTagKey(normalizedKey) && !allowedReservedKeys.has(normalizedKey)) {
+      continue;
+    }
 
     const identity = `${normalizedKey}\0${value}`;
     if (seen.has(identity)) continue;
@@ -594,17 +766,22 @@ function normalizeExtraTags(extraTags: ExtraTagUpdate[]): ExtraTagUpdate[] {
   return result;
 }
 
+function isReservedExtraTagKey(key: string): boolean {
+  return STANDARD_VORBIS_TAGS.has(key.trim().toUpperCase());
+}
+
 function writeVorbisExtraTags(filePath: string, extraTags: ExtraTagUpdate[]): void {
   const data = fs.readFileSync(filePath);
   const comments = readVorbisComments(data);
 
   for (const key of Object.keys(comments)) {
-    if (!STANDARD_VORBIS_TAGS.has(key.toUpperCase())) {
+    const normalizedKey = key.toUpperCase();
+    if (!STANDARD_VORBIS_TAGS.has(normalizedKey) || EXTRA_TAG_RESERVED_EXCEPTIONS.has(normalizedKey)) {
       delete comments[key];
     }
   }
 
-  for (const tag of normalizeExtraTags(extraTags)) {
+  for (const tag of normalizeExtraTags(extraTags, EXTRA_TAG_RESERVED_EXCEPTIONS)) {
     const key = tag.key.toUpperCase();
     comments[key] ??= [];
     comments[key].push(tag.value);
@@ -657,10 +834,20 @@ export async function writeExtraTags(
       writeMp3ExtraTags(filePath, extraTags);
       break;
     case ".flac":
+    case ".ogg":
+    case ".opus":
       writeVorbisExtraTags(filePath, extraTags);
       break;
     default:
       throw new Error(`Extra tag editing is not supported for ${ext || "this file type"}`);
+  }
+}
+
+export async function batchWriteExtraTags(
+  updates: Array<{ path: string; tags: ExtraTagUpdate[] }>
+): Promise<void> {
+  for (const update of updates) {
+    await writeExtraTags(update.path, update.tags);
   }
 }
 

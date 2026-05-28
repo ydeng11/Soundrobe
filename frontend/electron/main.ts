@@ -143,10 +143,15 @@ function createWindow() {
   });
 
   if (isDev) {
-    const devServerUrl =
-      process.env.VITE_DEV_SERVER_URL ?? "http://localhost:5173";
-    mainWindow.loadURL(devServerUrl);
-    mainWindow.webContents.openDevTools({ mode: "detach" });
+    const e2eRendererPath = process.env.AUTO_TAGGER_E2E_RENDERER_PATH;
+    if (e2eRendererPath) {
+      mainWindow.loadFile(e2eRendererPath);
+    } else {
+      const devServerUrl =
+        process.env.VITE_DEV_SERVER_URL ?? "http://localhost:5173";
+      mainWindow.loadURL(devServerUrl);
+      mainWindow.webContents.openDevTools({ mode: "detach" });
+    }
 
     // Suppress benign DevTools protocol errors (version mismatch noise)
     mainWindow.webContents.on("console-message", (event, level, message, line, sourceId) => {
@@ -232,6 +237,10 @@ app.whenReady().then(async () => {
   ipcMain.handle("window:focused", async () => {});
   ipcMain.handle("dialog:open-folder", async (event) => {
     try {
+      if (process.env.AUTO_TAGGER_E2E_LIBRARY_PATH) {
+        return process.env.AUTO_TAGGER_E2E_LIBRARY_PATH;
+      }
+
       const win = resolveWindow(event);
       if (!win) return null;
 
@@ -252,6 +261,10 @@ app.whenReady().then(async () => {
   ipcMain.handle(
     "track:context-menu",
     async (event, trackPath: string, labels: Record<string, string>) => {
+      if (process.env.AUTO_TAGGER_E2E_TRACK_CONTEXT_ACTION === "extra-tags") {
+        return "extra-tags";
+      }
+
       const win = resolveWindow(event);
       if (!win) return null;
 

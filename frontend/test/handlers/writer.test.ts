@@ -4,7 +4,8 @@ import path from "path";
 import os from "os";
 import * as NodeID3 from "node-id3";
 import { parseFile } from "music-metadata";
-import { writeTags, batchWriteTags } from "../../electron/handlers/writer";
+import { writeTags, batchWriteTags, batchWriteExtraTags, writeExtraTags } from "../../electron/handlers/writer";
+import { readExtraTags } from "../../electron/handlers/tracks";
 
 /**
  * Create a minimal valid MP3 file with ID3v2 tags using node-id3,
@@ -133,6 +134,35 @@ describe("writeTags — MP3", () => {
     await writeTags(fp, { artist: "New Artist" });
     const tags = NodeID3.read(fp);
     expect(tags.artist).toBe("New Artist");
+  });
+
+  it("preserves custom extra tags when saving sidebar metadata to MP3", async () => {
+    const fp = path.join(tmpDir, "test.mp3");
+    createMinimalMp3(fp, { title: "Old" });
+
+    await writeExtraTags(fp, [{ key: "MOOD", value: "Bright" }]);
+    await writeTags(fp, { title: "New Title" });
+
+    const extras = await readExtraTags(fp);
+    expect(extras.find((tag) => tag.key === "MOOD")?.value).toBe("Bright");
+  });
+
+  it("does not show sidebar detail tags as MP3 extra tags", async () => {
+    const fp = path.join(tmpDir, "test.mp3");
+    createMinimalMp3(fp);
+
+    await writeTags(fp, {
+      artists: ["A", "B"],
+      musicbrainzTrackId: "mb-track",
+      musicbrainzAlbumId: "mb-album",
+      musicbrainzArtistId: "mb-artist",
+      compilation: true,
+    });
+    await writeExtraTags(fp, [{ key: "MOOD", value: "Bright" }]);
+
+    const extras = await readExtraTags(fp);
+    expect(extras.map((tag) => tag.key)).toEqual(["MOOD"]);
+    expect(extras[0]?.value).toBe("Bright");
   });
 
   it("writes album + year + genre — verified with node-id3", async () => {
@@ -791,5 +821,573 @@ describe("writeTags — format detection", () => {
     const fp = path.join(tmpDir, "test.xyz");
     fs.writeFileSync(fp, Buffer.alloc(100));
     await expect(writeTags(fp, { title: "x" })).rejects.toThrow();
+  });
+});
+
+describe("batchWriteExtraTags", () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "batch-extra-"));
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it("writes the same extra tags to multiple MP3 files", async () => {
+    const f1 = path.join(tmpDir, "t1.mp3");
+    const f2 = path.join(tmpDir, "t2.mp3");
+    createMinimalMp3(f1);
+    createMinimalMp3(f2);
+
+    await batchWriteExtraTags([
+      { path: f1, tags: [{ key: "BARCODE", value: "ABC-123" }, { key: "MOOD", value: "Bright" }] },
+      { path: f2, tags: [{ key: "BARCODE", value: "ABC-123" }, { key: "MOOD", value: "Bright" }] },
+    ]);
+
+    // Read back using writeExtraTags path (NodeID3 for MP3)
+    const r1 = NodeID3.read(f1);
+    const u1 = (Array.isArray(r1.userDefinedText) ? r1.userDefinedText : r1.userDefinedText ? [r1.userDefinedText] : []);
+    const m1 = Object.fromEntries(u1.filter((t) => t.description).map((t) => [t.description, t.value]));
+    expect(m1["BARCODE"]).toBe("ABC-123");
+    expect(m1["MOOD"]).toBe("Bright");
+
+    const r2 = NodeID3.read(f2);
+    const u2 = (Array.isArray(r2.userDefinedText) ? r2.userDefinedText : r2.userDefinedText ? [r2.userDefinedText] : []);
+    const m2 = Object.fromEntries(u2.filter((t) => t.description).map((t) => [t.description, t.value]));
+    expect(m2["BARCODE"]).toBe("ABC-123");
+    expect(m2["MOOD"]).toBe("Bright");
+  });
+
+  it("reads MP3 extra tags back through the Electron read path", async () => {
+    const fp = path.join(tmpDir, "readback.mp3");
+    createMinimalMp3(fp);
+
+    await writeExtraTags(fp, [
+      { key: "BARCODE", value: "ABC-123" },
+      { key: "MOOD", value: "Bright" },
+    ]);
+
+    const extras = await readExtraTags(fp);
+    expect(extras.find((tag) => tag.key === "BARCODE")?.value).toBe("ABC-123");
+    expect(extras.find((tag) => tag.key === "MOOD")?.value).toBe("Bright");
+  });
+
+  it("allows ARTISTS as an MP3 extra tag", async () => {
+    const fp = path.join(tmpDir, "artists-extra.mp3");
+    createMinimalMp3(fp);
+
+    await writeExtraTags(fp, [
+      { key: "ARTISTS", value: "foo" },
+      { key: "ARTISTS", value: "bar" },
+    ]);
+
+    const extras = await readExtraTags(fp);
+    const values = extras
+      .filter((tag) => tag.key === "ARTISTS")
+      .map((tag) => tag.value);
+    expect(values).toEqual(["foo", "bar"]);
+  });
+
+  it("preserves hidden MP3 sidebar detail tags except ARTISTS when replacing extra tags", async () => {
+    const fp = path.join(tmpDir, "preserve-hidden.mp3");
+    createMinimalMp3(fp);
+
+    await writeTags(fp, {
+      artists: ["Primary", "Guest"],
+      musicbrainzTrackId: "mb-track",
+      compilation: true,
+    });
+    await writeExtraTags(fp, [{ key: "MOOD", value: "Bright" }]);
+
+    const tags = NodeID3.read(fp);
+    const userDefinedText = Array.isArray(tags.userDefinedText)
+      ? tags.userDefinedText
+      : tags.userDefinedText
+        ? [tags.userDefinedText]
+        : [];
+    const byDescription = Object.fromEntries(
+      userDefinedText.filter((tag) => tag.description).map((tag) => [tag.description, tag.value]),
+    );
+    expect(byDescription["ARTISTS"]).toBeUndefined();
+    expect(byDescription["MusicBrainz Track Id"]).toBe("mb-track");
+    expect(byDescription["COMPILATION"]).toBe("1");
+    expect(byDescription["MOOD"]).toBe("Bright");
+  });
+
+  it("writes extra tags to each file independently", async () => {
+    const f1 = path.join(tmpDir, "a.mp3");
+    const f2 = path.join(tmpDir, "b.mp3");
+    createMinimalMp3(f1);
+    createMinimalMp3(f2);
+
+    await batchWriteExtraTags([
+      { path: f1, tags: [{ key: "CATALOGNUMBER", value: "CN-001" }] },
+      { path: f2, tags: [{ key: "CATALOGNUMBER", value: "CN-002" }] },
+    ]);
+
+    const r1 = NodeID3.read(f1);
+    const u1 = (Array.isArray(r1.userDefinedText) ? r1.userDefinedText : r1.userDefinedText ? [r1.userDefinedText] : []);
+    const m1 = Object.fromEntries(u1.filter((t) => t.description).map((t) => [t.description, t.value]));
+    expect(m1["CATALOGNUMBER"]).toBe("CN-001");
+
+    const r2 = NodeID3.read(f2);
+    const u2 = (Array.isArray(r2.userDefinedText) ? r2.userDefinedText : r2.userDefinedText ? [r2.userDefinedText] : []);
+    const m2 = Object.fromEntries(u2.filter((t) => t.description).map((t) => [t.description, t.value]));
+    expect(m2["CATALOGNUMBER"]).toBe("CN-002");
+  });
+
+  it("overwrites existing extra tags on each file", async () => {
+    const fp = path.join(tmpDir, "overwrite.mp3");
+    createMinimalMp3(fp);
+
+    // Write initial extra tags
+    await writeExtraTags(fp, [{ key: "MOOD", value: "Old" }]);
+
+    // Batch overwrite
+    await batchWriteExtraTags([
+      { path: fp, tags: [{ key: "MOOD", value: "New" }] },
+    ]);
+
+    const r = NodeID3.read(fp);
+    const u = (Array.isArray(r.userDefinedText) ? r.userDefinedText : r.userDefinedText ? [r.userDefinedText] : []);
+    const m = Object.fromEntries(u.filter((t) => t.description).map((t) => [t.description, t.value]));
+    expect(m["MOOD"]).toBe("New");
+  });
+
+  it("handles empty updates array", async () => {
+    await expect(batchWriteExtraTags([])).resolves.toBeUndefined();
+  });
+});
+
+describe("writeExtraTags — FLAC round-trip", () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "writer-extra-flac-"));
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  async function readVorbisCommentsFromFile(
+    filePath: string,
+  ): Promise<Record<string, string>> {
+    const meta = await parseFile(filePath, { duration: false });
+    const result: Record<string, string> = {};
+    for (const [, tags] of Object.entries(meta.native)) {
+      for (const tag of tags) {
+        if (typeof tag.id === "string" && typeof tag.value === "string") {
+          result[tag.id] = tag.value;
+        }
+      }
+    }
+    return result;
+  }
+
+  it("saves new extra tags to FLAC and reads them back", async () => {
+    const fp = path.join(tmpDir, "test.flac");
+    createMinimalFlac(fp, "Song", "Artist");
+
+    await writeExtraTags(fp, [
+      { key: "MOOD", value: "Happy" },
+      { key: "BARCODE", value: "ABC-123" },
+    ]);
+
+    const comments = await readVorbisCommentsFromFile(fp);
+    expect(comments["MOOD"]).toBe("Happy");
+    expect(comments["BARCODE"]).toBe("ABC-123");
+  });
+
+  it("preserves standard tags when writing extra tags to FLAC", async () => {
+    const fp = path.join(tmpDir, "preserve.flac");
+    createMinimalFlac(fp, "Original Title", "Original Artist");
+
+    await writeExtraTags(fp, [
+      { key: "MOOD", value: "Melancholy" },
+    ]);
+
+    const comments = await readVorbisCommentsFromFile(fp);
+    expect(comments["TITLE"]).toBe("Original Title");
+    expect(comments["ARTIST"]).toBe("Original Artist");
+    expect(comments["MOOD"]).toBe("Melancholy");
+  });
+
+  it("overwrites existing extra tags on FLAC", async () => {
+    const fp = path.join(tmpDir, "overwrite.flac");
+    createMinimalFlac(fp, "Song", "Artist");
+
+    await writeExtraTags(fp, [
+      { key: "MOOD", value: "Old" },
+      { key: "CATALOGNUMBER", value: "CN-001" },
+    ]);
+
+    // Now overwrite with new values
+    await writeExtraTags(fp, [
+      { key: "MOOD", value: "New" },
+    ]);
+
+    const comments = await readVorbisCommentsFromFile(fp);
+    expect(comments["MOOD"]).toBe("New");
+    // old extra tags should be gone
+    expect(comments["CATALOGNUMBER"]).toBeUndefined();
+  });
+
+  it("handles empty extra tags array on FLAC (no-op)", async () => {
+    const fp = path.join(tmpDir, "noop.flac");
+    createMinimalFlac(fp, "Title");
+
+    await writeExtraTags(fp, []);
+
+    const comments = await readVorbisCommentsFromFile(fp);
+    expect(comments["TITLE"]).toBe("Title");
+  });
+
+  it("readExtraTags round-trip: write then re-read with music-metadata", async () => {
+    const fp = path.join(tmpDir, "rt.flac");
+    createMinimalFlac(fp, "Song", "Artist", "Album");
+
+    await writeExtraTags(fp, [
+      { key: "MOOD", value: "Bright" },
+      { key: "RATING", value: "5" },
+    ]);
+
+    // Read back using music-metadata
+    const meta = await parseFile(fp, { duration: false });
+
+    // Standard tags should be intact
+    expect(meta.common.title).toBe("Song");
+    expect(meta.common.artist).toBe("Artist");
+    expect(meta.common.album).toBe("Album");
+
+    // Extra tags should be in native
+    let foundMood = false;
+    let foundRating = false;
+    for (const [, tags] of Object.entries(meta.native)) {
+      for (const tag of tags) {
+        if (tag.id === "MOOD" && tag.value === "Bright") foundMood = true;
+        if (tag.id === "RATING" && tag.value === "5") foundRating = true;
+      }
+    }
+    expect(foundMood).toBe(true);
+    expect(foundRating).toBe(true);
+  });
+
+  it("full round-trip: write then read via readExtraTags from tracks.ts", async () => {
+    const fp = path.join(tmpDir, "full-rt.flac");
+    createMinimalFlac(fp, "Title", "Artist");
+
+    // Write extra tags
+    await writeExtraTags(fp, [
+      { key: "MOOD", value: "Chill" },
+      { key: "RATING", value: "4" },
+    ]);
+
+    // Read back using the actual readExtraTags function
+    const extras = await readExtraTags(fp);
+    expect(extras).toHaveLength(2);
+    expect(extras.find((t) => t.key === "MOOD")?.value).toBe("Chill");
+    expect(extras.find((t) => t.key === "RATING")?.value).toBe("4");
+    expect(extras.find((t) => t.key === "MOOD")?.source).toBeTruthy();
+    expect(extras.find((t) => t.key === "RATING")?.source).toBeTruthy();
+  });
+
+  it("full round-trip: overwrite extra tags and verify with readExtraTags", async () => {
+    const fp = path.join(tmpDir, "overwrite-rt.flac");
+    createMinimalFlac(fp, "Title", "Artist");
+
+    // Write initial extra tags
+    await writeExtraTags(fp, [
+      { key: "MOOD", value: "Old" },
+      { key: "BARCODE", value: "OLD-001" },
+    ]);
+
+    // Overwrite
+    await writeExtraTags(fp, [
+      { key: "MOOD", value: "New" },
+    ]);
+
+    const extras = await readExtraTags(fp);
+    expect(extras.find((t) => t.key === "MOOD")?.value).toBe("New");
+    // Old extra tag should be gone
+    expect(extras.find((t) => t.key === "BARCODE")).toBeUndefined();
+    // Standard tags remain
+    expect(extras.find((t) => t.key === "TITLE")).toBeUndefined();
+    expect(extras.find((t) => t.key === "ARTIST")).toBeUndefined();
+  });
+
+  it("batch write can clear all extra tags from FLAC files", async () => {
+    const first = path.join(tmpDir, "batch-clear-1.flac");
+    const second = path.join(tmpDir, "batch-clear-2.flac");
+    createMinimalFlac(first, "First", "Artist");
+    createMinimalFlac(second, "Second", "Artist");
+
+    await batchWriteExtraTags([
+      { path: first, tags: [{ key: "MOOD", value: "Bright" }] },
+      { path: second, tags: [{ key: "MOOD", value: "Bright" }] },
+    ]);
+
+    await batchWriteExtraTags([
+      { path: first, tags: [] },
+      { path: second, tags: [] },
+    ]);
+
+    expect(await readExtraTags(first)).toEqual([]);
+    expect(await readExtraTags(second)).toEqual([]);
+
+    const firstComments = await readVorbisCommentsFromFile(first);
+    const secondComments = await readVorbisCommentsFromFile(second);
+    expect(firstComments["TITLE"]).toBe("First");
+    expect(secondComments["TITLE"]).toBe("Second");
+  });
+
+  it("readExtraTags does not return standard Vorbis tags", async () => {
+    const fp = path.join(tmpDir, "standard.flac");
+    createMinimalFlac(fp, "Song Title", "Artist Name", "My Album");
+
+    await writeExtraTags(fp, [
+      { key: "MOOD", value: "Happy" },
+    ]);
+
+    const extras = await readExtraTags(fp);
+    // Standard tags should not appear
+    expect(extras.find((t) => t.key === "TITLE")).toBeUndefined();
+    expect(extras.find((t) => t.key === "ARTIST")).toBeUndefined();
+    expect(extras.find((t) => t.key === "ALBUM")).toBeUndefined();
+    // But extra tag should show
+    expect(extras.find((t) => t.key === "MOOD")?.value).toBe("Happy");
+  });
+
+  it("Vorbis comment keys are uppercased through round-trip", async () => {
+    const fp = path.join(tmpDir, "case.flac");
+    createMinimalFlac(fp, "Title");
+
+    await writeExtraTags(fp, [
+      { key: "CustomTag", value: "value1" },
+    ]);
+
+    const extras = await readExtraTags(fp);
+    // Vorbis comment keys are conventionally uppercase
+    const tag = extras.find((t) => t.key === "CUSTOMTAG");
+    expect(tag?.value).toBe("value1");
+  });
+
+  it("keeps standard Vorbis tags reserved unless explicitly allowed as extras", async () => {
+    const fp = path.join(tmpDir, "multi.flac");
+    createMinimalFlac(fp, "Title");
+
+    await writeExtraTags(fp, [
+      { key: "GENRE", value: "Rock" },
+    ]);
+
+    const extras = await readExtraTags(fp);
+    expect(extras.find((t) => t.key === "GENRE")).toBeUndefined();
+  });
+
+  it("allows multiple ARTISTS values as Vorbis extra tags", async () => {
+    const fp = path.join(tmpDir, "artists-extra.flac");
+    createMinimalFlac(fp, "Title");
+
+    await writeExtraTags(fp, [
+      { key: "t", value: "t" },
+      { key: "ARTISTS", value: "foo" },
+      { key: "ARTISTS", value: "bar" },
+    ]);
+
+    const extras = await readExtraTags(fp);
+    expect(extras).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ key: "ARTISTS", value: "foo" }),
+        expect.objectContaining({ key: "ARTISTS", value: "bar" }),
+        expect.objectContaining({ key: "T", value: "t" }),
+      ]),
+    );
+    const artistValues = extras
+      .filter((tag) => tag.key === "ARTISTS")
+      .map((tag) => tag.value);
+    expect(artistValues).toEqual(["foo", "bar"]);
+  });
+});
+
+// ── CRC32 for OGG page checksums ──────────────────────────────
+
+function oggCrc32(buf: Buffer): number {
+  let crc = 0xffffffff;
+  const table = new Int32Array(256);
+  for (let i = 0; i < 256; i++) {
+    let c = i;
+    for (let j = 0; j < 8; j++) {
+      c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+    }
+    table[i] = c;
+  }
+  for (let i = 0; i < buf.length; i++) {
+    crc = table[(crc ^ buf[i]) & 0xff] ^ (crc >>> 8);
+  }
+  return (crc ^ 0xffffffff) >>> 0;
+}
+
+/** Build an OGG page with the given header type, content, and sequence. */
+function buildOggPage(
+  headerType: number,
+  granulePosition: bigint,
+  serial: number,
+  seq: number,
+  packetData: Buffer,
+): Buffer {
+  // Segment table: one segment containing all packet data
+  // (the test creates small packets, so a single segment suffices)
+  const segTable = Buffer.from([packetData.length]);
+
+  // OGG page header (27 bytes)
+  const header = Buffer.alloc(27);
+  let off = 0;
+  header.write("OggS", off); off += 4;
+  header[off++] = 0; // version
+  header[off++] = headerType;
+  header.writeBigUInt64LE(granulePosition, off); off += 8;
+  header.writeUInt32LE(serial, off); off += 4;
+  header.writeUInt32LE(seq, off); off += 4;
+  // CRC placeholder (4 bytes at offset 22) — set to 0 for calculation
+  off += 4;
+  header[off++] = segTable.length;
+
+  const page = Buffer.concat([header, segTable, packetData]);
+
+  // Calculate CRC with the checksum field zeroed
+  page.writeUInt32LE(0, 22);
+  const crcVal = oggCrc32(page);
+  page.writeUInt32LE(crcVal, 22);
+
+  return page;
+}
+
+/**
+ * Create a minimal OGG Vorbis file with identification and comment pages.
+ * No audio data is needed for tag round-trip tests.
+ */
+function createMinimalOgg(
+  filePath: string,
+  title?: string,
+  artist?: string,
+  album?: string,
+): void {
+  const serial = 0x12345678;
+
+  // ── Vorbis identification header (packet type 1) ────────────
+  const identBody = Buffer.alloc(29);
+  identBody[0] = 1; // packet type
+  identBody.write("vorbis", 1, 6, "ascii");
+  identBody.writeUInt32LE(0, 7); // version
+  identBody[11] = 2; // channels (stereo)
+  identBody.writeUInt32LE(44100, 12); // sample rate
+  identBody.writeUInt32LE(0, 16); // bitrate max (unknown)
+  identBody.writeUInt32LE(160000, 20); // bitrate nom
+  identBody.writeUInt32LE(0, 24); // bitrate min (unknown)
+  identBody[28] = 0b00010000; // blocksize 0=256, 1=4096
+
+  const identPage = buildOggPage(2, 0n, serial, 0, identBody);
+
+  // ── Vorbis comment header (packet type 3) ───────────────────
+  const vendorStr = Buffer.from("auto-tagger-test", "utf8");
+  const commentStrings: Buffer[] = [];
+  if (title) commentStrings.push(commentEntry("TITLE", title));
+  if (artist) commentStrings.push(commentEntry("ARTIST", artist));
+  if (album) commentStrings.push(commentEntry("ALBUM", album));
+
+  let cmtOff = 0;
+  const cmtHeader = Buffer.alloc(7 + 4 + vendorStr.length + 4);
+  cmtHeader[cmtOff++] = 3; // packet type
+  cmtHeader.write("vorbis", cmtOff); cmtOff += 6;
+  // vendor string length
+  cmtHeader.writeUInt32LE(vendorStr.length, cmtOff); cmtOff += 4;
+  vendorStr.copy(cmtHeader, cmtOff); cmtOff += vendorStr.length;
+  // number of comments
+  cmtHeader.writeUInt32LE(commentStrings.length, cmtOff); cmtOff += 4;
+
+  const framingByte = Buffer.from([1]);
+  const commentBody = Buffer.concat([cmtHeader, ...commentStrings, framingByte]);
+  const commentPage = buildOggPage(0, 0n, serial, 1, commentBody);
+
+  fs.writeFileSync(filePath, Buffer.concat([identPage, commentPage]));
+}
+
+function commentEntry(key: string, value: string): Buffer {
+  const raw = Buffer.from(`${key}=${value}`, "utf8");
+  const len = Buffer.alloc(4);
+  len.writeUInt32LE(raw.length);
+  return Buffer.concat([len, raw]);
+}
+
+describe("writeExtraTags — OGG round-trip", () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "writer-extra-ogg-"));
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it("supports .opus files for extra tags", async () => {
+    const fp = path.join(tmpDir, "test.opus");
+    createMinimalOgg(fp, "Title", "Artist");
+
+    await writeExtraTags(fp, [
+      { key: "MOOD", value: "Calm" },
+    ]);
+
+    const extras = await readExtraTags(fp);
+    expect(extras.find((t) => t.key === "MOOD")?.value).toBe("Calm");
+  });
+
+  it("saves and reads extra tags to/from OGG", async () => {
+    const fp = path.join(tmpDir, "tags.ogg");
+    createMinimalOgg(fp, "Song", "Artist");
+
+    await writeExtraTags(fp, [
+      { key: "MOOD", value: "Happy" },
+      { key: "BARCODE", value: "OGG-001" },
+    ]);
+
+    const extras = await readExtraTags(fp);
+    expect(extras.find((t) => t.key === "MOOD")?.value).toBe("Happy");
+    expect(extras.find((t) => t.key === "BARCODE")?.value).toBe("OGG-001");
+  });
+
+  it("preserves standard tags when writing extra tags to OGG", async () => {
+    const fp = path.join(tmpDir, "preserve.ogg");
+    createMinimalOgg(fp, "Song", "Artist", "Album");
+
+    await writeExtraTags(fp, [
+      { key: "RATING", value: "5" },
+    ]);
+
+    const extras = await readExtraTags(fp);
+    expect(extras.find((t) => t.key === "RATING")?.value).toBe("5");
+    expect(extras.find((t) => t.key === "TITLE")).toBeUndefined();
+    expect(extras.find((t) => t.key === "ARTIST")).toBeUndefined();
+    expect(extras.find((t) => t.key === "ALBUM")).toBeUndefined();
+  });
+
+  it("overwrites existing extra tags on OGG", async () => {
+    const fp = path.join(tmpDir, "overwrite.ogg");
+    createMinimalOgg(fp, "Song", "Artist");
+
+    await writeExtraTags(fp, [
+      { key: "MOOD", value: "Old" },
+      { key: "CATALOGNUMBER", value: "CN-001" },
+    ]);
+
+    await writeExtraTags(fp, [
+      { key: "MOOD", value: "New" },
+    ]);
+
+    const extras = await readExtraTags(fp);
+    expect(extras.find((t) => t.key === "MOOD")?.value).toBe("New");
+    expect(extras.find((t) => t.key === "CATALOGNUMBER")).toBeUndefined();
   });
 });

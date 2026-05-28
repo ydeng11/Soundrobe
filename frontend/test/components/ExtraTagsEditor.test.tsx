@@ -95,6 +95,43 @@ describe("ExtraTagsEditor", () => {
     );
   });
 
+  it("allows multiple ARTISTS rows to be saved as extra tags", async () => {
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    window.api = {
+      readExtraTags: vi.fn().mockResolvedValue([]),
+    } as unknown as Window["api"];
+
+    render(
+      <ExtraTagsEditor
+        track={makeTrack({ path: "/music/song.flac", codec: "FLAC" })}
+        saving={false}
+        onClose={vi.fn()}
+        onSave={onSave}
+      />,
+    );
+
+    await screen.findByText("No extra tags");
+
+    fireEvent.click(screen.getByText("Add Custom Tag"));
+    fireEvent.click(screen.getByText("Add Custom Tag"));
+
+    const keyInputs = screen.getAllByPlaceholderText("Tag key");
+    const valueInputs = screen.getAllByPlaceholderText("Value");
+    fireEvent.change(keyInputs[0], { target: { value: "ARTISTS" } });
+    fireEvent.change(valueInputs[0], { target: { value: "foo" } });
+    fireEvent.change(keyInputs[1], { target: { value: "ARTISTS" } });
+    fireEvent.change(valueInputs[1], { target: { value: "bar" } });
+
+    fireEvent.click(screen.getByText("Save Changes"));
+
+    await waitFor(() =>
+      expect(onSave).toHaveBeenCalledWith([
+        { key: "ARTISTS", value: "foo" },
+        { key: "ARTISTS", value: "bar" },
+      ]),
+    );
+  });
+
   it("marks deleted rows and asks before discarding dirty changes", async () => {
     const onClose = vi.fn();
     render(
