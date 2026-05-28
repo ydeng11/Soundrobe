@@ -1,7 +1,6 @@
 import fs from "fs";
 import path from "path";
 import * as NodeID3 from "node-id3";
-import type { TrackData } from "./tracks";
 
 /**
  * Mapping of field names → tag specs for each format.
@@ -15,7 +14,10 @@ import type { TrackData } from "./tracks";
 export interface WriteFields {
   title?: string | null;
   artist?: string | null;
+  artists?: string[] | string | null;
   album?: string | null;
+  albumArtist?: string | null;
+  albumArtists?: string[] | string | null;
   year?: string | null;
   track?: string | null; // "1" or "1/10"
   trackNumber?: number | null;
@@ -27,6 +29,11 @@ export interface WriteFields {
   comment?: string | null;
   lyrics?: string | null;
   compilation?: boolean | null;
+  musicbrainzTrackId?: string | null;
+  musicbrainzAlbumId?: string | null;
+  musicbrainzArtistId?: string | null;
+  coverData?: Buffer | null;
+  coverMime?: string | null;
 }
 
 export interface ExtraTagUpdate {
@@ -67,9 +74,12 @@ function fieldsToID3v2(fields: WriteFields): NodeID3.Tags {
   if (fields.title !== undefined) tags.title = fields.title ?? undefined;
   if (fields.artist !== undefined) tags.artist = fields.artist ?? undefined;
   if (fields.album !== undefined) tags.album = fields.album ?? undefined;
+  if (fields.albumArtist !== undefined) tags.performerInfo = fields.albumArtist ?? undefined;
   if (fields.year !== undefined) tags.year = fields.year ?? undefined;
   if (fields.trackNumber !== undefined)
-    tags.trackNumber = fields.trackNumber != null ? String(fields.trackNumber) : undefined;
+    tags.trackNumber = formatPosition(fields.trackNumber, fields.trackTotal) ?? undefined;
+  if (fields.discNumber !== undefined)
+    tags.partOfSet = formatPosition(fields.discNumber, fields.discTotal) ?? undefined;
   if (fields.genre !== undefined) tags.genre = fields.genre ?? undefined;
   if (fields.composer !== undefined)
     tags.composer = fields.composer ?? undefined;
@@ -77,6 +87,19 @@ function fieldsToID3v2(fields: WriteFields): NodeID3.Tags {
     tags.comment = fields.comment
       ? { language: "eng", text: fields.comment }
       : undefined;
+  if (fields.lyrics !== undefined) {
+    tags.unsynchronisedLyrics = fields.lyrics
+      ? { language: "eng", text: fields.lyrics }
+      : undefined;
+  }
+  if (fields.coverData) {
+    tags.image = {
+      mime: fields.coverMime ?? "image/jpeg",
+      type: { id: 3, name: "front cover" },
+      description: "Cover",
+      imageBuffer: fields.coverData,
+    };
+  }
   return tags;
 }
 
@@ -86,8 +109,46 @@ function fieldsToID3v2(fields: WriteFields): NodeID3.Tags {
 function writeMp3(filePath: string, fields: WriteFields): void {
   const tags = fieldsToID3v2(fields);
   const existingTags = NodeID3.read(filePath);
+  const custom = mergeMp3UserDefinedText(existingTags.userDefinedText, fields);
   const mergedTags = { ...existingTags, ...tags };
+  if (custom !== undefined) {
+    mergedTags.userDefinedText = custom;
+  } else {
+    delete mergedTags.userDefinedText;
+  }
   NodeID3.write(mergedTags, filePath);
+}
+
+function mergeMp3UserDefinedText(
+  current: NodeID3.Tags["userDefinedText"],
+  fields: WriteFields,
+): NodeID3.Tags["userDefinedText"] {
+  const rows = (Array.isArray(current) ? current : current ? [current] : []).filter(
+    (row) => row.description,
+  );
+  const upserts: Array<{ description: string; value: string | string[] | null | undefined }> = [
+    { description: "ARTISTS", value: normalizeListValue(fields.artists) },
+    { description: "ALBUMARTISTS", value: normalizeListValue(fields.albumArtists) },
+    { description: "MusicBrainz Track Id", value: fields.musicbrainzTrackId },
+    { description: "MusicBrainz Album Id", value: fields.musicbrainzAlbumId },
+    { description: "MusicBrainz Artist Id", value: fields.musicbrainzArtistId },
+    { description: "COMPILATION", value: fields.compilation == null ? undefined : fields.compilation ? "1" : null },
+  ];
+
+  for (const { description, value } of upserts) {
+    if (value === undefined) continue;
+    const text = Array.isArray(value) ? value.join("; ") : value;
+    const index = rows.findIndex((row) => row.description === description);
+    if (!text) {
+      if (index >= 0) rows.splice(index, 1);
+      continue;
+    }
+    const next = { description, value: text };
+    if (index >= 0) rows[index] = next;
+    else rows.push(next);
+  }
+
+  return rows.length > 0 ? rows : undefined;
 }
 
 function writeMp3ExtraTags(filePath: string, extraTags: ExtraTagUpdate[]): void {
@@ -119,7 +180,10 @@ function writeVorbis(
 
   setVorbisField(updated, "TITLE", fields.title);
   setVorbisField(updated, "ARTIST", fields.artist);
+  setVorbisList(updated, "ARTISTS", fields.artists);
   setVorbisField(updated, "ALBUM", fields.album);
+  setVorbisField(updated, "ALBUMARTIST", fields.albumArtist);
+  setVorbisList(updated, "ALBUMARTISTS", fields.albumArtists);
   setVorbisField(updated, "DATE", fields.year);
   setVorbisField(updated, "GENRE", fields.genre);
   setVorbisField(updated, "COMPOSER", fields.composer);
@@ -128,6 +192,16 @@ function writeVorbis(
   setVorbisField(updated, "TRACKTOTAL", fields.trackTotal);
   setVorbisField(updated, "DISCNUMBER", fields.discNumber);
   setVorbisField(updated, "DISCTOTAL", fields.discTotal);
+  setVorbisField(updated, "LYRICS", fields.lyrics);
+  setVorbisField(updated, "MUSICBRAINZ_TRACKID", fields.musicbrainzTrackId);
+  setVorbisField(updated, "MUSICBRAINZ_ALBUMID", fields.musicbrainzAlbumId);
+  setVorbisField(updated, "MUSICBRAINZ_ARTISTID", fields.musicbrainzArtistId);
+  setVorbisField(updated, "COMPILATION", fields.compilation == null ? undefined : fields.compilation ? "1" : null);
+  if (fields.coverData) {
+    updated.METADATA_BLOCK_PICTURE = [
+      buildFlacPictureBlock(fields.coverData, fields.coverMime ?? "image/jpeg").toString("base64"),
+    ];
+  }
 
   writeVorbisComments(filePath, data, updated, blockType);
 }
@@ -150,31 +224,42 @@ function setVorbisField(
   }
 }
 
+function setVorbisList(
+  comments: VorbisDict,
+  key: string,
+  value: string[] | string | null | undefined,
+): void {
+  if (value === undefined) return;
+  const values = normalizeListValue(value);
+  if (values.length === 0) {
+    delete comments[key];
+  } else {
+    comments[key] = values;
+  }
+}
+
 /**
  * Read Vorbis comments from a buffer. Returns dict of key → values.
  */
 function readVorbisComments(buf: Buffer): VorbisDict {
   const result: VorbisDict = {};
-  const ext = ".flac"; // FLAC: comments are in a metadata block
-  if (ext === ".flac") {
-    // FLAC: find VORBIS_COMMENT metadata block (type 4)
-    let offset = 4; // skip "fLaC"
-    while (offset < buf.length) {
-      const isLast = buf[offset] >> 7; // bit 7 = isLastBlock
-      const type = buf[offset] & 0x7f;
-      const length =
-        (buf[offset + 1] << 16) |
-        (buf[offset + 2] << 8) |
-        buf[offset + 3];
-      offset += 4;
+  // FLAC: comments are in metadata block type 4 (VORBIS_COMMENT)
+  let offset = 4; // skip "fLaC"
+  while (offset < buf.length) {
+    const isLast = buf[offset] >> 7; // bit 7 = isLastBlock
+    const type = buf[offset] & 0x7f;
+    const length =
+      (buf[offset + 1] << 16) |
+      (buf[offset + 2] << 8) |
+      buf[offset + 3];
+    offset += 4;
 
-      if (type === 4) {
-        return parseVorbisCommentBlock(buf, offset, length);
-      }
-
-      if (isLast) break;
-      offset += length;
+    if (type === 4) {
+      return parseVorbisCommentBlock(buf, offset, length);
     }
+
+    if (isLast) break;
+    offset += length;
   }
   return result;
 }
@@ -283,10 +368,9 @@ function writeFlacMetadataBlock(
 ): void {
   const buf = fs.readFileSync(filePath);
 
-  // Set isLast = true, type = blockType
-  const isLast = buf.length > 42; // we'll figure out if it's last later
+  // isLast flag is corrected in the replacement logic below
   const header = Buffer.alloc(4);
-  header[0] = (isLast ? 0x80 : 0x00) | (blockType & 0x7f);
+  header[0] = blockType & 0x7f;
   header[1] = (blockData.length >> 16) & 0xff;
   header[2] = (blockData.length >> 8) & 0xff;
   header[3] = blockData.length & 0xff;
@@ -421,11 +505,13 @@ function writeMinimalMp4Tags(filePath: string, fields: WriteFields): void {
   if (fields.title !== undefined) atoms.push(makeAtom("\xa9nam", fields.title ?? ""));
   if (fields.artist !== undefined) atoms.push(makeAtom("\xa9ART", fields.artist ?? ""));
   if (fields.album !== undefined) atoms.push(makeAtom("\xa9alb", fields.album ?? ""));
+  if (fields.albumArtist !== undefined) atoms.push(makeAtom("aART", fields.albumArtist ?? ""));
   if (fields.year !== undefined) atoms.push(makeAtom("\xa9day", fields.year ?? ""));
   if (fields.genre !== undefined) atoms.push(makeAtom("\xa9gen", fields.genre ?? ""));
   if (fields.composer !== undefined) atoms.push(makeAtom("\xa9wrt", fields.composer ?? ""));
   if (fields.comment !== undefined) atoms.push(makeAtom("\xa9cmt", fields.comment ?? ""));
   if (fields.lyrics !== undefined) atoms.push(makeAtom("\xa9lyr", fields.lyrics ?? ""));
+  if (fields.coverData !== undefined && fields.coverData) atoms.push(makeCoverAtom(fields.coverData));
 
   // Find existing moov.udta.meta.ilst or moov.udta and replace
   const ilstAtom = Buffer.concat(atoms);
@@ -587,4 +673,51 @@ export async function batchWriteTags(
   for (const update of updates) {
     await writeTags(update.path, update.fields);
   }
+}
+
+function normalizeListValue(value: string[] | string | null | undefined): string[] {
+  if (value == null) return [];
+  const values = Array.isArray(value) ? value : value.split(/[;,]/);
+  return values.map((item) => item.trim()).filter(Boolean);
+}
+
+function formatPosition(current: number | null | undefined, total: number | null | undefined): string | null {
+  if (current == null) return null;
+  return total == null ? String(current) : `${current}/${total}`;
+}
+
+function buildFlacPictureBlock(data: Buffer, mimeType: string): Buffer {
+  const mime = Buffer.from(mimeType, "utf8");
+  const desc = Buffer.from("Cover", "utf8");
+  const header = Buffer.alloc(32);
+  let offset = 0;
+  header.writeUInt32BE(3, offset); offset += 4;
+  header.writeUInt32BE(mime.length, offset); offset += 4;
+  const descLen = Buffer.alloc(4);
+  descLen.writeUInt32BE(desc.length);
+  const imageMeta = Buffer.alloc(20);
+  imageMeta.writeUInt32BE(data.length, 16);
+  return Buffer.concat([
+    header.subarray(0, offset),
+    mime,
+    descLen,
+    desc,
+    imageMeta,
+    data,
+  ]);
+}
+
+function makeCoverAtom(data: Buffer): Buffer {
+  const dataHeader = Buffer.alloc(8);
+  dataHeader.writeUInt32BE(data.length + 16);
+  dataHeader.write("data", 4, 4, "ascii");
+  const dataType = Buffer.alloc(4);
+  dataType.writeUInt32BE(13);
+  const locale = Buffer.alloc(4);
+  locale.writeUInt32BE(0);
+  const dataAtom = Buffer.concat([dataHeader, dataType, locale, data]);
+  const covrHeader = Buffer.alloc(8);
+  covrHeader.writeUInt32BE(dataAtom.length + 8);
+  covrHeader.write("covr", 4, 4, "ascii");
+  return Buffer.concat([covrHeader, dataAtom]);
 }

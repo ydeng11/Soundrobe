@@ -2,7 +2,6 @@
 
 import sys
 from pathlib import Path
-from typing import Any
 
 import click
 
@@ -227,33 +226,6 @@ def audit(ctx: click.Context, path: Path, json_stream: bool, fix: bool) -> None:
 
     settings: Settings = ctx.obj["settings"]
     execute(settings, path, json_stream=json_stream, fix=fix)
-
-
-@cli.command()
-@click.argument(
-    "path",
-    type=click.Path(exists=True, path_type=Path),
-    required=False,
-)
-@click.pass_context
-def ui(ctx: click.Context, path: Path | None) -> None:
-    """Launch the terminal UI for browsing and editing tags.
-
-    PATH: Optional path to a music library directory
-    """
-    try:
-        from auto_tagger.ui.app import AutoTaggerApp
-    except ImportError as exc:
-        from auto_tagger.utils.output import console
-
-        console.print(
-            "[red]Error:[/red] The UI dependencies are not installed.\n"
-            "Install them with: [bold]pip install auto-tagger[ui][/bold]"
-        )
-        raise SystemExit(1) from exc
-
-    app = AutoTaggerApp(library_path=path)
-    app.run()
 
 
 @cli.group()

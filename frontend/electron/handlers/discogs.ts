@@ -7,9 +7,10 @@
 
 import {
   type AlbumCandidate,
-  type TrackCandidate,
+  artistDisplayName,
   makeAlbumCandidate,
   makeTrackCandidate,
+  splitArtistNames,
 } from "./candidates";
 
 const DISCOGS_BASE = "https://api.discogs.com";
@@ -73,10 +74,20 @@ export class DiscogsClient {
   ): Promise<AlbumCandidate[]> {
     if (!artist && !album) return [];
 
+    const releaseCandidates = await this.searchAlbumByType(artist, album, "release");
+    if (releaseCandidates.length > 0) return releaseCandidates;
+    return this.searchAlbumByType(artist, album, "master");
+  }
+
+  private async searchAlbumByType(
+    artist: string,
+    album: string,
+    searchType: "release" | "master",
+  ): Promise<AlbumCandidate[]> {
     const query = `${artist} ${album}`.trim();
     await this.rateLimiter.wait();
 
-    const url = `${this.baseUrl}/database/search?q=${encodeURIComponent(query)}&type=master&per_page=${this.maxCandidates * 3}`;
+    const url = `${this.baseUrl}/database/search?q=${encodeURIComponent(query)}&type=${searchType}&per_page=${this.maxCandidates * 3}`;
 
     try {
       const response = await fetch(url, {
@@ -97,10 +108,7 @@ export class DiscogsClient {
 
       for (const result of results.slice(0, this.maxCandidates)) {
         const title = result.title as string ?? "";
-        const year = result.year != null ? String(result.year) : null;
-        const genre = ((result.genre as string[]) ?? []).join(", ") || null;
         const resourceUrl = result.resource_url as string ?? null;
-        const masterId = result.id as number ?? null;
 
         // Parse title format: "Artist - Album" (Discogs format)
         const artistName = title.includes(" - ")
@@ -115,25 +123,31 @@ export class DiscogsClient {
           continue;
         }
 
-        // Load tracklist from master release
-        let tracks: TrackCandidate[] = [];
+        let candidate: AlbumCandidate | null = null;
         if (resourceUrl) {
-          tracks = await this.loadTracklist(resourceUrl);
+          candidate = await this.loadReleaseCandidate(
+            resourceUrl,
+            artistName,
+            albumName,
+            result.year != null ? String(result.year) : null,
+            mergeGenreStyle(result.genre, result.style),
+          );
         }
-
-        candidates.push(
-          makeAlbumCandidate({
+        if (!candidate) {
+          const artists = splitArtistNames([artistName]);
+          candidate = makeAlbumCandidate({
             artist: artistName,
-            artists: [artistName],
+            artists,
             album: albumName,
             albumArtist: artistName,
-            albumArtists: [artistName],
-            year,
-            genre,
-            tracks,
+            albumArtists: artists,
+            year: result.year != null ? String(result.year) : null,
+            genre: mergeGenreStyle(result.genre, result.style),
+            tracks: [],
             source: "discogs",
-          }),
-        );
+          });
+        }
+        candidates.push(candidate);
       }
 
       return candidates;
@@ -142,10 +156,13 @@ export class DiscogsClient {
     }
   }
 
-  /**
-   * Load tracklist from a release or master URL.
-   */
-  private async loadTracklist(url: string): Promise<TrackCandidate[]> {
+  private async loadReleaseCandidate(
+    url: string,
+    fallbackArtist: string,
+    fallbackAlbum: string,
+    fallbackYear: string | null,
+    fallbackGenre: string | null,
+  ): Promise<AlbumCandidate | null> {
     await this.rateLimiter.wait();
 
     try {
@@ -153,32 +170,65 @@ export class DiscogsClient {
         headers: this.buildHeaders(),
         signal: AbortSignal.timeout(this.timeoutMs),
       });
-
-      if (!response.ok) return [];
+      if (!response.ok) return null;
 
       const data = (await response.json()) as {
+        title?: string;
+        artists?: Array<Record<string, unknown>>;
+        year?: number | string;
+        genres?: string[];
+        styles?: string[];
         tracklist?: Array<Record<string, unknown>>;
       };
 
-      const tracklist = data.tracklist ?? [];
-      return tracklist
+      const artists = parseDiscogsArtists(data.artists, fallbackArtist);
+      const albumArtist = artistDisplayName(artists, fallbackArtist);
+      const tracks = this.tracksFromRelease(data.tracklist ?? [], artists);
+      return makeAlbumCandidate({
+        artist: albumArtist,
+        artists,
+        album: data.title ?? fallbackAlbum,
+        albumArtist,
+        albumArtists: artists,
+        year: data.year != null ? String(data.year) : fallbackYear,
+        genre: mergeGenreStyle(data.genres, data.styles) ?? fallbackGenre,
+        tracks,
+        source: "discogs",
+      });
+    } catch {
+      return null;
+    }
+  }
+
+  private tracksFromRelease(
+    tracklist: Array<Record<string, unknown>>,
+    albumArtists: string[],
+  ): TrackCandidate[] {
+    const tracks = tracklist
         .filter((t) => {
           const pos = t.position as string;
-          // Skip non-track entries like "CD1-1", "CD1" or empty positions
-          return pos && pos.trim() && !pos.includes("-");
+          return pos && pos.trim();
         })
         .map((t, i) => {
           const position = t.position as string;
-          const num = parseInt(position, 10);
+          const parsed = parseDiscogsPosition(position);
+          const artists = parseDiscogsArtists(
+            (t.artists as Array<Record<string, unknown>>) ??
+              (t.extraartists as Array<Record<string, unknown>>) ??
+              [],
+            albumArtists[0] ?? null,
+          );
           return makeTrackCandidate({
             title: (t.title as string) ?? null,
-            trackNumber: isNaN(num) ? i + 1 : num,
+            artist: artistDisplayName(artists, albumArtists[0] ?? null),
+            artists: artists.length > 0 ? artists : albumArtists,
+            trackNumber: parsed.trackNumber ?? i + 1,
+            discNumber: parsed.discNumber,
             length: parseDuration(t.duration as string),
           });
         });
-    } catch {
-      return [];
-    }
+    for (const track of tracks) track.trackTotal = tracks.length;
+    return tracks;
   }
 
   /**
@@ -202,6 +252,50 @@ export class DiscogsClient {
     }
     return headers;
   }
+}
+
+function mergeGenreStyle(genre: unknown, style: unknown): string | null {
+  const values = [
+    ...(Array.isArray(genre) ? genre : []),
+    ...(Array.isArray(style) ? style : []),
+  ]
+    .map((item) => String(item).trim())
+    .filter(Boolean);
+  return values.length > 0 ? [...new Set(values)].join(", ") : null;
+}
+
+function parseDiscogsArtists(
+  rawArtists: Array<Record<string, unknown>> | undefined,
+  fallback: string | null,
+): string[] {
+  const names = rawArtists
+    ?.map((artist) => cleanDiscogsArtist(String(artist.name ?? "")))
+    .filter(Boolean);
+  return splitArtistNames(names && names.length > 0 ? names : [fallback]);
+}
+
+function cleanDiscogsArtist(name: string): string {
+  return name.replace(/\s+\(\d+\)$/, "").trim();
+}
+
+function parseDiscogsPosition(position: string): {
+  discNumber: number | null;
+  trackNumber: number | null;
+} {
+  const compact = position.trim();
+  const cdMatch = /^CD\s*(\d+)[-. ]*(\d+)$/i.exec(compact);
+  if (cdMatch) {
+    return {
+      discNumber: Number(cdMatch[1]),
+      trackNumber: Number(cdMatch[2]),
+    };
+  }
+
+  const numberMatch = /(\d+)$/.exec(compact);
+  return {
+    discNumber: null,
+    trackNumber: numberMatch ? Number(numberMatch[1]) : null,
+  };
 }
 
 /**

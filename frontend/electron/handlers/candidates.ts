@@ -11,13 +11,6 @@ import { createHash } from "node:crypto";
 
 export type LookupSource = "beets" | "dataset" | "discogs" | "folder" | "musicbrainz";
 
-export const LookupSources = {
-  BEETS: "beets" as LookupSource,
-  DATASET: "dataset" as LookupSource,
-  DISCOGS: "discogs" as LookupSource,
-  FOLDER: "folder" as LookupSource,
-};
-
 // ── TrackCandidate ──────────────────────────────────────────────────
 
 export interface TrackCandidate {
@@ -252,10 +245,9 @@ export function normalizeLookupText(value: string | null): string {
  * Compare a lookup hint against a candidate's album name.
  *
  * Returns:
- *   "match" — identical after normalization or SC/TC conversion
+ *   "match" — identical after normalization, or when there's no hint to compare
  *   "close" — one string contains the other
  *   "mismatch" — no match
- *   "match" — when either hint or candidate album is null (can't verify)
  */
 export function verifyAlbumName(
   hint: string | null,
@@ -271,4 +263,60 @@ export function verifyAlbumName(
   if (hintNorm.includes(candNorm) || candNorm.includes(hintNorm)) return "close";
 
   return "mismatch";
+}
+
+// ── Artist normalization ───────────────────────────────────────────
+
+const MULTI_ARTIST_RE =
+  /\s+(?:feat\.?|ft\.?|featuring)\s+|\s*[&/;,]\s*|\s*[＋+\uFF0B]\s*|\s*[、，；]\s*|\s*[·‧\u00B7]\s*|(?<=[\u4e00-\u9fff\u3400-\u4dbf])\.(?=[\u4e00-\u9fff\u3400-\u4dbf])/i;
+
+export function splitArtistNames(values: Array<string | null | undefined>): string[] {
+  const result: string[] = [];
+  const seen = new Set<string>();
+
+  for (const value of values) {
+    if (!value) continue;
+    for (const part of value.split(MULTI_ARTIST_RE)) {
+      const artist = part.trim();
+      const key = artist.toLocaleLowerCase();
+      if (!artist || seen.has(key)) continue;
+      seen.add(key);
+      result.push(artist);
+    }
+  }
+
+  return result;
+}
+
+export function artistDisplayName(artists: string[], fallback: string | null): string | null {
+  const normalized = artists.length > 0 ? artists : splitArtistNames([fallback]);
+  if (normalized.length > 0) return normalized.join(" & ");
+  return fallback;
+}
+
+export function buildLookupVariantPairs(
+  artist: string | null | undefined,
+  album: string | null | undefined,
+): Array<[string, string]> {
+  const artistText = artist ?? "";
+  const albumText = album ?? "";
+  const pairs: Array<[string, string]> = [];
+  const addPair = (nextArtist: string, nextAlbum: string) => {
+    if (!pairs.some(([a, b]) => a === nextArtist && b === nextAlbum)) {
+      pairs.push([nextArtist, nextAlbum]);
+    }
+  };
+
+  try {
+    const { Converter } = require("opencc-js");
+    const s2t = Converter({ from: "cn", to: "tw" });
+    const t2s = Converter({ from: "tw", to: "cn" });
+    addPair(t2s(artistText), t2s(albumText));
+    addPair(s2t(artistText), s2t(albumText));
+  } catch {
+    // opencc-js is optional in some test/dev installs.
+  }
+
+  addPair(artistText, albumText);
+  return pairs;
 }

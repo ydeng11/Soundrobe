@@ -10,6 +10,7 @@ import {
   getDatasetStatus,
   getConfig,
   refreshConfig,
+  onAutoTagEvent,
 } from "../../electron/handlers/auto-tag";
 
 describe("loadConfig", () => {
@@ -56,7 +57,7 @@ describe("startAutoTag / getProgress / cancelTask", () => {
     expect(progress).not.toBeNull();
     expect(progress!.taskId).toBe(taskId);
     expect(progress!.status).toBe("running");
-    expect(progress!.total).toBe(8);
+    expect(progress!.total).toBe(9);
   });
 
   it("returns null for unknown task", () => {
@@ -68,6 +69,17 @@ describe("startAutoTag / getProgress / cancelTask", () => {
     cancelTask(taskId);
     const progress = getProgress(taskId);
     expect(progress!.status).toBe("cancelled");
+  });
+
+  it("emits live task events", () => {
+    const events: string[] = [];
+    const unsubscribe = onAutoTagEvent((event) => events.push(event.type));
+    const taskId = startAutoTag("/test/album/events");
+    const progress = getProgress(taskId);
+    unsubscribe();
+
+    expect(progress).not.toBeNull();
+    expect(events).toContain("progress");
   });
 });
 

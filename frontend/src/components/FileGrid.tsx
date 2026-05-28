@@ -5,6 +5,7 @@ type SortKey =
   | "filename"
   | "title"
   | "artist"
+  | "albumArtist"
   | "album"
   | "year"
   | "track"
@@ -25,6 +26,7 @@ const COLUMN_FLEX: Record<string, number> = {
   filename: 3,
   title: 2,
   artist: 1.5,
+  albumArtist: 1.5,
   album: 1.5,
   year: 0.7,
   track: 0.7,
@@ -35,11 +37,13 @@ const COLUMN_FLEX: Record<string, number> = {
 
 // Minimum pixel width per column
 const MIN_COL_WIDTH = 40;
+const HANDLE_WIDTH = 5;
 
 const ALL_COLUMNS: Column[] = [
   { key: "filename", label: "Path", width: "flex-[3]", align: "left" },
   { key: "title", label: "Title", width: "flex-[2]", align: "left" },
   { key: "artist", label: "Artist", width: "flex-[1.5]", align: "left" },
+  { key: "albumArtist", label: "Album Artist", width: "flex-[1.5]", align: "left" },
   { key: "album", label: "Album", width: "flex-[1.5]", align: "left" },
   { key: "year", label: "Year", width: "w-16", align: "right" },
   { key: "track", label: "Track", width: "w-16", align: "right" },
@@ -78,31 +82,48 @@ export function FileGrid({
   const headerRef = useRef<HTMLDivElement>(null);
   const [columnWidths, setColumnWidths] = useState<Record<string, number> | null>(null);
 
-  // Compute initial pixel widths from flex proportions and container width
+  // Compute initial pixel widths — always sum exactly to container width
   useLayoutEffect(() => {
     if (columnWidths) return; // Already initialized
     const container = headerRef.current?.parentElement;
     if (!container) return;
-    // Use the full grid width minus padding (px-3 = 24px)
-    const totalWidth = container.clientWidth - 24;
+    const visKeys = ALL_COLUMNS.filter((c) => visibleColumns.has(c.key));
+    // Account for resize handle widths between columns
+    const handleTotal = (visKeys.length - 1) * HANDLE_WIDTH;
+    const totalWidth = container.clientWidth - 24 - handleTotal;
     if (totalWidth <= 0) return;
 
-    const visKeys = ALL_COLUMNS.filter((c) => visibleColumns.has(c.key));
     const totalFlex = visKeys.reduce(
       (sum, c) => sum + (COLUMN_FLEX[c.key] ?? 1),
       0
     );
     const widths: Record<string, number> = {};
-    let remainder = totalWidth;
-    visKeys.forEach((c, i) => {
-      const flex = COLUMN_FLEX[c.key] ?? 1;
-      const px = Math.max(
+
+    // Proportional widths, clamped to minimum
+    visKeys.forEach((c) => {
+      widths[c.key] = Math.max(
         MIN_COL_WIDTH,
-        Math.round((flex / totalFlex) * totalWidth)
+        Math.round(((COLUMN_FLEX[c.key] ?? 1) / totalFlex) * totalWidth)
       );
-      widths[c.key] = i === visKeys.length - 1 ? Math.max(MIN_COL_WIDTH, remainder) : px;
-      remainder -= px;
     });
+
+    // Redistribute pixel by pixel so total equals container width minus handles
+    let sum = Object.values(widths).reduce((a, b) => a + b, 0);
+    let iter = 0;
+    while (sum !== totalWidth && iter < visKeys.length * 2) {
+      for (const c of visKeys) {
+        if (sum === totalWidth) break;
+        if (sum < totalWidth) {
+          widths[c.key]++;
+          sum++;
+        } else if (widths[c.key] > MIN_COL_WIDTH) {
+          widths[c.key]--;
+          sum--;
+        }
+      }
+      iter++;
+    }
+
     setColumnWidths(widths);
   }, [visibleColumns, columnWidths]);
 
@@ -138,10 +159,32 @@ export function FileGrid({
 
       const handleMouseMove = (ev: MouseEvent) => {
         if (!dragRef.current) return;
+        const container = headerRef.current?.parentElement;
+        if (!container) return;
         const { startX, startW, nextStartW } = dragRef.current;
+        // Compute the current total width to cap overflow
+        const visKeys = ALL_COLUMNS.filter((c) =>
+          visibleColumns.has(c.key)
+        );
+        const handleTotal = (visKeys.length - 1) * HANDLE_WIDTH;
+        const availableForCols = container.clientWidth - 24 - handleTotal;
         const delta = ev.clientX - startX;
-        const newW = Math.max(MIN_COL_WIDTH, startW + delta);
-        const newNext = Math.max(MIN_COL_WIDTH, nextStartW - delta);
+        let newW = Math.max(MIN_COL_WIDTH, startW + delta);
+        let newNext = Math.max(MIN_COL_WIDTH, nextStartW - delta);
+
+        // Cap total width so columns don't overflow the container
+        const otherSum = visKeys.reduce((sum, c) => {
+          if (c.key === curCol.key || c.key === nextCol.key) return sum;
+          return sum + (columnWidths?.[c.key] ?? MIN_COL_WIDTH);
+        }, 0);
+        const totalAllowed = newW + newNext + otherSum;
+        if (totalAllowed > availableForCols && newNext > MIN_COL_WIDTH) {
+          // Shrink next column to fit
+          newNext = Math.max(MIN_COL_WIDTH, availableForCols - otherSum - newW);
+        } else if (totalAllowed > availableForCols && newW > MIN_COL_WIDTH) {
+          // Shrink current column to fit
+          newW = Math.max(MIN_COL_WIDTH, availableForCols - otherSum - newNext);
+        }
 
         setColumnWidths((prev) => {
           if (!prev) return prev;
@@ -233,6 +276,9 @@ export function FileGrid({
         case "artist":
           cmp = (a.artist ?? "").localeCompare(b.artist ?? "");
           break;
+        case "albumArtist":
+          cmp = (a.albumArtist ?? "").localeCompare(b.albumArtist ?? "");
+          break;
         case "album":
           cmp = (a.album ?? "").localeCompare(b.album ?? "");
           break;
@@ -283,6 +329,7 @@ export function FileGrid({
       const action = await window.api.showTrackContextMenu(track.path, {
         title: track.title ?? "",
         artist: track.artist ?? "",
+        albumArtist: track.albumArtist ?? "",
         album: track.album ?? "",
         year: track.year ?? "",
         track:
@@ -328,6 +375,8 @@ export function FileGrid({
         return track.title ?? "—";
       case "artist":
         return track.artist ?? "—";
+      case "albumArtist":
+        return track.albumArtist ?? "—";
       case "album":
         return track.album ?? "—";
       case "year":
@@ -357,7 +406,7 @@ export function FileGrid({
       {/* Column headers */}
       <div
         ref={headerRef}
-        className="flex items-center px-3 py-1.5 text-[11px] font-medium text-text-muted bg-surface-alt/60 border-b border-border select-none"
+        className="flex items-center px-3 py-1.5 text-[11px] font-medium text-text-muted bg-surface-alt/60 border-b border-border select-none overflow-hidden"
         onContextMenu={handleHeaderContextMenu}
       >
         {COLUMNS.map((col, ci) => (
@@ -390,11 +439,11 @@ export function FileGrid({
                 )}
               </span>
             </button>
-            {/* Resize handle */}
+            {/* Resize handle — visible divider between headers */}
             {ci < COLUMNS.length - 1 && (
               <div
                 onMouseDown={(e) => handleResizeStart(e, ci)}
-                className="shrink-0 w-[5px] cursor-col-resize hover:bg-accent/40 active:bg-accent/60 transition-colors self-stretch mx-0 rounded-sm"
+                className="shrink-0 w-[5px] cursor-col-resize bg-border hover:bg-accent/40 active:bg-accent/60 transition-colors self-stretch mx-0 rounded-sm"
               />
             )}
           </React.Fragment>
@@ -555,4 +604,3 @@ function formatDuration(sec: number): string {
   const s = Math.floor(sec % 60);
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
-

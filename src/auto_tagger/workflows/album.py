@@ -1242,33 +1242,14 @@ class AlbumWorkflow:
             if not title:
                 title = _clean_stem(audio_file.stem)
 
-            # For non-compilation albums, track artist matches the normalized
-            # album artist (folder name), not the raw LLM output.
-            if is_collaboration:
-                # For collaborations, preserve the smart-tagged artist/artists
-                llm_artist_normalized = track_artist
-                llm_artists_normalized = track_artists
-            elif not analysis.is_compilation:
-                # For non-compilation multi-artist albums, preserve per-track artist
-                # when the LLM returned distinct values for each track or
-                # multiple artists (e.g. a duet on a solo album).
-                if (
-                    track_artist and effective_album_artist
-                    and (
-                        track_artist.strip() != effective_album_artist.strip()
-                        or len(track_artists) > 1
-                    )
-                ):
-                    llm_artist_normalized = track_artist
-                    llm_artists_normalized = track_artists or [track_artist]
-                else:
-                    llm_artist_normalized = effective_album_artist
-                    llm_artists_normalized = (
-                        [effective_album_artist] if effective_album_artist else []
-                    )
-            else:
-                llm_artist_normalized = track_artist
-                llm_artists_normalized = track_artists
+            # Resolve final per-track artist/artists
+            llm_artist_normalized, llm_artists_normalized = (
+                self._resolve_per_track_artists(
+                    track_artist, track_artists,
+                    effective_album_artist,
+                    is_collaboration, analysis.is_compilation,
+                )
+            )
 
             new_metadata = TrackMetadata(
                 title=title,
@@ -1500,8 +1481,8 @@ class AlbumWorkflow:
             # For collaborations, use smart-tagged per-track artist/artists
             if is_collaboration and smart_tagged_tracks and idx < len(smart_tagged_tracks):
                 st = smart_tagged_tracks[idx]
-                track_artist = st.artist or new_metadata.artist
-                track_artists = st.artists or new_metadata.artists
+                per_track_artist = st.artist or new_metadata.artist
+                per_track_artists = st.artists or new_metadata.artists
             elif not analysis.is_compilation:
                 # For non-compilation albums, check if the matched track has
                 # a distinct per-track artist. If so, preserve it — this handles
@@ -1524,16 +1505,23 @@ class AlbumWorkflow:
                 ) or (
                     matched_track_artists and len(matched_track_artists) > 1
                 ):
-                    track_artist = matched_track_artist or matched_track_artists[0]
-                    track_artists = matched_track_artists or [track_artist]
+                    per_track_artist = matched_track_artist or (
+                        matched_track_artists[0] if matched_track_artists else None
+                    )
+                    per_track_artists = matched_track_artists or []
                 else:
-                    # Single-artist album: track artist matches the normalized
-                    # album artist (folder name), not the raw candidate artist.
-                    track_artist = effective_album_artist
-                    track_artists = [effective_album_artist] if effective_album_artist else new_metadata.artists
+                    per_track_artist = None
+                    per_track_artists = []
             else:
-                track_artist = new_metadata.artist
-                track_artists = new_metadata.artists
+                per_track_artist = new_metadata.artist
+                per_track_artists = new_metadata.artists
+
+            track_artist, track_artists = AlbumWorkflow._resolve_per_track_artists(
+                per_track_artist, per_track_artists,
+                effective_album_artist,
+                is_collaboration, analysis.is_compilation,
+                fallback_artists=new_metadata.artists,
+            )
 
             # Enforce album artist based on compilation analysis
             new_metadata = TrackMetadata(
@@ -1825,6 +1813,100 @@ class AlbumWorkflow:
             result[f] = candidates[assignment[i]] if i in assignment else None
 
         return result
+
+    @staticmethod
+    def _normalize_track_artists(
+        track_artist: str | None,
+        track_artists: list[str],
+        effective_album_artist: str | None,
+    ) -> tuple[str | None, list[str]]:
+        """Normalize per-track artist/artists for feature/collaboration tracks.
+
+        When a track has a different artist than the album artist (e.g. a guest
+        feature), ensure the primary/album artist is credited in *track_artists*
+        and format *track_artist* properly.
+
+        Formatting rules:
+        - 2 credited artists: "primary feat. guest"
+        - 3+ credited artists: "a & b & c"
+        """
+        if not track_artist or not effective_album_artist:
+            return track_artist, track_artists
+
+        # Check if the album/primary artist is already credited in the artists list
+        eaa_cf = effective_album_artist.strip().casefold()
+        album_artist_credited = any(
+            a.strip().casefold() == eaa_cf
+            for a in track_artists
+        )
+
+        # When the track artist differs from the album artist AND the album
+        # artist is not already in the credited list, the LLM/db returned
+        # only the featured/guest artist — prepend the primary artist.
+        if (
+            track_artist.strip().casefold() != eaa_cf
+            and not album_artist_credited
+        ):
+            track_artists = [effective_album_artist.strip()] + track_artists
+
+        # Format the artist field when there are multiple credited artists.
+        # Handles:
+        #   ["蛋堡", "徐佳瑩"] → "蛋堡 feat. 徐佳瑩"  (2 artists)
+        #   ["A", "B", "C"]     → "A & B & C"      (3+ artists)
+        unique_artists = list(dict.fromkeys(track_artists))
+        if len(unique_artists) >= 2:
+            if len(unique_artists) == 2:
+                track_artist = f"{unique_artists[0]} feat. {unique_artists[1]}"
+            else:
+                track_artist = " & ".join(unique_artists)
+
+        return track_artist, track_artists
+
+    @staticmethod
+    def _resolve_per_track_artists(
+        track_artist: str | None,
+        track_artists: list[str],
+        effective_album_artist: str | None,
+        is_collaboration: bool,
+        is_compilation: bool,
+        fallback_artists: list[str] | None = None,
+    ) -> tuple[str | None, list[str]]:
+        """Resolve final per-track artist/artists for tagging.
+
+        For non-compilation albums: if the track has a different artist than
+        the album artist, or multiple credited artists, normalise with
+        "feat." / "&" formatting. Otherwise use the album artist.
+
+        For compilations and collaborations: return inputs unchanged.
+
+        *fallback_artists* is used only when *effective_album_artist* is None
+        (edge case to preserve existing per-track artists from the candidate).
+        """
+        if is_collaboration or is_compilation:
+            return track_artist, track_artists
+
+        # Non-compilation: check for per-track difference
+        if (
+            track_artist and effective_album_artist
+            and (
+                track_artist.strip() != effective_album_artist.strip()
+                or len(track_artists) > 1
+            )
+        ):
+            return AlbumWorkflow._normalize_track_artists(
+                track_artist,
+                track_artists or [track_artist],
+                effective_album_artist,
+            )
+
+        # Single-artist track → use the album artist
+        if effective_album_artist:
+            return effective_album_artist, [effective_album_artist]
+
+        # No album artist available
+        if not track_artist and fallback_artists:
+            return None, list(fallback_artists)
+        return track_artist, track_artists
 
     @staticmethod
     def _merge_candidate_metadata(

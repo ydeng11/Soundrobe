@@ -258,6 +258,34 @@ describe("writeTags — FLAC", () => {
     expect(meta.common.genre).toContain("Jazz");
   });
 
+  it("writes normalized multi-artist and MusicBrainz fields to FLAC", async () => {
+    const fp = path.join(tmpDir, "rich.flac");
+    createMinimalFlac(fp);
+    await writeTags(fp, {
+      artist: "Alice & Bob",
+      artists: ["Alice", "Bob"],
+      albumArtist: "Alice",
+      albumArtists: ["Alice"],
+      musicbrainzAlbumId: "mb-album",
+      musicbrainzArtistId: "mb-artist",
+      musicbrainzTrackId: "mb-track",
+      lyrics: "[00:01.00]你好",
+      trackNumber: 1,
+      trackTotal: 2,
+      discNumber: 1,
+      discTotal: 1,
+    });
+
+    const meta = await parseFile(fp, { duration: false });
+    expect(meta.common.artist).toBe("Alice & Bob");
+    expect(meta.common.artists).toEqual(["Alice", "Bob"]);
+    expect(meta.common.albumartist).toBe("Alice");
+    expect(meta.common.musicbrainz_albumid).toBe("mb-album");
+    expect(meta.common.musicbrainz_artistid).toContain("mb-artist");
+    expect(meta.common.musicbrainz_recordingid).toBe("mb-track");
+    expect(JSON.stringify(meta.common.lyrics)).toContain("你好");
+  });
+
   it("writes FLAC when no existing Vorbis comment block exists", async () => {
     // Create FLAC with STREAMINFO only (no VORBIS_COMMENT)
     const fp = path.join(tmpDir, "bare.flac");

@@ -143,4 +143,44 @@ describe("DiscogsClient", () => {
     await client.searchAlbum("Test", "Album");
     expect(authHeader).toContain("my-token");
   });
+
+  it("searches Discogs releases before masters", async () => {
+    const urls: string[] = [];
+    globalThis.fetch = vi.fn().mockImplementation(async (url: string) => {
+      urls.push(url);
+      if (url.includes("/database/search")) {
+        return {
+          ok: true,
+          json: async () => ({
+            results: [
+              {
+                id: 99,
+                title: "Artist - Album",
+                resource_url: "https://api.discogs.com/releases/99",
+              },
+            ],
+          }),
+        };
+      }
+      return {
+        ok: true,
+        json: async () => ({
+          title: "Album",
+          artists: [{ name: "Artist" }],
+          genres: ["Pop"],
+          styles: ["Cantopop"],
+          tracklist: [{ position: "CD1-1", title: "Song", duration: "3:00" }],
+        }),
+      };
+    });
+
+    const client = new DiscogsClient({ token: null });
+    const results = await client.searchAlbum("Artist", "Album");
+
+    expect(urls[0]).toContain("type=release");
+    expect(urls.some((url) => url.includes("type=master"))).toBe(false);
+    expect(results[0].genre).toBe("Pop, Cantopop");
+    expect(results[0].tracks[0].discNumber).toBe(1);
+    expect(results[0].tracks[0].trackNumber).toBe(1);
+  });
 });

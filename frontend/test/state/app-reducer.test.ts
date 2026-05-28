@@ -63,6 +63,24 @@ describe("appReducer", () => {
     });
   });
 
+  describe("SET_TRACKS", () => {
+    it("refreshes the selected track object when reloaded tracks include it", () => {
+      const selectedPath = "/music/song.mp3";
+      const state = {
+        ...initialAppState,
+        selectedTrackPath: selectedPath,
+        selectedTrack: makeTrack(selectedPath, { title: "Old Title" }),
+      };
+
+      const next = appReducer(state, {
+        type: "SET_TRACKS",
+        tracks: [makeTrack(selectedPath, { title: "New Title" })],
+      });
+
+      expect(next.selectedTrack?.title).toBe("New Title");
+    });
+  });
+
   describe("CLEAR_SELECTION", () => {
     it("clears selection and cover", () => {
       const state = {

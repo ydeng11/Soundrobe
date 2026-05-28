@@ -13,18 +13,16 @@ import { homedir } from "node:os";
 import {
   type AlbumCandidate,
   type TrackCandidate,
+  artistDisplayName,
+  buildLookupVariantPairs,
   makeAlbumCandidate,
   makeTrackCandidate,
   normalizeLookupText,
+  splitArtistNames,
 } from "./candidates";
 
 const DEFAULT_DB_PATH = join(homedir(), ".auto-tagger", "dataset-index.sqlite");
-const SERVICE_ORDER: Record<string, number> = {
-  musicbrainz: 0,
-  spotify: 1,
-  tidal: 2,
-  deezer: 3,
-};
+
 
 // Track table config: trackTable → { fkColumn, titleColumn, numberColumn, discColumn, durColumn, durIsMs }
 interface TrackTableConfig {
@@ -146,7 +144,7 @@ export class DatasetReader {
     normAlbum: string,
     maxCandidates: number,
   ): AlbumCandidate[] {
-    const variants = this.buildVariantPairs(normArtist, normAlbum);
+    const variants = buildLookupVariantPairs(normArtist, normAlbum);
     if (variants.length === 0) return [];
 
     const whereClauses = variants.map(() =>
@@ -183,11 +181,11 @@ export class DatasetReader {
         const tracks = this.loadTracks(db, service, albumId, artistName);
         if (!tracks) return null;
         return makeAlbumCandidate({
-          artist: artistName,
-          artists: [artistName],
+          artist: artistDisplayName(splitArtistNames([artistName]), artistName),
+          artists: splitArtistNames([artistName]),
           album: (row.album as string) ?? null,
           albumArtist: artistName,
-          albumArtists: [artistName],
+          albumArtists: splitArtistNames([artistName]),
           year: (row.year as string) ?? null,
           musicbrainzAlbumId: service === "musicbrainz" ? albumId : null,
           musicbrainzArtistId:
@@ -247,11 +245,11 @@ export class DatasetReader {
 
         candidates.push(
           makeAlbumCandidate({
-            artist: artistName,
-            artists: [artistName],
+            artist: artistDisplayName(splitArtistNames([artistName]), artistName),
+            artists: splitArtistNames([artistName]),
             album: (row.album as string) ?? null,
             albumArtist: artistName,
-            albumArtists: [artistName],
+            albumArtists: splitArtistNames([artistName]),
             year: (row.year as string) ?? null,
             musicbrainzAlbumId: service === "musicbrainz" ? albumId : null,
             musicbrainzArtistId:
@@ -297,22 +295,6 @@ export class DatasetReader {
       .get(trackTableName);
     if (!tableExists) return null;
 
-    // For musicbrainz, add disc total and musicbrainz_trackid
-    let extraCols = "";
-    let orderCol = `COALESCE(${config.discColumn ?? 1}, 1), COALESCE(${config.numberColumn}, 0)`;
-
-    if (service === "musicbrainz") {
-      extraCols = ", mediaposition AS disc_number, mediatrackcount AS disc_total, recordingid AS musicbrainz_trackid";
-      // need to also get: COALESCE(mediaposition, 1)
-      orderCol = "COALESCE(mediaposition, 1), COALESCE(number, position, 0)";
-    }
-
-    let durCol = "";
-    if (config.durColumn) {
-      durCol = `, ${config.durColumn} AS duration_raw`;
-    }
-
-    // Actually let me just implement the query differently for each service to keep it clean
     try {
       let rows: Record<string, unknown>[];
 
@@ -320,6 +302,7 @@ export class DatasetReader {
         rows = db
           .prepare(
             `SELECT ${config.titleColumn} AS track_title,
+                    releasetrackid,
                     ${config.numberColumn} AS track_number,
                     mediaposition AS disc_number,
                     mediatrackcount AS disc_total,
@@ -344,6 +327,11 @@ export class DatasetReader {
           .all(albumId) as Record<string, unknown>[];
       }
 
+      const trackArtistMap =
+        service === "musicbrainz"
+          ? this.loadMusicBrainzTrackArtists(db, rows, artistName)
+          : new Map<string, string[]>();
+
       return rows
         .filter((r) => r.track_title)
         .map((r) => {
@@ -366,10 +354,15 @@ export class DatasetReader {
             }
           }
 
+          const trackArtists =
+            typeof r.releasetrackid === "string"
+              ? trackArtistMap.get(r.releasetrackid) ?? splitArtistNames([artistName])
+              : splitArtistNames([artistName]);
+
           return makeTrackCandidate({
             title: (r.track_title as string) ?? null,
-            artist: artistName,
-            artists: [artistName],
+            artist: artistDisplayName(trackArtists, artistName),
+            artists: trackArtists,
             trackNumber: r.track_number != null ? Number(r.track_number) : null,
             trackTotal: rows.length,
             discNumber:
@@ -390,43 +383,50 @@ export class DatasetReader {
     }
   }
 
-  /**
-   * Build (artist, album) variant pairs for SC/TC matching.
-   * Tries original, simplified, and traditional variants.
-   */
-  private buildVariantPairs(
-    artist: string,
-    album: string,
-  ): Array<[string, string]> {
-    const pairs: Array<[string, string]> = [[artist, album]];
+  private loadMusicBrainzTrackArtists(
+    db: BetterSqlite3Database,
+    rows: Record<string, unknown>[],
+    fallbackArtist: string,
+  ): Map<string, string[]> {
+    const ids = rows
+      .map((row) => row.releasetrackid)
+      .filter((id): id is string => typeof id === "string" && id.length > 0);
+    const result = new Map<string, string[]>();
+    if (ids.length === 0) return result;
 
-    // Add SC/TC variants using opencc-js
-    // We use a simple heuristic: if the text contains CJK characters,
-    // generate SC → TC and TC → SC variants
+    const hasCredits = db
+      .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name = ?")
+      .get("musicbrainz_release_track_artist");
+    const hasArtists = db
+      .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name = ?")
+      .get("musicbrainz_artist");
+    if (!hasCredits || !hasArtists) return result;
+
+    const placeholders = ids.map(() => "?").join(",");
     try {
-      const { Converter } = require("opencc-js");
-      const s2t = Converter({ from: "cn", to: "tw" });
-      const t2s = Converter({ from: "tw", to: "cn" });
+      const creditRows = db
+        .prepare(
+          `SELECT ta.releasetrackid AS releasetrackid,
+                  a.name AS artist_name,
+                  ta."index" AS artist_index
+           FROM musicbrainz_release_track_artist ta
+           JOIN musicbrainz_artist a ON ta.artistid = a.artistid
+           WHERE ta.releasetrackid IN (${placeholders})
+           ORDER BY ta.releasetrackid, ta."index"`,
+        )
+        .all(...ids) as Record<string, unknown>[];
 
-      const addPair = (a: string, b: string) => {
-        const key: [string, string] = [a, b];
-        if (!pairs.some((p) => p[0] === key[0] && p[1] === key[1])) {
-          pairs.push(key);
-        }
-      };
-
-      const aSc = t2s(artist);
-      const bSc = t2s(album);
-      const aTc = s2t(artist);
-      const bTc = s2t(album);
-
-      if (aSc !== artist || bSc !== album) addPair(aSc, bSc);
-      if (aTc !== artist || bTc !== album) addPair(aTc, bTc);
+      for (const row of creditRows) {
+        const id = row.releasetrackid as string;
+        const artists = result.get(id) ?? [];
+        artists.push(String(row.artist_name ?? fallbackArtist));
+        result.set(id, artists);
+      }
     } catch {
-      // opencc-js not available — use original only
+      return new Map<string, string[]>();
     }
 
-    return pairs;
+    return result;
   }
 
   /**

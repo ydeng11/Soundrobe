@@ -71,6 +71,57 @@ export interface TaskProgress {
   result: unknown;
 }
 
+export interface AuditTrackResult {
+  index: number;
+  field: string;
+  status: "correct" | "warning" | "error";
+  message: string;
+  suggestion?: string | null;
+  corrected?: {
+    title?: string | null;
+    artist?: string | null;
+    artists?: string[] | null;
+    album?: string | null;
+    albumArtist?: string | null;
+    year?: string | null;
+    genre?: string | null;
+  } | null;
+}
+
+export interface AuditEvent {
+  type:
+    | "progress"
+    | "album-start"
+    | "album-result"
+    | "album-error"
+    | "completed"
+    | "cancelled"
+    | "failed";
+  albumPath?: string;
+  current?: number;
+  total?: number;
+  message?: string;
+  results?: AuditTrackResult[];
+}
+
+export interface AutoTagEvent {
+  taskId: string;
+  type:
+    | "progress"
+    | "lookup"
+    | "source"
+    | "merge"
+    | "write"
+    | "warning"
+    | "completed"
+    | "failed"
+    | "cancelled";
+  message: string;
+  progress: number;
+  total: number;
+  data?: unknown;
+}
+
 export interface DatasetStatus {
   musicbrainz: boolean;
   spotify: boolean;
@@ -144,9 +195,16 @@ export interface ElectronAPI {
 
   // Auto-tag
   autoTagAlbum: (albumPath: string) => Promise<string>;
+  onAutoTagEvent: (callback: (event: AutoTagEvent) => void) => () => void;
   getTaskProgress: (taskId: string) => Promise<TaskProgress>;
   cancelTask: (taskId: string) => Promise<void>;
   getDatasetStatus: () => Promise<DatasetStatus>;
+
+  // Audit
+  runAudit: (libraryPath: string) => Promise<{ albums: number; issues: number }>;
+  runAlbumAudit: (albumPath: string) => Promise<AuditTrackResult[]>;
+  onAuditEvent: (callback: (event: AuditEvent) => void) => () => void;
+  cancelAudit: () => Promise<void>;
 
   // Cover
   getCoverDataUrl: (albumPath: string) => Promise<string | null>;
@@ -222,11 +280,30 @@ contextBridge.exposeInMainWorld("api", {
   // Auto-tag
   autoTagAlbum: (albumPath: string) =>
     ipcRenderer.invoke("album:auto-tag", albumPath),
+  onAutoTagEvent: (callback: (event: AutoTagEvent) => void): (() => void) => {
+    const listener = (_event: Electron.IpcRendererEvent, payload: AutoTagEvent) =>
+      callback(payload);
+    ipcRenderer.on("auto-tag:event", listener);
+    return () => ipcRenderer.removeListener("auto-tag:event", listener);
+  },
   getTaskProgress: (taskId: string) =>
     ipcRenderer.invoke("task:progress", taskId),
   cancelTask: (taskId: string) =>
     ipcRenderer.invoke("task:cancel", taskId),
   getDatasetStatus: () => ipcRenderer.invoke("dataset:status"),
+
+  // Audit
+  runAudit: (libraryPath: string) =>
+    ipcRenderer.invoke("audit:run", libraryPath),
+  runAlbumAudit: (albumPath: string) =>
+    ipcRenderer.invoke("audit:run-album", albumPath),
+  onAuditEvent: (callback: (event: AuditEvent) => void): (() => void) => {
+    const listener = (_event: Electron.IpcRendererEvent, payload: AuditEvent) =>
+      callback(payload);
+    ipcRenderer.on("audit:event", listener);
+    return () => ipcRenderer.removeListener("audit:event", listener);
+  },
+  cancelAudit: () => ipcRenderer.invoke("audit:cancel"),
 
   // Debug — subscribe to live log forwarding from main process
   subscribeDebugLogs: () =>

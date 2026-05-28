@@ -1,6 +1,14 @@
 import type { TrackData, AlbumInfo } from "../../electron/preload";
 import { UndoManager, type TrackSnapshot } from "./UndoManager";
 
+interface AuditResultEntry {
+  trackIndex: number;
+  field: string;
+  status: "correct" | "warning" | "error";
+  message: string | null;
+  suggestion: string | null;
+}
+
 export interface AppState {
   /** Root library path being browsed */
   libraryPath: string | null;
@@ -57,6 +65,16 @@ export interface AppState {
     message: string;
   } | null;
 
+  /** Audit in progress */
+  auditing: boolean;
+  auditProgress: {
+    current: number;
+    total: number;
+    message: string;
+  } | null;
+  /** Audit results keyed by album path */
+  auditResults: Record<string, AuditResultEntry[]>;
+
   /** Dark mode enabled */
   darkMode: boolean;
 }
@@ -81,6 +99,9 @@ export const initialAppState: AppState = {
   showSettings: false,
   autoTagging: false,
   autoTagProgress: null,
+  auditing: false,
+  auditProgress: null,
+  auditResults: {},
   darkMode: false,
 };
 
@@ -115,6 +136,21 @@ export type AppAction =
         message: string;
       } | null;
     }
+  | { type: "SET_AUDITING"; auditing: boolean }
+  | {
+      type: "SET_AUDIT_PROGRESS";
+      progress: {
+        current: number;
+        total: number;
+        message: string;
+      } | null;
+    }
+  | {
+      type: "ADD_AUDIT_RESULTS";
+      albumPath: string;
+      results: AuditResultEntry[];
+    }
+  | { type: "CLEAR_AUDIT_RESULTS" }
   | { type: "TOGGLE_DARK_MODE" }
   | { type: "CLEAR_ALL" };
 
@@ -138,12 +174,17 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         albums: action.albums,
       };
 
-    case "SET_TRACKS":
+    case "SET_TRACKS": {
+      const selectedTrack = state.selectedTrackPath
+        ? action.tracks.find((track) => track.path === state.selectedTrackPath) ?? state.selectedTrack
+        : null;
       return {
         ...state,
         tracks: action.tracks,
+        selectedTrack,
         loaded: true,
       };
+    }
 
     case "SET_ACTIVE_ALBUM":
       return {
@@ -251,6 +292,28 @@ export function appReducer(state: AppState, action: AppAction): AppState {
 
     case "SET_AUTO_TAG_PROGRESS":
       return { ...state, autoTagProgress: action.progress };
+
+    case "SET_AUDITING":
+      return {
+        ...state,
+        auditing: action.auditing,
+        auditProgress: action.auditing ? state.auditProgress : null,
+      };
+
+    case "SET_AUDIT_PROGRESS":
+      return { ...state, auditProgress: action.progress };
+
+    case "ADD_AUDIT_RESULTS":
+      return {
+        ...state,
+        auditResults: {
+          ...state.auditResults,
+          [action.albumPath]: action.results,
+        },
+      };
+
+    case "CLEAR_AUDIT_RESULTS":
+      return { ...state, auditResults: {} };
 
     case "TOGGLE_DARK_MODE":
       return { ...state, darkMode: !state.darkMode };

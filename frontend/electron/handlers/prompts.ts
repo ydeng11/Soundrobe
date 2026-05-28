@@ -110,7 +110,125 @@ export function buildFolderExtractionMessages(
   ];
 }
 
-// ── Helper ──────────────────────────────────────────────────────────
+// ── Audit ──────────────────────────────────────────────────────────
+
+export function buildAuditMessages(
+  albumArtistHint: string | null,
+  albumHint: string | null,
+  tracks: Array<{
+    title?: string | null;
+    artist?: string | null;
+    album?: string | null;
+    albumArtist?: string | null;
+    artists?: string[];
+    path?: string;
+  }>,
+  filenames: string[],
+): Array<{ role: string; content: string }> {
+  const trackData = tracks.map((meta, i) => ({
+    index: i,
+    path: filenames[i] ?? "",
+    title: meta.title ?? "",
+    artist: meta.artist ?? "",
+    album: meta.album ?? "",
+    album_artist: meta.albumArtist ?? "",
+    artists: (meta.artists ?? []).join(", "),
+  }));
+
+  const payload = {
+    album_folder: albumHint ?? "",
+    artist_folder: albumArtistHint ?? "",
+    tracks: trackData,
+  };
+
+  return [
+    {
+      role: "system",
+      content:
+        "You audit music track metadata. The **primary principle** is that " +
+        "the file path must match the metadata: the album folder name should " +
+        "match the `album` field, the parent artist folder should match the " +
+        "`album_artist` field, and each filename should match its `title` field.\n\n" +
+        "The input provides:\n" +
+        "- `album_folder`: the album directory name (authoritative source for album name)\n" +
+        "- `artist_folder`: the parent directory name (authoritative source for album_artist)\n" +
+        "- `tracks[].path`: the filename (authoritative source for track title)\n" +
+        "- `tracks[].album`, `tracks[].album_artist`, `tracks[].title`: current metadata values\n\n" +
+        "Rules:\n" +
+        "1. 'error' means a field is clearly wrong or missing.\n" +
+        "2. 'warning' means the field might be wrong (typo, inconsistent capitalization, " +
+        "mismatched artist/album_artist convention).\n" +
+        "3. 'correct' means the field looks right.\n" +
+        "4. **Compare `tracks[].album` with `album_folder`.** If the album folder suggests " +
+        "a different album name than what is tagged, flag the `album` field. " +
+        "The folder name is authoritative.\n" +
+        "5. **Compare `tracks[].album_artist` with `artist_folder`.** If the parent " +
+        "artist directory suggests a different artist than what is tagged, " +
+        "flag the `album_artist` field. The folder name is authoritative.\n" +
+        "6. **Compare `tracks[].title` with `tracks[].path` (filename).** " +
+        "If the filename suggests a different title (after stripping track numbers, " +
+        "separators, and extensions), flag the `title` field.\n" +
+        "7. If artist != album_artist and artists is empty, flag artists as warning.\n" +
+        "8. Don't flag empty album_artist on single-artist albums.\n" +
+        "9. Be conservative — only flag when you have reasonable confidence.\n" +
+        "10. Title casing variations ('Come Together' vs 'come together') are warnings, " +
+        "not errors.\n" +
+        "11. For Chinese tracks: judge the correct character script " +
+        "(Simplified vs Traditional) based on the filename. The filename " +
+        "is the authoritative source for which script to use.\n" +
+        "12. **For every track with a warning or error, provide the complete " +
+        "corrected metadata in the `corrected` field.** Populate `corrected` " +
+        "with all the metadata fields that the track SHOULD have — title, " +
+        "artist, artists, album, album_artist, year, genre. Only include " +
+        "fields that are relevant (the code will merge your corrected values " +
+        "with the existing metadata).\n" +
+        "13. The `suggestion` field is used for per-field display " +
+        "but `corrected` is what gets written to the file.\n\n" +
+        "Examples of path-metadata matches (no issues):\n" +
+        "- album_folder='OK Computer', album='OK Computer' → correct\n" +
+        "- artist_folder='Radiohead', album_artist='Radiohead' → correct\n" +
+        "- path='01. Karma Police.flac', title='Karma Police' → correct\n" +
+        "\n" +
+        "Examples of path-metadata mismatches (with corrected metadata):\n" +
+        "- album_folder='OK Computer', album='OK Computer 1997' (wrong) → " +
+        '{ "index": 0, "field": "album", "status": "error", ' +
+        '"message": "Album tag \'OK Computer 1997\' does not match folder name \'OK Computer\'", ' +
+        '"suggestion": "OK Computer", ' +
+        '"corrected": { "album": "OK Computer" } }\n' +
+        "- artist_folder='Pink Floyd', album_artist='Pink Floyd' but artist='David Gilmour' → " +
+        '{ "index": 0, "field": "artist", "status": "warning", ' +
+        '"message": "Track artist \'David Gilmour\' differs from album_artist " +' +
+        '"\'Pink Floyd\', which matches the artist folder", ' +
+        '"suggestion": "Pink Floyd", ' +
+        '"corrected": { "artist": "Pink Floyd" } }\n' +
+        "- path='01. 我爱的人.flac', title='I Love You' (English, not matching filename) → " +
+        '{ "index": 0, "field": "title", "status": "error", ' +
+        '"message": "Title \'I Love You\' does not match filename \'01. 我爱的人.flac\'", ' +
+        '"suggestion": "我爱的人", ' +
+        '"corrected": { "title": "我爱的人" } }\n' +
+        "- filename='03 - Bohemian Rhapsody.flac', title='Bohemian Rhapsody (Remastered 2011)' → " +
+        '{ "index": 0, "field": "title", "status": "warning", ' +
+        '"message": "Title \'Bohemian Rhapsody (Remastered 2011)\' may have extra suffix not in filename", ' +
+        '"suggestion": "Bohemian Rhapsody", ' +
+        '"corrected": { "title": "Bohemian Rhapsody" } }\n\n' +
+        "Other common patterns (preserved from existing logic):\n" +
+        '- artist=\'Beatles\' (missing \'The\') → ' +
+        '{ "index": 0, "field": "artist", "status": "warning", ' +
+        '"message": "Artist may be missing \'The\'", "suggestion": "The Beatles" }\n' +
+        "- year='20' (truncated) → " +
+        '{ "index": 0, "field": "year", "status": "error", ' +
+        '"message": "Year truncated to 2 digits", "suggestion": "2020" }\n' +
+        "- title is placeholder string → " +
+        '{ "index": 0, "field": "title", "status": "error", ' +
+        '"message": "Title is placeholder text, not real track name" }\n\n' +
+        "Return only valid JSON. No markdown, no code fences, no extra text.",
+    },
+    {
+      role: "user",
+      content: JSON.stringify(payload),
+    },
+  ];
+}
 
 function candidateSummary(
   index: number,

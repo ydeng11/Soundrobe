@@ -6,8 +6,6 @@ import json
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from auto_tagger.commands.audit import _audit_album, _emit_json
 from auto_tagger.core.metadata import TrackMetadata
 from auto_tagger.llm.prompts import build_audit_messages
@@ -98,6 +96,80 @@ class TestBuildAuditMessages:
         assert "Examples" in sys_msg
         assert "correct" in sys_msg.lower()
         assert "error" in sys_msg.lower() or "warning" in sys_msg.lower()
+
+    # ── Path-metadata matching tests ────────────────────────────────────────
+
+    def test_primary_principle_is_path_metadata_match(self):
+        """The system prompt states path-metadata matching as the primary principle."""
+        tracks = [TrackMetadata(title="Song", artist="A", album="X")]
+        filenames = ["01 - Song.flac"]
+        messages = build_audit_messages("Artist", "Album", tracks, filenames)
+        sys_msg = messages[0]["content"]
+        assert "primary principle" in sys_msg
+        assert "file path" in sys_msg
+        assert "album folder" in sys_msg
+        assert "artist folder" in sys_msg
+        assert "filename" in sys_msg
+
+    def test_album_folder_vs_album_rule(self):
+        """Prompt tells LLM to compare album folder with album tag."""
+        tracks = [TrackMetadata(title="Song", artist="A", album="X")]
+        filenames = ["song.flac"]
+        messages = build_audit_messages("Artist", "Album X", tracks, filenames)
+        sys_msg = messages[0]["content"]
+        assert "album_folder" in sys_msg
+        assert "Compare" in sys_msg
+
+    def test_artist_folder_vs_album_artist_rule(self):
+        """Prompt tells LLM to compare artist folder with album_artist tag."""
+        tracks = [TrackMetadata(title="Song", artist="A", album="X")]
+        filenames = ["song.flac"]
+        messages = build_audit_messages("Radiohead", "OK Computer", tracks, filenames)
+        sys_msg = messages[0]["content"]
+        assert "album_artist" in sys_msg
+        assert "artist_folder" in sys_msg
+        assert "Compare" in sys_msg
+
+    def test_filename_vs_title_rule(self):
+        """Prompt tells LLM to compare filename with title tag."""
+        tracks = [TrackMetadata(title="Song", artist="A", album="X")]
+        filenames = ["01 - Song.flac"]
+        messages = build_audit_messages("Artist", "Album", tracks, filenames)
+        sys_msg = messages[0]["content"]
+        assert "filename" in sys_msg
+
+    def test_payload_contains_album_folder_and_artist_folder(self):
+        """The user payload includes album_folder and artist_folder for LLM to compare."""
+        tracks = [TrackMetadata(title="Song", artist="A", album="X")]
+        filenames = ["song.flac"]
+        messages = build_audit_messages("Pink Floyd", "Dark Side of the Moon", tracks, filenames)
+        payload = json.loads(messages[1]["content"])
+        assert payload["album_folder"] == "Dark Side of the Moon"
+        assert payload["artist_folder"] == "Pink Floyd"
+
+    def test_payload_tracks_include_album_field(self):
+        """Payload provides album field per track so LLM can compare with album_folder."""
+        tracks = [TrackMetadata(title="Song", artist="A", album="The Wall")]
+        filenames = ["song.flac"]
+        messages = build_audit_messages("Pink Floyd", "The Wall", tracks, filenames)
+        payload = json.loads(messages[1]["content"])
+        assert payload["tracks"][0]["album"] == "The Wall"
+
+    def test_path_mismatch_example_in_prompt(self):
+        """Prompt includes an example where path does not match metadata."""
+        tracks = [TrackMetadata(title="Song", artist="A", album="X")]
+        filenames = ["song.flac"]
+        messages = build_audit_messages("A", "X", tracks, filenames)
+        sys_msg = messages[0]["content"]
+        assert "does not match" in sys_msg
+
+    def test_album_folder_authoritative(self):
+        """Prompt states album_folder and artist_folder are authoritative."""
+        tracks = [TrackMetadata(title="Song", artist="A", album="X")]
+        filenames = ["song.flac"]
+        messages = build_audit_messages("Artist", "Album", tracks, filenames)
+        sys_msg = messages[0]["content"]
+        assert "authoritative" in sys_msg
 
 
 # ── Command tests ──────────────────────────────────────────────────────────────
@@ -415,36 +487,3 @@ class TestAuditFix:
         mock_write.assert_not_called()
 
 
-# ── Integration test ──────────────────────────────────────────────────────────
-
-
-async def test_handle_audit_event_updates_track_status():
-    """Audit events from subprocess update track state via existing handler."""
-    from auto_tagger.ui.workflow import _handle_audit_event
-    from auto_tagger.ui.app import AutoTaggerApp
-    from auto_tagger.ui.state import AlbumData, TrackData
-
-    app = AutoTaggerApp()
-    album_path = Path("/test/Album")
-    album = AlbumData(path=album_path)
-    album.tracks = [
-        TrackData(path=Path("/test/Album/01.flac"), metadata=TrackMetadata(title="Song A")),
-        TrackData(path=Path("/test/Album/02.flac"), metadata=TrackMetadata(title="Song B")),
-    ]
-    album._tracks_loaded = True
-    app.state.albums[album_path] = album
-    app.state.selected_album_path = album_path
-
-    async with app.run_test() as pilot:
-        screen = app.screen
-        await _handle_audit_event(screen, {
-            "type": "audit",
-            "path": "/test/Album",
-            "tracks": [
-                {"index": 0, "field": "artist", "status": "error", "message": "Missing", "suggestion": "Radiohead"},
-                {"index": 1, "field": "title", "status": "warning", "message": "Possible typo", "suggestion": "Song B (Remastered)"},
-            ],
-        })
-        assert len(album.audit_results) == 2
-        assert album.tracks[0].status == "error"
-        assert album.tracks[1].status == "warning"

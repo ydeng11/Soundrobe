@@ -48,10 +48,6 @@ dev = [
     "ruff>=0.1.0",
 ]
 
-ui = [
-    "Pillow>=10.0.0",
-    "textual>=1.0.0",
-]
 
 [project.scripts]
 auto-tag = "auto_tagger.cli:main"

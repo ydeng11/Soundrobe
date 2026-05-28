@@ -1438,3 +1438,185 @@ def test_fix_metadata_under_compilations_folder_rejects_folder_fallback(monkeypa
 
     assert llm_called, "_fix_via_llm should have been called"
     assert result.applied_writes == 1
+
+
+# ── _normalize_track_artists ──────────────────────────────────────────
+
+def test_normalize_track_artists_returns_unchanged_when_missing_inputs():
+    """When *track_artist* or *effective_album_artist* is None, return inputs
+    unchanged — there is no album artist to compare or prepend."""
+    result = AlbumWorkflow._normalize_track_artists(None, [], "蛋堡")
+    assert result == (None, [])
+
+    result = AlbumWorkflow._normalize_track_artists("徐佳瑩", ["徐佳瑩"], None)
+    assert result == ("徐佳瑩", ["徐佳瑩"])
+
+
+def test_normalize_track_artists_preserves_single_artist_match():
+    """When *track_artist* matches *effective_album_artist* and there is only
+    one credited artist, return them unchanged — no feature to format."""
+    result = AlbumWorkflow._normalize_track_artists("蛋堡", ["蛋堡"], "蛋堡")
+    assert result == ("蛋堡", ["蛋堡"])
+
+
+def test_normalize_track_artists_prepends_album_artist_when_missing():
+    """When the LLM/db returned only a featured artist, prepend the album
+    artist so the primary artist is credited in the *artists* list."""
+    result = AlbumWorkflow._normalize_track_artists("徐佳瑩", ["徐佳瑩"], "蛋堡")
+    assert result[1] == ["蛋堡", "徐佳瑩"]
+
+
+def test_normalize_track_artists_formats_two_artists_with_feat():
+    """Two credited artists are formatted as ``"primary feat. guest"``."""
+    result = AlbumWorkflow._normalize_track_artists("蛋堡", ["蛋堡", "徐佳瑩"], "蛋堡")
+    assert result[0] == "蛋堡 feat. 徐佳瑩"
+
+
+def test_normalize_track_artists_prepended_two_artists_use_feat():
+    """When prepending the album artist produces exactly two artists, format
+    with ``"feat."`` — same as the explicit case."""
+    result = AlbumWorkflow._normalize_track_artists("徐佳瑩", ["徐佳瑩"], "蛋堡")
+    assert result[0] == "蛋堡 feat. 徐佳瑩"
+
+
+def test_normalize_track_artists_uses_ampersand_for_three_or_more():
+    """Three or more credited artists are formatted with ``" & "`` between
+    every name, following the collaboration convention."""
+    result = AlbumWorkflow._normalize_track_artists("C", ["A", "B", "C"], "A")
+    assert result[0] == "A & B & C"
+
+
+def test_normalize_track_artists_uses_ampersand_when_prepending_makes_three():
+    """When prepending the album artist produces three or more total artists,
+    use ``" & "`` instead of ``"feat."``."""
+    result = AlbumWorkflow._normalize_track_artists("B", ["B", "C"], "A")
+    assert result[0] == "A & B & C"
+
+
+def test_normalize_track_artists_deduplicates_artists():
+    """Duplicate artist names are removed via ``dict.fromkeys`` to avoid
+    repeated names in the formatted string."""
+    result = AlbumWorkflow._normalize_track_artists("蛋堡", ["蛋堡", "蛋堡"], "蛋堡")
+    assert result[0] == "蛋堡"
+
+
+def test_normalize_track_artists_case_insensitive_match_skips_prepend():
+    """Case-insensitive matching prevents prepending when *track_artist* and
+    *effective_album_artist* differ only in casing."""
+    result = AlbumWorkflow._normalize_track_artists("guest", ["guest"], "GUEST")
+    assert result == ("guest", ["guest"])
+
+
+def test_normalize_track_artists_preserves_artists_list_when_all_credited():
+    """When *effective_album_artist* is already in *track_artists*, the list
+    is not modified — only the *artist* display string changes."""
+    result = AlbumWorkflow._normalize_track_artists("蛋堡", ["蛋堡", "徐佳瑩"], "蛋堡")
+    assert result[1] == ["蛋堡", "徐佳瑩"]  # order preserved
+    assert result[0] == "蛋堡 feat. 徐佳瑩"
+
+
+# ── _resolve_per_track_artists ────────────────────────────────────────
+
+def test_resolve_per_track_artists_passes_through_collaboration():
+    """Collaboration albums pass *track_artist*/*track_artists* through
+    unchanged — per-track artist differences should be preserved as-is."""
+    result = AlbumWorkflow._resolve_per_track_artists(
+        "徐佳瑩", ["徐佳瑩"], "蛋堡",
+        is_collaboration=True, is_compilation=False,
+    )
+    assert result == ("徐佳瑩", ["徐佳瑩"])
+
+
+def test_resolve_per_track_artists_passes_through_compilation():
+    """Compilation (Various Artists) albums pass *track_artist* through
+    unchanged — each track keeps its own performer."""
+    result = AlbumWorkflow._resolve_per_track_artists(
+        "Some Artist", ["Some Artist"], "Various Artists",
+        is_collaboration=False, is_compilation=True,
+    )
+    assert result == ("Some Artist", ["Some Artist"])
+
+
+def test_resolve_per_track_artists_normalizes_feature_on_non_compilation():
+    """Non-compilation albums with a featured (different) artist normalize
+    to ``"primary feat. guest"`` and prepend the primary artist."""
+    result = AlbumWorkflow._resolve_per_track_artists(
+        "徐佳瑩", ["徐佳瑩"], "蛋堡",
+        is_collaboration=False, is_compilation=False,
+    )
+    assert result[0] == "蛋堡 feat. 徐佳瑩"
+    assert result[1] == ["蛋堡", "徐佳瑩"]
+
+
+def test_resolve_per_track_artists_normalizes_multi_artist_on_non_compilation():
+    """Non-compilation albums with multiple credited artists on a track
+    format as ``"primary feat. guest"`` (2) or ``"A & B & C"`` (3+)."""
+    result = AlbumWorkflow._resolve_per_track_artists(
+        "蛋堡", ["蛋堡", "Matzka"], "蛋堡",
+        is_collaboration=False, is_compilation=False,
+    )
+    assert result[0] == "蛋堡 feat. Matzka"
+    assert result[1] == ["蛋堡", "Matzka"]
+
+
+def test_resolve_per_track_artists_uses_album_artist_for_matching_single():
+    """When *track_artist* matches *effective_album_artist* and there is
+    only one credited artist, use the album artist — not the candidate's raw
+    artist (which may be a less-canonical form)."""
+    result = AlbumWorkflow._resolve_per_track_artists(
+        "蛋堡", ["蛋堡"], "蛋堡",
+        is_collaboration=False, is_compilation=False,
+    )
+    assert result == ("蛋堡", ["蛋堡"])
+
+
+def test_resolve_per_track_artists_falls_back_to_album_artist_when_no_per_track():
+    """When no per-track override is available (track_artist=None), use the
+    album artist for all tracks on a non-compilation album."""
+    result = AlbumWorkflow._resolve_per_track_artists(
+        None, [], "蛋堡",
+        is_collaboration=False, is_compilation=False,
+    )
+    assert result == ("蛋堡", ["蛋堡"])
+
+
+def test_resolve_per_track_artists_uses_fallback_when_no_album_artist():
+    """When *effective_album_artist* is also None, fall back to
+    *fallback_artists* to preserve existing per-track values."""
+    result = AlbumWorkflow._resolve_per_track_artists(
+        None, [], None,
+        is_collaboration=False, is_compilation=False,
+        fallback_artists=["Existing", "Artists"],
+    )
+    assert result == (None, ["Existing", "Artists"])
+
+
+def test_resolve_per_track_artists_returns_per_track_when_no_album_artist():
+    """When no *effective_album_artist* and no *fallback_artists*, return the
+    per-track values as-is — no context to override or prepend."""
+    result = AlbumWorkflow._resolve_per_track_artists(
+        "B", ["A", "B"], None,
+        is_collaboration=False, is_compilation=False,
+    )
+    assert result == ("B", ["A", "B"])
+
+
+def test_resolve_per_track_artists_uses_ampersand_three_or_more_on_non_comp():
+    """Non-compilation tracks with three credited artists use ``" & "``
+    formatting rather than ``"feat."``."""
+    result = AlbumWorkflow._resolve_per_track_artists(
+        "C", ["A", "B", "C"], "A",
+        is_collaboration=False, is_compilation=False,
+    )
+    assert result[0] == "A & B & C"
+
+
+def test_resolve_per_track_artists_preserves_compilation_no_feat_formatting():
+    """Compilation tracks must NOT get ``"feat."`` formatting even when
+    the track artist differs from the album artist — each track is its own
+    artist, not a feature."""
+    result = AlbumWorkflow._resolve_per_track_artists(
+        "Eminem", ["Eminem"], "Various Artists",
+        is_collaboration=False, is_compilation=True,
+    )
+    assert result == ("Eminem", ["Eminem"])

@@ -45,6 +45,7 @@ const tracks: TrackData[] = [
   makeTrack("/music/song1.mp3", {
     title: "Song One",
     artist: "Artist A",
+    albumArtist: "Album Artist A",
     album: "Album X",
     year: "2020",
     trackNumber: 1,
@@ -191,7 +192,10 @@ describe("FileGrid", () => {
     fireEvent.contextMenu(screen.getByText("music/song1.mp3"));
 
     await waitFor(() => {
-      expect(window.api.showTrackContextMenu).toHaveBeenCalled();
+      expect(window.api.showTrackContextMenu).toHaveBeenCalledWith(
+        "/music/song1.mp3",
+        expect.objectContaining({ albumArtist: "Album Artist A" }),
+      );
       expect(onEditExtraTags).toHaveBeenCalledWith(
         expect.objectContaining({ path: "/music/song1.mp3" }),
       );

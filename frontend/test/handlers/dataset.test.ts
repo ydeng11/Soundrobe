@@ -25,6 +25,7 @@ function createFixtureDb(): void {
       normalized_album TEXT NOT NULL
     );
     CREATE TABLE IF NOT EXISTS musicbrainz_release_track (
+      releasetrackid TEXT NOT NULL,
       releaseid TEXT NOT NULL,
       title TEXT,
       recordingtitle TEXT,
@@ -35,6 +36,16 @@ function createFixtureDb(): void {
       length INTEGER,
       recordingid TEXT
     );
+    CREATE TABLE IF NOT EXISTS musicbrainz_artist (
+      artistid TEXT NOT NULL,
+      name TEXT
+    );
+    CREATE TABLE IF NOT EXISTS musicbrainz_release_track_artist (
+      releasetrackid TEXT NOT NULL,
+      artistid TEXT NOT NULL,
+      joinphrase TEXT NOT NULL,
+      "index" INTEGER NOT NULL
+    );
   `);
 
   const insertLookup = db.prepare(`
@@ -43,8 +54,15 @@ function createFixtureDb(): void {
   `);
 
   const insertTrack = db.prepare(`
-    INSERT INTO musicbrainz_release_track (releaseid, title, number, mediaposition, mediatrackcount, length, recordingid)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO musicbrainz_release_track (releasetrackid, releaseid, title, number, mediaposition, mediatrackcount, length, recordingid)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+  const insertArtist = db.prepare(`
+    INSERT INTO musicbrainz_artist (artistid, name) VALUES (?, ?)
+  `);
+  const insertTrackArtist = db.prepare(`
+    INSERT INTO musicbrainz_release_track_artist (releasetrackid, artistid, joinphrase, "index")
+    VALUES (?, ?, ?, ?)
   `);
 
   // Beatles - Abbey Road
@@ -53,8 +71,12 @@ function createFixtureDb(): void {
     "mb-abbey-1", "mb-beatles-1",
     "the beatles", "abbey road",
   );
-  insertTrack.run("mb-abbey-1", "Come Together", 1, 1, 17, 259000, "mb-track-1");
-  insertTrack.run("mb-abbey-1", "Something", 2, 1, 17, 182000, "mb-track-2");
+  insertTrack.run("rt-1", "mb-abbey-1", "Come Together", 1, 1, 17, 259000, "mb-track-1");
+  insertTrack.run("rt-2", "mb-abbey-1", "Something", 2, 1, 17, 182000, "mb-track-2");
+  insertArtist.run("mb-lennon", "John Lennon");
+  insertArtist.run("mb-mccartney", "Paul McCartney");
+  insertTrackArtist.run("rt-1", "mb-lennon", " & ", 0);
+  insertTrackArtist.run("rt-1", "mb-mccartney", "", 1);
 
   // 蔡健雅 - 达尔文 (simpler album name without punctuation)
   insertLookup.run(
@@ -62,8 +84,8 @@ function createFixtureDb(): void {
     "mb-darwin-1", "mb-tanya-1",
     "蔡健雅", "达尔文",
   );
-  insertTrack.run("mb-darwin-1", "达尔文", 1, 1, 12, 245000, "mb-gt-1");
-  insertTrack.run("mb-darwin-1", "空白格", 2, 1, 12, 234000, "mb-gt-2");
+  insertTrack.run("rt-3", "mb-darwin-1", "达尔文", 1, 1, 12, 245000, "mb-gt-1");
+  insertTrack.run("rt-4", "mb-darwin-1", "空白格", 2, 1, 12, 234000, "mb-gt-2");
 
   // 陈洁仪 - 心碎
   insertLookup.run(
@@ -147,6 +169,14 @@ describe("DatasetReader — queries", () => {
     expect(results[0].tracks[0].title).toBe("Come Together");
     expect(results[0].tracks[0].trackNumber).toBe(1);
     expect(results[0].tracks[1].title).toBe("Something");
+    reader.close();
+  });
+
+  it("uses MusicBrainz track artist credits when join tables are present", () => {
+    const reader = new DatasetReader(dbPath);
+    const results = reader.queryAlbum("The Beatles", "Abbey Road");
+    expect(results[0].tracks[0].artist).toBe("John Lennon & Paul McCartney");
+    expect(results[0].tracks[0].artists).toEqual(["John Lennon", "Paul McCartney"]);
     reader.close();
   });
 

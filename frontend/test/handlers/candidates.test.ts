@@ -13,6 +13,8 @@ import {
   lookupRequestFromJson,
   queryHash,
   normalizeLookupText,
+  buildLookupVariantPairs,
+  splitArtistNames,
   verifyAlbumName,
   type TrackCandidate,
   type AlbumCandidate,
@@ -176,6 +178,41 @@ describe("normalizeLookupText", () => {
   it("normalizes Unicode fullwidth latin", () => {
     // Fullwidth latin gets NFKC-normalized to ASCII
     expect(normalizeLookupText("ＡＢＣ")).toBe("abc");
+  });
+});
+
+describe("splitArtistNames", () => {
+  it("splits common collaboration separators", () => {
+    expect(splitArtistNames(["Alice & Bob / Carol feat. Dave; Eve, Frank"])).toEqual([
+      "Alice",
+      "Bob",
+      "Carol",
+      "Dave",
+      "Eve",
+      "Frank",
+    ]);
+  });
+
+  it("splits CJK dot and punctuation separators", () => {
+    expect(splitArtistNames(["陈慧琳.陈小春、郑伊健；许志安"])).toEqual([
+      "陈慧琳",
+      "陈小春",
+      "郑伊健",
+      "许志安",
+    ]);
+  });
+});
+
+describe("buildLookupVariantPairs", () => {
+  it("queries simplified, traditional, then original text", () => {
+    expect(buildLookupVariantPairs("张学友", "吻别")).toEqual([
+      ["张学友", "吻别"],
+      ["張學友", "吻別"],
+    ]);
+    expect(buildLookupVariantPairs("張學友", "吻別")).toEqual([
+      ["张学友", "吻别"],
+      ["張學友", "吻別"],
+    ]);
   });
 });
 

@@ -13,11 +13,13 @@ import {
   cancelTask,
   getDatasetStatus,
   getConfig,
+  onAutoTagEvent,
   refreshConfig,
   saveConfig,
   setDebugMode,
 } from "./handlers/auto-tag";
 import { registerDebugIpc } from "./handlers/debug";
+import { registerAuditHandlers, onAuditEvent } from "./handlers/audit";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const isDev = !app.isPackaged;
@@ -180,6 +182,27 @@ function debounce<T extends (...args: unknown[]) => void>(
   };
 }
 
+/** Subscribe to an event emitter and forward each event to all BrowserWindows. */
+function forwardToWindows<T>(
+  subscribe: (fn: (event: T) => void) => () => void,
+  channel: string,
+): void {
+  subscribe((event) => {
+    for (const win of BrowserWindow.getAllWindows()) {
+      if (!win.isDestroyed()) {
+        win.webContents.send(channel, event);
+      }
+    }
+  });
+}
+
+/** Resolve the sender window, falling back to mainWindow for stale renderers. */
+function resolveWindow(event: { sender: Electron.WebContents }): BrowserWindow | null {
+  const sender = BrowserWindow.fromWebContents(event.sender);
+  const win = sender && !sender.isDestroyed() ? sender : mainWindow;
+  return win && !win.isDestroyed() ? win : null;
+}
+
 /**
  * Verify native modules (better-sqlite3) are compiled for Electron's ABI.
  * If not, offer to auto-rebuild. Returns false if the user chose to quit.
@@ -200,20 +223,17 @@ app.whenReady().then(async () => {
   registerCoverHandlers();
   registerDirectoryHandlers();
   registerDebugIpc();
+  registerAuditHandlers();
+  forwardToWindows(onAutoTagEvent, "auto-tag:event");
+  forwardToWindows(onAuditEvent, "audit:event");
 
   // Native folder picker — use event.sender to get the invoking window, with a
   // mainWindow fallback for stale/reloaded dev renderers.
-  // Window focus handler — signals that the window regained focus
-  ipcMain.handle("window:focused", async () => {
-    // Could trigger a background library re-scan here if needed
-  });
-
+  ipcMain.handle("window:focused", async () => {});
   ipcMain.handle("dialog:open-folder", async (event) => {
     try {
-      const senderWindow = BrowserWindow.fromWebContents(event.sender);
-      const win =
-        senderWindow && !senderWindow.isDestroyed() ? senderWindow : mainWindow;
-      if (!win || win.isDestroyed()) return null;
+      const win = resolveWindow(event);
+      if (!win) return null;
 
       const result = await dialog.showOpenDialog(win, {
         title: "Open Music Folder",
@@ -232,10 +252,8 @@ app.whenReady().then(async () => {
   ipcMain.handle(
     "track:context-menu",
     async (event, trackPath: string, labels: Record<string, string>) => {
-      const senderWindow = BrowserWindow.fromWebContents(event.sender);
-      const win =
-        senderWindow && !senderWindow.isDestroyed() ? senderWindow : mainWindow;
-      if (!win || win.isDestroyed()) return null;
+      const win = resolveWindow(event);
+      if (!win) return null;
 
       return new Promise<"extra-tags" | null>((resolve) => {
         let resolved = false;
@@ -255,6 +273,7 @@ app.whenReady().then(async () => {
           { type: "separator" },
           { label: "Copy Title", click: () => copy(labels.title) },
           { label: "Copy Artist", click: () => copy(labels.artist) },
+          { label: "Copy Album Artist", click: () => copy(labels.albumArtist) },
           { label: "Copy Album", click: () => copy(labels.album) },
           { label: "Copy Path", click: () => copy(trackPath) },
           { type: "separator" },
@@ -265,6 +284,7 @@ app.whenReady().then(async () => {
                 [
                   `Title: ${labels.title || "-"}`,
                   `Artist: ${labels.artist || "-"}`,
+                  `Album Artist: ${labels.albumArtist || "-"}`,
                   `Album: ${labels.album || "-"}`,
                   `Year: ${labels.year || "-"}`,
                   `Track: ${labels.track || "-"}`,

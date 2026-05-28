@@ -2,11 +2,20 @@
  * Auto-tag orchestrator — implements the full lookup chain.
  *
  * Lookup chain:
- *   Parse hints → LLM enhancement → Cache → Dataset → MusicBrainz
- *   → Discogs → Folder fallback → Cache write → LLM selection
+ *   Parse hints → LLM enhancement → Dataset → Cache → MusicBrainz
+ *   → Discogs release lookup → Folder fallback → Cache write → LLM selection
  */
 
-import { type AlbumCandidate, makeLookupRequest } from "./candidates";
+import { EventEmitter } from "node:events";
+import {
+  type AlbumCandidate,
+  type TrackCandidate,
+  artistDisplayName,
+  buildLookupVariantPairs,
+  makeAlbumCandidate,
+  makeLookupRequest,
+  splitArtistNames,
+} from "./candidates";
 import { MatchCache } from "./cache";
 import { DatasetReader } from "./dataset";
 import { MusicBrainzClient } from "./musicbrainz";
@@ -17,7 +26,9 @@ import { buildSelectionMessages, buildFolderExtractionMessages } from "./prompts
 import { writeTags } from "./writer";
 import type { WriteFields } from "./writer";
 import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, statSync } from "node:fs";
-import { join, extname } from "node:path";
+import { basename, dirname, join, extname } from "node:path";
+
+const AUDIO_EXTENSIONS = new Set([".mp3", ".flac", ".m4a", ".mp4", ".wav", ".ogg", ".opus", ".aiff"]);
 import { homedir } from "node:os";
 import debug from "./debug";
 
@@ -32,6 +43,24 @@ export interface TaskProgress {
   result: unknown;
 }
 
+export interface AutoTagEvent {
+  taskId: string;
+  type:
+    | "progress"
+    | "lookup"
+    | "source"
+    | "merge"
+    | "write"
+    | "warning"
+    | "completed"
+    | "failed"
+    | "cancelled";
+  message: string;
+  progress: number;
+  total: number;
+  data?: unknown;
+}
+
 export interface AutoTagConfig {
   llmApiKey?: string;
   llmModel?: string;
@@ -41,6 +70,15 @@ export interface AutoTagConfig {
   remoteLookupEnabled?: boolean;
   discogsEnabled?: boolean;
   debug?: boolean;
+}
+
+const taskEvents = new EventEmitter();
+
+export function onAutoTagEvent(
+  listener: (event: AutoTagEvent) => void,
+): () => void {
+  taskEvents.on("event", listener);
+  return () => taskEvents.off("event", listener);
 }
 
 // ── Config loading ──────────────────────────────────────────────────
@@ -68,6 +106,29 @@ export function loadConfig(): AutoTagConfig {
     discogsEnabled: true,
   };
 
+  // Map config file keys to config object setters
+  const configSetters: Record<
+    string,
+    (value: string) => void
+  > = {
+    llm_api_key: (v) => { config.llmApiKey = v; },
+    llm_model: (v) => { config.llmModel = v; },
+    discogs_token: (v) => { config.discogsToken = v; },
+    dataset_path: (v) => { config.datasetPath = v; },
+    remote_lookup_enabled: (v) => {
+      if (v === "false" || v === "true") config.remoteLookupEnabled = v === "true";
+    },
+    remote_lookup: (v) => {
+      if (v === "false" || v === "true") config.remoteLookupEnabled = v === "true";
+    },
+    discogs_enabled: (v) => {
+      if (v === "false" || v === "true") config.discogsEnabled = v === "true";
+    },
+    debug: (v) => {
+      if (v === "false" || v === "true") config.debug = v === "true";
+    },
+  };
+
   // 1. Config file first (lowest priority)
   for (const cfgPath of getConfigPaths()) {
     if (existsSync(cfgPath)) {
@@ -87,19 +148,7 @@ export function loadConfig(): AutoTagConfig {
           } else if (value.startsWith("'") && value.endsWith("'")) {
             value = value.slice(1, -1);
           }
-          if (key === "llm_api_key") config.llmApiKey = value;
-          else if (key === "llm_model") config.llmModel = value;
-          else if (key === "discogs_token") config.discogsToken = value;
-          else if (key === "dataset_path") config.datasetPath = value;
-          else if (
-            (key === "remote_lookup_enabled" || key === "remote_lookup") &&
-            (value === "false" || value === "true")
-          )
-            config.remoteLookupEnabled = value === "true";
-          else if (key === "discogs_enabled" && (value === "false" || value === "true"))
-            config.discogsEnabled = value === "true";
-          else if (key === "debug" && (value === "false" || value === "true"))
-            config.debug = value === "true";
+          configSetters[key]?.(value);
         }
       } catch {
         // skip unreadable config
@@ -161,7 +210,7 @@ class TaskManager {
         taskId,
         status: "running",
         progress: 0,
-        total: 8, // 8 steps: 7 lookup chain + 1 tag application
+        total: 9,
         message: "Starting...",
         result: null,
       },
@@ -176,6 +225,7 @@ class TaskManager {
         status: "failed",
         message: msg,
       });
+      this.emitTask(taskId, "failed", msg, { error: msg });
     });
 
     return taskId;
@@ -211,14 +261,14 @@ class TaskManager {
 
     try {
       // Step 1: Parse folder hints
-      debug.info("auto-tag", "Step 1/8: Parsing folder hints...");
+      debug.info("auto-tag", "Step 1/9: Parsing folder hints...");
       update("Parsing folder hints...", 1);
       if (signal.aborted) return this.failCancelled(taskId);
       const request = await parseAlbumWithTags(albumPath);
       debug.info("auto-tag", `Parsed hints: artist="${request.artistHint}" album="${request.albumHint}" year="${request.yearHint}"`);
 
       // Step 2: LLM hint enhancement (if ambiguous)
-      debug.info("auto-tag", "Step 2/8: Checking folder name...");
+      debug.info("auto-tag", "Step 2/9: Checking folder name...");
       update("Checking folder name...", 2);
       if (signal.aborted) return this.failCancelled(taskId);
       const enhancedRequest = await this.enhanceHints(request, signal);
@@ -229,9 +279,44 @@ class TaskManager {
         debug.debug("auto-tag", "Hints unchanged after LLM check");
       }
 
-      // Step 3: Cache check
-      debug.info("auto-tag", "Step 3/8: Checking cache...");
-      update("Checking cache...", 3);
+      // Step 3: Local staging-derived dataset index must be checked first.
+      debug.info("auto-tag", "Step 3/9: Querying local dataset...");
+      update("Querying local dataset...", 3);
+      if (signal.aborted) return this.failCancelled(taskId);
+      let allCandidates: AlbumCandidate[] = [];
+      const lookupVariants = buildLookupVariantPairs(
+        enhancedRequest.artistHint,
+        enhancedRequest.albumHint,
+      );
+      const dataset = new DatasetReader(this.config.datasetPath);
+      if (dataset.isAvailable() && dataset.hasLookupTable()) {
+        debug.debug("auto-tag", `Dataset available at: ${dataset.getPath()}`);
+        try {
+          const datasetCandidates = dataset.queryAlbum(
+            enhancedRequest.artistHint ?? "",
+            enhancedRequest.albumHint ?? "",
+          );
+          debug.info("auto-tag", `Dataset returned ${datasetCandidates.length} candidates`);
+          this.emitTask(taskId, "source", `Local dataset: ${datasetCandidates.length} candidate(s)`, {
+            source: "dataset",
+            path: dataset.getPath(),
+            count: datasetCandidates.length,
+          });
+          allCandidates.push(...datasetCandidates);
+        } finally {
+          dataset.close();
+        }
+      } else {
+        const msg = `Local dataset index unavailable at ${dataset.getPath()}`;
+        debug.warn("auto-tag", msg);
+        this.emitTask(taskId, "warning", msg, { source: "dataset", path: dataset.getPath() });
+      }
+      if (signal.aborted) return this.failCancelled(taskId);
+
+      // Step 4: Cache check after local dataset, so stale cache never hides
+      // newly indexed local data.
+      debug.info("auto-tag", "Step 4/9: Checking cache...");
+      update("Checking cache...", 4);
       if (signal.aborted) return this.failCancelled(taskId);
       const cachePath = this.config.cachePath ?? join(homedir(), ".auto-tagger", "cache.db");
       debug.debug("auto-tag", `Cache path: ${cachePath}`);
@@ -239,42 +324,14 @@ class TaskManager {
       try {
         const cached = cache.get(enhancedRequest);
         if (cached) {
-          debug.info("auto-tag", `Cache HIT: ${cached.length} candidates (skipping network lookups)`);
-          // Cache hit — skip all network lookups
-          update(`Cache hit: ${cached.length} candidates`, 7);
-          const selected = await this.selectCandidate(
-            enhancedRequest,
-            cached,
-            signal,
-          );
-          cache.close();
-          const cachePick = selected ?? (Array.isArray(cached) ? cached[0] : cached);
-          if (cachePick) {
-            debug.info("auto-tag", "Step 8/8: Applying album tags...");
-            update("Applying tags...", 8);
-            await this.applyCandidateTags(enhancedRequest.path, cachePick);
-          }
-          this.completeTask(taskId, cachePick ?? cached);
-          return;
-        }
-        debug.debug("auto-tag", "Cache MISS — proceeding with lookups");
-
-        // Step 4: Local dataset
-        debug.info("auto-tag", "Step 4/8: Querying local dataset...");
-        update("Querying local dataset...", 4);
-        let allCandidates: AlbumCandidate[] = [];
-        const dataset = new DatasetReader(this.config.datasetPath);
-        if (dataset.isAvailable()) {
-          debug.debug("auto-tag", `Dataset available at: ${this.config.datasetPath}`);
-          const datasetCandidates = dataset.queryAlbum(
-            enhancedRequest.artistHint ?? "",
-            enhancedRequest.albumHint ?? "",
-          );
-          debug.info("auto-tag", `Dataset returned ${datasetCandidates.length} candidates`);
-          allCandidates.push(...datasetCandidates);
-          dataset.close();
+          debug.info("auto-tag", `Cache HIT: ${cached.length} candidates`);
+          this.emitTask(taskId, "source", `Cache: ${cached.length} candidate(s)`, {
+            source: "cache",
+            count: cached.length,
+          });
+          allCandidates.push(...cached);
         } else {
-          debug.warn("auto-tag", "Dataset not available — skipping");
+          debug.debug("auto-tag", "Cache MISS — proceeding with remote lookups");
         }
         if (signal.aborted) {
           cache.close();
@@ -283,19 +340,21 @@ class TaskManager {
 
         // Step 5: MusicBrainz
         if (this.config.remoteLookupEnabled !== false) {
-          debug.info("auto-tag", "Step 5/8: Searching MusicBrainz...");
+          debug.info("auto-tag", "Step 5/9: Searching MusicBrainz...");
           update("Searching MusicBrainz...", 5);
           try {
             const mb = new MusicBrainzClient();
             debug.debug("auto-tag", `MusicBrainz search: artist="${enhancedRequest.artistHint}" album="${enhancedRequest.albumHint}"`);
-            const mbCandidates = await mb.searchAlbum(
-              enhancedRequest.artistHint,
-              enhancedRequest.albumHint,
-            );
+            const mbCandidates = await this.searchVariants(mb, lookupVariants);
             debug.info("auto-tag", `MusicBrainz returned ${mbCandidates.length} candidates`);
+            this.emitTask(taskId, "source", `MusicBrainz: ${mbCandidates.length} candidate(s)`, {
+              source: "musicbrainz",
+              count: mbCandidates.length,
+            });
             allCandidates.push(...mbCandidates);
           } catch (err) {
             debug.warn("auto-tag", `MusicBrainz lookup failed (non-fatal)`, err);
+            this.emitTask(taskId, "warning", "MusicBrainz lookup failed", { error: String(err) });
           }
         } else {
           debug.info("auto-tag", "Remote lookups disabled — skipping MusicBrainz");
@@ -307,21 +366,23 @@ class TaskManager {
 
         // Step 6: Discogs
         if (this.config.discogsEnabled !== false) {
-          debug.info("auto-tag", "Step 6/8: Searching Discogs...");
+          debug.info("auto-tag", "Step 6/9: Searching Discogs releases...");
           update("Searching Discogs...", 6);
           try {
             const discogs = new DiscogsClient({
               token: this.config.discogsToken,
             });
             debug.debug("auto-tag", `Discogs search: artist="${enhancedRequest.artistHint}" album="${enhancedRequest.albumHint}"`);
-            const discogsCandidates = await discogs.searchAlbum(
-              enhancedRequest.artistHint ?? "",
-              enhancedRequest.albumHint ?? "",
-            );
+            const discogsCandidates = await this.searchVariants(discogs, lookupVariants);
             debug.info("auto-tag", `Discogs returned ${discogsCandidates.length} candidates`);
+            this.emitTask(taskId, "source", `Discogs releases: ${discogsCandidates.length} candidate(s)`, {
+              source: "discogs",
+              count: discogsCandidates.length,
+            });
             allCandidates.push(...discogsCandidates);
           } catch (err) {
             debug.warn("auto-tag", `Discogs lookup failed (non-fatal)`, err);
+            this.emitTask(taskId, "warning", "Discogs lookup failed", { error: String(err) });
           }
         } else {
           debug.info("auto-tag", "Discogs disabled — skipping");
@@ -332,7 +393,7 @@ class TaskManager {
         }
 
         // Step 7: Folder fallback (always included as safety net)
-        debug.info("auto-tag", "Step 7/8: Building fallback candidate...");
+        debug.info("auto-tag", "Step 7/9: Building fallback candidate...");
         update("Building fallback...", 7);
         const folderCandidate = candidateFromFolder(enhancedRequest);
         allCandidates.push(folderCandidate);
@@ -348,19 +409,26 @@ class TaskManager {
         cache.set(enhancedRequest, allCandidates);
         debug.debug("auto-tag", "Cached results for future lookups");
 
+        const mergedCandidates = this.mergeCandidateFields(allCandidates);
+        this.emitTask(taskId, "merge", `Merged ${allCandidates.length} source candidate(s)`, {
+          sourceCount: allCandidates.length,
+          mergedCount: mergedCandidates.length,
+        });
+
         // LLM selection
+        update("Selecting candidate...", 8);
         const selected = await this.selectCandidate(
           enhancedRequest,
-          allCandidates,
+          mergedCandidates,
           signal,
         );
-        const candidate = selected ?? allCandidates[0];
+        const candidate = selected ?? mergedCandidates[0];
         if (candidate) {
-          debug.info("auto-tag", "Step 8/8: Applying album tags...");
-          update("Applying tags...", 8);
-          await this.applyCandidateTags(enhancedRequest.path, candidate);
+          debug.info("auto-tag", "Step 9/9: Applying album tags...");
+          update("Applying tags...", 9);
+          await this.applyCandidateTags(taskId, enhancedRequest.path, candidate);
         }
-        this.completeTask(taskId, candidate ?? allCandidates);
+        this.completeTask(taskId, candidate ?? mergedCandidates);
       } catch (err) {
         debug.error("auto-tag", `Unexpected error in lookup chain`, err);
         throw err;
@@ -455,8 +523,7 @@ class TaskManager {
 
     if (!albumHint || !artistHint) return true;
 
-    const folderName =
-      request.path.split("/").pop() ?? "";
+    const folderName = request.path.split("/").pop() ?? "";
 
     // Bracket/bookmark annotations
     if (/[\[\]《》「」【】]/.test(folderName)) return true;
@@ -480,45 +547,58 @@ class TaskManager {
    * then matches per-track fields by track number.
    */
   private async applyCandidateTags(
+    taskId: string,
     albumPath: string,
     candidate: AlbumCandidate,
   ): Promise<number> {
     debug.info("auto-tag", `Applying candidate tags from source="${candidate.source}" to: ${albumPath}`);
     debug.startTimer("apply-candidate-tags");
 
-    const dir = albumPath;
+    const folderName = basename(dirname(albumPath));
+    const albumArtists = splitArtistNames(candidate.albumArtists.length > 0 ? candidate.albumArtists : [folderName]);
+    const albumArtist = artistDisplayName(albumArtists, folderName);
+    const cover = this.findLocalCover(albumPath, candidate.album);
 
     // Discover audio files in the album directory
     let audioFiles: string[] = [];
     try {
-      const entries = readdirSync(dir).sort();
+      const entries = readdirSync(albumPath).sort();
       for (const entry of entries) {
         if (entry.startsWith(".")) continue;
-        const fullPath = join(dir, entry);
+        const fullPath = join(albumPath, entry);
         try {
           if (statSync(fullPath).isFile()) {
             const ext = extname(entry).toLowerCase();
-            if (["mp3", ".flac", ".m4a", ".mp4", ".wav", ".ogg", ".opus", ".aiff"].includes(ext)) {
+            if (AUDIO_EXTENSIONS.has(ext)) {
               audioFiles.push(fullPath);
             }
           }
         } catch { /* skip unreadable */ }
       }
     } catch (err) {
-      debug.error("auto-tag", `Cannot read album directory: ${dir}`, err);
-      throw new Error(`Cannot read album directory: ${dir}`);
+      debug.error("auto-tag", `Cannot read album directory: ${albumPath}`, err);
+      throw new Error(`Cannot read album directory: ${albumPath}`);
     }
 
-    debug.debug("auto-tag", `Found ${audioFiles.length} audio files in ${dir}`);
+    debug.debug("auto-tag", `Found ${audioFiles.length} audio files in ${albumPath}`);
     if (audioFiles.length === 0) return 0;
 
     // Build album-level fields applied to every file
     const albumFields: WriteFields = {};
     if (candidate.artist !== undefined) albumFields.artist = candidate.artist;
+    albumFields.artists = candidate.artists.length > 0 ? candidate.artists : splitArtistNames([candidate.artist]);
     if (candidate.album !== undefined) albumFields.album = candidate.album;
-    if (candidate.albumArtist !== undefined) albumFields.artist = candidate.albumArtist;
+    albumFields.albumArtist = albumArtist;
+    albumFields.albumArtists = albumArtists;
     if (candidate.year !== undefined) albumFields.year = candidate.year;
     if (candidate.genre !== undefined) albumFields.genre = candidate.genre;
+    if (candidate.musicbrainzAlbumId !== undefined) albumFields.musicbrainzAlbumId = candidate.musicbrainzAlbumId;
+    if (candidate.musicbrainzArtistId !== undefined) albumFields.musicbrainzArtistId = candidate.musicbrainzArtistId;
+    if (cover) {
+      albumFields.coverData = cover.data;
+      albumFields.coverMime = cover.mime;
+      this.emitTask(taskId, "source", `Local cover: ${cover.path}`, { source: "cover", path: cover.path });
+    }
 
     // Build track-level fields indexed by track number
     const trackMap = new Map<number, WriteFields>();
@@ -526,10 +606,13 @@ class TaskManager {
       if (tc.trackNumber != null) {
         const fields: WriteFields = {};
         if (tc.title !== undefined) fields.title = tc.title;
+        if (tc.artist !== undefined) fields.artist = tc.artist;
+        if (tc.artists.length > 0) fields.artists = tc.artists;
         if (tc.trackNumber != null) fields.trackNumber = tc.trackNumber;
         if (tc.trackTotal != null) fields.trackTotal = tc.trackTotal;
         if (tc.discNumber != null) fields.discNumber = tc.discNumber;
         if (tc.discTotal != null) fields.discTotal = tc.discTotal;
+        if (tc.musicbrainzTrackId != null) fields.musicbrainzTrackId = tc.musicbrainzTrackId;
         trackMap.set(tc.trackNumber, fields);
       }
     }
@@ -543,6 +626,11 @@ class TaskManager {
 
       const trackFields = trackMap.get(trackNum) ?? {};
       const mergedFields: WriteFields = { ...albumFields, ...trackFields };
+      const lyrics = this.findLocalLyrics(filePath);
+      if (lyrics) {
+        mergedFields.lyrics = lyrics;
+        this.emitTask(taskId, "source", `Local lyrics: ${filePath}`, { source: "lyrics", path: filePath });
+      }
 
       if (Object.keys(mergedFields).length === 0) {
         debug.debug("auto-tag", `No fields to write for: ${filePath} — skipping`);
@@ -552,6 +640,10 @@ class TaskManager {
       try {
         await writeTags(filePath, mergedFields);
         written++;
+        this.emitTask(taskId, "write", `Wrote tags: ${basename(filePath)}`, {
+          path: filePath,
+          trackNumber: mergedFields.trackNumber ?? trackNum,
+        });
         debug.debug("auto-tag", `Wrote tags: ${filePath}`);
       } catch (err) {
         errors++;
@@ -560,8 +652,110 @@ class TaskManager {
     }
 
     debug.info("auto-tag", `Applied tags: ${written}/${audioFiles.length} files (${errors} errors)`);
-    debug.endTimer("apply-candidate-tags", "auto-tag", `Tag application for ${dir}`);
+    debug.endTimer("apply-candidate-tags", "auto-tag", `Tag application for ${albumPath}`);
     return written;
+  }
+
+  private async searchVariants(
+    client: { searchAlbum(artist: string, album: string): Promise<AlbumCandidate[]> },
+    variants: Array<[string, string]>,
+  ): Promise<AlbumCandidate[]> {
+    for (const [artist, album] of variants) {
+      const candidates = await client.searchAlbum(artist, album);
+      if (candidates.length > 0) return candidates;
+    }
+    return [];
+  }
+
+  private mergeCandidateFields(candidates: AlbumCandidate[]): AlbumCandidate[] {
+    if (candidates.length === 0) return [];
+    const preferred = candidates.find((c) => c.source === "dataset") ?? candidates[0];
+    const merged = makeAlbumCandidate({
+      source: preferred.source,
+      verification: preferred.verification,
+    });
+
+    for (const candidate of candidates) {
+      merged.artist ??= candidate.artist;
+      if (merged.artists.length === 0) merged.artists = candidate.artists;
+      merged.album ??= candidate.album;
+      merged.albumArtist ??= candidate.albumArtist;
+      if (merged.albumArtists.length === 0) merged.albumArtists = candidate.albumArtists;
+      merged.year ??= candidate.year;
+      merged.genre ??= candidate.genre;
+      merged.musicbrainzAlbumId ??= candidate.musicbrainzAlbumId;
+      merged.musicbrainzArtistId ??= candidate.musicbrainzArtistId;
+      if (merged.tracks.length === 0 && candidate.tracks.length > 0) {
+        merged.tracks = candidate.tracks;
+      } else if (merged.tracks.length > 0 && candidate.tracks.length > 0) {
+        this.fillTrackGaps(merged.tracks, candidate.tracks);
+      }
+    }
+
+    const rest = candidates.filter((candidate) => candidate !== preferred);
+    return [merged, ...rest];
+  }
+
+  private fillTrackGaps(target: TrackCandidate[], source: TrackCandidate[]): void {
+    const byNumber = new Map<number, TrackCandidate>();
+    for (const track of target) {
+      if (track.trackNumber != null) byNumber.set(track.trackNumber, track);
+    }
+    for (const sourceTrack of source) {
+      if (sourceTrack.trackNumber == null) continue;
+      const targetTrack = byNumber.get(sourceTrack.trackNumber);
+      if (!targetTrack) continue;
+      targetTrack.title ??= sourceTrack.title;
+      targetTrack.artist ??= sourceTrack.artist;
+      if (targetTrack.artists.length === 0) targetTrack.artists = sourceTrack.artists;
+      targetTrack.discNumber ??= sourceTrack.discNumber;
+      targetTrack.discTotal ??= sourceTrack.discTotal;
+      targetTrack.musicbrainzTrackId ??= sourceTrack.musicbrainzTrackId;
+      targetTrack.length ??= sourceTrack.length;
+    }
+  }
+
+  private findLocalCover(albumPath: string, albumName: string | null): {
+    path: string;
+    data: Buffer;
+    mime: string;
+  } | null {
+    const names = [
+      albumName,
+      "cover",
+      "folder",
+      "front",
+      "album",
+    ].filter((name): name is string => !!name && name.trim().length > 0);
+    const exts = [".jpg", ".jpeg", ".png"];
+    for (const name of names) {
+      for (const ext of exts) {
+        const path = join(albumPath, `${name}${ext}`);
+        if (!existsSync(path)) continue;
+        return {
+          path,
+          data: readFileSync(path),
+          mime: ext === ".png" ? "image/png" : "image/jpeg",
+        };
+      }
+    }
+    return null;
+  }
+
+  private findLocalLyrics(filePath: string): string | null {
+    for (const ext of [".lrc", ".txt"]) {
+      const lyricsPath = filePath.replace(/\.[^.]+$/, ext);
+      if (!existsSync(lyricsPath)) continue;
+      const data = readFileSync(lyricsPath);
+      if (data.length >= 2 && data[0] === 0xff && data[1] === 0xfe) {
+        return data.subarray(2).toString("utf16le");
+      }
+      if (data.length >= 2 && data[0] === 0xfe && data[1] === 0xff) {
+        return Buffer.from(data.subarray(2)).swap16().toString("utf16le");
+      }
+      return data.toString("utf8");
+    }
+    return null;
   }
 
   /**
@@ -633,6 +827,7 @@ class TaskManager {
     const task = this.tasks.get(taskId);
     if (!task) return;
     task.progress = { ...task.progress, ...update };
+    this.emitTask(taskId, "progress", task.progress.message);
   }
 
   private completeTask(
@@ -642,10 +837,11 @@ class TaskManager {
     debug.info("auto-tag", `Task ${taskId} completed`);
     this.updateTask(taskId, {
       status: "completed",
-      progress: 8,
+      progress: 9,
       message: "Complete",
       result,
     });
+    this.emitTask(taskId, "completed", "Complete", result);
     // Clean up after 5 minutes
     setTimeout(() => {
       this.tasks.delete(taskId);
@@ -659,6 +855,24 @@ class TaskManager {
       status: "cancelled",
       message: "Cancelled",
     });
+    this.emitTask(taskId, "cancelled", "Cancelled");
+  }
+
+  private emitTask(
+    taskId: string,
+    type: AutoTagEvent["type"],
+    message: string,
+    data?: unknown,
+  ): void {
+    const progress = this.tasks.get(taskId)?.progress;
+    taskEvents.emit("event", {
+      taskId,
+      type,
+      message,
+      progress: progress?.progress ?? 0,
+      total: progress?.total ?? 9,
+      data,
+    } satisfies AutoTagEvent);
   }
 }
 

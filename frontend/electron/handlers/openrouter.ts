@@ -84,17 +84,44 @@ export class OpenRouterClient {
     schema: Record<string, unknown>,
     model?: string,
   ): Promise<LLMResponse> {
-    const response = await this.postWithRetries(messages, schemaName, schema, model);
-    const payload = await response.json();
+    let payload: Record<string, unknown> | null = null;
+    let content = "";
+    let parseError: Error | null = null;
 
-    const content = this.firstMessageContent(payload);
-    let data: Record<string, unknown>;
-    try {
-      data = JSON.parse(content);
-    } catch (err) {
-      throw new Error(`LLM returned malformed JSON: ${(err as Error).message}`);
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const response = await this.postWithRetries(messages, schemaName, schema, model);
+      const responsePayload = await response.json() as Record<string, unknown>;
+      payload = responsePayload;
+
+      const choices = (responsePayload as any).choices ?? [];
+      if (choices.length === 0) {
+        throw new Error("OpenRouter response did not include choices");
+      }
+      content = choices[0]?.message?.content ?? "";
+      if (!content) {
+        throw new Error("OpenRouter response did not include message content");
+      }
+      content = String(content);
+
+      try {
+        const data = JSON.parse(content) as Record<string, unknown>;
+        return this.buildResponse(responsePayload, data, model);
+      } catch (err) {
+        parseError = err as Error;
+      }
     }
 
+    const choices = ((payload ?? {}) as any).choices ?? [];
+    const finishReason = choices[0]?.finish_reason;
+    const reason = finishReason ? ` (finish_reason=${String(finishReason)})` : "";
+    throw new Error(`LLM returned malformed JSON${reason}: ${parseError?.message ?? "unknown parse error"}`);
+  }
+
+  private buildResponse(
+    payload: Record<string, unknown>,
+    data: Record<string, unknown>,
+    model?: string,
+  ): LLMResponse {
     const usageRaw = (payload as any).usage ?? {};
     const usage: TokenUsage = {
       promptTokens: Number(usageRaw.prompt_tokens ?? 0),
@@ -170,15 +197,4 @@ export class OpenRouterClient {
     });
   }
 
-  private firstMessageContent(payload: Record<string, unknown>): string {
-    const choices = (payload as any).choices ?? [];
-    if (choices.length === 0) {
-      throw new Error("OpenRouter response did not include choices");
-    }
-    const content = choices[0]?.message?.content;
-    if (!content) {
-      throw new Error("OpenRouter response did not include message content");
-    }
-    return String(content);
-  }
 }

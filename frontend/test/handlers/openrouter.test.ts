@@ -68,6 +68,37 @@ describe("OpenRouterClient", () => {
     ).rejects.toThrow("malformed JSON");
   });
 
+  it("retries once when the first response has malformed JSON", async () => {
+    let attempts = 0;
+    globalThis.fetch = vi.fn().mockImplementation(async () => {
+      attempts++;
+      return {
+        ok: true,
+        json: async () => ({
+          choices: [
+            {
+              message: {
+                content: attempts === 1 ? '{"tracks":[{"message":"cut' : '{"tracks":[]}',
+              },
+            },
+          ],
+          usage: {},
+          model: "test-model",
+        }),
+      };
+    });
+
+    const client = new OpenRouterClient({ apiKey: "test" });
+    const result = await client.completeJson(
+      [{ role: "user", content: "x" }],
+      "s",
+      {},
+    );
+
+    expect(result.data.tracks).toEqual([]);
+    expect(attempts).toBe(2);
+  });
+
   it("throws on HTTP error", async () => {
     globalThis.fetch = vi.fn().mockResolvedValue({
       ok: false,

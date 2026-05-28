@@ -7,11 +7,18 @@ import { FileGrid } from "./components/FileGrid";
 import { MetadataEditor } from "./components/MetadataEditor";
 import { BatchEditor } from "./components/BatchEditor";
 import { ScanProgressBar } from "./components/ScanProgressBar";
+import { AuditBanner } from "./components/AuditBanner";
+import { AuditPanel } from "./components/AuditPanel";
 import { SettingsModal } from "./components/SettingsModal";
 import { ConvertDialog } from "./components/ConvertDialog";
 import { ExtraTagsEditor } from "./components/ExtraTagsEditor";
 import type { ConvertDirection } from "./components/ConvertDialog";
 import type { TrackData, AlbumInfo } from "../electron/preload";
+
+/** Get the parent directory of a path. */
+function dirPath(p: string): string {
+  return p.split("/").slice(0, -1).join("/");
+}
 
 export default function App() {
   const [state, dispatch] = useReducer(appReducer, initialAppState);
@@ -39,8 +46,6 @@ export default function App() {
     },
     [],
   );
-
-  const dirPath = (p: string) => p.split("/").slice(0, -1).join("/");
 
   // --- Library loading ---
 
@@ -356,39 +361,52 @@ export default function App() {
           type: "SET_AUTO_TAG_PROGRESS",
           progress: isBatch
             ? { current: completed, total: targetPaths.length, message: `${albumName}` }
-            : { current: 0, total: 8, message: `Auto-tagging: ${albumName}` },
+            : { current: 0, total: 9, message: `Auto-tagging: ${albumName}` },
         });
 
         const taskId = await window.api.autoTagAlbum(albumPath);
-
-        let done = false;
-        while (!done) {
-          const progress = await window.api.getTaskProgress(taskId);
-          if (!progress) {
-            done = true;
-            break;
-          }
-
+        const unsubscribe = window.api.onAutoTagEvent((event) => {
+          if (event.taskId !== taskId) return;
           dispatch({
             type: "SET_AUTO_TAG_PROGRESS",
             progress: isBatch
-              ? { current: completed, total: targetPaths.length, message: progress.message }
-              : { current: progress.progress, total: progress.total, message: progress.message },
+              ? { current: completed, total: targetPaths.length, message: event.message }
+            : { current: event.progress, total: event.total, message: event.message },
           });
+        });
 
-          if (
-            progress.status === "completed" ||
-            progress.status === "failed" ||
-            progress.status === "cancelled"
-          ) {
-            done = true;
-            if (progress.status === "failed") {
-              totalErrors++;
-              console.debug(`[auto-tag] Auto-tag failed for ${albumName}: ${progress.message}`);
+        try {
+          let done = false;
+          while (!done) {
+            const progress = await window.api.getTaskProgress(taskId);
+            if (!progress) {
+              done = true;
+              break;
             }
-          } else {
-            await new Promise((resolve) => setTimeout(resolve, 300));
+
+            dispatch({
+              type: "SET_AUTO_TAG_PROGRESS",
+              progress: isBatch
+                ? { current: completed, total: targetPaths.length, message: progress.message }
+                : { current: progress.progress, total: progress.total, message: progress.message },
+            });
+
+            if (
+              progress.status === "completed" ||
+              progress.status === "failed" ||
+              progress.status === "cancelled"
+            ) {
+              done = true;
+              if (progress.status === "failed") {
+                totalErrors++;
+                console.debug(`[auto-tag] Auto-tag failed for ${albumName}: ${progress.message}`);
+              }
+            } else {
+              await new Promise((resolve) => setTimeout(resolve, 300));
+            }
           }
+        } finally {
+          unsubscribe();
         }
 
         completed++;
@@ -430,6 +448,95 @@ export default function App() {
     loadAlbumTracks,
   ]);
 
+  // --- Audit: LLM-based metadata verification against file paths ---
+
+  const handleAudit = useCallback(async () => {
+    if (!state.libraryPath || state.auditing) {
+      console.log("[audit] handleAudit skipped — libraryPath=%s auditing=%s", state.libraryPath, state.auditing);
+      return;
+    }
+
+    console.log("[audit] handleAudit: starting audit for %s", state.libraryPath);
+
+    dispatch({ type: "SET_AUDITING", auditing: true });
+    dispatch({ type: "CLEAR_AUDIT_RESULTS" });
+    dispatch({ type: "SET_ERROR", error: null });
+
+    let unsubscribe: (() => void) | null = null;
+
+    try {
+      unsubscribe = window.api.onAuditEvent((event) => {
+        console.log("[audit] event received — type=%s msg=%s", event.type, event.message ?? "");
+        switch (event.type) {
+          case "progress":
+            dispatch({
+              type: "SET_AUDIT_PROGRESS",
+              progress: {
+                current: event.current ?? 0,
+                total: event.total ?? 1,
+                message: event.message ?? "Auditing...",
+              },
+            });
+            break;
+
+          case "album-result":
+            if (event.albumPath && event.results) {
+              dispatch({
+                type: "ADD_AUDIT_RESULTS",
+                albumPath: event.albumPath,
+                results: event.results.map((r) => ({
+                  trackIndex: r.index,
+                  field: r.field,
+                  status: r.status as "correct" | "warning" | "error",
+                  message: r.message ?? null,
+                  suggestion: r.suggestion ?? null,
+                })),
+              });
+            }
+            break;
+
+          case "completed":
+            dispatch({
+              type: "SET_AUDIT_PROGRESS",
+              progress: {
+                current: event.total ?? 0,
+                total: event.total ?? 0,
+                message: event.message ?? "Audit complete",
+              },
+            });
+            break;
+
+          case "failed":
+            dispatch({ type: "SET_ERROR", error: event.message ?? "Audit failed" });
+            break;
+
+          case "cancelled":
+            break;
+        }
+      });
+
+      await window.api.runAudit(state.libraryPath);
+      if (state.activeAlbumPath) {
+        const detail = await window.api.readAlbum(state.activeAlbumPath);
+        dispatch({ type: "SET_TRACKS", tracks: detail.tracks });
+      } else {
+        const albums = await window.api.scanLibrary(state.libraryPath);
+        dispatch({ type: "SET_ALBUMS", albums });
+        await loadAlbumTracks(albums);
+      }
+      console.log("[audit] handleAudit: IPC completed successfully");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Audit failed";
+      console.error("[audit] handleAudit: failed — %s", message);
+      dispatch({ type: "SET_ERROR", error: message });
+    } finally {
+      if (unsubscribe) unsubscribe();
+      console.log("[audit] handleAudit: cleaning up — auditing=false");
+      dispatch({ type: "SET_AUDITING", auditing: false });
+      dispatch({ type: "SET_AUDIT_PROGRESS", progress: null });
+    }
+  }, [state.libraryPath, state.activeAlbumPath, state.auditing, loadAlbumTracks]);
+
   // --- Convert: prompt for direction + regex, then apply ---
 
   const handleConvert = useCallback(() => {
@@ -463,51 +570,60 @@ export default function App() {
         return;
       }
 
-      if (direction === "filename-to-title") {
-        let result = basename.replace(/\.[^.]+$/, "");
-        if (pattern === "strip-number") {
-          result = result.replace(/^\d+[\s.\-_)]*\s*/, "");
-        } else if (pattern) {
+      switch (direction) {
+        case "filename-to-title": {
+          let result = basename.replace(/\.[^.]+$/, "");
+          if (pattern === "strip-number") {
+            result = result.replace(/^\d+[\s.\-_)]*\s*/, "");
+          } else if (pattern) {
+            try {
+              const regex = new RegExp(pattern);
+              const m = result.match(regex);
+              if (m && m[1]) result = m[1];
+            } catch {
+              dispatch({
+                type: "SET_ERROR",
+                error: `Invalid regex pattern: ${pattern}`,
+              });
+              return;
+            }
+          }
+          derived = result.trim();
+          writeFields = { title: derived };
+          undoFields = { title: track.title };
+          description = `Convert title: ${derived}`;
+          break;
+        }
+
+        case "custom-regex": {
+          let result = basename.replace(/\.[^.]+$/, "");
           try {
             const regex = new RegExp(pattern);
             const m = result.match(regex);
-            if (m && m[1]) result = m[1];
+            derived = m && m[1] ? m[1] : null;
+            if (!derived) {
+              dispatch({
+                type: "SET_ERROR",
+                error: "Regex produced no capture groups",
+              });
+              return;
+            }
           } catch {
             dispatch({
               type: "SET_ERROR",
-              error: `Invalid regex pattern: ${pattern}`,
+              error: `Invalid regex: ${pattern}`,
             });
             return;
           }
+          derived = derived!.trim();
+          writeFields = { title: derived };
+          undoFields = { title: track.title };
+          description = `Convert (regex): ${derived}`;
+          break;
         }
-        derived = result.trim();
-        writeFields = { title: derived };
-        undoFields = { title: track.title };
-        description = `Convert title: ${derived}`;
-      } else if (direction === "custom-regex") {
-        let result = basename.replace(/\.[^.]+$/, "");
-        try {
-          const regex = new RegExp(pattern);
-          const m = result.match(regex);
-          derived = m && m[1] ? m[1] : null;
-          if (!derived) {
-            dispatch({
-              type: "SET_ERROR",
-              error: "Regex produced no capture groups",
-            });
-            return;
-          }
-        } catch {
-          dispatch({
-            type: "SET_ERROR",
-            error: `Invalid regex: ${pattern}`,
-          });
+
+        default:
           return;
-        }
-        derived = derived!.trim();
-        writeFields = { title: derived };
-        undoFields = { title: track.title };
-        description = `Convert (regex): ${derived}`;
       }
 
       if (!derived || derived === (track.title ?? "")) {
@@ -703,12 +819,14 @@ export default function App() {
         canUndo={state.undoManager.canUndo}
         saving={state.saving}
         autoTagging={state.autoTagging}
+        auditing={state.auditing}
         error={state.error}
         onOpenLibrary={handleOpenLibrary}
         onSave={handleSave}
         onRevert={handleRevert}
         onConvert={handleConvert}
         onAutoTag={handleAutoTag}
+        onAudit={handleAudit}
         darkMode={state.darkMode}
         onToggleDarkMode={handleToggleDarkMode}
         onOpenSettings={handleOpenSettings}
@@ -725,6 +843,24 @@ export default function App() {
             : state.scanningProgress
         }
         label={state.autoTagProgress?.message ?? null}
+      />
+
+      <ScanProgressBar
+        scanning={state.auditing}
+        progress={
+          state.auditProgress
+            ? {
+                current: state.auditProgress.current,
+                total: state.auditProgress.total,
+              }
+            : null
+        }
+        label={state.auditProgress?.message ?? null}
+      />
+
+      <AuditBanner
+        results={state.auditResults}
+        onDismiss={() => dispatch({ type: "CLEAR_AUDIT_RESULTS" })}
       />
 
       <div className="flex flex-1 overflow-hidden">
@@ -765,6 +901,11 @@ export default function App() {
               onCancel={() => {}}
               onChangeCover={handleChangeCover}
               onRemoveCover={handleRemoveCover}
+            />
+          ) : state.activeAlbumPath && state.auditResults[state.activeAlbumPath] ? (
+            <AuditPanel
+              results={state.auditResults[state.activeAlbumPath]}
+              albumName={state.activeAlbumPath.split("/").pop() ?? ""}
             />
           ) : (
             <div className="flex items-center justify-center h-full">
