@@ -116,6 +116,22 @@ export class DatasetReader {
     return hint.replace(/\s*\([^)]*[^\d\s][^)]*\)\s*$/, "").trim();
   }
 
+  private static GENERIC_ARTIST_SET = new Set([
+    "various artists",
+    "va",
+    "various",
+    "unknown artist",
+    "unknown",
+  ]);
+
+  /**
+   * Check if a normalized artist name is a generic compilation placeholder
+   * rather than a real artist. Artist-only fallback should skip these.
+   */
+  static isGenericArtist(normalizedArtist: string): boolean {
+    return DatasetReader.GENERIC_ARTIST_SET.has(normalizedArtist.trim().toLowerCase());
+  }
+
   /**
    * Deduplicate candidates: same normalized (artist, album) from multiple services
    * (MusicBrainz, Spotify, Tidal, Deezer) collapse to one. Keeps the first occurrence
@@ -193,7 +209,9 @@ export class DatasetReader {
     }
 
     // Step 4: artist-only fallback — album hint failed, return albums by artist
-    if (result.length === 0) {
+    // BUT skip when artist is a generic compilation name e.g. "Various Artists",
+    // since that would return unrelated compilation albums from the whole dataset.
+    if (result.length === 0 && !DatasetReader.isGenericArtist(normArtist)) {
       result = this.queryArtistOnly(db, normArtist, maxCandidates);
     }
 
