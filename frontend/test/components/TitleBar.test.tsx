@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import React from "react";
 import { render, screen, fireEvent, cleanup } from "@testing-library/react";
 
@@ -18,17 +18,12 @@ function defaultProps(overrides?: Record<string, unknown>) {
     filterText: "",
     onFilterChange: vi.fn(),
     selectedFilePath: null,
-    dirtyCount: 0,
-    canUndo: false,
     saving: false,
     autoTagging: false,
     darkMode: false,
     error: null,
     onOpenLibrary: vi.fn(),
-    onSave: vi.fn(),
-    onRevert: vi.fn(),
     onConvert: vi.fn(),
-
     onAutoTag: vi.fn(),
     onToggleDarkMode: vi.fn(),
     onOpenSettings: vi.fn(),
@@ -86,7 +81,6 @@ describe("TitleBar — all buttons", () => {
 
     it("shows clear button when filterText is non-empty", () => {
       const { container } = render(<TitleBar {...defaultProps({ filterText: "rock" })} />);
-      // The clear button is the only button with absolute positioning inside the search bar
       const clearBtn = container.querySelector(
         'button.absolute.inset-y-0.right-0',
       );
@@ -96,14 +90,7 @@ describe("TitleBar — all buttons", () => {
     it("calls onFilterChange('') when clear button is clicked", () => {
       const onFilterChange = vi.fn();
       render(<TitleBar {...defaultProps({ filterText: "rock", onFilterChange })} />);
-      // The clear button is the last button inside the search container
       const buttons = screen.getAllByRole("button");
-      // Find the one inside the search bar (it has an X icon)
-      const clearBtn = buttons.find(
-        (b) => b.closest("input")?.placeholder === "Filter files..." || b.closest("div")?.querySelector("input"),
-      );
-      // Actually easier: get by the parent structure. The clear button's parent
-      // is a button with absolute positioning inside the search div.
       const allClearCandidates = buttons.filter((b) =>
         b.querySelector("svg path[d='M18 6 6 18']"),
       );
@@ -152,75 +139,10 @@ describe("TitleBar — all buttons", () => {
       const { container } = render(
         <TitleBar {...defaultProps({ autoTagging: true })} />,
       );
-      // Should show Tagging… text instead of Auto-Tag
       expect(screen.getByText("Tagging…")).toBeTruthy();
       expect(screen.queryByText("Auto-Tag")).toBeFalsy();
-      // Should contain an SVG with .animate-spin class
       const spinner = container.querySelector(".animate-spin");
       expect(spinner).toBeTruthy();
-    });
-  });
-
-  // ── Save button ──────────────────────────────────────────
-
-  describe("Save button", () => {
-    it("renders the button", () => {
-      render(<TitleBar {...defaultProps()} />);
-      expect(screen.getByText("Save")).toBeTruthy();
-    });
-
-    it("calls onSave on click when enabled", () => {
-      const onSave = vi.fn();
-      render(<TitleBar {...defaultProps({ dirtyCount: 1, onSave })} />);
-      fireEvent.click(screen.getByText("Save"));
-      expect(onSave).toHaveBeenCalledOnce();
-    });
-
-    it("is disabled when dirtyCount is 0", () => {
-      render(<TitleBar {...defaultProps({ dirtyCount: 0 })} />);
-      const btn = screen.getByText("Save").closest("button");
-      expect(btn?.disabled).toBe(true);
-    });
-
-    it("is disabled when saving is true", () => {
-      render(<TitleBar {...defaultProps({ saving: true })} />);
-      expect(screen.getByText("Saving…")).toBeTruthy();
-      const btn = screen.getByText("Saving…").closest("button");
-      expect(btn?.disabled).toBe(true);
-    });
-
-    it("shows Saving… text when saving", () => {
-      render(<TitleBar {...defaultProps({ saving: true, dirtyCount: 1 })} />);
-      expect(screen.getByText("Saving…")).toBeTruthy();
-      expect(screen.queryByText("Save")).toBeFalsy();
-    });
-  });
-
-  // ── Revert button ────────────────────────────────────────
-
-  describe("Revert button", () => {
-    it("renders the button", () => {
-      render(<TitleBar {...defaultProps()} />);
-      expect(screen.getByText("Revert")).toBeTruthy();
-    });
-
-    it("calls onRevert on click when enabled", () => {
-      const onRevert = vi.fn();
-      render(<TitleBar {...defaultProps({ canUndo: true, onRevert })} />);
-      fireEvent.click(screen.getByText("Revert"));
-      expect(onRevert).toHaveBeenCalledOnce();
-    });
-
-    it("is disabled when canUndo is false", () => {
-      render(<TitleBar {...defaultProps({ canUndo: false })} />);
-      const btn = screen.getByText("Revert").closest("button");
-      expect(btn?.disabled).toBe(true);
-    });
-
-    it("is enabled when canUndo is true", () => {
-      render(<TitleBar {...defaultProps({ canUndo: true })} />);
-      const btn = screen.getByText("Revert").closest("button");
-      expect(btn?.disabled).toBe(false);
     });
   });
 
@@ -246,14 +168,11 @@ describe("TitleBar — all buttons", () => {
     });
   });
 
-
-
   // ── Dark mode toggle ─────────────────────────────────────
 
   describe("Dark mode toggle button", () => {
     it("renders the button", () => {
       render(<TitleBar {...defaultProps()} />);
-      // Button has a title attr
       const btn = screen.getByTitle("Switch to dark mode");
       expect(btn).toBeTruthy();
     });
@@ -267,7 +186,6 @@ describe("TitleBar — all buttons", () => {
 
     it("shows moon icon when darkMode is false", () => {
       const { container } = render(<TitleBar {...defaultProps({ darkMode: false })} />);
-      // Moon icon has a path with d="M21 12.79A9..."
       const moonPaths = container.querySelectorAll(
         'svg path[d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"]',
       );
@@ -277,7 +195,6 @@ describe("TitleBar — all buttons", () => {
 
     it("shows sun icon when darkMode is true", () => {
       const { container } = render(<TitleBar {...defaultProps({ darkMode: true })} />);
-      // Sun icon has a circle + rays — check for the circle cx="12" cy="12" r="5"
       const sunCircles = container.querySelectorAll(
         'svg circle[cx="12"][cy="12"][r="5"]',
       );
@@ -323,16 +240,10 @@ describe("TitleBar — all buttons", () => {
         <TitleBar
           {...defaultProps({
             selectedFilePath: "/music/song.mp3",
-            dirtyCount: 0,
           })}
         />,
       );
       expect(screen.getByText("1 selected")).toBeTruthy();
-    });
-
-    it("shows dirty count when there are unsaved changes", () => {
-      render(<TitleBar {...defaultProps({ dirtyCount: 3 })} />);
-      expect(screen.getByText("3 unsaved")).toBeTruthy();
     });
 
     it("shows error message when error is provided", () => {
@@ -341,7 +252,7 @@ describe("TitleBar — all buttons", () => {
     });
 
     it("shows saving indicator when saving is true", () => {
-      render(<TitleBar {...defaultProps({ saving: true, dirtyCount: 1 })} />);
+      render(<TitleBar {...defaultProps({ saving: true })} />);
       expect(screen.getByText("Saving")).toBeTruthy();
     });
   });
@@ -359,6 +270,25 @@ describe("TitleBar — all buttons", () => {
       render(<TitleBar {...defaultProps()} />);
       const btn = screen.getByText("Auto-Tag").closest("button");
       expect(btn?.title).toContain("⌘T");
+    });
+  });
+
+  // ── Removed buttons ──────────────────────────────────────
+
+  describe("Save and Revert buttons are removed", () => {
+    it("does not render Save button", () => {
+      render(<TitleBar {...defaultProps()} />);
+      expect(screen.queryByText(/Save/)).toBeFalsy();
+    });
+
+    it("does not render Revert button", () => {
+      render(<TitleBar {...defaultProps()} />);
+      expect(screen.queryByText(/Revert/)).toBeFalsy();
+    });
+
+    it("does not show dirty counter", () => {
+      render(<TitleBar {...defaultProps()} />);
+      expect(screen.queryByText(/unsaved/i)).toBeFalsy();
     });
   });
 });

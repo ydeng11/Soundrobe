@@ -6,8 +6,6 @@ interface TitleBarProps {
   filterText: string;
   onFilterChange: (text: string) => void;
   selectedFilePath: string | null;
-  dirtyCount: number;
-  canUndo: boolean;
   saving: boolean;
   autoTagging: boolean;
   lyricsGetting: boolean;
@@ -15,8 +13,6 @@ interface TitleBarProps {
   darkMode: boolean;
   error: string | null;
   onOpenLibrary: () => void;
-  onSave: () => void;
-  onRevert: () => void;
   onConvert: () => void;
   onAutoTag: () => void;
   onGetLyrics: () => void;
@@ -31,8 +27,6 @@ export function TitleBar({
   filterText,
   onFilterChange,
   selectedFilePath,
-  dirtyCount,
-  canUndo,
   saving,
   autoTagging,
   lyricsGetting,
@@ -40,8 +34,6 @@ export function TitleBar({
   darkMode,
   error,
   onOpenLibrary,
-  onSave,
-  onRevert,
   onConvert,
   onAutoTag,
   onGetLyrics,
@@ -203,35 +195,7 @@ export function TitleBar({
 
       <div className="w-px h-4 bg-border no-drag" />
 
-      {/* Toolbar Actions */}
-      <div className="flex items-center gap-0.5 no-drag">
-        <ToolbarButton
-          icon={
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
-              <polyline points="17 21 17 13 7 13 7 21" />
-              <polyline points="7 3 7 8 15 8" />
-            </svg>
-          }
-          label={saving ? "Saving…" : "Save"}
-          disabled={dirtyCount === 0 || saving}
-          onClick={onSave}
-          primary
-        />
-        <ToolbarButton
-          icon={
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="1 4 1 10 7 10" />
-              <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
-            </svg>
-          }
-          label="Revert"
-          disabled={!canUndo}
-          onClick={onRevert}
-        />
-      </div>
 
-      <div className="w-px h-4 bg-border no-drag" />
 
       <ToolbarButton
         icon={
@@ -301,10 +265,7 @@ export function TitleBar({
                 Saving
               </span>
             )}
-            {dirtyCount > 0 && !saving && (
-              <span className="text-[#ff9f0a] tabular-nums">{dirtyCount} unsaved</span>
-            )}
-            {selectedFilePath && dirtyCount === 0 && !saving ? (
+            {selectedFilePath && !saving ? (
               <span className="text-accent tabular-nums">1 selected</span>
             ) : (
               !saving && <span className="tabular-nums">{trackCount} file{trackCount !== 1 ? "s" : ""}</span>

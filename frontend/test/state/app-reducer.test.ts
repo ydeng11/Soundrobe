@@ -121,18 +121,6 @@ describe("appReducer", () => {
       expect(next.selectedTrack?.title).toBe("Updated Title");
     });
 
-    it("marks the track path as dirty", () => {
-      const track = makeTrack("/music/s1.mp3");
-      const state = { ...initialAppState, tracks: [track] };
-      const updated = makeTrack("/music/s1.mp3", { title: "New" });
-      const next = appReducer(state, {
-        type: "UPDATE_TRACK",
-        path: "/music/s1.mp3",
-        track: updated,
-      });
-      expect(next.dirtyTracks.has("/music/s1.mp3")).toBe(true);
-    });
-
     it("does not update selectedTrack when a different track is updated", () => {
       const t1 = makeTrack("/music/s1.mp3");
       const t2 = makeTrack("/music/s2.mp3", { title: "Keep" });
@@ -176,32 +164,6 @@ describe("appReducer", () => {
       // The actual pop is done by handleRevert before dispatching POP_UNDO.
       expect(afterPop.undoManager.canUndo).toBe(true);
       expect(afterPop.undoManager.length).toBe(1);
-    });
-  });
-
-  describe("SET_DIRTY / CLEAR_DIRTY", () => {
-    it("SET_DIRTY adds paths to dirty set", () => {
-      const next = appReducer(initialAppState, {
-        type: "SET_DIRTY",
-        paths: ["/music/s1.mp3", "/music/s2.mp3"],
-      });
-      expect(next.dirtyTracks.has("/music/s1.mp3")).toBe(true);
-      expect(next.dirtyTracks.has("/music/s2.mp3")).toBe(true);
-      expect(next.dirtyTracks.size).toBe(2);
-    });
-
-    it("CLEAR_DIRTY removes a path from dirty set", () => {
-      const state = {
-        ...initialAppState,
-        dirtyTracks: new Set(["/music/s1.mp3", "/music/s2.mp3"]),
-      };
-      const next = appReducer(state, {
-        type: "CLEAR_DIRTY",
-        path: "/music/s1.mp3",
-      });
-      expect(next.dirtyTracks.has("/music/s1.mp3")).toBe(false);
-      expect(next.dirtyTracks.has("/music/s2.mp3")).toBe(true);
-      expect(next.dirtyTracks.size).toBe(1);
     });
   });
 

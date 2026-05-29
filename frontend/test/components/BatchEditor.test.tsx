@@ -87,22 +87,7 @@ describe("BatchEditor", () => {
     expect(screen.getByText("Saving")).toBeTruthy();
   });
 
-  it("disables Apply button when all fields are empty", () => {
-    const tracks = [makeTrack("/music/a.mp3"), makeTrack("/music/b.mp3")];
-    render(
-      <BatchEditor
-        tracks={tracks}
-        coverDataUrl={null}
-        saving={false}
-        onSave={vi.fn()}
-      />,
-    );
-
-    const applyButton = screen.getByText("Apply to 2 files") as HTMLButtonElement;
-    expect(applyButton.disabled).toBe(true);
-  });
-
-  it("enables Apply button when a field has a value", () => {
+  it("shows unsaved indicator when a field is edited", () => {
     const tracks = [makeTrack("/music/a.mp3"), makeTrack("/music/b.mp3")];
     render(
       <BatchEditor
@@ -116,11 +101,10 @@ describe("BatchEditor", () => {
     const artistInput = screen.getByPlaceholderText("Common artist…");
     fireEvent.change(artistInput, { target: { value: "New Artist" } });
 
-    const applyButton = screen.getByText("Apply to 2 files") as HTMLButtonElement;
-    expect(applyButton.disabled).toBe(false);
+    expect(screen.getByText(/Unsaved/i)).toBeTruthy();
   });
 
-  it("calls onSave with the filled fields when Apply is clicked", () => {
+  it("calls onSave with filled fields when focus leaves the panel", () => {
     const tracks = [makeTrack("/music/a.mp3"), makeTrack("/music/b.mp3")];
     const onSave = vi.fn();
     render(
@@ -137,14 +121,18 @@ describe("BatchEditor", () => {
     fireEvent.change(artistInput, { target: { value: "New Artist" } });
     fireEvent.change(albumInput, { target: { value: "New Album" } });
 
-    fireEvent.click(screen.getByText("Apply to 2 files"));
+    // Simulate focus leaving the panel
+    const container = artistInput.closest('[class*="flex flex-col h-full overflow-y-auto"]');
+    expect(container).toBeTruthy();
+    fireEvent.blur(container!, { relatedTarget: null });
+
     expect(onSave).toHaveBeenCalledWith({
       artist: "New Artist",
       album: "New Album",
     });
   });
 
-  it("clears fields after applying", () => {
+  it("does not call onSave when focus moves between fields within the panel", () => {
     const tracks = [makeTrack("/music/a.mp3"), makeTrack("/music/b.mp3")];
     const onSave = vi.fn();
     render(
@@ -156,11 +144,34 @@ describe("BatchEditor", () => {
       />,
     );
 
-    const artistInput = screen.getByPlaceholderText("Common artist…") as HTMLInputElement;
-    fireEvent.change(artistInput, { target: { value: "New Artist" } });
-    fireEvent.click(screen.getByText("Apply to 2 files"));
+    const artistInput = screen.getByPlaceholderText("Common artist…");
+    const albumInput = screen.getByPlaceholderText("Common album…");
 
-    expect(artistInput.value).toBe("");
+    fireEvent.change(artistInput, { target: { value: "New Artist" } });
+
+    // Moving focus from artist to album (both inside the panel)
+    fireEvent.blur(artistInput, { relatedTarget: albumInput });
+
+    expect(onSave).not.toHaveBeenCalled();
+  });
+
+  it("does not call onSave when all fields are empty on blur", () => {
+    const tracks = [makeTrack("/music/a.mp3"), makeTrack("/music/b.mp3")];
+    const onSave = vi.fn();
+    render(
+      <BatchEditor
+        tracks={tracks}
+        coverDataUrl={null}
+        saving={false}
+        onSave={onSave}
+      />,
+    );
+
+    const container = screen.getByText("Batch Edit").closest('[class*="flex flex-col h-full overflow-y-auto"]');
+    expect(container).toBeTruthy();
+    fireEvent.blur(container!, { relatedTarget: null });
+
+    expect(onSave).not.toHaveBeenCalled();
   });
 
   it("shows mixed indicator when tracks have differing values for a field", () => {
@@ -195,5 +206,44 @@ describe("BatchEditor", () => {
     const img = screen.getByAltText("Cover art");
     expect(img).toBeTruthy();
     expect(img.getAttribute("src")).toBe("data:image/jpeg;base64,abc123");
+  });
+
+  it("does not render Apply button", () => {
+    const tracks = [makeTrack("/music/a.mp3"), makeTrack("/music/b.mp3")];
+    render(
+      <BatchEditor
+        tracks={tracks}
+        coverDataUrl={null}
+        saving={false}
+        onSave={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByText(/Apply/i)).toBeNull();
+  });
+
+  it("clears unsaved indicator after blur triggers save", () => {
+    const tracks = [makeTrack("/music/a.mp3"), makeTrack("/music/b.mp3")];
+    const onSave = vi.fn();
+    render(
+      <BatchEditor
+        tracks={tracks}
+        coverDataUrl={null}
+        saving={false}
+        onSave={onSave}
+      />,
+    );
+
+    const artistInput = screen.getByPlaceholderText("Common artist…");
+    fireEvent.change(artistInput, { target: { value: "New Artist" } });
+    expect(screen.getByText(/Unsaved/i)).toBeTruthy();
+
+    // Blur the panel
+    const container = artistInput.closest('[class*="flex flex-col h-full overflow-y-auto"]');
+    expect(container).toBeTruthy();
+    fireEvent.blur(container!, { relatedTarget: null });
+
+    // Indicator should be gone
+    expect(screen.queryByText(/Unsaved/i)).toBeFalsy();
   });
 });

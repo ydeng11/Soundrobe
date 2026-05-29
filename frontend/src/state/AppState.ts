@@ -48,9 +48,6 @@ export interface AppState {
   /** Undo manager instance */
   undoManager: UndoManager;
 
-  /** Track paths with unsaved changes */
-  dirtyTracks: Set<string>;
-
   /** Currently saving flag */
   saving: boolean;
 
@@ -96,7 +93,6 @@ export const initialAppState: AppState = {
   loaded: false,
   error: null,
   undoManager: new UndoManager(),
-  dirtyTracks: new Set(),
   saving: false,
   showSettings: false,
   autoTagging: false,
@@ -123,8 +119,6 @@ export type AppAction =
   | { type: "SET_LOADED"; loaded: boolean }
   | { type: "SET_ERROR"; error: string | null }
   | { type: "UPDATE_TRACK"; path: string; track: TrackData }
-  | { type: "SET_DIRTY"; paths: string[] }
-  | { type: "CLEAR_DIRTY"; path: string }
   | { type: "PUSH_UNDO"; description: string; snapshots: TrackSnapshot[] }
   | { type: "POP_UNDO" }
   | { type: "CLEAR_UNDO" }
@@ -254,20 +248,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
           state.selectedTrackPath === action.path
             ? { ...action.track }
             : state.selectedTrack,
-        dirtyTracks: new Set(state.dirtyTracks).add(action.path),
       };
-
-    case "SET_DIRTY":
-      return {
-        ...state,
-        dirtyTracks: new Set([...state.dirtyTracks, ...action.paths]),
-      };
-
-    case "CLEAR_DIRTY": {
-      const next = new Set(state.dirtyTracks);
-      next.delete(action.path);
-      return { ...state, dirtyTracks: next };
-    }
 
     case "PUSH_UNDO":
       state.undoManager.push(action.description, action.snapshots);

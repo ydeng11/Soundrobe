@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useId } from "react";
+import React, { useState, useEffect, useId, useRef, useCallback } from "react";
 import type { TrackData } from "../../electron/preload";
 
 interface MetadataEditorProps {
@@ -8,10 +8,8 @@ interface MetadataEditorProps {
   saving: boolean;
   onChangeCover: () => void;
   onRemoveCover: () => void;
-  /** Called when the user clicks Save with the current field values. */
+  /** Called to write changed fields to disk. Fires when focus leaves the panel. */
   onSave: (fields: Record<string, string>) => void;
-  /** Called when the user cancels / discards draft changes. */
-  onCancel: () => void;
 }
 
 export function MetadataEditor({
@@ -22,50 +20,98 @@ export function MetadataEditor({
   onChangeCover,
   onRemoveCover,
   onSave,
-  onCancel,
 }: MetadataEditorProps) {
   const filename = track.path.replace(/\\/g, "/").split("/").pop() ?? track.path;
 
   // Local draft fields — reset whenever the user selects a different track
   const [draft, setDraft] = useState<Record<string, string>>({});
   const [dirty, setDirty] = useState(false);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const draftRef = useRef<Record<string, string>>({});
+
+  const orig = useCallback(
+    (field: string): string => {
+      switch (field) {
+        case "title":
+          return track.title ?? "";
+        case "artist":
+          return track.artist ?? "";
+        case "album":
+          return track.album ?? "";
+        case "albumArtist":
+          return track.albumArtist ?? "";
+        case "year":
+          return track.year ?? "";
+        case "track":
+          return formatRange(track.trackNumber, track.trackTotal) ?? "";
+        case "disc":
+          return formatRange(track.discNumber, track.discTotal) ?? "";
+        case "genre":
+          return track.genre ?? "";
+        case "composer":
+          return track.composer ?? "";
+        case "comment":
+          return track.comment ?? "";
+        default:
+          return "";
+      }
+    },
+    [track],
+  );
+
+  // Flush pending changes to disk
+  const flushChanges = useCallback(() => {
+    const currentDraft = draftRef.current;
+    const changed: Record<string, string> = {};
+    for (const field of Object.keys(currentDraft)) {
+      if (currentDraft[field] !== orig(field)) {
+        changed[field] = currentDraft[field];
+      }
+    }
+    if (Object.keys(changed).length > 0) {
+      onSave(changed);
+    }
+    setDraft({});
+    draftRef.current = {};
+    setDirty(false);
+  }, [onSave, orig]);
+
+  // Reset on track change and flush any pending changes from previous track
+  useEffect(() => {
+    return () => {
+      // Flush if there are pending changes when navigating away
+      if (dirty && Object.keys(draftRef.current).length > 0) {
+        flushChanges();
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [track.path]);
 
   useEffect(() => {
     setDraft({});
+    draftRef.current = {};
     setDirty(false);
   }, [track.path]);
 
-  const setField = (field: string, value: string) => {
-    setDraft((prev) => ({ ...prev, [field]: value }));
-    setDirty(true);
-  };
+  // Save when focus leaves the panel
+  const handleBlur = useCallback(
+    (e: React.FocusEvent) => {
+      // Only save if focus moved outside the entire panel
+      if (
+        panelRef.current &&
+        !panelRef.current.contains(e.relatedTarget as Node)
+      ) {
+        flushChanges();
+      }
+    },
+    [flushChanges],
+  );
 
-  const orig = (field: string): string => {
-    switch (field) {
-      case "title":
-        return track.title ?? "";
-      case "artist":
-        return track.artist ?? "";
-      case "album":
-        return track.album ?? "";
-      case "albumArtist":
-        return track.albumArtist ?? "";
-      case "year":
-        return track.year ?? "";
-      case "track":
-        return formatRange(track.trackNumber, track.trackTotal) ?? "";
-      case "disc":
-        return formatRange(track.discNumber, track.discTotal) ?? "";
-      case "genre":
-        return track.genre ?? "";
-      case "composer":
-        return track.composer ?? "";
-      case "comment":
-        return track.comment ?? "";
-      default:
-        return "";
-    }
-  };
+  const setField = useCallback((field: string, value: string) => {
+    setDraft((prev) => ({ ...prev, [field]: value }));
+    draftRef.current = { ...draftRef.current, [field]: value };
+    setDirty(true);
+  }, []);
 
   const value = (field: string): string =>
     field in draft ? draft[field] : orig(field);
@@ -75,28 +121,12 @@ export function MetadataEditor({
 
   const hasChanges = dirty && Object.keys(draft).some((f) => isDirty(f));
 
-  const handleSave = () => {
-    if (!hasChanges) return;
-    // Only pass the fields that actually changed
-    const changed: Record<string, string> = {};
-    for (const field of Object.keys(draft)) {
-      if (isDirty(field)) {
-        changed[field] = draft[field];
-      }
-    }
-    onSave(changed);
-    setDraft({});
-    setDirty(false);
-  };
-
-  const handleCancel = () => {
-    setDraft({});
-    setDirty(false);
-    onCancel();
-  };
-
   return (
-    <div className="flex flex-col h-full overflow-y-auto bg-white border-l border-border">
+    <div
+      ref={panelRef}
+      className="flex flex-col h-full overflow-y-auto bg-white border-l border-border"
+      onBlur={handleBlur}
+    >
       {/* Inspector header */}
       <div className="px-5 py-3.5 bg-surface-alt/40 border-b border-border/60">
         <div className="flex items-center gap-2.5">
@@ -115,7 +145,8 @@ export function MetadataEditor({
             </span>
           )}
           {!saving && hasChanges && (
-            <span className="text-[10px] text-[#ff9f0a] font-medium">
+            <span className="flex items-center gap-1.5 text-[10px] text-[#ff9f0a] font-medium">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#ff9f0a]" />
               Unsaved
             </span>
           )}
@@ -249,40 +280,6 @@ export function MetadataEditor({
             multiline
           />
         </div>
-
-        {/* Save / Cancel buttons — only shown when there are pending changes */}
-        {hasChanges && (
-          <div className="flex gap-2">
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 text-[12px] font-medium rounded-lg bg-accent text-white hover:bg-accent/90 transition-all shadow-sm active:scale-[0.97] disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              {saving ? (
-                <>
-                  <span className="w-3 h-3 rounded-full border-2 border-white/30 border-t-white animate-spin" />
-                  Saving…
-                </>
-              ) : (
-                <>
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
-                    <polyline points="17 21 17 13 7 13 7 21" />
-                    <polyline points="7 3 7 8 15 8" />
-                  </svg>
-                  Save Changes
-                </>
-              )}
-            </button>
-            <button
-              onClick={handleCancel}
-              disabled={saving}
-              className="inline-flex items-center justify-center px-3 py-2 text-[12px] font-medium rounded-lg text-text-secondary hover:text-text-primary hover:bg-surface-hover transition-all active:scale-[0.97] disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              Discard
-            </button>
-          </div>
-        )}
 
         {/* Format Details */}
         <div className="pt-1">

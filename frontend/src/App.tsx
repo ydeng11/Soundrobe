@@ -319,15 +319,7 @@ export default function App() {
     }
   }, [state.selectedTrack]);
 
-  // --- Save / Revert ---
-
-  const handleSave = useCallback(() => {
-    if (state.dirtyTracks.size === 0) return;
-    dispatch({ type: "SET_SAVING", saving: true });
-    state.dirtyTracks.clear();
-    dispatch({ type: "CLEAR_UNDO" });
-    dispatch({ type: "SET_SAVING", saving: false });
-  }, [state.dirtyTracks]);
+  // --- Undo (triggered by Cmd+Z) ---
 
   const handleRevert = useCallback(() => {
     const op = state.undoManager.pop();
@@ -356,6 +348,32 @@ export default function App() {
     }
 
     const isBatch = targetPaths.length > 1;
+
+    // Push undo snapshots for all tracks that will be touched
+    const albumPathSet = new Set(targetPaths);
+    const affectedTracks = state.tracks.filter((t) =>
+      albumPathSet.has(t.path.split("/").slice(0, -1).join("/"))
+    );
+    const snapshots: TrackSnapshot[] = affectedTracks.map((t) => ({
+      path: t.path,
+      fields: {
+        title: t.title,
+        artist: t.artist,
+        album: t.album,
+        albumArtist: t.albumArtist,
+        year: t.year,
+        track: t.trackNumber != null ? String(t.trackNumber) : null,
+        disc: t.discNumber != null ? String(t.discNumber) : null,
+        genre: t.genre,
+        composer: t.composer,
+        comment: t.comment ?? null,
+      },
+    }));
+    dispatch({
+      type: "PUSH_UNDO",
+      description: `Auto-tag (${targetPaths.length} album${targetPaths.length !== 1 ? "s" : ""})`,
+      snapshots,
+    });
 
     dispatch({ type: "SET_AUTO_TAGGING", autoTagging: true });
     dispatch({ type: "SET_ERROR", error: null });
@@ -787,7 +805,7 @@ export default function App() {
         e.preventDefault();
         handleAutoTag();
       }
-      if ((e.metaKey || e.ctrlKey) && e.key === "z" && e.shiftKey) {
+      if ((e.metaKey || e.ctrlKey) && e.key === "z" && !e.shiftKey) {
         e.preventDefault();
         handleRevert();
       }
@@ -909,16 +927,12 @@ export default function App() {
         filterText={state.filterText}
         onFilterChange={handleFilterChange}
         selectedFilePath={state.selectedTrackPath}
-        dirtyCount={state.dirtyTracks.size}
-        canUndo={state.undoManager.canUndo}
         saving={state.saving}
         autoTagging={state.autoTagging}
         lyricsGetting={state.lyricsGetting}
         auditing={state.auditing}
         error={state.error}
         onOpenLibrary={handleOpenLibrary}
-        onSave={handleSave}
-        onRevert={handleRevert}
         onConvert={handleConvert}
         onAutoTag={handleAutoTag}
         onGetLyrics={handleGetLyrics}
@@ -995,7 +1009,6 @@ export default function App() {
               coverDataUrl={state.coverDataUrl}
               saving={state.saving}
               onSave={handleSaveMetadata}
-              onCancel={() => {}}
               onChangeCover={handleChangeCover}
               onRemoveCover={handleRemoveCover}
             />
