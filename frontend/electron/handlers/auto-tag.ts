@@ -553,7 +553,7 @@ class TaskManager {
           mergedCandidates,
           signal,
         );
-        const candidate = selected ?? mergedCandidates[0];
+        const candidate = selected ?? this.folderFallback(mergedCandidates);
         if (candidate) {
           debug.info("auto-tag", "Step 9/9: Applying album tags...");
           update("Applying tags...", 9);
@@ -953,6 +953,7 @@ class TaskManager {
 
   /**
    * Use LLM to select the best candidate from the results.
+   * Candidate must meet minimum confidence (0.8) and match the album hint.
    */
   private async selectCandidate(
     request: ReturnType<typeof makeLookupRequest>,
@@ -997,8 +998,25 @@ class TaskManager {
 
       const idx = response.data.selectedIndex as number | null;
       if (idx != null && idx >= 0 && idx < candidates.length) {
-        debug.info("auto-tag", `LLM selected candidate ${idx}: confidence=${response.data.confidence}, reason="${response.data.reason}"`);
-        return candidates[idx];
+        const confidence = response.data.confidence as number | null;
+        const reason = (response.data.reason as string) ?? "";
+        debug.info("auto-tag", `LLM selected candidate ${idx}: confidence=${confidence}, reason="${reason}"`);
+
+        // Confidence must meet threshold
+        const MIN_CONFIDENCE = 0.8;
+        if (confidence != null && confidence < MIN_CONFIDENCE) {
+          debug.warn("auto-tag", `Rejecting candidate ${idx}: confidence ${confidence} < ${MIN_CONFIDENCE}`);
+          return null;
+        }
+
+        // Selected candidate's album must overlap with the request's album hint
+        const candidate = candidates[idx];
+        if (!this.candidateMatchesAlbumHint(candidate, request.albumHint)) {
+          debug.warn("auto-tag", `Rejecting candidate ${idx}: album "${candidate.album}" does not match hint "${request.albumHint}"`);
+          return null;
+        }
+
+        return candidate;
       } else {
         debug.warn("auto-tag", `LLM returned invalid index ${idx} — returning all candidates`);
       }
@@ -1009,6 +1027,28 @@ class TaskManager {
       debug.endTimer("select-candidate", "auto-tag", "LLM candidate selection");
     }
     return null;
+  }
+
+  /**
+   * Check if a candidate's album name matches the request's album hint.
+   * Returns true if either string contains the other (case-insensitive),
+   * or if either hint is null/empty (no constraint to enforce).
+   */
+  private candidateMatchesAlbumHint(
+    candidate: AlbumCandidate,
+    albumHint: string | null | undefined,
+  ): boolean {
+    if (!albumHint || !candidate.album) return true;
+    const hint = albumHint.toLowerCase().trim();
+    const cand = candidate.album.toLowerCase().trim();
+    return cand.includes(hint) || hint.includes(cand);
+  }
+
+  /**
+   * Find the folder-sourced fallback candidate, or return null.
+   */
+  private folderFallback(candidates: AlbumCandidate[]): AlbumCandidate | null {
+    return candidates.find((c) => c.source === "folder") ?? null;
   }
 
   // ── Task helpers ────────────────────────────────────────────────
