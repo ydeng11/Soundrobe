@@ -59,6 +59,8 @@ export interface AppState {
 
   /** Auto-tag in progress */
   autoTagging: boolean;
+  /** Lyrics download in progress */
+  lyricsGetting: boolean;
   autoTagProgress: {
     current: number;
     total: number;
@@ -98,6 +100,7 @@ export const initialAppState: AppState = {
   saving: false,
   showSettings: false,
   autoTagging: false,
+  lyricsGetting: false,
   autoTagProgress: null,
   auditing: false,
   auditProgress: null,
@@ -136,6 +139,7 @@ export type AppAction =
         message: string;
       } | null;
     }
+  | { type: "SET_LYRICS_GETTING"; lyricsGetting: boolean }
   | { type: "SET_AUDITING"; auditing: boolean }
   | {
       type: "SET_AUDIT_PROGRESS";
@@ -292,6 +296,9 @@ export function appReducer(state: AppState, action: AppAction): AppState {
 
     case "SET_AUTO_TAG_PROGRESS":
       return { ...state, autoTagProgress: action.progress };
+
+    case "SET_LYRICS_GETTING":
+      return { ...state, lyricsGetting: action.lyricsGetting };
 
     case "SET_AUDITING":
       return {

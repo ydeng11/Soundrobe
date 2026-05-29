@@ -1,97 +1,149 @@
-# UI Redesign Plan: AudioTag Pro — Native macOS HIG Light Mode
+# Plan: LRC Downloading & Encoding Fixer
 
 ## Context
 
-The current app ("Auto Tagger") uses a dark theme with a teal accent, a two-pane layout (file grid + metadata editor), and a custom title bar with emoji icons. The goal is to redesign the entire UI as a pixel-perfect, native macOS desktop application named **"AudioTag Pro"** — strictly following Apple's Human Interface Guidelines in light mode. The redesign requires a shift from dark to light, a three-pane layout, proper macOS window chrome, SF typography, SF Symbols, vibrancy/blur effects, and a premium, airy feel.
+The Electron app currently reads **local** `.lrc`/`.txt` lyrics files that already exist on disk alongside audio files (`findLocalLyrics()` in `auto-tag.ts:918`). It does **not** download lyrics from any API, and its only encoding handling is BOM detection for UTF-16LE/BE.
+
+The user wants:
+1. **Encoding checker/fixer** that runs on **both** local LRC/TXT files and any downloaded content — detect if the encoding is wrong (e.g., shift-jis, gbk, latin-1 stored as UTF-8, or UTF-16 without BOM) and convert to proper UTF-8 before writing into audio tags
+2. **LRC downloading** from a lyrics API (the described `/get` endpoint with `track_name`, `artist_name`, `album_name`, `duration`) — only when no local `.lrc`/`.txt` file exists
+
+The writer layer already handles writing lyrics to all formats (USLT for MP3, LYRICS for FLAC/Vorbis, ©lyr for M4A), so the main work is: read local file (or fetch) → detect encoding → fix if wrong → inject into tag pipeline.
 
 ## Approach
 
-1. **Electron window config**: Set `titleBarStyle: 'hiddenInset'` and `titleBarOverlay` to use native traffic-light controls while allowing a custom title bar area.
-2. **Light mode**: Switch `<html>` from `class="dark"` to `class=""`. Redesign the entire Tailwind color palette for light mode (white/off-white surfaces, charcoal text, subtle grey borders, Apple-blue accent).
-3. **Three-pane layout**: Left sidebar (Library/Folders/Playlists) → central FileGrid → right Inspector panel. Use CSS `backdrop-filter: blur()` for sidebar vibrancy.
-4. **SF Pro typography**: Set `font-family: -apple-system, 'SF Pro', 'Helvetica Neue', sans-serif` on `<body>`.
-5. **Components**:
-   - **TitleBar**: Redesigned as macOS title bar area with app title "AudioTag Pro", inline filter capsule, action buttons (toolbar style).
-   - **Sidebar**: New component with SF Symbols icons, list items for Library, Folders, Playlists. Frosted glass appearance with backdrop blur.
-   - **FileGrid**: macOS-style table view with no vertical borders, alternating white/very-light-grey rows, capsule search bar, Apple-blue selection highlight.
-   - **MetadataEditor (Inspector)**: Clean inspector card with rounded input fields (SF Rounded style), prominent album art with rounded border, format details.
-   - **SettingsModal**: Updated to light mode styling.
+### Architecture — Overall Flow
+
+For each track, the lyrics resolution order is:
+1. **Check for local `.lrc`/`.txt` file** — `readLocalLyrics()` (refactored from `findLocalLyrics()`)
+2. **Run encoding detection/fixer** on the file content — `normalizeLyricsEncoding()`
+3. If no local file **and** `lyricsDownloadEnabled`, **download from API** → `LyricsClient.fetchLyrics()`
+4. **Run encoding detection/fixer** on downloaded content too
+5. Write the clean UTF-8 lyrics into audio tags
+
+### Components
+
+A. **Encoding fixer** — shared utility (in `lyrics.ts`):
+   - Detect BOM (UTF-16LE `0xFF 0xFE`, UTF-16BE `0xFE 0xFF`) → convert (existing logic, extracted)
+   - Detect non-UTF-8 encodings via `jschardet` (shift-jis, gbk, latin-1, etc.)
+   - Convert to UTF-8 string
+   - Applied to EVERY lyrics source (local file + download)
+
+B. **`LyricsClient`** — new class in `lyrics.ts`:
+   - `fetchLyrics(trackName, artistName, albumName?, duration?): Promise<string | null>`
+   - GET to configured base URL with query params
+   - Returns raw bytes → passed through `normalizeLyricsEncoding()`
+   - Configurable `baseUrl`, custom `User-Agent`
+
+C. **Integration into auto-tag flow** (`auto-tag.ts`):
+   - Refactor `findLocalLyrics()` → `readLocalLyrics()`: reads file bytes, passes through `normalizeLyricsEncoding()`, returns string or null
+   - If null AND `config.lyricsDownloadEnabled`, call `LyricsClient.fetchLyrics()` → `normalizeLyricsEncoding()`
+   - Merge into `mergedFields.lyrics`
+   - Config: `lyricsDownloadEnabled` (default false), `lyricsApiUrl`
+
+4. **Config plumbing**:
+   - Add `lyricsDownloadEnabled` and `lyricsApiUrl` to `AutoTagConfig` interface
+   - Add config file key mappings (`lyrics_download_enabled`, `lyrics_api_url`)
+   - Add config setters in `loadConfig()` (file + env vars: `AUTO_TAG_LYRICS_DOWNLOAD_ENABLED`, `AUTO_TAG_LYRICS_API_URL`)
+   - Add `saveConfig` key → YAML key mapping
+
+5. **UI — SettingsModal**:
+   - Add toggle: "Auto-download Lyrics" 
+   - Add field: "Lyrics API URL" (with sensible default)
+   - Follow existing `ToggleRow` and `FieldRow` patterns
+
+6. **IPC wiring** — `main.ts`:
+   - Register a new `lyrics:fetch` handler (for potential standalone UI use)
+   - Auto-tag flow calls it internally, no separate IPC needed for the main flow
+
+7. **Optional per-track UI** — `MetadataEditor.tsx`:
+   - A "Download Lyrics" button next to existing lyrics display
+   - Calls `lyrics:fetch` IPC, shows preview, user can accept
+
+### Dependencies
+
+We need lightweight encoding detection + conversion:
+- **jschardet** (pure JS, no native deps) — charset detection
+- Node.js built-in `TextDecoder` / `TextEncoder` (available in Electron) — conversion from detected charset to UTF-8. This covers major encodings (shift-jis, gbk, big5, latin-1, etc.) without needing `iconv-lite`.
+
+If `jschardet` + `TextDecoder` prove insufficient for edge cases, add `iconv-lite` (pure JS, no native deps) as a fallback.
 
 ## Files to Modify
 
 | File | Change |
-|---|---|
-| `frontend/index.html` | Remove `class="dark"`, set light mode meta |
-| `frontend/tailwind.config.ts` | Complete color palette overhaul (light mode) |
-| `frontend/src/index.css` | New light theme, SF Pro font stack, scrollbar styling, blur utilities |
-| `frontend/src/App.tsx` | Three-pane layout, proper TitleBar integration, new Sidebar component |
-| `frontend/src/components/TitleBar.tsx` | macOS-native title bar redesign |
-| `frontend/src/components/FileGrid.tsx` | macOS table styling, capsule search, light mode |
-| `frontend/src/components/MetadataEditor.tsx` | Inspector card redesign, rounded inputs, album art |
-| `frontend/src/components/SettingsModal.tsx` | Light mode styling update |
-| `frontend/electron/main.ts` | `titleBarStyle: 'hiddenInset'` + `titleBarOverlay` config |
-
-## Files to Create
-
-| File | Description |
-|---|---|
-| `frontend/src/components/Sidebar.tsx` | New left sidebar with Library, Folders, Playlists |
+|------|--------|
+| `frontend/electron/handlers/lyrics.ts` | **New file** — LyricsClient + encoding fixer utility |
+| `frontend/electron/handlers/auto-tag.ts` | Add `lyricsDownloadEnabled`, `lyricsApiUrl` to `AutoTagConfig`; load/save in config; import and call `LyricsClient` in `applyCandidateTags()` / `findLocalLyrics()` flow |
+| `frontend/electron/main.ts` | Register new IPC handlers for `lyrics:fetch` (optional standalone) |
+| `frontend/electron/preload.ts` | Add `fetchLyrics` to `ElectronAPI` interface and bridge |
+| `frontend/src/components/SettingsModal.tsx` | Add lyrics settings UI |
+| `frontend/src/components/MetadataEditor.tsx` | (Optional) Add "Download Lyrics" button |
+| `frontend/package.json` | Add `jschardet` dependency |
 
 ## Reuse
 
-- **Color palette variables** — Already using Tailwind's `extend.colors`; will re-theme instead of replacing entirely.
-- **Component structure** — All existing components (`FileGrid`, `MetadataEditor`, `TitleBar`, `SettingsModal`) keep their logical structure; only styling changes.
-- **Electron preload bridge** (`window.api`) — Unchanged.
-- **App state & reducer** (`AppState.ts`, `UndoManager.ts`) — Unchanged.
+- **Existing writer** already handles `fields.lyrics` → `unsynchronisedLyrics`/`LYRICS`/`©lyr` in `writer.ts`. No changes needed there.
+- **Existing `findLocalLyrics()`** BOM logic (`auto-tag.ts:921-929`) should be extracted into the shared encoding fixer in `lyrics.ts`.
+- **API client pattern** follows `MusicBrainzClient`/`DiscogsClient` — one class with `fetch()` and User-Agent.
+- **Config pattern** follows the existing `AutoTagConfig` interface + `CONFIG_KEY_MAP` + `loadConfig()` setters + env vars.
+- **Settings UI pattern** follows `ToggleRow`/`FieldRow` in `SettingsModal.tsx`.
 
-## Steps
+## Steps (in execution order)
 
-- [ ] **1. Update Electron main process** — Set `titleBarStyle: 'hiddenInset'` and `titleBarOverlay` for native traffic-light controls.
-- [ ] **2. Re-theme Tailwind config** — Light mode palette:
-  - `surface`: `white` / `#f5f5f7` / `#e8e8ed`
-  - `text`: `#1d1d1f` (primary), `#6e6e73` (secondary), `#aeaeb2` (muted)
-  - `accent`: Apple blue `#007aff` (default), `#0062cc` (dim), `#4da6ff` (light)
-  - `border`: `#d2d2d7` / `#c6c6c8`
-- [ ] **3. Update index.html** — Remove `class="dark"`, add light mode.
-- [ ] **4. Update index.css** — SF Pro font stack, light scrollbar, backdrop-blur utility, selection colors.
-- [ ] **5. Create Sidebar component** — Frosted glass sidebar with SF Symbols (using SVG/unicode alternatives since SF Symbols is Apple-native) for 📚 Library, 📁 Folders, 🎵 Playlists. Include album list when library is loaded.
-- [ ] **6. Redesign TitleBar** — macOS title bar with:
-  - "AudioTag Pro" app title centered
-  - Capsule-shaped search bar with 🔍 icon and "Filter files..." placeholder
-  - Toolbar-style action buttons (Open Library, Save, Revert, etc.) in NSToolbar style
-  - Proper drag region respecting traffic-light spacing
-- [ ] **7. Redesign FileGrid** — Light mode macOS table:
-  - No vertical borders, only horizontal dividers
-  - Alternating `white` / `#f9f9fb` rows
-  - Apple-blue (`#007aff` / 15% opacity) selection highlight
-  - Charcoal SF Pro typography
-  - Capsule search bar moved into TitleBar
-  - Column headers with macOS-style ascending/descending indicators
-- [ ] **8. Redesign MetadataEditor (Inspector)** — Clean inspector card:
-  - Rounded input fields (border-radius: 8px) with subtle grey border
-  - Labels in SF Pro small/medium weight
-  - Album art as prominent square with `rounded-xl` (12px radius) and thin border
-  - Two-column grid for Year/Track row
-  - Format details section
-- [ ] **9. Update SettingsModal** — Light mode version of the modal with proper styling.
-- [ ] **10. Update App.tsx** — Wire up three-pane layout:
-  ```
-  +------------------+------------------+------------------+
-  |        macOS TitleBar (native traffic lights)          |
-  +--------+------------------+------------------+----------+
-  |Sidebar |   FileGrid       |   Inspector      |
-  |(180px) |   (flex-1)       |   (300px)        |
-  |        |                  |                  |
-  +--------+------------------+------------------+
-  ```
+- [ ] **1. Add dependencies**
+  - `cd frontend && npm install jschardet`
+- [ ] **2. Create `frontend/electron/handlers/lyrics.ts`** — encoding fixer first
+  - `export function normalizeLyricsEncoding(buffer: Buffer): string`
+    - Detect BOM (UTF-16LE `0xFF 0xFE`, UTF-16BE `0xFE 0xFF`) → existing logic, extracted from `findLocalLyrics`
+    - For non-BOM buffers: use `jschardet` to detect encoding
+    - Convert to UTF-8 via `TextDecoder` (built into Node.js/Electron)
+    - Fallback to `buffer.toString("utf8")` if detection is uncertain
+- [ ] **3. Create `LyricsClient`** in `lyrics.ts`
+  - `export class LyricsClient` with configurable `baseUrl`, `userAgent`
+  - `fetchLyrics(trackName, artistName, albumName?, duration?): Promise<string | null>`
+  - GET to `<baseUrl>/get?track_name=...&artist_name=...` (optional `album_name`, `duration`)
+  - Error handling: non-200 → return null, network error → return null with warn log
+- [ ] **4. Refactor `findLocalLyrics()` in `auto-tag.ts`**
+  - Rename to `readLocalLyrics()` to clarify it does I/O
+  - Replace inline BOM detection with call to `normalizeLyricsEncoding()` from `lyrics.ts`
+  - The method now: read file bytes → `normalizeLyricsEncoding()` → return string or null
+  - This ensures encoding fix runs on ALL local LRC/TXT files
+- [ ] **5. Add config keys in `auto-tag.ts`**
+  - Add `lyricsDownloadEnabled?: boolean` and `lyricsApiUrl?: string` to `AutoTagConfig`
+  - Add setters in `loadConfig()` for `lyrics_download_enabled` and `lyrics_api_url`
+  - Add env var support: `AUTO_TAG_LYRICS_DOWNLOAD_ENABLED`, `AUTO_TAG_LYRICS_API_URL`
+  - Add to `CONFIG_KEY_MAP`
+  - Add to `saveConfig()`
+- [ ] **6. Integrate download into auto-tag flow**
+  - In `applyCandidateTags()`: call `readLocalLyrics()` first (which now includes encoding fix)
+  - If it returns null AND `config.lyricsDownloadEnabled`:
+    - Create `LyricsClient` instance
+    - Call `fetchLyrics()` for the track, pass result through `normalizeLyricsEncoding()`
+    - Emit event: `"Downloaded lyrics for {trackName}"`
+    - Merge into `mergedFields.lyrics`
+- [ ] **7. Register IPC in `main.ts` + `preload.ts`**
+  - Add `lyrics:fetch` IPC handler in `main.ts`
+  - Add `fetchLyrics(trackName, artistName, albumName?, duration?)` to `preload.ts`'s `ElectronAPI`
+  - Expose via `contextBridge` as `window.api.fetchLyrics`
+- [ ] **8. UI — SettingsModal.tsx**
+  - Add toggle: "Auto-download Lyrics" → `lyricsDownloadEnabled`
+  - Add field: "Lyrics API URL" → `lyricsApiUrl`
+- [ ] **9. (Optional) UI — MetadataEditor.tsx**
+  - Add "Download Lyrics" button in the detailed tags area
+  - Shows loading state, then previews the downloaded lyrics
+  - User can accept/reject before saving
+- [ ] **10. Write tests**
+  - `frontend/test/handlers/lyrics.test.ts`:
+    - `normalizeLyricsEncoding()` with UTF-8, UTF-16LE/BE BOM, shift-jis bytes, gbk bytes
+    - `LyricsClient.fetchLyrics()` with mocked fetch (success, error, non-200)
+    - `readLocalLyrics()` integration (local file with wrong encoding gets fixed)
 
 ## Verification
 
-1. `npm run dev` — Launch the Electron app.
-2. Verify native traffic-light controls (red/yellow/green) appear in top-left.
-3. Verify three-pane layout renders correctly at various window sizes.
-4. Open a music library — verify file grid populates, rows alternate, selection works.
-5. Click a track — verify inspector shows metadata, album art loads.
-6. Edit a field — verify auto-save and undo work.
-7. Resize window — verify layout is responsive within min-width constraints.
-8. Toggle sidebar — verify it remains visible and functional.
+1. **Encoding fix on local files**: Place a `.lrc` file encoded as shift-jis (or UTF-16LE) next to a track. Run auto-tag. Confirm the lyrics are written correctly as UTF-8 into the audio tag (no mojibake).
+2. **Download fallback**: Remove local `.lrc` files. Enable auto-download in Settings. Run auto-tag — observe "Downloaded lyrics" events. Confirm lyrics appear in tags.
+3. **Download encoding fix**: If the API returns non-UTF-8 content (e.g., shift-jis for Japanese songs), confirm the fixer converts it cleanly.
+4. **Disable toggle**: Turn off auto-download. Confirm behavior reverts to local-only (no network calls).
+5. **Settings UI**: Open Settings, see new toggle and URL field. Save, reopen, confirm values persist.
+6. **Regression**: Existing tests pass (`cd frontend && npm test`).
+7. **Unit tests**: `npx vitest run frontend/test/handlers/lyrics.test.ts` covers encoding detection, conversion, and API client.

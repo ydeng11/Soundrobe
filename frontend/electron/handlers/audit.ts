@@ -323,33 +323,27 @@ async function auditAlbum(
 }
 
 /**
- * Run audit on a library path.
- * Iterates over all album directories and audits each one.
+ * Audit a specific list of album directories, emitting progress events.
  */
-async function runLibraryAudit(
+async function auditSpecificAlbums(
   client: OpenRouterClient,
-  libraryPath: string,
+  albumPaths: string[],
   signal?: AbortSignal,
 ): Promise<{ albums: number; issues: number }> {
   let albumsAudited = 0;
   let totalIssues = 0;
+  const total = albumPaths.length;
 
-  debug.info("audit", `runLibraryAudit: scanning ${libraryPath}`);
-
-  const albumDirs = discoverAlbumDirs(libraryPath);
-  debug.info("audit", `runLibraryAudit: discovered ${albumDirs.length} album dir(s)`);
-
-  const total = albumDirs.length;
-  debug.info("audit", `runLibraryAudit: auditing ${total} album(s)`);
+  debug.info("audit", `auditSpecificAlbums: auditing ${total} album(s)`);
   auditEvents.emit("event", { type: "progress", current: 0, total });
 
-  for (let i = 0; i < albumDirs.length; i++) {
+  for (let i = 0; i < albumPaths.length; i++) {
     if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
 
-    const albumPath = albumDirs[i];
+    const albumPath = albumPaths[i];
     const albumName = basename(albumPath);
 
-    debug.info("audit", `runLibraryAudit: album ${i + 1}/${total} — ${albumName}`);
+    debug.info("audit", `auditSpecificAlbums: album ${i + 1}/${total} — ${albumName}`);
 
     auditEvents.emit("event", {
       type: "album-start",
@@ -362,7 +356,7 @@ async function runLibraryAudit(
     try {
       const results = await auditAlbum(client, albumPath, signal);
       totalIssues += results.length;
-      debug.info("audit", `runLibraryAudit: ${albumName} — ${results.length} issue(s) (running total: ${totalIssues})`);
+      debug.info("audit", `auditSpecificAlbums: ${albumName} — ${results.length} issue(s) (running total: ${totalIssues})`);
 
       auditEvents.emit("event", {
         type: "album-result",
@@ -378,10 +372,10 @@ async function runLibraryAudit(
       albumsAudited++;
     } catch (err) {
       if (signal?.aborted) {
-        debug.warn("audit", `runLibraryAudit: ${albumName} — aborted`);
+        debug.warn("audit", `auditSpecificAlbums: ${albumName} — aborted`);
         throw err;
       }
-      debug.error("audit", `runLibraryAudit: ${albumName} — error: ${(err as Error).message}`);
+      debug.error("audit", `auditSpecificAlbums: ${albumName} — error: ${(err as Error).message}`);
       auditEvents.emit("event", {
         type: "album-error",
         albumPath,
@@ -392,8 +386,25 @@ async function runLibraryAudit(
     }
   }
 
-  debug.info("audit", `runLibraryAudit: complete — ${albumsAudited} album(s), ${totalIssues} issue(s)`);
+  debug.info("audit", `auditSpecificAlbums: complete — ${albumsAudited} album(s), ${totalIssues} issue(s)`);
   return { albums: albumsAudited, issues: totalIssues };
+}
+
+/**
+ * Run audit on a library path.
+ * Discovers all album directories and audits each one.
+ */
+async function runLibraryAudit(
+  client: OpenRouterClient,
+  libraryPath: string,
+  signal?: AbortSignal,
+): Promise<{ albums: number; issues: number }> {
+  debug.info("audit", `runLibraryAudit: scanning ${libraryPath}`);
+
+  const albumDirs = discoverAlbumDirs(libraryPath);
+  debug.info("audit", `runLibraryAudit: discovered ${albumDirs.length} album dir(s)`);
+
+  return auditSpecificAlbums(client, albumDirs, signal);
 }
 
 // ── IPC handlers ────────────────────────────────────────────────────
@@ -439,6 +450,78 @@ export function registerAuditHandlers(): void {
         return { albums: 0, issues: 0 };
       }
       debug.error("audit", `audit:run — failed: ${(err as Error).message}`);
+      auditEvents.emit("event", {
+        type: "failed",
+        message: `Audit failed: ${(err as Error).message}`,
+      });
+      throw err;
+    } finally {
+      currentAbort = null;
+    }
+  });
+
+  /**
+   * Run audit on a specified set of albums or tracks.
+   * When trackPaths is provided, groups them by album directory and audits each.
+   * When albumPaths is provided, audits those albums directly.
+   */
+  ipcMain.handle("audit:run-specified", async (_event, options: { albumPaths?: string[]; trackPaths?: string[] }) => {
+    debug.info("audit", `IPC audit:run-specified — trackPaths=${options.trackPaths?.length ?? 0} albumPaths=${options.albumPaths?.length ?? 0}`);
+
+    // Cancel any running audit
+    cancelAudit();
+
+    const abort = new AbortController();
+    currentAbort = abort;
+
+    const config = loadConfig();
+    if (!config.llmApiKey) {
+      debug.error("audit", "audit:run-specified — LLM API key not configured");
+      throw new Error("LLM API key is required for audit. Configure it in settings.");
+    }
+    debug.debug("audit", `audit:run-specified — model=${config.llmModel ?? "default"}`);
+
+    const client = new OpenRouterClient({
+      apiKey: config.llmApiKey,
+      model: config.llmModel ?? "deepseek/deepseek-chat",
+      temperature: 0.1,
+      maxTokens: 4096,
+    });
+
+    // Determine which albums to audit
+    let albumPaths: string[];
+
+    if (options.trackPaths && options.trackPaths.length > 0) {
+      // Group selected tracks by their parent album directory
+      const dirs = new Set<string>();
+      for (const p of options.trackPaths) {
+        dirs.add(dirname(p));
+      }
+      albumPaths = Array.from(dirs);
+      debug.info("audit", `audit:run-specified — ${options.trackPaths.length} track(s) in ${albumPaths.length} album dir(s)`);
+    } else if (options.albumPaths && options.albumPaths.length > 0) {
+      albumPaths = options.albumPaths;
+    } else {
+      throw new Error("No tracks or albums specified for audit");
+    }
+
+    try {
+      const result = await auditSpecificAlbums(client, albumPaths, abort.signal);
+      debug.info("audit", `audit:run-specified — completed: ${result.albums} album(s), ${result.issues} issue(s)`);
+      auditEvents.emit("event", {
+        type: "completed",
+        current: result.albums,
+        total: result.albums,
+        message: `Audit complete: ${result.albums} album(s), ${result.issues} issue(s)`,
+      });
+      return result;
+    } catch (err) {
+      if (abort.signal.aborted) {
+        debug.warn("audit", "audit:run-specified — cancelled by user");
+        auditEvents.emit("event", { type: "cancelled", message: "Audit cancelled" });
+        return { albums: 0, issues: 0 };
+      }
+      debug.error("audit", `audit:run-specified — failed: ${(err as Error).message}`);
       auditEvents.emit("event", {
         type: "failed",
         message: `Audit failed: ${(err as Error).message}`,

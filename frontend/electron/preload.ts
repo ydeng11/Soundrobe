@@ -198,6 +198,7 @@ export interface ElectronAPI {
 
   // Auto-tag
   autoTagAlbum: (albumPath: string) => Promise<string>;
+  downloadAlbumLyrics: (albumPath: string) => Promise<number>;
   onAutoTagEvent: (callback: (event: AutoTagEvent) => void) => () => void;
   getTaskProgress: (taskId: string) => Promise<TaskProgress>;
   cancelTask: (taskId: string) => Promise<void>;
@@ -205,6 +206,8 @@ export interface ElectronAPI {
 
   // Audit
   runAudit: (libraryPath: string) => Promise<{ albums: number; issues: number }>;
+  runAuditOnTracks: (trackPaths: string[]) => Promise<{ albums: number; issues: number }>;
+  runAuditOnAlbums: (albumPaths: string[]) => Promise<{ albums: number; issues: number }>;
   runAlbumAudit: (albumPath: string) => Promise<AuditTrackResult[]>;
   onAuditEvent: (callback: (event: AuditEvent) => void) => () => void;
   cancelAudit: () => Promise<void>;
@@ -213,6 +216,14 @@ export interface ElectronAPI {
   getCoverDataUrl: (albumPath: string) => Promise<string | null>;
   setCover: (albumPath: string) => Promise<string | null>;
   removeCover: (albumPath: string) => Promise<boolean>;
+
+  // Lyrics
+  fetchLyrics: (
+    trackName: string,
+    artistName: string,
+    albumName?: string,
+    duration?: number,
+  ) => Promise<string | null>;
 
   // Config
   getConfig: () => Promise<Record<string, unknown>>;
@@ -279,6 +290,15 @@ contextBridge.exposeInMainWorld("api", {
   readDirectory: (dirPath: string) =>
     ipcRenderer.invoke("directory:read", dirPath),
 
+  // Lyrics
+  fetchLyrics: (
+    trackName: string,
+    artistName: string,
+    albumName?: string,
+    duration?: number,
+  ): Promise<string | null> =>
+    ipcRenderer.invoke("lyrics:fetch", trackName, artistName, albumName, duration),
+
   // Config
   getConfig: () => ipcRenderer.invoke("config:get"),
   setConfig: (key: string, value: unknown) =>
@@ -287,6 +307,8 @@ contextBridge.exposeInMainWorld("api", {
   // Auto-tag
   autoTagAlbum: (albumPath: string) =>
     ipcRenderer.invoke("album:auto-tag", albumPath),
+  downloadAlbumLyrics: (albumPath: string) =>
+    ipcRenderer.invoke("album:download-lyrics", albumPath),
   onAutoTagEvent: (callback: (event: AutoTagEvent) => void): (() => void) => {
     const listener = (_event: Electron.IpcRendererEvent, payload: AutoTagEvent) =>
       callback(payload);
@@ -302,6 +324,10 @@ contextBridge.exposeInMainWorld("api", {
   // Audit
   runAudit: (libraryPath: string) =>
     ipcRenderer.invoke("audit:run", libraryPath),
+  runAuditOnTracks: (trackPaths: string[]) =>
+    ipcRenderer.invoke("audit:run-specified", { trackPaths }),
+  runAuditOnAlbums: (albumPaths: string[]) =>
+    ipcRenderer.invoke("audit:run-specified", { albumPaths }),
   runAlbumAudit: (albumPath: string) =>
     ipcRenderer.invoke("audit:run-album", albumPath),
   onAuditEvent: (callback: (event: AuditEvent) => void): (() => void) => {

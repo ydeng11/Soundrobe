@@ -7,6 +7,8 @@ interface SettingsState {
   discogsEnabled: boolean;
   discogsToken: string;
   debug: boolean;
+  lyricsDownloadEnabled: boolean;
+  lyricsApiUrl: string;
 }
 
 interface SettingsModalProps {
@@ -22,6 +24,8 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
     discogsEnabled: true,
     discogsToken: "",
     debug: false,
+    lyricsDownloadEnabled: false,
+    lyricsApiUrl: "",
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -40,6 +44,8 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
           llmModel: (cfg.llmModel as string) ?? "deepseek/deepseek-chat:free",
           remoteLookupEnabled: (cfg.remoteLookupEnabled as boolean) ?? true,
           discogsEnabled: (cfg.discogsEnabled as boolean) ?? true,
+          lyricsDownloadEnabled: (cfg.lyricsDownloadEnabled as boolean) ?? false,
+          lyricsApiUrl: (cfg.lyricsApiUrl as string) ?? "",
           discogsToken: "",
           debug: (cfg.debug as boolean) ?? false,
         });
@@ -72,6 +78,8 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
         window.api.setConfig("remoteLookupEnabled", settings.remoteLookupEnabled),
       );
       promises.push(window.api.setConfig("discogsEnabled", settings.discogsEnabled));
+      promises.push(window.api.setConfig("lyricsDownloadEnabled", settings.lyricsDownloadEnabled));
+      promises.push(window.api.setConfig("lyricsApiUrl", settings.lyricsApiUrl || null));
       promises.push(window.api.setConfig("debug", settings.debug));
       promises.push(window.api.setDebugMode(settings.debug));
 
@@ -187,7 +195,24 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
                 />
               </FieldRow>
 
+              <hr className="border-border/40 my-2" />
+              <h3 className="text-[11px] font-semibold text-text-primary tracking-wide uppercase">Lyrics</h3>
+
+              <FieldRow label="Lyrics API URL" description="Base URL for lyrics API (e.g. https://lrclib.net/api)">
+                <InputField
+                  value={settings.lyricsApiUrl}
+                  onChange={(v) => setSettings({ ...settings, lyricsApiUrl: v })}
+                  placeholder="https://lrclib.net/api"
+                />
+              </FieldRow>
+
               <div className="pt-1 space-y-3">
+                <ToggleRow
+                  label="Auto-download Lyrics"
+                  description="Download lyrics from API when no local .lrc/.txt file exists"
+                  checked={settings.lyricsDownloadEnabled}
+                  onChange={(v) => setSettings({ ...settings, lyricsDownloadEnabled: v })}
+                />
                 <ToggleRow
                   label="Remote Lookup"
                   description="Search MusicBrainz &amp; Discogs when dataset misses"

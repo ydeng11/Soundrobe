@@ -465,7 +465,14 @@ export default function App() {
       return;
     }
 
-    console.log("[audit] handleAudit: starting audit for %s", state.libraryPath);
+    const scopeLabel =
+      state.selectedTrackPaths.length > 0
+        ? `${state.selectedTrackPaths.length} selected track(s)`
+        : state.activeAlbumPath
+          ? `album “${state.activeAlbumPath.split("/").pop() ?? ""}”`
+          : `library “${state.libraryPath}”`;
+
+    console.log("[audit] handleAudit: starting audit for %s", scopeLabel);
 
     dispatch({ type: "SET_AUDITING", auditing: true });
     dispatch({ type: "CLEAR_AUDIT_RESULTS" });
@@ -524,7 +531,16 @@ export default function App() {
         }
       });
 
-      await window.api.runAudit(state.libraryPath);
+      // Determine scope: selected tracks → active album → entire library
+      if (state.selectedTrackPaths.length > 0) {
+        await window.api.runAuditOnTracks(state.selectedTrackPaths);
+      } else if (state.activeAlbumPath) {
+        await window.api.runAuditOnAlbums([state.activeAlbumPath]);
+      } else {
+        await window.api.runAudit(state.libraryPath);
+      }
+
+      // Refresh the visible tracks so fixed metadata shows up
       if (state.activeAlbumPath) {
         const detail = await window.api.readAlbum(state.activeAlbumPath);
         dispatch({ type: "SET_TRACKS", tracks: detail.tracks });
@@ -544,7 +560,51 @@ export default function App() {
       dispatch({ type: "SET_AUDITING", auditing: false });
       dispatch({ type: "SET_AUDIT_PROGRESS", progress: null });
     }
-  }, [state.libraryPath, state.activeAlbumPath, state.auditing, loadAlbumTracks]);
+  }, [state.libraryPath, state.selectedTrackPaths, state.activeAlbumPath, state.auditing, loadAlbumTracks]);
+
+  // --- Get Lyrics ---
+
+  const handleGetLyrics = useCallback(async () => {
+    if (!state.libraryPath || state.lyricsGetting) return;
+
+    const targetPaths = state.activeAlbumPath
+      ? [state.activeAlbumPath]
+      : state.albums.map((a) => a.path);
+
+    if (targetPaths.length === 0) return;
+
+    dispatch({ type: "SET_LYRICS_GETTING", lyricsGetting: true });
+
+    try {
+      let totalDownloaded = 0;
+      for (const albumPath of targetPaths) {
+        const count = await window.api.downloadAlbumLyrics(albumPath);
+        totalDownloaded += count;
+      }
+
+      if (totalDownloaded > 0) {
+        // Refresh the active album to show new lyrics in sidebar
+        if (state.activeAlbumPath) {
+          const detail = await window.api.readAlbum(state.activeAlbumPath);
+          dispatch({ type: "SET_TRACKS", tracks: detail.tracks });
+        }
+      }
+
+      dispatch({
+        type: "SET_ERROR",
+        error:
+          totalDownloaded > 0
+            ? `Got lyrics for ${totalDownloaded} track(s)`
+            : null,
+      });
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : "Failed to get lyrics";
+      dispatch({ type: "SET_ERROR", error: message });
+    } finally {
+      dispatch({ type: "SET_LYRICS_GETTING", lyricsGetting: false });
+    }
+  }, [state.libraryPath, state.activeAlbumPath, state.albums, state.lyricsGetting]);
 
   // --- Convert: prompt for direction + regex, then apply ---
 
@@ -853,6 +913,7 @@ export default function App() {
         canUndo={state.undoManager.canUndo}
         saving={state.saving}
         autoTagging={state.autoTagging}
+        lyricsGetting={state.lyricsGetting}
         auditing={state.auditing}
         error={state.error}
         onOpenLibrary={handleOpenLibrary}
@@ -860,6 +921,7 @@ export default function App() {
         onRevert={handleRevert}
         onConvert={handleConvert}
         onAutoTag={handleAutoTag}
+        onGetLyrics={handleGetLyrics}
         onAudit={handleAudit}
         darkMode={state.darkMode}
         onToggleDarkMode={handleToggleDarkMode}

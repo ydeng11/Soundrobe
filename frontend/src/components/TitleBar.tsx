@@ -10,6 +10,7 @@ interface TitleBarProps {
   canUndo: boolean;
   saving: boolean;
   autoTagging: boolean;
+  lyricsGetting: boolean;
   auditing: boolean;
   darkMode: boolean;
   error: string | null;
@@ -18,6 +19,7 @@ interface TitleBarProps {
   onRevert: () => void;
   onConvert: () => void;
   onAutoTag: () => void;
+  onGetLyrics: () => void;
   onAudit: () => void;
   onToggleDarkMode: () => void;
   onOpenSettings: () => void;
@@ -33,6 +35,7 @@ export function TitleBar({
   canUndo,
   saving,
   autoTagging,
+  lyricsGetting,
   auditing,
   darkMode,
   error,
@@ -41,6 +44,7 @@ export function TitleBar({
   onRevert,
   onConvert,
   onAutoTag,
+  onGetLyrics,
   onAudit,
   onToggleDarkMode,
   onOpenSettings,
@@ -132,6 +136,40 @@ export function TitleBar({
         )}
         <span>{autoTagging ? "Tagging…" : "Auto-Tag"}</span>
       </button>
+
+      {/* Get Lyrics button */}
+      <button
+        onClick={onGetLyrics}
+        disabled={!libraryPath || lyricsGetting}
+        className={`no-drag inline-flex items-center gap-1.5 px-3 py-1 text-[11.5px] font-medium rounded-md transition-all active:scale-[0.97] ${
+          lyricsGetting
+            ? "text-[#34c759]/60 cursor-wait"
+            : "text-[#34c759] hover:bg-[#34c759]/10"
+        }`}
+        title="Download missing lyrics and fix encoding of existing .lrc/.txt files"
+      >
+        {lyricsGetting ? (
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="animate-spin">
+            <line x1="12" y1="2" x2="12" y2="6" />
+            <line x1="12" y1="18" x2="12" y2="22" />
+            <line x1="4.93" y1="4.93" x2="7.76" y2="7.76" />
+            <line x1="16.24" y1="16.24" x2="19.07" y2="19.07" />
+            <line x1="2" y1="12" x2="6" y2="12" />
+            <line x1="18" y1="12" x2="22" y2="12" />
+            <line x1="4.93" y1="19.07" x2="7.76" y2="16.24" />
+            <line x1="16.24" y1="7.76" x2="19.07" y2="4.93" />
+          </svg>
+        ) : (
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M9 18V5l12-2v13" />
+            <circle cx="6" cy="18" r="3" />
+            <circle cx="18" cy="16" r="3" />
+          </svg>
+        )}
+        <span>{lyricsGetting ? "Getting…" : "Get Lyrics"}</span>
+      </button>
+
+      <div className="w-px h-4 bg-border no-drag" />
 
       {/* Audit button */}
       <button

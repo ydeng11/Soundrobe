@@ -26,6 +26,8 @@ import { buildSelectionMessages, buildTagCorrectionMessages } from "./prompts";
 import { getAllNameVariants } from "./aliases";
 import { writeTags } from "./writer";
 import type { WriteFields } from "./writer";
+import { readLocalLyrics, LyricsClient } from "./lyrics";
+import { readTrackMetadata } from "./tracks";
 import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, statSync } from "node:fs";
 import { basename, dirname, join, extname } from "node:path";
 
@@ -118,6 +120,8 @@ export interface AutoTagConfig {
   remoteLookupEnabled?: boolean;
   discogsEnabled?: boolean;
   debug?: boolean;
+  lyricsDownloadEnabled?: boolean;
+  lyricsApiUrl?: string;
 }
 
 const taskEvents = new EventEmitter();
@@ -172,6 +176,10 @@ export function loadConfig(): AutoTagConfig {
     debug: (v) => {
       if (v === "false" || v === "true") config.debug = v === "true";
     },
+    lyrics_download_enabled: (v) => {
+      if (v === "false" || v === "true") config.lyricsDownloadEnabled = v === "true";
+    },
+    lyrics_api_url: (v) => { config.lyricsApiUrl = v; },
   };
 
   // 1. Config file first (lowest priority)
@@ -209,6 +217,8 @@ export function loadConfig(): AutoTagConfig {
   if (process.env.AUTO_TAG_REMOTE_LOOKUP === "false") config.remoteLookupEnabled = false;
   if (process.env.AUTO_TAG_DISCOGS_ENABLED === "false") config.discogsEnabled = false;
   if (process.env.AUTO_TAG_DEBUG === "true") config.debug = true;
+  if (process.env.AUTO_TAG_LYRICS_DOWNLOAD_ENABLED === "false") config.lyricsDownloadEnabled = false;
+  if (process.env.AUTO_TAG_LYRICS_API_URL) config.lyricsApiUrl = process.env.AUTO_TAG_LYRICS_API_URL;
 
   // Sync debug logger with config
   debug.setEnabled(!!config.debug);
@@ -798,10 +808,33 @@ class TaskManager {
 
       const trackFields = trackMap.get(trackNum) ?? {};
       const mergedFields: WriteFields = { ...albumFields, ...trackFields };
-      const lyrics = this.findLocalLyrics(filePath);
+
+      // 1. Read local lyrics (with encoding fix)
+      let lyrics = readLocalLyrics(filePath);
       if (lyrics) {
         mergedFields.lyrics = lyrics;
         this.emitTask(taskId, "source", `Local lyrics: ${filePath}`, { source: "lyrics", path: filePath });
+      }
+
+      // 2. If no local file and download is enabled, fetch from API
+      if (!lyrics && this.config.lyricsDownloadEnabled) {
+        const trackName = mergedFields.title;
+        const artistName = mergedFields.artist ?? albumFields.artist;
+        if (trackName && artistName) {
+          const client = new LyricsClient({
+            baseUrl: this.config.lyricsApiUrl,
+          });
+          const downloaded = await client.fetchLyrics(
+            trackName,
+            artistName,
+            mergedFields.album ?? undefined,
+            undefined,
+          );
+          if (downloaded) {
+            mergedFields.lyrics = downloaded;
+            this.emitTask(taskId, "source", `Downloaded lyrics for “${trackName}”`, { source: "lyrics-download", track: trackName });
+          }
+        }
       }
 
       if (Object.keys(mergedFields).length === 0) {
@@ -915,19 +948,7 @@ class TaskManager {
   }
 
   private findLocalLyrics(filePath: string): string | null {
-    for (const ext of [".lrc", ".txt"]) {
-      const lyricsPath = filePath.replace(/\.[^.]+$/, ext);
-      if (!existsSync(lyricsPath)) continue;
-      const data = readFileSync(lyricsPath);
-      if (data.length >= 2 && data[0] === 0xff && data[1] === 0xfe) {
-        return data.subarray(2).toString("utf16le");
-      }
-      if (data.length >= 2 && data[0] === 0xfe && data[1] === 0xff) {
-        return Buffer.from(data.subarray(2)).swap16().toString("utf16le");
-      }
-      return data.toString("utf8");
-    }
-    return null;
+    return readLocalLyrics(filePath);
   }
 
   /**
@@ -1118,6 +1139,8 @@ export function getConfig(): Record<string, unknown> {
     remoteLookupEnabled: cfg.remoteLookupEnabled,
     discogsEnabled: cfg.discogsEnabled,
     debug: cfg.debug ?? false,
+    lyricsDownloadEnabled: cfg.lyricsDownloadEnabled ?? false,
+    lyricsApiUrl: cfg.lyricsApiUrl ?? null,
   };
 }
 
@@ -1135,6 +1158,8 @@ const CONFIG_KEY_MAP: Record<string, string> = {
   remoteLookupEnabled: "remote_lookup_enabled",
   discogsEnabled: "discogs_enabled",
   debug: "debug",
+  lyricsDownloadEnabled: "lyrics_download_enabled",
+  lyricsApiUrl: "lyrics_api_url",
 };
 
 /**
@@ -1218,4 +1243,78 @@ function formatYamlValue(value: unknown): string {
     return `"${str.replace(/"/g, '\\"')}"`;
   }
   return str;
+}
+
+// ── Standalone lyrics download (independent of auto-tag) ───────────
+
+/**
+ * Download / fix lyrics for all tracks in an album.
+ *
+ * For each audio file:
+ *  1. Look for a local `.lrc`/`.txt` file → detect & fix encoding → write to tag
+ *  2. If no local file and download is enabled → fetch from API → fix encoding → write to tag
+ *
+ * Returns the number of tracks that received lyrics.
+ */
+export async function downloadAlbumLyrics(
+  albumPath: string,
+): Promise<number> {
+  const config = loadConfig();
+
+  // Collect audio files
+  const audioFiles: string[] = [];
+  let entries: string[];
+  try {
+    entries = readdirSync(albumPath).sort();
+  } catch {
+    return 0;
+  }
+
+  for (const name of entries) {
+    const fullPath = join(albumPath, name);
+    const ext = extname(name).toLowerCase();
+    if (AUDIO_EXTENSIONS.has(ext) && statSync(fullPath).isFile()) {
+      audioFiles.push(fullPath);
+    }
+  }
+
+  if (audioFiles.length === 0) return 0;
+
+  let written = 0;
+  // Always create client for standalone button (ignore lyricsDownloadEnabled toggle)
+  const client = new LyricsClient({ baseUrl: config.lyricsApiUrl });
+
+  for (const filePath of audioFiles) {
+    // 1. Try local file first (with encoding fix)
+    let lyrics = readLocalLyrics(filePath);
+
+    // 2. If no local file, fetch from API
+    if (!lyrics) {
+      try {
+        const meta = await readTrackMetadata(filePath);
+        if (meta.title && meta.artist) {
+          lyrics = await client.fetchLyrics(
+            meta.title,
+            meta.artist,
+            meta.album ?? undefined,
+            meta.duration > 0 ? Math.round(meta.duration) : undefined,
+          );
+        }
+      } catch {
+        // skip tracks that fail to read
+      }
+    }
+
+    // 3. Write lyrics to tag (only if we got something new)
+    if (lyrics) {
+      try {
+        await writeTags(filePath, { lyrics });
+        written++;
+      } catch {
+        // skip write failures
+      }
+    }
+  }
+
+  return written;
 }

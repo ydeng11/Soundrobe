@@ -17,9 +17,11 @@ import {
   refreshConfig,
   saveConfig,
   setDebugMode,
+  downloadAlbumLyrics,
 } from "./handlers/auto-tag";
 import { registerDebugIpc } from "./handlers/debug";
 import { registerAuditHandlers, onAuditEvent } from "./handlers/audit";
+import { LyricsClient } from "./handlers/lyrics";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const isDev = !app.isPackaged;
@@ -359,6 +361,16 @@ app.whenReady().then(async () => {
     }
   });
 
+  ipcMain.handle("lyrics:fetch", async (_event, trackName: string, artistName: string, albumName?: string, duration?: number) => {
+    try {
+      const client = new LyricsClient();
+      return await client.fetchLyrics(trackName, artistName, albumName, duration);
+    } catch (error) {
+      console.error("Failed to fetch lyrics:", error);
+      return null;
+    }
+  });
+
   ipcMain.handle("config:get", async () => {
     try {
       return getConfig();
@@ -378,6 +390,15 @@ app.whenReady().then(async () => {
   });
 
   // Debug mode toggle — also saved to config
+  ipcMain.handle("album:download-lyrics", async (_event, albumPath: string) => {
+    try {
+      return await downloadAlbumLyrics(albumPath);
+    } catch (error) {
+      console.error("Failed to download album lyrics:", error);
+      return 0;
+    }
+  });
+
   ipcMain.handle("debug:set-mode", async (_event, enabled: boolean) => {
     setDebugMode(enabled);
     saveConfig("debug", enabled);
