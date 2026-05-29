@@ -22,6 +22,7 @@ export interface WriteFields {
   track?: string | null; // "1" or "1/10"
   trackNumber?: number | null;
   trackTotal?: number | null;
+  disc?: string | null; // "1" or "1/2"
   discNumber?: number | null;
   discTotal?: number | null;
   genre?: string | null;
@@ -86,10 +87,10 @@ function fieldsToID3v2(fields: WriteFields): NodeID3.Tags {
   if (fields.album !== undefined) tags.album = fields.album ?? undefined;
   if (fields.albumArtist !== undefined) tags.performerInfo = fields.albumArtist ?? undefined;
   if (fields.year !== undefined) tags.year = fields.year ?? undefined;
-  if (fields.trackNumber !== undefined)
-    tags.trackNumber = formatPosition(fields.trackNumber, fields.trackTotal) ?? undefined;
-  if (fields.discNumber !== undefined)
-    tags.partOfSet = formatPosition(fields.discNumber, fields.discTotal) ?? undefined;
+  if (fields.trackNumber !== undefined || fields.track !== undefined)
+    tags.trackNumber = formatPosition(fields.trackNumber ?? (fields.track ? parseInt(fields.track) : undefined), fields.trackTotal) ?? undefined;
+  if (fields.discNumber !== undefined || fields.disc !== undefined)
+    tags.partOfSet = formatPosition(fields.discNumber ?? (fields.disc ? parseInt(fields.disc) : undefined), fields.discTotal) ?? undefined;
   if (fields.genre !== undefined) tags.genre = fields.genre ?? undefined;
   if (fields.composer !== undefined)
     tags.composer = fields.composer ?? undefined;
@@ -211,7 +212,7 @@ function writeVorbis(
   setVorbisField(updated, "COMMENT", fields.comment);
   setVorbisField(updated, "TRACKNUMBER", fields.trackNumber ?? fields.track);
   setVorbisField(updated, "TRACKTOTAL", fields.trackTotal);
-  setVorbisField(updated, "DISCNUMBER", fields.discNumber);
+  setVorbisField(updated, "DISCNUMBER", fields.discNumber ?? fields.disc);
   setVorbisField(updated, "DISCTOTAL", fields.discTotal);
   setVorbisField(updated, "LYRICS", fields.lyrics);
   setVorbisField(updated, "MUSICBRAINZ_TRACKID", fields.musicbrainzTrackId);

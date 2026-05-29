@@ -185,16 +185,21 @@ export default function App() {
         fields: {
           title: track.title,
           artist: track.artist,
+          artists: track.artists,
           album: track.album,
           albumArtist: track.albumArtist,
+          albumArtists: track.albumArtists,
           year: track.year,
-          track:
-            track.trackNumber != null ? String(track.trackNumber) : null,
-          disc:
-            track.discNumber != null ? String(track.discNumber) : null,
+          trackNumber: track.trackNumber,
+          trackTotal: track.trackTotal,
+          discNumber: track.discNumber,
+          discTotal: track.discTotal,
           genre: track.genre,
           composer: track.composer,
           comment: track.comment ?? null,
+          musicbrainzTrackId: track.musicbrainzTrackId,
+          musicbrainzAlbumId: track.musicbrainzAlbumId,
+          musicbrainzArtistId: track.musicbrainzArtistId,
         },
       };
       dispatch({
@@ -359,14 +364,21 @@ export default function App() {
       fields: {
         title: t.title,
         artist: t.artist,
+        artists: t.artists,
         album: t.album,
         albumArtist: t.albumArtist,
+        albumArtists: t.albumArtists,
         year: t.year,
-        track: t.trackNumber != null ? String(t.trackNumber) : null,
-        disc: t.discNumber != null ? String(t.discNumber) : null,
+        trackNumber: t.trackNumber,
+        trackTotal: t.trackTotal,
+        discNumber: t.discNumber,
+        discTotal: t.discTotal,
         genre: t.genre,
         composer: t.composer,
         comment: t.comment ?? null,
+        musicbrainzTrackId: t.musicbrainzTrackId,
+        musicbrainzAlbumId: t.musicbrainzAlbumId,
+        musicbrainzArtistId: t.musicbrainzArtistId,
       },
     }));
     dispatch({
@@ -857,14 +869,21 @@ export default function App() {
           fields: {
             title: track.title,
             artist: track.artist,
+            artists: track.artists,
             album: track.album,
             albumArtist: track.albumArtist,
+            albumArtists: track.albumArtists,
             year: track.year,
-            track: track.trackNumber != null ? String(track.trackNumber) : null,
-            disc: track.discNumber != null ? String(track.discNumber) : null,
+            trackNumber: track.trackNumber,
+            trackTotal: track.trackTotal,
+            discNumber: track.discNumber,
+            discTotal: track.discTotal,
             genre: track.genre,
             composer: track.composer,
             comment: track.comment ?? null,
+            musicbrainzTrackId: track.musicbrainzTrackId,
+            musicbrainzAlbumId: track.musicbrainzAlbumId,
+            musicbrainzArtistId: track.musicbrainzArtistId,
           },
         });
       }
