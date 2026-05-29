@@ -14,6 +14,10 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+
+// Increase timeout for E2E tests (real API calls with possible rate limiting)
+vi.setConfig({ testTimeout: 180_000 });
+
 import fs from "fs";
 import path from "path";
 import os from "os";
