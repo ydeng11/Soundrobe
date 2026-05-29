@@ -326,14 +326,24 @@ export default function App() {
 
   // --- Undo (triggered by Cmd+Z) ---
 
-  const handleRevert = useCallback(() => {
+  const handleRevert = useCallback(async () => {
     const op = state.undoManager.pop();
     if (!op) return;
-    for (const snap of op.snapshots) {
-      window.api.writeTrack(snap.path, { ...snap.fields }).then((track) => {
-        dispatch({ type: "UPDATE_TRACK", path: snap.path, track });
-      });
+    if (op.snapshots.length === 0) {
+      console.warn("Undo popped an operation with 0 snapshots — nothing to revert");
+      dispatch({ type: "POP_UNDO" });
+      return;
     }
+    await Promise.all(
+      op.snapshots.map(async (snap) => {
+        try {
+          const track = await window.api.writeTrack(snap.path, { ...snap.fields });
+          dispatch({ type: "UPDATE_TRACK", path: snap.path, track });
+        } catch {
+          console.warn("Undo write failed for:", snap.path);
+        }
+      }),
+    );
     dispatch({ type: "POP_UNDO" });
   }, [state.undoManager]);
 
@@ -483,6 +493,7 @@ export default function App() {
     state.libraryPath,
     state.activeAlbumPath,
     state.albums,
+    state.tracks,
     state.autoTagging,
     loadAlbumTracks,
   ]);
