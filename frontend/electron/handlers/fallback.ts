@@ -19,6 +19,32 @@ import {
 
 // ── Regex patterns ──────────────────────────────────────────────────
 
+const COMPILATION_FOLDER_SET = new Set([
+  "compilations",
+  "compilation",
+  "various artists",
+  "various",
+  "va",
+  "soundtracks",
+  "soundtrack",
+  "ost",
+  "samplers",
+  "sampler",
+  "christmas",
+]);
+
+/**
+ * Check if a folder name indicates a compilation/sampler rather than a single artist.
+ */
+export function isCompilationFolder(name: string | null | undefined): boolean {
+  if (!name) return false;
+  const normalized = name.trim().toLowerCase().replace(/[ _]+/g, " ");
+  return COMPILATION_FOLDER_SET.has(normalized);
+}
+
+/** Album artist used when the folder indicates a compilation. */
+const VARIOUS_ARTISTS = "Various Artists";
+
 const DATE_PREFIX_RE = /^(\d{4})[-.](?:0[1-9]|1[0-2])\s*/; // "2003-04" or "2005.08"
 const YEAR_PREFIX_RE = /^(\d{4})[.-]\s*/; // "2017-" or "2018."
 const YEAR_FROM_PREFIX_RE = /^(\d{4})[-.]/; // capture year from "2003-"
@@ -145,7 +171,11 @@ export async function parseAlbumWithTags(filePath: string): Promise<LookupReques
   let artistHint: string | null;
   let albumHint: string | null;
 
-  if (tagArtist && folderArtist && tagArtist.toLowerCase() !== folderArtist.toLowerCase()) {
+  if (isCompilationFolder(folderArtist)) {
+    // Albums under "Compilations" folders are various-artist compilations
+    artistHint = VARIOUS_ARTISTS;
+    albumHint = folderRequest.albumHint;
+  } else if (tagArtist && folderArtist && tagArtist.toLowerCase() !== folderArtist.toLowerCase()) {
     // Tag artist doesn't match folder — folder structure is more trustworthy
     artistHint = folderArtist;
     albumHint = folderRequest.albumHint;
@@ -274,12 +304,20 @@ export function candidateFromFolder(request: LookupRequest): AlbumCandidate {
   const album = request.albumHint;
   const year = request.yearHint;
 
+  const isCompilation = isCompilationFolder(artist);
+  const albumArtist = isCompilation ? VARIOUS_ARTISTS : artist;
+  const albumArtists = isCompilation
+    ? [VARIOUS_ARTISTS]
+    : artist
+      ? [artist]
+      : [];
+
   return makeAlbumCandidate({
-    artist,
-    artists: artist ? [artist] : [],
+    artist: albumArtist,
+    artists: albumArtists,
     album,
-    albumArtist: artist,
-    albumArtists: artist ? [artist] : [],
+    albumArtist,
+    albumArtists,
     year,
     tracks: request.tracks,
     source: "folder",

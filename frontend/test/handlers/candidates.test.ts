@@ -193,6 +193,22 @@ describe("splitArtistNames", () => {
     ]);
   });
 
+  it("splits ampersand separator between Chinese artist names", () => {
+    expect(splitArtistNames(["谢天华&朱永棠&林晓峰"])).toEqual([
+      "谢天华",
+      "朱永棠",
+      "林晓峰",
+    ]);
+  });
+
+  it("splits semicolon separator between Chinese artist names", () => {
+    expect(splitArtistNames(["谢天华;朱永棠;林晓峰"])).toEqual([
+      "谢天华",
+      "朱永棠",
+      "林晓峰",
+    ]);
+  });
+
   it("splits CJK dot and punctuation separators", () => {
     expect(splitArtistNames(["陈慧琳.陈小春、郑伊健；许志安"])).toEqual([
       "陈慧琳",

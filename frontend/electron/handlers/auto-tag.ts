@@ -789,7 +789,7 @@ class TaskManager {
         const fields: WriteFields = {};
         if (tc.title !== undefined) fields.title = tc.title;
         if (tc.artist !== undefined) fields.artist = tc.artist;
-        if (tc.artists.length > 0) fields.artists = tc.artists;
+        if (tc.artists.length > 0) fields.artists = splitArtistNames(tc.artists);
         if (tc.trackNumber != null) fields.trackNumber = tc.trackNumber;
         if (tc.trackTotal != null) fields.trackTotal = tc.trackTotal;
         if (tc.discNumber != null) fields.discNumber = tc.discNumber;

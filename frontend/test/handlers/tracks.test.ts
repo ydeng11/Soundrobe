@@ -19,6 +19,7 @@ import {
   isAudioFile,
 } from "../../electron/handlers/tracks";
 import { writeTags } from "../../electron/handlers/writer";
+import { splitArtistNames } from "../../electron/handlers/candidates";
 
 // ── Fixture helpers ──────────────────────────────────────────────────
 
@@ -545,5 +546,96 @@ describe("readAlbum without FLaC marker — edge cases", () => {
     // Only .flac files that don't start with '.' should be included
     expect(result.tracks.length).toBe(1);
     expect(result.tracks[0].sizeBytes).toBe(12345);
+  });
+});
+
+describe("auto-tag artist splitting — 谢天华&朱永棠&林晓峰", () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "artist-split-"));
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it("splits &-separated Chinese ARTIST into 3 ARTISTS entries after write", async () => {
+    // Create a FLAC with the same metadata as the real file:
+    //   ARTIST=谢天华&朱永棠&林晓峰
+    //   ARTISTS=谢天华;朱永棠;林晓峰
+    const comments = [
+      "TITLE=古古惑惑 (清清楚楚我系我)",
+      "ALBUM=古惑仔Ⅲ 只手遮天",
+      "TRACKNUMBER=3",
+      "ARTIST=谢天华&朱永棠&林晓峰",
+      "ARTISTS=谢天华;朱永棠;林晓峰",
+      "ALBUMARTIST=郑伊健",
+    ];
+    const block = vorbisCommentBlock(comments, { isLast: true });
+    const buf = Buffer.concat([
+      flacHeaderWithDuration(false, 205, [block]),
+      Buffer.from([0xff, 0xf8, 0x69, 0x18]),
+      Buffer.alloc(100),
+    ]);
+    const fp = path.join(tmpDir, "03. 古古惑惑 (清清楚楚我系我).flac");
+    fs.writeFileSync(fp, buf);
+
+    // Step 1: Read metadata — same as what readTrackMetadata does for auto-tag
+    const meta = await readTrackMetadata(fp);
+    expect(meta.artist).toBe("谢天华&朱永棠&林晓峰");
+    // music-metadata returns ARTISTS as a single string (not split on ;)
+    expect(meta.artists).toEqual(["谢天华;朱永棠;林晓峰"]);
+
+    // Step 2: Apply auto-tag's artist splitting logic (line 771 in auto-tag.ts):
+    //   albumFields.artists = candidate.artists.length > 0
+    //     ? candidate.artists
+    //     : splitArtistNames([candidate.artist]);
+    // The raw artists from the file are a single string with semicolons,
+    // so we use splitArtistNames on the artist field to get 3 individual names.
+    const splitArtists = splitArtistNames([meta.artist]);
+    expect(splitArtists).toEqual(["谢天华", "朱永棠", "林晓峰"]);
+
+    // Step 3: Write back with properly split artists
+    await writeTags(fp, { artists: splitArtists });
+
+    // Step 4: Verify read-back via music-metadata shows 3 separate artists
+    const parsed = await parseFile(fp);
+    expect(parsed.common.artists).toEqual(["谢天华", "朱永棠", "林晓峰"]);
+  });
+
+  it("splits &-separated Chinese ARTIST into 3 via the auto-tag write path", async () => {
+    // Same setup but reads back through readTrackMetadata after write
+    const comments = [
+      "TITLE=古古惑惑 (清清楚楚我系我)",
+      "ARTIST=谢天华&朱永棠&林晓峰",
+      "ARTISTS=谢天华;朱永棠;林晓峰",
+    ];
+    const block = vorbisCommentBlock(comments, { isLast: true });
+    const buf = Buffer.concat([
+      flacHeaderWithDuration(false, 205, [block]),
+      Buffer.from([0xff, 0xf8, 0x69, 0x18]),
+      Buffer.alloc(100),
+    ]);
+    const fp = path.join(tmpDir, "track.flac");
+    fs.writeFileSync(fp, buf);
+
+    // Read original
+    const meta = await readTrackMetadata(fp);
+
+    // Auto-tag logic (line 686): split artist to get 3 individual names
+    const artists = splitArtistNames([meta.artist]);
+    expect(artists).toEqual(["谢天华", "朱永棠", "林晓峰"]);
+
+    // Write using the same pattern as auto-tag: set both artist and artists
+    await writeTags(fp, {
+      artist: "谢天华 & 朱永棠 & 林晓峰",
+      artists,
+    });
+
+    // Re-read and verify
+    const updated = await readTrackMetadata(fp);
+    expect(updated.artists).toEqual(["谢天华", "朱永棠", "林晓峰"]);
+    expect(updated.artist).toBe("谢天华 & 朱永棠 & 林晓峰");
   });
 });
