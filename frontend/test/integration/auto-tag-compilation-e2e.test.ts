@@ -44,6 +44,9 @@ vi.mock("../../electron/handlers/dataset", () => ({
 }));
 
 import type { AutoTagEvent } from "../../electron/handlers/auto-tag";
+import { UndoManager } from "../../src/state/UndoManager";
+import type { TrackData } from "../../electron/handlers/tracks";
+import type { WriteFields } from "../../electron/handlers/writer";
 
 // ── Synthetic FLAC builder ─────────────────────────────────────────
 
@@ -257,5 +260,180 @@ describe("auto-tag compilation E2E", () => {
     expect(t2.common.artists).toEqual(["陈小春"]);
 
     console.log("\n[e2e] ✓ All assertions passed!");
+  });
+
+  it("supports undo round-trip: snapshot → auto-tag → revert → verify", async () => {
+    // ── Prerequisites ───────────────────────────────────────────────
+    const hasDiscogsToken =
+      !!(process.env.AUTO_TAG_DISCOGS_TOKEN ?? "") ||
+      fs.existsSync(path.join(os.homedir(), ".auto-tagger", "config.yaml"));
+
+    if (!hasDiscogsToken) {
+      console.warn("[e2e-undo] No Discogs token — API lookups will fail, folder fallback will be used");
+    }
+
+    const { refreshConfig, setDebugMode } = await import("../../electron/handlers/auto-tag");
+    refreshConfig();
+    setDebugMode(true);
+
+    const { readTrackMetadata } = await import("../../electron/handlers/tracks");
+    const { writeTags } = await import("../../electron/handlers/writer");
+
+    // ── 1. Read initial metadata into snapshots ────────────────────
+    // This mirrors the exact pattern from App.tsx handleAutoTag
+    const trackFiles = [
+      path.join(albumDir, "01. 友情岁月.flac"),
+      path.join(albumDir, "02. 战无不胜.flac"),
+      path.join(albumDir, "03. 古古惑惑.flac"),
+    ];
+
+    const initialTracks: TrackData[] = [];
+    for (const fp of trackFiles) {
+      initialTracks.push(await readTrackMetadata(fp));
+    }
+
+    expect(initialTracks).toHaveLength(3);
+
+    // Build snapshots using the exact field mapping from handleAutoTag
+    const snapshots = initialTracks.map((t) => ({
+      path: t.path,
+      fields: {
+        title: t.title,
+        artist: t.artist,
+        artists: t.artists,
+        album: t.album,
+        albumArtist: t.albumArtist,
+        albumArtists: t.albumArtists,
+        year: t.year,
+        trackNumber: t.trackNumber,
+        trackTotal: t.trackTotal,
+        discNumber: t.discNumber,
+        discTotal: t.discTotal,
+        genre: t.genre,
+        composer: t.composer,
+        comment: t.comment ?? null,
+        musicbrainzTrackId: t.musicbrainzTrackId,
+        musicbrainzAlbumId: t.musicbrainzAlbumId,
+        musicbrainzArtistId: t.musicbrainzArtistId,
+      },
+    }));
+
+    // ── 2. Push snapshots to UndoManager ───────────────────────────
+    const undoManager = new UndoManager();
+    undoManager.push("Auto-tag", snapshots);
+    expect(undoManager.canUndo).toBe(true);
+    expect(undoManager.length).toBe(1);
+
+    // ── 3. Verify initial state before pipeline ────────────────────
+    expect(initialTracks[0].title).toBe("友情岁月");
+    expect(initialTracks[0].artist).toBe("郑伊健");
+    expect(initialTracks[0].trackNumber).toBe(1);
+    expect(initialTracks[0].discNumber).toBe(1);
+    expect(initialTracks[0].year).toBe("2013");
+
+    expect(initialTracks[2].artist).toBe("谢天华&朱永棠&林晓峰");
+    expect(initialTracks[2].artists).toEqual(["谢天华&朱永棠&林晓峰"]);
+
+    // ── 4. Run the auto-tag pipeline ───────────────────────────────
+    process.env.HOME = os.homedir();
+    const { startAutoTag, onAutoTagEvent, getProgress } =
+      await import("../../electron/handlers/auto-tag");
+
+    const taskId = startAutoTag(albumDir);
+    expect(taskId).toBeTruthy();
+    console.log(`\n[e2e-undo] Task ${taskId} started — waiting for pipeline...`);
+
+    const deadline = Date.now() + 120_000;
+    let completed = false;
+    let failed = false;
+    let lastMsg = "";
+
+    while (Date.now() < deadline) {
+      await sleep(1000);
+      const p = getProgress(taskId);
+      if (!p) break;
+      if (p.message !== lastMsg) {
+        console.log(`[e2e-undo]  ${p.progress}/${p.total}  ${p.message}`);
+        lastMsg = p.message;
+      }
+      if (p.status === "completed") { completed = true; break; }
+      if (p.status === "failed") { failed = true; break; }
+    }
+
+    expect(completed).toBe(true);
+    if (failed) throw new Error("Pipeline failed");
+
+    // ── 5. Verify pipeline actually changed something ──────────────
+    const afterPipeline = await Promise.all(
+      trackFiles.map((fp) => readTrackMetadata(fp)),
+    );
+
+    // Album artist should now be "Various Artists" (compilation detection)
+    expect(afterPipeline[0].albumArtist).toBe("Various Artists");
+    expect(afterPipeline[1].albumArtist).toBe("Various Artists");
+    expect(afterPipeline[2].albumArtist).toBe("Various Artists");
+
+    // Collaboration track's ARTISTS should be split
+    expect(afterPipeline[2].artists).toEqual(["谢天华", "朱永棠", "林晓峰"]);
+
+    // ── 6. Pop undo and restore snapshots ──────────────────────────
+    expect(undoManager.canUndo).toBe(true);
+    const op = undoManager.pop();
+    expect(op).not.toBeNull();
+    expect(op!.snapshots).toHaveLength(3);
+
+    // Write back snapshot fields — same as handleRevert does
+    for (const snap of op!.snapshots) {
+      await writeTags(snap.path, snap.fields as WriteFields);
+    }
+
+    // ── 7. Re-read and verify everything restored to original ──────
+    const afterUndo = await Promise.all(
+      trackFiles.map((fp) => readTrackMetadata(fp)),
+    );
+
+    // Title restored
+    expect(afterUndo[0].title).toBe("友情岁月");
+    expect(afterUndo[1].title).toBe("战无不胜");
+    expect(afterUndo[2].title).toBe("古古惑惑");
+
+    // Single artist restored
+    expect(afterUndo[0].artist).toBe("郑伊健");
+    expect(afterUndo[1].artist).toBe("陈小春");
+
+    // Collaboration artist restored to original unsplit form
+    expect(afterUndo[2].artist).toBe("谢天华&朱永棠&林晓峰");
+    expect(afterUndo[2].artists).toEqual(["谢天华&朱永棠&林晓峰"]);
+
+    // Album artist restored to original
+    expect(afterUndo[0].albumArtist).toBe("郑伊健&陈小春");
+    expect(afterUndo[1].albumArtist).toBe("郑伊健&陈小春");
+    expect(afterUndo[2].albumArtist).toBe("郑伊健&陈小春");
+
+    // Track numbers restored
+    expect(afterUndo[0].trackNumber).toBe(1);
+    expect(afterUndo[1].trackNumber).toBe(2);
+    expect(afterUndo[2].trackNumber).toBe(3);
+
+    // Disc numbers restored
+    expect(afterUndo[0].discNumber).toBe(1);
+    expect(afterUndo[1].discNumber).toBe(1);
+    expect(afterUndo[2].discNumber).toBe(1);
+
+    // Year restored
+    expect(afterUndo[0].year).toBe("2013");
+    expect(afterUndo[1].year).toBe("2013");
+    expect(afterUndo[2].year).toBe("2013");
+
+    // Album restored
+    expect(afterUndo[0].album).toBe("友情岁月 3CD");
+    expect(afterUndo[1].album).toBe("友情岁月 3CD");
+    expect(afterUndo[2].album).toBe("友情岁月 3CD");
+
+    // Undo stack is now empty after pop
+    expect(undoManager.canUndo).toBe(false);
+    expect(undoManager.length).toBe(0);
+
+    console.log("\n[e2e-undo] ✓ Undo round-trip verified!");
   });
 });
