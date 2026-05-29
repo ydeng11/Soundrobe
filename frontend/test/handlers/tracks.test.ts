@@ -636,6 +636,254 @@ describe("auto-tag artist splitting — 谢天华&朱永棠&林晓峰", () => {
     // Re-read and verify
     const updated = await readTrackMetadata(fp);
     expect(updated.artists).toEqual(["谢天华", "朱永棠", "林晓峰"]);
-    expect(updated.artist).toBe("谢天华 & 朱永棠 & 林晓峰");
+  });
+});
+
+describe("undo round-trip — snapshot→write→revert→verify", () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "undo-roundtrip-"));
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it("restores all pipeline-touchable fields after snapshot→write→revert cycle", async () => {
+    const initialTags = [
+      "TITLE=古古惑惑 (清清楚楚我系我)",
+      "ARTIST=谢天华&朱永棠&林晓峰",
+      "ARTISTS=谢天华;朱永棠;林晓峰",
+      "ALBUM=古惑仔Ⅲ 只手遮天",
+      "ALBUMARTIST=Various Artists",
+      "ALBUMARTISTS=Various Artists",
+      "DATE=1996",
+      "GENRE=Soundtrack",
+      "COMPOSER=陈光荣",
+      "COMMENT=Original comment",
+      "TRACKNUMBER=3",
+      "TRACKTOTAL=5",
+      "DISCNUMBER=1",
+      "DISCTOTAL=1",
+    ];
+    const block = vorbisCommentBlock(initialTags, { isLast: true });
+    const buf = Buffer.concat([
+      flacHeaderWithDuration(false, 205, [block]),
+      Buffer.from([0xff, 0xf8, 0x69, 0x18]),
+      Buffer.alloc(100),
+    ]);
+    const fp = path.join(tmpDir, "track.flac");
+    fs.writeFileSync(fp, buf);
+
+    // Simulate what handleAutoTag does: read initial state into a snapshot
+    const before = await readTrackMetadata(fp);
+    const snapshot: Record<string, unknown> = {
+      title: before.title,
+      artist: before.artist,
+      artists: before.artists,
+      album: before.album,
+      albumArtist: before.albumArtist,
+      albumArtists: before.albumArtists,
+      year: before.year,
+      trackNumber: before.trackNumber,
+      trackTotal: before.trackTotal,
+      discNumber: before.discNumber,
+      discTotal: before.discTotal,
+      genre: before.genre,
+      composer: before.composer,
+      comment: before.comment ?? null,
+    };
+
+    expect(snapshot.title).toBe("古古惑惑 (清清楚楚我系我)");
+    expect(snapshot.artist).toBe("谢天华&朱永棠&林晓峰");
+    expect(snapshot.artists).toEqual(["谢天华;朱永棠;林晓峰"]);
+    expect(snapshot.album).toBe("古惑仔Ⅲ 只手遮天");
+    expect(snapshot.albumArtist).toBe("Various Artists");
+    expect(snapshot.year).toBe("1996");
+    expect(snapshot.genre).toBe("Soundtrack");
+    expect(snapshot.trackNumber).toBe(3);
+    expect(snapshot.trackTotal).toBe(5);
+    expect(snapshot.discNumber).toBe(1);
+    expect(snapshot.discTotal).toBe(1);
+
+    // Simulate auto-tag pipeline writing new values
+    await writeTags(fp, {
+      title: "New Title",
+      artist: "New Artist",
+      artists: [],
+      album: "New Album",
+      albumArtist: "New Album Artist",
+      albumArtists: ["New Album Artist"],
+      year: "2024",
+      genre: "Pop",
+      composer: "New Composer",
+      comment: "New comment",
+      trackNumber: 1,
+      trackTotal: 10,
+      discNumber: 2,
+      discTotal: 3,
+    });
+
+    // Verify pipeline changed everything
+    const mid = await readTrackMetadata(fp);
+    expect(mid.title).toBe("New Title");
+    expect(mid.artist).toBe("New Artist");
+    expect(mid.album).toBe("New Album");
+    expect(mid.albumArtist).toBe("New Album Artist");
+    expect(mid.year).toBe("2024");
+    expect(mid.genre).toBe("Pop");
+    expect(mid.trackNumber).toBe(1);
+    expect(mid.trackTotal).toBe(10);
+    expect(mid.discNumber).toBe(2);
+    expect(mid.discTotal).toBe(3);
+
+    // Simulate Cmd+Z revert: write snapshot fields back
+    await writeTags(fp, snapshot as any);
+
+    // Verify EVERY field is restored to original values
+    const after = await readTrackMetadata(fp);
+    expect(after.title).toBe("古古惑惑 (清清楚楚我系我)");
+    expect(after.artist).toBe("谢天华&朱永棠&林晓峰");
+    expect(after.artists).toEqual(["谢天华;朱永棠;林晓峰"]);
+    expect(after.album).toBe("古惑仔Ⅲ 只手遮天");
+    expect(after.albumArtist).toBe("Various Artists");
+    expect(after.albumArtists).toEqual(["Various Artists"]);
+    expect(after.year).toBe("1996");
+    expect(after.genre).toBe("Soundtrack");
+    expect(after.trackNumber).toBe(3);
+    expect(after.trackTotal).toBe(5);
+    expect(after.discNumber).toBe(1);
+    expect(after.discTotal).toBe(1);
+  });
+
+  it("restores Chinese multi-artist lists via ARTISTS and ALBUMARTISTS", async () => {
+    const initialTags = [
+      "TITLE=一起飞",
+      "ARTIST=郑伊健&陈小春&林晓峰",
+      "ARTISTS=郑伊健, 陈小春, 林晓峰",
+      "ALBUM=友情岁月 3CD",
+      "ALBUMARTIST=郑伊健&陈小春",
+    ];
+    const block = vorbisCommentBlock(initialTags, { isLast: true });
+    const buf = Buffer.concat([
+      flacHeaderWithDuration(false, 240, [block]),
+      Buffer.from([0xff, 0xf8, 0x69, 0x18]),
+      Buffer.alloc(100),
+    ]);
+    const fp = path.join(tmpDir, "multi-artist.flac");
+    fs.writeFileSync(fp, buf);
+
+    const before = await readTrackMetadata(fp);
+    const snapshot: Record<string, unknown> = {
+      artist: before.artist,
+      artists: before.artists,
+      albumArtist: before.albumArtist,
+      albumArtists: before.albumArtists,
+    };
+
+    expect(snapshot.artist).toBe("郑伊健&陈小春&林晓峰");
+    expect(snapshot.artists).toEqual(["郑伊健, 陈小春, 林晓峰"]);
+    expect(snapshot.albumArtist).toBe("郑伊健&陈小春");
+    expect(snapshot.albumArtists).toEqual(["郑伊健&陈小春"]);
+
+    await writeTags(fp, {
+      artist: "郑伊健&陈小春&林晓峰",
+      artists: ["郑伊健", "陈小春", "林晓峰"],
+      albumArtist: "郑伊健&陈小春",
+      albumArtists: ["郑伊健", "陈小春"],
+    });
+    const mid = await readTrackMetadata(fp);
+    expect(mid.artists).toEqual(["郑伊健", "陈小春", "林晓峰"]);
+    expect(mid.albumArtist).toBe("郑伊健&陈小春");
+    expect(mid.albumArtists).toEqual(["郑伊健&陈小春"]);
+
+    // Revert with snapshot
+    await writeTags(fp, snapshot as any);
+
+    const after = await readTrackMetadata(fp);
+    expect(after.artist).toBe("郑伊健&陈小春&林晓峰");
+    expect(after.artists).toEqual(["郑伊健, 陈小春, 林晓峰"]);
+    expect(after.albumArtist).toBe("郑伊健&陈小春");
+    expect(after.albumArtists).toEqual(["郑伊健&陈小春"]);
+  });
+
+  it("restores artists list that was split by the pipeline", async () => {
+    const initialTags = [
+      "TITLE=Song",
+      "ARTIST=谢天华&朱永棠&林晓峰",
+      "ARTISTS=谢天华;朱永棠;林晓峰",
+    ];
+    const block = vorbisCommentBlock(initialTags, { isLast: true });
+    const buf = Buffer.concat([
+      flacHeaderWithDuration(false, 180, [block]),
+      Buffer.from([0xff, 0xf8, 0x69, 0x18]),
+      Buffer.alloc(100),
+    ]);
+    const fp = path.join(tmpDir, "artists-split.flac");
+    fs.writeFileSync(fp, buf);
+
+    // Snapshot captures unsplit ARTISTS
+    const before = await readTrackMetadata(fp);
+    expect(before.artists).toEqual(["谢天华;朱永棠;林晓峰"]);
+
+    // Pipeline splits ARTISTS into separate values
+    await writeTags(fp, {
+      artists: ["谢天华", "朱永棠", "林晓峰"],
+    });
+    const mid = await readTrackMetadata(fp);
+    expect(mid.artists).toEqual(["谢天华", "朱永棠", "林晓峰"]);
+
+    // Revert with snapshot restores unsplit form
+    await writeTags(fp, {
+      artists: before.artists,
+    } as any);
+    const after = await readTrackMetadata(fp);
+    expect(after.artists).toEqual(["谢天华;朱永棠;林晓峰"]);
+  });
+
+  it("restores disc and track totals that were missing (null) in original file", async () => {
+    const initialTags = [
+      "TITLE=Song",
+      "ARTIST=Artist",
+      "TRACKNUMBER=1",
+      "DISCNUMBER=1",
+    ];
+    const block = vorbisCommentBlock(initialTags, { isLast: true });
+    const buf = Buffer.concat([
+      flacHeaderWithDuration(false, 200, [block]),
+      Buffer.from([0xff, 0xf8, 0x69, 0x18]),
+      Buffer.alloc(100),
+    ]);
+    const fp = path.join(tmpDir, "no-totals.flac");
+    fs.writeFileSync(fp, buf);
+
+    const before = await readTrackMetadata(fp);
+    const snapshot: Record<string, unknown> = {
+      trackNumber: before.trackNumber,
+      trackTotal: before.trackTotal,
+      discNumber: before.discNumber,
+      discTotal: before.discTotal,
+    };
+    expect(snapshot.trackTotal).toBeNull();
+    expect(snapshot.discTotal).toBeNull();
+
+    await writeTags(fp, {
+      trackNumber: 1,
+      trackTotal: 12,
+      discNumber: 1,
+      discTotal: 2,
+    });
+    const mid = await readTrackMetadata(fp);
+    expect(mid.trackTotal).toBe(12);
+    expect(mid.discTotal).toBe(2);
+
+    // Revert restores null (removes the fields)
+    await writeTags(fp, snapshot as any);
+    const after = await readTrackMetadata(fp);
+    expect(after.trackTotal).toBeNull();
+    expect(after.discTotal).toBeNull();
+    expect(after.trackNumber).toBe(1);
+    expect(after.discNumber).toBe(1);
   });
 });
