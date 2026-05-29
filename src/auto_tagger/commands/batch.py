@@ -11,7 +11,6 @@ from auto_tagger.quality import (
     report_dict_to_markdown,
 )
 from auto_tagger.utils import console, print_info, print_success
-from auto_tagger.workflows.album import AlbumWorkflow
 from auto_tagger.workflows.batch import BatchWorkflow, discover_album_paths
 
 logger = logging.getLogger(__name__)
@@ -25,7 +24,6 @@ def execute(
     interactive: bool = False,
     health_report_path: Path | None = None,
     force: bool = False,
-    json_stream: bool = False,
 ) -> None:
     """Execute batch command.
 
@@ -36,12 +34,7 @@ def execute(
         parallel: Number of parallel processes
         health_report_path: Optional path to write combined health report JSON
         force: Ignore album state cache
-        json_stream: Emit incremental JSON lines to stdout
     """
-    if json_stream:
-        _execute_json_stream(settings, path, dry_run, parallel, force)
-        return
-
     print_info(f"Batch processing: {path}")
     console.print(f"  Dry run: {dry_run}")
     console.print(f"  Parallel jobs: {parallel}")
@@ -120,83 +113,6 @@ def execute(
         )
 
     print_success("Batch processing complete")
-
-
-def _execute_json_stream(
-    settings: Settings,
-    path: Path,
-    dry_run: bool,
-    parallel: int,
-    force: bool,
-) -> None:
-    """Execute batch in JSON stream mode—emit one JSON line per event."""
-    albums = discover_album_paths(path)
-
-    if settings.debug:
-        logger.debug(
-            "Batch JSON stream: root=%s albums=%d dry_run=%s parallel=%d",
-            path, len(albums), dry_run, parallel,
-        )
-    total = len(albums)
-    processed = applied = skipped = failed = 0
-
-    # Shared mutable maps for cross-album propagation
-    artist_mbid_map: dict[str, str] = {}
-    artist_genre_map: dict[str, list[str]] = {}
-
-    for i, album in enumerate(albums, 1):
-        # Progress event
-        _emit_json({"type": "progress", "current": i, "total": total})
-
-        try:
-            result = AlbumWorkflow(settings).run(
-                album, dry_run=dry_run, force=force,
-                artist_mbid_map=artist_mbid_map,
-                artist_genre_map=artist_genre_map,
-            )
-        except Exception as exc:
-            failed += 1
-            _emit_json({
-                "type": "album",
-                "path": str(album),
-                "status": "error",
-                "message": str(exc),
-                "changes": 0,
-            })
-            continue
-
-        applied += result.applied_writes
-        skipped += result.skipped_writes
-
-        # Build per-track list
-        tracks_json = [{"path": str(p)} for p in result.metadata_by_path]
-
-        status = "error" if any("error" in m.lower() for m in result.messages) else ("ok" if result.applied_writes > 0 else "skipped")
-        _emit_json({
-            "type": "album",
-            "path": str(album),
-            "status": status,
-            "changes": result.applied_writes,
-            "messages": result.messages[0] if result.messages else "",
-            "tracks": tracks_json,
-        })
-
-        processed += 1
-
-    # Summary event
-    _emit_json({
-        "type": "summary",
-        "processed": processed,
-        "failed": failed,
-        "applied": applied,
-        "skipped": skipped,
-        "total": total,
-    })
-
-
-def _emit_json(data: dict) -> None:
-    """Write a JSON line to stdout."""
-    print(json.dumps(data, ensure_ascii=False), flush=True)
 
 
 def _write_health_reports(

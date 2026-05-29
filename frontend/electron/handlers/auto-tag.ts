@@ -22,7 +22,8 @@ import { MusicBrainzClient } from "./musicbrainz";
 import { DiscogsClient } from "./discogs";
 import { OpenRouterClient } from "./openrouter";
 import { parseAlbumWithTags, candidateFromFolder } from "./fallback";
-import { buildSelectionMessages, buildFolderExtractionMessages } from "./prompts";
+import { buildSelectionMessages, buildTagCorrectionMessages } from "./prompts";
+import { getAllNameVariants } from "./aliases";
 import { writeTags } from "./writer";
 import type { WriteFields } from "./writer";
 import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, statSync } from "node:fs";
@@ -31,6 +32,53 @@ import { basename, dirname, join, extname } from "node:path";
 const AUDIO_EXTENSIONS = new Set([".mp3", ".flac", ".m4a", ".mp4", ".wav", ".ogg", ".opus", ".aiff"]);
 import { homedir } from "node:os";
 import debug from "./debug";
+
+/**
+ * Check if deterministic parsing produced ambiguous hints that warrant
+ * LLM enhancement. Ported from Python lookup.py _hints_are_ambiguous.
+ *
+ * Returns true when the folder name has bracket annotations, Chinese dots,
+ * year-prefixed album hints, or other patterns that the basic folder-name
+ * parser might misinterpret.
+ *
+ * Known format suffixes like "[flac]", "[MP3]" are stripped before the
+ * bracket check — they are not ambiguous naming conventions.
+ */
+export function hintsAreAmbiguous(
+  albumHint: string | null | undefined,
+  artistHint: string | null | undefined,
+  path: string,
+  yearHint: string | null | undefined,
+): boolean {
+  const aHint = albumHint ?? "";
+  const arHint = artistHint ?? "";
+
+  if (!aHint || !arHint) return true;
+
+  const folderName = path.split("/").pop() ?? "";
+
+  // Strip known format suffixes (e.g. "[flac]", "[FLAC]", "[MP3]") before
+  // checking brackets — these are not ambiguous naming conventions.
+  const cleanName = folderName.replace(
+    /\[?(flac|mp3|wav|aac|ogg|m4a|wma|ape|flac\s*分轨|wav\s*分轨)\]?\s*$/i,
+    "",
+  );
+
+  // Bracket/bookmark annotations (after stripping format suffixes)
+  if (/[\[\]《》「」【】]/.test(cleanName)) return true;
+
+  // Chinese dot between CJK characters
+  if (/[\u4e00-\u9fff]\.[\u4e00-\u9fff]/.test(folderName)) return true;
+  if (folderName.includes("。")) return true;
+
+  // Year prefix on album
+  if (/^\d{4}[-.]/.test(aHint)) return true;
+
+  // Dot convention in CJK context
+  if (aHint.includes(".") && !yearHint) return true;
+
+  return false;
+}
 
 // ── Task types ──────────────────────────────────────────────────────
 
@@ -118,9 +166,6 @@ export function loadConfig(): AutoTagConfig {
     remote_lookup_enabled: (v) => {
       if (v === "false" || v === "true") config.remoteLookupEnabled = v === "true";
     },
-    remote_lookup: (v) => {
-      if (v === "false" || v === "true") config.remoteLookupEnabled = v === "true";
-    },
     discogs_enabled: (v) => {
       if (v === "false" || v === "true") config.discogsEnabled = v === "true";
     },
@@ -169,6 +214,68 @@ export function loadConfig(): AutoTagConfig {
   debug.setEnabled(!!config.debug);
 
   return config;
+}
+
+// ── Aliased Lookup Variants ──────────────────────────────────────────
+
+/**
+ * Build lookup variant pairs that include known artist name aliases.
+ * For Chinese artists who use English names (e.g. 周杰伦 → "Jay Chou", "TS"),
+ * this ensures MusicBrainz and Discogs are queried with all known name forms.
+ *
+ * Aliases are loaded from the persisted alias file (artist-aliases.json),
+ * which is self-learned from LLM fallback results.
+ *
+ * The cross-product of artist variants × album variants is generated:
+ *   - Latin-script aliases first (uppercase-initial before lowercase-initial,
+ *     then by descending length)
+ *   - Script variants (Simplified/Traditional Chinese via opencc-js)
+ *   - The original name
+ *   - Non-Latin aliases
+ */
+export async function buildAliasedLookupVariants(
+  artistHint: string | null | undefined,
+  albumHint: string | null | undefined,
+): Promise<Array<[string, string]>> {
+  const pairs: Array<[string, string]> = [];
+  const addPair = (a: string, b: string) => {
+    if (!pairs.some(([x, y]) => x === a && y === b)) {
+      pairs.push([a, b]);
+    }
+  };
+
+  const artistText = artistHint ?? "";
+  const albumText = albumHint ?? "";
+
+  // Get all artist name variants: learned Latin aliases first,
+  // then script variants (SC/TC), then the original, then non-Latin aliases.
+  let artistVariants: string[];
+  try {
+    artistVariants = artistText ? await getAllNameVariants(artistText) : [artistText];
+  } catch {
+    artistVariants = [artistText];
+  }
+  if (artistVariants.length === 0) artistVariants = [artistText];
+
+  // Get all album name variants (script variants + original).
+  let albumVariants: string[];
+  try {
+    albumVariants = albumText ? await getAllNameVariants(albumText) : [albumText];
+  } catch {
+    albumVariants = [albumText];
+  }
+  if (albumVariants.length === 0) albumVariants = [albumText];
+
+  // Generate cross-product: every artist variant × every album variant.
+  // This ensures that e.g. "Jay Chou" + "叶惠美" is tried,
+  // not just "周杰伦" + "叶惠美".
+  for (const artist of artistVariants) {
+    for (const album of albumVariants) {
+      addPair(artist, album);
+    }
+  }
+
+  return pairs;
 }
 
 // ── Task Manager ────────────────────────────────────────────────────
@@ -267,14 +374,15 @@ class TaskManager {
       const request = await parseAlbumWithTags(albumPath);
       debug.info("auto-tag", `Parsed hints: artist="${request.artistHint}" album="${request.albumHint}" year="${request.yearHint}"`);
 
-      // Step 2: LLM hint enhancement (if ambiguous)
-      debug.info("auto-tag", "Step 2/9: Checking folder name...");
-      update("Checking folder name...", 2);
+      // Step 2: LLM tag resolution — uses folder name + existing file metadata
+      // to produce corrected search hints AND a fallback candidate with genre.
+      debug.info("auto-tag", "Step 2/9: Resolving tags via LLM...");
+      update("Resolving tags via LLM...", 2);
       if (signal.aborted) return this.failCancelled(taskId);
-      const enhancedRequest = await this.enhanceHints(request, signal);
-      const hintsChanged = request.artistHint !== enhancedRequest.artistHint || request.albumHint !== enhancedRequest.albumHint;
+      const { correctedRequest, fallbackCandidate: llmFallback } = await this.resolveTagsViaLLM(request, signal);
+      const hintsChanged = request.artistHint !== correctedRequest.artistHint || request.albumHint !== correctedRequest.albumHint;
       if (hintsChanged) {
-        debug.info("auto-tag", `LLM enhanced: artist="${enhancedRequest.artistHint}" album="${enhancedRequest.albumHint}"`);
+        debug.info("auto-tag", `LLM corrected: artist="${correctedRequest.artistHint}" album="${correctedRequest.albumHint}"`);
       } else {
         debug.debug("auto-tag", "Hints unchanged after LLM check");
       }
@@ -284,17 +392,17 @@ class TaskManager {
       update("Querying local dataset...", 3);
       if (signal.aborted) return this.failCancelled(taskId);
       let allCandidates: AlbumCandidate[] = [];
-      const lookupVariants = buildLookupVariantPairs(
-        enhancedRequest.artistHint,
-        enhancedRequest.albumHint,
+      const lookupVariants = await buildAliasedLookupVariants(
+        correctedRequest.artistHint,
+        correctedRequest.albumHint,
       );
       const dataset = new DatasetReader(this.config.datasetPath);
       if (dataset.isAvailable() && dataset.hasLookupTable()) {
         debug.debug("auto-tag", `Dataset available at: ${dataset.getPath()}`);
         try {
           const datasetCandidates = dataset.queryAlbum(
-            enhancedRequest.artistHint ?? "",
-            enhancedRequest.albumHint ?? "",
+            correctedRequest.artistHint ?? "",
+            correctedRequest.albumHint ?? "",
           );
           debug.info("auto-tag", `Dataset returned ${datasetCandidates.length} candidates`);
           this.emitTask(taskId, "source", `Local dataset: ${datasetCandidates.length} candidate(s)`, {
@@ -322,7 +430,7 @@ class TaskManager {
       debug.debug("auto-tag", `Cache path: ${cachePath}`);
       const cache = new MatchCache(cachePath);
       try {
-        const cached = cache.get(enhancedRequest);
+        const cached = cache.get(correctedRequest);
         if (cached) {
           debug.info("auto-tag", `Cache HIT: ${cached.length} candidates`);
           this.emitTask(taskId, "source", `Cache: ${cached.length} candidate(s)`, {
@@ -344,7 +452,7 @@ class TaskManager {
           update("Searching MusicBrainz...", 5);
           try {
             const mb = new MusicBrainzClient();
-            debug.debug("auto-tag", `MusicBrainz search: artist="${enhancedRequest.artistHint}" album="${enhancedRequest.albumHint}"`);
+            debug.debug("auto-tag", `MusicBrainz search: artist="${correctedRequest.artistHint}" album="${correctedRequest.albumHint}"`);
             const mbCandidates = await this.searchVariants(mb, lookupVariants);
             debug.info("auto-tag", `MusicBrainz returned ${mbCandidates.length} candidates`);
             this.emitTask(taskId, "source", `MusicBrainz: ${mbCandidates.length} candidate(s)`, {
@@ -372,7 +480,7 @@ class TaskManager {
             const discogs = new DiscogsClient({
               token: this.config.discogsToken,
             });
-            debug.debug("auto-tag", `Discogs search: artist="${enhancedRequest.artistHint}" album="${enhancedRequest.albumHint}"`);
+            debug.debug("auto-tag", `Discogs search: artist="${correctedRequest.artistHint}" album="${correctedRequest.albumHint}"`);
             const discogsCandidates = await this.searchVariants(discogs, lookupVariants);
             debug.info("auto-tag", `Discogs returned ${discogsCandidates.length} candidates`);
             this.emitTask(taskId, "source", `Discogs releases: ${discogsCandidates.length} candidate(s)`, {
@@ -392,11 +500,24 @@ class TaskManager {
           return this.failCancelled(taskId);
         }
 
-        // Step 7: Folder fallback (always included as safety net)
+        // Step 7: Fallback candidate
+        // If API lookups returned nothing and we have an LLM fallback (with genre),
+        // use it instead of the bare folder fallback. Otherwise use folder fallback.
         debug.info("auto-tag", "Step 7/9: Building fallback candidate...");
         update("Building fallback...", 7);
-        const folderCandidate = candidateFromFolder(enhancedRequest);
-        allCandidates.push(folderCandidate);
+        const hadApiCandidates = allCandidates.length > 0;
+        if (hadApiCandidates) {
+          // API lookups found something — use folder fallback as safety net as before
+          const folderCandidate = candidateFromFolder(correctedRequest);
+          allCandidates.push(folderCandidate);
+        } else {
+          // No API results — use LLM fallback (with genre!) if available
+          const fallback = llmFallback ?? candidateFromFolder(correctedRequest);
+          if (llmFallback) {
+            debug.debug("auto-tag", "No API candidates — using LLM fallback (genre present)");
+          }
+          allCandidates.push(fallback);
+        }
 
         // Apply verification status
         for (const c of allCandidates) {
@@ -406,7 +527,7 @@ class TaskManager {
         debug.info("auto-tag", `Total candidates across all sources: ${allCandidates.length}`);
 
         // Cache the results
-        cache.set(enhancedRequest, allCandidates);
+        cache.set(correctedRequest, allCandidates);
         debug.debug("auto-tag", "Cached results for future lookups");
 
         const mergedCandidates = this.mergeCandidateFields(allCandidates);
@@ -418,7 +539,7 @@ class TaskManager {
         // LLM selection
         update("Selecting candidate...", 8);
         const selected = await this.selectCandidate(
-          enhancedRequest,
+          correctedRequest,
           mergedCandidates,
           signal,
         );
@@ -426,7 +547,7 @@ class TaskManager {
         if (candidate) {
           debug.info("auto-tag", "Step 9/9: Applying album tags...");
           update("Applying tags...", 9);
-          await this.applyCandidateTags(taskId, enhancedRequest.path, candidate);
+          await this.applyCandidateTags(taskId, correctedRequest.path, candidate);
         }
         this.completeTask(taskId, candidate ?? mergedCandidates);
       } catch (err) {
@@ -444,25 +565,32 @@ class TaskManager {
   }
 
   /**
-   * Optionally enhance ambiguous folder-name hints using LLM.
+   * Resolve correct tags via LLM by analyzing folder name, parent folder,
+   * basic parser hints, AND existing file metadata.
+   *
+   * Returns:
+   *   - correctedRequest: LookupRequest with cleaned artist/album/year hints
+   *     for use in API search queries.
+   *   - fallbackCandidate: AlbumCandidate with genre and other fields populated,
+   *     used when all API lookups return 0 candidates.
+   *
+   * When LLM is unavailable (no API key) or fails, returns the original request
+   * and null fallback (preserving old folder-fallback behavior).
    */
-  private async enhanceHints(
+  private async resolveTagsViaLLM(
     request: ReturnType<typeof makeLookupRequest>,
     signal: AbortSignal,
-  ): Promise<ReturnType<typeof makeLookupRequest>> {
-    // Check if hints are ambiguous (same heuristic as Python)
-    if (!this.hintsAreAmbiguous(request)) {
-      debug.debug("auto-tag", "Hints not ambiguous — skipping LLM enhancement");
-      return request;
-    }
-
+  ): Promise<{
+    correctedRequest: ReturnType<typeof makeLookupRequest>;
+    fallbackCandidate: AlbumCandidate | null;
+  }> {
     if (!this.config.llmApiKey) {
-      debug.debug("auto-tag", "No LLM API key — skipping hint enhancement");
-      return request;
+      debug.debug("auto-tag", "No LLM API key — skipping LLM tag resolution");
+      return { correctedRequest: request, fallbackCandidate: null };
     }
 
-    debug.info("auto-tag", `Enhancing ambiguous hints via LLM (model: ${this.config.llmModel ?? "default"})`);
-    debug.startTimer("enhance-hints");
+    debug.info("auto-tag", `Resolving tags via LLM (model: ${this.config.llmModel ?? "default"})`);
+    debug.startTimer("resolve-tags");
 
     try {
       const client = new OpenRouterClient({
@@ -474,71 +602,115 @@ class TaskManager {
       const parentName =
         request.path.split("/").slice(-2, -1)[0] ?? null;
 
-      debug.debug("auto-tag", `LLM extraction from folder: "${folderName}" parent: "${parentName}"`);
+      debug.debug(
+        "auto-tag",
+        `LLM tag resolution input: folder="${folderName}" parent="${parentName}" ` +
+        `hints=(${request.artistHint}, ${request.albumHint}, ${request.yearHint}) ` +
+        `tracks=${request.tracks.length}`,
+      );
 
-      const messages = buildFolderExtractionMessages(folderName, parentName);
+      const messages = buildTagCorrectionMessages(
+        folderName,
+        parentName,
+        request.artistHint,
+        request.albumHint,
+        request.yearHint,
+        request.tracks.map((t) => ({
+          title: t.title,
+          artist: t.artist,
+          album: null,
+          trackNumber: t.trackNumber,
+          genre: t.genre,
+        })),
+      );
+
       const schema = {
         type: "object",
         properties: {
           artist: { type: "string" },
+          albumArtist: { type: "string" },
           album: { type: "string" },
           year: { type: "string" },
-          disc: { type: "string" },
+          genre: { type: "string" },
+          tracks: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                index: { type: "number" },
+                title: { type: "string" },
+                artist: { type: "string" },
+              },
+            },
+          },
+          confidence: { type: "number" },
         },
       };
 
       const response = await client.completeJson(
         messages,
-        "FolderExtractionResponse",
+        "TagCorrectionResponse",
         schema,
       );
 
-      const extraction = response.data;
-      debug.info("auto-tag", `LLM extracted: artist="${extraction.artist ?? ""}" album="${extraction.album ?? ""}" year="${extraction.year ?? ""}"`);
+      const data = response.data as Record<string, unknown>;
+      debug.info(
+        "auto-tag",
+        `LLM resolved: artist="${data.artist ?? ""}" album="${data.album ?? ""}" ` +
+        `year="${data.year ?? ""}" genre="${data.genre ?? ""}" ` +
+        `confidence=${String(data.confidence ?? "")}`,
+      );
 
-      return {
+      // Build corrected request with cleaned hints for API search
+      const correctedRequest = {
         ...request,
-        artistHint: (extraction.artist as string) || request.artistHint,
-        albumHint: (extraction.album as string) || request.albumHint,
-        yearHint: (extraction.year as string) || request.yearHint,
+        artistHint: (data.artist as string) || request.artistHint,
+        albumHint: (data.album as string) || request.albumHint,
+        yearHint: (data.year as string) || request.yearHint,
       };
+
+      // Build fallback candidate with genre (used when APIs return nothing)
+      const llmTracks = Array.isArray(data.tracks) ? data.tracks as Array<Record<string, unknown>> : [];
+      const fallbackCandidate: AlbumCandidate = {
+        artist: (data.artist as string) || request.artistHint,
+        artists: splitArtistNames([(data.artist as string) || request.artistHint]),
+        album: (data.album as string) || request.albumHint,
+        albumArtist: (data.albumArtist as string) || (data.artist as string) || request.artistHint,
+        albumArtists: splitArtistNames([(data.albumArtist as string) || (data.artist as string) || request.artistHint]),
+        year: (data.year as string) || request.yearHint || null,
+        genre: (data.genre as string) || null,
+        musicbrainzAlbumId: null,
+        musicbrainzArtistId: null,
+        tracks: request.tracks.length > 0
+          ? request.tracks.map((t, i) => {
+              const llmTrack = llmTracks.find((lt) => lt.index === i);
+              return {
+                ...t,
+                title: (llmTrack?.title as string) || t.title,
+                artist: (llmTrack?.artist as string) || t.artist || (data.artist as string) || request.artistHint,
+              };
+            })
+          : request.tracks,
+        distance: null,
+        source: "llm",
+        verification: null,
+      };
+
+      debug.debug(
+        "auto-tag",
+        `LLM fallback candidate: artist="${fallbackCandidate.artist}" ` +
+        `album="${fallbackCandidate.album}" genre="${fallbackCandidate.genre}" ` +
+        `tracks=${fallbackCandidate.tracks.length}`,
+      );
+
+      return { correctedRequest, fallbackCandidate };
     } catch (err) {
-      debug.warn("auto-tag", `LLM hint enhancement failed (non-fatal)`, err);
-      // LLM enhancement failure is non-fatal
-      return request;
+      debug.warn("auto-tag", `LLM tag resolution failed (non-fatal)`, err);
+      // LLM failure is non-fatal — fall back to original hints and folder fallback
+      return { correctedRequest: request, fallbackCandidate: null };
     } finally {
-      debug.endTimer("enhance-hints", "auto-tag", "LLM hint enhancement");
+      debug.endTimer("resolve-tags", "auto-tag", "LLM tag resolution");
     }
-  }
-
-  /**
-   * Check if deterministic parsing produced ambiguous hints.
-   * Ported from Python lookup.py _hints_are_ambiguous.
-   */
-  private hintsAreAmbiguous(
-    request: ReturnType<typeof makeLookupRequest>,
-  ): boolean {
-    const albumHint = request.albumHint ?? "";
-    const artistHint = request.artistHint ?? "";
-
-    if (!albumHint || !artistHint) return true;
-
-    const folderName = request.path.split("/").pop() ?? "";
-
-    // Bracket/bookmark annotations
-    if (/[\[\]《》「」【】]/.test(folderName)) return true;
-
-    // Chinese dot between CJK characters
-    if (/[\u4e00-\u9fff]\.[\u4e00-\u9fff]/.test(folderName)) return true;
-    if (folderName.includes("。")) return true;
-
-    // Year prefix on album
-    if (/^\d{4}[-.]/.test(albumHint)) return true;
-
-    // Dot convention in CJK context
-    if (albumHint.includes(".") && !request.yearHint) return true;
-
-    return false;
   }
 
   /**
@@ -591,7 +763,7 @@ class TaskManager {
     albumFields.albumArtist = albumArtist;
     albumFields.albumArtists = albumArtists;
     if (candidate.year !== undefined) albumFields.year = candidate.year;
-    if (candidate.genre !== undefined) albumFields.genre = candidate.genre;
+    if (candidate.genre) albumFields.genre = candidate.genre;
     if (candidate.musicbrainzAlbumId !== undefined) albumFields.musicbrainzAlbumId = candidate.musicbrainzAlbumId;
     if (candidate.musicbrainzArtistId !== undefined) albumFields.musicbrainzArtistId = candidate.musicbrainzArtistId;
     if (cover) {

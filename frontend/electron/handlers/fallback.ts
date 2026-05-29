@@ -238,6 +238,7 @@ export async function trackHintsFromPath(filePath: string): Promise<TrackCandida
             discNumber: meta.discNumber,
             musicbrainzTrackId: meta.musicbrainzTrackId,
             length: meta.duration,
+            genre: meta.genre,
           }),
         );
       } catch {

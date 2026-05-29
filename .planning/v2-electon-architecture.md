@@ -235,7 +235,7 @@ auto_tagger/
 │   ├── features/
 │   ├── quality/
 │   ├── config/
-│   └── ui/                           # TUI — unchanged (not touched by v2)
+│   └── utils/                         # Utilities
 ├── tests/                             # Unchanged Python v1 tests
 ├── pyproject.toml                     # Unchanged
 └── Justfile                           # v1 commands unchanged
@@ -376,4 +376,4 @@ All Phase 4 items are complete.
 | `quality/replaygain.py` | Deferred | Subprocess wrapper port |
 | `quality/lrc.py` | `handlers/lyrics.ts` | Encoding detection + UTF-8 conversion port |
 | `quality/metadata_validation.py` | `state/AppState.ts` | Validation logic port |
-| `ui/render_cover.py` | `CoverArt.tsx` + `sharp` | Port rendering logic |
+| `utils/` | `handlers/` | Port utility logic |

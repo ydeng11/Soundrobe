@@ -15,6 +15,7 @@ def find_config_file() -> Path | None:
         Path.cwd() / "auto-tagger.yaml",
         Path.cwd() / "auto-tagger.yml",
         Path.cwd() / ".auto-tagger.yaml",
+        Path.home() / ".auto-tagger" / "config.yaml",
         Path.home() / ".config" / "auto-tagger" / "config.yaml",
         Path.home() / ".auto-tagger.yaml",
     ]

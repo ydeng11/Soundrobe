@@ -110,6 +110,89 @@ export function buildFolderExtractionMessages(
   ];
 }
 
+// ── Tag Correction ──────────────────────────────────────────────────
+
+/**
+ * Build a prompt asking the LLM to correct/resolve album and track tags
+ * by comparing folder names, existing file metadata, and the basic parser's hints.
+ *
+ * The LLM returns:
+ *   - artist / albumArtist / album / year / genre — corrected album-level fields
+ *   - tracks — per-track corrections (title, artist)
+ *   - confidence — how confident the LLM is
+ *
+ * This output is used for:
+ *   1. Corrected search params fed to MusicBrainz/Discogs API queries
+ *   2. Fallback candidate when all API lookups return nothing
+ */
+export function buildTagCorrectionMessages(
+  folderName: string,
+  parentName: string | null,
+  parsedArtistHint: string | null,
+  parsedAlbumHint: string | null,
+  parsedYearHint: string | null,
+  currentTracks: Array<{
+    title?: string | null;
+    artist?: string | null;
+    album?: string | null;
+    trackNumber?: number | null;
+    genre?: string | null;
+  }>,
+): Array<{ role: string; content: string }> {
+  const payload: Record<string, unknown> = {
+    folder_name: folderName,
+    parsed_hints: {
+      artist: parsedArtistHint,
+      album: parsedAlbumHint,
+      year: parsedYearHint,
+    },
+  };
+  if (parentName) {
+    payload.parent_name = parentName;
+  }
+  if (currentTracks.length > 0) {
+    payload.current_tracks = currentTracks.map((t, i) => ({
+      index: i,
+      title: t.title ?? null,
+      artist: t.artist ?? null,
+      album: t.album ?? null,
+      track_number: t.trackNumber ?? null,
+      genre: t.genre ?? null,
+    }));
+  }
+
+  return [
+    {
+      role: "system",
+      content:
+        "Resolve correct music metadata by analyzing the folder name, " +
+        "parent folder name, basic parser hints, and existing file tags.\n\n" +
+        "Rules:\n" +
+        "1. Return JSON with artist, albumArtist, album, year, genre, tracks, and confidence.\n" +
+        "2. The folder_name is the album directory (may include year prefix like '2009-', " +
+        "format suffix like '[flac]', or other annotations). Strip these.\n" +
+        "3. The parent_name (if present) is usually the artist or collection folder.\n" +
+        "4. parsed_hints are from the basic folder-name parser — use them as a starting point.\n" +
+        "5. current_tracks show existing metadata tags from the audio files — " +
+        "use them to verify/correct artist, album, track titles.\n" +
+        "6. If current_tracks have a consistent genre across all tracks, use it.\n" +
+        "7. For genre, use Discogs-style comma-separated tags " +
+        "(e.g. 'Hip Hop' or 'Electronic, House, Deep House').\n" +
+        "8. Leave genre null if you are not confident.\n" +
+        "9. For albumArtist: if all tracks share the same artist, use that. " +
+        "If tracks have different artists (compilation/mixtape), use 'Various Artists'.\n" +
+        "10. Per-track corrections: only include title/artist fields that differ " +
+        "from the album defaults. Leave null for fields that match.\n" +
+        "11. Do not invent MusicBrainz IDs. Leave uncertain fields null.\n" +
+        "12. Set confidence (0.0-1.0) based on how sure you are about the correction.",
+    },
+    {
+      role: "user",
+      content: JSON.stringify(payload, null, 2),
+    },
+  ];
+}
+
 // ── Audit ──────────────────────────────────────────────────────────
 
 export function buildAuditMessages(

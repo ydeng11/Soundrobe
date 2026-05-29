@@ -9,7 +9,7 @@ import { createHash } from "node:crypto";
 
 // ── Enums ───────────────────────────────────────────────────────────
 
-export type LookupSource = "beets" | "dataset" | "discogs" | "folder" | "musicbrainz";
+export type LookupSource = "beets" | "dataset" | "discogs" | "folder" | "llm" | "musicbrainz";
 
 // ── TrackCandidate ──────────────────────────────────────────────────
 
@@ -23,6 +23,7 @@ export interface TrackCandidate {
   discTotal: number | null;
   musicbrainzTrackId: string | null;
   length: number | null;
+  genre: string | null;
 }
 
 export function makeTrackCandidate(
@@ -38,6 +39,7 @@ export function makeTrackCandidate(
     discTotal: null,
     musicbrainzTrackId: null,
     length: null,
+    genre: null,
     ...overrides,
   };
 }
@@ -53,6 +55,7 @@ export function trackCandidateToJson(t: TrackCandidate): Record<string, unknown>
     disc_total: t.discTotal,
     musicbrainz_trackid: t.musicbrainzTrackId,
     length: t.length,
+    genre: t.genre,
   };
 }
 
@@ -67,6 +70,7 @@ export function trackCandidateFromJson(data: Record<string, unknown>): TrackCand
     discTotal: (data.disc_total as number) ?? null,
     musicbrainzTrackId: (data.musicbrainz_trackid as string) ?? null,
     length: (data.length as number) ?? null,
+    genre: (data.genre as string) ?? null,
   });
 }
 

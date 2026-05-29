@@ -135,11 +135,6 @@ def tag(
     type=click.Path(dir_okay=False, path_type=Path),
     help="Explicit path for combined health report (default: auto-generated per-album + combined MD+JSON)",
 )
-@click.option(
-    "--json-stream",
-    is_flag=True,
-    help="Output incremental JSON lines for UI consumption",
-)
 @click.pass_context
 def batch(
     ctx: click.Context,
@@ -150,7 +145,6 @@ def batch(
     force: bool,
     parallel: int,
     health_report: Path | None,
-    json_stream: bool,
 ) -> None:
     """Batch process entire music library.
 
@@ -163,7 +157,7 @@ def batch(
     if yolo:
         settings.yolo = True
 
-    execute(settings, path, dry_run, parallel, interactive, health_report, force=force, json_stream=json_stream)
+    execute(settings, path, dry_run, parallel, interactive, health_report, force=force)
 
 
 @cli.command()
@@ -207,17 +201,12 @@ def clean(ctx: click.Context, path: Path, dry_run: bool) -> None:
 @cli.command()
 @click.argument("path", type=click.Path(exists=True, path_type=Path), required=True)
 @click.option(
-    "--json-stream",
-    is_flag=True,
-    help="Output incremental JSON lines for UI consumption",
-)
-@click.option(
     "--fix",
     is_flag=True,
     help="Apply LLM-suggested fixes to the actual files",
 )
 @click.pass_context
-def audit(ctx: click.Context, path: Path, json_stream: bool, fix: bool) -> None:
+def audit(ctx: click.Context, path: Path, fix: bool) -> None:
     """Run an LLM-powered metadata quality audit on audio files.
 
     PATH: Path to a music library directory or album directory
@@ -225,7 +214,7 @@ def audit(ctx: click.Context, path: Path, json_stream: bool, fix: bool) -> None:
     from auto_tagger.commands.audit import execute
 
     settings: Settings = ctx.obj["settings"]
-    execute(settings, path, json_stream=json_stream, fix=fix)
+    execute(settings, path, fix=fix)
 
 
 @cli.group()

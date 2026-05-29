@@ -46,6 +46,13 @@ function createFixtureDb(): void {
       joinphrase TEXT NOT NULL,
       "index" INTEGER NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS spotify_track (
+      albumid TEXT NOT NULL,
+      name TEXT,
+      tracknumber INTEGER,
+      discnumber INTEGER,
+      durationms INTEGER
+    );
   `);
 
   const insertLookup = db.prepare(`
@@ -65,7 +72,7 @@ function createFixtureDb(): void {
     VALUES (?, ?, ?, ?)
   `);
 
-  // Beatles - Abbey Road
+  // Beatles - Abbey Road (musicbrainz)
   insertLookup.run(
     "musicbrainz", "The Beatles", "Abbey Road", "1969",
     "mb-abbey-1", "mb-beatles-1",
@@ -77,6 +84,28 @@ function createFixtureDb(): void {
   insertArtist.run("mb-mccartney", "Paul McCartney");
   insertTrackArtist.run("rt-1", "mb-lennon", " & ", 0);
   insertTrackArtist.run("rt-1", "mb-mccartney", "", 1);
+
+  // Beatles - Sgt. Pepper (second album for artist-only fallback)
+  insertLookup.run(
+    "musicbrainz", "The Beatles", "Sgt. Pepper", "1967",
+    "mb-pepper-1", "mb-beatles-1",
+    "the beatles", "sgt pepper",
+  );
+  insertTrack.run("rt-p-1", "mb-pepper-1", "Sgt. Peppers Lonely Hearts Club Band", 1, 1, 13, 120000, "mb-tp-1");
+
+  // Spotify entry with same album name as MB entry (for cross-service dedup test)
+  insertLookup.run(
+    "spotify", "The Beatles", "Abbey Road", "2019",
+    "sp-abbey-1", "sp-beatles-1",
+    "the beatles", "abbey road",
+  );
+  // Insert spotify tracks so loadTracks succeeds for spotify entries
+  const insertSpotifyTrack = db.prepare(`
+    INSERT INTO spotify_track (albumid, name, tracknumber, discnumber, durationms)
+    VALUES (?, ?, ?, ?, ?)
+  `);
+  insertSpotifyTrack.run("sp-abbey-1", "Come Together", 1, 1, 259000);
+  insertSpotifyTrack.run("sp-abbey-1", "Something", 2, 1, 182000);
 
   // 蔡健雅 - 达尔文 (simpler album name without punctuation)
   insertLookup.run(
@@ -94,18 +123,19 @@ function createFixtureDb(): void {
     "陈洁仪", "心碎",
   );
 
+  // 蛋堡 - Winter Sweet (for artist hint cleanup test)
+  insertLookup.run(
+    "musicbrainz", "蛋堡", "Winter Sweet", "2019",
+    "mb-danbao-1", "mb-danbao-id",
+    "蛋堡", "winter sweet",
+  );
+  insertTrack.run("rt-db-1", "mb-danbao-1", "Soft Lintro", 1, 1, 15, 240000, "mb-tdb-1");
+
   // Progressive prefix test: folder name is superset of DB album name
   insertLookup.run(
     "musicbrainz", "Various Artists", "T-time",
     "2000", "mb-ttime-1", "mb-various-1",
     "various artists", "t time",
-  );
-
-  // Spotify entry for multi-service test
-  insertLookup.run(
-    "spotify", "The Beatles", "Abbey Road Remastered", "2019",
-    "sp-abbey-1", "sp-beatles-1",
-    "the beatles", "abbey road remastered",
   );
 
   db.close();
@@ -226,6 +256,88 @@ describe("DatasetReader — progressive prefix fallback", () => {
     const results = reader.queryAlbum("Various Artists", "T-Time 新歌+精选");
     expect(results.length).toBeGreaterThanOrEqual(1);
     expect(results[0].album).toBe("T-time");
+    reader.close();
+  });
+});
+
+describe("DatasetReader — artist hint cleanup", () => {
+  it("strips parenthetical suffix from artist hint", () => {
+    const reader = new DatasetReader(dbPath);
+    // DB has "蛋堡", query with "蛋堡 (Soft Lipa)"
+    const results = reader.queryAlbum("蛋堡 (Soft Lipa)", "Winter Sweet");
+    expect(results).toHaveLength(1);
+    expect(results[0].artist).toBe("蛋堡");
+    expect(results[0].album).toBe("Winter Sweet");
+    reader.close();
+  });
+
+  it("keeps parenthetical suffixes that are only digits (birth years)", () => {
+    const reader = new DatasetReader(dbPath);
+    // No artist with parens exists, but the cleanup should NOT strip "(1969)"
+    // so it won't accidentally match a wrong artist
+    const results = reader.queryAlbum("Some Artist (1969)", "Abbey Road");
+    expect(results).toHaveLength(0);
+    reader.close();
+  });
+});
+
+describe("DatasetReader — year-prefix fallback", () => {
+  it("strips leading year from album hint and finds match", () => {
+    const reader = new DatasetReader(dbPath);
+    // DB has "Abbey Road", query with "1969 Abbey Road"
+    const results = reader.queryAlbum("The Beatles", "1969 Abbey Road");
+    expect(results).toHaveLength(1);
+    expect(results[0].album).toBe("Abbey Road");
+    reader.close();
+  });
+
+  it("strips year prefix with dash separator", () => {
+    const reader = new DatasetReader(dbPath);
+    const results = reader.queryAlbum("The Beatles", "1969 - Abbey Road");
+    expect(results).toHaveLength(1);
+    expect(results[0].album).toBe("Abbey Road");
+    reader.close();
+  });
+});
+
+describe("DatasetReader — cross-service deduplication", () => {
+  it("returns one result when same album exists in multiple services", () => {
+    const reader = new DatasetReader(dbPath);
+    // "Abbey Road" exists in both musicbrainz and spotify with the same name
+    const results = reader.queryAlbum("The Beatles", "Abbey Road");
+    expect(results).toHaveLength(1);
+    expect(results[0].artist).toBe("The Beatles");
+    expect(results[0].album).toBe("Abbey Road");
+    // Should prefer musicbrainz over spotify
+    reader.close();
+  });
+});
+
+describe("DatasetReader — artist-only fallback", () => {
+  it("returns albums by artist when album hint does not match", () => {
+    const reader = new DatasetReader(dbPath);
+    // Artist matches "The Beatles", album "Nonexistent" won't match
+    const results = reader.queryAlbum("The Beatles", "Nonexistent Album");
+    expect(results.length).toBeGreaterThanOrEqual(2);
+    const albums = results.map(r => r.album);
+    expect(albums).toContain("Abbey Road");
+    expect(albums).toContain("Sgt. Pepper");
+    reader.close();
+  });
+
+  it("returns nothing when artist also does not exist", () => {
+    const reader = new DatasetReader(dbPath);
+    const results = reader.queryAlbum("Nonexistent Artist", "Some Album");
+    expect(results).toHaveLength(0);
+    reader.close();
+  });
+
+  it("artist-only does not fire when album match succeeds", () => {
+    const reader = new DatasetReader(dbPath);
+    // Exact match on both should not trigger artist-only fallback
+    const results = reader.queryAlbum("The Beatles", "Abbey Road");
+    expect(results).toHaveLength(1);
+    expect(results[0].album).toBe("Abbey Road");
     reader.close();
   });
 });

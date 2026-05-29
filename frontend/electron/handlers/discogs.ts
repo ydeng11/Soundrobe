@@ -7,6 +7,7 @@
 
 import {
   type AlbumCandidate,
+  type TrackCandidate,
   artistDisplayName,
   makeAlbumCandidate,
   makeTrackCandidate,

@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import json
-import sys
 from pathlib import Path
 
 from auto_tagger.config import Settings
@@ -21,7 +19,6 @@ from auto_tagger.utils import console, print_info
 def execute(
     settings: Settings,
     path: Path,
-    json_stream: bool = False,
     fix: bool = False,
 ) -> None:
     """Run LLM audit on albums in a library path.
@@ -29,7 +26,6 @@ def execute(
     Args:
         settings: Application settings
         path: Path to library or single album
-        json_stream: Emit JSON lines to stdout
         fix: Apply LLM-suggested fixes to files
     """
     if not settings.llm_api_key:
@@ -67,20 +63,42 @@ def execute(
     total_fixed = 0
     fixed_albums = 0
 
-    if json_stream:
+    from rich.progress import (
+        BarColumn,
+        Progress,
+        SpinnerColumn,
+        TaskProgressColumn,
+        TextColumn,
+        TimeRemainingColumn,
+    )
+
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        BarColumn(),
+        TaskProgressColumn(),
+        TimeRemainingColumn(),
+        console=console,
+        transient=True,
+    ) as progress:
+        task = progress.add_task(
+            description="Auditing albums…",
+            total=total,
+        )
+
         for i, (album_path, audio_files) in enumerate(albums, 1):
-            _emit_json({"type": "progress", "current": i, "total": total})
+            completed = i - 1
+            progress.update(
+                task,
+                description=f"Auditing [bold]{album_path.name}[/bold]…",
+                completed=completed,
+            )
 
             try:
                 result, fixed_count = _audit_album(settings, client, album_path, audio_files, fix=fix)
             except Exception as exc:
-                _emit_json({
-                    "type": "audit",
-                    "path": str(album_path),
-                    "status": "error",
-                    "message": str(exc),
-                    "tracks": [],
-                })
+                progress.update(task, completed=i, description="Auditing albums…")
+                console.print(f"  [red]Error auditing {album_path.name}:[/red] {exc}")
                 continue
 
             total_issues += len(result)
@@ -88,71 +106,18 @@ def execute(
                 total_fixed += fixed_count
                 fixed_albums += 1
 
-            _emit_json({
-                "type": "audit",
-                "path": str(album_path),
-                "status": "ok",
-                "tracks": result,
-            })
+            progress.update(task, completed=i, description="Auditing albums…")
+            _show_results(album_path, result)
 
-        _emit_json({"type": "summary", "processed": total})
-        sys.stdout.flush()
-    else:
-        from rich.progress import (
-            BarColumn,
-            Progress,
-            SpinnerColumn,
-            TaskProgressColumn,
-            TextColumn,
-            TimeRemainingColumn,
+    if fix and total_fixed:
+        print_info(
+            f"Fixed {total_fixed} issue(s) across {fixed_albums} album(s) "
+            f"out of {total_issues} issue(s) found"
         )
+    elif fix:
+        print_info("No issues fixed — LLM didn't provide suggestions for any flagged items")
 
-        with Progress(
-            SpinnerColumn(),
-            TextColumn("[progress.description]{task.description}"),
-            BarColumn(),
-            TaskProgressColumn(),
-            TimeRemainingColumn(),
-            console=console,
-            transient=True,
-        ) as progress:
-            task = progress.add_task(
-                description="Auditing albums…",
-                total=total,
-            )
-
-            for i, (album_path, audio_files) in enumerate(albums, 1):
-                completed = i - 1
-                progress.update(
-                    task,
-                    description=f"Auditing [bold]{album_path.name}[/bold]…",
-                    completed=completed,
-                )
-
-                try:
-                    result, fixed_count = _audit_album(settings, client, album_path, audio_files, fix=fix)
-                except Exception as exc:
-                    progress.update(task, completed=i, description="Auditing albums…")
-                    console.print(f"  [red]Error auditing {album_path.name}:[/red] {exc}")
-                    continue
-
-                total_issues += len(result)
-                if fixed_count:
-                    total_fixed += fixed_count
-                    fixed_albums += 1
-
-                progress.update(task, completed=i, description="Auditing albums…")
-                _show_results(album_path, result)
-
-        if fix and total_fixed:
-            print_info(
-                f"Fixed {total_fixed} issue(s) across {fixed_albums} album(s) "
-                f"out of {total_issues} issue(s) found"
-            )
-        elif fix:
-            print_info("No issues fixed — LLM didn't provide suggestions for any flagged items")
-
-        print_info("Audit complete")
+    print_info("Audit complete")
 
 
 def _audit_album(
@@ -338,7 +303,4 @@ def _show_results(album_path: Path, results: list[dict]) -> None:
             )
 
 
-def _emit_json(data: dict) -> None:
-    """Write a JSON line to stdout."""
-    print(json.dumps(data, ensure_ascii=False))
-    sys.stdout.flush()
+

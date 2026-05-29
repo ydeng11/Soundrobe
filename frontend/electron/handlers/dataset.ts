@@ -106,13 +106,57 @@ export class DatasetReader {
   }
 
   /**
+   * Strip trailing parenthetical suffixes that are descriptive (not years/dates).
+   * E.g. "蛋堡 (Soft Lipa)" → "蛋堡", "Various Artists (VA)" → "Various Artists",
+   * but "Pink Floyd (1965)" is left unchanged.
+   */
+  private static cleanArtistHint(hint: string): string {
+    // Strip trailing parenthetical if it contains at least one non-digit, non-space char
+    // (e.g. "蛋堡 (Soft Lipa)" → "蛋堡", keeps "Pink Floyd (1965)")
+    return hint.replace(/\s*\([^)]*[^\d\s][^)]*\)\s*$/, "").trim();
+  }
+
+  /**
+   * Deduplicate candidates: same normalized (artist, album) from multiple services
+   * (MusicBrainz, Spotify, Tidal, Deezer) collapse to one. Keeps the first occurrence
+   * per group since the SQL already orders by service priority (MB > Spotify > Tidal > Deezer).
+   */
+  private static deduplicateCandidates(
+    candidates: AlbumCandidate[],
+    maxCandidates: number,
+  ): AlbumCandidate[] {
+    if (candidates.length <= 1) return candidates;
+
+    const seen = new Set<string>();
+    const deduped: AlbumCandidate[] = [];
+
+    for (const c of candidates) {
+      const normArtist = normalizeLookupText(c.artist ?? "");
+      const normAlbum = normalizeLookupText(c.album ?? "");
+      // Skip entries with no artist or album name (shouldn't happen, but be safe)
+      if (!normArtist || !normAlbum) continue;
+      const key = `${normArtist}|||${normAlbum}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      deduped.push(c);
+      if (deduped.length >= maxCandidates) break;
+    }
+
+    return deduped;
+  }
+
+  /**
    * Query the dataset for album candidates matching artist and album hints.
    *
    * Tries in order:
    *   1. Exact normalized match with SC/TC variants
    *   2. Progressive prefix fallback (album hint is a superset of DB name)
-   *   3. Track loading from service-specific track tables
+   *   3. Year-prefix fallback (strip leading year, retry)
+   *   4. Artist-only fallback (artist hint only)
    */
+  /** Regex to extract a leading year from normalized album text. */
+  private static YEAR_PREFIX_RE = /^(\d{4})\s*[-–—]?\s*/;
+
   queryAlbum(
     artistHint: string,
     albumHint: string,
@@ -120,18 +164,52 @@ export class DatasetReader {
   ): AlbumCandidate[] {
     if (!this.isAvailable()) return [];
 
-    const normArtist = normalizeLookupText(artistHint);
+    // Clean artist hint: strip descriptive parenthetical suffixes before normalization
+    const cleanArtist = DatasetReader.cleanArtistHint(artistHint);
+    const normArtist = normalizeLookupText(cleanArtist);
     const normAlbum = normalizeLookupText(albumHint);
     if (!normArtist || !normAlbum) return [];
 
     const db = this.open();
+    let result: AlbumCandidate[] = [];
 
     // Step 1: exact match via dataset_lookup table
-    const candidates = this.queryLookupTable(db, normArtist, normAlbum, maxCandidates);
-    if (candidates.length > 0) return candidates;
+    result = this.queryLookupTable(db, normArtist, normAlbum, maxCandidates);
 
     // Step 2: progressive prefix fallback
-    return this.progressivePrefixFallback(db, normArtist, normAlbum, maxCandidates);
+    if (result.length === 0) {
+      result = this.progressivePrefixFallback(db, normArtist, normAlbum, maxCandidates);
+    }
+
+    // Step 3: year-prefix fallback — strip leading year, retry
+    if (result.length === 0) {
+      const stripped = DatasetReader.stripYearPrefix(normAlbum);
+      if (stripped) {
+        result = this.queryLookupTable(db, normArtist, stripped, maxCandidates);
+        if (result.length === 0) {
+          result = this.progressivePrefixFallback(db, normArtist, stripped, maxCandidates);
+        }
+      }
+    }
+
+    // Step 4: artist-only fallback — album hint failed, return albums by artist
+    if (result.length === 0) {
+      result = this.queryArtistOnly(db, normArtist, maxCandidates);
+    }
+
+    // Deduplicate: same album from multiple services → keep the best source
+    return DatasetReader.deduplicateCandidates(result, maxCandidates);
+  }
+
+  /**
+   * If the text starts with a 4-digit year (optionally followed by a separator),
+   * return the remainder. Otherwise return null.
+   */
+  private static stripYearPrefix(text: string): string | null {
+    const m = DatasetReader.YEAR_PREFIX_RE.exec(text);
+    if (!m) return null;
+    const rest = text.slice(m[0].length).trim();
+    return rest.length > 0 ? rest : null;
   }
 
   /**
@@ -263,6 +341,55 @@ export class DatasetReader {
     }
 
     return candidates.slice(0, maxCandidates);
+  }
+
+  /**
+   * Artist-only fallback: when artist+album matching fails, find albums by artist alone.
+   */
+  private queryArtistOnly(
+    db: BetterSqlite3Database,
+    normArtist: string,
+    maxCandidates: number,
+  ): AlbumCandidate[] {
+    const rows = db
+      .prepare(
+        `SELECT service, artist, album, year, album_id, artist_id
+         FROM dataset_lookup
+         WHERE normalized_artist = ?
+         ORDER BY
+           CASE service
+             WHEN 'musicbrainz' THEN 0
+             WHEN 'spotify' THEN 1
+             WHEN 'tidal' THEN 2
+             WHEN 'deezer' THEN 3
+             ELSE 4
+           END
+         LIMIT ?`,
+      )
+      .all(normArtist, maxCandidates) as Record<string, unknown>[];
+
+    return rows
+      .map((row) => {
+        const service = row.service as string;
+        const albumId = row.album_id as string;
+        const artistName = row.artist as string;
+        const tracks = this.loadTracks(db, service, albumId, artistName);
+        if (!tracks) return null;
+        return makeAlbumCandidate({
+          artist: artistDisplayName(splitArtistNames([artistName]), artistName),
+          artists: splitArtistNames([artistName]),
+          album: (row.album as string) ?? null,
+          albumArtist: artistName,
+          albumArtists: splitArtistNames([artistName]),
+          year: (row.year as string) ?? null,
+          musicbrainzAlbumId: service === "musicbrainz" ? albumId : null,
+          musicbrainzArtistId:
+            service === "musicbrainz" ? (row.artist_id as string) ?? null : null,
+          tracks,
+          source: "dataset",
+        });
+      })
+      .filter((c): c is AlbumCandidate => c !== null);
   }
 
   /**

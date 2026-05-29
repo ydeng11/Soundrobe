@@ -1,6 +1,5 @@
-import React, { useState } from "react";
+import React from "react";
 import type { AlbumInfo } from "../../electron/preload";
-import { FolderTree } from "./FolderTree";
 
 interface SidebarProps {
   albums: AlbumInfo[];
@@ -17,7 +16,6 @@ export function Sidebar({
   onSelectAlbum,
   onOpenLibrary,
 }: SidebarProps) {
-  const [showFolderTree, setShowFolderTree] = useState(false);
   return (
     <div className="w-[220px] min-w-[180px] h-full flex flex-col bg-sidebar-DEFAULT backdrop-blur-xl border-r border-sidebar-border select-none overflow-hidden">
       {/* App header */}
@@ -43,162 +41,75 @@ export function Sidebar({
         </span>
       </div>
 
-      {/* Primary navigation */}
-      <nav className="px-3 py-1 space-y-0.5">
-        <NavItem
-          icon={
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20" />
-            </svg>
-          }
-          label="Library"
-          active={activeAlbumPath === null && libraryPath !== null}
-          onClick={() => onSelectAlbum(null)}
-        />
-        <NavItem
-          icon={
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      {/* Divider */}
+      <div className="mx-4 my-2 h-px bg-sidebar-border" />
+
+      {/* Section header */}
+      <div className="px-4 py-1">
+        <span className="text-[11px] font-semibold uppercase tracking-wider text-text-muted">
+          Albums
+        </span>
+      </div>
+
+      {/* Albums List */}
+      <div className="flex-1 overflow-y-auto px-2 pb-2">
+        {!libraryPath ? (
+          <div className="px-3 py-6 text-center">
+            <div className="text-text-muted text-[11px] leading-relaxed">
+              Open a music library
+              <br />
+              to browse albums
+            </div>
+            <button
+              onClick={onOpenLibrary}
+              className="mt-3 px-3 py-1.5 text-[11px] font-medium rounded-lg bg-accent text-white hover:bg-accent/90 transition-colors shadow-sm"
+            >
+              Open Library…
+            </button>
+          </div>
+        ) : albums.length === 0 ? (
+          <div className="px-3 py-6 text-center text-text-muted text-[11px]">
+            No albums found
+          </div>
+        ) : (
+          <div className="space-y-0.5">
+            {/* "All Files" item */}
+            <AlbumRow
+              name="All Files"
+              count={0}
+              active={activeAlbumPath === null}
+              onClick={() => onSelectAlbum(null)}
+            />
+            {albums.map((album) => (
+              <AlbumRow
+                key={album.path}
+                name={album.name}
+                artist={album.artistHint || album.albumHint}
+                count={album.trackCount}
+                active={activeAlbumPath === album.path}
+                onClick={() => onSelectAlbum(album.path)}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Bottom metadata */}
+      {libraryPath && (
+        <div className="px-4 py-2 border-t border-sidebar-border">
+          <div className="flex items-center gap-1.5 text-[10px] text-text-muted truncate">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
               <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
             </svg>
-          }
-          label="Folders"
-          active={showFolderTree && libraryPath !== null}
-          onClick={() => {
-            if (!libraryPath) onOpenLibrary();
-            else setShowFolderTree(!showFolderTree);
-          }}
-        />
-        <NavItem
-          icon={
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M9 18V5l12-2v13" />
-              <circle cx="6" cy="18" r="3" />
-              <circle cx="18" cy="16" r="3" />
-            </svg>
-          }
-          label="Playlists"
-          badge="Soon"
-        />
-      </nav>
-
-      {showFolderTree ? (
-        <div className="flex-1 overflow-y-auto">
-          <FolderTree
-            libraryPath={libraryPath}
-            onSelectAlbum={onSelectAlbum}
-            onOpenLibrary={onOpenLibrary}
-            expanded={showFolderTree}
-            onClose={() => setShowFolderTree(false)}
-          />
+            <span className="truncate">{libraryPath}</span>
+          </div>
         </div>
-      ) : (
-        <>
-          {/* Divider */}
-          <div className="mx-4 my-2 h-px bg-sidebar-border" />
-
-          {/* Section header */}
-          <div className="px-4 py-1">
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-text-muted">
-              Albums
-            </span>
-          </div>
-
-          {/* Albums List */}
-          <div className="flex-1 overflow-y-auto px-2 pb-2">
-            {!libraryPath ? (
-              <div className="px-3 py-6 text-center">
-                <div className="text-text-muted text-[11px] leading-relaxed">
-                  Open a music library
-                  <br />
-                  to browse albums
-                </div>
-                <button
-                  onClick={onOpenLibrary}
-                  className="mt-3 px-3 py-1.5 text-[11px] font-medium rounded-lg bg-accent text-white hover:bg-accent/90 transition-colors shadow-sm"
-                >
-                  Open Library…
-                </button>
-              </div>
-            ) : albums.length === 0 ? (
-              <div className="px-3 py-6 text-center text-text-muted text-[11px]">
-                No albums found
-              </div>
-            ) : (
-              <div className="space-y-0.5">
-                {/* "All Files" item */}
-                <AlbumRow
-                  name="All Files"
-                  count={0}
-                  active={activeAlbumPath === null}
-                  onClick={() => onSelectAlbum(null)}
-                />
-                {albums.map((album) => (
-                  <AlbumRow
-                    key={album.path}
-                    name={album.name}
-                    artist={album.artistHint || album.albumHint}
-                    count={album.trackCount}
-                    active={activeAlbumPath === album.path}
-                    onClick={() => onSelectAlbum(album.path)}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Bottom metadata */}
-          {libraryPath && (
-            <div className="px-4 py-2 border-t border-sidebar-border">
-              <div className="flex items-center gap-1.5 text-[10px] text-text-muted truncate">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
-                  <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
-                </svg>
-                <span className="truncate">{libraryPath}</span>
-              </div>
-            </div>
-          )}
-        </>
       )}
     </div>
   );
 }
 
 // ── Sub-components ──────────────────────────────────────────────
-
-function NavItem({
-  icon,
-  label,
-  active,
-  badge,
-  onClick,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  active?: boolean;
-  badge?: string;
-  onClick?: () => void;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-[12.5px] transition-all duration-100 ${
-        active
-          ? "bg-sidebar-active text-accent font-medium"
-          : "text-text-secondary hover:bg-sidebar-hover hover:text-text-primary"
-      }`}
-    >
-      <span className="shrink-0 w-4 h-4 flex items-center justify-center">
-        {icon}
-      </span>
-      <span className="truncate">{label}</span>
-      {badge && (
-        <span className="ml-auto text-[9px] font-medium text-text-muted bg-border-light rounded-full px-1.5 py-0.5">
-          {badge}
-        </span>
-      )}
-    </button>
-  );
-}
 
 function AlbumRow({
   name,

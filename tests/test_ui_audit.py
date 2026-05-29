@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from auto_tagger.commands.audit import _audit_album, _emit_json
+from auto_tagger.commands.audit import _audit_album
 from auto_tagger.core.metadata import TrackMetadata
 from auto_tagger.llm.prompts import build_audit_messages
 from auto_tagger.llm.schemas import AuditResponse, AuditTrackResult
@@ -177,11 +177,6 @@ class TestBuildAuditMessages:
 
 class TestAuditCommandHelpers:
     """Unit tests for the audit command internals."""
-
-    def test_emit_json(self, capsys):
-        _emit_json({"type": "test", "value": 42})
-        captured = capsys.readouterr()
-        assert json.loads(captured.out.strip()) == {"type": "test", "value": 42}
 
     def test_audit_album_no_metadata_returns_empty(self):
         """Albums with no meaningful metadata return empty results."""
