@@ -466,9 +466,7 @@ export function FileGrid({
           <React.Fragment key={col.key}>
             <button
               onClick={() => toggleSort(col.key)}
-              className={`flex items-center gap-1.5 px-2 hover:text-text-secondary transition-all duration-150 truncate shrink-0 rounded-md ${
-                col.align === "right" ? "text-center justify-center" : "text-left"
-              } ${
+              className={`flex items-center gap-1.5 px-1.5 hover:text-text-secondary transition-all duration-150 truncate shrink-0 rounded-md ${
                 col.key === sortKey
                   ? "bg-accent/10 text-accent font-semibold"
                   : "hover:bg-surface-hover"
@@ -583,34 +581,38 @@ export function FileGrid({
                         : "bg-table-row"
                 } hover:bg-table-selected/40 active:scale-[1.001]`}
               >
-                {COLUMNS.map((col) => (
-                  <span
-                    key={col.key}
-                    className={`shrink-0 ${
-                      col.align === "right" ? "text-right" : "text-left"
-                    } px-1.5 truncate ${
-                      isPrimary
-                        ? "text-text-primary font-medium"
-                        : "text-text-secondary"
-                    }`}
-                    style={{
-                      width: columnWidths?.[col.key] ?? (col.width.includes("-") ? 80 : 120),
-                      minWidth: MIN_COL_WIDTH,
-                    }}
-                  >
-                    {col.key === "filename" ? (
-                      <span className="flex items-center gap-2">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-text-muted">
-                          <path d="M9 18V5l12-2v13" />
-                          <circle cx="6" cy="18" r="3" />
-                          <circle cx="18" cy="16" r="3" />
-                        </svg>
-                        <span>{getCellValue(track, col.key)}</span>
-                      </span>
-                    ) : (
-                      getCellValue(track, col.key)
+                {COLUMNS.map((col, ci) => (
+                  <React.Fragment key={col.key}>
+                    <span
+                      className={`shrink-0 ${
+                        col.align === "right" ? "text-right" : "text-left"
+                      } px-1.5 truncate ${
+                        isPrimary
+                          ? "text-text-primary font-medium"
+                          : "text-text-secondary"
+                      }`}
+                      style={{
+                        width: columnWidths?.[col.key] ?? (col.width.includes("-") ? 80 : 120),
+                        minWidth: MIN_COL_WIDTH,
+                      }}
+                    >
+                      {col.key === "filename" ? (
+                        <span className="flex items-center gap-2">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-text-muted">
+                            <path d="M9 18V5l12-2v13" />
+                            <circle cx="6" cy="18" r="3" />
+                            <circle cx="18" cy="16" r="3" />
+                          </svg>
+                          <span>{getCellValue(track, col.key)}</span>
+                        </span>
+                      ) : (
+                        getCellValue(track, col.key)
+                      )}
+                    </span>
+                    {ci < COLUMNS.length - 1 && (
+                      <div className="shrink-0 w-[5px]" />
                     )}
-                  </span>
+                  </React.Fragment>
                 ))}
               </div>
             );
