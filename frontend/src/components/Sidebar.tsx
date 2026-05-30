@@ -20,7 +20,7 @@ export function Sidebar({
     <div className="w-[220px] min-w-[180px] h-full flex flex-col bg-sidebar-DEFAULT backdrop-blur-xl border-r border-sidebar-border select-none overflow-hidden">
       {/* App header */}
       <div className="px-4 pt-3 pb-2 flex items-center gap-2.5">
-        <div className="w-6 h-6 rounded-md bg-accent flex items-center justify-center shadow-sm">
+        <div className="w-6 h-6 rounded-lg bg-accent flex items-center justify-center shadow-sm shadow-accent/20 transition-all duration-300 group">
           <svg
             width="14"
             height="14"
@@ -30,6 +30,7 @@ export function Sidebar({
             strokeWidth="2.5"
             strokeLinecap="round"
             strokeLinejoin="round"
+            className="group-hover:scale-110 transition-transform duration-300"
           >
             <path d="M9 18V5l12-2v13" />
             <circle cx="6" cy="18" r="3" />
@@ -37,7 +38,7 @@ export function Sidebar({
           </svg>
         </div>
         <span className="text-[13px] font-semibold text-text-primary tracking-tight">
-          AudioTag Pro
+          TagUI
         </span>
       </div>
 
@@ -125,30 +126,42 @@ function AlbumRow({
   onClick: () => void;
 }) {
   return (
-    <button
-      onClick={onClick}
-      className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-[12px] transition-all duration-100 text-left ${
-        active
-          ? "bg-sidebar-active text-accent font-medium"
-          : "text-text-secondary hover:bg-sidebar-hover hover:text-text-primary"
-      }`}
-    >
-      <span className="w-4 h-4 shrink-0 flex items-center justify-center">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M9 18V5l12-2v13" />
-          <circle cx="6" cy="18" r="3" />
-          <circle cx="18" cy="16" r="3" />
-        </svg>
-      </span>
-      <div className="flex-1 min-w-0">
-        <div className="truncate">{name}</div>
-        {artist && (
-          <div className="text-[10px] text-text-muted truncate">{artist}</div>
+    <div className="relative group">
+      {/* Active accent bar — slides in from left */}
+      <div
+        className={`absolute left-0 top-1/2 -translate-y-1/2 w-[3px] rounded-r-full transition-all duration-200 ease-out ${
+          active
+            ? "h-5 bg-accent opacity-100"
+            : "h-0 bg-accent opacity-0 group-hover:h-4 group-hover:opacity-0"
+        }`}
+      />
+      <button
+        onClick={onClick}
+        className={`w-full flex items-center gap-2 pl-[15px] pr-2.5 py-1.5 rounded-lg text-[12px] transition-all duration-150 text-left ${
+          active
+            ? "bg-sidebar-active text-accent font-medium"
+            : "text-text-secondary hover:bg-sidebar-hover hover:text-text-primary"
+        }`}
+      >
+        <span className="w-4 h-4 shrink-0 flex items-center justify-center">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M9 18V5l12-2v13" />
+            <circle cx="6" cy="18" r="3" />
+            <circle cx="18" cy="16" r="3" />
+          </svg>
+        </span>
+        <div className="flex-1 min-w-0">
+          <div className="truncate">{name}</div>
+          {artist && (
+            <div className="text-[10px] text-text-muted truncate">{artist}</div>
+          )}
+        </div>
+        {count != null && count > 0 && (
+          <span className="text-[10px] text-text-muted tabular-nums opacity-60 group-hover:opacity-100 transition-opacity">
+            {count}
+          </span>
         )}
-      </div>
-      {count != null && count > 0 && (
-        <span className="text-[10px] text-text-muted tabular-nums">{count}</span>
-      )}
-    </button>
+      </button>
+    </div>
   );
 }

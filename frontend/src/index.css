@@ -150,3 +150,65 @@
   background: #48484a;
   border-radius: 4px;
 }
+
+/* Firefox scrollbar */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0,0,0,0.18) transparent;
+}
+
+.dark * {
+  scrollbar-color: #48484a #2c2c2e;
+}
+
+/* ── Animation keyframes ────────────────────────────────────── */
+
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(200%);
+  }
+}
+
+@keyframes progress-indeterminate {
+  0% {
+    transform: translateX(-100%);
+  }
+  50% {
+    transform: translateX(0%);
+  }
+  100% {
+    transform: translateX(300%);
+  }
+}
+
+.animate-shimmer {
+  animation: shimmer 2.5s ease-in-out infinite;
+}
+
+.animate-shimmer-fast {
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+.animate-progress-indeterminate {
+  animation: progress-indeterminate 1.8s ease-in-out infinite;
+}
+
+/* Reduce motion for accessibility */
+@media (prefers-reduced-motion: reduce) {
+  .animate-shimmer,
+  .animate-shimmer-fast,
+  .animate-progress-indeterminate,
+  .animate-spin,
+  .animate-pulse {
+    animation: none !important;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

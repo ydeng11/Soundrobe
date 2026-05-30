@@ -16,18 +16,27 @@ export function ScanProgressBar({ scanning, progress, label }: ScanProgressBarPr
 
   return (
     <div className="flex flex-col">
-      <div className="h-[3px] w-full bg-surface-alt overflow-hidden">
+      <div className="h-[3px] w-full bg-surface-alt overflow-hidden relative">
         <div
           className={`h-full bg-accent ${
             determinate
-              ? "transition-all duration-200 ease-out"
-              : "animate-pulse"
+              ? "transition-all duration-300 ease-out"
+              : "animate-progress-indeterminate"
           }`}
           style={
             determinate
               ? { width: `${pct}%`, minWidth: "4px" }
-              : { width: "30%" }
+              : { width: "40%" }
           }
+        />
+        {/* Shimmer overlay */}
+        <div
+          className={`absolute inset-0 ${
+            determinate
+              ? "bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer"
+              : "bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer-fast"
+          }`}
+          style={{ backgroundSize: "200% 100%" }}
         />
       </div>
       {label && (

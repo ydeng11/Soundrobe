@@ -155,18 +155,18 @@ export function MetadataEditor({
 
       <div className="flex-1 px-5 py-4 space-y-5">
         {/* Album Art */}
-        <div>
-          <div className="w-full aspect-square max-w-[220px] mx-auto rounded-xl overflow-hidden bg-surface-alt border border-border shadow-sm">
+        <div className="group">
+          <div className="w-full aspect-square max-w-[220px] mx-auto rounded-xl overflow-hidden bg-surface-alt border border-border shadow-sm transition-all duration-300 group-hover:shadow-md group-hover:-translate-y-0.5">
             {coverDataUrl ? (
               <img
                 src={coverDataUrl}
                 alt="Cover art"
-                className="w-full h-full object-cover"
+                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
               />
             ) : (
-              <div className="w-full h-full flex items-center justify-center">
+              <div className="w-full h-full flex items-center justify-center transition-colors duration-300 group-hover:bg-surface-hover">
                 <div className="flex flex-col items-center gap-2 text-text-muted">
-                  <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" className="opacity-40">
+                  <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" className="opacity-40 group-hover:opacity-60 transition-opacity duration-300">
                     <path d="M9 18V5l12-2v13" />
                     <circle cx="6" cy="18" r="3" />
                     <circle cx="18" cy="16" r="3" />
@@ -179,7 +179,7 @@ export function MetadataEditor({
           <div className="flex gap-2 mt-2.5 justify-center">
             <button
               onClick={onChangeCover}
-              className="inline-flex items-center gap-1 px-3 py-1.5 text-[11px] font-medium rounded-lg bg-accent text-white hover:bg-accent/90 transition-all shadow-sm active:scale-[0.97]"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium rounded-lg bg-accent text-white hover:bg-accent/90 transition-all shadow-sm hover:shadow-md active:scale-[0.97]"
             >
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
@@ -190,7 +190,7 @@ export function MetadataEditor({
             {coverDataUrl && (
               <button
                 onClick={onRemoveCover}
-                className="inline-flex items-center gap-1 px-3 py-1.5 text-[11px] font-medium rounded-lg text-[#ff3b30] hover:bg-red-50 transition-all active:scale-[0.97]"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium rounded-lg text-[#ff3b30] hover:bg-red-50 hover:text-[#c8271d] transition-all active:scale-[0.97]"
               >
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <polyline points="3 6 5 6 21 6" />
@@ -323,7 +323,7 @@ function SectionHeader({ title }: { title: string }) {
       <span className="text-[10px] font-semibold uppercase tracking-widest text-text-muted">
         {title}
       </span>
-      <div className="flex-1 h-px bg-border/50" />
+      <div className="flex-1 h-px bg-gradient-to-r from-border/60 to-transparent" />
     </div>
   );
 }
@@ -361,9 +361,9 @@ function InspectorField({
             onChange={(e) => onChange(e.target.value)}
             rows={2}
             placeholder={placeholder}
-            className={`w-full bg-white border rounded-lg px-3 py-1.5 text-[12px] text-text-primary placeholder-text-muted/40 outline-none transition-all resize-none ${
+            className={`w-full bg-white border rounded-lg px-3 py-1.5 text-[12px] text-text-primary placeholder-text-muted/40 outline-none transition-all duration-200 resize-none ${
               dirty
-                ? "border-[#ff9f0a]/50 focus:border-[#ff9f0a] focus:shadow-[0_0_0_3px_rgba(255,159,10,0.15)]"
+                ? "border-[#ff9f0a]/60 focus:border-[#ff9f0a] focus:shadow-[0_0_0_3px_rgba(255,159,10,0.15)]"
                 : "border-border focus:border-accent/60 focus:shadow-[0_0_0_3px_rgba(0,122,255,0.2)]"
             }`}
           />
@@ -374,15 +374,15 @@ function InspectorField({
             value={value}
             onChange={(e) => onChange(e.target.value)}
             placeholder={placeholder}
-            className={`w-full bg-white border rounded-lg px-3 py-1.5 text-[12px] text-text-primary placeholder-text-muted/40 outline-none transition-all ${
+            className={`w-full bg-white border rounded-lg px-3 py-1.5 text-[12px] text-text-primary placeholder-text-muted/40 outline-none transition-all duration-200 ${
               dirty
-                ? "border-[#ff9f0a]/50 focus:border-[#ff9f0a] focus:shadow-[0_0_0_3px_rgba(255,159,10,0.15)]"
+                ? "border-[#ff9f0a]/60 focus:border-[#ff9f0a] focus:shadow-[0_0_0_3px_rgba(255,159,10,0.15)]"
                 : "border-border focus:border-accent/60 focus:shadow-[0_0_0_3px_rgba(0,122,255,0.2)]"
             }`}
           />
         )}
         {dirty && (
-          <span className="absolute right-2.5 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-[#ff9f0a]" />
+          <span className="absolute right-2.5 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-[#ff9f0a] shadow-[0_0_6px_rgba(255,159,10,0.5)] animate-pulse" />
         )}
       </div>
     </div>

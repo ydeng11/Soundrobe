@@ -466,8 +466,12 @@ export function FileGrid({
           <React.Fragment key={col.key}>
             <button
               onClick={() => toggleSort(col.key)}
-              className={`flex items-center gap-1 px-1.5 hover:text-text-secondary transition-colors truncate shrink-0 ${
+              className={`flex items-center gap-1.5 px-2 hover:text-text-secondary transition-all duration-150 truncate shrink-0 rounded-md ${
                 col.align === "right" ? "text-center justify-center" : "text-left"
+              } ${
+                col.key === sortKey
+                  ? "bg-accent/10 text-accent font-semibold"
+                  : "hover:bg-surface-hover"
               }`}
               style={{
                 width: columnWidths?.[col.key] ?? (col.width.includes("-") ? 80 : 120),
@@ -475,17 +479,13 @@ export function FileGrid({
               }}
             >
               <span className="truncate">{col.label}</span>
-              <span className="inline-flex items-center justify-center w-3 h-3 shrink-0">
+              <span className="inline-flex items-center justify-center w-3.5 h-3.5 shrink-0">
                 {col.key === sortKey ? (
-                  <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="text-accent">
-                    {sortAsc ? (
-                      <polyline points="18 15 12 9 6 15" />
-                    ) : (
-                      <polyline points="6 9 12 15 18 9" />
-                    )}
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="text-accent transition-transform duration-200" style={{ transform: sortAsc ? 'rotate(0deg)' : 'rotate(180deg)' }}>
+                    <polyline points="18 15 12 9 6 15" />
                   </svg>
                 ) : (
-                  <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="opacity-30">
+                  <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="opacity-20 group-hover:opacity-40 transition-opacity">
                     <line x1="12" y1="5" x2="12" y2="19" />
                     <polyline points="19 12 12 19 5 12" />
                   </svg>
@@ -496,7 +496,7 @@ export function FileGrid({
             {ci < COLUMNS.length - 1 && (
               <div
                 onMouseDown={(e) => handleResizeStart(e, ci)}
-                className="shrink-0 w-[5px] cursor-col-resize bg-border hover:bg-accent/40 active:bg-accent/60 transition-colors self-stretch mx-0 rounded-sm"
+                className="shrink-0 w-[5px] cursor-col-resize bg-border hover:bg-accent/40 active:bg-accent/60 transition-all duration-200 self-stretch mx-0 rounded-sm group-hover:bg-accent/20"
               />
             )}
           </React.Fragment>
@@ -573,15 +573,15 @@ export function FileGrid({
                 key={track.path}
                 onClick={(e) => handleRowClick(track, i, e)}
                 onContextMenu={(e) => handleRowContextMenu(e, track)}
-                className={`flex items-center px-3 py-1 text-[12.5px] cursor-pointer select-none border-b border-border/30 transition-colors ${
+                className={`flex items-center px-3 py-1 text-[12.5px] cursor-pointer select-none border-b border-border/30 transition-all duration-100 ${
                   isPrimary
-                    ? "bg-table-selected border-table-selectedBorder"
+                    ? "bg-table-selected border-table-selectedBorder shadow-[inset_2px_0_0_0_rgba(0,122,255,0.5)]"
                     : isMulti
                       ? "bg-table-selected/60"
                       : altRow
                         ? "bg-table-alt"
                         : "bg-table-row"
-                } hover:bg-table-selected/40`}
+                } hover:bg-table-selected/40 active:scale-[1.001]`}
               >
                 {COLUMNS.map((col) => (
                   <span
@@ -619,23 +619,23 @@ export function FileGrid({
       </div>
 
       {/* Footer bar */}
-      <div className="flex items-center px-4 py-1.5 text-[11px] text-text-muted bg-surface-alt/60 border-t border-border gap-3">
+      <div className="flex items-center px-4 py-1.5 text-[10.5px] text-text-muted bg-surface-alt/60 border-t border-border gap-3">
         <span className="tabular-nums">{sorted.length} file{sorted.length !== 1 ? "s" : ""}</span>
         {multiSelected.size > 1 && (
-          <span className="text-accent tabular-nums">{multiSelected.size} selected</span>
+          <span className="text-accent tabular-nums font-medium">{multiSelected.size} selected</span>
         )}
         {filterText && (
-          <span className="text-text-muted/60 tabular-nums">
+          <span className="text-text-muted/50 tabular-nums">
             filtered from {tracks.length}
           </span>
         )}
         <div className="flex-1" />
         <button
           onClick={() => setContextMenu({ x: 0, y: 0 })}
-          className="inline-flex items-center gap-1 text-[10px] hover:text-text-secondary transition-colors"
+          className="inline-flex items-center gap-1.5 text-[10px] hover:text-text-secondary transition-all duration-150 hover:scale-[1.05]"
           title="Toggle columns"
         >
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
             <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
             <line x1="3" y1="9" x2="21" y2="9" />
             <line x1="9" y1="21" x2="9" y2="9" />
@@ -643,8 +643,8 @@ export function FileGrid({
           Columns
         </button>
         {sorted.length > 0 && (
-          <span className="text-text-muted/40 text-[10px]">
-            Right-click header · Click to select · Shift+click for range
+          <span className="text-text-muted/30 text-[10px]">
+            Click to sort · Shift+click range
           </span>
         )}
       </div>

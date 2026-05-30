@@ -70,9 +70,9 @@ export function TitleBar({
 
       {/* Capsule Search Bar */}
       <div className="flex items-center flex-1 max-w-[260px] no-drag">
-        <div className="relative w-full">
+        <div className="relative w-full group">
           <div className="absolute inset-y-0 left-0 flex items-center pl-2.5 pointer-events-none">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#aeaeb2" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#aeaeb2" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="transition-colors duration-200 group-focus-within:stroke-accent">
               <circle cx="11" cy="11" r="8" />
               <path d="m21 21-4.3-4.3" />
             </svg>
@@ -82,12 +82,12 @@ export function TitleBar({
             value={filterText}
             onChange={(e) => onFilterChange(e.target.value)}
             placeholder="Filter files..."
-            className="w-full h-[26px] bg-surface-alt/80 border border-border/80 rounded-full pl-8 pr-3 text-[12px] text-text-primary placeholder-text-muted/60 outline-none transition-all focus:border-accent/60 focus:bg-white"
+            className="w-full h-[26px] bg-surface-alt/80 border border-border/80 rounded-full pl-8 pr-3 text-[12px] text-text-primary placeholder-text-muted/60 outline-none transition-all duration-200 focus:border-accent/60 focus:bg-white focus:shadow-[0_0_0_3px_rgba(0,122,255,0.12)]"
           />
           {filterText && (
             <button
               onClick={() => onFilterChange("")}
-              className="absolute inset-y-0 right-0 flex items-center pr-2.5 text-text-muted hover:text-text-secondary"
+              className="absolute inset-y-0 right-0 flex items-center pr-2.5 text-text-muted hover:text-text-secondary transition-colors"
             >
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M18 6 6 18" /><path d="m6 6 12 12" />
@@ -103,7 +103,7 @@ export function TitleBar({
       <button
         onClick={onAutoTag}
         disabled={!libraryPath || autoTagging}
-        className={`no-drag inline-flex items-center gap-1.5 px-3 py-1 text-[11.5px] font-medium rounded-md transition-all active:scale-[0.97] ${
+        className={`no-drag inline-flex items-center gap-1.5 px-3 py-1 text-[11.5px] font-medium rounded-md transition-all duration-200 active:scale-[0.95] hover:scale-[1.03] ${
           autoTagging
             ? "text-accent/60 cursor-wait"
             : "text-accent hover:bg-accent/10"
@@ -133,7 +133,7 @@ export function TitleBar({
       <button
         onClick={onGetLyrics}
         disabled={!libraryPath || lyricsGetting}
-        className={`no-drag inline-flex items-center gap-1.5 px-3 py-1 text-[11.5px] font-medium rounded-md transition-all active:scale-[0.97] ${
+        className={`no-drag inline-flex items-center gap-1.5 px-3 py-1 text-[11.5px] font-medium rounded-md transition-all duration-200 active:scale-[0.95] hover:scale-[1.03] ${
           lyricsGetting
             ? "text-[#34c759]/60 cursor-wait"
             : "text-[#34c759] hover:bg-[#34c759]/10"
@@ -167,7 +167,7 @@ export function TitleBar({
       <button
         onClick={onAudit}
         disabled={!libraryPath || auditing}
-        className={`no-drag inline-flex items-center gap-1.5 px-3 py-1 text-[11.5px] font-medium rounded-md transition-all active:scale-[0.97] ${
+        className={`no-drag inline-flex items-center gap-1.5 px-3 py-1 text-[11.5px] font-medium rounded-md transition-all duration-200 active:scale-[0.95] hover:scale-[1.03] ${
           auditing
             ? "text-[#ff9f0a]/60 cursor-wait"
             : "text-[#ff9f0a] hover:bg-[#ff9f0a]/10"
