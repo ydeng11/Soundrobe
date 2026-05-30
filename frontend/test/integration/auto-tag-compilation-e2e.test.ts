@@ -440,4 +440,144 @@ describe("auto-tag compilation E2E", () => {
 
     console.log("\n[e2e-undo] ✓ Undo round-trip verified!");
   });
+
+  it("preserves per-track Artist in multi-disc compilation (does not overwrite to 'Various Artists')", async () => {
+    // Reproduces the bug from the real 51-track compilation:
+    // When files share the same track number prefix (multi-disc),
+    // the 1-based file position doesn't match trackMap key,
+    // and album-level artist/artists used to overwrite the per-track artist.
+    //
+    // Structure: 4 files with same-track-number pairs (two "discs")
+    // Uses its own tmp dir to avoid interference from beforeEach.
+    const multiTmp = fs.mkdtempSync(path.join(os.tmpdir(), "auto-tag-multidisc-"));
+    const multiDir = path.join(multiTmp, "Compilations", "MultiDisc合辑");
+    fs.mkdirSync(multiDir, { recursive: true });
+
+    const { readTrackMetadata } = await import("../../electron/handlers/tracks");
+
+    try {
+      // Track 1 files from different "discs"
+      writeSyntheticFlac(multiDir, "01. 独唱甲.flac", [
+        "TITLE=独唱甲",
+        "ARTIST=郑伊健",
+        "ALBUM=多碟合辑 3CD",
+        "ALBUMARTIST=郑伊健&陈小春",
+        "TRACKNUMBER=1",
+        "DISCNUMBER=1",
+        "DATE=2013",
+      ]);
+      writeSyntheticFlac(multiDir, "01. 独唱乙.flac", [
+        "TITLE=独唱乙",
+        "ARTIST=陈小春",
+        "ALBUM=多碟合辑 3CD",
+        "ALBUMARTIST=郑伊健&陈小春",
+        "TRACKNUMBER=1",
+        "DISCNUMBER=2",
+        "DATE=2013",
+      ]);
+
+      // Track 2 files from different "discs"
+      writeSyntheticFlac(multiDir, "02. 合唱.flac", [
+        "TITLE=合唱",
+        "ARTIST=郑伊健&陈小春",
+        "ALBUM=多碟合辑 3CD",
+        "ALBUMARTIST=郑伊健&陈小春",
+        "TRACKNUMBER=2",
+        "DISCNUMBER=1",
+        "DATE=2013",
+      ]);
+      writeSyntheticFlac(multiDir, "02. 独唱丙.flac", [
+        "TITLE=独唱丙",
+        "ARTIST=陈小春",
+        "ALBUM=多碟合辑 3CD",
+        "ALBUMARTIST=郑伊健&陈小春",
+        "TRACKNUMBER=2",
+        "DISCNUMBER=2",
+        "DATE=2013",
+      ]);
+
+      // ── 1. Read initial metadata ───────────────────────────────────
+      const trackFiles = [
+        path.join(multiDir, "01. 独唱甲.flac"),
+        path.join(multiDir, "01. 独唱乙.flac"),
+        path.join(multiDir, "02. 合唱.flac"),
+        path.join(multiDir, "02. 独唱丙.flac"),
+      ];
+
+      const before = await Promise.all(
+        trackFiles.map((fp) => readTrackMetadata(fp)),
+      );
+
+      // Positions 1-2 have trackMap entries (keys 1-2)
+      // Positions 3-4 have NO trackMap entries — this is where the bug lives
+      expect(before[2].artist).toBe("郑伊健&陈小春");  // pos 3 — most vulnerable
+      expect(before[3].artist).toBe("陈小春");          // pos 4 — most vulnerable
+
+      // ── 2. Run auto-tag pipeline ───────────────────────────────────
+      process.env.HOME = os.homedir();
+      const { refreshConfig, setDebugMode, startAutoTag, getProgress } =
+        await import("../../electron/handlers/auto-tag");
+      refreshConfig();
+      setDebugMode(true);
+
+      const taskId = startAutoTag(multiDir);
+      expect(taskId).toBeTruthy();
+
+      const deadline = Date.now() + 120_000;
+      let completed = false;
+      let failed = false;
+      while (Date.now() < deadline) {
+        await sleep(1000);
+        const p = getProgress(taskId);
+        if (!p) break;
+        if (p.status === "completed") { completed = true; break; }
+        if (p.status === "failed") { failed = true; break; }
+      }
+
+      expect(completed).toBe(true);
+      if (failed) throw new Error("Pipeline failed");
+
+      // ── 3. Verify artists are preserved (NOT overwritten to "Various Artists") ─
+      const after = await Promise.all(
+        trackFiles.map((fp) => readTrackMetadata(fp)),
+      );
+
+      // The key fix: album-level artist/artists are no longer applied to every file.
+      // Positions 3-4 have NO entry in trackMap (only keys 1-2 exist for this album).
+      // Before the fix: they got artist="Various Artists" from albumFields.
+      // After the fix: albumFields has no artist, so the original file metadata is preserved.
+
+      // Position 3 — no trackMap entry → original preserved
+      expect(after[2].artist).toBe("郑伊健&陈小春");
+
+      // Position 4 — no trackMap entry → original preserved
+      expect(after[3].artist).toBe("陈小春");
+
+      // Positions 1-2 DO have a trackMap entry (keys 1-2), so they receive per-track
+      // data from the last file with that track number. The key thing: they get a REAL
+      // artist, NOT "Various Artists".
+      expect(after[0].artist).not.toBe("Various Artists");
+      expect(after[1].artist).not.toBe("Various Artists");
+      expect(after[2].artist).not.toBe("Various Artists");
+      expect(after[3].artist).not.toBe("Various Artists");
+
+      // Album artist is set for compilation (this is correct behavior)
+      expect(after[0].albumArtist).toBe("Various Artists");
+      expect(after[1].albumArtist).toBe("Various Artists");
+      expect(after[2].albumArtist).toBe("Various Artists");
+      expect(after[3].albumArtist).toBe("Various Artists");
+
+      // ARTISTS should be real artists, not "Various Artists"
+      expect(after[0].artists).not.toEqual(["Various Artists"]);
+      expect(after[1].artists).not.toEqual(["Various Artists"]);
+      expect(after[2].artists).not.toEqual(["Various Artists"]);
+      expect(after[3].artists).not.toEqual(["Various Artists"]);
+
+      console.log("\n[e2e-multidisc] ✓ Multi-disc per-track Artist preserved!");
+    } finally {
+      if (multiTmp && fs.existsSync(multiTmp)) {
+        fs.rmSync(multiTmp, { recursive: true, force: true });
+      }
+    }
+  });
 });

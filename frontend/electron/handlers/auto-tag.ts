@@ -766,9 +766,10 @@ class TaskManager {
     if (audioFiles.length === 0) return 0;
 
     // Build album-level fields applied to every file
+    // NOTE: artist/artists are per-track fields — they must NOT be set at the
+    // album level. Setting them here would overwrite per-track artist data
+    // for multi-disc compilations where file position ≠ track number.
     const albumFields: WriteFields = {};
-    if (candidate.artist !== undefined) albumFields.artist = candidate.artist;
-    albumFields.artists = candidate.artists.length > 0 ? candidate.artists : splitArtistNames([candidate.artist]);
     if (candidate.album !== undefined) albumFields.album = candidate.album;
     albumFields.albumArtist = albumArtist;
     albumFields.albumArtists = albumArtists;
@@ -819,7 +820,7 @@ class TaskManager {
       // 2. If no local file and download is enabled, fetch from API
       if (!lyrics && this.config.lyricsDownloadEnabled) {
         const trackName = mergedFields.title;
-        const artistName = mergedFields.artist ?? albumFields.artist;
+        const artistName = mergedFields.artist ?? albumFields.albumArtist ?? folderName;
         if (trackName && artistName) {
           const client = new LyricsClient({
             baseUrl: this.config.lyricsApiUrl,
