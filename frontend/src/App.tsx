@@ -13,7 +13,7 @@ import { SettingsModal } from "./components/SettingsModal";
 import { ConvertDialog } from "./components/ConvertDialog";
 import { ExtraTagsEditor } from "./components/ExtraTagsEditor";
 import { BatchExtraTagsEditor } from "./components/BatchExtraTagsEditor";
-import type { ConvertDirection } from "./components/ConvertDialog";
+import type { ConvertResult } from "./components/ConvertDialog";
 import type { TrackData, AlbumInfo } from "../electron/preload";
 
 /** Get the parent directory of a path. */
@@ -423,11 +423,27 @@ export default function App() {
     }
     await Promise.all(
       op.snapshots.map(async (snap) => {
-        try {
-          const track = await window.api.writeTrack(snap.path, { ...snap.fields });
-          dispatch({ type: "UPDATE_TRACK", path: snap.path, track });
-        } catch {
-          console.warn("Undo write failed for:", snap.path);
+        // Detect rename undo: fields contains a "path" key (string) =
+        // this was a file rename operation, not a tag write
+        const oldPath =
+          typeof snap.fields.path === "string" ? snap.fields.path : null;
+        if (oldPath && snap.path !== oldPath) {
+          // Rename the file back to its original path
+          try {
+            const track = await window.api.renameTrack(snap.path, oldPath);
+            dispatch({ type: "UPDATE_TRACK", path: snap.path, track: { ...track, path: oldPath } });
+          } catch {
+            console.warn("Undo rename failed for:", snap.path);
+          }
+        } else {
+          // Normal tag write undo
+          try {
+            const { path: _path, ...fields } = snap.fields;
+            const track = await window.api.writeTrack(snap.path, fields);
+            dispatch({ type: "UPDATE_TRACK", path: snap.path, track });
+          } catch {
+            console.warn("Undo write failed for:", snap.path);
+          }
         }
       }),
     );
@@ -737,136 +753,189 @@ export default function App() {
   // --- Convert: prompt for direction + regex, then apply ---
 
   const handleConvert = useCallback(() => {
-    if (!state.selectedTrack) {
+    if (state.selectedTrackPaths.length === 0) {
       dispatch({
         type: "SET_ERROR",
         error: "Select a file first to convert",
       });
       return;
     }
+    // Clear any stale error before opening
+    if (state.error) {
+      dispatch({ type: "SET_ERROR", error: null });
+    }
     setShowConvertDialog(true);
-  }, [state.selectedTrack]);
+  }, [state.selectedTrackPaths.length, state.error]);
 
   const handleConvertAction = useCallback(
-    async (direction: ConvertDirection, pattern: string) => {
-      const track = state.selectedTrack;
+    async (result: ConvertResult) => {
+      // Use the primary selected track or find from the first selected path
+      let track = state.selectedTrack;
+      if (!track && state.selectedTrackPaths.length > 0) {
+        const firstPath = state.selectedTrackPaths[0];
+        track = state.tracks.find((t) => t.path === firstPath) ?? null;
+      }
       if (!track) return;
 
-      const basename = track.path.split("/").pop() ?? track.path;
+      if (result.direction === "filename-to-tags") {
+        // ── Filename → Tags: extract fields from filename and write to tags ──
+        const writeFields = result.writeFields as Record<string, unknown>;
+        const undoFields: Record<string, unknown> = {};
 
-      let derived: string | null = null;
-      let writeFields: Record<string, unknown> = {};
-      let undoFields: Record<string, unknown> = {};
-      let description = "";
-
-      if (direction === "title-to-filename") {
-        dispatch({
-          type: "SET_ERROR",
-          error: "Title→filename rename not yet supported by the backend",
-        });
-        return;
-      }
-
-      switch (direction) {
-        case "filename-to-title": {
-          let result = basename.replace(/\.[^.]+$/, "");
-          if (pattern === "strip-number") {
-            result = result.replace(/^\d+[\s.\-_)]*\s*/, "");
-          } else if (pattern) {
-            try {
-              const regex = new RegExp(pattern);
-              const m = result.match(regex);
-              if (m && m[1]) result = m[1];
-            } catch {
-              dispatch({
-                type: "SET_ERROR",
-                error: `Invalid regex pattern: ${pattern}`,
-              });
-              return;
-            }
-          }
-          derived = result.trim();
-          writeFields = { title: derived };
-          undoFields = { title: track.title };
-          description = `Convert title: ${derived}`;
-          break;
+        // Build undo fields from current track values
+        const trackRecord = track as unknown as Record<string, unknown>;
+        for (const key of Object.keys(writeFields)) {
+          undoFields[key] = trackRecord[key] ?? null;
         }
 
-        case "custom-regex": {
-          let result = basename.replace(/\.[^.]+$/, "");
-          try {
-            const regex = new RegExp(pattern);
-            const m = result.match(regex);
-            derived = m && m[1] ? m[1] : null;
-            if (!derived) {
-              dispatch({
-                type: "SET_ERROR",
-                error: "Regex produced no capture groups",
-              });
-              return;
-            }
-          } catch {
+        if (Object.keys(writeFields).length === 0) {
+          dispatch({
+            type: "SET_ERROR",
+            error: "No fields to write from the conversion",
+          });
+          return;
+        }
+
+        const descriptionLines = Object.entries(writeFields)
+          .map(([k, v]) => `${k}=${v}`)
+          .join(", ");
+
+        const snapshot: TrackSnapshot = {
+          path: track.path,
+          fields: undoFields,
+        };
+        dispatch({
+          type: "PUSH_UNDO",
+          description: `Convert: ${descriptionLines}`,
+          snapshots: [snapshot],
+        });
+
+        const updatedTrack = { ...track, ...writeFields };
+        dispatch({
+          type: "UPDATE_TRACK",
+          path: track.path,
+          track: updatedTrack,
+        });
+        dispatch({ type: "SET_SAVING", saving: true });
+
+        try {
+          const apiResult = await window.api.writeTrack(
+            track.path,
+            writeFields
+          );
+          dispatch({
+            type: "UPDATE_TRACK",
+            path: track.path,
+            track: apiResult,
+          });
+        } catch (err: unknown) {
+          dispatch({
+            type: "UPDATE_TRACK",
+            path: track.path,
+            track,
+          });
+          const message =
+            err instanceof Error
+              ? err.message
+              : "Failed to save conversion";
+          dispatch({ type: "SET_ERROR", error: message });
+        } finally {
+          dispatch({ type: "SET_SAVING", saving: false });
+        }
+      } else if (result.direction === "tags-to-filename") {
+        // ── Tags → Filename: rename the file on disk ──
+        if (!result.newFilename) {
+          dispatch({
+            type: "SET_ERROR",
+            error: "No new filename from conversion",
+          });
+          return;
+        }
+
+        const oldDir = track.path.substring(
+          0,
+          track.path.lastIndexOf("/") + 1
+        );
+        const newPath = oldDir + result.newFilename;
+
+        if (newPath === track.path) {
+          dispatch({
+            type: "SET_ERROR",
+            error: "New filename is identical to current filename",
+          });
+          return;
+        }
+
+        // Check if target file already exists
+        try {
+          const exists = await window.api.checkFileExists(newPath);
+          if (exists) {
             dispatch({
               type: "SET_ERROR",
-              error: `Invalid regex: ${pattern}`,
+              error: `Target file already exists: ${result.newFilename}`,
             });
             return;
           }
-          derived = derived!.trim();
-          writeFields = { title: derived };
-          undoFields = { title: track.title };
-          description = `Convert (regex): ${derived}`;
-          break;
+        } catch {
+          // Ignore check errors, proceed with rename
         }
 
-        default:
-          return;
-      }
+        // Undo: current path = newPath (to find the file), fields.path = old path (to restore)
+        const undoSnapshot: TrackSnapshot = {
+          path: newPath,
+          fields: { path: track.path },
+        };
 
-      if (!derived || derived === (track.title ?? "")) {
         dispatch({
-          type: "SET_ERROR",
-          error: "Conversion produced no change",
+          type: "PUSH_UNDO",
+          description: `Rename: ${track.path.split("/").pop()} → ${result.newFilename}`,
+          snapshots: [undoSnapshot],
         });
-        return;
-      }
 
-      const snapshot: TrackSnapshot = { path: track.path, fields: undoFields };
-      dispatch({
-        type: "PUSH_UNDO",
-        description,
-        snapshots: [snapshot],
-      });
+        dispatch({ type: "SET_SAVING", saving: true });
 
-      const updatedTrack = { ...track, ...writeFields };
-      dispatch({
-        type: "UPDATE_TRACK",
-        path: track.path,
-        track: updatedTrack,
-      });
-      dispatch({ type: "SET_SAVING", saving: true });
-
-      try {
-        const result = await window.api.writeTrack(track.path, writeFields);
-        dispatch({
-          type: "UPDATE_TRACK",
-          path: track.path,
-          track: result,
-        });
-      } catch (err: unknown) {
-        dispatch({
-          type: "UPDATE_TRACK",
-          path: track.path,
-          track,
-        });
-        const message =
-          err instanceof Error ? err.message : "Failed to save conversion";
-        dispatch({ type: "SET_ERROR", error: message });
-      } finally {
-        dispatch({ type: "SET_SAVING", saving: false });
+        try {
+          const updatedTrack = await window.api.renameTrack(
+            track.path,
+            newPath
+          );
+          // Update the track in the list with the new path
+          dispatch({
+            type: "UPDATE_TRACK",
+            path: track.path,
+            track: { ...updatedTrack, path: newPath },
+          });
+          // Refresh album to get a clean track list
+          const albumPath = newPath.substring(0, newPath.lastIndexOf("/"));
+          const refreshed = await window.api.readAlbum(albumPath);
+          // Replace the full track list with refreshed data
+          dispatch({
+            type: "SET_TRACKS",
+            tracks: refreshed.tracks,
+          });
+          // Select the renamed track by its new path
+          const renamedTrackInList = refreshed.tracks.find(
+            (t) => t.path === newPath
+          );
+          if (renamedTrackInList) {
+            dispatch({
+              type: "SELECT_TRACK",
+              path: newPath,
+              track: renamedTrackInList,
+            });
+          }
+        } catch (err: unknown) {
+          const message =
+            err instanceof Error
+              ? err.message
+              : "Failed to rename file";
+          dispatch({ type: "SET_ERROR", error: message });
+        } finally {
+          dispatch({ type: "SET_SAVING", saving: false });
+        }
       }
     },
-    [state.selectedTrack],
+    [state.selectedTrack, state.selectedTrackPaths, state.tracks]
   );
 
 
@@ -898,6 +967,16 @@ export default function App() {
   useEffect(() => {
     document.documentElement.classList.toggle("dark", state.darkMode);
   }, [state.darkMode]);
+
+  // --- Auto-dismiss errors after 5 seconds ---
+
+  useEffect(() => {
+    if (!state.error) return;
+    const timer = setTimeout(() => {
+      dispatch({ type: "SET_ERROR", error: null });
+    }, 5000);
+    return () => clearTimeout(timer);
+  }, [state.error]);
 
   const handleToggleDarkMode = useCallback(() => {
     dispatch({ type: "TOGGLE_DARK_MODE" });
@@ -1054,6 +1133,7 @@ export default function App() {
         darkMode={state.darkMode}
         onToggleDarkMode={handleToggleDarkMode}
         onOpenSettings={handleOpenSettings}
+        onErrorDismiss={() => dispatch({ type: "SET_ERROR", error: null })}
       />
 
       <ScanProgressBar
@@ -1171,6 +1251,25 @@ export default function App() {
         open={showConvertDialog}
         onClose={() => setShowConvertDialog(false)}
         onConvert={handleConvertAction}
+        track={
+          state.selectedTrack
+            ? {
+                filename:
+                  state.selectedTrack.path.split("/").pop() ??
+                  state.selectedTrack.path,
+                title: state.selectedTrack.title,
+                artist: state.selectedTrack.artist,
+                album: state.selectedTrack.album,
+                year: state.selectedTrack.year,
+                track: state.selectedTrack.trackNumber,
+                genre: state.selectedTrack.genre,
+                albumArtist: state.selectedTrack.albumArtist,
+                composer: state.selectedTrack.composer,
+                comment: state.selectedTrack.comment,
+                discNumber: state.selectedTrack.discNumber,
+              }
+            : null
+        }
       />
 
       {extraTagsTrack && (

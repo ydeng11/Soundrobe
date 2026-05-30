@@ -19,6 +19,7 @@ interface TitleBarProps {
   onAudit: () => void;
   onToggleDarkMode: () => void;
   onOpenSettings: () => void;
+  onErrorDismiss: () => void;
 }
 
 export function TitleBar({
@@ -40,6 +41,7 @@ export function TitleBar({
   onAudit,
   onToggleDarkMode,
   onOpenSettings,
+  onErrorDismiss,
 }: TitleBarProps) {
   return (
     <div className="flex items-center h-[38px] px-3 bg-white/95 backdrop-blur-md border-b border-border drag-region select-none gap-2">
@@ -251,12 +253,19 @@ export function TitleBar({
       {/* Status indicators */}
       <div className="flex items-center gap-2 text-[11px] text-text-muted no-drag">
         {error ? (
-          <span className="text-[#ff3b30] flex items-center gap-1">
+          <button
+            onClick={onErrorDismiss}
+            className="text-[#ff3b30] flex items-center gap-1 cursor-pointer hover:opacity-70 transition-opacity"
+            title="Click to dismiss"
+          >
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
             </svg>
             {error}
-          </span>
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="ml-1 opacity-50">
+              <path d="M18 6 6 18" /><path d="m6 6 12 12" />
+            </svg>
+          </button>
         ) : (
           <>
             {saving && (
@@ -296,7 +305,7 @@ function ToolbarButton({
     <button
       disabled={disabled}
       onClick={onClick}
-      className={`inline-flex items-center gap-1 px-2 py-1 text-[11.5px] font-medium rounded-md transition-all active:scale-[0.97] ${
+      className={`no-drag inline-flex items-center gap-1 px-2 py-1 text-[11.5px] font-medium rounded-md transition-all active:scale-[0.97] ${
         disabled
           ? "text-text-muted/40 cursor-not-allowed"
           : primary

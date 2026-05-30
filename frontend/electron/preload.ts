@@ -187,6 +187,9 @@ export interface ElectronAPI {
   writeExtraTagsBatch: (
     updates: Array<{ path: string; tags: ExtraTagUpdate[] }>
   ) => Promise<TrackData[]>;
+  renameTrack: (oldPath: string, newPath: string) => Promise<TrackData>;
+  checkFileExists: (filePath: string) => Promise<boolean>;
+
   showTrackContextMenu: (
     trackPath: string,
     labels: Record<string, string>
@@ -274,6 +277,11 @@ contextBridge.exposeInMainWorld("api", {
     updates: Array<{ path: string; tags: ExtraTagUpdate[] }>
   ): Promise<TrackData[]> =>
     ipcRenderer.invoke("tracks:batch-write-extra-tags", updates),
+  renameTrack: (oldPath: string, newPath: string): Promise<TrackData> =>
+    ipcRenderer.invoke("track:rename", oldPath, newPath),
+  checkFileExists: (filePath: string): Promise<boolean> =>
+    ipcRenderer.invoke("file:exists", filePath),
+
   showTrackContextMenu: (
     trackPath: string,
     labels: Record<string, string>

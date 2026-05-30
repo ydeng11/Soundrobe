@@ -605,4 +605,26 @@ export function registerTrackHandlers(): void {
       return Promise.all(updates.map((u) => readTrackMetadata(u.path)));
     }
   );
+
+  /** Rename a single audio file on disk and return updated metadata. */
+  ipcMain.handle(
+    "track:rename",
+    async (_event, oldPath: string, newPath: string): Promise<TrackData> => {
+      // Ensure the target directory exists
+      const newDir = path.dirname(newPath);
+      if (!fs.existsSync(newDir)) {
+        fs.mkdirSync(newDir, { recursive: true });
+      }
+      await fs.promises.rename(oldPath, newPath);
+      return readTrackMetadata(newPath);
+    }
+  );
+
+  /** Check if a file exists on disk. */
+  ipcMain.handle(
+    "file:exists",
+    async (_event, filePath: string): Promise<boolean> => {
+      return fs.existsSync(filePath);
+    }
+  );
 }
