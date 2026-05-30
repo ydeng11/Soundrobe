@@ -407,96 +407,87 @@ async function runLibraryAudit(
   return auditSpecificAlbums(client, albumDirs, signal);
 }
 
+// ── Helpers ─────────────────────────────────────────────────────────
+
+/** Create an audit OpenRouterClient. Throws if API key is missing. */
+function createAuditClient(): OpenRouterClient {
+  const config = loadConfig();
+  if (!config.llmApiKey) {
+    throw new Error("LLM API key is required for audit. Configure it in settings.");
+  }
+  return new OpenRouterClient({
+    apiKey: config.llmApiKey,
+    model: config.llmModel ?? "",
+    temperature: 0.1,
+    maxTokens: 4096,
+  });
+}
+
+/**
+ * Run an audit operation with standard abort handling, event emission,
+ * and finally cleanup.
+ */
+async function runAuditWithHandling<T extends { albums: number; issues: number }>(
+  operationName: string,
+  operation: (signal: AbortSignal) => Promise<T>,
+  abort: AbortController,
+): Promise<T> {
+  try {
+    const result = await operation(abort.signal);
+    debug.info("audit", `${operationName} — completed: ${result.albums} album(s), ${result.issues} issue(s)`);
+    auditEvents.emit("event", {
+      type: "completed",
+      current: result.albums,
+      total: result.albums,
+      message: `Audit complete: ${result.albums} album(s), ${result.issues} issue(s)`,
+    });
+    return result;
+  } catch (err) {
+    if (abort.signal.aborted) {
+      debug.warn("audit", `${operationName} — cancelled by user`);
+      auditEvents.emit("event", { type: "cancelled", message: "Audit cancelled" });
+      return { albums: 0, issues: 0 } as T;
+    }
+    debug.error("audit", `${operationName} — failed: ${(err as Error).message}`);
+    auditEvents.emit("event", { type: "failed", message: `Audit failed: ${(err as Error).message}` });
+    throw err;
+  } finally {
+    currentAbort = null;
+  }
+}
+
 // ── IPC handlers ────────────────────────────────────────────────────
 
 export function registerAuditHandlers(): void {
   ipcMain.handle("audit:run", async (_event, libraryPath: string) => {
     debug.info("audit", `IPC audit:run — libraryPath="${libraryPath}"`);
-
-    // Cancel any running audit
     cancelAudit();
 
     const abort = new AbortController();
     currentAbort = abort;
 
-    const config = loadConfig();
-    if (!config.llmApiKey) {
-      debug.error("audit", "audit:run — LLM API key not configured");
-      throw new Error("LLM API key is required for audit. Configure it in settings.");
-    }
-    debug.debug("audit", `audit:run — model=${config.llmModel ?? "default"}`);
-
-    const client = new OpenRouterClient({
-      apiKey: config.llmApiKey,
-      model: config.llmModel ?? "deepseek/deepseek-chat",
-      temperature: 0.1,
-      maxTokens: 4096,
-    });
-
-    try {
-      const result = await runLibraryAudit(client, libraryPath, abort.signal);
-      debug.info("audit", `audit:run — completed: ${result.albums} album(s), ${result.issues} issue(s)`);
-      auditEvents.emit("event", {
-        type: "completed",
-        current: result.albums,
-        total: result.albums,
-        message: `Audit complete: ${result.albums} album(s), ${result.issues} issue(s)`,
-      });
-      return result;
-    } catch (err) {
-      if (abort.signal.aborted) {
-        debug.warn("audit", "audit:run — cancelled by user");
-        auditEvents.emit("event", { type: "cancelled", message: "Audit cancelled" });
-        return { albums: 0, issues: 0 };
-      }
-      debug.error("audit", `audit:run — failed: ${(err as Error).message}`);
-      auditEvents.emit("event", {
-        type: "failed",
-        message: `Audit failed: ${(err as Error).message}`,
-      });
-      throw err;
-    } finally {
-      currentAbort = null;
-    }
+    const client = createAuditClient();
+    return runAuditWithHandling("audit:run", (signal) => runLibraryAudit(client, libraryPath, signal), abort);
   });
 
   /**
    * Run audit on a specified set of albums or tracks.
-   * When trackPaths is provided, groups them by album directory and audits each.
+   * When trackPaths is provided, groups them by album directory.
    * When albumPaths is provided, audits those albums directly.
    */
   ipcMain.handle("audit:run-specified", async (_event, options: { albumPaths?: string[]; trackPaths?: string[] }) => {
     debug.info("audit", `IPC audit:run-specified — trackPaths=${options.trackPaths?.length ?? 0} albumPaths=${options.albumPaths?.length ?? 0}`);
-
-    // Cancel any running audit
     cancelAudit();
 
     const abort = new AbortController();
     currentAbort = abort;
 
-    const config = loadConfig();
-    if (!config.llmApiKey) {
-      debug.error("audit", "audit:run-specified — LLM API key not configured");
-      throw new Error("LLM API key is required for audit. Configure it in settings.");
-    }
-    debug.debug("audit", `audit:run-specified — model=${config.llmModel ?? "default"}`);
-
-    const client = new OpenRouterClient({
-      apiKey: config.llmApiKey,
-      model: config.llmModel ?? "deepseek/deepseek-chat",
-      temperature: 0.1,
-      maxTokens: 4096,
-    });
+    const client = createAuditClient();
 
     // Determine which albums to audit
     let albumPaths: string[];
-
     if (options.trackPaths && options.trackPaths.length > 0) {
-      // Group selected tracks by their parent album directory
-      const dirs = new Set<string>();
-      for (const p of options.trackPaths) {
-        dirs.add(dirname(p));
-      }
+      const dirs = new Set(options.trackPaths.map((p) => dirname(p)));
       albumPaths = Array.from(dirs);
       debug.info("audit", `audit:run-specified — ${options.trackPaths.length} track(s) in ${albumPaths.length} album dir(s)`);
     } else if (options.albumPaths && options.albumPaths.length > 0) {
@@ -505,49 +496,13 @@ export function registerAuditHandlers(): void {
       throw new Error("No tracks or albums specified for audit");
     }
 
-    try {
-      const result = await auditSpecificAlbums(client, albumPaths, abort.signal);
-      debug.info("audit", `audit:run-specified — completed: ${result.albums} album(s), ${result.issues} issue(s)`);
-      auditEvents.emit("event", {
-        type: "completed",
-        current: result.albums,
-        total: result.albums,
-        message: `Audit complete: ${result.albums} album(s), ${result.issues} issue(s)`,
-      });
-      return result;
-    } catch (err) {
-      if (abort.signal.aborted) {
-        debug.warn("audit", "audit:run-specified — cancelled by user");
-        auditEvents.emit("event", { type: "cancelled", message: "Audit cancelled" });
-        return { albums: 0, issues: 0 };
-      }
-      debug.error("audit", `audit:run-specified — failed: ${(err as Error).message}`);
-      auditEvents.emit("event", {
-        type: "failed",
-        message: `Audit failed: ${(err as Error).message}`,
-      });
-      throw err;
-    } finally {
-      currentAbort = null;
-    }
+    return runAuditWithHandling("audit:run-specified", (signal) => auditSpecificAlbums(client, albumPaths, signal), abort);
   });
 
   ipcMain.handle("audit:run-album", async (_event, albumPath: string) => {
     debug.info("audit", `IPC audit:run-album — albumPath="${albumPath}"`);
 
-    const config = loadConfig();
-    if (!config.llmApiKey) {
-      debug.error("audit", "audit:run-album — LLM API key not configured");
-      throw new Error("LLM API key is required for audit.");
-    }
-
-    const client = new OpenRouterClient({
-      apiKey: config.llmApiKey,
-      model: config.llmModel ?? "deepseek/deepseek-chat",
-      temperature: 0.1,
-      maxTokens: 4096,
-    });
-
+    const client = createAuditClient();
     return auditAlbum(client, albumPath);
   });
 

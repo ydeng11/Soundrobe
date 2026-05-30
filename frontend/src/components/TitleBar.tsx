@@ -19,6 +19,7 @@ interface TitleBarProps {
   onAudit: () => void;
   onToggleDarkMode: () => void;
   onOpenSettings: () => void;
+  onToggleAssistant: () => void;
   onErrorDismiss: () => void;
 }
 
@@ -41,6 +42,7 @@ export function TitleBar({
   onAudit,
   onToggleDarkMode,
   onOpenSettings,
+  onToggleAssistant,
   onErrorDismiss,
 }: TitleBarProps) {
   return (
@@ -113,16 +115,7 @@ export function TitleBar({
         title="Auto-tag selected album or all (⌘T)"
       >
         {autoTagging ? (
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="animate-spin">
-            <line x1="12" y1="2" x2="12" y2="6" />
-            <line x1="12" y1="18" x2="12" y2="22" />
-            <line x1="4.93" y1="4.93" x2="7.76" y2="7.76" />
-            <line x1="16.24" y1="16.24" x2="19.07" y2="19.07" />
-            <line x1="2" y1="12" x2="6" y2="12" />
-            <line x1="18" y1="12" x2="22" y2="12" />
-            <line x1="4.93" y1="19.07" x2="7.76" y2="16.24" />
-            <line x1="16.24" y1="7.76" x2="19.07" y2="4.93" />
-          </svg>
+          <SpinnerIcon />
         ) : (
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
             <polygon points="5 3 19 12 5 21 5 3" />
@@ -143,16 +136,7 @@ export function TitleBar({
         title="Download missing lyrics and fix encoding of existing .lrc/.txt files"
       >
         {lyricsGetting ? (
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="animate-spin">
-            <line x1="12" y1="2" x2="12" y2="6" />
-            <line x1="12" y1="18" x2="12" y2="22" />
-            <line x1="4.93" y1="4.93" x2="7.76" y2="7.76" />
-            <line x1="16.24" y1="16.24" x2="19.07" y2="19.07" />
-            <line x1="2" y1="12" x2="6" y2="12" />
-            <line x1="18" y1="12" x2="22" y2="12" />
-            <line x1="4.93" y1="19.07" x2="7.76" y2="16.24" />
-            <line x1="16.24" y1="7.76" x2="19.07" y2="4.93" />
-          </svg>
+          <SpinnerIcon />
         ) : (
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
             <path d="M9 18V5l12-2v13" />
@@ -177,16 +161,7 @@ export function TitleBar({
         title="Run LLM audit to verify metadata matches file paths"
       >
         {auditing ? (
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="animate-spin">
-            <line x1="12" y1="2" x2="12" y2="6" />
-            <line x1="12" y1="18" x2="12" y2="22" />
-            <line x1="4.93" y1="4.93" x2="7.76" y2="7.76" />
-            <line x1="16.24" y1="16.24" x2="19.07" y2="19.07" />
-            <line x1="2" y1="12" x2="6" y2="12" />
-            <line x1="18" y1="12" x2="22" y2="12" />
-            <line x1="4.93" y1="19.07" x2="7.76" y2="16.24" />
-            <line x1="16.24" y1="7.76" x2="19.07" y2="4.93" />
-          </svg>
+          <SpinnerIcon />
         ) : (
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
             <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
@@ -212,6 +187,23 @@ export function TitleBar({
       />
 
       <div className="w-px h-4 bg-border no-drag" />
+
+      {/* Assistant toggle */}
+      <button
+        onClick={onToggleAssistant}
+        className="no-drag inline-flex items-center justify-center w-7 h-7 text-[#b4befe] hover:text-white rounded-lg hover:bg-[#b4befe]/10 transition-all"
+        title="Assistant"
+      >
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M12 8V4m0 0L9 7m3-3l3 3" />
+          <path d="M4 17L2 19v2h4v-2l-2-2z" />
+          <path d="M20 17l2 2v2h-4v-2l2-2z" />
+          <path d="M7 14l2.5 4h5L17 14" />
+          <path d="M12 14l-.5-.5" />
+          <circle cx="12" cy="12" r="3" />
+          <circle cx="12" cy="12" r="9" strokeWidth="1.5" />
+        </svg>
+      </button>
 
       {/* Dark mode toggle */}
       <button
@@ -286,7 +278,22 @@ export function TitleBar({
   );
 }
 
-// ── Toolbar Button ───────────────────────────────────────────────
+// ── Shared sub-components ───────────────────────────────────────────
+
+function SpinnerIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="animate-spin">
+      <line x1="12" y1="2" x2="12" y2="6" />
+      <line x1="12" y1="18" x2="12" y2="22" />
+      <line x1="4.93" y1="4.93" x2="7.76" y2="7.76" />
+      <line x1="16.24" y1="16.24" x2="19.07" y2="19.07" />
+      <line x1="2" y1="12" x2="6" y2="12" />
+      <line x1="18" y1="12" x2="22" y2="12" />
+      <line x1="4.93" y1="19.07" x2="7.76" y2="16.24" />
+      <line x1="16.24" y1="7.76" x2="19.07" y2="4.93" />
+    </svg>
+  );
+}
 
 function ToolbarButton({
   icon,

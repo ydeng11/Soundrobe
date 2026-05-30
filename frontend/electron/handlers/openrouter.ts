@@ -34,6 +34,7 @@ export interface OpenRouterConfig {
  */
 const MODEL_COST_RATES: Record<string, { prompt: number; completion: number }> = {
   "deepseek/deepseek-chat": { prompt: 0.00014, completion: 0.00028 },
+  "openrouter/owl-alpha": { prompt: 0, completion: 0 },
   "deepseek/deepseek-v4-flash:free": { prompt: 0, completion: 0 },
   "anthropic/claude-3.5-haiku": { prompt: 0.0008, completion: 0.004 },
   "google/gemini-2.0-flash-lite": { prompt: 0.000075, completion: 0.0003 },
@@ -69,7 +70,7 @@ export class OpenRouterClient {
     this.config = {
       ...config,
       baseUrl: config.baseUrl ?? OPENROUTER_BASE,
-      model: config.model ?? "deepseek/deepseek-chat",
+      // model comes from ...config; no fallback — must be provided by the caller
       temperature: config.temperature ?? 0.7,
       maxTokens: config.maxTokens ?? 1024,
     };
