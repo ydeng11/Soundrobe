@@ -4,16 +4,16 @@ tools = [
     "pi",
 ]
 
-[installed_skills.handoff]
-added = "2026-05-24"
-source = "https://github.com/mattpocock/skills/tree/main/skills/productivity/handoff"
-commit_sha = "b6250ed602f8a2b401d49274eb31e15695a0637f"
-scope = "project"
-covered_tools = ["pi"]
-
 [installed_skills.frontend-dev]
 added = "2026-05-24"
 source = "https://github.com/MiniMax-AI/skills/tree/main/skills/frontend-dev"
 commit_sha = "402078747a8e8c1a7beae487e9e2c50c5e9df07e"
+scope = "project"
+covered_tools = ["pi"]
+
+[installed_skills.handoff]
+added = "2026-05-24"
+source = "https://github.com/mattpocock/skills/tree/main/skills/productivity/handoff"
+commit_sha = "b6250ed602f8a2b401d49274eb31e15695a0637f"
 scope = "project"
 covered_tools = ["pi"]
