@@ -190,7 +190,11 @@ export interface ElectronAPI {
   showTrackContextMenu: (
     trackPath: string,
     labels: Record<string, string>
-  ) => Promise<"extra-tags" | null>;
+  ) => Promise<"extra-tags" | "delete-files" | null>;
+
+  deleteFiles: (filePaths: string[]) => Promise<
+    { path: string; success: boolean; error?: string }[]
+  >;
 
   // Directory browser
   listDirectory: (dirPath: string) => Promise<DirEntry[]>;
@@ -273,8 +277,14 @@ contextBridge.exposeInMainWorld("api", {
   showTrackContextMenu: (
     trackPath: string,
     labels: Record<string, string>
-  ): Promise<"extra-tags" | null> =>
+  ): Promise<"extra-tags" | "delete-files" | null> =>
     ipcRenderer.invoke("track:context-menu", trackPath, labels),
+
+  deleteFiles: (
+    filePaths: string[]
+  ): Promise<
+    { path: string; success: boolean; error?: string }[]
+  > => ipcRenderer.invoke("track:delete-files", filePaths),
 
   // Cover
   getCoverDataUrl: (albumPath: string) =>

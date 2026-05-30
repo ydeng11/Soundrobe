@@ -263,16 +263,17 @@ app.whenReady().then(async () => {
   ipcMain.handle(
     "track:context-menu",
     async (event, trackPath: string, labels: Record<string, string>) => {
-      if (process.env.AUTO_TAGGER_E2E_TRACK_CONTEXT_ACTION === "extra-tags") {
-        return "extra-tags";
+      const e2eAction = process.env.AUTO_TAGGER_E2E_TRACK_CONTEXT_ACTION;
+      if (e2eAction === "extra-tags" || e2eAction === "delete-files") {
+        return e2eAction;
       }
 
       const win = resolveWindow(event);
       if (!win) return null;
 
-      return new Promise<"extra-tags" | null>((resolve) => {
+      return new Promise<"extra-tags" | "delete-files" | null>((resolve) => {
         let resolved = false;
-        const finish = (action: "extra-tags" | null) => {
+        const finish = (action: "extra-tags" | "delete-files" | null) => {
           if (resolved) return;
           resolved = true;
           resolve(action);
@@ -285,6 +286,8 @@ app.whenReady().then(async () => {
 
         const menu = Menu.buildFromTemplate([
           { label: "Extra Tags...", click: () => finish("extra-tags") },
+          { type: "separator" },
+          { label: "Delete File(s)", click: () => finish("delete-files") },
           { type: "separator" },
           { label: "Copy Title", click: () => copy(labels.title) },
           { label: "Copy Artist", click: () => copy(labels.artist) },
@@ -317,6 +320,21 @@ app.whenReady().then(async () => {
       });
     },
   );
+
+  // Delete file(s) from disk
+  ipcMain.handle("track:delete-files", async (_event, filePaths: string[]) => {
+    const results: { path: string; success: boolean; error?: string }[] = [];
+    for (const filePath of filePaths) {
+      try {
+        await fs.promises.unlink(filePath);
+        results.push({ path: filePath, success: true });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        results.push({ path: filePath, success: false, error: message });
+      }
+    }
+    return results;
+  });
 
   // Auto-tag handlers
   ipcMain.handle("album:auto-tag", async (_event, albumPath: string) => {

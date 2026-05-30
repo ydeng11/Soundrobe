@@ -119,6 +119,7 @@ export type AppAction =
   | { type: "SET_LOADED"; loaded: boolean }
   | { type: "SET_ERROR"; error: string | null }
   | { type: "UPDATE_TRACK"; path: string; track: TrackData }
+  | { type: "UPDATE_TRACKS"; tracks: TrackData[] }
   | { type: "PUSH_UNDO"; description: string; snapshots: TrackSnapshot[] }
   | { type: "POP_UNDO" }
   | { type: "CLEAR_UNDO" }
@@ -249,6 +250,18 @@ export function appReducer(state: AppState, action: AppAction): AppState {
             ? { ...action.track }
             : state.selectedTrack,
       };
+
+    case "UPDATE_TRACKS": {
+      const updated = new Map(action.tracks.map((t) => [t.path, t]));
+      return {
+        ...state,
+        tracks: state.tracks.map((t) => updated.get(t.path) ?? t),
+        selectedTrack:
+          state.selectedTrackPath && updated.has(state.selectedTrackPath)
+            ? updated.get(state.selectedTrackPath)!
+            : state.selectedTrack,
+      };
+    }
 
     case "PUSH_UNDO":
       state.undoManager.push(action.description, action.snapshots);

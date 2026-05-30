@@ -423,4 +423,110 @@ describe("FileGrid", () => {
     ]);
     expect(onSelect).not.toHaveBeenCalled();
   });
+
+  it("calls onDeleteFiles when context menu returns delete-files from row", async () => {
+    const onSelect = vi.fn();
+    const onDeleteFiles = vi.fn();
+    window.api = {
+      showTrackContextMenu: vi.fn().mockResolvedValue("delete-files"),
+    } as unknown as Window["api"];
+
+    render(
+      <FileGrid
+        tracks={tracks}
+        selectedTrackPath={null}
+        filterText=""
+        onSelectTrack={onSelect}
+        onDeleteFiles={onDeleteFiles}
+      />
+    );
+
+    fireEvent.contextMenu(screen.getByText("music/song1.mp3"));
+
+    await waitFor(() => {
+      expect(onDeleteFiles).toHaveBeenCalledWith(["/music/song1.mp3"]);
+    });
+  });
+
+  it("calls onDeleteFiles with all selected paths when multi-selected and context menu returns delete-files", async () => {
+    const onSelect = vi.fn();
+    const onMulti = vi.fn();
+    const onDeleteFiles = vi.fn();
+    window.api = {
+      showTrackContextMenu: vi.fn().mockResolvedValue("delete-files"),
+    } as unknown as Window["api"];
+
+    render(
+      <FileGrid
+        tracks={tracks}
+        selectedTrackPath="/music/song1.mp3"
+        selectedTrackPaths={["/music/song1.mp3", "/music/song2.mp3"]}
+        filterText=""
+        onSelectTrack={onSelect}
+        onMultiSelect={onMulti}
+        onDeleteFiles={onDeleteFiles}
+      />
+    );
+
+    fireEvent.contextMenu(screen.getByText("music/song1.mp3"));
+
+    await waitFor(() => {
+      expect(onDeleteFiles).toHaveBeenCalledWith([
+        "/music/song1.mp3",
+        "/music/song2.mp3",
+      ]);
+    });
+  });
+
+  it("calls onDeleteFiles from blank table space when tracks are selected", async () => {
+    const onSelect = vi.fn();
+    const onDeleteFiles = vi.fn();
+    window.api = {
+      showTrackContextMenu: vi.fn().mockResolvedValue("delete-files"),
+    } as unknown as Window["api"];
+
+    render(
+      <FileGrid
+        tracks={tracks}
+        selectedTrackPath="/music/song1.mp3"
+        selectedTrackPaths={["/music/song1.mp3", "/music/song2.mp3"]}
+        filterText=""
+        onSelectTrack={onSelect}
+        onDeleteFiles={onDeleteFiles}
+      />
+    );
+
+    fireEvent.contextMenu(screen.getByTestId("file-grid-body"));
+
+    await waitFor(() => {
+      expect(onDeleteFiles).toHaveBeenCalledWith([
+        "/music/song1.mp3",
+        "/music/song2.mp3",
+      ]);
+    });
+  });
+
+  it("ignores blank table-space context menus for delete when no tracks selected", () => {
+    const onSelect = vi.fn();
+    const onDeleteFiles = vi.fn();
+    window.api = {
+      showTrackContextMenu: vi.fn().mockResolvedValue("delete-files"),
+    } as unknown as Window["api"];
+
+    render(
+      <FileGrid
+        tracks={tracks}
+        selectedTrackPath={null}
+        selectedTrackPaths={[]}
+        filterText=""
+        onSelectTrack={onSelect}
+        onDeleteFiles={onDeleteFiles}
+      />
+    );
+
+    fireEvent.contextMenu(screen.getByTestId("file-grid-body"));
+
+    expect(window.api.showTrackContextMenu).not.toHaveBeenCalled();
+    expect(onDeleteFiles).not.toHaveBeenCalled();
+  });
 });

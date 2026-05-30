@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useRef, useCallback, useEffect, useLayoutEffect } from "react";
+import React, { useMemo, useState, useRef, useCallback, useEffect, useLayoutEffect, memo } from "react";
 import type { TrackData } from "../../electron/preload";
 
 type SortKey =
@@ -61,6 +61,7 @@ interface FileGridProps {
   onSelectTrack: (path: string, track: TrackData) => void;
   onMultiSelect?: (paths: string[]) => void;
   onEditExtraTags?: (track: TrackData, selectedPaths: string[]) => void;
+  onDeleteFiles?: (paths: string[]) => void;
 }
 
 export function FileGrid({
@@ -71,14 +72,26 @@ export function FileGrid({
   onSelectTrack,
   onMultiSelect,
   onEditExtraTags,
+  onDeleteFiles,
 }: FileGridProps) {
   const [sortKey, setSortKey] = useState<SortKey>("track");
   const [sortAsc, setSortAsc] = useState(true);
-  const [multiSelected, setMultiSelected] = useState<Set<string>>(new Set());
   const lastClickedRef = useRef<number>(-1);
 
   const [visibleColumns, setVisibleColumns] = useState<Set<string>>(
     () => new Set(ALL_COLUMNS.filter((c) => !c.defaultHidden).map((c) => c.key))
+  );
+
+  // Memoize visible column descriptors — stable identity while visible set is unchanged
+  const COLUMNS = useMemo(
+    () => ALL_COLUMNS.filter((c) => visibleColumns.has(c.key)),
+    [visibleColumns]
+  );
+
+  // Derive multi-selected paths from props instead of mirroring in local state
+  const multiSelected = useMemo(
+    () => new Set(selectedTrackPaths),
+    [selectedTrackPaths]
   );
 
   // Draggable column widths (pixel values)
@@ -227,13 +240,7 @@ export function FileGrid({
     }
   }, [contextMenu]);
 
-  const COLUMNS = ALL_COLUMNS.filter((c) => visibleColumns.has(c.key));
-
-  useEffect(() => {
-    setMultiSelected(new Set(selectedTrackPaths));
-  }, [selectedTrackPaths]);
-
-  const toggleColumn = (key: string) => {
+  const toggleColumn = useCallback((key: string) => {
     setVisibleColumns((prev) => {
       const next = new Set(prev);
       // Don't allow hiding the last column
@@ -245,16 +252,16 @@ export function FileGrid({
       }
       return next;
     });
-  };
+  }, []);
 
-  const toggleSort = (key: SortKey) => {
+  const toggleSort = useCallback((key: SortKey) => {
     if (key === sortKey) {
-      setSortAsc(!sortAsc);
+      setSortAsc((prev) => !prev);
     } else {
       setSortKey(key);
       setSortAsc(true);
     }
-  };
+  }, [sortKey]);
 
   const sorted = useMemo(() => {
     let list = tracks;
@@ -309,6 +316,9 @@ export function FileGrid({
     });
   }, [tracks, filterText, sortKey, sortAsc]);
 
+  // Memoize the sorted paths array for quick lookups in the Cmd+A handler
+  const sortedPaths = useMemo(() => sorted.map((t) => t.path), [sorted]);
+
   // Select all with Cmd+A (when focus is not in an input/textarea)
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -318,14 +328,12 @@ export function FileGrid({
           return; // Let native select-all work in text fields
         }
         e.preventDefault();
-        const allPaths = sorted.map((t) => t.path);
-        setMultiSelected(new Set(allPaths));
-        onMultiSelect?.(allPaths);
+        onMultiSelect?.(sortedPaths);
       }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [sorted, onMultiSelect]);
+  }, [sortedPaths, onMultiSelect]);
 
   const showTrackMenu = useCallback(
     async (track: TrackData) => {
@@ -350,14 +358,14 @@ export function FileGrid({
       e.preventDefault();
       e.stopPropagation();
 
-      const isSelected = selectedTrackPaths.includes(track.path);
+      const currentPaths = selectedTrackPaths;
+      const isSelected = currentPaths.includes(track.path);
       const menuSelectedPaths =
-        isSelected && selectedTrackPaths.length > 1
-          ? selectedTrackPaths
+        isSelected && currentPaths.length > 1
+          ? currentPaths
           : [track.path];
 
-      if (!isSelected || selectedTrackPaths.length <= 1) {
-        setMultiSelected(new Set([track.path]));
+      if (!isSelected || currentPaths.length <= 1) {
         onMultiSelect?.([track.path]);
         onSelectTrack(track.path, track);
       }
@@ -366,9 +374,11 @@ export function FileGrid({
 
       if (action === "extra-tags") {
         onEditExtraTags?.(track, menuSelectedPaths);
+      } else if (action === "delete-files") {
+        onDeleteFiles?.(menuSelectedPaths);
       }
     },
-    [onEditExtraTags, onMultiSelect, onSelectTrack, selectedTrackPaths, showTrackMenu],
+    [onEditExtraTags, onDeleteFiles, onMultiSelect, onSelectTrack, selectedTrackPaths, showTrackMenu],
   );
 
   const handleFileAreaContextMenu = useCallback(
@@ -390,9 +400,11 @@ export function FileGrid({
 
       if (action === "extra-tags") {
         onEditExtraTags?.(primary, selectedTrackPaths);
+      } else if (action === "delete-files") {
+        onDeleteFiles?.(selectedTrackPaths);
       }
     },
-    [onEditExtraTags, selectedTrackPaths, showTrackMenu, sorted, tracks],
+    [onEditExtraTags, onDeleteFiles, selectedTrackPaths, showTrackMenu, sorted, tracks],
   );
 
   const handleRowClick = useCallback(
@@ -400,54 +412,23 @@ export function FileGrid({
       if (event.shiftKey && lastClickedRef.current >= 0) {
         const from = Math.min(lastClickedRef.current, index);
         const to = Math.max(lastClickedRef.current, index);
-        const range = new Set<string>();
+        const range: string[] = [];
         for (let i = from; i <= to; i++) {
-          range.add(sorted[i].path);
+          range.push(sorted[i].path);
         }
-        setMultiSelected(range);
-        onMultiSelect?.(Array.from(range));
+        onMultiSelect?.(range);
         // Don't call onSelectTrack for range selects — the SELECT_TRACK action would
         // overwrite selectedTrackPaths to a single element, hiding the BatchEditor.
         // The BatchEditor (shown when selectedTrackPaths.length > 1) gets cover art
         // from handleMultiSelect's first-track logic anyway.
       } else {
-        setMultiSelected(new Set([track.path]));
         onMultiSelect?.([track.path]);
         lastClickedRef.current = index;
         onSelectTrack(track.path, track);
       }
     },
-    [sorted, onSelectTrack]
+    [sorted, onSelectTrack, onMultiSelect]
   );
-
-  const getCellValue = (track: TrackData, key: SortKey): string => {
-    switch (key) {
-      case "filename":
-        return shortPath(track.path);
-      case "title":
-        return track.title ?? "—";
-      case "artist":
-        return track.artist ?? "—";
-      case "albumArtist":
-        return track.albumArtist ?? "—";
-      case "album":
-        return track.album ?? "—";
-      case "year":
-        return track.year ?? "—";
-      case "track":
-        return track.trackNumber != null
-          ? track.trackTotal != null
-            ? `${track.trackNumber}/${track.trackTotal}`
-            : String(track.trackNumber)
-          : "—";
-      case "genre":
-        return track.genre ?? "—";
-      case "duration":
-        return formatDuration(track.duration);
-      case "bitrate":
-        return track.bitrate ? `${Math.round(track.bitrate / 1000)}k` : "—";
-    }
-  };
 
   const handleHeaderContextMenu = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -562,61 +543,20 @@ export function FileGrid({
             </div>
           </div>
         ) : (
-          sorted.map((track, i) => {
-            const isPrimary = track.path === selectedTrackPath;
-            const isMulti = multiSelected.has(track.path);
-            const altRow = i % 2 === 0;
-            return (
-              <div
-                key={track.path}
-                onClick={(e) => handleRowClick(track, i, e)}
-                onContextMenu={(e) => handleRowContextMenu(e, track)}
-                className={`flex items-center px-3 py-1 text-[12.5px] cursor-pointer select-none border-b border-border/30 transition-all duration-100 ${
-                  isPrimary
-                    ? "bg-table-selected border-table-selectedBorder shadow-[inset_2px_0_0_0_rgba(0,122,255,0.5)]"
-                    : isMulti
-                      ? "bg-table-selected/60"
-                      : altRow
-                        ? "bg-table-alt"
-                        : "bg-table-row"
-                } hover:bg-table-selected/40 active:scale-[1.001]`}
-              >
-                {COLUMNS.map((col, ci) => (
-                  <React.Fragment key={col.key}>
-                    <span
-                      className={`shrink-0 ${
-                        col.align === "right" ? "text-right" : "text-left"
-                      } px-1.5 truncate ${
-                        isPrimary
-                          ? "text-text-primary font-medium"
-                          : "text-text-secondary"
-                      }`}
-                      style={{
-                        width: columnWidths?.[col.key] ?? (col.width.includes("-") ? 80 : 120),
-                        minWidth: MIN_COL_WIDTH,
-                      }}
-                    >
-                      {col.key === "filename" ? (
-                        <span className="flex items-center gap-2">
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-text-muted">
-                            <path d="M9 18V5l12-2v13" />
-                            <circle cx="6" cy="18" r="3" />
-                            <circle cx="18" cy="16" r="3" />
-                          </svg>
-                          <span>{getCellValue(track, col.key)}</span>
-                        </span>
-                      ) : (
-                        getCellValue(track, col.key)
-                      )}
-                    </span>
-                    {ci < COLUMNS.length - 1 && (
-                      <div className="shrink-0 w-[5px]" />
-                    )}
-                  </React.Fragment>
-                ))}
-              </div>
-            );
-          })
+          sorted.map((track, i) => (
+            <FileGridRow
+              key={track.path}
+              track={track}
+              index={i}
+              isAltRow={i % 2 === 0}
+              isPrimary={track.path === selectedTrackPath}
+              isMulti={multiSelected.has(track.path)}
+              columns={COLUMNS}
+              columnWidths={columnWidths}
+              onRowClick={handleRowClick}
+              onRowContextMenu={handleRowContextMenu}
+            />
+          ))
         )}
       </div>
 
@@ -653,6 +593,116 @@ export function FileGrid({
     </div>
   );
 }
+
+function getCellValue(track: TrackData, key: SortKey): string {
+  switch (key) {
+    case "filename":
+      return shortPath(track.path);
+    case "title":
+      return track.title ?? "—";
+    case "artist":
+      return track.artist ?? "—";
+    case "albumArtist":
+      return track.albumArtist ?? "—";
+    case "album":
+      return track.album ?? "—";
+    case "year":
+      return track.year ?? "—";
+    case "track":
+      return track.trackNumber != null
+        ? track.trackTotal != null
+          ? `${track.trackNumber}/${track.trackTotal}`
+          : String(track.trackNumber)
+        : "—";
+    case "genre":
+      return track.genre ?? "—";
+    case "duration":
+      return formatDuration(track.duration);
+    case "bitrate":
+      return track.bitrate ? `${Math.round(track.bitrate / 1000)}k` : "—";
+  }
+}
+
+// ── Memoized row component ──
+
+interface FileGridRowProps {
+  track: TrackData;
+  index: number;
+  isAltRow: boolean;
+  isPrimary: boolean;
+  isMulti: boolean;
+  columns: Column[];
+  columnWidths: Record<string, number> | null;
+  onRowClick: (track: TrackData, index: number, event: React.MouseEvent) => void;
+  onRowContextMenu: (e: React.MouseEvent, track: TrackData) => void;
+}
+
+const FileGridRow = memo(function FileGridRow({
+  track,
+  index,
+  isAltRow,
+  isPrimary,
+  isMulti,
+  columns,
+  columnWidths,
+  onRowClick,
+  onRowContextMenu,
+}: FileGridRowProps) {
+  const rowClass = [
+    "flex items-center px-3 py-1 text-[12.5px] cursor-pointer select-none border-b border-border/30",
+    "transition-colors duration-75",
+    isPrimary
+      ? "bg-table-selected border-table-selectedBorder shadow-[inset_2px_0_0_0_rgba(0,122,255,0.5)]"
+      : isMulti
+        ? "bg-table-selected/60"
+        : isAltRow
+          ? "bg-table-alt"
+          : "bg-table-row",
+    "hover:bg-table-selected/40",
+  ].join(" ");
+
+  return (
+    <div
+      onClick={(e) => onRowClick(track, index, e)}
+      onContextMenu={(e) => onRowContextMenu(e, track)}
+      className={rowClass}
+    >
+      {columns.map((col, ci) => (
+        <React.Fragment key={col.key}>
+          <span
+            className={`shrink-0 ${
+              col.align === "right" ? "text-right" : "text-left"
+            } px-1.5 truncate ${
+              isPrimary
+                ? "text-text-primary font-medium"
+                : "text-text-secondary"
+            }`}
+            style={{
+              width: columnWidths?.[col.key] ?? (col.width.includes("-") ? 80 : 120),
+              minWidth: MIN_COL_WIDTH,
+            }}
+          >
+            {col.key === "filename" ? (
+              <span className="flex items-center gap-2">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-text-muted">
+                  <path d="M9 18V5l12-2v13" />
+                  <circle cx="6" cy="18" r="3" />
+                  <circle cx="18" cy="16" r="3" />
+                </svg>
+                <span>{getCellValue(track, col.key)}</span>
+              </span>
+            ) : (
+              getCellValue(track, col.key)
+            )}
+          </span>
+          {ci < columns.length - 1 && (
+            <div className="shrink-0 w-[5px]" />
+          )}
+        </React.Fragment>
+      ))}
+    </div>
+  );
+});
 
 function shortPath(p: string): string {
   return p.split("/").slice(-4).join("/").replace(/^\//, "");

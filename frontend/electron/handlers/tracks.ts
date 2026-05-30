@@ -414,6 +414,30 @@ function parsePositiveInt(value: string | undefined): number | null {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
 }
 
+/**
+ * Concurrent map with a concurrency limit.
+ * Preserves output order relative to input order.
+ */
+async function mapLimit<T, U>(
+  items: T[],
+  limit: number,
+  fn: (item: T) => Promise<U>,
+): Promise<U[]> {
+  const results: U[] = new Array(items.length);
+  let nextIndex = 0;
+
+  const worker = async (): Promise<void> => {
+    while (nextIndex < items.length) {
+      const i = nextIndex++;
+      results[i] = await fn(items[i]);
+    }
+  };
+
+  const workers = Array.from({ length: Math.min(limit, items.length) }, () => worker());
+  await Promise.all(workers);
+  return results;
+}
+
 /** Read all track metadata for an album directory. */
 export async function readAlbum(
   albumPath: string
@@ -438,19 +462,17 @@ export async function readAlbum(
   }
   audioFiles.sort();
 
-  const tracks: TrackData[] = [];
   let errorCount = 0;
 
-  for (const audioFile of audioFiles) {
+  const tracks = await mapLimit(audioFiles, 6, async (audioFile) => {
     try {
-      const track = await readTrackMetadata(audioFile);
-      tracks.push(track);
+      return await readTrackMetadata(audioFile);
     } catch {
       errorCount++;
       const fileStat = fs.statSync(audioFile);
-      tracks.push(minimalTrack(audioFile, fileStat.size));
+      return minimalTrack(audioFile, fileStat.size);
     }
-  }
+  });
 
   const dirName = path.basename(albumPath);
   const parentDir = path.basename(path.dirname(albumPath));

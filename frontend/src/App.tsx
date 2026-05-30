@@ -1,4 +1,4 @@
-import React, { useReducer, useCallback, useEffect, useMemo } from "react";
+import React, { useReducer, useCallback, useEffect, useMemo, useRef } from "react";
 import { appReducer, initialAppState } from "./state/AppState";
 import type { TrackSnapshot } from "./state/UndoManager";
 import { TitleBar } from "./components/TitleBar";
@@ -26,6 +26,67 @@ export default function App() {
   const [showConvertDialog, setShowConvertDialog] = React.useState(false);
   const [extraTagsTrack, setExtraTagsTrack] = React.useState<TrackData | null>(null);
   const [batchExtraTagsOpen, setBatchExtraTagsOpen] = React.useState(false);
+
+  // Cover URL cache: albumPath → dataUrl | null
+  const coverUrlCacheRef = useRef<Map<string, string | null>>(new Map());
+  // Abort controller for stale cover responses
+  const coverAbortRef = useRef<AbortController | null>(null);
+  // Debounce timer for rapid cover navigation
+  const coverDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  /** Fetch cover data URL with caching and stale-response guarding. */
+  const fetchCover = useCallback(
+    (albumPath: string, signal?: AbortSignal) => {
+      const cached = coverUrlCacheRef.current.get(albumPath);
+      if (cached !== undefined) {
+        dispatch({ type: "SET_COVER_URL", url: cached });
+        return;
+      }
+
+      window.api
+        .getCoverDataUrl(albumPath)
+        .then(
+          (url) => {
+            if (signal?.aborted) return;
+            coverUrlCacheRef.current.set(albumPath, url);
+            dispatch({ type: "SET_COVER_URL", url });
+          },
+          () => {
+            if (signal?.aborted) return;
+            coverUrlCacheRef.current.set(albumPath, null);
+            dispatch({ type: "SET_COVER_URL", url: null });
+          },
+        );
+    },
+    [],
+  );
+
+  /** Debounced cover fetch — cancels previous in-flight request. */
+  const debouncedFetchCover = useCallback(
+    (albumPath: string) => {
+      if (coverDebounceRef.current) {
+        clearTimeout(coverDebounceRef.current);
+      }
+      if (coverAbortRef.current) {
+        coverAbortRef.current.abort();
+      }
+      const abort = new AbortController();
+      coverAbortRef.current = abort;
+
+      coverDebounceRef.current = setTimeout(() => {
+        fetchCover(albumPath, abort.signal);
+      }, 80);
+    },
+    [fetchCover],
+  );
+
+  // Cleanup debounce and abort on unmount
+  useEffect(() => {
+    return () => {
+      if (coverDebounceRef.current) clearTimeout(coverDebounceRef.current);
+      if (coverAbortRef.current) coverAbortRef.current.abort();
+    };
+  }, []);
 
   /** Read track data for every album and dispatch results. */
   const loadAlbumTracks = useCallback(
@@ -132,30 +193,21 @@ export default function App() {
       if (paths.length > 0) {
         const primary = state.tracks.find((t) => t.path === paths[0]);
         if (primary) {
-          window.api.getCoverDataUrl(dirPath(primary.path)).then(
-            (url) => dispatch({ type: "SET_COVER_URL", url }),
-            () => dispatch({ type: "SET_COVER_URL", url: null }),
-          );
+          fetchCover(dirPath(primary.path));
         }
       }
     },
-    [state.tracks],
+    [state.tracks, fetchCover],
   );
 
   // --- Track selection ---
 
   const handleSelectTrack = useCallback(
-    async (path: string, track: TrackData) => {
+    (path: string, track: TrackData) => {
       dispatch({ type: "SELECT_TRACK", path, track });
-
-      try {
-        const url = await window.api.getCoverDataUrl(dirPath(path));
-        dispatch({ type: "SET_COVER_URL", url });
-      } catch {
-        dispatch({ type: "SET_COVER_URL", url: null });
-      }
+      debouncedFetchCover(dirPath(path));
     },
-    [],
+    [debouncedFetchCover],
   );
 
   const handleEditExtraTagsFromSelection = useCallback(
@@ -172,7 +224,48 @@ export default function App() {
     [],
   );
 
-  // --- Field editing (batch save via Save button, no auto-save) ---
+  // --- Delete files ---
+
+  const handleDeleteFiles = useCallback(
+    async (paths: string[]) => {
+      if (paths.length === 0) return;
+
+      const plural = paths.length !== 1;
+      const confirmMsg = `Delete ${paths.length} file${plural ? "s" : ""} permanently?\n\nThis cannot be undone.`;
+      if (!window.confirm(confirmMsg)) return;
+
+      dispatch({ type: "SET_SAVING", saving: true });
+      dispatch({ type: "SET_ERROR", error: null });
+
+      try {
+        const results = await window.api.deleteFiles(paths);
+
+        const failed = results.filter((r) => !r.success);
+        if (failed.length > 0) {
+          const messages = failed.map((r) => `${r.path}: ${r.error}`).join("; ");
+          dispatch({ type: "SET_ERROR", error: `Failed to delete ${failed.length} file(s): ${messages}` });
+        }
+
+        // Remove deleted paths from state
+        const deletedSet = new Set(results.filter((r) => r.success).map((r) => r.path));
+        const remaining = state.tracks.filter((t) => !deletedSet.has(t.path));
+        dispatch({ type: "SET_TRACKS", tracks: remaining });
+
+        // Clear selection if selected files were deleted
+        const hadSelected = state.selectedTrackPaths.some((p) => deletedSet.has(p));
+        if (hadSelected) {
+          dispatch({ type: "CLEAR_SELECTION" });
+        }
+      } catch (err: unknown) {
+        const message =
+          err instanceof Error ? err.message : "Failed to delete files";
+        dispatch({ type: "SET_ERROR", error: message });
+      } finally {
+        dispatch({ type: "SET_SAVING", saving: false });
+      }
+    },
+    [state.tracks, state.selectedTrackPaths],
+  );
 
   const handleSaveMetadata = useCallback(
     async (fields: Record<string, string>) => {
@@ -251,16 +344,10 @@ export default function App() {
           track: result,
         });
 
-        // Refresh cover if album or title changed
+        // Refresh cover if album or title changed (clear cache so re-fetch is fresh)
         if (fields.album !== undefined || fields.title !== undefined) {
-          try {
-            const url = await window.api.getCoverDataUrl(
-              dirPath(track.path),
-            );
-            dispatch({ type: "SET_COVER_URL", url });
-          } catch {
-            // ignore
-          }
+          coverUrlCacheRef.current.delete(dirPath(track.path));
+          fetchCover(dirPath(track.path));
         }
       } catch (err: unknown) {
         dispatch({
@@ -863,13 +950,14 @@ export default function App() {
     return state.tracks.filter((t) => pathSet.has(t.path));
   }, [state.selectedTrackPaths, state.tracks]);
 
-  // Handle batch field save from BatchEditor
+  // Handle batch field save from BatchEditor — single IPC call
   const handleBatchSave = useCallback(
     async (fields: Record<string, string>) => {
       const paths = state.selectedTrackPaths;
       if (paths.length === 0) return;
 
       const snapshots: TrackSnapshot[] = [];
+      const updates: Array<{ path: string; fields: Record<string, unknown> }> = [];
 
       for (const path of paths) {
         const track = state.tracks.find((t) => t.path === path);
@@ -897,22 +985,20 @@ export default function App() {
             musicbrainzArtistId: track.musicbrainzArtistId,
           },
         });
+
+        const writeFields: Record<string, unknown> = {};
+        for (const [key, value] of Object.entries(fields)) {
+          writeFields[key] = value || null;
+        }
+        updates.push({ path, fields: writeFields });
       }
 
       dispatch({ type: "PUSH_UNDO", description: "Batch edit", snapshots });
-
-      const writeFields: Record<string, unknown> = {};
-      for (const [key, value] of Object.entries(fields)) {
-        writeFields[key] = value || null;
-      }
-
       dispatch({ type: "SET_SAVING", saving: true });
 
       try {
-        for (const path of paths) {
-          const result = await window.api.writeTrack(path, writeFields);
-          dispatch({ type: "UPDATE_TRACK", path, track: result });
-        }
+        const results = await window.api.writeTracks(updates);
+        dispatch({ type: "UPDATE_TRACKS", tracks: results });
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : "Batch save failed";
         dispatch({ type: "SET_ERROR", error: message });
@@ -935,9 +1021,7 @@ export default function App() {
       try {
         const updates = paths.map((path) => ({ path, tags }));
         const results = await window.api.writeExtraTagsBatch(updates);
-        for (let i = 0; i < paths.length; i++) {
-          dispatch({ type: "UPDATE_TRACK", path: paths[i], track: results[i] });
-        }
+        dispatch({ type: "UPDATE_TRACKS", tracks: results });
         setBatchExtraTagsOpen(false);
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : "Batch extra tags save failed";
@@ -1021,6 +1105,7 @@ export default function App() {
             onSelectTrack={handleSelectTrack}
             onMultiSelect={handleMultiSelect}
             onEditExtraTags={handleEditExtraTagsFromSelection}
+            onDeleteFiles={handleDeleteFiles}
           />
         </div>
 
