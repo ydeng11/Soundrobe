@@ -467,7 +467,7 @@ export function FileGrid({
             <button
               onClick={() => toggleSort(col.key)}
               className={`flex items-center gap-1 px-1.5 hover:text-text-secondary transition-colors truncate shrink-0 ${
-                col.align === "right" ? "text-right justify-end" : "text-left"
+                col.align === "right" ? "text-center justify-center" : "text-left"
               }`}
               style={{
                 width: columnWidths?.[col.key] ?? (col.width.includes("-") ? 80 : 120),

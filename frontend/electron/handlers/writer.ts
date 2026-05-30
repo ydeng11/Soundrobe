@@ -535,6 +535,15 @@ function writeFlacMetadataBlock(
 ): void {
   const buf = fs.readFileSync(filePath);
 
+  // Safety guard: abort if file doesn't start with "fLaC" marker.
+  // Writing a new block to a headerless file would silently corrupt it
+  // by prepending a bare metadata block without the FLAC stream marker.
+  if (buf.length < 4 || buf.toString("ascii", 0, 4) !== "fLaC") {
+    throw new Error(
+      `Cannot write FLAC metadata: file does not start with fLaC marker (${filePath})`,
+    );
+  }
+
   // isLast flag is corrected in the replacement logic below
   const header = Buffer.alloc(4);
   header[0] = blockType & 0x7f;
