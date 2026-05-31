@@ -2,6 +2,8 @@ import React, { useReducer, useCallback, useEffect, useMemo, useRef } from "reac
 import { appReducer, initialAppState } from "./state/AppState";
 import type { TrackSnapshot } from "./state/UndoManager";
 import { TitleBar } from "./components/TitleBar";
+import { AssistantPanel } from "./components/AssistantPanel";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import { Sidebar } from "./components/Sidebar";
 import { FileGrid } from "./components/FileGrid";
 import { MetadataEditor } from "./components/MetadataEditor";
@@ -14,18 +16,23 @@ import { ConvertDialog } from "./components/ConvertDialog";
 import { ExtraTagsEditor } from "./components/ExtraTagsEditor";
 import { BatchExtraTagsEditor } from "./components/BatchExtraTagsEditor";
 import type { ConvertResult } from "./components/ConvertDialog";
-import type { TrackData, AlbumInfo } from "../electron/preload";
+import type { ExtraTagUndoSnapshot, TrackData, AlbumInfo } from "../electron/preload";
 
 /** Get the parent directory of a path. */
 function dirPath(p: string): string {
   return p.split("/").slice(0, -1).join("/");
 }
 
+const EXTRA_TAG_UNDO_FIELD = "__assistantExtraTags";
+
 export default function App() {
   const [state, dispatch] = useReducer(appReducer, initialAppState);
   const [showConvertDialog, setShowConvertDialog] = React.useState(false);
   const [extraTagsTrack, setExtraTagsTrack] = React.useState<TrackData | null>(null);
   const [batchExtraTagsOpen, setBatchExtraTagsOpen] = React.useState(false);
+  const [showAssistant, setShowAssistant] = React.useState(false);
+  const [assistantApiKey, setAssistantApiKey] = React.useState("");
+  const [assistantModel, setAssistantModel] = React.useState("");
 
   // Cover URL cache: albumPath → dataUrl | null
   const coverUrlCacheRef = useRef<Map<string, string | null>>(new Map());
@@ -427,7 +434,18 @@ export default function App() {
         // this was a file rename operation, not a tag write
         const oldPath =
           typeof snap.fields.path === "string" ? snap.fields.path : null;
-        if (oldPath && snap.path !== oldPath) {
+        const extraTags = snap.fields[EXTRA_TAG_UNDO_FIELD];
+        if (Array.isArray(extraTags)) {
+          try {
+            const track = await window.api.writeExtraTags(
+              snap.path,
+              extraTags as Array<{ key: string; value: string }>,
+            );
+            dispatch({ type: "UPDATE_TRACK", path: snap.path, track });
+          } catch {
+            console.warn("Undo extra tags failed for:", snap.path);
+          }
+        } else if (oldPath && snap.path !== oldPath) {
           // Rename the file back to its original path
           try {
             const track = await window.api.renameTrack(snap.path, oldPath);
@@ -950,6 +968,205 @@ export default function App() {
     dispatch({ type: "TOGGLE_SETTINGS", show: false });
   }, []);
 
+  // --- Assistant ---
+
+  const handleToggleAssistant = useCallback(() => {
+    setShowAssistant((prev) => !prev);
+  }, []);
+
+  const handleCloseAssistant = useCallback(() => {
+    setShowAssistant(false);
+  }, []);
+
+  // Load API key for assistant on mount, when assistant panel opens, or settings change
+  useEffect(() => {
+    window.api.getConfig().then(
+      (cfg) => {
+        setAssistantApiKey((cfg.llmApiKey as string) ?? "");
+        setAssistantModel((cfg.llmModel as string) ?? "");
+      },
+      () => {
+        // Silently fail — assistant just won't work until API key is configured
+      },
+    );
+  }, [state.showSettings, showAssistant]); // Re-read when settings or assistant opens
+
+  const handleAssistantRefresh = useCallback(async () => {
+    // Re-read current album or library after assistant applies changes
+    if (state.activeAlbumPath) {
+      try {
+        const detail = await window.api.readAlbum(state.activeAlbumPath);
+        dispatch({ type: "SET_TRACKS", tracks: detail.tracks });
+      } catch {
+        // Ignore — refresh best-effort
+      }
+    } else if (state.libraryPath) {
+      try {
+        const albums = await window.api.scanLibrary(state.libraryPath);
+        dispatch({ type: "SET_ALBUMS", albums });
+      } catch {
+        // Ignore
+      }
+    }
+  }, [state.activeAlbumPath, state.libraryPath]);
+
+  const handleAssistantApplyUndo = useCallback(
+    (
+      description: string,
+      snapshots: Array<{ path: string; metadata?: Record<string, unknown> } | ExtraTagUndoSnapshot>,
+      kind: "tag-update" | "extra-tag-update",
+    ) => {
+      const trackSnapshots = snapshots.map((s) => ({
+        path: s.path,
+        fields: kind === "extra-tag-update"
+          ? { [EXTRA_TAG_UNDO_FIELD]: (s as ExtraTagUndoSnapshot).extraTags }
+          : ((s as { metadata?: Record<string, unknown> }).metadata ?? {}),
+      }));
+      dispatch({ type: "PUSH_UNDO", description, snapshots: trackSnapshots });
+    },
+    [],
+  );
+
+  const handleAssistantRunTask = useCallback(
+    async (task: "auto_tag" | "audit", trackPaths: string[]) => {
+      if (!state.libraryPath || trackPaths.length === 0) return;
+
+      if (task === "audit") {
+        if (state.auditing) return;
+
+        dispatch({ type: "SET_AUDITING", auditing: true });
+        dispatch({ type: "CLEAR_AUDIT_RESULTS" });
+        dispatch({ type: "SET_ERROR", error: null });
+
+        let unsubscribe: (() => void) | null = null;
+        try {
+          unsubscribe = window.api.onAuditEvent((event) => {
+            if (event.type === "progress") {
+              dispatch({
+                type: "SET_AUDIT_PROGRESS",
+                progress: {
+                  current: event.current ?? 0,
+                  total: event.total ?? 1,
+                  message: event.message ?? "Auditing...",
+                },
+              });
+            } else if (event.type === "album-result" && event.albumPath && event.results) {
+              dispatch({
+                type: "ADD_AUDIT_RESULTS",
+                albumPath: event.albumPath,
+                results: event.results.map((r) => ({
+                  trackIndex: r.index,
+                  field: r.field,
+                  status: r.status as "correct" | "warning" | "error",
+                  message: r.message ?? null,
+                  suggestion: r.suggestion ?? null,
+                })),
+              });
+            } else if (event.type === "failed") {
+              dispatch({ type: "SET_ERROR", error: event.message ?? "Audit failed" });
+            }
+          });
+
+          await window.api.runAuditOnTracks(trackPaths);
+          await handleAssistantRefresh();
+        } catch (err: unknown) {
+          const message = err instanceof Error ? err.message : "Audit failed";
+          dispatch({ type: "SET_ERROR", error: message });
+        } finally {
+          if (unsubscribe) unsubscribe();
+          dispatch({ type: "SET_AUDITING", auditing: false });
+          dispatch({ type: "SET_AUDIT_PROGRESS", progress: null });
+        }
+        return;
+      }
+
+      if (state.autoTagging) return;
+
+      const albumPaths = Array.from(new Set(trackPaths.map(dirPath)));
+      const affectedAlbums = new Set(albumPaths);
+      const snapshots: TrackSnapshot[] = state.tracks
+        .filter((track) => affectedAlbums.has(dirPath(track.path)))
+        .map((track) => ({
+          path: track.path,
+          fields: {
+            title: track.title,
+            artist: track.artist,
+            artists: track.artists,
+            album: track.album,
+            albumArtist: track.albumArtist,
+            albumArtists: track.albumArtists,
+            year: track.year,
+            trackNumber: track.trackNumber,
+            trackTotal: track.trackTotal,
+            discNumber: track.discNumber,
+            discTotal: track.discTotal,
+            genre: track.genre,
+            composer: track.composer,
+            comment: track.comment ?? null,
+            musicbrainzTrackId: track.musicbrainzTrackId,
+            musicbrainzAlbumId: track.musicbrainzAlbumId,
+            musicbrainzArtistId: track.musicbrainzArtistId,
+          },
+        }));
+      if (snapshots.length > 0) {
+        dispatch({
+          type: "PUSH_UNDO",
+          description: `Assistant auto-tag (${albumPaths.length} album${albumPaths.length !== 1 ? "s" : ""})`,
+          snapshots,
+        });
+      }
+
+      dispatch({ type: "SET_AUTO_TAGGING", autoTagging: true });
+      dispatch({ type: "SET_ERROR", error: null });
+
+      try {
+        let completed = 0;
+        for (const albumPath of albumPaths) {
+          const taskId = await window.api.autoTagAlbum(albumPath);
+          let done = false;
+          while (!done) {
+            const progress = await window.api.getTaskProgress(taskId);
+            if (!progress) break;
+
+            dispatch({
+              type: "SET_AUTO_TAG_PROGRESS",
+              progress: {
+                current: completed,
+                total: albumPaths.length,
+                message: progress.message,
+              },
+            });
+
+            if (
+              progress.status === "completed" ||
+              progress.status === "failed" ||
+              progress.status === "cancelled"
+            ) {
+              done = true;
+            } else {
+              await new Promise((resolve) => setTimeout(resolve, 300));
+            }
+          }
+          completed++;
+        }
+        await handleAssistantRefresh();
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : "Auto-tag failed";
+        dispatch({ type: "SET_ERROR", error: message });
+      } finally {
+        dispatch({ type: "SET_AUTO_TAGGING", autoTagging: false });
+        dispatch({ type: "SET_AUTO_TAG_PROGRESS", progress: null });
+      }
+    },
+    [
+      handleAssistantRefresh,
+      state.auditing,
+      state.autoTagging,
+      state.libraryPath,
+      state.tracks,
+    ],
+  );
+
   // --- Filter ---
 
   const handleFilterChange = useCallback((text: string) => {
@@ -1133,6 +1350,7 @@ export default function App() {
         darkMode={state.darkMode}
         onToggleDarkMode={handleToggleDarkMode}
         onOpenSettings={handleOpenSettings}
+        onToggleAssistant={handleToggleAssistant}
         onErrorDismiss={() => dispatch({ type: "SET_ERROR", error: null })}
       />
 
@@ -1241,6 +1459,24 @@ export default function App() {
           )}
         </div>
       </div>
+
+      <ErrorBoundary>
+        <AssistantPanel
+          isOpen={showAssistant}
+          onClose={handleCloseAssistant}
+          apiKey={assistantApiKey}
+          model={assistantModel}
+          libraryPath={state.libraryPath}
+          activeAlbumPath={state.activeAlbumPath}
+          selectedTrackPaths={state.selectedTrackPaths}
+          allTracks={state.tracks}
+          allAlbums={state.albums}
+          autonomous={false}
+          onRefreshRequest={handleAssistantRefresh}
+          onAssistantRunTask={handleAssistantRunTask}
+          onAssistantApplyUndo={handleAssistantApplyUndo}
+        />
+      </ErrorBoundary>
 
       <SettingsModal
         open={state.showSettings}

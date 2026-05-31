@@ -1,6 +1,8 @@
 # Auto Tagger — development commands
 # Requires: just (https://github.com/casey/just)
 
+set dotenv-load := true
+
 project := "auto-tagger"
 python  := ".venv/bin/python"
 pip     := ".venv/bin/pip"
@@ -37,6 +39,7 @@ fe-install:
     cd frontend && npm install
 
 # Start dev server (Vite HMR + Electron) — hot-reloads on save
+# .env vars (LLM_API_KEY, LLM_MODEL) loaded automatically via set dotenv-load
 fe-dev:
     cd frontend && npm run dev
 

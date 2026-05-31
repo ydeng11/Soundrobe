@@ -22,14 +22,14 @@ describe("loadConfig", () => {
   afterEach(() => {
     process.env = { ...originalEnv };
     // Clear config-dependent env vars that might exist on the dev machine
-    delete process.env.AUTO_TAG_LLM_API_KEY;
-    delete process.env.AUTO_TAG_LLM_MODEL;
+    delete process.env.LLM_API_KEY;
+    delete process.env.LLM_MODEL;
     delete process.env.AUTO_TAG_DISCOGS_TOKEN;
   });
 
   it("loads from environment variables", () => {
-    process.env.AUTO_TAG_LLM_API_KEY = "env-key";
-    process.env.AUTO_TAG_LLM_MODEL = "env-model";
+    process.env.LLM_API_KEY = "env-key";
+    process.env.LLM_MODEL = "env-model";
     process.env.AUTO_TAG_DISCOGS_TOKEN = "env-token";
 
     const config = loadConfig();

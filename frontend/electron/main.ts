@@ -18,10 +18,13 @@ import {
   saveConfig,
   setDebugMode,
   downloadAlbumLyrics,
+  getRawApiConfig,
 } from "./handlers/auto-tag";
 import { registerDebugIpc } from "./handlers/debug";
+import { registerOrganizerHandlers } from "./handlers/organizer";
 import { registerAuditHandlers, onAuditEvent } from "./handlers/audit";
 import { LyricsClient } from "./handlers/lyrics";
+import { registerAssistantHandlers, initializeAssistantServices, setStoredConfig } from "./handlers/assistant";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const isDev = !app.isPackaged;
@@ -151,16 +154,18 @@ function createWindow() {
     } else {
       const devServerUrl =
         process.env.VITE_DEV_SERVER_URL ?? "http://localhost:5173";
+      // Suppress benign DevTools protocol errors (version mismatch noise).
+      // Must be registered BEFORE openDevTools() — errors fire as soon as
+      // DevTools initializes, so the handler needs to be in place first.
+      mainWindow.webContents.on("console-message", (event, _level, message, _line, sourceId) => {
+        if (sourceId?.startsWith("devtools://") && message.includes("Autofill")) {
+          event.preventDefault();
+        }
+      });
+
       mainWindow.loadURL(devServerUrl);
       mainWindow.webContents.openDevTools({ mode: "detach" });
     }
-
-    // Suppress benign DevTools protocol errors (version mismatch noise)
-    mainWindow.webContents.on("console-message", (event, level, message, line, sourceId) => {
-      if (sourceId?.startsWith("devtools://") && message.includes("Autofill")) {
-        event.preventDefault();
-      }
-    });
   } else {
     mainWindow.loadFile(path.join(__dirname, "../dist/index.html"));
   }
@@ -231,6 +236,16 @@ app.whenReady().then(async () => {
   registerDirectoryHandlers();
   registerDebugIpc();
   registerAuditHandlers();
+  registerAssistantHandlers();
+  registerOrganizerHandlers();
+
+  // Initialize assistant services with the real (non-redacted) API key from config
+  const rawConfig = getRawApiConfig();
+  initializeAssistantServices({
+    apiKey: rawConfig.apiKey,
+    model: rawConfig.model,
+  });
+  setStoredConfig({ apiKey: rawConfig.apiKey, model: rawConfig.model });
   forwardToWindows(onAutoTagEvent, "auto-tag:event");
   forwardToWindows(onAuditEvent, "audit:event");
 
@@ -402,6 +417,12 @@ app.whenReady().then(async () => {
     try {
       saveConfig(key, value);
       refreshConfig();
+      // Keep the assistant's stored config in sync with the real (non-redacted) values
+      if (key === "llmApiKey") {
+        setStoredConfig({ apiKey: String(value) });
+      } else if (key === "llmModel") {
+        setStoredConfig({ model: String(value) });
+      }
     } catch (error) {
       console.error("Failed to set config:", error);
     }

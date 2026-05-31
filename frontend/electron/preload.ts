@@ -143,6 +143,64 @@ export interface DirectoryData {
   audioCount: number;
 }
 
+export interface TrackUndoSnapshot {
+  /** Path of the track that was changed. */
+  path: string;
+  /** Previous tag values: field name → old value. */
+  metadata: Record<string, unknown>;
+}
+
+export interface ExtraTagUndoSnapshot {
+  /** Path of the track that was changed. */
+  path: string;
+  /** Previous extra tags for this track. */
+  extraTags: Array<{ key: string; value: string }>;
+}
+
+export interface AssistantAction {
+  tagKind?: "standard" | "extra";
+  trackPath?: string;
+  field?: string;
+  oldValue?: string | null;
+  newValue?: string | null;
+  operation?: string;
+  destinationPath?: string;
+  sourcePath?: string;
+  skipReason?: string;
+  description?: string;
+}
+
+export interface AssistantActionBatch {
+  id: string;
+  createdAt: string;
+  sessionId: string;
+  kind: "tag-update" | "extra-tag-update" | "metadata-update" | "folder-move" | "auto-tag-run" | "audit-run";
+  title: string;
+  summary: string;
+  riskLevel: "low" | "medium" | "high";
+  actions: AssistantAction[];
+  reversible: boolean;
+  status: "pending" | "applied" | "rejected" | "failed";
+}
+
+export interface AssistantEvent {
+  sessionId: string;
+  type:
+    | "step"
+    | "tool_running"
+    | "tool_result"
+    | "action_batch_created"
+    | "action_batch_applied"
+    | "action_batch_rejected"
+    | "action_batch_failed"
+    | "message"
+    | "error"
+    | "completed"
+    | "cancelled";
+  message: string;
+  data?: unknown;
+}
+
 export interface LogEntry {
   timestamp: string;
   tag: string;
@@ -160,6 +218,22 @@ export interface ExtraTag {
 export interface ExtraTagUpdate {
   key: string;
   value: string;
+}
+
+export interface SortByAlbumResult {
+  sourceDir: string;
+  albums: Array<{
+    albumName: string;
+    destDir: string;
+    files: Array<{
+      sourcePath: string;
+      destPath: string;
+      success: boolean;
+      error?: string;
+    }>;
+  }>;
+  totalFiles: number;
+  skippedFiles: number;
 }
 
 export interface ElectronAPI {
@@ -240,8 +314,48 @@ export interface ElectronAPI {
   subscribeDebugLogs: () => Promise<void>;
   setDebugMode: (enabled: boolean) => Promise<void>;
 
+  onAssistantEvent: (callback: (event: AssistantEvent) => void) => () => void;
+
+  // Assistant
+  assistantSend: (input: {
+    message: string;
+    apiKey: string;
+    model?: string;
+    libraryPath?: string | null;
+    activeAlbumPath?: string | null;
+    selectedTrackPaths?: string[];
+    tracks?: TrackData[];
+    albums?: AlbumInfo[];
+    autonomous?: boolean;
+  }) => Promise<AssistantEvent>;
+  assistantCancel: () => Promise<void>;
+  assistantApplyActions: (actionBatchId: string) => Promise<{
+    success: boolean;
+    error?: string;
+    task?: "auto_tag" | "audit";
+    trackPaths?: string[];
+    results?: unknown;
+    undoSnapshots?: TrackUndoSnapshot[];
+    extraUndoSnapshots?: ExtraTagUndoSnapshot[];
+  }>;
+  assistantRejectActions: (actionBatchId: string) => Promise<void>;
+  assistantGetBatches: () => Promise<AssistantActionBatch[]>;
+  assistantInitServices: (config: {
+    apiKey: string;
+    model?: string;
+    discogsToken?: string | null;
+    lyricsHost?: string | null;
+    libraryPath?: string | null;
+  }) => Promise<void>;
+
   // Window events
   onFocus: () => Promise<void>;
+
+  // Organizer
+  sortByAlbum: (
+    sourceDir: string,
+    options?: { copy?: boolean }
+  ) => Promise<SortByAlbumResult>;
 }
 
 contextBridge.exposeInMainWorld("api", {
@@ -356,6 +470,26 @@ contextBridge.exposeInMainWorld("api", {
   },
   cancelAudit: () => ipcRenderer.invoke("audit:cancel"),
 
+  // Assistant
+  assistantSend: (input: any) =>
+    ipcRenderer.invoke("assistant:send", input),
+  assistantCancel: () =>
+    ipcRenderer.invoke("assistant:cancel"),
+  assistantApplyActions: (actionBatchId: string) =>
+    ipcRenderer.invoke("assistant:apply-actions", actionBatchId),
+  assistantRejectActions: (actionBatchId: string) =>
+    ipcRenderer.invoke("assistant:reject-actions", actionBatchId),
+  assistantGetBatches: () =>
+    ipcRenderer.invoke("assistant:get-batches"),
+  assistantInitServices: (config: any) =>
+    ipcRenderer.invoke("assistant:init-services", config),
+  onAssistantEvent: (callback: (event: AssistantEvent) => void): (() => void) => {
+    const listener = (_event: Electron.IpcRendererEvent, payload: AssistantEvent) =>
+      callback(payload);
+    ipcRenderer.on("assistant:event", listener);
+    return () => ipcRenderer.removeListener("assistant:event", listener);
+  },
+
   // Debug — subscribe to live log forwarding from main process
   subscribeDebugLogs: () =>
     ipcRenderer.invoke("debug:subscribe"),
@@ -366,6 +500,13 @@ contextBridge.exposeInMainWorld("api", {
 
   // Window events
   onFocus: () => ipcRenderer.invoke("window:focused"),
+
+  // Organizer
+  sortByAlbum: (
+    sourceDir: string,
+    options?: { copy?: boolean }
+  ): Promise<SortByAlbumResult> =>
+    ipcRenderer.invoke("files:sort-by-album", sourceDir, options),
 });
 
 const CONSOLE_METHOD: Record<string, "error" | "warn" | "debug" | "log"> = {

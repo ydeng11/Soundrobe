@@ -9,6 +9,7 @@ interface SettingsState {
   debug: boolean;
   lyricsDownloadEnabled: boolean;
   lyricsApiUrl: string;
+  assistantAutonomous: boolean;
 }
 
 interface SettingsModalProps {
@@ -26,6 +27,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
     debug: false,
     lyricsDownloadEnabled: false,
     lyricsApiUrl: "",
+    assistantAutonomous: false,
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -41,13 +43,14 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
         const cfg = await window.api.getConfig();
         setSettings({
           llmApiKey: "",
-          llmModel: (cfg.llmModel as string) ?? "deepseek/deepseek-chat:free",
+          llmModel: (cfg.llmModel as string) ?? "",
           remoteLookupEnabled: (cfg.remoteLookupEnabled as boolean) ?? true,
           discogsEnabled: (cfg.discogsEnabled as boolean) ?? true,
           lyricsDownloadEnabled: (cfg.lyricsDownloadEnabled as boolean) ?? false,
           lyricsApiUrl: (cfg.lyricsApiUrl as string) ?? "",
           discogsToken: "",
           debug: (cfg.debug as boolean) ?? false,
+          assistantAutonomous: (cfg.assistantAutonomous as boolean) ?? false,
         });
       } catch (err) {
         setSaveError(
@@ -82,6 +85,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
       promises.push(window.api.setConfig("lyricsApiUrl", settings.lyricsApiUrl || null));
       promises.push(window.api.setConfig("debug", settings.debug));
       promises.push(window.api.setDebugMode(settings.debug));
+      promises.push(window.api.setConfig("assistantAutonomous", settings.assistantAutonomous));
 
       await Promise.all(promises);
       onClose();
@@ -176,14 +180,20 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
                   onChange={(v) => setSettings({ ...settings, llmApiKey: v })}
                   placeholder="sk-or-v1-… (leave blank to keep current)"
                 />
+                <p className="text-[10px] text-text-muted/60 mt-1">
+                  Can also be set via the <code className="text-[10px] bg-surface-alt/50 px-1 rounded">LLM_API_KEY</code> env var
+                </p>
               </FieldRow>
 
-              <FieldRow label="LLM Model" description="Provider/model identifier">
+              <FieldRow label="LLM Model" description="Provider/model identifier (e.g. openrouter/owl-alpha)">
                 <InputField
                   value={settings.llmModel}
                   onChange={(v) => setSettings({ ...settings, llmModel: v })}
-                  placeholder="deepseek/deepseek-chat:free"
+                  placeholder="openrouter/owl-alpha"
                 />
+                <p className="text-[10px] text-text-muted/60 mt-1">
+                  Can also be set via the <code className="text-[10px] bg-surface-alt/50 px-1 rounded">LLM_MODEL</code> env var
+                </p>
               </FieldRow>
 
               <FieldRow label="Discogs Token" description="Personal access token for Discogs API">
@@ -224,6 +234,12 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
                   description="Enable Discogs as a lookup source"
                   checked={settings.discogsEnabled}
                   onChange={(v) => setSettings({ ...settings, discogsEnabled: v })}
+                />
+                <ToggleRow
+                  label="Auto-apply Assistant Actions"
+                  description="When enabled, the assistant applies low-risk tag changes without manual approval. Medium/high risk actions still require confirmation."
+                  checked={settings.assistantAutonomous}
+                  onChange={(v) => setSettings({ ...settings, assistantAutonomous: v })}
                 />
                 <ToggleRow
                   label="Debug Mode"

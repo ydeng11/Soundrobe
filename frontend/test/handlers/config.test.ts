@@ -82,7 +82,7 @@ describe("saveConfig", () => {
     saveConfig("llmModel", "persist-test");
     saveConfig("remoteLookupEnabled", false);
 
-    delete process.env.AUTO_TAG_LLM_MODEL;
+    delete process.env.LLM_MODEL;
     delete process.env.AUTO_TAG_REMOTE_LOOKUP;
 
     const cfg = loadConfig();

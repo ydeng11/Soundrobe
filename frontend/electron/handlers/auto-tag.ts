@@ -211,8 +211,8 @@ export function loadConfig(): AutoTagConfig {
   }
 
   // 2. Environment variables override config file (highest priority)
-  if (process.env.AUTO_TAG_LLM_API_KEY) config.llmApiKey = process.env.AUTO_TAG_LLM_API_KEY;
-  if (process.env.AUTO_TAG_LLM_MODEL) config.llmModel = process.env.AUTO_TAG_LLM_MODEL;
+  if (process.env.LLM_API_KEY) config.llmApiKey = process.env.LLM_API_KEY;
+  if (process.env.LLM_MODEL) config.llmModel = process.env.LLM_MODEL;
   if (process.env.AUTO_TAG_DISCOGS_TOKEN) config.discogsToken = process.env.AUTO_TAG_DISCOGS_TOKEN;
   if (process.env.AUTO_TAG_REMOTE_LOOKUP === "false") config.remoteLookupEnabled = false;
   if (process.env.AUTO_TAG_DISCOGS_ENABLED === "false") config.discogsEnabled = false;
@@ -1170,7 +1170,19 @@ export function getDatasetStatus(): {
   }
 }
 
-/** Get current config. */
+/**
+ * Get the raw (unredacted) API config for main-process internal use.
+ * Returns the actual API key — DO NOT send this to the renderer.
+ */
+export function getRawApiConfig(): { apiKey: string; model: string } {
+  const cfg = getTaskManager().getConfig();
+  return {
+    apiKey: cfg.llmApiKey ?? "",
+    model: cfg.llmModel ?? "",
+  };
+}
+
+/** Get current config (redacted for renderer safety). */
 export function getConfig(): Record<string, unknown> {
   const cfg = getTaskManager().getConfig();
   return {

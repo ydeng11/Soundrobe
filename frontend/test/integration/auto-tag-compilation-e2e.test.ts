@@ -82,8 +82,8 @@ describe("auto-tag compilation E2E", () => {
 
   beforeEach(() => {
     // Snapshot env vars
-    savedEnv.AUTO_TAG_LLM_API_KEY = process.env.AUTO_TAG_LLM_API_KEY;
-    savedEnv.AUTO_TAG_LLM_MODEL = process.env.AUTO_TAG_LLM_MODEL;
+    savedEnv.LLM_API_KEY = process.env.LLM_API_KEY;
+    savedEnv.LLM_MODEL = process.env.LLM_MODEL;
     savedEnv.AUTO_TAG_DISCOGS_TOKEN = process.env.AUTO_TAG_DISCOGS_TOKEN;
     savedEnv.AUTO_TAG_REMOTE_LOOKUP = process.env.AUTO_TAG_REMOTE_LOOKUP;
     savedEnv.HOME = process.env.HOME;
