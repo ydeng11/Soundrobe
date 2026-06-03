@@ -136,8 +136,12 @@ export class SafeQueryService {
     if (query.hasDuplicates) {
       const seen = new Map<string, TrackData[]>();
       for (const track of results) {
-        // Duplicate detection by title + artist + album
-        const key = `${(track.title ?? "")}|${(track.artist ?? "")}|${(track.album ?? "")}`.toLowerCase();
+        const title = this.nonBlank(track.title);
+        const artist = this.nonBlank(track.artist);
+        const album = this.nonBlank(track.album);
+        if (!title || !artist || !album) continue;
+
+        const key = `${title}|${artist}|${album}`.toLowerCase();
         if (!seen.has(key)) seen.set(key, []);
         seen.get(key)!.push(track);
       }
@@ -171,22 +175,28 @@ export class SafeQueryService {
     let hasGenre = 0;
 
     for (const track of this.tracks) {
-      if (track.album) {
-        albums.add(track.album);
-        byAlbum[track.album] = (byAlbum[track.album] ?? 0) + 1;
+      const album = this.nonBlank(track.album);
+      const artist = this.nonBlank(track.artist);
+      const albumArtist = this.nonBlank(track.albumArtist);
+      const genre = this.nonBlank(track.genre);
+      const year = this.nonBlank(track.year);
+
+      if (album) {
+        albums.add(album);
+        byAlbum[album] = (byAlbum[album] ?? 0) + 1;
       }
-      if (track.artist) {
-        artists.add(track.artist);
-        byArtist[track.artist] = (byArtist[track.artist] ?? 0) + 1;
+      if (artist) {
+        artists.add(artist);
+        byArtist[artist] = (byArtist[artist] ?? 0) + 1;
       }
-      if (track.albumArtist) artists.add(track.albumArtist);
-      if (track.genre) {
-        genres.add(track.genre);
-        byGenre[track.genre] = (byGenre[track.genre] ?? 0) + 1;
+      if (albumArtist) artists.add(albumArtist);
+      if (genre) {
+        genres.add(genre);
+        byGenre[genre] = (byGenre[genre] ?? 0) + 1;
       }
-      if (track.year) {
-        years.add(track.year);
-        byYear[track.year] = (byYear[track.year] ?? 0) + 1;
+      if (year) {
+        years.add(year);
+        byYear[year] = (byYear[year] ?? 0) + 1;
       }
       codecs[track.codec] = (codecs[track.codec] ?? 0) + 1;
 
@@ -217,5 +227,11 @@ export class SafeQueryService {
         genre: Math.round((hasGenre / total) * 100),
       },
     };
+  }
+
+  private nonBlank(value: string | null | undefined): string | null {
+    if (!value) return null;
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : null;
   }
 }

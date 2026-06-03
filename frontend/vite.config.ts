@@ -5,6 +5,7 @@ import electron from "vite-plugin-electron";
 export default defineConfig({
   test: {
     testTimeout: 15000,
+    exclude: ["node_modules/**", "dist/**", "dist-electron/**", "e2e/**"],
   },
   plugins: [
     react(),

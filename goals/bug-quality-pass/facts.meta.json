@@ -1,0 +1,11 @@
+{
+  "facts": [
+    { "id": "fact-shared-path-util", "text": "A shared toPosixPath() utility exists and normalizes both forward slashes and backslashes to forward slashes.", "comment": null, "recommendedAutomatedVerification": true, "automatedVerification": true },
+    { "id": "fact-all-renderer-sites-fixed", "text": "All 10 renderer path split sites (dirPath, album detection, album name display, rename descriptions, shortPath, library label) use the shared utility or equivalent normalization.", "comment": null, "recommendedAutomatedVerification": true, "automatedVerification": true },
+    { "id": "fact-existing-safe-sites-consistent", "text": "MetadataEditor.tsx and ExtraTagsEditor.tsx inline replace normalization is replaced with the shared utility for consistency.", "comment": null, "recommendedAutomatedVerification": true, "automatedVerification": true },
+    { "id": "fact-cancel-emission-fixed", "text": "cancelTask() emits a 'cancelled' event immediately via updateTask() in addition to the existing signal-based failCancelled() path, closing the timing gap.", "comment": null, "recommendedAutomatedVerification": true, "automatedVerification": true },
+    { "id": "fact-reducer-pure-pattern", "text": "PUSH_UNDO uses a pure pattern: UndoManager has cloneAndPush() and the reducer does not mutate existing state.", "comment": null, "recommendedAutomatedVerification": true, "automatedVerification": true },
+    { "id": "fact-test-setup-deduplicated", "text": "auto-tag.test.ts extracted beforeEach/afterEach env isolation into a shared helper function used by both describe blocks.", "comment": null, "recommendedAutomatedVerification": true, "automatedVerification": true },
+    { "id": "fact-path-util-tests", "text": "Unit tests exist for toPosixPath() covering both POSIX and Windows path formats.", "comment": null, "recommendedAutomatedVerification": true, "automatedVerification": true }
+  ]
+}

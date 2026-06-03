@@ -13,6 +13,7 @@ const ALLOWED_HOSTS = new Set([
   "musicbrainz.org",
   "discogs.com",
   "api.discogs.com",
+  "lrclib.net",
 ]);
 
 export interface SafeApiRequest {
@@ -125,13 +126,29 @@ export class SafeApiRequestService {
 
       case "lyricsSearch": {
         if (!this.lyricsHost) return null;
+        const baseUrl = this.safeBaseUrl(this.lyricsHost);
+        if (!baseUrl) return null;
+
         const artist = request.params.artist ?? "";
         const title = request.params.title ?? "";
-        return `${this.lyricsHost}/api/lyrics?artist=${encodeURIComponent(artist)}&title=${encodeURIComponent(title)}`;
+        const basePath = baseUrl.pathname.replace(/\/+$/, "");
+        const lyricsPath = basePath.endsWith("/api") ? `${basePath}/lyrics` : `${basePath}/api/lyrics`;
+        return `${baseUrl.origin}${lyricsPath}?artist=${encodeURIComponent(artist)}&title=${encodeURIComponent(title)}`;
       }
 
       default:
         return null;
+    }
+  }
+
+  private safeBaseUrl(rawUrl: string): URL | null {
+    try {
+      const url = new URL(rawUrl);
+      if (url.protocol !== "https:") return null;
+      if (!ALLOWED_HOSTS.has(url.hostname)) return null;
+      return url;
+    } catch {
+      return null;
     }
   }
 

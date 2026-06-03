@@ -8,6 +8,7 @@ vi.mock("electron", () => ({
 }));
 
 import {
+  isInsideDirectory,
   metadataBatchToExtraInputs,
   metadataBatchToStandardUpdates,
   resolveTargetPathsForState,
@@ -60,6 +61,11 @@ function batch(actions: AssistantActionBatch["actions"]): AssistantActionBatch {
 }
 
 describe("assistant composite macro helpers", () => {
+  it("checks directory containment with path boundaries", () => {
+    expect(isInsideDirectory("/lib/album/01.flac", "/lib/album")).toBe(true);
+    expect(isInsideDirectory("/lib/album deluxe/02.flac", "/lib/album")).toBe(false);
+  });
+
   it("resolves selected, active album, library, and explicit target scopes", () => {
     const tracks = [
       track("/lib/album/01.flac"),

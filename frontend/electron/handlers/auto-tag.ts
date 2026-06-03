@@ -35,6 +35,10 @@ const AUDIO_EXTENSIONS = new Set([".mp3", ".flac", ".m4a", ".mp4", ".wav", ".ogg
 import { homedir } from "node:os";
 import debug from "./debug";
 
+function pathSegments(inputPath: string): string[] {
+  return inputPath.split(/[\\/]+/).filter((segment) => segment.length > 0);
+}
+
 /**
  * Check if deterministic parsing produced ambiguous hints that warrant
  * LLM enhancement. Ported from Python lookup.py _hints_are_ambiguous.
@@ -57,7 +61,7 @@ export function hintsAreAmbiguous(
 
   if (!aHint || !arHint) return true;
 
-  const folderName = path.split("/").pop() ?? "";
+  const folderName = pathSegments(path).pop() ?? "";
 
   // Strip known format suffixes (e.g. "[flac]", "[FLAC]", "[MP3]") before
   // checking brackets — these are not ambiguous naming conventions.
@@ -360,6 +364,7 @@ class TaskManager {
         status: "cancelled",
         message: "Cancelled",
       });
+      this.emitTask(taskId, "cancelled", "Cancelled");
     }
   }
 
@@ -608,9 +613,9 @@ class TaskManager {
         model: this.config.llmModel,
       });
 
-      const folderName = request.path.split("/").pop() ?? "";
-      const parentName =
-        request.path.split("/").slice(-2, -1)[0] ?? null;
+      const pathParts = pathSegments(request.path);
+      const folderName = pathParts.at(-1) ?? "";
+      const parentName = pathParts.at(-2) ?? null;
 
       debug.debug(
         "auto-tag",

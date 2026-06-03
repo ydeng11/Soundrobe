@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ExtraTag, TrackData } from "../../electron/preload";
+import { basename } from "../utils/path";
 
 interface ExtraTagsEditorProps {
   track: TrackData;
@@ -30,7 +31,7 @@ export function ExtraTagsEditor({
   const [error, setError] = useState<string | null>(null);
   const newKeyRef = useRef<HTMLInputElement | null>(null);
 
-  const filename = track.path.replace(/\\/g, "/").split("/").pop() ?? track.path;
+  const filename = basename(track.path) ?? track.path;
 
   useEffect(() => {
     let cancelled = false;

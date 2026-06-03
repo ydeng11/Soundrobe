@@ -1,0 +1,7 @@
+- A shared toPosixPath() utility exists and normalizes both forward slashes and backslashes to forward slashes.
+- All 10 renderer path split sites (dirPath, album detection, album name display, rename descriptions, shortPath, library label) use the shared utility or equivalent normalization.
+- MetadataEditor.tsx and ExtraTagsEditor.tsx inline replace normalization is replaced with the shared utility for consistency.
+- cancelTask() emits a 'cancelled' event immediately via updateTask() in addition to the existing signal-based failCancelled() path, closing the timing gap.
+- PUSH_UNDO uses a pure pattern: UndoManager has cloneAndPush() and the reducer does not mutate existing state.
+- auto-tag.test.ts extracted beforeEach/afterEach env isolation into a shared helper function used by both describe blocks.
+- Unit tests exist for toPosixPath() covering both POSIX and Windows path formats.

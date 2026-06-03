@@ -1,5 +1,6 @@
 import React, { useMemo, useState, useRef, useCallback, useEffect, useLayoutEffect, memo } from "react";
 import type { TrackData } from "../../electron/preload";
+import { shortPath } from "../utils/path";
 
 type SortKey =
   | "filename"
@@ -703,10 +704,6 @@ const FileGridRow = memo(function FileGridRow({
     </div>
   );
 });
-
-function shortPath(p: string): string {
-  return p.split("/").slice(-4).join("/").replace(/^\//, "");
-}
 
 function formatDuration(sec: number): string {
   const m = Math.floor(sec / 60);

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useId, useRef, useCallback } from "react";
 import type { TrackData } from "../../electron/preload";
+import { basename } from "../utils/path";
 
 interface MetadataEditorProps {
   track: TrackData;
@@ -21,7 +22,7 @@ export function MetadataEditor({
   onRemoveCover,
   onSave,
 }: MetadataEditorProps) {
-  const filename = track.path.replace(/\\/g, "/").split("/").pop() ?? track.path;
+  const filename = basename(track.path) ?? track.path;
 
   // Local draft fields — reset whenever the user selects a different track
   const [draft, setDraft] = useState<Record<string, string>>({});

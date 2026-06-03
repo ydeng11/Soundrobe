@@ -264,8 +264,13 @@ export function appReducer(state: AppState, action: AppAction): AppState {
     }
 
     case "PUSH_UNDO":
-      state.undoManager.push(action.description, action.snapshots);
-      return { ...state };
+      return {
+        ...state,
+        undoManager: state.undoManager.cloneAndPush(
+          action.description,
+          action.snapshots,
+        ),
+      };
 
     case "POP_UNDO":
       // handleRevert does the actual pop; this just triggers a re-render

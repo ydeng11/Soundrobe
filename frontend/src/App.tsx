@@ -2,6 +2,7 @@ import React, { useReducer, useCallback, useEffect, useMemo, useRef } from "reac
 import { appReducer, initialAppState } from "./state/AppState";
 import type { TrackSnapshot } from "./state/UndoManager";
 import { TitleBar } from "./components/TitleBar";
+import { dirname as dirPath, basename } from "./utils/path";
 import { AssistantPanel } from "./components/AssistantPanel";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { Sidebar } from "./components/Sidebar";
@@ -18,10 +19,7 @@ import { BatchExtraTagsEditor } from "./components/BatchExtraTagsEditor";
 import type { ConvertResult } from "./components/ConvertDialog";
 import type { ExtraTagUndoSnapshot, TrackData, AlbumInfo } from "../electron/preload";
 
-/** Get the parent directory of a path. */
-function dirPath(p: string): string {
-  return p.split("/").slice(0, -1).join("/");
-}
+// dirPath is now imported from ./utils/path
 
 const EXTRA_TAG_UNDO_FIELD = "__assistantExtraTags";
 
@@ -488,7 +486,7 @@ export default function App() {
     // Push undo snapshots for all tracks that will be touched
     const albumPathSet = new Set(targetPaths);
     const affectedTracks = state.tracks.filter((t) =>
-      albumPathSet.has(t.path.split("/").slice(0, -1).join("/"))
+      albumPathSet.has(dirPath(t.path))
     );
     const snapshots: TrackSnapshot[] = affectedTracks.map((t) => ({
       path: t.path,
@@ -526,7 +524,7 @@ export default function App() {
 
     try {
       for (const albumPath of targetPaths) {
-        const albumName = albumPath.split("/").pop() ?? albumPath;
+        const albumName = basename(albumPath) ?? albumPath;
         dispatch({
           type: "SET_AUTO_TAG_PROGRESS",
           progress: isBatch
@@ -631,7 +629,7 @@ export default function App() {
       state.selectedTrackPaths.length > 0
         ? `${state.selectedTrackPaths.length} selected track(s)`
         : state.activeAlbumPath
-          ? `album “${state.activeAlbumPath.split("/").pop() ?? ""}”`
+          ? `album “${basename(state.activeAlbumPath) ?? ""}”`
           : `library “${state.libraryPath}”`;
 
     console.log("[audit] handleAudit: starting audit for %s", scopeLabel);
@@ -906,7 +904,7 @@ export default function App() {
 
         dispatch({
           type: "PUSH_UNDO",
-          description: `Rename: ${track.path.split("/").pop()} → ${result.newFilename}`,
+          description: `Rename: ${basename(track.path)} → ${result.newFilename}`,
           snapshots: [undoSnapshot],
         });
 
@@ -1428,7 +1426,7 @@ export default function App() {
           ) : state.activeAlbumPath && state.auditResults[state.activeAlbumPath] ? (
             <AuditPanel
               results={state.auditResults[state.activeAlbumPath]}
-              albumName={state.activeAlbumPath.split("/").pop() ?? ""}
+              albumName={basename(state.activeAlbumPath) ?? ""}
             />
           ) : (
             <div className="flex items-center justify-center h-full">
@@ -1491,7 +1489,7 @@ export default function App() {
           state.selectedTrack
             ? {
                 filename:
-                  state.selectedTrack.path.split("/").pop() ??
+                  basename(state.selectedTrack.path) ??
                   state.selectedTrack.path,
                 title: state.selectedTrack.title,
                 artist: state.selectedTrack.artist,

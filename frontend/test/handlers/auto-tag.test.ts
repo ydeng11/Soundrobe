@@ -16,6 +16,28 @@ import {
 } from "../../electron/handlers/auto-tag";
 import { setAliasFilePath, saveAlias } from "../../electron/handlers/aliases";
 
+/**
+ * Shared env isolation for auto-tag lifecycle tests.
+ * Returns { tmpHome, originalEnv } for use in the describe block.
+ */
+function setupTestEnv(label: string) {
+  const originalEnv = { ...process.env };
+  const tmpHome = mkdtempSync(join(tmpdir(), `auto-tag-${label}-`));
+  process.env.HOME = tmpHome;
+  delete process.env.LLM_API_KEY;
+  delete process.env.LLM_MODEL;
+  process.env.AUTO_TAG_REMOTE_LOOKUP = "false";
+  process.env.AUTO_TAG_DISCOGS_ENABLED = "false";
+  refreshConfig();
+  return { originalEnv, tmpHome };
+}
+
+function teardownTestEnv(originalEnv: Record<string, string | undefined>, tmpHome: string) {
+  process.env = { ...originalEnv };
+  refreshConfig();
+  rmSync(tmpHome, { recursive: true, force: true });
+}
+
 describe("loadConfig", () => {
   const originalEnv = { ...process.env };
 
@@ -51,6 +73,12 @@ describe("loadConfig", () => {
 });
 
 describe("startAutoTag / getProgress / cancelTask", () => {
+  const { originalEnv, tmpHome } = setupTestEnv("unit-home");
+
+  afterEach(() => {
+    teardownTestEnv(originalEnv, tmpHome);
+  });
+
   it("creates a task and tracks it", async () => {
     const taskId = startAutoTag("/test/album/path");
     expect(taskId).toBeTruthy();
@@ -61,6 +89,7 @@ describe("startAutoTag / getProgress / cancelTask", () => {
     expect(progress!.taskId).toBe(taskId);
     expect(progress!.status).toBe("running");
     expect(progress!.total).toBe(9);
+    cancelTask(taskId);
   });
 
   it("returns null for unknown task", () => {
@@ -80,6 +109,7 @@ describe("startAutoTag / getProgress / cancelTask", () => {
     const taskId = startAutoTag("/test/album/events");
     const progress = getProgress(taskId);
     unsubscribe();
+    cancelTask(taskId);
 
     expect(progress).not.toBeNull();
     expect(events).toContain("progress");
@@ -255,6 +285,17 @@ describe("hintsAreAmbiguous", () => {
     ).toBe(false);
   });
 
+  it("only checks the album folder segment for Windows-style paths", () => {
+    expect(
+      hintsAreAmbiguous(
+        "Abbey Road",
+        "The Beatles",
+        "C:\\Music\\[The Beatles]\\Abbey Road",
+        "1969",
+      ),
+    ).toBe(false);
+  });
+
   it("returns false when albumHint has year but folder hint is clean", () => {
     // Year prefix in album hint alone doesn't trigger; it's the folder
     // name pattern that matters unless the album hint itself has the
@@ -283,46 +324,28 @@ describe("getConfig / refreshConfig", () => {
 });
 
 describe("full-flow scenario tests", () => {
-  // These tests verify the end-to-end behavior by starting an auto-tag task
-  // and checking that progress can be tracked without crashes.
+  // These tests use synthetic paths, so they verify task lifecycle only.
+  // Real album processing is covered by integration/auto-tag-compilation-e2e.
+  const { originalEnv, tmpHome } = setupTestEnv("flow-home");
 
-  it("starts and completes for a valid album path with no LLM key (falls back to folder)", { timeout: 10000 }, async () => {
+  afterEach(() => {
+    teardownTestEnv(originalEnv, tmpHome);
+  });
+
+  it("starts and can cancel a synthetic album path with no LLM key", () => {
     const taskId = startAutoTag("/test/artist/album");
     expect(taskId).toBeTruthy();
 
-    // Poll for completion
-    let status = "";
-    for (let i = 0; i < 20; i++) {
-      await new Promise((r) => setTimeout(r, 200));
-      const progress = getProgress(taskId);
-      if (progress) {
-        status = progress.status;
-        if (status === "completed" || status === "failed" || status === "cancelled") {
-          break;
-        }
-      }
-    }
-
-    expect(["completed", "failed"]).toContain(status);
+    cancelTask(taskId);
+    expect(getProgress(taskId)?.status).toBe("cancelled");
   });
 
-  it("starts and completes for CD subfolder pattern", { timeout: 10000 }, async () => {
+  it("starts and can cancel a synthetic CD subfolder pattern", () => {
     const taskId = startAutoTag("/test/Artist/Album (2CD)/CD1");
     expect(taskId).toBeTruthy();
 
-    let status = "";
-    for (let i = 0; i < 20; i++) {
-      await new Promise((r) => setTimeout(r, 200));
-      const progress = getProgress(taskId);
-      if (progress) {
-        status = progress.status;
-        if (status === "completed" || status === "failed" || status === "cancelled") {
-          break;
-        }
-      }
-    }
-
-    expect(["completed", "failed"]).toContain(status);
+    cancelTask(taskId);
+    expect(getProgress(taskId)?.status).toBe("cancelled");
   });
 });
 

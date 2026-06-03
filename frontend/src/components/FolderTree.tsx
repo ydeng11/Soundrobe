@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useEffect } from "react";
 import type { DirEntry } from "../../electron/preload";
+import { basename } from "../utils/path";
 
 interface FolderTreeProps {
   libraryPath: string | null;
@@ -210,7 +211,7 @@ export function FolderTree({
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="shrink-0">
             <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
           </svg>
-          <span className="truncate">{libraryPath.split("/").pop() || libraryPath}</span>
+          <span className="truncate">{basename(libraryPath) || libraryPath}</span>
         </button>
       )}
 

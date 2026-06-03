@@ -358,7 +358,7 @@ function buildReadOnlyTools(): AssistantToolDef[] {
 
         const albumInfo = currentAppState.albums.find((a) => a.path === albumPath);
         const albumTracks = currentAppState.tracks.filter((t) =>
-          t.path.startsWith(albumPath),
+          isInsideDirectory(t.path, albumPath),
         );
 
         let summary = `Album: ${albumInfo?.name ?? "?"}\n`;
@@ -597,7 +597,7 @@ function resolveTargetPaths(
   return resolveTargetPathsForState(currentAppState, targetScope, explicitPaths);
 }
 
-function isInsideDirectory(filePath: string, directoryPath: string): boolean {
+export function isInsideDirectory(filePath: string, directoryPath: string): boolean {
   const relative = path.relative(path.resolve(directoryPath), path.resolve(filePath));
   return relative !== "" && !relative.startsWith("..") && !path.isAbsolute(relative);
 }

@@ -46,6 +46,20 @@ export class UndoManager {
     }
   }
 
+  /**
+   * Pure alternative to push — returns a new UndoManager with the
+   * operation already pushed. The original is not mutated.
+   */
+  cloneAndPush(description: string, snapshots: TrackSnapshot[]): UndoManager {
+    const clone = new UndoManager(this.maxDepth);
+    clone.stack = this.stack.map((op) => ({
+      ...op,
+      snapshots: [...op.snapshots],
+    }));
+    clone.push(description, snapshots);
+    return clone;
+  }
+
   pop(): UndoOperation | null {
     if (this.stack.length === 0) return null;
     return this.stack.pop()!;

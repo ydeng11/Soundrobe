@@ -79,6 +79,19 @@ describe("LibraryService", () => {
     expect(summary.missingTitle).toBe(0);
   });
 
+  it("ignores whitespace-only artist and genre values in summary identities", () => {
+    const service = new LibraryService();
+    const summary = service.summarizeLibrary([], [
+      makeTrack({ path: "/a/1.flac", artist: " ", albumArtist: "\t", genre: " " }),
+      makeTrack({ path: "/a/2.flac", artist: "Artist", albumArtist: "Album Artist", genre: "Rock" }),
+    ]);
+
+    expect(summary.artistCount).toBe(2);
+    expect(summary.genreCount).toBe(1);
+    expect(summary.missingArtist).toBe(1);
+    expect(summary.missingGenre).toBe(1);
+  });
+
   it("builds app context with selection and active album", () => {
     const service = new LibraryService();
     const tracks = [

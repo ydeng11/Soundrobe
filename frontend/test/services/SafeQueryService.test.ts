@@ -140,6 +140,18 @@ describe("SafeQueryService", () => {
       expect(results).toHaveLength(2);
     });
 
+    it("does not classify tracks with unknown identity tags as duplicates", () => {
+      const q = new SafeQueryService();
+      q.setTracks([
+        makeTrack({ path: "/a", title: null, artist: null, album: null }),
+        makeTrack({ path: "/b", title: null, artist: null, album: null }),
+      ]);
+
+      const results = q.findTracks({ hasDuplicates: true });
+
+      expect(results).toHaveLength(0);
+    });
+
     it("filters by codec", () => {
       const q = new SafeQueryService();
       q.setTracks([
@@ -194,6 +206,24 @@ describe("SafeQueryService", () => {
       const agg = q.aggregate();
       expect(agg.tagCompleteness.title).toBe(50);
       expect(agg.tagCompleteness.genre).toBe(50);
+    });
+
+    it("ignores whitespace-only metadata when computing aggregate identities", () => {
+      const q = new SafeQueryService();
+      q.setTracks([
+        makeTrack({ path: "/a", album: " ", artist: " ", albumArtist: "\t", genre: "", year: "  " }),
+        makeTrack({ path: "/b", album: "Album", artist: "Artist", albumArtist: "Album Artist", genre: "Rock", year: "2024" }),
+      ]);
+
+      const agg = q.aggregate();
+
+      expect(agg.totalAlbums).toBe(1);
+      expect(agg.totalArtists).toBe(2);
+      expect(agg.totalGenres).toBe(1);
+      expect(agg.byAlbum).toEqual({ Album: 1 });
+      expect(agg.byArtist).toEqual({ Artist: 1 });
+      expect(agg.byGenre).toEqual({ Rock: 1 });
+      expect(agg.byYear).toEqual({ "2024": 1 });
     });
   });
 });

@@ -1,0 +1,73 @@
+{
+  "stage": "interview",
+  "title": "Bug/Quality Fix Pass",
+  "goalSlug": "bug-quality-pass",
+  "questions": [
+    {
+      "id": "windows-path-fix-scope",
+      "prompt": "Which renderer path fixes to include?",
+      "description": "10 sites across App.tsx, FileGrid.tsx, and FolderTree.tsx use split('/') without backslash normalization, breaking on Windows.",
+      "answerMode": "multi-custom",
+      "recommendedAnswer": "Fix all 10 sites plus create a shared utility, then use it everywhere including MetadataEditor.tsx and ExtraTagsEditor.tsx (which already normalize inline).",
+      "recommendedOptionIds": ["all-sites-prefer-utility", "critical-only"],
+      "options": [
+        { "id": "all-sites-prefer-utility", "label": "Fix ALL 10 sites + create shared util + normalize existing inline patterns" },
+        { "id": "critical-only", "label": "Fix only the 5 critical sites (dirPath, album detection, cover art, undo snapshots)" }
+      ],
+      "required": true
+    },
+    {
+      "id": "cancel-emission-gap",
+      "prompt": "Investigate the cancel emission timing gap?",
+      "description": "cancelTask() emits via updateTask() while failCancelled() emits via signal abort. Between the two, there's a window where no 'cancelled' event fires until the blocking operation finishes or the renderer polls again.",
+      "answerMode": "single-custom",
+      "recommendedAnswer": "Investigate and fix if confirmed — the renderer polls every 200ms so user impact is low, but a real fix adds an immediate emit to cancelTask().",
+      "recommendedOptionIds": ["fix-if-confirmed"],
+      "options": [
+        { "id": "fix-if-confirmed", "label": "Investigate and fix if confirmed" },
+        { "id": "note-only", "label": "Add a code comment noting the gap, no behavioral change" },
+        { "id": "skip", "label": "Skip — the polling fallback covers it" }
+      ],
+      "required": false
+    },
+    {
+      "id": "reducer-mutation",
+      "prompt": "Fix the PUSH_UNDO reducer mutation?",
+      "description": "state.undoManager.push() mutates the existing UndoManager object in place rather than producing a new reference.",
+      "answerMode": "single-custom",
+      "recommendedAnswer": "Fix by adding a cloneAndPush() method to UndoManager and using it in the reducer.",
+      "recommendedOptionIds": ["fix-pure"],
+      "options": [
+        { "id": "fix-pure", "label": "Fix — add cloneAndPush() and use it in the reducer" },
+        { "id": "skip", "label": "Skip — it works and only affects internal UndoManager state" }
+      ],
+      "required": false
+    },
+    {
+      "id": "test-dedup",
+      "prompt": "Deduplicate test setup in auto-tag.test.ts?",
+      "description": "The beforeEach/afterEach env isolation is duplicated in two describe blocks (~15 lines each).",
+      "answerMode": "single-custom",
+      "recommendedAnswer": "Extract into a shared helper function (setupEnv / teardownEnv) used by both describe blocks.",
+      "recommendedOptionIds": ["extract-helper"],
+      "options": [
+        { "id": "extract-helper", "label": "Extract a shared helper" },
+        { "id": "skip", "label": "Skip — duplication is acceptable for test clarity" }
+      ],
+      "required": false
+    },
+    {
+      "id": "new-tests",
+      "prompt": "Add tests for the new path utility?",
+      "description": "A shared normalizePath/toPosix utility should have its own unit tests covering both POSIX and Windows paths.",
+      "answerMode": "single-custom",
+      "recommendedAnswer": "Add tests.",
+      "recommendedOptionIds": ["add-tests"],
+      "options": [
+        { "id": "add-tests", "label": "Add dedicated unit tests" },
+        { "id": "skip", "label": "Skip — existing tests implicitly cover it" }
+      ],
+      "required": false
+    }
+  ]
+}

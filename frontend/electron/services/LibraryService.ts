@@ -160,9 +160,13 @@ export class LibraryService {
 
       codecs[track.codec] = (codecs[track.codec] ?? 0) + 1;
 
-      if (track.artist) artists.add(track.artist);
-      if (track.albumArtist) artists.add(track.albumArtist);
-      if (track.genre) genres.add(track.genre);
+      const artist = this.nonBlank(track.artist);
+      const albumArtist = this.nonBlank(track.albumArtist);
+      const genre = this.nonBlank(track.genre);
+
+      if (artist) artists.add(artist);
+      if (albumArtist) artists.add(albumArtist);
+      if (genre) genres.add(genre);
 
       if (!track.album || track.album.trim() === "") missingAlbum++;
       if (!track.artist || track.artist.trim() === "") missingArtist++;
@@ -252,5 +256,11 @@ export class LibraryService {
   private isInsideDirectory(filePath: string, directoryPath: string): boolean {
     const relative = path.relative(path.resolve(directoryPath), path.resolve(filePath));
     return relative !== "" && !relative.startsWith("..") && !path.isAbsolute(relative);
+  }
+
+  private nonBlank(value: string | null | undefined): string | null {
+    if (!value) return null;
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : null;
   }
 }
