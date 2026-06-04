@@ -109,6 +109,35 @@ function createMinimalFlac(
   fs.writeFileSync(filePath, Buffer.concat(parts));
 }
 
+function riffChunk(id: string, payload: Buffer): Buffer {
+  const header = Buffer.alloc(8);
+  header.write(id, 0, 4, "ascii");
+  header.writeUInt32LE(payload.length, 4);
+  const pad = payload.length % 2 === 1 ? Buffer.from([0]) : Buffer.alloc(0);
+  return Buffer.concat([header, payload, pad]);
+}
+
+function createMinimalWav(filePath: string): void {
+  const fmt = Buffer.alloc(16);
+  fmt.writeUInt16LE(1, 0); // PCM
+  fmt.writeUInt16LE(1, 2); // mono
+  fmt.writeUInt32LE(44100, 4);
+  fmt.writeUInt32LE(88200, 8);
+  fmt.writeUInt16LE(2, 12);
+  fmt.writeUInt16LE(16, 14);
+
+  const data = Buffer.alloc(882);
+  const body = Buffer.concat([
+    Buffer.from("WAVE", "ascii"),
+    riffChunk("fmt ", fmt),
+    riffChunk("data", data),
+  ]);
+  const header = Buffer.alloc(8);
+  header.write("RIFF", 0, 4, "ascii");
+  header.writeUInt32LE(body.length, 4);
+  fs.writeFileSync(filePath, Buffer.concat([header, body]));
+}
+
 describe("writeTags — MP3", () => {
   let tmpDir: string;
 
@@ -810,11 +839,44 @@ describe("writeTags — format detection", () => {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });
 
-  it("WAV write is a no-op (not an error)", async () => {
+  it("writes title to WAV ID3 tags — verified by music-metadata", async () => {
     const fp = path.join(tmpDir, "test.wav");
+    createMinimalWav(fp);
+
+    await writeTags(fp, { title: "寂寞在唱歌" });
+
+    const meta = await parseFile(fp, { duration: false });
+    expect(meta.common.title).toBe("寂寞在唱歌");
+  });
+
+  it("overwrites existing WAV ID3 title", async () => {
+    const fp = path.join(tmpDir, "test.wav");
+    createMinimalWav(fp);
+
+    await writeTags(fp, { title: "Old Title" });
+    await writeTags(fp, { title: "New Title" });
+
+    const meta = await parseFile(fp, { duration: false });
+    expect(meta.common.title).toBe("New Title");
+  });
+
+  it("preserves existing WAV ID3 tags when updating one field", async () => {
+    const fp = path.join(tmpDir, "test.wav");
+    createMinimalWav(fp);
+
+    await writeTags(fp, { title: "Old Title", artist: "阿桑", album: "珍藏纪念版 DTS" });
+    await writeTags(fp, { title: "New Title" });
+
+    const meta = await parseFile(fp, { duration: false });
+    expect(meta.common.title).toBe("New Title");
+    expect(meta.common.artist).toBe("阿桑");
+    expect(meta.common.album).toBe("珍藏纪念版 DTS");
+  });
+
+  it("rejects AIFF writes because unsupported metadata writes must fail loud", async () => {
+    const fp = path.join(tmpDir, "test.aiff");
     fs.writeFileSync(fp, Buffer.alloc(100));
-    // WAV writing is not supported; writeTag silently succeeds for WAV
-    await expect(writeTags(fp, { title: "x" })).resolves.toBeUndefined();
+    await expect(writeTags(fp, { title: "x" })).rejects.toThrow("AIFF metadata writing is not supported");
   });
 
   it("rejects truly unknown extensions", async () => {

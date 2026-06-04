@@ -145,25 +145,37 @@ export class OpenRouterClient {
     maxRetries = 2,
   ): Promise<Response> {
     let lastResponse: Response | null = null;
+    let lastError: Error | null = null;
 
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
-      const response = await this.post(messages, schemaName, schema, model);
-      lastResponse = response;
+      try {
+        const response = await this.post(messages, schemaName, schema, model);
+        lastResponse = response;
 
-      if (response.ok) return response;
+        if (response.ok) return response;
 
-      if (!RETRYABLE_STATUSES.has(response.status) || attempt >= maxRetries) {
-        break;
+        if (!RETRYABLE_STATUSES.has(response.status) || attempt >= maxRetries) {
+          break;
+        }
+
+        // Wait before retry
+        await new Promise((r) => setTimeout(r, 250 * (attempt + 1)));
+      } catch (err) {
+        // Network-level failure (DNS, TLS, connection reset) — retry
+        lastError = err instanceof Error ? err : new Error(String(err));
+        if (attempt >= maxRetries) break;
+        await new Promise((r) => setTimeout(r, 250 * (attempt + 1)));
       }
-
-      // Wait before retry
-      await new Promise((r) => setTimeout(r, 250 * (attempt + 1)));
     }
 
-    const body = lastResponse ? await lastResponse.text().catch(() => "") : "";
-    throw new Error(
-      `OpenRouter request failed with HTTP ${lastResponse?.status}: ${body}`,
-    );
+    if (lastResponse) {
+      const body = await lastResponse.text().catch(() => "");
+      throw new Error(
+        `OpenRouter request failed with HTTP ${lastResponse.status}: ${body}`,
+      );
+    }
+
+    throw lastError ?? new Error("OpenRouter request failed: no response and no error recorded");
   }
 
   private async post(

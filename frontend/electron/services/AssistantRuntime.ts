@@ -93,7 +93,7 @@ Guidelines:
 - Never request or expose API keys.
 - Never invent file paths outside the current library.
 - Prefer small, reversible batches.
-- Prefer composite macro tools for write/task work: auto_numbering_tracks, infer_tags_from_filenames, edit_metadata, organize_files, group_by_album, and run_library_task.
+- Prefer composite macro tools for write/task work: auto_numbering_tracks, strip_track_title_prefixes, strip_filename_prefixes, infer_tags_from_filenames, edit_metadata, organize_files, group_by_album, and run_library_task.
 - Use read-only tools to discover context, then call one macro with clear parameters.
 - Before calling a mutating tool, identify the intended operation type. If the user asks to fix metadata, do not choose a file-moving tool.
 - Be concise but helpful.
@@ -150,6 +150,7 @@ export class AssistantRuntime {
   private registry: AssistantToolRegistry;
   private autonomous: boolean;
   private cancelled = false;
+  private maxSteps = 6;
   private eventCallbacks: AssistantEventCallback[] = [];
   private pendingBatches: Map<string, AssistantActionBatch> = new Map();
   private nextBatchId = 1;
@@ -292,10 +293,9 @@ export class AssistantRuntime {
     this.cancelled = false;
     this.conversation.push({ role: "user", content: userMessage });
 
-    const maxSteps = 6;
     let repeatedCalls: { toolName: string; callCount: number } | null = null;
 
-    for (let step = 0; step < maxSteps; step++) {
+    for (let step = 0; step < this.maxSteps; step++) {
       if (this.cancelled) {
         return {
           sessionId: this.sessionId,
@@ -315,7 +315,7 @@ export class AssistantRuntime {
       this.emit({
         sessionId: this.sessionId,
         type: "step",
-        message: `Step ${step + 1}/${maxSteps}`,
+        message: `Step ${step + 1}/${this.maxSteps}`,
       });
 
       // Ask the LLM for a response
@@ -484,7 +484,7 @@ export class AssistantRuntime {
       .map((m) => `${m.role}: ${m.content.slice(0, 200)}`)
       .join("\n");
     let diagMsg =
-      `I reached the maximum step limit (${maxSteps}) and couldn't complete the task. ` +
+      `I reached the maximum step limit (${this.maxSteps}) and couldn't complete the task. ` +
       `This often happens when tool calls return unexpected results or the task ` +
       `requires more steps than allowed.`;
     if (repeatedCalls) {
@@ -618,6 +618,7 @@ export class AssistantRuntime {
   resetSession(): void {
     this.conversation = [];
     this.sessionId = this.generateSessionId();
+    this.maxSteps = 6;
     console.log(`[AssistantRuntime] Session reset, new id: ${this.sessionId}`);
   }
 

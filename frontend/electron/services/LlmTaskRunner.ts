@@ -178,6 +178,16 @@ export class LlmTaskRunner {
         reason: { type: "string" },
       },
       required: ["type", "content"],
+      // Require toolName when type is tool_call — prevents the LLM
+      // from emitting {type:"tool_call"} without naming a tool,
+      // which would get treated as "unknown" and break the tool loop.
+      if: {
+        properties: { type: { const: "tool_call" } },
+        required: ["type"],
+      },
+      then: {
+        required: ["toolName"],
+      },
     };
   }
 
@@ -371,6 +381,5 @@ export class LlmTaskRunner {
       reason,
     };
   }
-
 
 }

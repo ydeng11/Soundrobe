@@ -12,6 +12,10 @@ import {
   metadataBatchToExtraInputs,
   metadataBatchToStandardUpdates,
   planTrackNumbering,
+  planStripFilenamePrefixes,
+  planStripTitlePrefixes,
+  stripFilenamePrefix,
+  stripTitlePrefix,
   resolveTargetPathsForState,
 } from "../../electron/handlers/assistant";
 
@@ -186,6 +190,140 @@ describe("assistant composite macro helpers", () => {
   });
 });
 
+describe("stripTitlePrefix", () => {
+  it("strips '01. ' prefix", () => {
+    expect(stripTitlePrefix("01. 友情岁月")).toBe("友情岁月");
+  });
+
+  it("strips '1. ' prefix (no leading zero)", () => {
+    expect(stripTitlePrefix("1. Hello")).toBe("Hello");
+  });
+
+  it("strips '01 - ' prefix with dash", () => {
+    expect(stripTitlePrefix("01 - Hello World")).toBe("Hello World");
+  });
+
+  it("strips '01 – ' prefix with en-dash", () => {
+    expect(stripTitlePrefix("01 – Hello")).toBe("Hello");
+  });
+
+  it("strips '01) ' prefix", () => {
+    expect(stripTitlePrefix("01) Hello")).toBe("Hello");
+  });
+
+  it("strips bare track number followed by a space", () => {
+    expect(stripTitlePrefix("01 寂寞在唱歌")).toBe("寂寞在唱歌");
+  });
+
+  it("returns null for null input", () => {
+    expect(stripTitlePrefix(null)).toBeNull();
+  });
+
+  it("returns original title when no prefix found", () => {
+    expect(stripTitlePrefix("友情岁月")).toBe("友情岁月");
+  });
+
+  it("returns original title when no digit prefix", () => {
+    expect(stripTitlePrefix("Hello World")).toBe("Hello World");
+  });
+
+  it("does not strip internal numbers", () => {
+    expect(stripTitlePrefix("Track 01 B-side")).toBe("Track 01 B-side");
+  });
+
+  it("strips multi-digit prefixes", () => {
+    expect(stripTitlePrefix("123. Title")).toBe("Title");
+  });
+
+  it("strips 'NN - ' prefix", () => {
+    expect(stripTitlePrefix("10 - Title")).toBe("Title");
+  });
+});
+
+describe("planStripTitlePrefixes", () => {
+  it("strips prefixes from tracks with numbered titles", () => {
+    const allTracks = [
+      { ...track("/lib/album/01.flac"), title: "01. 友情岁月" },
+      { ...track("/lib/album/02.flac"), title: "02. 战无不胜" },
+      { ...track("/lib/album/03.flac"), title: "03. 古古惑惑" },
+    ];
+
+    const result = planStripTitlePrefixes(
+      allTracks.map((t) => t.path),
+      allTracks,
+    );
+
+    expect(result).toHaveLength(3);
+    expect(result[0]).toEqual({
+      trackPath: "/lib/album/01.flac",
+      fields: { title: "友情岁月" },
+    });
+    expect(result[1]).toEqual({
+      trackPath: "/lib/album/02.flac",
+      fields: { title: "战无不胜" },
+    });
+    expect(result[2]).toEqual({
+      trackPath: "/lib/album/03.flac",
+      fields: { title: "古古惑惑" },
+    });
+  });
+
+  it("skips tracks without prefixes", () => {
+    const allTracks = [
+      { ...track("/lib/album/01.flac"), title: "友情岁月" },
+      { ...track("/lib/album/02.flac"), title: "战无不胜" },
+    ];
+
+    const result = planStripTitlePrefixes(
+      allTracks.map((t) => t.path),
+      allTracks,
+    );
+
+    expect(result).toHaveLength(0);
+  });
+
+  it("handles empty input", () => {
+    const result = planStripTitlePrefixes([], []);
+    expect(result).toEqual([]);
+  });
+
+  it("skips tracks with null titles", () => {
+    const allTracks = [
+      { ...track("/lib/album/01.flac"), title: null },
+    ];
+
+    const result = planStripTitlePrefixes(
+      allTracks.map((t) => t.path),
+      allTracks,
+    );
+
+    expect(result).toHaveLength(0);
+  });
+
+  it("processes a mix of prefixed and clean titles", () => {
+    const allTracks = [
+      { ...track("/lib/album/01.flac"), title: "01. Intro" },
+      { ...track("/lib/album/02.flac"), title: "Main Song" },
+      { ...track("/lib/album/03.flac"), title: "03 - Outro" },
+    ];
+
+    const result = planStripTitlePrefixes(
+      allTracks.map((t) => t.path),
+      allTracks,
+    );
+
+    expect(result).toHaveLength(2);
+    expect(result[0]).toEqual({
+      trackPath: "/lib/album/01.flac",
+      fields: { title: "Intro" },
+    });
+    expect(result[1]).toEqual({
+      trackPath: "/lib/album/03.flac",
+      fields: { title: "Outro" },
+    });
+  });
+});
+
 describe("planTrackNumbering", () => {
   it("assigns sequential numbers when tracks have null track numbers, sorted by filename", () => {
     const allTracks = [
@@ -333,5 +471,98 @@ describe("planTrackNumbering", () => {
   it("returns empty array for empty input", () => {
     const result = planTrackNumbering([], []);
     expect(result).toEqual([]);
+  });
+});
+
+describe("stripFilenamePrefix", () => {
+  it("strips '01 ' prefix with space", () => {
+    expect(stripFilenamePrefix("01 寂寞在唱歌.wav")).toBe("寂寞在唱歌.wav");
+  });
+
+  it("strips '01. ' prefix", () => {
+    expect(stripFilenamePrefix("01. Track.flac")).toBe("Track.flac");
+  });
+
+  it("strips '01 - ' prefix with dash", () => {
+    expect(stripFilenamePrefix("01 - Song.mp3")).toBe("Song.mp3");
+  });
+
+  it("strips '01) ' prefix with paren", () => {
+    expect(stripFilenamePrefix("01) Track.flac")).toBe("Track.flac");
+  });
+
+  it("strips multi-digit prefixes", () => {
+    expect(stripFilenamePrefix("123. Title.wav")).toBe("Title.wav");
+  });
+
+  it("strips '1 - ' single-digit prefix", () => {
+    expect(stripFilenamePrefix("1 - Song.flac")).toBe("Song.flac");
+  });
+
+  it("returns original when no prefix", () => {
+    expect(stripFilenamePrefix("寂寞在唱歌.wav")).toBe("寂寞在唱歌.wav");
+  });
+
+  it("does not strip internal numbers", () => {
+    expect(stripFilenamePrefix("Track 123 Title.flac")).toBe("Track 123 Title.flac");
+  });
+
+  it("preserves extension", () => {
+    expect(stripFilenamePrefix("01. intro.flac")).toBe("intro.flac");
+  });
+});
+
+describe("planStripFilenamePrefixes", () => {
+  it("strips prefixes from track paths", () => {
+    const result = planStripFilenamePrefixes([
+      "/lib/album/01 寂寞在唱歌.wav",
+      "/lib/album/02 一直很安静.wav",
+      "/lib/album/03 叶子.wav",
+    ]);
+
+    expect(result).toEqual([
+      { sourcePath: "/lib/album/01 寂寞在唱歌.wav", destinationPath: "/lib/album/寂寞在唱歌.wav" },
+      { sourcePath: "/lib/album/02 一直很安静.wav", destinationPath: "/lib/album/一直很安静.wav" },
+      { sourcePath: "/lib/album/03 叶子.wav", destinationPath: "/lib/album/叶子.wav" },
+    ]);
+  });
+
+  it("skips files without prefixes", () => {
+    const result = planStripFilenamePrefixes([
+      "/lib/album/寂寞在唱歌.wav",
+      "/lib/album/一直很安静.wav",
+    ]);
+
+    expect(result).toHaveLength(0);
+  });
+
+  it("handles empty input", () => {
+    const result = planStripFilenamePrefixes([]);
+    expect(result).toEqual([]);
+  });
+
+  it("handles a mix of prefixed and clean filenames", () => {
+    const result = planStripFilenamePrefixes([
+      "/lib/album/01 Intro.flac",
+      "/lib/album/Main Song.flac",
+      "/lib/album/03 - Outro.flac",
+    ]);
+
+    expect(result).toEqual([
+      { sourcePath: "/lib/album/01 Intro.flac", destinationPath: "/lib/album/Intro.flac" },
+      { sourcePath: "/lib/album/03 - Outro.flac", destinationPath: "/lib/album/Outro.flac" },
+    ]);
+  });
+
+  it("preserves directory structure", () => {
+    const result = planStripFilenamePrefixes([
+      "/lib/compilation/disc1/01 Track.flac",
+      "/lib/compilation/disc1/02 Track.flac",
+    ]);
+
+    expect(result).toEqual([
+      { sourcePath: "/lib/compilation/disc1/01 Track.flac", destinationPath: "/lib/compilation/disc1/Track.flac" },
+      { sourcePath: "/lib/compilation/disc1/02 Track.flac", destinationPath: "/lib/compilation/disc1/Track.flac" },
+    ]);
   });
 });

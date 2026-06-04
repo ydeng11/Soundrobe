@@ -2,6 +2,10 @@ import fs from "fs";
 import path from "path";
 import * as NodeID3 from "node-id3";
 
+type NodeID3Module = typeof import("node-id3");
+const nodeId3 = ((NodeID3 as unknown as { default?: NodeID3Module }).default ??
+  NodeID3) as NodeID3Module;
+
 /**
  * Mapping of field names → tag specs for each format.
  *
@@ -123,7 +127,7 @@ function fieldsToID3v2(fields: WriteFields): NodeID3.Tags {
  */
 function writeMp3(filePath: string, fields: WriteFields): void {
   const tags = fieldsToID3v2(fields);
-  const existingTags = NodeID3.read(filePath);
+  const existingTags = nodeId3.read(filePath);
   const custom = mergeMp3UserDefinedText(existingTags.userDefinedText, fields);
   const mergedTags = { ...existingTags, ...tags };
   if (custom !== undefined) {
@@ -131,7 +135,7 @@ function writeMp3(filePath: string, fields: WriteFields): void {
   } else {
     delete mergedTags.userDefinedText;
   }
-  NodeID3.write(mergedTags, filePath);
+  nodeId3.write(mergedTags, filePath);
 }
 
 function mergeMp3UserDefinedText(
@@ -168,7 +172,7 @@ function mergeMp3UserDefinedText(
 }
 
 function writeMp3ExtraTags(filePath: string, extraTags: ExtraTagUpdate[]): void {
-  const existingTags = NodeID3.read(filePath);
+  const existingTags = nodeId3.read(filePath);
   const preserved = (Array.isArray(existingTags.userDefinedText)
     ? existingTags.userDefinedText
     : existingTags.userDefinedText
@@ -188,7 +192,7 @@ function writeMp3ExtraTags(filePath: string, extraTags: ExtraTagUpdate[]): void 
     ...existingTags,
     userDefinedText: [...preserved, ...custom],
   };
-  NodeID3.write(nextTags, filePath);
+  nodeId3.write(nextTags, filePath);
 }
 
 /**
@@ -198,8 +202,7 @@ function writeMp3ExtraTags(filePath: string, extraTags: ExtraTagUpdate[]): void 
  */
 function writeVorbis(
   filePath: string,
-  fields: WriteFields,
-  blockType: number = 4
+  fields: WriteFields
 ): void {
   const data = fs.readFileSync(filePath);
   const existing = readVorbisComments(data);
@@ -231,7 +234,7 @@ function writeVorbis(
     ];
   }
 
-  writeVorbisComments(filePath, data, updated, blockType);
+  writeVorbisComments(filePath, data, updated);
 }
 
 interface VorbisDict {
@@ -347,8 +350,7 @@ function parseVorbisCommentBlock(
 function writeVorbisComments(
   filePath: string,
   origBuf: Buffer,
-  comments: VorbisDict,
-  _blockType: number = 4
+  comments: VorbisDict
 ): void {
   // Build the comment block body
   const vendorString = Buffer.from("auto-tagger", "utf8");
@@ -749,12 +751,64 @@ function replaceOrAppendAtom(
 }
 
 /**
- * Write a WAV file's RIFF INFO chunk.
- * WAV tags go in a `LIST` chunk with `INFO` sub-chunks.
+ * Write a WAV file's embedded ID3v2 chunk.
+ * Picard/Foobar-style WAV tags use an `id3 ` RIFF chunk, which supports Unicode.
  */
-function writeWav(_filePath: string, _fields: WriteFields): void {
-  // WAV tag writing is non-standard; skip for MVP.
-  // Most WAV files don't have tag editing support.
+function writeWav(filePath: string, fields: WriteFields): void {
+  const data = fs.readFileSync(filePath);
+  if (data.length < 12 || data.toString("ascii", 0, 4) !== "RIFF" || data.toString("ascii", 8, 12) !== "WAVE") {
+    throw new Error("Invalid WAV file");
+  }
+
+  let existingTags: NodeID3.Tags = {};
+  const chunks: Buffer[] = [];
+  for (let offset = 12; offset + 8 <= data.length;) {
+    const id = data.toString("ascii", offset, offset + 4);
+    const size = data.readUInt32LE(offset + 4);
+    const end = offset + 8 + size + (size % 2);
+    if (end > data.length) {
+      chunks.push(data.subarray(offset));
+      break;
+    }
+    if (id === "id3 " || id === "ID3 ") {
+      existingTags = {
+        ...existingTags,
+        ...nodeId3.read(data.subarray(offset + 8, offset + 8 + size)),
+      };
+    } else {
+      chunks.push(data.subarray(offset, end));
+    }
+    offset = end;
+  }
+  const id3Chunk = buildWavId3Chunk(fields, existingTags);
+  chunks.push(id3Chunk);
+
+  const body = Buffer.concat([Buffer.from("WAVE", "ascii"), ...chunks]);
+  const header = Buffer.alloc(8);
+  header.write("RIFF", 0, 4, "ascii");
+  header.writeUInt32LE(body.length, 4);
+  fs.writeFileSync(filePath, Buffer.concat([header, body]));
+}
+
+function buildWavId3Chunk(fields: WriteFields, existingTags: NodeID3.Tags = {}): Buffer {
+  const tags = fieldsToID3v2(fields);
+  const custom = mergeMp3UserDefinedText(existingTags.userDefinedText, fields);
+  const mergedTags = { ...existingTags, ...tags };
+  if (custom !== undefined) {
+    mergedTags.userDefinedText = custom;
+  } else {
+    delete mergedTags.userDefinedText;
+  }
+  const id3 = nodeId3.create(mergedTags);
+  return wavChunk("id3 ", id3);
+}
+
+function wavChunk(id: string, payload: Buffer): Buffer {
+  const header = Buffer.alloc(8);
+  header.write(id, 0, 4, "ascii");
+  header.writeUInt32LE(payload.length, 4);
+  const pad = payload.length % 2 === 1 ? Buffer.from([0]) : Buffer.alloc(0);
+  return Buffer.concat([header, payload, pad]);
 }
 
 function normalizeExtraTags(
@@ -803,7 +857,7 @@ function writeVorbisExtraTags(filePath: string, extraTags: ExtraTagUpdate[]): vo
     comments[key].push(tag.value);
   }
 
-  writeVorbisComments(filePath, data, comments, 4);
+  writeVorbisComments(filePath, data, comments);
 }
 
 /**
@@ -820,20 +874,21 @@ export async function writeTags(
       writeMp3(filePath, fields);
       break;
     case ".flac":
-      writeVorbis(filePath, fields, 4);
+      writeVorbis(filePath, fields);
       break;
     case ".ogg":
     case ".opus":
-      writeVorbis(filePath, fields, 4);
+      writeVorbis(filePath, fields);
       break;
     case ".m4a":
     case ".mp4":
       writeMp4(filePath, fields);
       break;
     case ".wav":
-    case ".aiff":
       writeWav(filePath, fields);
       break;
+    case ".aiff":
+      throw new Error("AIFF metadata writing is not supported");
     default:
       throw new Error(`Unsupported format for writing: ${ext}`);
   }

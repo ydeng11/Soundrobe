@@ -829,6 +829,90 @@ export function planTrackNumbering(
   return results;
 }
 
+/**
+ * Strip common number prefixes from track titles.
+ * Handles patterns like "01 Title", "01. Title", "01 - Title", "01) Title", "01 – Title".
+ * Returns the stripped title, or the original if no prefix is found.
+ */
+export function stripTitlePrefix(title: string | null): string | null {
+  if (!title) return title;
+  return title.replace(/^\d+[.\\)]\s+|^\d+\s*[-–]\s+|^\d{1,3}\s+/, "");
+}
+
+/**
+ * Plan title prefix stripping for a set of track paths.
+ * Strips leading digit prefixes ("01. ", "01 - ") from existing track titles.
+ * Returns TagUpdateInstructions for TrackTagService.
+ *
+ * @param trackPaths - The track paths to process.
+ * @param allTracks - The full track list (from currentAppState).
+ */
+export function planStripTitlePrefixes(
+  trackPaths: string[],
+  allTracks: TrackData[],
+): TagUpdateInstruction[] {
+  const trackByPath = new Map<string, TrackData>();
+  for (const t of allTracks) {
+    trackByPath.set(t.path, t);
+  }
+
+  const instructions: TagUpdateInstruction[] = [];
+
+  for (const tp of trackPaths) {
+    const track = trackByPath.get(tp);
+    if (!track) continue;
+
+    const stripped = stripTitlePrefix(track.title);
+    if (stripped !== track.title) {
+      instructions.push({
+        trackPath: tp,
+        fields: { title: stripped },
+      });
+    }
+  }
+
+  return instructions;
+}
+
+// ── Filename prefix stripping ────────────────────────────────────
+
+/**
+ * Strip leading number prefixes from filenames.
+ * Handles patterns like "01  Name.ext", "01. Name.ext", "01 - Name.ext".
+ * Returns the basename with the prefix removed, or the original if no prefix.
+ */
+export function stripFilenamePrefix(filename: string): string {
+  return filename.replace(/^\d+[\s.\\)-]+/, "");
+}
+
+/**
+ * Plan filename prefix stripping for a set of track paths.
+ * Computes new filenames by stripping leading digit prefixes
+ * ("01 ", "01. ", "01 -") from basenames.
+ *
+ * @param trackPaths - The track paths to process.
+ * @returns Array of {sourcePath, destinationPath} for each rename.
+ */
+export function planStripFilenamePrefixes(
+  trackPaths: string[],
+): Array<{ sourcePath: string; destinationPath: string }> {
+  const results: Array<{ sourcePath: string; destinationPath: string }> = [];
+
+  for (const tp of trackPaths) {
+    const dir = path.dirname(tp);
+    const basename = path.basename(tp);
+    const stripped = stripFilenamePrefix(basename);
+    if (stripped !== basename) {
+      results.push({
+        sourcePath: tp,
+        destinationPath: path.join(dir, stripped),
+      });
+    }
+  }
+
+  return results;
+}
+
 function buildMutatingTools(): AssistantToolDef[] {
   return [
     {
@@ -896,10 +980,7 @@ function buildMutatingTools(): AssistantToolDef[] {
         );
 
         if (targetPaths.length === 0) {
-          const suggestion = targetScope === "selected" || targetScope === "active_album"
-            ? ' Try "library" to target all loaded tracks.'
-            : "";
-          return { ok: true, summary: `No tracks found for target_scope "${targetScope}".${suggestion}` };
+          return { ok: true, summary: `No tracks found for target_scope "${targetScope}".${noTracksSuggestion(targetScope)}` };
         }
 
         const standardFields = buildStandardFields(
@@ -1065,6 +1146,152 @@ function buildMutatingTools(): AssistantToolDef[] {
           summary: `Preview created (${batch.id}): ${summary}. Approve in the assistant panel to apply.`,
           pendingActionBatchId: batch.id,
           data: { batch, standardPlan, instructions },
+        };
+      },
+    },
+    {
+      name: "strip_track_title_prefixes",
+      description: "Composite macro: strip leading number prefixes from existing track titles. Handles patterns like '01. Title', '01 - Title', '01) Title'. Use when tracks have number prefixes in their title tags (e.g. '01. 友情岁月' → '友情岁月'). No API calls.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          target_scope: {
+            type: "string",
+            enum: ["selected", "active_album", "library", "explicit_paths"],
+            description: "Target tracks. Use explicit_paths for specific tracks, active_album for the current album, selected for selection, or library for all loaded tracks.",
+          },
+          paths: {
+            type: "array",
+            items: { type: "string" },
+            description: "Track paths used when target_scope is explicit_paths.",
+          },
+        },
+        required: ["target_scope"],
+      },
+      isReadOnly: false,
+      riskLevel: "low",
+      operationKind: "metadata_edit",
+      executor: async (args) => {
+        if (!trackTagService) {
+          return { ok: false, summary: "TrackTagService not initialized", error: "SERVICE_NOT_INITIALIZED" };
+        }
+
+        const targetScope = String(args.target_scope) as TaskTargetScope;
+        const { paths: targetPaths, description } = resolveTargetPaths(
+          targetScope,
+          args.paths as string[] | undefined,
+        );
+
+        if (targetPaths.length === 0) {
+          return { ok: true, summary: `No tracks found for target_scope "${targetScope}".${noTracksSuggestion(targetScope)}` };
+        }
+
+        // Compute the desired title updates
+        const instructions = planStripTitlePrefixes(targetPaths, currentAppState.tracks);
+
+        if (instructions.length === 0) {
+          return {
+            ok: true,
+            summary: `No title prefixes found for ${description} — no changes needed.`,
+          };
+        }
+
+        // Use planTagUpdates to compute diff/preview
+        const standardPlan = await trackTagService.planTagUpdates(instructions);
+        const summary = standardPlan.summary;
+
+        if (!currentRuntime) {
+          return { ok: true, summary };
+        }
+
+        const batch = currentRuntime.createActionBatch({
+          kind: "metadata-update",
+          title: `Strip title prefixes for ${description}`,
+          summary,
+          riskLevel: "low",
+          actions: metadataPreviewActions({ standardActions: standardPlan.actions, extraActions: [] }),
+          reversible: true,
+        });
+
+        return {
+          ok: true,
+          summary: `Preview created (${batch.id}): ${summary}. Approve in the assistant panel to apply.`,
+          pendingActionBatchId: batch.id,
+          data: { batch, standardPlan, instructions },
+        };
+      },
+    },
+    {
+      name: "strip_filename_prefixes",
+      description: "Composite macro: strip leading number prefixes from track filenames. Handles patterns like '01  Name.ext', '01. Name.ext', '01 - Name.ext'. Use when the number prefix is in the filename, not the metadata title tag (e.g. '01 寂寞在唱歌.wav' → '寂寞在唱歌.wav'). No API calls.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          target_scope: {
+            type: "string",
+            enum: ["selected", "active_album", "library", "explicit_paths"],
+            description: "Target tracks. Use explicit_paths for specific tracks, active_album for the current album, selected for selection, or library for all loaded tracks.",
+          },
+          paths: {
+            type: "array",
+            items: { type: "string" },
+            description: "Track paths used when target_scope is explicit_paths.",
+          },
+        },
+        required: ["target_scope"],
+      },
+      isReadOnly: false,
+      riskLevel: "medium",
+      operationKind: "file_move",
+      executor: async (args) => {
+        const targetScope = String(args.target_scope) as TaskTargetScope;
+        const { paths: targetPaths, description } = resolveTargetPaths(
+          targetScope,
+          args.paths as string[] | undefined,
+        );
+
+        if (targetPaths.length === 0) {
+          return { ok: true, summary: `No tracks found for target_scope "${targetScope}".${noTracksSuggestion(targetScope)}` };
+        }
+
+        // Compute the desired filename renames
+        const instructions = planStripFilenamePrefixes(targetPaths);
+
+        if (instructions.length === 0) {
+          return {
+            ok: true,
+            summary: `No filename prefixes found for ${description} — no changes needed.`,
+          };
+        }
+
+        const summary = `Rename ${instructions.length} file(s) to strip number prefixes from filenames`;
+
+        if (!currentRuntime) {
+          return { ok: true, summary };
+        }
+
+        const batch = currentRuntime.createActionBatch({
+          kind: "folder-move",
+          title: `Strip filename prefixes for ${description}`,
+          summary,
+          riskLevel: "medium",
+          actions: instructions.map((inst) => ({
+            sourcePath: inst.sourcePath,
+            destinationPath: inst.destinationPath,
+            description: `Rename "${path.basename(inst.sourcePath)}" → "${path.basename(inst.destinationPath)}"`,
+          })),
+          reversible: true,
+        });
+
+        const renameDetails = instructions
+          .map((i) => `"${path.basename(i.sourcePath)}" → "${path.basename(i.destinationPath)}"`)
+          .join("; ");
+
+        return {
+          ok: true,
+          summary: `Preview created (${batch.id}): ${summary}. ${renameDetails}. Approve in the assistant panel to apply.`,
+          pendingActionBatchId: batch.id,
+          data: { batch, instructions },
         };
       },
     },
@@ -1256,10 +1483,7 @@ function buildMutatingTools(): AssistantToolDef[] {
         );
 
         if (targetPaths.length === 0) {
-          const suggestion = targetScope === "selected" || targetScope === "active_album"
-            ? ' Try "library" to target all loaded tracks.'
-            : "";
-          return { ok: true, summary: `No tracks found for target_scope "${targetScope}".${suggestion}` };
+          return { ok: true, summary: `No tracks found for target_scope "${targetScope}".${noTracksSuggestion(targetScope)}` };
         }
 
         // Build an albumTitleFn that looks up album metadata from the loaded tracks
@@ -1331,10 +1555,7 @@ function buildMutatingTools(): AssistantToolDef[] {
         );
 
         if (paths.length === 0) {
-          const suggestion = targetScope === "selected" || targetScope === "active_album"
-            ? ' Try "library" to target all loaded tracks.'
-            : "";
-          return { ok: true, summary: `No tracks found for target_scope "${targetScope}".${suggestion}` };
+          return { ok: true, summary: `No tracks found for target_scope "${targetScope}".${noTracksSuggestion(targetScope)}` };
         }
 
         const isAutoTag = task === "auto_tag";
