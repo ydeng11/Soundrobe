@@ -6,8 +6,9 @@
 import { ipcMain, BrowserWindow } from "electron";
 import path from "path";
 import { LlmTaskRunner } from "../services/LlmTaskRunner";
-import { AssistantRuntime, type AssistantActionBatch } from "../services/AssistantRuntime";
+import { AssistantRuntime, type AssistantAction, type AssistantActionBatch } from "../services/AssistantRuntime";
 import type { AssistantEvent } from "../services/AssistantRuntime";
+import { ConversationLogger } from "./conversation-logger";
 import { AssistantToolRegistry } from "../services/AssistantToolRegistry";
 import type { AssistantToolDef } from "../services/AssistantToolRegistry";
 import { LibraryService } from "../services/LibraryService";
@@ -18,6 +19,8 @@ import type { ExtraTagPlanInput } from "../services/ExtraTagService";
 import { SafeQueryService } from "../services/SafeQueryService";
 import { SafeApiRequestService } from "../services/SafeApiRequestService";
 import { FolderOrganizerService } from "../services/FolderOrganizerService";
+import { FilenameTagInferenceService } from "../services/FilenameTagInferenceService";
+import { PlanExecutor, type Plan } from "../services/PlanExecutor";
 import type { WriteFields, ExtraTagUpdate } from "./writer";
 import type { AlbumInfo, TrackData } from "../preload";
 
@@ -29,6 +32,8 @@ let extraTagService: ExtraTagService | null = null;
 let safeQueryService: SafeQueryService | null = null;
 let safeApiRequestService: SafeApiRequestService | null = null;
 let folderOrganizerService: FolderOrganizerService | null = null;
+let filenameTagInferenceService: FilenameTagInferenceService | null = null;
+let planExecutor: PlanExecutor | null = null;
 
 // ── Stored config (real values, read from main-process config) ──
 
@@ -59,15 +64,16 @@ let currentAppState: {
 };
 
 type FolderPlanForBatch = ReturnType<FolderOrganizerService["planOrganizeFiles"]>;
-type MetadataTargetScope = "selected" | "active_album" | "explicit_paths";
-type TaskTargetScope = MetadataTargetScope | "library";
+type TaskTargetScope = "selected" | "active_album" | "library" | "explicit_paths";
 type LibraryTaskKind = "auto_tag" | "audit";
 
 const STANDARD_TAG_FIELDS = [
   "title",
   "artist",
+  "artists",
   "album",
   "albumArtist",
+  "albumArtists",
   "year",
   "trackNumber",
   "trackTotal",
@@ -76,32 +82,23 @@ const STANDARD_TAG_FIELDS = [
   "genre",
   "composer",
   "comment",
+  "description",
   "lyrics",
   "compilation",
+  "musicbrainzTrackId",
+  "musicbrainzAlbumId",
+  "musicbrainzArtistId",
 ] as const;
 
 type StandardTagField = typeof STANDARD_TAG_FIELDS[number];
 const STANDARD_TAG_FIELD_SET = new Set<string>(STANDARD_TAG_FIELDS);
 
+/** Fields that are unique per track — applying the same value to all tracks via library scope is almost always wrong. */
+const PER_TRACK_UNIQUE_FIELDS = new Set(["title", "artist", "artists", "trackNumber", "trackTotal", "discNumber", "discTotal"]);
+
 // ── Event subscribers ────────────────────────────────────────────
 
-type AssistantEventSubscriber = (event: AssistantEvent) => void;
-const subscribers = new Set<AssistantEventSubscriber>();
-
-function subscribeEvents(subscriber: AssistantEventSubscriber): () => void {
-  subscribers.add(subscriber);
-  return () => subscribers.delete(subscriber);
-}
-
 function broadcastEvent(event: AssistantEvent): void {
-  for (const sub of subscribers) {
-    try {
-      sub(event);
-    } catch {
-      // Ignore subscriber errors
-    }
-  }
-  // Also forward to all BrowserWindows
   for (const win of BrowserWindow.getAllWindows()) {
     if (!win.isDestroyed()) {
       win.webContents.send("assistant:event", event);
@@ -167,6 +164,7 @@ export function initializeAssistantServices(config: {
   if (config.libraryPath) {
     folderOrganizerService.setLibraryRoot(config.libraryPath);
   }
+  filenameTagInferenceService = new FilenameTagInferenceService();
 }
 
 // ── Update service config (e.g. when settings change) ────────────
@@ -175,10 +173,11 @@ export function updateAssistantConfig(config: {
   discogsToken?: string | null;
   lyricsHost?: string | null;
 }): void {
-  if (config.discogsToken !== undefined && safeApiRequestService) {
+  if (!safeApiRequestService) return;
+  if (config.discogsToken !== undefined) {
     safeApiRequestService.setDiscogsToken(config.discogsToken);
   }
-  if (config.lyricsHost !== undefined && safeApiRequestService) {
+  if (config.lyricsHost !== undefined) {
     safeApiRequestService.setLyricsHost(config.lyricsHost);
   }
 }
@@ -293,47 +292,79 @@ function buildReadOnlyTools(): AssistantToolDef[] {
           }
         }
 
-        return { ok: true, summary, data: { total: results.length, tracks: limited } };
+        return {
+          ok: true,
+          summary,
+          data: {
+            total: results.length,
+            tracks: limited.map((t) => ({
+              path: t.path,
+              title: t.title,
+              artist: t.artist,
+              album: t.album,
+              codec: t.codec,
+            })),
+            paths: limited.map((t) => t.path),
+          },
+        };
       },
     },
     {
       name: "tracks.inspect",
-      description: "Inspect one or more tracks by path. Pass selectedTrackPaths to inspect the current selection, or provide explicit paths.",
+      description: "Inspect one or more tracks by path. Pass selectedTrackPaths to inspect the current selection, or provide explicit paths. If both are empty, inspects all loaded tracks. Returns at most the first `limit` tracks (default 20, max 500). To inspect all tracks, set limit to a higher value or use tracks.search with specific filters.",
       inputSchema: {
         type: "object",
         properties: {
           paths: {
             type: "array",
             items: { type: "string" },
-            description: "Track paths to inspect. If empty, uses current selection.",
+            description: "Track paths to inspect. If empty, uses current selection. If also empty, inspects all loaded tracks.",
+          },
+          limit: {
+            type: "number",
+            description: "Max tracks to return (1-500, default: 20).",
           },
         },
         required: [],
       },
       isReadOnly: true,
       executor: async (args) => {
-        const paths = (args.paths as string[]) ?? currentAppState.selectedTrackPaths;
+        let paths = (args.paths as string[]) ?? currentAppState.selectedTrackPaths;
         if (paths.length === 0) {
-          return { ok: true, summary: "No tracks specified and no current selection." };
+          // Fall back to all loaded tracks when nothing is selected
+          paths = currentAppState.tracks.map((t) => t.path);
+          if (paths.length === 0) {
+            return { ok: true, summary: "No tracks loaded in the library." };
+          }
         }
 
-        const limited = paths.slice(0, 10);
-        let summary = `Inspecting ${limited.length} track(s):\n`;
+        const maxDisplay = Math.min(Math.max(1, (args.limit as number) ?? 20), 500);
+        const limited = paths.slice(0, maxDisplay);
+        const totalInLib = currentAppState.tracks.length;
+        const selectedCount = currentAppState.selectedTrackPaths.length;
+        let summary = `Inspecting ${limited.length} track(s)${paths.length > maxDisplay ? ` (showing first ${maxDisplay} of ${paths.length})` : ""} — ${selectedCount} selected from ${totalInLib} total:\n`;
 
+        const truncate = (s: string | null | undefined, label: string) => {
+          if (!s) return `${label}: (none)`;
+          return s.length > 60 ? `${label}: ${s.slice(0, 60)}...` : `${label}: ${s}`;
+        };
         for (const p of limited) {
           const track = currentAppState.tracks.find((t) => t.path === p);
           if (!track) {
-            summary += `  - ${p}: not found in library\n`;
+            summary += `  - ${p}: not found in library. Use tracks.inspect without paths to see all ${totalInLib} loaded track(s).\n`;
             continue;
           }
-          summary += `  - "${track.title}" by ${track.artist ?? "?"}\n`;
+          const filename = track.path.split(/[\/\\]/).pop() ?? track.path;
+          summary += `    File: ${filename}\n`;
+          summary += `    Artists: ${(track.artists ?? []).join('; ') || '(none)'}\n`;
           summary += `    Album: ${track.album ?? "?"} (${track.albumArtist ?? "?"})\n`;
           summary += `    Track ${track.trackNumber ?? "?"}/${track.trackTotal ?? "?"} | Year: ${track.year ?? "?"} | Genre: ${track.genre ?? "?"}\n`;
           summary += `    Codec: ${track.codec} | Duration: ${Math.round(track.duration)}s | Cover: ${track.hasCover ? "yes" : "no"}\n`;
+          summary += `    ${truncate(track.comment, "Comment")} | ${truncate(track.description, "Description")}\n`;
         }
 
-        if (paths.length > 10) {
-          summary += `  (${paths.length - 10} more not shown)`;
+        if (limited.length < paths.length) {
+          summary += `  (${paths.length - limited.length} more track(s) not shown — narrow with paths filter or call without arguments for all)`;
         }
 
         return { ok: true, summary };
@@ -425,7 +456,15 @@ function buildReadOnlyTools(): AssistantToolDef[] {
             summary += `  - ${t.title ?? "(no title)"} by ${t.artist ?? "?"} (${t.album ?? "?"})\n`;
           }
           if (results.length > 20) summary += `  ... and ${results.length - 20} more`;
-          return { ok: true, summary, data: { total: results.length, tracks: limited } };
+          return {
+            ok: true,
+            summary,
+            data: {
+              total: results.length,
+              tracks: limited.map((t) => ({ path: t.path, title: t.title, artist: t.artist, album: t.album })),
+              paths: limited.map((t) => t.path),
+            },
+          };
         }
 
         if (args.duplicates) {
@@ -538,8 +577,10 @@ function standardTagSchema(): Record<StandardTagField, Record<string, unknown>> 
   return {
     title: { type: "string" },
     artist: { type: "string" },
+    artists: { type: "array", items: { type: "string" } },
     album: { type: "string" },
     albumArtist: { type: "string" },
+    albumArtists: { type: "array", items: { type: "string" } },
     year: { type: "string" },
     trackNumber: { type: "number" },
     trackTotal: { type: "number" },
@@ -548,9 +589,20 @@ function standardTagSchema(): Record<StandardTagField, Record<string, unknown>> 
     genre: { type: "string" },
     composer: { type: "string" },
     comment: { type: "string" },
+    description: { type: "string" },
     lyrics: { type: "string" },
     compilation: { type: "boolean" },
+    musicbrainzTrackId: { type: "string" },
+    musicbrainzAlbumId: { type: "string" },
+    musicbrainzArtistId: { type: "string" },
   };
+}
+
+/** Return a suggestion when no tracks are found for scopes that may have hidden tracks. */
+function noTracksSuggestion(targetScope: TaskTargetScope): string {
+  return targetScope === "selected" || targetScope === "active_album"
+    ? ' Try "library" to target all loaded tracks.'
+    : "";
 }
 
 export function resolveTargetPathsForState(
@@ -620,6 +672,16 @@ function buildStandardFields(
   return fields as WriteFields;
 }
 
+export function hasBlankPerTrackFields(fields: WriteFields): boolean {
+  for (const field of PER_TRACK_UNIQUE_FIELDS) {
+    if (!(field in fields)) continue;
+    const value = fields[field as keyof WriteFields];
+    if (typeof value === "string" && value.trim() === "") return true;
+    if (Array.isArray(value) && value.length === 0) return true;
+  }
+  return false;
+}
+
 function metadataBatchSummary(
   standardActionCount: number,
   extraActionCount: number,
@@ -657,6 +719,116 @@ function metadataPreviewActions(input: {
   ];
 }
 
+export interface TrackNumberingPlan {
+  trackPath: string;
+  desiredTrackNumber: number;
+  desiredTrackTotal: number | null;
+  desiredDiscNumber: number | null;
+  desiredDiscTotal: number | null;
+}
+
+/**
+ * Plan track numbering fixes for a set of track paths.
+ * Groups by disc, sorts by existing trackNumber or filename, assigns sequential numbers.
+ * Returns a list of desired values per track.
+ *
+ * @param trackPaths - The track paths to number.
+ * @param allTracks - The full track list (from currentAppState) used to look up metadata.
+ */
+export function planTrackNumbering(
+  trackPaths: string[],
+  allTracks: TrackData[],
+): TrackNumberingPlan[] {
+  // Build a lookup map for faster access
+  const trackByPath = new Map<string, TrackData>();
+  for (const t of allTracks) {
+    trackByPath.set(t.path, t);
+  }
+
+  // Numbering is album-scoped first, then disc-scoped within the album.
+  const groups = new Map<string, string[]>();
+  const discNumbersByAlbum = new Map<string, Set<number>>();
+  const getAlbumKey = (track: TrackData): string => {
+    const album = track.album?.trim().toLocaleLowerCase();
+    if (album) {
+      const albumArtist = track.albumArtist?.trim().toLocaleLowerCase()
+        || track.albumArtists.join(";").trim().toLocaleLowerCase();
+      return `album:${albumArtist}:${album}`;
+    }
+    return `dir:${path.dirname(track.path)}`;
+  };
+  const getGroupKey = (track: TrackData): string => {
+    const albumKey = getAlbumKey(track);
+    const disc = track.discNumber;
+    return disc != null ? `${albumKey}:disc-${disc}` : `${albumKey}:single`;
+  };
+
+  // Detect total disc count per album while grouping
+  for (const tp of trackPaths) {
+    const track = trackByPath.get(tp);
+    if (!track) continue;
+    const albumKey = getAlbumKey(track);
+    const key = getGroupKey(track);
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key)!.push(tp);
+    if (track.discNumber != null) {
+      if (!discNumbersByAlbum.has(albumKey)) discNumbersByAlbum.set(albumKey, new Set());
+      discNumbersByAlbum.get(albumKey)!.add(track.discNumber);
+    }
+  }
+
+  const results: TrackNumberingPlan[] = [];
+
+  for (const [, groupPaths] of groups) {
+    // Sort within group: by existing trackNumber, or by filename if all null
+    const sorted = [...groupPaths].sort((a, b) => {
+      const ta = trackByPath.get(a);
+      const tb = trackByPath.get(b);
+      const tnA = ta?.trackNumber;
+      const tnB = tb?.trackNumber;
+      if (tnA != null && tnB != null) return tnA - tnB;
+      if (tnA != null) return -1;
+      if (tnB != null) return 1;
+      // Both null → sort by filename
+      const nameA = a.split(/[\\/]/).pop() ?? a;
+      const nameB = b.split(/[\\/]/).pop() ?? b;
+      return nameA.localeCompare(nameB);
+    });
+
+    const totalTracks = sorted.length;
+    const discNumber = (() => {
+      for (const tp of sorted) {
+        const t = trackByPath.get(tp);
+        if (t?.discNumber != null) return t.discNumber;
+      }
+      return null;
+    })();
+    const albumKey = (() => {
+      for (const tp of sorted) {
+        const t = trackByPath.get(tp);
+        if (t) return getAlbumKey(t);
+      }
+      return "";
+    })();
+    const albumDiscNumbers = discNumbersByAlbum.get(albumKey);
+    const totalDiscs = albumDiscNumbers && albumDiscNumbers.size > 0
+      ? Math.max(...albumDiscNumbers)
+      : null;
+
+    sorted.forEach((tp, index) => {
+      results.push({
+        trackPath: tp,
+        desiredTrackNumber: index + 1,
+        desiredTrackTotal: totalTracks,
+        desiredDiscNumber: discNumber,
+        desiredDiscTotal: totalDiscs,
+      });
+    });
+  }
+
+  return results;
+}
+
 function buildMutatingTools(): AssistantToolDef[] {
   return [
     {
@@ -667,8 +839,8 @@ function buildMutatingTools(): AssistantToolDef[] {
         properties: {
           target_scope: {
             type: "string",
-            enum: ["selected", "active_album", "explicit_paths"],
-            description: "Target tracks. Use explicit_paths with paths for specific tracks.",
+            enum: ["selected", "active_album", "library", "explicit_paths"],
+            description: "Target tracks. Use library for all loaded tracks, or explicit_paths with paths for specific tracks.",
           },
           paths: {
             type: "array",
@@ -711,19 +883,23 @@ function buildMutatingTools(): AssistantToolDef[] {
       },
       isReadOnly: false,
       riskLevel: "low",
+      operationKind: "metadata_edit",
       executor: async (args) => {
         if (!trackTagService || !extraTagService) {
           return { ok: false, summary: "Metadata services not initialized", error: "SERVICE_NOT_INITIALIZED" };
         }
 
-        const targetScope = String(args.target_scope) as MetadataTargetScope;
+        const targetScope = String(args.target_scope) as TaskTargetScope;
         const { paths: targetPaths, description } = resolveTargetPaths(
           targetScope,
           args.paths as string[] | undefined,
         );
 
         if (targetPaths.length === 0) {
-          return { ok: true, summary: `No tracks found for target_scope "${targetScope}".` };
+          const suggestion = targetScope === "selected" || targetScope === "active_album"
+            ? ' Try "library" to target all loaded tracks.'
+            : "";
+          return { ok: true, summary: `No tracks found for target_scope "${targetScope}".${suggestion}` };
         }
 
         const standardFields = buildStandardFields(
@@ -739,6 +915,24 @@ function buildMutatingTools(): AssistantToolDef[] {
           extraRemoves.length === 0
         ) {
           return { ok: true, summary: "No metadata changes specified." };
+        }
+
+        if (hasBlankPerTrackFields(standardFields)) {
+          return {
+            ok: true,
+            summary: "Blank title/artist/artists/track/disc values are not valid metadata fixes. To derive title, artist, and artists from filenames, use infer_tags_from_filenames instead.",
+          };
+        }
+
+        // Guard: warn when per-track-unique fields are applied to more than one track
+        // — the same values go to ALL targeted tracks.
+        const uniqueFieldsPresent = Object.keys(standardFields).filter((f) => PER_TRACK_UNIQUE_FIELDS.has(f));
+        if (targetPaths.length > 1 && uniqueFieldsPresent.length > 0) {
+          const fieldList = uniqueFieldsPresent.join(", ");
+          return {
+            ok: true,
+            summary: `⚠️ WARNING: The same ${fieldList} value(s) would be applied to ALL ${targetPaths.length} targeted tracks via target_scope "${targetScope}". This is likely wrong — each track needs different values for these fields. First use tracks.inspect or tracks.search to find the specific file paths, then call edit_metadata with target_scope "explicit_paths" for each batch of tracks that should get the same values.`,
+          };
         }
 
         const standardPlan = Object.keys(standardFields).length > 0
@@ -790,8 +984,176 @@ function buildMutatingTools(): AssistantToolDef[] {
       },
     },
     {
+      name: "auto_numbering_tracks",
+      description: "Composite macro: fix track-number metadata. Use this for requests like 'fix track numbers', 'renumber tracks', or 'number tracks within each album'. For target_scope library, it renumbers separately per album, then per disc within each album. No files are moved. No API calls.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          target_scope: {
+            type: "string",
+            enum: ["selected", "active_album", "library", "explicit_paths"],
+            description: "Target tracks. Use explicit_paths for specific tracks, active_album for the current album, selected for selection, or library for all loaded tracks.",
+          },
+          paths: {
+            type: "array",
+            items: { type: "string" },
+            description: "Track paths used when target_scope is explicit_paths.",
+          },
+        },
+        required: ["target_scope"],
+      },
+      isReadOnly: false,
+      riskLevel: "low",
+      operationKind: "metadata_edit",
+      executor: async (args) => {
+        if (!trackTagService) {
+          return { ok: false, summary: "TrackTagService not initialized", error: "SERVICE_NOT_INITIALIZED" };
+        }
+
+        const targetScope = String(args.target_scope) as TaskTargetScope;
+        const { paths: targetPaths, description } = resolveTargetPaths(
+          targetScope,
+          args.paths as string[] | undefined,
+        );
+
+        if (targetPaths.length === 0) {
+          return { ok: true, summary: `No tracks found for target_scope "${targetScope}".${noTracksSuggestion(targetScope)}` };
+        }
+
+        // Compute the desired track numbering
+        const plan = planTrackNumbering(targetPaths, currentAppState.tracks);
+
+        // Build TagUpdateInstructions for TrackTagService
+        const instructions = plan.map((p) => ({
+          trackPath: p.trackPath,
+          fields: {
+            trackNumber: p.desiredTrackNumber,
+            trackTotal: p.desiredTrackTotal,
+            discNumber: p.desiredDiscNumber,
+            discTotal: p.desiredDiscTotal,
+          } as WriteFields,
+        }));
+
+        // Use planTagUpdates to compute diff/preview
+        const standardPlan = await trackTagService.planTagUpdates(instructions);
+
+        // Check if anything actually changed
+        if (standardPlan.actions.length === 0) {
+          return {
+            ok: true,
+            summary: `Track numbering already correct for ${description} — no changes needed.`,
+          };
+        }
+
+        const summary = standardPlan.summary;
+
+        if (!currentRuntime) {
+          return { ok: true, summary };
+        }
+
+        const batch = currentRuntime.createActionBatch({
+          kind: "metadata-update",
+          title: `Auto-number tracks for ${description}`,
+          summary,
+          riskLevel: "low",
+          actions: metadataPreviewActions({ standardActions: standardPlan.actions, extraActions: [] }),
+          reversible: true,
+        });
+
+        return {
+          ok: true,
+          summary: `Preview created (${batch.id}): ${summary}. Approve in the assistant panel to apply.`,
+          pendingActionBatchId: batch.id,
+          data: { batch, standardPlan, instructions },
+        };
+      },
+    },
+    {
+      name: "infer_tags_from_filenames",
+      description: "Composite macro: deterministically parse each target filename shaped like 'Artist - Title.ext' and create a preview that sets per-track title, artist, and artists. Use this instead of edit_metadata when each track needs different title/artist values from filenames.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          target_scope: {
+            type: "string",
+            enum: ["selected", "active_album", "library", "explicit_paths"],
+            description: "Target tracks. Use explicit_paths for a known folder or selected tracks, active_album for the current album, or library for all loaded tracks.",
+          },
+          paths: {
+            type: "array",
+            items: { type: "string" },
+            description: "Track paths used when target_scope is explicit_paths.",
+          },
+          fields: {
+            type: "array",
+            items: {
+              type: "string",
+              enum: ["title", "artist", "artists"],
+            },
+            description: "Fields to infer. Defaults to title, artist, and artists.",
+          },
+        },
+        required: ["target_scope"],
+      },
+      isReadOnly: false,
+      riskLevel: "low",
+      operationKind: "metadata_edit",
+      executor: async (args) => {
+        if (!trackTagService || !filenameTagInferenceService) {
+          return { ok: false, summary: "Metadata services not initialized", error: "SERVICE_NOT_INITIALIZED" };
+        }
+
+        const targetScope = String(args.target_scope) as TaskTargetScope;
+        const { paths: targetPaths, description } = resolveTargetPaths(
+          targetScope,
+          args.paths as string[] | undefined,
+        );
+
+        if (targetPaths.length === 0) {
+          return { ok: true, summary: `No tracks found for target_scope "${targetScope}".` };
+        }
+
+        const requestedFields = new Set((args.fields as string[] | undefined) ?? ["title", "artist", "artists"]);
+        const instructions = filenameTagInferenceService.inferFromFilenames(targetPaths, {
+          title: requestedFields.has("title"),
+          artist: requestedFields.has("artist"),
+          artists: requestedFields.has("artists"),
+        });
+
+        if (instructions.length === 0) {
+          return {
+            ok: true,
+            summary: "No target filenames have a clear 'Artist - Title.ext' shape, so no metadata preview was created.",
+          };
+        }
+
+        const standardPlan = await trackTagService.planTagUpdates(instructions);
+        const summary = standardPlan.summary;
+
+        if (!currentRuntime) {
+          return { ok: true, summary };
+        }
+
+        const batch = currentRuntime.createActionBatch({
+          kind: "metadata-update",
+          title: `Infer filename tags for ${description}`,
+          summary,
+          riskLevel: "low",
+          actions: metadataPreviewActions({ standardActions: standardPlan.actions, extraActions: [] }),
+          reversible: true,
+        });
+
+        return {
+          ok: true,
+          summary: `Preview created (${batch.id}): ${summary}. Approve in the assistant panel to apply.`,
+          pendingActionBatchId: batch.id,
+          data: { batch, standardPlan, instructions },
+        };
+      },
+    },
+    {
       name: "organize_files",
-      description: "Composite macro: scan direct child files in source_dir, group or filter them by extension, pattern, date_created, or size, then create a preview move batch under target_dir_name.",
+      description: "Composite macro: move files on disk. Scan direct child files in source_dir, group or filter them by extension, pattern, date_created, or size, then create a preview move batch under target_dir_name. Do not use this for metadata fixes.",
       inputSchema: {
         type: "object",
         properties: {
@@ -817,6 +1179,7 @@ function buildMutatingTools(): AssistantToolDef[] {
       },
       isReadOnly: false,
       riskLevel: "medium",
+      operationKind: "file_move",
       executor: async (args) => {
         if (!folderOrganizerService || !currentAppState.libraryPath) {
           return { ok: false, summary: "Folder organizer or library path not configured", error: "SERVICE_NOT_INITIALIZED" };
@@ -860,6 +1223,79 @@ function buildMutatingTools(): AssistantToolDef[] {
       },
     },
     {
+      name: "group_by_album",
+      description: "Composite macro: move files on disk into album folders. It groups tracks by their album metadata tag and moves each track into a subfolder named after its album. Do not use this to fix track numbers or other metadata; use auto_numbering_tracks for numbering.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          target_scope: {
+            type: "string",
+            enum: ["selected", "active_album", "library", "explicit_paths"],
+            description: "Which tracks to organize by album.",
+          },
+          paths: {
+            type: "array",
+            items: { type: "string" },
+            description: "Track paths when target_scope is explicit_paths.",
+          },
+        },
+        required: ["target_scope"],
+      },
+      isReadOnly: false,
+      riskLevel: "medium",
+      operationKind: "file_move",
+      executor: async (args) => {
+        if (!folderOrganizerService || !currentAppState.libraryPath) {
+          return { ok: false, summary: "Folder organizer or library path not configured", error: "SERVICE_NOT_INITIALIZED" };
+        }
+
+        const targetScope = String(args.target_scope) as TaskTargetScope;
+        const { paths: targetPaths, description } = resolveTargetPaths(
+          targetScope,
+          args.paths as string[] | undefined,
+        );
+
+        if (targetPaths.length === 0) {
+          const suggestion = targetScope === "selected" || targetScope === "active_album"
+            ? ' Try "library" to target all loaded tracks.'
+            : "";
+          return { ok: true, summary: `No tracks found for target_scope "${targetScope}".${suggestion}` };
+        }
+
+        // Build an albumTitleFn that looks up album metadata from the loaded tracks
+        const albumTitleFn = (trackPath: string): string | null => {
+          const track = currentAppState.tracks.find((t) => t.path === trackPath);
+          return track?.album ?? null;
+        };
+
+        const plan = folderOrganizerService.planGroupByAlbum({
+          trackPaths: targetPaths,
+          libraryRoot: currentAppState.libraryPath,
+          albumTitleFn,
+        });
+
+        if (!currentRuntime) {
+          return { ok: true, summary: plan.summary };
+        }
+
+        const batch = currentRuntime.createActionBatch({
+          kind: "folder-move",
+          title: `Group ${plan.moves.length} track(s) by album`,
+          summary: plan.summary,
+          riskLevel: "medium",
+          actions: folderPlanToActions(plan),
+          reversible: plan.reversible,
+        });
+
+        return {
+          ok: true,
+          summary: `Preview created (${batch.id}): ${plan.summary}. Approve in the assistant panel to apply.`,
+          pendingActionBatchId: batch.id,
+          data: { batch, plan },
+        };
+      },
+    },
+    {
       name: "run_library_task",
       description: "Composite macro: plan an auto-tag or audit task for selected tracks, active album, entire library, or explicit track paths.",
       inputSchema: {
@@ -885,6 +1321,7 @@ function buildMutatingTools(): AssistantToolDef[] {
       },
       isReadOnly: false,
       riskLevel: "medium",
+      operationKind: "planning",
       executor: async (args) => {
         const task = String(args.task) as LibraryTaskKind;
         const targetScope = String(args.target_scope) as TaskTargetScope;
@@ -894,7 +1331,10 @@ function buildMutatingTools(): AssistantToolDef[] {
         );
 
         if (paths.length === 0) {
-          return { ok: true, summary: `No tracks found for target_scope "${targetScope}".` };
+          const suggestion = targetScope === "selected" || targetScope === "active_album"
+            ? ' Try "library" to target all loaded tracks.'
+            : "";
+          return { ok: true, summary: `No tracks found for target_scope "${targetScope}".${suggestion}` };
         }
 
         const isAutoTag = task === "auto_tag";
@@ -927,6 +1367,104 @@ function buildMutatingTools(): AssistantToolDef[] {
         };
       },
     },
+    {
+      name: "create_plan",
+      description:
+        "Define and execute a multi-step plan. Use when a task requires " +
+        "multiple sequential tool calls where later steps depend on earlier " +
+        "outputs. Steps run in dependency order (depends_on). Use $stepId.field " +
+        "to reference a previous step's output in arguments.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          plan_description: {
+            type: "string",
+            description: "Explain the overall goal of this plan.",
+          },
+          steps: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                id: { type: "string", description: "Unique step id, e.g. 'inspect' or 'edit'" },
+                label: { type: "string", description: "Human-readable step label" },
+                tool: { type: "string", description: "Registered tool name to call" },
+                args: {
+                  type: "object",
+                  description:
+                    "Tool arguments. Use $stepId.field to reference a previous step's output data.",
+                },
+                depends_on: {
+                  type: "array",
+                  items: { type: "string" },
+                  description: "Step IDs this step depends on. Leave empty for first steps.",
+                },
+              },
+              required: ["id", "tool"],
+            },
+          },
+        },
+        required: ["steps"],
+      },
+      isReadOnly: false,
+      riskLevel: "low",
+      operationKind: "planning",
+      executor: async (args) => {
+        const steps = args.steps as unknown[];
+        if (!planExecutor || !currentRuntime) {
+          return { ok: false, summary: "PlanExecutor not initialized", error: "SERVICE_NOT_INITIALIZED" };
+        }
+
+        const plan: Plan = {
+          steps: (steps as Record<string, unknown>[]).map((s) => ({
+            id: String(s.id),
+            label: s.label ? String(s.label) : undefined,
+            tool: String(s.tool),
+            args: (s.args as Record<string, unknown>) ?? {},
+            depends_on: Array.isArray(s.depends_on)
+              ? (s.depends_on as string[])
+              : undefined,
+          })),
+        };
+
+        const result = await planExecutor.execute(plan);
+
+        if (result.errors.length > 0) {
+          const errorSummary = result.errors
+            .map((e) => `[${e.stepId}] ${e.error}`)
+            .join("; ");
+          return {
+            ok: false,
+            summary: `Plan execution had errors: ${errorSummary}`,
+            error: errorSummary,
+          };
+        }
+
+        // Build summary from all step outputs
+        const lines = result.stepOutputs.map(
+          (o) => `  ${o.stepId} (${o.label}): ${o.ok ? "OK" : "FAIL"} — ${o.summary}`,
+        );
+        const batchCount = result.batches.length;
+        const summary = [
+          `Plan executed (${result.stepOutputs.length} steps, ${result.batches.length} pending batch(es)):`,
+          ...lines,
+          batchCount > 0
+            ? `Approve the ${batchCount} batch(es) in the assistant panel to apply.`
+            : "All steps completed — no pending batches.",
+        ].join("\n");
+
+        // If there's exactly one pending batch, return its ID for approval flow
+        const pendingActionBatchId =
+          result.batches.length === 1 ? result.batches[0].id : undefined;
+
+        return {
+          ok: true,
+          summary,
+          pendingActionBatchId,
+          data: { result },
+        };
+      },
+    },
   ];
 }
 
@@ -949,6 +1487,12 @@ function folderPlanToActions(plan: FolderPlanForBatch) {
       description: "skip",
     })),
   ];
+}
+
+function extractTrackPaths(actions: AssistantAction[]): string[] {
+  return actions
+    .map((a) => a.trackPath)
+    .filter((tp): tp is string => Boolean(tp));
 }
 
 export function metadataBatchToStandardUpdates(
@@ -986,28 +1530,6 @@ export function metadataBatchToExtraInputs(
     if (action.operation === "remove") {
       entry.removes.push(action.field);
     } else if (action.newValue != null) {
-      entry.upserts.push({ key: action.field, value: action.newValue });
-    }
-    updatesByTrack.set(action.trackPath, entry);
-  }
-
-  return Array.from(updatesByTrack.entries()).map(([trackPath, operations]) => ({
-    trackPath,
-    upserts: operations.upserts,
-    removes: operations.removes,
-  }));
-}
-
-function legacyExtraTagBatchToInputs(batch: AssistantActionBatch): ExtraTagPlanInput[] {
-  const updatesByTrack = new Map<string, { upserts: ExtraTagUpdate[]; removes: string[] }>();
-
-  for (const action of batch.actions) {
-    if (!action.trackPath || !action.field) continue;
-
-    const entry = updatesByTrack.get(action.trackPath) ?? { upserts: [], removes: [] };
-    if (action.operation === "remove") {
-      entry.removes.push(action.field);
-    } else if (action.operation === "upsert" && action.newValue != null) {
       entry.upserts.push({ key: action.field, value: action.newValue });
     }
     updatesByTrack.set(action.trackPath, entry);
@@ -1074,7 +1596,7 @@ async function applyLegacyExtraTagBatch(
   if (!currentRuntime) throw new Error("Assistant runtime not initialized");
   if (!extraTagService) throw new Error("ExtraTagService not initialized");
 
-  const inputs = legacyExtraTagBatchToInputs(batch);
+  const inputs = metadataBatchToExtraInputs(batch);
   const extraUndoSnapshots = await extraTagService.buildUndoExtraTags(inputs);
   const results = await extraTagService.applyExtraTagUpdates(inputs);
   const failed = results.filter((result) => !result.success);
@@ -1109,7 +1631,15 @@ function getOrCreateRuntime(config: { apiKey: string; model?: string; autonomous
   const mutatingTools = buildMutatingTools();
   currentRegistry.registerAll([...readOnlyTools, ...mutatingTools]);
 
-  const runtime = new AssistantRuntime(runner, currentRegistry, config.autonomous ?? false);
+  // Create conversation logger for persistence
+  const conversationLogger = new ConversationLogger();
+
+  const runtime = new AssistantRuntime(runner, currentRegistry, config.autonomous ?? false, conversationLogger);
+
+  // Wire PlanExecutor after runtime is created (needs registry + runtime)
+  planExecutor = new PlanExecutor(currentRegistry, runtime);
+
+  console.log(`[assistant] Created new runtime, session id: ${runtime.getSessionId()}`);
 
   runtime.onEvent((event) => {
     broadcastEvent(event);
@@ -1189,6 +1719,17 @@ export function registerAssistantHandlers(): void {
       }
     },
   );
+
+  // ── assistant:init-runtime ────────────────────────────────────
+  ipcMain.handle("assistant:init-runtime", async () => {
+    // Ignore the renderer's config — it only has a redacted API key.
+    // Use the stored values set from the main-process config on startup.
+    getOrCreateRuntime({
+      apiKey: storedApiKey,
+      model: storedModel,
+      autonomous: currentAppState.autonomous,
+    });
+  });
 
   // ── assistant:cancel ───────────────────────────────────────────
   ipcMain.handle("assistant:cancel", async () => {
@@ -1276,29 +1817,15 @@ export function registerAssistantHandlers(): void {
             return { success: true, results, manifest: results.map((r) => ({ from: r.sourcePath, to: r.destinationPath })) };
           }
 
-          case "auto-tag-run": {
-            // Delegate to existing auto-tag flow — the renderer handles this
-            currentRuntime.markBatchApplied(actionBatchId);
-            return {
-              success: true,
-              message: "Auto-tag will be triggered by the renderer",
-              task: "auto_tag",
-              trackPaths: batch.actions
-                .map((action) => action.trackPath)
-                .filter((trackPath): trackPath is string => Boolean(trackPath)),
-            };
-          }
-
+          case "auto-tag-run":
           case "audit-run": {
-            // Delegate to existing audit flow
             currentRuntime.markBatchApplied(actionBatchId);
+            const task = batch.kind === "auto-tag-run" ? "auto_tag" as const : "audit" as const;
             return {
               success: true,
-              message: "Audit will be triggered by the renderer",
-              task: "audit",
-              trackPaths: batch.actions
-                .map((action) => action.trackPath)
-                .filter((trackPath): trackPath is string => Boolean(trackPath)),
+              message: `${batch.kind === "auto-tag-run" ? "Auto-tag" : "Audit"} will be triggered by the renderer`,
+              task,
+              trackPaths: extractTrackPaths(batch.actions),
             };
           }
 
@@ -1327,6 +1854,14 @@ export function registerAssistantHandlers(): void {
     return currentRuntime.getPendingBatches();
   });
 
+  // ── assistant:clear ───────────────────────────────────────────
+  ipcMain.handle("assistant:clear", async () => {
+    if (currentRuntime) {
+      currentRuntime.resetSession();
+      console.log("[assistant] Session cleared and reset");
+    }
+  });
+
   // ── assistant:init-services ────────────────────────────────────
   ipcMain.handle(
     "assistant:init-services",
@@ -1343,4 +1878,57 @@ export function registerAssistantHandlers(): void {
       initializeAssistantServices(config);
     },
   );
+
+  // ── Conversation log queries ────────────────────────────────────
+
+  ipcMain.handle("assistant:list-sessions", async (_event, limit?: number) => {
+    if (!currentRuntime) return [];
+    try {
+      return currentRuntime.getConversationLogger().listSessions(limit ?? 50);
+    } catch (error) {
+      console.error("Failed to list sessions:", error);
+      return [];
+    }
+  });
+
+  ipcMain.handle("assistant:get-conversation", async (_event, sessionUuidOrNumber: string) => {
+    if (!currentRuntime) return [];
+    try {
+      return currentRuntime.getConversationLogger().getConversation(sessionUuidOrNumber);
+    } catch (error) {
+      console.error("Failed to get conversation:", error);
+      return [];
+    }
+  });
+
+  ipcMain.handle("assistant:get-session", async (_event, sessionUuidOrNumber: string) => {
+    if (!currentRuntime) return null;
+    try {
+      return currentRuntime.getConversationLogger().getSessionSummary(sessionUuidOrNumber);
+    } catch (error) {
+      console.error("Failed to get session:", error);
+      return null;
+    }
+  });
+
+  /**
+   * Get the current session's number.
+   */
+  ipcMain.handle("assistant:current-session", async () => {
+    if (!currentRuntime) {
+      console.log("[assistant] current-session: no runtime yet");
+      return null;
+    }
+    try {
+      const result = {
+        sessionId: currentRuntime.getSessionId(),
+        sessionNumber: currentRuntime.getSessionNumber(),
+      };
+      console.log(`[assistant] current-session: ${result.sessionNumber} (id: ${result.sessionId})`);
+      return result;
+    } catch (error) {
+      console.error("Failed to get current session:", error);
+      return null;
+    }
+  });
 }

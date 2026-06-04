@@ -30,6 +30,7 @@ export interface TrackData {
   genre: string | null;
   composer: string | null;
   comment: string | null;
+  description: string | null;
   lyrics: string | null;
   compilation: boolean | null;
   musicbrainzTrackId: string | null;
@@ -236,6 +237,31 @@ export interface SortByAlbumResult {
   skippedFiles: number;
 }
 
+export interface SessionSummary {
+  sessionNumber: string;
+  sessionUuid: string;
+  entryCount: number;
+  firstMessage: string | null;
+  lastActivity: string;
+  apiCallCount: number;
+  totalCost: number;
+}
+
+export interface ConversationEntry {
+  id: number;
+  sessionUuid: string;
+  sessionNumber: string;
+  timestamp: string;
+  entryType: string;
+  content: string;
+  model: string | null;
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+  cost: number;
+  metadata: string | null;
+}
+
 export interface ElectronAPI {
   // Library
   scanLibrary: (dirPath: string) => Promise<AlbumInfo[]>;
@@ -329,6 +355,7 @@ export interface ElectronAPI {
     autonomous?: boolean;
   }) => Promise<AssistantEvent>;
   assistantCancel: () => Promise<void>;
+  assistantClear: () => Promise<void>;
   assistantApplyActions: (actionBatchId: string) => Promise<{
     success: boolean;
     error?: string;
@@ -340,6 +367,7 @@ export interface ElectronAPI {
   }>;
   assistantRejectActions: (actionBatchId: string) => Promise<void>;
   assistantGetBatches: () => Promise<AssistantActionBatch[]>;
+  assistantInitRuntime: () => Promise<void>;
   assistantInitServices: (config: {
     apiKey: string;
     model?: string;
@@ -356,6 +384,12 @@ export interface ElectronAPI {
     sourceDir: string,
     options?: { copy?: boolean }
   ) => Promise<SortByAlbumResult>;
+
+  // Conversation logs
+  listSessions: (limit?: number) => Promise<SessionSummary[]>;
+  getConversation: (sessionUuidOrNumber: string) => Promise<ConversationEntry[]>;
+  getSession: (sessionUuidOrNumber: string) => Promise<SessionSummary | null>;
+  getCurrentSession: () => Promise<{ sessionId: string; sessionNumber: string } | null>;
 }
 
 contextBridge.exposeInMainWorld("api", {
@@ -475,12 +509,16 @@ contextBridge.exposeInMainWorld("api", {
     ipcRenderer.invoke("assistant:send", input),
   assistantCancel: () =>
     ipcRenderer.invoke("assistant:cancel"),
+  assistantClear: () =>
+    ipcRenderer.invoke("assistant:clear"),
   assistantApplyActions: (actionBatchId: string) =>
     ipcRenderer.invoke("assistant:apply-actions", actionBatchId),
   assistantRejectActions: (actionBatchId: string) =>
     ipcRenderer.invoke("assistant:reject-actions", actionBatchId),
   assistantGetBatches: () =>
     ipcRenderer.invoke("assistant:get-batches"),
+  assistantInitRuntime: () =>
+    ipcRenderer.invoke("assistant:init-runtime"),
   assistantInitServices: (config: any) =>
     ipcRenderer.invoke("assistant:init-services", config),
   onAssistantEvent: (callback: (event: AssistantEvent) => void): (() => void) => {
@@ -507,6 +545,16 @@ contextBridge.exposeInMainWorld("api", {
     options?: { copy?: boolean }
   ): Promise<SortByAlbumResult> =>
     ipcRenderer.invoke("files:sort-by-album", sourceDir, options),
+
+  // Conversation logs
+  listSessions: (limit?: number): Promise<SessionSummary[]> =>
+    ipcRenderer.invoke("assistant:list-sessions", limit),
+  getConversation: (sessionUuidOrNumber: string): Promise<ConversationEntry[]> =>
+    ipcRenderer.invoke("assistant:get-conversation", sessionUuidOrNumber),
+  getSession: (sessionUuidOrNumber: string): Promise<SessionSummary | null> =>
+    ipcRenderer.invoke("assistant:get-session", sessionUuidOrNumber),
+  getCurrentSession: (): Promise<{ sessionId: string; sessionNumber: string } | null> =>
+    ipcRenderer.invoke("assistant:current-session"),
 });
 
 const CONSOLE_METHOD: Record<string, "error" | "warn" | "debug" | "log"> = {

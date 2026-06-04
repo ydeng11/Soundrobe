@@ -15,9 +15,13 @@
  * applyActionBatch / rejectActionBatch.
  */
 
-import { LlmTaskRunner, redactSensitive } from "./LlmTaskRunner";
-import type { AssistantToolDef } from "./AssistantToolRegistry";
-import { AssistantToolRegistry, type AssistantToolResult } from "./AssistantToolRegistry";
+import { LlmTaskRunner, redactSensitive, type ApiCallEvent } from "./LlmTaskRunner";
+import {
+  AssistantToolRegistry,
+  type AssistantToolOperationKind,
+  type AssistantToolResult,
+} from "./AssistantToolRegistry";
+import { type IConversationLogger, NullConversationLogger } from "../handlers/conversation-logger";
 
 export type AssistantActionBatchKind =
   | "tag-update"
@@ -83,17 +87,61 @@ const SYSTEM_PROMPT = `You are an assistant for Auto Tagger, a tool for organizi
 Guidelines:
 - Use tools only through the provided registry.
 - Default to the current selection, then active album, then current library.
+  If both selection and active album are empty, use target_scope "library" to target all loaded tracks.
 - For destructive or mutating work, create a preview action batch.
 - Ask a concise clarification only when the target scope is genuinely unclear.
 - Never request or expose API keys.
 - Never invent file paths outside the current library.
 - Prefer small, reversible batches.
-- Prefer composite macro tools for write/task work: edit_metadata, organize_files, and run_library_task.
+- Prefer composite macro tools for write/task work: auto_numbering_tracks, infer_tags_from_filenames, edit_metadata, organize_files, group_by_album, and run_library_task.
 - Use read-only tools to discover context, then call one macro with clear parameters.
+- Before calling a mutating tool, identify the intended operation type. If the user asks to fix metadata, do not choose a file-moving tool.
 - Be concise but helpful.
 - When asked about library content, use library.summarize or query.metadata.
 - To inspect specific tracks use tracks.inspect or tracks.search.
-- To get album details use albums.inspect.`;
+- To get album details use albums.inspect.
+- tracks.inspect returns at most 20 tracks by default. Pass a limit (up to 500) to see more: e.g., tracks.inspect with limit: 500 shows all tracks.
+
+SAFETY RULES FOR edit_metadata:
+- The standard_updates and extra_upserts fields in edit_metadata apply the SAME values to EVERY targeted track.
+- NEVER use target_scope "library" or "active_album" with per-track fields (title, artist, artists, trackNumber, trackTotal, discNumber, discTotal) unless every track should get the exact same value.
+- When asked to fix title/artist/artists from file names, use infer_tags_from_filenames. Do not manually parse many filenames into edit_metadata.
+- If each track needs different values, first use tracks.inspect (with a high limit like 500) or tracks.search to find the specific tracks, then call edit_metadata with target_scope "explicit_paths" and list the exact paths for each batch of tracks that share the same values.`;
+
+interface ToolIntentMismatchInput {
+  userMessage: string;
+  toolName: string;
+  operationKind?: AssistantToolOperationKind;
+}
+
+interface ToolIntentMismatch {
+  expectedOperationKind: AssistantToolOperationKind;
+  summary: string;
+}
+
+function hasTrackNumberIntent(text: string): boolean {
+  return /\b(track\s*(number|numbers|#)|tracknumber|tracktotal|renumber|renumbering|numbering)\b/i.test(text)
+    || /number(?:ed|ing)?\s+within\s+(each\s+)?album/i.test(text)
+    || /within\s+(each\s+)?album/i.test(text) && /\bnumber/i.test(text);
+}
+
+function hasExplicitFileMoveIntent(text: string): boolean {
+  return /\b(move|moving|organize|organise|folder|folders|directory|directories|rename|relocate)\b/i.test(text);
+}
+
+export function detectToolIntentMismatch(
+  input: ToolIntentMismatchInput,
+): ToolIntentMismatch | null {
+  if (input.operationKind !== "file_move") return null;
+  if (!hasTrackNumberIntent(input.userMessage)) return null;
+  if (hasExplicitFileMoveIntent(input.userMessage)) return null;
+
+  return {
+    expectedOperationKind: "metadata_edit",
+    summary:
+      `Pre-action check blocked "${input.toolName}": the latest user message asks to fix track-number metadata within albums, but this tool moves files on disk. Use auto_numbering_tracks for track numbering instead.`,
+  };
+}
 
 export class AssistantRuntime {
   private runner: LlmTaskRunner;
@@ -104,22 +152,65 @@ export class AssistantRuntime {
   private cancelled = false;
   private eventCallbacks: AssistantEventCallback[] = [];
   private pendingBatches: Map<string, AssistantActionBatch> = new Map();
-  private appliedBatchIds: Set<string> = new Set();
   private nextBatchId = 1;
+  private logger: IConversationLogger;
+  private unsubscribeApiCall: (() => void) | null = null;
 
   constructor(
     runner: LlmTaskRunner,
     registry: AssistantToolRegistry,
     autonomous: boolean = false,
+    logger?: IConversationLogger,
   ) {
     this.runner = runner;
     this.sessionId = this.generateSessionId();
     this.registry = registry;
     this.autonomous = autonomous;
+
+    this.logger = logger ?? new NullConversationLogger();
+
+    this.unsubscribeApiCall = runner.onApiCall((event: ApiCallEvent) => {
+      this.logger.recordApiCall(
+        this.sessionId,
+        { messages: event.messages },
+        {
+          data: event.data,
+          model: event.model,
+          promptTokens: event.promptTokens,
+          completionTokens: event.completionTokens,
+          totalTokens: event.totalTokens,
+        },
+        event.cost,
+        event.type,
+      );
+    });
+  }
+
+  /**
+   * Clean up resources. Call when the runtime is no longer needed.
+   */
+  dispose(): void {
+    this.unsubscribeApiCall?.();
+    this.unsubscribeApiCall = null;
+    try { this.logger.close(); } catch { /* ignore */ }
   }
 
   getSessionId(): string {
     return this.sessionId;
+  }
+
+  /**
+   * Get the human-readable session number (1, 2, 3, ...) for this session.
+   */
+  getSessionNumber(): string {
+    return this.logger.getOrCreateSessionNumber(this.sessionId);
+  }
+
+  /**
+   * Get the conversation logger for querying historical sessions.
+   */
+  getConversationLogger(): IConversationLogger {
+    return this.logger;
   }
 
   setAutonomous(autonomous: boolean): void {
@@ -153,11 +244,45 @@ export class AssistantRuntime {
    */
   cancel(): void {
     this.cancelled = true;
+    this.logger.recordEntry({
+      sessionUuid: this.sessionId,
+      entryType: "system",
+      content: "Session cancelled",
+    });
     this.emit({
       sessionId: this.sessionId,
       type: "cancelled",
       message: "Session cancelled",
     });
+  }
+
+  /**
+   * Check the last N assistant messages for repeated tool calls.
+   * Returns { repeated: true, toolName, callCount } when the same tool+args
+   * appears 3+ consecutive times.
+   */
+  private detectRepeatedToolCalls(): { repeated: boolean; toolName: string; callCount: number } {
+    const parsed = this.conversation
+      .filter((m) => m.role === "assistant")
+      .map((m) => {
+        try { return JSON.parse(m.content) as Record<string, unknown>; }
+        catch { return null; }
+      })
+      .filter((p): p is Record<string, unknown> => p?.type === "tool_call")
+      .slice(-5);
+
+    if (parsed.length < 3) return { repeated: false, toolName: "", callCount: 0 };
+
+    const signatures = parsed.map((p) => {
+      const args = (p.args ?? {}) as Record<string, unknown>;
+      return `${p.toolName as string}|${JSON.stringify(args, Object.keys(args).sort())}`;
+    });
+    const lastSig = signatures[signatures.length - 1];
+    const count = signatures.filter((s) => s === lastSig).length;
+    if (count >= 3) {
+      return { repeated: true, toolName: (parsed[parsed.length - 1].toolName as string) ?? "", callCount: count };
+    }
+    return { repeated: false, toolName: "", callCount: 0 };
   }
 
   /**
@@ -168,6 +293,7 @@ export class AssistantRuntime {
     this.conversation.push({ role: "user", content: userMessage });
 
     const maxSteps = 6;
+    let repeatedCalls: { toolName: string; callCount: number } | null = null;
 
     for (let step = 0; step < maxSteps; step++) {
       if (this.cancelled) {
@@ -176,6 +302,14 @@ export class AssistantRuntime {
           type: "cancelled",
           message: "Cancelled",
         };
+      }
+
+      // Detect repeated tool calls before the next API call
+      const detected = this.detectRepeatedToolCalls();
+      if (detected.repeated && !repeatedCalls) {
+        repeatedCalls = { toolName: detected.toolName, callCount: detected.callCount };
+        const hint = `[System note: You called "${detected.toolName}" with the same arguments ${detected.callCount} times in a row. Consider a different approach or different arguments.]`;
+        this.conversation.push({ role: "system", content: hint });
       }
 
       this.emit({
@@ -193,14 +327,19 @@ export class AssistantRuntime {
         maxTokens: 1024,
       });
 
-      // Check the result
-      const lastStep = result.steps[result.steps.length - 1];
+      const lastStep = result.steps.at(-1);
 
       if (!lastStep) {
+        const errMsg = "No response from assistant";
+        this.logger.recordEntry({
+          sessionUuid: this.sessionId,
+          entryType: "system",
+          content: errMsg,
+        });
         const errorEvent: AssistantEvent = {
           sessionId: this.sessionId,
           type: "error",
-          message: "No response from assistant",
+          message: errMsg,
         };
         this.emit(errorEvent);
         return errorEvent;
@@ -221,6 +360,19 @@ export class AssistantRuntime {
         const toolName = lastStep.toolName ?? "unknown";
         const toolArgs = lastStep.toolArgs ?? {};
 
+        this.logger.recordEntry({
+          sessionUuid: this.sessionId,
+          entryType: "tool_call",
+          content: JSON.stringify({ toolName, toolArgs, reason: lastStep.content }),
+          metadata: { toolName, args: toolArgs },
+        });
+
+        // Push tool call into conversation history (shared by all branches)
+        this.conversation.push({
+          role: "assistant",
+          content: JSON.stringify({ type: "tool_call", toolName, args: toolArgs, reason: "" }),
+        });
+
         this.emit({
           sessionId: this.sessionId,
           type: "tool_running",
@@ -228,14 +380,9 @@ export class AssistantRuntime {
           data: { toolName, toolArgs },
         });
 
-        // Check if tool exists
         const tool = this.registry.get(toolName);
         if (!tool) {
           const errorMsg = `Unknown tool: ${toolName}`;
-          this.conversation.push({
-            role: "assistant",
-            content: JSON.stringify({ type: "tool_call", toolName, args: toolArgs, reason: "" }),
-          });
           this.conversation.push({
             role: "user",
             content: `Error: ${errorMsg}. Available tools: ${this.registry.getAll().map((t) => t.name).join(", ")}`,
@@ -249,22 +396,48 @@ export class AssistantRuntime {
           continue;
         }
 
-        // Execute the tool
-        const toolResult = await this.registry.execute(toolName, toolArgs);
+        const mismatch = detectToolIntentMismatch({
+          userMessage,
+          toolName,
+          operationKind: tool.operationKind,
+        });
+        if (mismatch) {
+          const toolResult: AssistantToolResult = {
+            ok: false,
+            summary: mismatch.summary,
+            error: "TOOL_INTENT_MISMATCH",
+          };
 
-        // For mutating tools in preview mode, create action batch
-        if (!tool.isReadOnly && !this.autonomous) {
-          // Tool executor already created the batch internally
-          // Feed the result back
-          this.conversation.push({
-            role: "assistant",
-            content: JSON.stringify({ type: "tool_call", toolName, args: toolArgs, reason: "" }),
+          this.logger.recordEntry({
+            sessionUuid: this.sessionId,
+            entryType: "tool_result",
+            content: toolResult.summary,
+            metadata: { toolName, args: toolArgs, ok: toolResult.ok, blocked: true },
           });
           this.conversation.push({
             role: "user",
             content: toolResult.summary,
           });
+          this.emit({
+            sessionId: this.sessionId,
+            type: "tool_result",
+            message: toolResult.summary,
+            data: toolResult,
+          });
+          continue;
+        }
 
+        const toolResult = await this.registry.execute(toolName, toolArgs);
+
+        this.logger.recordEntry({
+          sessionUuid: this.sessionId,
+          entryType: "tool_result",
+          content: toolResult.summary,
+          metadata: { toolName, args: toolArgs, ok: toolResult.ok },
+        });
+
+        if (!tool.isReadOnly && !this.autonomous) {
+          this.conversation.push({ role: "user", content: toolResult.summary });
           this.emit({
             sessionId: this.sessionId,
             type: "tool_result",
@@ -286,21 +459,15 @@ export class AssistantRuntime {
               data: { actionBatchId: toolResult.pendingActionBatchId, toolResult },
             };
           }
-
           continue;
         }
 
         // Read-only tools: feed result back and continue
         const safeResult = redactSensitive(toolResult.summary);
         this.conversation.push({
-          role: "assistant",
-          content: JSON.stringify({ type: "tool_call", toolName, args: toolArgs, reason: "" }),
-        });
-        this.conversation.push({
           role: "user",
           content: `Tool "${toolName}" result: ${safeResult}`,
         });
-
         this.emit({
           sessionId: this.sessionId,
           type: "tool_result",
@@ -311,10 +478,23 @@ export class AssistantRuntime {
     }
 
     // Max steps reached without final message
+    // Build diagnostic info: last few conversation entries + repeated calls
+    const recentEntries = this.conversation
+      .slice(-4)
+      .map((m) => `${m.role}: ${m.content.slice(0, 200)}`)
+      .join("\n");
+    let diagMsg =
+      `I reached the maximum step limit (${maxSteps}) and couldn't complete the task. ` +
+      `This often happens when tool calls return unexpected results or the task ` +
+      `requires more steps than allowed.`;
+    if (repeatedCalls) {
+      diagMsg += `\n\nThe assistant called "${repeatedCalls.toolName}" with the same arguments ${repeatedCalls.callCount} times. This suggests the tool results were not what was expected. Try rephrasing your request or providing more specific file paths.`;
+    }
+    diagMsg += `\n\nLast conversation entries:\n${recentEntries}`;
     const event: AssistantEvent = {
       sessionId: this.sessionId,
       type: "completed",
-      message: "Reached maximum steps. Let me know if you need anything else.",
+      message: diagMsg,
     };
     this.emit(event);
     return event;
@@ -370,7 +550,6 @@ export class AssistantRuntime {
     const batch = this.pendingBatches.get(batchId);
     if (batch) {
       batch.status = "applied";
-      this.appliedBatchIds.add(batchId);
       this.emit({
         sessionId: this.sessionId,
         type: "action_batch_applied",
@@ -433,7 +612,18 @@ export class AssistantRuntime {
     this.conversation = [];
   }
 
+  /**
+   * Reset the session: clear conversation history and generate a new session ID.
+   */
+  resetSession(): void {
+    this.conversation = [];
+    this.sessionId = this.generateSessionId();
+    console.log(`[AssistantRuntime] Session reset, new id: ${this.sessionId}`);
+  }
+
   private generateSessionId(): string {
-    return `session-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+    const id = `session-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+    console.log(`[AssistantRuntime] Created session id: ${id}`);
+    return id;
   }
 }

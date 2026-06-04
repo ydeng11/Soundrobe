@@ -139,6 +139,7 @@ export class TrackTagService {
           genre: track.genre,
           composer: track.composer,
           comment: track.comment,
+          description: track.description,
           trackNumber: track.trackNumber,
           trackTotal: track.trackTotal,
           discNumber: track.discNumber,
@@ -162,18 +163,24 @@ export class TrackTagService {
     switch (field) {
       case "title": return track.title;
       case "artist": return track.artist;
+      case "artists": return track.artists.join("; ");
       case "album": return track.album;
       case "albumArtist": return track.albumArtist;
+      case "albumArtists": return track.albumArtists.join("; ");
       case "year": return track.year;
       case "genre": return track.genre;
       case "composer": return track.composer;
       case "comment": return track.comment;
+      case "description": return track.description;
       case "lyrics": return track.lyrics;
       case "trackNumber": return track.trackNumber?.toString();
       case "trackTotal": return track.trackTotal?.toString();
       case "discNumber": return track.discNumber?.toString();
       case "discTotal": return track.discTotal?.toString();
       case "compilation": return track.compilation?.toString();
+      case "musicbrainzTrackId": return track.musicbrainzTrackId;
+      case "musicbrainzAlbumId": return track.musicbrainzAlbumId;
+      case "musicbrainzArtistId": return track.musicbrainzArtistId;
       default: return undefined;
     }
   }

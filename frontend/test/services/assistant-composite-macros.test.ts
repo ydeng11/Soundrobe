@@ -11,6 +11,7 @@ import {
   isInsideDirectory,
   metadataBatchToExtraInputs,
   metadataBatchToStandardUpdates,
+  planTrackNumbering,
   resolveTargetPathsForState,
 } from "../../electron/handlers/assistant";
 
@@ -182,5 +183,155 @@ describe("assistant composite macro helpers", () => {
         removes: ["BPM"],
       },
     ]);
+  });
+});
+
+describe("planTrackNumbering", () => {
+  it("assigns sequential numbers when tracks have null track numbers, sorted by filename", () => {
+    const allTracks = [
+      {
+        ...track("/lib/album/03 - Third.flac"),
+        trackNumber: null,
+        discNumber: null,
+      },
+      {
+        ...track("/lib/album/01 - First.flac"),
+        trackNumber: null,
+        discNumber: null,
+      },
+      {
+        ...track("/lib/album/02 - Second.flac"),
+        trackNumber: null,
+        discNumber: null,
+      },
+    ];
+
+    const result = planTrackNumbering(
+      allTracks.map((t) => t.path),
+      allTracks,
+    );
+
+    expect(result).toHaveLength(3);
+    // Sorted by filename: "01 - First.flac", "02 - Second.flac", "03 - Third.flac"
+    expect(result[0]).toMatchObject({ desiredTrackNumber: 1, desiredTrackTotal: 3 });
+    expect(result[1]).toMatchObject({ desiredTrackNumber: 2, desiredTrackTotal: 3 });
+    expect(result[2]).toMatchObject({ desiredTrackNumber: 3, desiredTrackTotal: 3 });
+  });
+
+  it("compacts gaps (1, 3, 5) into sequential (1, 2, 3)", () => {
+    const allTracks = [
+      { ...track("/lib/album/01.flac"), trackNumber: 1, discNumber: null },
+      { ...track("/lib/album/03.flac"), trackNumber: 3, discNumber: null },
+      { ...track("/lib/album/05.flac"), trackNumber: 5, discNumber: null },
+    ];
+
+    const result = planTrackNumbering(
+      allTracks.map((t) => t.path),
+      allTracks,
+    );
+
+    expect(result).toHaveLength(3);
+    expect(result[0]).toMatchObject({ desiredTrackNumber: 1, desiredTrackTotal: 3 });
+    expect(result[1]).toMatchObject({ desiredTrackNumber: 2, desiredTrackTotal: 3 });
+    expect(result[2]).toMatchObject({ desiredTrackNumber: 3, desiredTrackTotal: 3 });
+  });
+
+  it("handles mixed discs, numbering per-disc starting from 1", () => {
+    const allTracks = [
+      { ...track("/lib/album/disc1-01.flac"), trackNumber: 1, discNumber: 1 },
+      { ...track("/lib/album/disc1-02.flac"), trackNumber: 2, discNumber: 1 },
+      { ...track("/lib/album/disc1-03.flac"), trackNumber: 3, discNumber: 1 },
+      { ...track("/lib/album/disc2-01.flac"), trackNumber: 1, discNumber: 2 },
+      { ...track("/lib/album/disc2-02.flac"), trackNumber: 2, discNumber: 2 },
+    ];
+
+    const result = planTrackNumbering(
+      allTracks.map((t) => t.path),
+      allTracks,
+    );
+
+    expect(result).toHaveLength(5);
+    // Disc 1 tracks
+    expect(result[0]).toMatchObject({
+      desiredTrackNumber: 1, desiredTrackTotal: 3,
+      desiredDiscNumber: 1, desiredDiscTotal: 2,
+    });
+    expect(result[1]).toMatchObject({
+      desiredTrackNumber: 2, desiredTrackTotal: 3,
+      desiredDiscNumber: 1, desiredDiscTotal: 2,
+    });
+    expect(result[2]).toMatchObject({
+      desiredTrackNumber: 3, desiredTrackTotal: 3,
+      desiredDiscNumber: 1, desiredDiscTotal: 2,
+    });
+    // Disc 2 tracks
+    expect(result[3]).toMatchObject({
+      desiredTrackNumber: 1, desiredTrackTotal: 2,
+      desiredDiscNumber: 2, desiredDiscTotal: 2,
+    });
+    expect(result[4]).toMatchObject({
+      desiredTrackNumber: 2, desiredTrackTotal: 2,
+      desiredDiscNumber: 2, desiredDiscTotal: 2,
+    });
+  });
+
+  it("renumbers library-wide targets within each album instead of treating all loaded tracks as one album", () => {
+    const allTracks = [
+      { ...track("/lib/loose/a1.flac"), album: "Alpha", albumArtist: "Artist A", trackNumber: 1 },
+      { ...track("/lib/loose/a2.flac"), album: "Alpha", albumArtist: "Artist A", trackNumber: 3 },
+      { ...track("/lib/loose/b1.flac"), album: "Beta", albumArtist: "Artist B", trackNumber: 2 },
+      { ...track("/lib/loose/b2.flac"), album: "Beta", albumArtist: "Artist B", trackNumber: 4 },
+    ];
+
+    const result = planTrackNumbering(
+      allTracks.map((t) => t.path),
+      allTracks,
+    );
+
+    expect(result).toEqual([
+      expect.objectContaining({
+        trackPath: "/lib/loose/a1.flac",
+        desiredTrackNumber: 1,
+        desiredTrackTotal: 2,
+      }),
+      expect.objectContaining({
+        trackPath: "/lib/loose/a2.flac",
+        desiredTrackNumber: 2,
+        desiredTrackTotal: 2,
+      }),
+      expect.objectContaining({
+        trackPath: "/lib/loose/b1.flac",
+        desiredTrackNumber: 1,
+        desiredTrackTotal: 2,
+      }),
+      expect.objectContaining({
+        trackPath: "/lib/loose/b2.flac",
+        desiredTrackNumber: 2,
+        desiredTrackTotal: 2,
+      }),
+    ]);
+  });
+
+  it("returns already-correct numbering unchanged", () => {
+    const allTracks = [
+      { ...track("/lib/album/01.flac"), trackNumber: 1, discNumber: null },
+      { ...track("/lib/album/02.flac"), trackNumber: 2, discNumber: null },
+      { ...track("/lib/album/03.flac"), trackNumber: 3, discNumber: null },
+    ];
+
+    const result = planTrackNumbering(
+      allTracks.map((t) => t.path),
+      allTracks,
+    );
+
+    expect(result).toHaveLength(3);
+    expect(result[0]).toMatchObject({ desiredTrackNumber: 1, desiredTrackTotal: 3 });
+    expect(result[1]).toMatchObject({ desiredTrackNumber: 2, desiredTrackTotal: 3 });
+    expect(result[2]).toMatchObject({ desiredTrackNumber: 3, desiredTrackTotal: 3 });
+  });
+
+  it("returns empty array for empty input", () => {
+    const result = planTrackNumbering([], []);
+    expect(result).toEqual([]);
   });
 });

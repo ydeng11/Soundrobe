@@ -22,7 +22,7 @@ describe("assistant organize_files integration", () => {
       const folderOrganizer = new FolderOrganizerService();
       folderOrganizer.setLibraryRoot(libraryRoot);
       const runtime = new AssistantRuntime(
-        {} as never,
+        { onApiCall: () => () => {} } as never,
         new AssistantToolRegistry(),
         false,
       );

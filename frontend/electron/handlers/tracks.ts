@@ -22,6 +22,7 @@ export interface TrackData {
   genre: string | null;
   composer: string | null;
   comment: string | null;
+  description: string | null;
   lyrics: string | null;
   compilation: boolean | null;
   musicbrainzTrackId: string | null;
@@ -95,6 +96,7 @@ const METADATA_EDITOR_KEYS = new Set([
   // Comment
   "COMM",
   "COMMENT",
+  "DESCRIPTION",
   // Detailed metadata shown in the sidebar
   "USLT",
   "LYRICS",
@@ -144,7 +146,7 @@ export async function readTrackMetadata(filePath: string): Promise<TrackData> {
   const stat = fs.statSync(filePath);
   if (
     path.extname(filePath).toLowerCase() === ".flac" &&
-    (!Number.isFinite(format.duration) || (format.duration ?? 0) <= 0)
+    (!Number.isFinite(format.duration) || format.duration! <= 0)
   ) {
     const fallback = readFlacMetadataFallback(filePath);
     if (fallback && fallback.duration > 0) return fallback;
@@ -158,8 +160,7 @@ export async function readTrackMetadata(filePath: string): Promise<TrackData> {
     year = common.date.slice(0, 4);
   }
 
-  // Determine if track has embedded cover art
-  const hasCover = common.picture !== undefined && common.picture.length > 0;
+  const hasCover = (common.picture?.length ?? 0) > 0;
 
   return {
     path: filePath,
@@ -177,6 +178,7 @@ export async function readTrackMetadata(filePath: string): Promise<TrackData> {
     genre: common.genre?.[0] ?? null,
     composer: common.composer?.[0] ?? null,
     comment: (common.comment as string | undefined) ?? null,
+    description: extractNativeTag(metadata, "DESCRIPTION") ?? null,
     lyrics: (common.lyrics?.[0] as string | undefined) ?? null,
     compilation: common.compilation ?? null,
     musicbrainzTrackId: null,
@@ -253,6 +255,27 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
+/**
+ * Extract a tag value from music-metadata's native format by key name.
+ * Searches all native formats (vorbis, id3v2.4, etc.) for the given key.
+ * Returns the first matching value, or null if not found.
+ */
+function extractNativeTag(
+  metadata: Awaited<ReturnType<typeof parseFile>>,
+  key: string,
+): string | null {
+  const upperKey = key.toUpperCase();
+  for (const [, tags] of Object.entries(metadata.native)) {
+    for (const tag of tags) {
+      const tagKey = typeof tag.id === "string" ? tag.id.toUpperCase() : "";
+      if (tagKey === upperKey && typeof tag.value === "string") {
+        return tag.value;
+      }
+    }
+  }
+  return null;
+}
+
 function readFlacMetadataFallback(filePath: string): TrackData | null {
   if (path.extname(filePath).toLowerCase() !== ".flac") return null;
 
@@ -290,6 +313,7 @@ function readFlacMetadataFallback(filePath: string): TrackData | null {
     genre: firstComment(comments, "GENRE"),
     composer: firstComment(comments, "COMPOSER"),
     comment: firstComment(comments, "COMMENT"),
+    description: firstComment(comments, "DESCRIPTION"),
     lyrics: firstComment(comments, "LYRICS"),
     compilation: null,
     musicbrainzTrackId: firstComment(comments, "MUSICBRAINZ_TRACKID"),
@@ -519,6 +543,7 @@ function minimalTrack(filePath: string, sizeBytes: number): TrackData {
     genre: null,
     composer: null,
     comment: null,
+    description: null,
     lyrics: null,
     compilation: null,
     musicbrainzTrackId: null,

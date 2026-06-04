@@ -6,9 +6,11 @@ import * as NodeID3 from "node-id3";
  * Mapping of field names → tag specs for each format.
  *
  * Fields param follows a normalized schema:
- *   title, artist, album, year, track (string "1" or "1/10" format),
- *   genre, composer, comment, compilation, trackNumber (number),
- *   trackTotal (number), discNumber (number), discTotal (number)
+ *   title, artist, artists, album, albumArtist, albumArtists, year,
+ *   track, disc, trackNumber, trackTotal, discNumber, discTotal,
+ *   genre, composer, comment, description, lyrics, compilation,
+ *   musicbrainzTrackId, musicbrainzAlbumId, musicbrainzArtistId,
+ *   coverData, coverMime
  */
 
 export interface WriteFields {
@@ -28,6 +30,7 @@ export interface WriteFields {
   genre?: string | null;
   composer?: string | null;
   comment?: string | null;
+  description?: string | null;
   lyrics?: string | null;
   compilation?: boolean | null;
   musicbrainzTrackId?: string | null;
@@ -71,6 +74,7 @@ const STANDARD_VORBIS_TAGS = new Set([
   "MUSICBRAINZ_ALBUMID",
   "MUSICBRAINZ_ARTISTID",
   "COMPILATION",
+  "DESCRIPTION",
   "METADATA_BLOCK_PICTURE",
 ]);
 
@@ -144,6 +148,7 @@ function mergeMp3UserDefinedText(
     { description: "MusicBrainz Album Id", value: fields.musicbrainzAlbumId },
     { description: "MusicBrainz Artist Id", value: fields.musicbrainzArtistId },
     { description: "COMPILATION", value: fields.compilation == null ? undefined : fields.compilation ? "1" : null },
+    { description: "DESCRIPTION", value: fields.description },
   ];
 
   for (const { description, value } of upserts) {
@@ -210,6 +215,7 @@ function writeVorbis(
   setVorbisField(updated, "GENRE", fields.genre);
   setVorbisField(updated, "COMPOSER", fields.composer);
   setVorbisField(updated, "COMMENT", fields.comment);
+  setVorbisField(updated, "DESCRIPTION", fields.description);
   setVorbisField(updated, "TRACKNUMBER", fields.trackNumber ?? fields.track);
   setVorbisField(updated, "TRACKTOTAL", fields.trackTotal);
   setVorbisField(updated, "DISCNUMBER", fields.discNumber ?? fields.disc);

@@ -1054,7 +1054,7 @@ class TaskManager {
    * Find the folder-sourced fallback candidate, or return null.
    */
   private folderFallback(candidates: AlbumCandidate[]): AlbumCandidate | null {
-    return candidates.find((c) => c.source === "folder") ?? null;
+    return candidates.find((c) => c.source === "folder") ?? candidates[0] ?? null;
   }
 
   // ── Task helpers ────────────────────────────────────────────────
@@ -1238,13 +1238,11 @@ export function saveConfig(key: string, value: unknown): void {
     }
   }
 
-  // If no config file exists, use ~/.auto-tagger/config.yaml
   if (!configPath) {
-    configPath = getConfigPaths()[0]; // ~/.auto-tagger/config.yaml
+    configPath = getConfigPaths()[0];
   }
 
-  // Ensure parent directory exists
-  const parentDir = join(configPath, "..");
+  const parentDir = dirname(configPath);
   if (!existsSync(parentDir)) {
     mkdirSync(parentDir, { recursive: true });
   }

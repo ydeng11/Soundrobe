@@ -8,7 +8,7 @@
  * Both share config loading, retry behavior, and cost accounting.
  */
 
-import { OpenRouterClient, type TokenUsage, estimateCost, formatCost } from "../handlers/openrouter";
+import { OpenRouterClient, type TokenUsage, type LLMResponse, estimateCost, formatCost } from "../handlers/openrouter";
 
 export interface LlmTaskConfig {
   apiKey: string;
@@ -69,6 +69,15 @@ export interface AssistantLoopStep {
   toolResult?: string;
 }
 
+/** Shape of the parsed LLM response JSON. */
+interface ParsedResponse {
+  type: string;
+  content: string;
+  toolName?: string;
+  args?: Record<string, unknown>;
+  reason?: string;
+}
+
 /**
  * Redact sensitive values from strings.
  * Replaces API keys, tokens, and bearer auth values with [REDACTED].
@@ -80,9 +89,31 @@ export function redactSensitive(text: string): string {
     .replace(/(token=)[a-zA-Z0-9]{20,}/gi, "$1[REDACTED]");
 }
 
+export type ApiCallEvent = {
+  /** Human-readable label, e.g. 'structured', 'tool_loop', 'continue_tool_loop' */
+  type: string;
+  /** Messages sent to the LLM (the prompt). */
+  messages: Array<{ role: string; content: string }>;
+  /** Parsed response data. */
+  data: Record<string, unknown>;
+  /** Model used for the call. */
+  model: string;
+  /** Token usage. */
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+  /** Estimated cost in USD. */
+  cost: number;
+  /** Duration of the API call in ms. */
+  durationMs: number;
+};
+
+export type ApiCallCallback = (event: ApiCallEvent) => void;
+
 export class LlmTaskRunner {
   private config: LlmTaskConfig;
   private client: OpenRouterClient;
+  private apiCallCallbacks: ApiCallCallback[] = [];
 
   constructor(config: LlmTaskConfig) {
     this.config = {
@@ -101,6 +132,74 @@ export class LlmTaskRunner {
   }
 
   /**
+   * Subscribe to API call events for logging/monitoring.
+   * Returns an unsubscribe function.
+   */
+  onApiCall(callback: ApiCallCallback): () => void {
+    this.apiCallCallbacks.push(callback);
+    return () => {
+      const idx = this.apiCallCallbacks.indexOf(callback);
+      if (idx >= 0) this.apiCallCallbacks.splice(idx, 1);
+    };
+  }
+
+  private notifyApiCall(
+    type: string,
+    messages: Array<{ role: string; content: string }>,
+    response: LLMResponse,
+    cost: number,
+    durationMs: number,
+  ): void {
+    const event: ApiCallEvent = {
+      type,
+      messages,
+      data: response.data,
+      model: response.model,
+      promptTokens: response.usage.promptTokens,
+      completionTokens: response.usage.completionTokens,
+      totalTokens: response.usage.totalTokens,
+      cost,
+      durationMs,
+    };
+    for (const cb of this.apiCallCallbacks) {
+      try { cb(event); } catch { /* ignore */ }
+    }
+  }
+
+  private buildToolCallSchema(tools: AssistantToolDef[]): Record<string, unknown> {
+    const toolNames = tools.map((t) => t.name);
+    return {
+      type: "object",
+      properties: {
+        type: { type: "string", enum: ["message", "tool_call"] },
+        content: { type: "string" },
+        toolName: { type: "string", enum: toolNames },
+        args: { type: "object" },
+        reason: { type: "string" },
+      },
+      required: ["type", "content"],
+    };
+  }
+
+  /**
+   * Resolve the tool name from a parsed response.
+   * Sometimes the LLM puts the tool name in `content` instead of `toolName`.
+   * Falls back to matching content against known tool names.
+   */
+  private resolveToolName(
+    parsed: { toolName?: string; content?: string },
+    tools: AssistantToolDef[],
+  ): string {
+    if (parsed.toolName) return parsed.toolName;
+    const content = parsed.content ?? "";
+    // The content often starts with or is exactly a tool name
+    const matched = tools.find(
+      (t) => t.name === content.trim() || content.trim().startsWith(t.name),
+    );
+    return matched?.name ?? "unknown";
+  }
+
+  /**
    * Run a structured JSON task and parse the result.
    * Throws on missing API key, malformed response, or network error.
    */
@@ -111,15 +210,19 @@ export class LlmTaskRunner {
       throw new Error("LLM_API_KEY_NOT_CONFIGURED");
     }
 
+    const startTime = performance.now();
     const response = await this.client.completeJson(
       input.messages,
       input.schemaName,
       input.schema,
       input.model,
     );
+    const durationMs = Math.round(performance.now() - startTime);
 
     const data = response.data as unknown as T;
     const cost = estimateCost(response.model, response.usage);
+
+    this.notifyApiCall("structured", input.messages, response, cost, durationMs);
 
     return {
       data,
@@ -164,43 +267,27 @@ export class LlmTaskRunner {
       ...input.messages,
     ];
 
-    // Build tool-name enum so the LLM can only produce valid tool names
-    const toolNames = input.tools.map((t) => t.name);
-    const toolCallSchema = {
-      type: "object",
-      properties: {
-        type: {
-          type: "string",
-          enum: ["message", "tool_call"],
-        },
-        content: { type: "string" },
-        toolName: { type: "string", enum: toolNames },
-        args: { type: "object" },
-        reason: { type: "string" },
-      },
-      required: ["type", "content"],
-    };
+    const toolCallSchema = this.buildToolCallSchema(input.tools);
 
     let step = 0;
     for (step = 0; step < maxSteps; step++) {
+      const startTime = performance.now();
       const response = await this.client.completeJson(
         conversation,
         "assistant_response",
         toolCallSchema,
         input.model,
       );
+      const durationMs = Math.round(performance.now() - startTime);
 
       totalPromptTokens += response.usage.promptTokens;
       totalCompletionTokens += response.usage.completionTokens;
       currentModel = response.model;
 
-      const parsed = response.data as {
-        type: string;
-        content: string;
-        toolName?: string;
-        args?: Record<string, unknown>;
-        reason?: string;
-      };
+      const stepCost = estimateCost(response.model, response.usage);
+      this.notifyApiCall("tool_loop", conversation, response, stepCost, durationMs);
+
+      const parsed = response.data as unknown as ParsedResponse;
 
       if (parsed.type === "message" || parsed.type === "final") {
         steps.push({
@@ -211,7 +298,16 @@ export class LlmTaskRunner {
       }
 
       if (parsed.type === "tool_call") {
-        const toolName = parsed.toolName ?? "unknown";
+        const toolName = this.resolveToolName(parsed, input.tools);
+        // When the tool name can't be resolved, the LLM is actually sending
+        // a message (the content/reason is its response). Treat as a message.
+        if (toolName === "unknown") {
+          steps.push({
+            type: "message",
+            content: parsed.reason || parsed.content || "I couldn't determine the right tool.",
+          });
+          break;
+        }
         const args = parsed.args ?? {};
         steps.push({
           type: "tool_call",
@@ -276,99 +372,5 @@ export class LlmTaskRunner {
     };
   }
 
-  /**
-   * Continue a tool loop after executing a tool call.
-   * The caller provides the tool result as a new message in the conversation.
-   */
-  async continueToolLoop(
-    conversation: Array<{ role: string; content: string }>,
-    toolResult: { toolName: string; result: string },
-    tools: AssistantToolDef[],
-    model?: string,
-    maxSteps: number = 6,
-    step: number = 0,
-  ): Promise<{
-    steps: AssistantLoopStep[];
-    finalMessage: string;
-    stoppedEarly: boolean;
-    reason?: string;
-  }> {
-    // Add the tool result to the conversation
-    conversation.push({
-      role: "user",
-      content: `Tool "${toolResult.toolName}" returned: ${toolResult.result}`,
-    });
 
-    // Build tool-name enum so the LLM can only produce valid tool names
-    const toolNames = tools.map((t) => t.name);
-    const toolCallSchema = {
-      type: "object",
-      properties: {
-        type: {
-          type: "string",
-          enum: ["message", "tool_call"],
-        },
-        content: { type: "string" },
-        toolName: { type: "string", enum: toolNames },
-        args: { type: "object" },
-        reason: { type: "string" },
-      },
-      required: ["type", "content"],
-    };
-
-    // Continue the loop
-    for (let i = step; i < maxSteps; i++) {
-      const response = await this.client.completeJson(
-        conversation,
-        "assistant_response",
-        toolCallSchema,
-        model,
-      );
-
-      const parsed = response.data as {
-        type: string;
-        content: string;
-        toolName?: string;
-        args?: Record<string, unknown>;
-        reason?: string;
-      };
-
-      const steps: AssistantLoopStep[] = [];
-
-      if (parsed.type === "message" || parsed.type === "final") {
-        steps.push({ type: "message", content: parsed.content });
-        return { steps, finalMessage: parsed.content, stoppedEarly: false };
-      }
-
-      if (parsed.type === "tool_call") {
-        steps.push({
-          type: "tool_call",
-          content: parsed.content ?? `Calling ${parsed.toolName}`,
-          toolName: parsed.toolName,
-          toolArgs: parsed.args,
-        });
-        return {
-          steps,
-          finalMessage: "",
-          stoppedEarly: true,
-          reason: "awaiting_tool_execution",
-        };
-      }
-    }
-
-    return {
-      steps: [],
-      finalMessage: "Reached maximum tool steps",
-      stoppedEarly: true,
-      reason: "max_steps_reached",
-    };
-  }
-
-  /**
-   * Get the raw OpenRouterClient for advanced use.
-   * Only for backward compatibility during migration.
-   */
-  getClient(): OpenRouterClient {
-    return this.client;
-  }
 }

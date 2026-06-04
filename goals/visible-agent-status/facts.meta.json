@@ -1,0 +1,44 @@
+[
+  {
+    "id": "fact-in-message-status",
+    "text": "Each assistant reply message in the chat shows an embedded status indicator (icon + label) reflecting the assistant's state: sending, thinking, looking up data, applying changes, completed, or failed.",
+    "comment": null,
+    "recommendedAutomatedVerification": true,
+    "automatedVerification": true
+  },
+  {
+    "id": "fact-collapsible-details",
+    "text": "Backend trace details (tool_running, tool_result, error events that were previously shown as separate inline system messages) are collapsed into a single expandable section within the assistant's reply message. The default state is collapsed.",
+    "comment": null,
+    "recommendedAutomatedVerification": true,
+    "automatedVerification": true
+  },
+  {
+    "id": "fact-status-updates-live",
+    "text": "While the assistant is processing, the status indicator updates live — changing from 'sending' → 'thinking' → 'looking up data' → 'applying changes' → 'completed' — and the collapsible details section accumulates entries as they arrive.",
+    "comment": null,
+    "recommendedAutomatedVerification": true,
+    "automatedVerification": true
+  },
+  {
+    "id": "fact-error-in-status",
+    "text": "When the assistant encounters an error, the status shows 'failed' with the error message visible in the indicator itself. The collapsible details section contains the full error trace. The user can retry (edit & resend) directly from the failed message.",
+    "comment": null,
+    "recommendedAutomatedVerification": true,
+    "automatedVerification": true
+  },
+  {
+    "id": "fact-no-separate-system-messages",
+    "text": "The current separate inline system messages for tool_running, tool_result, and action_batch events are replaced by the collapsible details section inside the assistant's reply message. User messages remain unchanged.",
+    "comment": null,
+    "recommendedAutomatedVerification": true,
+    "automatedVerification": true
+  },
+  {
+    "id": "fact-no-backend-changes",
+    "text": "Implementation uses only existing Assistant event streams — no new backend IPC channels are added.",
+    "comment": null,
+    "recommendedAutomatedVerification": false,
+    "automatedVerification": false
+  }
+]

@@ -14,6 +14,15 @@ export type ToolExecutor = (
   args: Record<string, unknown>,
 ) => Promise<AssistantToolResult>;
 
+export type AssistantToolOperationKind =
+  | "read_only"
+  | "metadata_edit"
+  | "file_move"
+  | "lookup"
+  | "audit"
+  | "auto_tag"
+  | "planning";
+
 export interface AssistantToolDef {
   name: string;
   description: string;
@@ -21,6 +30,7 @@ export interface AssistantToolDef {
   executor: ToolExecutor;
   isReadOnly: boolean;
   riskLevel?: "low" | "medium" | "high";
+  operationKind?: AssistantToolOperationKind;
 }
 
 export interface AssistantToolResult {
@@ -120,10 +130,8 @@ export class AssistantToolRegistry {
   }
 
   /**
-   * Small JSON Schema validator for assistant tool arguments.
-   *
-   * This deliberately supports only the schema features used by local tools:
-   * object properties, required fields, primitive types, arrays, and enums.
+   * Validate tool arguments against the schema.
+   * Supports object properties, required fields, primitive types, arrays, and enums.
    */
   private validateArgs(
     schema: Record<string, unknown>,
@@ -167,9 +175,9 @@ export class AssistantToolRegistry {
       return `Field "${fieldPath}" should be a ${expectedType}, got ${actualType}`;
     }
 
-    const enumValues = schema.enum as unknown[] | undefined;
-    if (enumValues && !enumValues.includes(value)) {
-      return `Field "${fieldPath}" should be one of: ${enumValues.join(", ")}`;
+    const allowedValues = schema.enum as unknown[] | undefined;
+    if (allowedValues && !allowedValues.includes(value)) {
+      return `Field "${fieldPath}" should be one of: ${allowedValues.join(", ")}`;
     }
 
     if (expectedType === "array" && Array.isArray(value)) {
@@ -188,7 +196,11 @@ export class AssistantToolRegistry {
 
     if (expectedType === "object" && value && typeof value === "object" && !Array.isArray(value)) {
       const nestedSchema = schema as Record<string, unknown>;
-      return this.validateArgs(nestedSchema, value as Record<string, unknown>);
+      // Only recursively validate if the schema defines explicit properties.
+      // A bare { type: "object" } schema accepts any object (e.g. standard_updates).
+      if (nestedSchema.properties) {
+        return this.validateArgs(nestedSchema, value as Record<string, unknown>);
+      }
     }
 
     return null;

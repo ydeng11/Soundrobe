@@ -7,11 +7,24 @@ import type {
   ExtraTagUndoSnapshot,
 } from "../../electron/preload";
 
+interface StatusDetail {
+  icon: string;
+  text: string;
+}
+
+type AssistantStatus = "sending" | "thinking" | "looking_up" | "applying_changes" | "completed" | "failed";
+
 interface ChatMessage {
   role: "user" | "assistant" | "system";
   content: string;
   type?: "text" | "tool_running" | "tool_result" | "action_batch" | "error";
   batch?: AssistantActionBatch;
+  /** Status indicator for assistant reply messages */
+  status?: AssistantStatus;
+  /** Accumulated backend trace entries (collapsible) */
+  details?: StatusDetail[];
+  /** Original user prompt stored on assistant reply for retry-from-failure */
+  userMessage?: string;
 }
 
 interface AssistantPanelProps {
@@ -58,89 +71,67 @@ export function AssistantPanel({
   const [pendingBatches, setPendingBatches] = useState<AssistantActionBatch[]>([]);
   const [applying, setApplying] = useState(false);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [sessionNumber, setSessionNumber] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+  const [expandedMsgIndex, setExpandedMsgIndex] = useState<number | null>(null);
+  /** Ref for the in-flight assistant message — avoids race between setMessages batching and backend events */
+  const pendingMsgRef = useRef<ChatMessage | null>(null);
 
   // Scroll to bottom on new messages
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Focus input when panel opens
-  useEffect(() => {
-    if (isOpen && inputRef.current) {
-      inputRef.current.focus();
-    }
-  }, [isOpen]);
-
-  // Listen for assistant events
+  // On open: focus input, eagerly init runtime so the session number is
+  // available immediately instead of waiting for the first message.
   useEffect(() => {
     if (!isOpen) return;
-    const unsub = window.api.onAssistantEvent((event: AssistantEvent) => {
-      switch (event.type) {
-        case "message":
-          setMessages((prev) => [
-            ...prev,
-            { role: "assistant", content: event.message, type: "text" },
-          ]);
-          setSending(false);
-          break;
-        case "tool_running":
-          setMessages((prev) => [
-            ...prev,
-            { role: "system", content: event.message, type: "tool_running" },
-          ]);
-          break;
-        case "tool_result":
-          setMessages((prev) => [
-            ...prev,
-            { role: "system", content: event.message, type: "tool_result" },
-          ]);
-          break;
-        case "action_batch_created":
-          if (event.data && typeof event.data === "object" && "actionBatchId" in event.data) {
-            // Batch will be fetched separately
-            loadPendingBatches();
-          }
-          setSending(false);
-          break;
-        case "action_batch_applied":
-          setMessages((prev) => [
-            ...prev,
-            { role: "system", content: `✅ ${event.message}`, type: "text" },
-          ]);
-          loadPendingBatches();
-          onRefreshRequest();
-          break;
-        case "action_batch_rejected":
-          setMessages((prev) => [
-            ...prev,
-            { role: "system", content: `❌ ${event.message}`, type: "text" },
-          ]);
-          loadPendingBatches();
-          break;
-        case "action_batch_failed":
-          setMessages((prev) => [
-            ...prev,
-            { role: "system", content: `⚠️ ${event.message}`, type: "error" },
-          ]);
-          break;
-        case "error":
-          setMessages((prev) => [
-            ...prev,
-            { role: "system", content: `Error: ${event.message}`, type: "error" },
-          ]);
-          setSending(false);
-          break;
-        case "completed":
-        case "cancelled":
-          setSending(false);
-          break;
+    console.log("[Assistant] Panel opened");
+    inputRef.current?.focus();
+    initRuntimeAndRefresh();
+  }, [isOpen]);
+
+  const initRuntimeAndRefresh = useCallback(async () => {
+    try {
+      await window.api.assistantInitRuntime();
+      console.log("[Assistant] Runtime initialized");
+    } catch (e) {
+      console.log("[Assistant] Runtime init skipped:", e);
+    }
+    refreshSessionNumber();
+  }, []);
+
+  const refreshSessionNumber = useCallback(async () => {
+    try {
+      const s = await window.api.getCurrentSession();
+      console.log("[Assistant] getCurrentSession:", s);
+      if (s?.sessionNumber) setSessionNumber(s.sessionNumber);
+    } catch (e) {
+      console.log("[Assistant] getCurrentSession error:", e);
+    }
+  }, []);
+
+  /**
+   * Update the in-flight pending message ref synchronously (not subject to
+   * React batching). The ref content is merged into `messages` on completion
+   * and rendered via displayMessages.
+   */
+  const updatePendingMsg = useCallback(
+    (updates: { status?: AssistantStatus; content?: string; detail?: StatusDetail }) => {
+      const m = pendingMsgRef.current;
+      if (!m) return;
+      if (updates.status) m.status = updates.status;
+      if (updates.content !== undefined) m.content = updates.content;
+      if (updates.detail) {
+        m.details = [...(m.details || []), updates.detail];
       }
-    });
-    return () => unsub();
-  }, [isOpen, onRefreshRequest]);
+      // Signal React to re-render (messages identity changes even though ref mutates)
+      setMessages((prev) => [...prev]);
+    },
+    [],
+  );
 
   const loadPendingBatches = useCallback(async () => {
     try {
@@ -150,6 +141,68 @@ export function AssistantPanel({
       // Ignore
     }
   }, []);
+
+  // Listen for assistant events
+  useEffect(() => {
+    if (!isOpen) return;
+    const unsub = window.api.onAssistantEvent((event: AssistantEvent) => {
+      switch (event.type) {
+        case "tool_running":
+          updatePendingMsg({ status: "thinking", detail: { icon: "⚙️", text: event.message } });
+          break;
+        case "tool_result":
+          updatePendingMsg({ status: "looking_up", detail: { icon: "📋", text: event.message } });
+          break;
+        case "action_batch_created":
+          updatePendingMsg({ status: "completed", content: event.message, detail: { icon: "📦", text: event.message } });
+          if (event.data && typeof event.data === "object" && "actionBatchId" in event.data) {
+            loadPendingBatches();
+          }
+          setSending(false);
+          pendingMsgRef.current = null;
+          break;
+        case "action_batch_applied":
+          updatePendingMsg({ detail: { icon: "✅", text: event.message } });
+          updatePendingMsg({ status: "completed" });
+          loadPendingBatches();
+          setSending(false);
+          onRefreshRequest();
+          break;
+        case "action_batch_rejected":
+          updatePendingMsg({ detail: { icon: "❌", text: event.message } });
+          loadPendingBatches();
+          break;
+        case "action_batch_failed":
+          updatePendingMsg({ status: "failed", detail: { icon: "⚠️", text: event.message } });
+          setSending(false);
+          pendingMsgRef.current = null;
+          break;
+        case "message":
+          // Final assistant reply — set content and mark completed
+          updatePendingMsg({ status: "completed", content: event.message });
+          setSending(false);
+          pendingMsgRef.current = null;
+          refreshSessionNumber();
+          break;
+        case "error":
+          updatePendingMsg({ status: "failed", content: event.message, detail: { icon: "⚠️", text: event.message } });
+          setSending(false);
+          pendingMsgRef.current = null;
+          break;
+        case "completed":
+          updatePendingMsg({ status: "completed", content: event.message || "Completed." });
+          setSending(false);
+          pendingMsgRef.current = null;
+          break;
+        case "cancelled":
+          updatePendingMsg({ status: "failed", detail: { icon: "⏹️", text: event.message || "Cancelled" } });
+          setSending(false);
+          pendingMsgRef.current = null;
+          break;
+      }
+    });
+    return () => unsub();
+  }, [isOpen, onRefreshRequest, refreshSessionNumber, updatePendingMsg, loadPendingBatches]);
 
   // Load batches on mount
   useEffect(() => {
@@ -162,12 +215,45 @@ export function AssistantPanel({
     const text = inputText.trim();
     if (!text || sending) return;
 
+    if (text === "/clear") {
+      console.log("[Assistant] /clear — resetting session");
+      setInputText("");
+      setSending(false);
+      pendingMsgRef.current = null;
+      setMessages([
+        {
+          role: "system",
+          content: "Session cleared. Start a new conversation.",
+          type: "text",
+        },
+      ]);
+      setSessionNumber(null);
+      setEditingIndex(null);
+      try {
+        await window.api.assistantClear();
+        console.log("[Assistant] Session reset complete");
+        await refreshSessionNumber();
+        console.log("[Assistant] Refreshed session number");
+      } catch { /* runtime may not exist yet */ }
+      return;
+    }
+
     setInputText("");
     setEditingIndex(null);
     setSending(true);
+    console.log(`[Assistant] Sending: "${text.slice(0, 60)}"`);
+    // Set ref synchronously so the event handler can update it immediately
+    pendingMsgRef.current = {
+      role: "assistant",
+      content: "",
+      status: "sending",
+      details: [],
+      userMessage: text,
+    };
     setMessages((prev) => [
       ...prev,
       { role: "user", content: text, type: "text" },
+      pendingMsgRef.current!,
     ]);
 
     try {
@@ -182,16 +268,18 @@ export function AssistantPanel({
         albums: allAlbums,
         autonomous,
       });
+      console.log(`[Assistant] assistantSend resolved`);
+      refreshSessionNumber();
     } catch (error) {
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: "system",
-          content: `Failed to send: ${error instanceof Error ? error.message : String(error)}`,
-          type: "error",
+      updatePendingMsg({
+        status: "failed",
+        detail: {
+          icon: "⚠️",
+          text: `Failed to send: ${error instanceof Error ? error.message : String(error)}`,
         },
-      ]);
+      });
       setSending(false);
+      pendingMsgRef.current = null;
     }
   };
 
@@ -205,7 +293,12 @@ export function AssistantPanel({
   const handleCancel = async () => {
     try {
       await window.api.assistantCancel();
+      updatePendingMsg({
+        status: "failed",
+        detail: { icon: "⏹️", text: "Cancelled by user" },
+      });
       setSending(false);
+      pendingMsgRef.current = null;
     } catch {
       // Ignore
     }
@@ -262,6 +355,20 @@ export function AssistantPanel({
     }
   };
 
+  // Build edit handler for a given message (extracted so it's not recreated per message per render)
+  const handleMsgEdit = useCallback(
+    (msg: ChatMessage, index: number) => () => {
+      if (msg.role === "assistant" && msg.status === "failed" && msg.userMessage) {
+        setInputText(msg.userMessage);
+      } else if (msg.role === "user") {
+        setInputText(msg.content);
+      }
+      setEditingIndex(index);
+      inputRef.current?.focus();
+    },
+    [],
+  );
+
   // Focus input on edit
   useEffect(() => {
     if (editingIndex !== null && inputRef.current) {
@@ -275,10 +382,20 @@ export function AssistantPanel({
     <div className="fixed inset-y-0 right-0 w-96 bg-[#1e1e2e] border-l border-[#313244] shadow-xl flex flex-col z-50">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-[#313244]">
-        <h2 className="text-sm font-semibold text-[#cdd6f4]">Assistant</h2>
+        <div className="flex items-center gap-2 min-w-0">
+          <h2 className="text-sm font-semibold text-[#cdd6f4] whitespace-nowrap">Assistant</h2>
+          {sessionNumber && (
+            <span
+              className="text-[10px] font-mono text-[#6c7086] bg-[#313244] px-1.5 py-0.5 rounded truncate max-w-[140px]"
+              title={`Session: ${sessionNumber}`}
+            >
+              #{sessionNumber}
+            </span>
+          )}
+        </div>
         <button
           onClick={onClose}
-          className="text-[#6c7086] hover:text-[#cdd6f4] transition-colors p-1"
+          className="shrink-0 text-[#6c7086] hover:text-[#cdd6f4] transition-colors p-1"
         >
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M12 4L4 12M4 4l8 8" />
@@ -305,16 +422,16 @@ export function AssistantPanel({
             msg={msg}
             index={i}
             copiedIndex={copiedIndex}
+            expanded={expandedMsgIndex === i}
+            onToggleExpand={() =>
+              setExpandedMsgIndex(expandedMsgIndex === i ? null : i)
+            }
             onCopy={() => {
               navigator.clipboard.writeText(msg.content);
               setCopiedIndex(i);
               setTimeout(() => setCopiedIndex(null), 2000);
             }}
-            onEdit={() => {
-              setInputText(msg.content);
-              setEditingIndex(i);
-              inputRef.current?.focus();
-            }}
+            onEdit={handleMsgEdit(msg, i)}
           />
         ))}
 
@@ -447,41 +564,139 @@ export function AssistantPanel({
   );
 }
 
-// ── Message bubble with copy/edit actions ─────────────────────────
+// ── Status icon & label helpers ───────────────────────────────────
+
+const STATUS_CONFIG: Record<AssistantStatus, { icon: string; label: string; color: string; bg: string }> = {
+  sending: {
+    icon: "⏳",
+    label: "Sending…",
+    color: "text-[#f9e2af]",
+    bg: "bg-[#f9e2af]/10",
+  },
+  thinking: {
+    icon: "💭",
+    label: "Thinking…",
+    color: "text-[#89b4fa]",
+    bg: "bg-[#89b4fa]/10",
+  },
+  looking_up: {
+    icon: "🔍",
+    label: "Looking up data…",
+    color: "text-[#a6e3a1]",
+    bg: "bg-[#a6e3a1]/10",
+  },
+  applying_changes: {
+    icon: "📝",
+    label: "Applying changes…",
+    color: "text-[#f9e2af]",
+    bg: "bg-[#f9e2af]/10",
+  },
+  completed: {
+    icon: "✅",
+    label: "Completed",
+    color: "text-[#a6e3a1]",
+    bg: "bg-[#a6e3a1]/10",
+  },
+  failed: {
+    icon: "❌",
+    label: "Failed",
+    color: "text-[#f38ba8]",
+    bg: "bg-[#f38ba8]/10",
+  },
+};
+
+// ── Message bubble with status indicator, collapsible details, and actions ──
 
 function MessageBubble({
   msg,
   index,
   copiedIndex,
+  expanded,
+  onToggleExpand,
   onCopy,
   onEdit,
 }: {
   msg: ChatMessage;
   index: number;
   copiedIndex: number | null;
+  expanded: boolean;
+  onToggleExpand: () => void;
   onCopy: () => void;
   onEdit: () => void;
 }) {
+  const statusCfg = msg.role === "assistant" && msg.status ? STATUS_CONFIG[msg.status] : null;
+  const isFailed = msg.status === "failed";
+  const isPending = msg.status && msg.status !== "completed" && msg.status !== "failed";
+
   return (
     <div className={`group flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
       <div
         className={`relative max-w-[85%] rounded-lg px-3 py-2 text-sm leading-relaxed ${
           msg.role === "user"
             ? "bg-[#89b4fa] text-[#1e1e2e]"
-            : msg.type === "error"
-              ? "bg-[#f38ba8]/20 text-[#f38ba8]"
-              : msg.type === "tool_running"
-                ? "bg-[#f9e2af]/10 text-[#f9e2af] text-xs italic"
-                : msg.type === "tool_result"
-                  ? "bg-[#a6e3a1]/10 text-[#a6e3a1] text-xs"
-                  : "bg-[#313244] text-[#cdd6f4]"
+            : isFailed
+              ? "bg-[#f38ba8]/10 text-[#f38ba8]"
+              : isPending
+                ? "bg-[#313244]/80 text-[#cdd6f4]"
+                : "bg-[#313244] text-[#cdd6f4]"
         }`}
       >
-        <div className="whitespace-pre-wrap font-sans select-text">{msg.content}</div>
+        {/* Status indicator row — shown on assistant messages */}
+        {statusCfg && (
+          <div className={`flex items-center gap-1.5 mb-1.5 ${statusCfg.bg} rounded px-2 py-1 ${statusCfg.color}`}>
+            <span className="text-[11px]">{statusCfg.icon}</span>
+            <span className="text-[10px] font-medium">{statusCfg.label}</span>
+            {isPending && <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse ml-auto" />}
+          </div>
+        )}
 
-        {/* Hover actions — only for user messages */}
-        {msg.role === "user" && (
-          <div className="absolute -top-2 right-0 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+        {/* Message content — assistant reply text (hidden while pending with no content yet) */}
+        {msg.content && (
+          <div className="whitespace-pre-wrap font-sans select-text">{msg.content}</div>
+        )}
+        {isPending && !msg.content && (
+          <div className="text-[#6c7086] text-xs italic select-none">Waiting for response…</div>
+        )}
+
+        {/* Collapsible details section */}
+        {msg.details && msg.details.length > 0 && (
+          <div className="mt-2 border-t border-[#313244] pt-1.5">
+            <button
+              onClick={onToggleExpand}
+              className="flex items-center gap-1 text-[10px] text-[#6c7086] hover:text-[#a6adc8] transition-colors select-none"
+            >
+              <svg
+                width="10"
+                height="10"
+                viewBox="0 0 16 16"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                className={`transition-transform ${expanded ? "rotate-90" : ""}`}
+              >
+                <path d="M6 4l4 4-4 4" />
+              </svg>
+              <span>
+                {expanded ? "Hide details" : `${msg.details.length} step${msg.details.length !== 1 ? "s" : ""}`}
+              </span>
+            </button>
+            {expanded && (
+              <div className="mt-1 space-y-0.5">
+                {msg.details.map((d, di) => (
+                  <div key={di} className="flex items-start gap-1 text-[10px] text-[#6c7086] leading-relaxed">
+                    <span className="shrink-0">{d.icon}</span>
+                    <span className="break-words min-w-0">{d.text}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Hover actions */}
+        <div className="absolute -top-2 right-0 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+          {/* Copy — available on user messages and completed/failed assistant messages */}
+          {(msg.role === "user" || !isPending) && (
             <button
               onClick={onCopy}
               className="text-[10px] px-1.5 py-0.5 rounded bg-[#1e1e2e]/80 text-[#a6adc8] hover:text-[#cdd6f4] hover:bg-[#1e1e2e]"
@@ -498,17 +713,20 @@ function MessageBubble({
                 </svg>
               )}
             </button>
+          )}
+          {/* Edit/Retry — on user messages and failed assistant messages */}
+          {(msg.role === "user" || isFailed) && (
             <button
               onClick={onEdit}
               className="text-[10px] px-1.5 py-0.5 rounded bg-[#1e1e2e]/80 text-[#a6adc8] hover:text-[#cdd6f4] hover:bg-[#1e1e2e]"
-              title="Edit and resend"
+              title={isFailed ? "Retry (edit original prompt)" : "Edit and resend"}
             >
               <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
                 <path d="M11 2L14 5L6 13H3V10L11 2Z" />
               </svg>
             </button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );

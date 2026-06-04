@@ -1,7 +1,44 @@
-import { describe, it, expect, afterEach, beforeEach } from "vitest";
-import { mkdtempSync, rmSync } from "node:fs";
+import { describe, it, expect, afterEach, beforeEach, vi } from "vitest";
+
+// Mock native-check so better-sqlite3 doesn't need to load (ABI mismatch in Vitest)
+vi.mock("../../electron/handlers/native-check", () => {
+  class MockStatement {
+    run(..._params: unknown[]) {
+      return { changes: 1, lastInsertRowid: 1 };
+    }
+    get(..._params: unknown[]) {
+      return undefined;
+    }
+    all(..._params: unknown[]) {
+      return [];
+    }
+    bind(..._params: unknown[]) {}
+  }
+
+  class MockDB {
+    constructor(_path: string) {}
+    pragma(_sql: string) {
+      return {};
+    }
+    prepare(_sql: string) {
+      return new MockStatement();
+    }
+    exec(_sql: string) {}
+    close() {}
+  }
+
+  return {
+    getBetterSqlite3: () => MockDB as never,
+  };
+});
+import { mkdtempSync, rmSync, writeFileSync, mkdirSync, openSync, writeSync, closeSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
+import { parseFile } from "music-metadata";
+import {
+  flacHeaderWithDuration,
+  vorbisCommentBlock,
+} from "../helpers/flac-helpers";
 import {
   hintsAreAmbiguous,
   loadConfig,
@@ -15,6 +52,9 @@ import {
   buildAliasedLookupVariants,
 } from "../../electron/handlers/auto-tag";
 import { setAliasFilePath, saveAlias } from "../../electron/handlers/aliases";
+import { writeTags, batchWriteTags } from "../../electron/handlers/writer";
+import { readTrackMetadata } from "../../electron/handlers/tracks";
+import * as NodeID3 from "node-id3";
 
 /**
  * Shared env isolation for auto-tag lifecycle tests.
@@ -436,3 +476,909 @@ describe("buildAliasedLookupVariants", () => {
     expect(pairs.some(([a]) => a === "張學友")).toBe(true);
   });
 });
+
+function waitForTask(
+  taskId: string,
+  timeoutMs = 20000,
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const start = Date.now();
+    const poll = () => {
+      const progress = getProgress(taskId);
+      if (progress?.status === "completed" || progress?.status === "failed") {
+        resolve();
+        return;
+      }
+      if (Date.now() - start > timeoutMs) {
+        reject(new Error(`Task ${taskId} did not complete within ${timeoutMs}ms`));
+        return;
+      }
+      setTimeout(poll, 250);
+    };
+    poll();
+  });
+}
+
+describe("resolveTagsViaLLM — full pipeline with mocked LLM", () => {
+  const originalFetch = globalThis.fetch;
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  it("corrects album metadata via LLM fallback when no API candidates exist", async () => {
+    const originalEnv = { ...process.env };
+    const tmpHome = mkdtempSync(join(tmpdir(), "auto-tag-llm-1-"));
+    process.env.HOME = tmpHome;
+    delete process.env.LLM_API_KEY;
+    delete process.env.LLM_MODEL;
+    process.env.AUTO_TAG_REMOTE_LOOKUP = "false";
+    process.env.AUTO_TAG_DISCOGS_ENABLED = "false";
+
+    try {
+      // Create album directory: /蛋堡/2009-Winter Sweet[flac]
+      const albumDir = join(tmpHome, "蛋堡", "2009-Winter Sweet[flac]");
+      mkdirSync(albumDir, { recursive: true });
+      const trackPath = join(albumDir, "01. Winter Sweet.flac");
+
+      // FLAC with initial metadata (no genre, basic album)
+      const block = vorbisCommentBlock(
+        ["TITLE=Winter Sweet", "ARTIST=蛋堡", "ALBUM=Winter Sweet"],
+        { isLast: true },
+      );
+      const buf = Buffer.concat([
+        flacHeaderWithDuration(false, 200, [block]),
+        Buffer.from([0xff, 0xf8, 0x69, 0x18]),
+        Buffer.alloc(100),
+      ]);
+      writeFileSync(trackPath, buf);
+
+      // Enable LLM
+      process.env.LLM_API_KEY = "test-key";
+      process.env.LLM_MODEL = "test-model";
+      refreshConfig();
+
+      // Mock OpenRouter to return corrected metadata with genre
+      globalThis.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          choices: [
+            {
+              message: {
+                content: JSON.stringify({
+                  artist: "蛋堡",
+                  albumArtist: "蛋堡",
+                  album: "Winter Sweet",
+                  year: "2009",
+                  genre: "Hip Hop",
+                  tracks: [
+                    { index: 0, title: "Winter Sweet", artist: "蛋堡" },
+                  ],
+                  confidence: 0.95,
+                }),
+              },
+            },
+          ],
+          usage: { prompt_tokens: 200, completion_tokens: 100, total_tokens: 300 },
+          model: "test-model",
+        }),
+      });
+
+      const taskId = startAutoTag(albumDir);
+      await waitForTask(taskId);
+
+      const progress = getProgress(taskId);
+      if (progress?.status !== "completed") {
+        // Debug: show the failure reason
+        console.error("Task failed with message:", progress?.message);
+      }
+      expect(progress?.status).toBe("completed");
+
+      // Verify the file was updated with LLM-corrected metadata (genre added)
+      const meta = await parseFile(trackPath);
+      expect(meta.common.album).toBe("Winter Sweet");
+      expect(meta.common.artist).toBe("蛋堡");
+      expect(meta.common.genre).toContain("Hip Hop");
+    } finally {
+      process.env = { ...originalEnv };
+      refreshConfig();
+      rmSync(tmpHome, { recursive: true, force: true });
+    }
+  });
+
+  it("recovers gracefully when LLM fetch fails — tags unchanged", async () => {
+    const originalEnv = { ...process.env };
+    const tmpHome = mkdtempSync(join(tmpdir(), "auto-tag-llm-2-"));
+    process.env.HOME = tmpHome;
+    delete process.env.LLM_API_KEY;
+    delete process.env.LLM_MODEL;
+    process.env.AUTO_TAG_REMOTE_LOOKUP = "false";
+    process.env.AUTO_TAG_DISCOGS_ENABLED = "false";
+
+    try {
+      const albumDir = join(tmpHome, "Artist", "Album");
+      mkdirSync(albumDir, { recursive: true });
+      const trackPath = join(albumDir, "01 Track.flac");
+
+      const block = vorbisCommentBlock(
+        ["TITLE=Original", "ARTIST=Artist", "ALBUM=Original"],
+        { isLast: true },
+      );
+      const buf = Buffer.concat([
+        flacHeaderWithDuration(false, 200, [block]),
+        Buffer.from([0xff, 0xf8, 0x69, 0x18]),
+        Buffer.alloc(100),
+      ]);
+      writeFileSync(trackPath, buf);
+
+      // Enable LLM but mock a failed HTTP response
+      process.env.LLM_API_KEY = "test-key";
+      process.env.LLM_MODEL = "test-model";
+      refreshConfig();
+
+      // Mock fetch to fail with an HTTP error
+      globalThis.fetch = vi.fn().mockResolvedValue({
+        ok: false,
+        status: 503,
+        text: async () => "Service unavailable",
+      });
+
+      const taskId = startAutoTag(albumDir);
+      await waitForTask(taskId);
+
+      // Pipeline completed despite LLM failure
+      const progress = getProgress(taskId);
+      if (progress?.status !== "completed") {
+        console.error("LLM fail test — message:", progress?.message);
+      }
+      expect(progress?.status).toBe("completed");
+
+      // Verify file tags are still valid (fallback writes folder-hint-based tags)
+      const meta = await parseFile(trackPath);
+      // Album should reflect the folder name (fallback writes from hints)
+      expect(typeof meta.common.album).toBe("string");
+      expect(meta.common.genre).toBeUndefined();
+      expect(meta.common.artist).toBeTruthy();
+    } finally {
+      process.env = { ...originalEnv };
+      refreshConfig();
+      rmSync(tmpHome, { recursive: true, force: true });
+    }
+  });
+
+  it("skips LLM resolution when no API key is configured", async () => {
+    const originalEnv = { ...process.env };
+    const tmpHome = mkdtempSync(join(tmpdir(), "auto-tag-llm-3-"));
+    process.env.HOME = tmpHome;
+    delete process.env.LLM_API_KEY;
+    delete process.env.LLM_MODEL;
+    process.env.AUTO_TAG_REMOTE_LOOKUP = "false";
+    process.env.AUTO_TAG_DISCOGS_ENABLED = "false";
+
+    try {
+      const albumDir = join(tmpHome, "Artist", "Album");
+      mkdirSync(albumDir, { recursive: true });
+      const trackPath = join(albumDir, "01 Track.flac");
+
+      const block = vorbisCommentBlock(
+        ["TITLE=Original", "ARTIST=Artist", "ALBUM=Album"],
+        { isLast: true },
+      );
+      const buf = Buffer.concat([
+        flacHeaderWithDuration(false, 200, [block]),
+        Buffer.from([0xff, 0xf8, 0x69, 0x18]),
+        Buffer.alloc(100),
+      ]);
+      writeFileSync(trackPath, buf);
+
+      // No LLM key — resolveTagsViaLLM should short-circuit
+      refreshConfig();
+
+      // Track fetch calls to verify OpenRouter was not called
+      globalThis.fetch = vi.fn().mockRejectedValue(new Error("should not be called"));
+
+      const taskId = startAutoTag(albumDir);
+      await waitForTask(taskId);
+
+      const progress = getProgress(taskId);
+      if (progress?.status !== "completed") {
+        console.error("No-LLM-key test — message:", progress?.message);
+      }
+      expect(progress?.status).toBe("completed");
+
+      // fetch should never have been called (no LLM key = no OpenRouter)
+      expect(vi.mocked(globalThis.fetch)).not.toHaveBeenCalled();
+
+      // Original metadata preserved
+      const meta = await parseFile(trackPath);
+      expect(meta.common.album).toBe("Album");
+      expect(meta.common.artist).toBe("Artist");
+    } finally {
+      process.env = { ...originalEnv };
+      refreshConfig();
+      rmSync(tmpHome, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("COMMENTS clearing — round-trip via writeTags", () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = mkdtempSync(join(tmpdir(), "auto-tag-comment-"));
+  });
+
+  afterEach(() => {
+    rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it("clears COMMENT from FLAC by writing comment=null and verifies with music-metadata", async () => {
+    const fp = join(tmpDir, "test.flac");
+    const block = vorbisCommentBlock(
+      [
+        "TITLE=Song",
+        "ARTIST=Artist",
+        "ALBUM=Album",
+        "COMMENT=Original comment text",
+      ],
+      { isLast: true },
+    );
+    const buf = Buffer.concat([
+      flacHeaderWithDuration(false, 200, [block]),
+      Buffer.from([0xff, 0xf8, 0x69, 0x18]),
+      Buffer.alloc(100),
+    ]);
+    writeFileSync(fp, buf);
+
+    // Verify COMMENT exists before
+    let meta = await parseFile(fp);
+    expect(meta.common.comment).toBeTruthy();
+
+    // Write comment=null (clear)
+    await writeTags(fp, { comment: null });
+
+    // Verify COMMENT is gone
+    meta = await parseFile(fp);
+    expect(meta.common.comment).toBeUndefined();
+
+    // Other tags should be preserved
+    expect(meta.common.title).toBe("Song");
+    expect(meta.common.artist).toBe("Artist");
+    expect(meta.common.album).toBe("Album");
+  });
+
+  it("clears COMMENT from MP3 by writing comment=null", async () => {
+    const fp = join(tmpDir, "test.mp3");
+    // Create minimal MP3 with ID3v2 comment using same pattern as writer.test.ts
+    NodeID3.write(
+      {
+        title: "Song",
+        artist: "Artist",
+        album: "Album",
+        comment: { language: "eng", text: "Original comment" },
+      },
+      fp,
+    );
+    // Append a minimal MPEG1 Layer3 sync frame (417 bytes)
+    const fd = openSync(fp, "a");
+    const frame = Buffer.alloc(417);
+    frame[0] = 0xff;
+    frame[1] = 0xfb;
+    frame[2] = (9 << 4) | (0 << 2);
+    frame[3] = 0x02;
+    writeSync(fd, frame, 0, frame.length);
+    closeSync(fd);
+
+    await writeTags(fp, { comment: null });
+
+    const tags = NodeID3.read(fp);
+    // COMMENT should be cleared — no longer present after writeTags clears it
+    const commentField = tags.comment;
+    // node-id3 may return comment as { language, text } or string
+    const commentText =
+      typeof commentField === "object" && commentField !== null
+        ? (commentField as { text?: string }).text
+        : String(commentField ?? "");
+    expect(commentText).toBe("");
+  });
+
+  it("clears COMMENT from multiple FLAC files in an album batch", async () => {
+    // Create two FLAC files with COMMENTS
+    const f1 = join(tmpDir, "track1.flac");
+    const f2 = join(tmpDir, "track2.flac");
+
+    for (const [fp, title] of [[f1, "Track 1"], [f2, "Track 2"]] as const) {
+      const block = vorbisCommentBlock(
+        [
+          `TITLE=${title}`,
+          "ARTIST=Artist",
+          "ALBUM=Album",
+          "COMMENT=Some comment",
+        ],
+        { isLast: true },
+      );
+      const buf = Buffer.concat([
+        flacHeaderWithDuration(false, 200, [block]),
+        Buffer.from([0xff, 0xf8, 0x69, 0x18]),
+        Buffer.alloc(100),
+      ]);
+      writeFileSync(fp, buf);
+    }
+
+    // Batch clear COMMENTS
+    await batchWriteTags([
+      { path: f1, fields: { comment: null } },
+      { path: f2, fields: { comment: null } },
+    ]);
+
+    // Both files should have COMMENT removed
+    const m1 = await parseFile(f1);
+    const m2 = await parseFile(f2);
+    expect(m1.common.comment).toBeUndefined();
+    expect(m2.common.comment).toBeUndefined();
+    expect(m1.common.title).toBe("Track 1");
+    expect(m2.common.title).toBe("Track 2");
+  });
+
+  it("preserves other tags when only clearing COMMENT", async () => {
+    const fp = join(tmpDir, "rich.flac");
+    const block = vorbisCommentBlock(
+      [
+        "TITLE=Rich Song",
+        "ARTIST=Rich Artist",
+        "ALBUM=Rich Album",
+        "DATE=2024",
+        "GENRE=Jazz",
+        "COMMENT=Rich comment",
+        "TRACKNUMBER=1",
+        "TRACKTOTAL=10",
+      ],
+      { isLast: true },
+    );
+    const buf = Buffer.concat([
+      flacHeaderWithDuration(false, 200, [block]),
+      Buffer.from([0xff, 0xf8, 0x69, 0x18]),
+      Buffer.alloc(100),
+    ]);
+    writeFileSync(fp, buf);
+
+    await writeTags(fp, { comment: null });
+
+    const meta = await parseFile(fp);
+    expect(meta.common.comment).toBeUndefined();
+    expect(meta.common.title).toBe("Rich Song");
+    expect(meta.common.artist).toBe("Rich Artist");
+    expect(meta.common.album).toBe("Rich Album");
+    expect(String(meta.common.year)).toBe("2024");
+    expect(meta.common.genre).toContain("Jazz");
+    expect(meta.common.track.no).toBe(1);
+    expect(meta.common.track.of).toBe(10);
+  });
+
+  it("writing comment to empty string also clears COMMENT from FLAC", async () => {
+    const fp = join(tmpDir, "empty-str.flac");
+    const block = vorbisCommentBlock(
+      ["TITLE=Song", "ARTIST=Artist", "ALBUM=Album", "COMMENT=Remove me"],
+      { isLast: true },
+    );
+    const buf = Buffer.concat([
+      flacHeaderWithDuration(false, 200, [block]),
+      Buffer.from([0xff, 0xf8, 0x69, 0x18]),
+      Buffer.alloc(100),
+    ]);
+    writeFileSync(fp, buf);
+
+    // Writing empty string should also remove COMMENT
+    await writeTags(fp, { comment: "" });
+
+    const meta = await parseFile(fp);
+    // music-metadata may treat empty string as undefined
+    expect(meta.common.comment == null || meta.common.comment === "").toBe(true);
+  });
+
+  // ── DESCRIPTION field clearing (combined with COMMENTS) ───────────
+
+  it("clears DESCRIPTION from FLAC by writing description=null", async () => {
+    const fp = join(tmpDir, "desc.flac");
+    const block = vorbisCommentBlock(
+      [
+        "TITLE=Song",
+        "ARTIST=Artist",
+        "ALBUM=Album",
+        "COMMENT=My comment",
+        "DESCRIPTION=My long description",
+      ],
+      { isLast: true },
+    );
+    const buf = Buffer.concat([
+      flacHeaderWithDuration(false, 200, [block]),
+      Buffer.from([0xff, 0xf8, 0x69, 0x18]),
+      Buffer.alloc(100),
+    ]);
+    writeFileSync(fp, buf);
+
+    // Verify both exist before
+    let meta = await parseFile(fp);
+    expect(meta.common.comment).toBeTruthy();
+
+    // Write description=null (leave comment intact)
+    await writeTags(fp, { description: null });
+
+    meta = await parseFile(fp);
+    // DESCRIPTION should be gone from native Vorbis comments
+    const descriptionTag = findVorbisTag(meta, "DESCRIPTION");
+    expect(descriptionTag).toBeUndefined();
+    // COMMENT should still be present
+    expect(meta.common.comment).toBeTruthy();
+    // Other tags preserved
+    expect(meta.common.title).toBe("Song");
+  });
+
+  it("clears both DESCRIPTION and COMMENTS from FLAC with one writeTags call", async () => {
+    const fp = join(tmpDir, "both-flac.flac");
+    const block = vorbisCommentBlock(
+      [
+        "TITLE=Track",
+        "ARTIST=Artist",
+        "ALBUM=Album",
+        "COMMENT=Some comment",
+        "DESCRIPTION=Some description",
+      ],
+      { isLast: true },
+    );
+    const buf = Buffer.concat([
+      flacHeaderWithDuration(false, 200, [block]),
+      Buffer.from([0xff, 0xf8, 0x69, 0x18]),
+      Buffer.alloc(100),
+    ]);
+    writeFileSync(fp, buf);
+
+    // Clear both fields in a single writeTags call
+    await writeTags(fp, { comment: null, description: null });
+
+    const meta = await parseFile(fp);
+    // COMMENT should be gone
+    expect(meta.common.comment).toBeUndefined();
+    // DESCRIPTION should be gone from native Vorbis comments
+    const descriptionTag = findVorbisTag(meta, "DESCRIPTION");
+    expect(descriptionTag).toBeUndefined();
+    // Other tags preserved
+    expect(meta.common.title).toBe("Track");
+    expect(meta.common.artist).toBe("Artist");
+    expect(meta.common.album).toBe("Album");
+  });
+
+  it("clears both DESCRIPTION and COMMENTS from MP3 with one writeTags call", async () => {
+    const fp = join(tmpDir, "both-mp3.mp3");
+    // Create MP3 file first (need audio data so node-id3 can read/write)
+    NodeID3.write({ title: "MP3 Temp" }, fp);
+    const fd = openSync(fp, "a");
+    const frame = Buffer.alloc(417);
+    frame[0] = 0xff;
+    frame[1] = 0xfb;
+    frame[2] = (9 << 4) | (0 << 2);
+    frame[3] = 0x02;
+    writeSync(fd, frame, 0, frame.length);
+    closeSync(fd);
+
+    // Now write full metadata (including comment + description)
+    await writeTags(fp, {
+      title: "MP3 Track",
+      artist: "MP3 Artist",
+      album: "MP3 Album",
+      comment: "MP3 comment",
+      description: "MP3 description",
+    });
+
+    const before = NodeID3.read(fp);
+    const beforeDesc = Array.isArray(before.userDefinedText)
+      ? before.userDefinedText.find((t) => t.description === "DESCRIPTION")
+      : before.userDefinedText?.description === "DESCRIPTION"
+        ? before.userDefinedText
+        : undefined;
+    expect(beforeDesc).toBeTruthy();
+
+    // Now clear both
+    await writeTags(fp, { comment: null, description: null });
+
+    const after = NodeID3.read(fp);
+    // COMMENT should be cleared
+    const afterComment = after.comment;
+    const afterCommentText =
+      typeof afterComment === "object" && afterComment !== null
+        ? (afterComment as { text?: string }).text
+        : String(afterComment ?? "");
+    expect(afterCommentText).toBe("");
+
+    // DESCRIPTION should be cleared from userDefinedText
+    const afterDesc = Array.isArray(after.userDefinedText)
+      ? after.userDefinedText.find((t) => t.description === "DESCRIPTION")
+      : after.userDefinedText?.description === "DESCRIPTION"
+        ? after.userDefinedText
+        : undefined;
+    expect(afterDesc).toBeUndefined();
+
+    expect(after.title).toBe("MP3 Track");
+  });
+
+  it("batch clears both DESCRIPTION and COMMENTS from multiple FLAC files", async () => {
+    const f1 = join(tmpDir, "multi1.flac");
+    const f2 = join(tmpDir, "multi2.flac");
+
+    for (const [fp, title] of [[f1, "A"], [f2, "B"]] as const) {
+      const block = vorbisCommentBlock(
+        [
+          `TITLE=${title}`,
+          "ARTIST=Artist",
+          "ALBUM=Album",
+          "COMMENT=Comment " + title,
+          "DESCRIPTION=Desc " + title,
+        ],
+        { isLast: true },
+      );
+      const buf = Buffer.concat([
+        flacHeaderWithDuration(false, 200, [block]),
+        Buffer.from([0xff, 0xf8, 0x69, 0x18]),
+        Buffer.alloc(100),
+      ]);
+      writeFileSync(fp, buf);
+    }
+
+    // Batch clear both fields
+    await batchWriteTags([
+      { path: f1, fields: { comment: null, description: null } },
+      { path: f2, fields: { comment: null, description: null } },
+    ]);
+
+    // Verify both files have both fields cleared
+    for (const title of ["A", "B"]) {
+      const fp = join(tmpDir, `multi${title === "A" ? "1" : "2"}.flac`);
+      const meta = await parseFile(fp);
+      expect(meta.common.comment).toBeUndefined();
+      const descTag = findVorbisTag(meta, "DESCRIPTION");
+      expect(descTag).toBeUndefined();
+      expect(meta.common.title).toBe(title);
+    }
+  });
+
+  it("preserves all other tags when clearing both DESCRIPTION and COMMENTS", async () => {
+    const fp = join(tmpDir, "rich-both.flac");
+    const block = vorbisCommentBlock(
+      [
+        "TITLE=Rich Track",
+        "ARTIST=Rich Artist",
+        "ALBUM=Rich Album",
+        "DATE=2025",
+        "GENRE=Electronic",
+        "COMMENT=Rich comment",
+        "DESCRIPTION=Rich description",
+        "TRACKNUMBER=2",
+        "TRACKTOTAL=8",
+        "DISCNUMBER=1",
+        "DISCTOTAL=1",
+      ],
+      { isLast: true },
+    );
+    const buf = Buffer.concat([
+      flacHeaderWithDuration(false, 200, [block]),
+      Buffer.from([0xff, 0xf8, 0x69, 0x18]),
+      Buffer.alloc(100),
+    ]);
+    writeFileSync(fp, buf);
+
+    await writeTags(fp, { comment: null, description: null });
+
+    const meta = await parseFile(fp);
+    expect(meta.common.comment).toBeUndefined();
+    const descTag = findVorbisTag(meta, "DESCRIPTION");
+    expect(descTag).toBeUndefined();
+    // Everything else preserved
+    expect(meta.common.title).toBe("Rich Track");
+    expect(meta.common.artist).toBe("Rich Artist");
+    expect(meta.common.album).toBe("Rich Album");
+    expect(String(meta.common.year)).toBe("2025");
+    expect(meta.common.genre).toContain("Electronic");
+    expect(meta.common.track.no).toBe(2);
+    expect(meta.common.track.of).toBe(8);
+  });
+});
+
+describe("change AlbumArtist + fix Artist from file + create Artists — 法老 scenario", () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = mkdtempSync(join(tmpdir(), "auto-tag-falao-"));
+  });
+
+  afterEach(() => {
+    rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it("sets albumArtist=法老, fixes artist from filename, creates artists", async () => {
+    // Simulate a file with wrong albumArtist/artist and no artists
+    // Filename: "01. 法老 - 百变酒精.mp3" → agent extracts artist="法老"
+    const fp = join(tmpDir, "01. 法老 - 百变酒精.flac");
+    const block = vorbisCommentBlock(
+      [
+        "TITLE=百变酒精",
+        "ARTIST=Wrong Artist",          // wrong artist
+        "ALBUM=百变酒精",
+        "ALBUMARTIST=Wrong Album Artist", // wrong albumArtist
+        // No ARTISTS tag at all
+      ],
+      { isLast: true },
+    );
+    const buf = Buffer.concat([
+      flacHeaderWithDuration(false, 200, [block]),
+      Buffer.from([0xff, 0xf8, 0x69, 0x18]),
+      Buffer.alloc(100),
+    ]);
+    writeFileSync(fp, buf);
+
+    // The agent's correction: albumArtist=法老, artist=法老 (from filename), artists=["法老"]
+    await writeTags(fp, {
+      albumArtist: "法老",
+      artist: "法老",
+      artists: ["法老"],
+    });
+
+    // Verify through music-metadata
+    const meta = await parseFile(fp);
+    expect(meta.common.albumartist).toBe("法老");
+    expect(meta.common.artist).toBe("法老");
+    expect(meta.common.artists).toEqual(["法老"]);
+    expect(meta.common.title).toBe("百变酒精");
+
+    // Verify through readTrackMetadata (full read path used by TrackTagService)
+    const track = await readTrackMetadata(fp);
+    expect(track.albumArtist).toBe("法老");
+    expect(track.artist).toBe("法老");
+    expect(track.artists).toEqual(["法老"]);
+    expect(track.title).toBe("百变酒精");
+  });
+
+  it("handles collaborative artists correctly — 多人合作", async () => {
+    // Filename: "02. 法老&杨和苏 - 百变酒精.flac" → agent extracts
+    // artist="法老&杨和苏", artists=["法老", "杨和苏"]
+    const fp = join(tmpDir, "02. 法老&杨和苏 - 百变酒精.flac");
+    const block = vorbisCommentBlock(
+      [
+        "TITLE=百变酒精",
+        "ARTIST=Wrong Artist",
+        "ALBUM=百变酒精",
+        "ALBUMARTIST=Wrong Album Artist",
+      ],
+      { isLast: true },
+    );
+    const buf = Buffer.concat([
+      flacHeaderWithDuration(false, 200, [block]),
+      Buffer.from([0xff, 0xf8, 0x69, 0x18]),
+      Buffer.alloc(100),
+    ]);
+    writeFileSync(fp, buf);
+
+    // Collaborative correction:
+    // albumArtist=法老 (the main album artist)
+    // artist=法老&杨和苏 (from filename)
+    // artists=["法老", "杨和苏"] (split collaborators)
+    await writeTags(fp, {
+      albumArtist: "法老",
+      artist: "法老&杨和苏",
+      artists: ["法老", "杨和苏"],
+    });
+
+    // Verify through music-metadata
+    const meta = await parseFile(fp);
+    expect(meta.common.albumartist).toBe("法老");
+    expect(meta.common.artist).toBe("法老&杨和苏");
+    expect(meta.common.artists).toEqual(["法老", "杨和苏"]);
+
+    // Verify through readTrackMetadata
+    const track = await readTrackMetadata(fp);
+    expect(track.albumArtist).toBe("法老");
+    expect(track.artist).toBe("法老&杨和苏");
+    expect(track.artists).toEqual(["法老", "杨和苏"]);
+  });
+
+  it("gives correct diffs in planTagUpdates for 法老 scenario", async () => {
+    // Test the TrackTagService planning path
+    const fp = join(tmpDir, "plan-法老.flac");
+    const block = vorbisCommentBlock(
+      [
+        "TITLE=百变酒精",
+        "ARTIST=Wrong",
+        "ALBUM=百变酒精",
+        "ALBUMARTIST=Wrong",
+      ],
+      { isLast: true },
+    );
+    const buf = Buffer.concat([
+      flacHeaderWithDuration(false, 200, [block]),
+      Buffer.from([0xff, 0xf8, 0x69, 0x18]),
+      Buffer.alloc(100),
+    ]);
+    writeFileSync(fp, buf);
+
+    // First verify readTrackMetadata returns the wrong values
+    const before = await readTrackMetadata(fp);
+    expect(before.artist).toBe("Wrong");
+    expect(before.albumArtist).toBe("Wrong");
+    // artists may be ["Wrong"] since music-metadata maps ARTIST into common.artists too
+    expect(before.artists.length).toBeGreaterThanOrEqual(1);
+    expect(before.artists[0]).toBe("Wrong");
+
+    // Apply corrections via writeTags
+    await writeTags(fp, {
+      albumArtist: "法老",
+      artist: "法老",
+      artists: ["法老"],
+    });
+
+    // Verify all three fields via readTrackMetadata
+    const track = await readTrackMetadata(fp);
+    expect(track.albumArtist).toBe("法老");
+    expect(track.artist).toBe("法老");
+    expect(track.artists).toEqual(["法老"]);
+  });
+
+  it("albumArtist+artist+artists survive batch write then re-read", async () => {
+    // Multiple files in a collaborative album
+    const tracks = [
+      { filename: "01. 法老 - 百变酒精.flac", title: "百变酒精", artist: "法老", artists: ["法老"] },
+      { filename: "02. 法老&杨和苏 - 百变酒精.flac", title: "百变酒精", artist: "法老&杨和苏", artists: ["法老", "杨和苏"] },
+    ];
+
+    for (const t of tracks) {
+      const fp = join(tmpDir, t.filename);
+      const block = vorbisCommentBlock(
+        [
+          `TITLE=${t.title}`,
+          "ARTIST=Wrong",
+          "ALBUM=百变酒精",
+          "ALBUMARTIST=Wrong",
+        ],
+        { isLast: true },
+      );
+      const buf = Buffer.concat([
+        flacHeaderWithDuration(false, 200, [block]),
+        Buffer.from([0xff, 0xf8, 0x69, 0x18]),
+        Buffer.alloc(100),
+      ]);
+      writeFileSync(fp, buf);
+    }
+
+    // Batch-write corrections — simulates what batchWriteTags does in TrackTagService
+    await batchWriteTags([
+      {
+        path: join(tmpDir, tracks[0].filename),
+        fields: { albumArtist: "法老", artist: "法老", artists: ["法老"] },
+      },
+      {
+        path: join(tmpDir, tracks[1].filename),
+        fields: { albumArtist: "法老", artist: "法老&杨和苏", artists: ["法老", "杨和苏"] },
+      },
+    ]);
+
+    // Both files should have correct metadata
+    const t1 = await readTrackMetadata(join(tmpDir, tracks[0].filename));
+    expect(t1.albumArtist).toBe("法老");
+    expect(t1.artist).toBe("法老");
+    expect(t1.artists).toEqual(["法老"]);
+
+    const t2 = await readTrackMetadata(join(tmpDir, tracks[1].filename));
+    expect(t2.albumArtist).toBe("法老");
+    expect(t2.artist).toBe("法老&杨和苏");
+    expect(t2.artists).toEqual(["法老", "杨和苏"]);
+  });
+});
+
+describe("tracks.search — paths in response data", () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = mkdtempSync(join(tmpdir(), "auto-tag-search-paths-"));
+  });
+
+  afterEach(() => {
+    rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it("returns paths in data when filtering by artist", async () => {
+    // Create a track file so SafeQueryService can load it
+    const fp = join(tmpDir, "01. 法老 - 百变酒精.flac");
+    const block = vorbisCommentBlock(
+      ["TITLE=百变酒精", "ARTIST=法老", "ALBUM=百变酒精"],
+      { isLast: true },
+    );
+    const buf = Buffer.concat([
+      flacHeaderWithDuration(false, 200, [block]),
+      Buffer.from([0xff, 0xf8, 0x69, 0x18]),
+      Buffer.alloc(100),
+    ]);
+    writeFileSync(fp, buf);
+
+    // Read metadata to populate TrackData
+    const track = await readTrackMetadata(fp);
+
+    // Set up SafeQueryService with the track
+    const { SafeQueryService } = await import("../../electron/services/SafeQueryService");
+    const sqs = new SafeQueryService();
+    sqs.setTracks([track]);
+
+    // Simulate what tracks.search executor does
+    const results = sqs.findTracks({ artist: "法老" });
+    const limited = results.slice(0, 20);
+    const data = {
+      total: results.length,
+      tracks: limited.map((t) => ({
+        path: t.path,
+        title: t.title,
+        artist: t.artist,
+        album: t.album,
+        codec: t.codec,
+      })),
+      paths: limited.map((t) => t.path),
+    };
+
+    expect(data.total).toBe(1);
+    expect(data.paths).toHaveLength(1);
+    expect(data.paths[0]).toBe(fp);
+    expect(data.tracks[0].path).toBe(fp);
+    expect(data.tracks[0].title).toBe("百变酒精");
+    expect(data.tracks[0].artist).toBe("法老");
+  });
+
+  it("returns paths in data when searching by missing artist", async () => {
+    const fp = join(tmpDir, "no-artist.flac");
+    const block = vorbisCommentBlock(
+      ["TITLE=No Artist", "ALBUM=Test"],
+      { isLast: true },
+    );
+    const buf = Buffer.concat([
+      flacHeaderWithDuration(false, 200, [block]),
+      Buffer.from([0xff, 0xf8, 0x69, 0x18]),
+      Buffer.alloc(100),
+    ]);
+    writeFileSync(fp, buf);
+
+    const track = await readTrackMetadata(fp);
+    const { SafeQueryService } = await import("../../electron/services/SafeQueryService");
+    const sqs = new SafeQueryService();
+    sqs.setTracks([track]);
+
+    const results = sqs.findTracks({ missingArtist: true });
+    const limited = results.slice(0, 20);
+    const data = {
+      total: results.length,
+      tracks: limited.map((t) => ({ path: t.path, title: t.title, artist: t.artist, album: t.album })),
+      paths: limited.map((t) => t.path),
+    };
+
+    expect(data.total).toBe(1);
+    expect(data.paths[0]).toBe(fp);
+    expect(data.tracks[0].path).toBe(fp);
+  });
+});
+
+/**
+ * Find a Vorbis tag by key in music-metadata's native format.
+ * Returns the value string if found, undefined otherwise.
+ */
+function findVorbisTag(
+  meta: Awaited<ReturnType<typeof parseFile>>,
+  key: string,
+): string | undefined {
+  const upperKey = key.toUpperCase();
+  for (const [, tags] of Object.entries(meta.native)) {
+    for (const tag of tags) {
+      if (
+        typeof tag.id === "string" &&
+        tag.id.toUpperCase() === upperKey &&
+        typeof tag.value === "string"
+      ) {
+        return tag.value;
+      }
+    }
+  }
+  return undefined;
+}

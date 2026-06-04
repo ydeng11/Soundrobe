@@ -17,9 +17,11 @@ default:
     @echo "Develop:"
     @echo "  just fe-install         install frontend dependencies"
     @echo "  just fe-build           build for production"
-    @echo "  just fe-test            run all tests"
+    @echo "  just fe-test            run all unit tests"
     @echo "  just fe-typecheck       run TypeScript type checker"
     @echo "  just fe-check           typecheck + test"
+    @echo "  just fe-e2e             run LLM-assisted Playwright E2E tests"
+    @echo "                          (requires LLM_API_KEY in .env)"
     @echo ""
     @echo "Ship:"
     @echo "  just fe-dist <target>   build distributable (mac|win|linux)"
@@ -58,6 +60,12 @@ fe-typecheck:
 # Typecheck + test — full quality gate
 fe-check: fe-typecheck fe-test
     echo "✓ All frontend checks passed"
+
+# Run LLM-assisted E2E test (assistant organize_files flow).
+# Builds the app first, then runs Playwright.
+# .env must have LLM_API_KEY and LLM_MODEL set.
+fe-e2e:
+    cd frontend && npm run build && npx playwright test e2e/assistant-organize.electron.spec.ts --timeout=180000
 
 # Build platform distributable (requires: fe-build)
 # Targets: mac, win, linux — e.g. just fe-dist mac

@@ -1,0 +1,80 @@
+{
+  "stage": "interview",
+  "title": "Visible Agent Status",
+  "goalSlug": "visible-agent-status",
+  "questions": [
+    {
+      "id": "which-agent",
+      "prompt": "Which 'agent' needs visible status?",
+      "description": "The auto-tagging pipeline (the multi-step MusicBrainz→Discogs→LLM process) has scattered non-persistent status indicators currently. The Assistant chat panel has its own sending/error state. Or do you mean a unified status for the whole app?",
+      "answerMode": "single-custom",
+      "recommendedAnswer": "Auto-tagging pipeline (processAlbum → lookup chain → tag write)",
+      "recommendedOptionIds": ["auto-tag"],
+      "options": [
+        { "id": "auto-tag", "label": "Auto-tagging pipeline only" },
+        { "id": "assistant", "label": "Assistant chat panel only" },
+        { "id": "both", "label": "Both — unified status" },
+        { "id": "all", "label": "All app operations (scan, save, audit, lyrics too)" }
+      ],
+      "required": true
+    },
+    {
+      "id": "ui-location",
+      "prompt": "Where should the status live in the UI?",
+      "description": "The title bar is already crowded with buttons. A bottom status bar is common in Electron apps (like VS Code). Or a dedicated status icon area in the title bar.",
+      "answerMode": "single-custom",
+      "recommendedAnswer": "Persistent bottom status bar",
+      "recommendedOptionIds": ["bottom-bar"],
+      "options": [
+        { "id": "bottom-bar", "label": "Bottom status bar (like VS Code)" },
+        { "id": "title-bar-icon", "label": "Icon/badge in title bar" },
+        { "id": "sidebar-badge", "label": "Badge in the sidebar" },
+        { "id": "floating-toast", "label": "Floating toast/notification (non-blocking)" }
+      ],
+      "required": true
+    },
+    {
+      "id": "failure-behavior",
+      "prompt": "How should failures be shown and dismissed?",
+      "description": "Currently errors auto-dismiss after 5 seconds and appear briefly in the title bar. Users may miss them entirely — especially in batch operations where some albums fail and others succeed.",
+      "answerMode": "multi-custom",
+      "recommendedAnswer": "Persistent failure indicator with message, manually dismissable, plus auto-dismiss for transient warnings",
+      "recommendedOptionIds": ["persistent-failure", "history"],
+      "options": [
+        { "id": "persistent-failure", "label": "Persist failure until user dismisses" },
+        { "id": "history", "label": "Keep a history/log of recent failures" },
+        { "id": "auto-dismiss-good", "label": "Auto-dismiss when next operation succeeds" },
+        { "id": "per-album", "label": "Per-album failure tracking in batch mode" }
+      ],
+      "required": true
+    },
+    {
+      "id": "detail-level",
+      "prompt": "How detailed should status messages be?",
+      "answerMode": "single-custom",
+      "recommendedAnswer": "Current step + failure reason + which album/file",
+      "recommendedOptionIds": ["step-failure"],
+      "options": [
+        { "id": "step-failure", "label": "Current step name + failure reason + target" },
+        { "id": "verbose", "label": "Full pipeline trace (which lookup failed, API status codes)" },
+        { "id": "minimal", "label": "Just 'Working…' / 'Failed'" }
+      ],
+      "required": true
+    },
+    {
+      "id": "scope",
+      "prompt": "What's in scope vs out of scope for this goal?",
+      "answerMode": "multi-custom",
+      "recommendedAnswer": "In scope: add a status bar component, wire auto-tag states to it, show persistent failures. Out of scope: redesigning the title bar, adding new backend events, analytics dashboards.",
+      "recommendedOptionIds": ["status-bar-wiring", "persistent-failure-scope"],
+      "options": [
+        { "id": "status-bar-wiring", "label": "In scope: status bar component + wiring to existing states" },
+        { "id": "persistent-failure-scope", "label": "In scope: persistent failure display (no more 5s auto-dismiss)" },
+        { "id": "new-backend", "label": "Out of scope: new backend event streams (use existing)" },
+        { "id": "audit-scan", "label": "In scope: also wire audit and scan progress to same bar" },
+        { "id": "titlebar-redesign", "label": "Out of scope: redesigning title bar layout" }
+      ],
+      "required": true
+    }
+  ]
+}
