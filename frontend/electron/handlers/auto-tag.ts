@@ -558,7 +558,7 @@ class TaskManager {
           mergedCandidates,
           signal,
         );
-        const candidate = selected ?? this.folderFallback(mergedCandidates);
+        const candidate = selected ?? (mergedCandidates.length > 0 ? mergedCandidates[0] : null);
         if (candidate) {
           debug.info("auto-tag", "Step 9/9: Applying album tags...");
           update("Applying tags...", 9);
