@@ -24,8 +24,7 @@ import { OpenRouterClient } from "./openrouter";
 import { parseAlbumWithTags, candidateFromFolder } from "./fallback";
 import { buildSelectionMessages, buildTagCorrectionMessages } from "./prompts";
 import { getAllNameVariants } from "./aliases";
-import { writeTags } from "./writer";
-import type { WriteFields } from "./writer";
+import { writeTags, type WriteFields } from "./writer";
 import { readLocalLyrics, LyricsClient } from "./lyrics";
 import { readTrackMetadata } from "./tracks";
 import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, statSync } from "node:fs";
@@ -226,6 +225,15 @@ export function loadConfig(): AutoTagConfig {
 
   // Sync debug logger with config
   debug.setEnabled(!!config.debug);
+
+  // Log which env vars were loaded (logger is now active)
+  if (config.llmApiKey) {
+    const masked = config.llmApiKey.slice(0, 8) + "...";
+    debug.info("config", `LLM_API_KEY loaded from env (${masked})`);
+  }
+  if (config.llmModel) debug.info("config", `LLM_MODEL loaded from env: ${config.llmModel}`);
+  if (config.discogsToken) debug.info("config", "AUTO_TAG_DISCOGS_TOKEN loaded from env");
+  if (config.debug) debug.info("config", "AUTO_TAG_DEBUG loaded from env — debug mode enabled");
 
   return config;
 }
@@ -457,7 +465,6 @@ class TaskManager {
           debug.debug("auto-tag", "Cache MISS — proceeding with remote lookups");
         }
         if (signal.aborted) {
-          cache.close();
           return this.failCancelled(taskId);
         }
 
@@ -483,7 +490,6 @@ class TaskManager {
           debug.info("auto-tag", "Remote lookups disabled — skipping MusicBrainz");
         }
         if (signal.aborted) {
-          cache.close();
           return this.failCancelled(taskId);
         }
 
@@ -511,28 +517,22 @@ class TaskManager {
           debug.info("auto-tag", "Discogs disabled — skipping");
         }
         if (signal.aborted) {
-          cache.close();
           return this.failCancelled(taskId);
         }
 
         // Step 7: Fallback candidate
-        // If API lookups returned nothing and we have an LLM fallback (with genre),
-        // use it instead of the bare folder fallback. Otherwise use folder fallback.
+        // Always include the LLM fallback (with genre + corrected metadata) when
+        // available, even if API lookups returned candidates. The LLM selection
+        // step (8) can then pick the best from the full pool.
         debug.info("auto-tag", "Step 7/9: Building fallback candidate...");
         update("Building fallback...", 7);
-        const hadApiCandidates = allCandidates.length > 0;
-        if (hadApiCandidates) {
-          // API lookups found something — use folder fallback as safety net as before
-          const folderCandidate = candidateFromFolder(correctedRequest);
-          allCandidates.push(folderCandidate);
-        } else {
-          // No API results — use LLM fallback (with genre!) if available
-          const fallback = llmFallback ?? candidateFromFolder(correctedRequest);
-          if (llmFallback) {
-            debug.debug("auto-tag", "No API candidates — using LLM fallback (genre present)");
-          }
-          allCandidates.push(fallback);
+        if (llmFallback) {
+          debug.debug("auto-tag", `Adding LLM fallback candidate (genre="${llmFallback.genre ?? ""}")`);
+          allCandidates.push(llmFallback);
         }
+        // Always add folder-based fallback as lowest-priority safety net
+        const folderCandidate = candidateFromFolder(correctedRequest);
+        allCandidates.push(folderCandidate);
 
         // Apply verification status
         for (const c of allCandidates) {
@@ -951,10 +951,6 @@ class TaskManager {
       }
     }
     return null;
-  }
-
-  private findLocalLyrics(filePath: string): string | null {
-    return readLocalLyrics(filePath);
   }
 
   /**

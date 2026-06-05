@@ -538,31 +538,50 @@ describe("resolveTagsViaLLM — full pipeline with mocked LLM", () => {
       process.env.LLM_MODEL = "test-model";
       refreshConfig();
 
-      // Mock OpenRouter to return corrected metadata with genre
-      globalThis.fetch = vi.fn().mockResolvedValue({
-        ok: true,
-        json: async () => ({
-          choices: [
-            {
-              message: {
-                content: JSON.stringify({
-                  artist: "蛋堡",
-                  albumArtist: "蛋堡",
-                  album: "Winter Sweet",
-                  year: "2009",
-                  genre: "Hip Hop",
-                  tracks: [
-                    { index: 0, title: "Winter Sweet", artist: "蛋堡" },
-                  ],
-                  confidence: 0.95,
-                }),
+      // Mock OpenRouter — first call: tag resolution, second call: candidate selection
+      globalThis.fetch = vi.fn()
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
+            choices: [
+              {
+                message: {
+                  content: JSON.stringify({
+                    artist: "蛋堡",
+                    albumArtist: "蛋堡",
+                    album: "Winter Sweet",
+                    year: "2009",
+                    genre: "Hip Hop",
+                    tracks: [
+                      { index: 0, title: "Winter Sweet", artist: "蛋堡" },
+                    ],
+                    confidence: 0.95,
+                  }),
+                },
               },
-            },
-          ],
-          usage: { prompt_tokens: 200, completion_tokens: 100, total_tokens: 300 },
-          model: "test-model",
-        }),
-      });
+            ],
+            usage: { prompt_tokens: 200, completion_tokens: 100, total_tokens: 300 },
+            model: "test-model",
+          }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
+            choices: [
+              {
+                message: {
+                  content: JSON.stringify({
+                    selectedIndex: 0,
+                    confidence: 0.95,
+                    reason: "Matched artist and album hint with genre and track data",
+                  }),
+                },
+              },
+            ],
+            usage: { prompt_tokens: 100, completion_tokens: 50, total_tokens: 150 },
+            model: "test-model",
+          }),
+        });
 
       const taskId = startAutoTag(albumDir);
       await waitForTask(taskId);

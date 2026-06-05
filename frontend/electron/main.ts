@@ -25,6 +25,7 @@ import { registerOrganizerHandlers } from "./handlers/organizer";
 import { registerAuditHandlers, onAuditEvent } from "./handlers/audit";
 import { LyricsClient } from "./handlers/lyrics";
 import { registerAssistantHandlers, initializeAssistantServices, setStoredConfig } from "./handlers/assistant";
+import { isBatchWriteInProgress } from "./handlers/writer";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const isDev = !app.isPackaged;
@@ -450,6 +451,29 @@ app.whenReady().then(async () => {
       createWindow();
     }
   });
+});
+
+/**
+ * Prevent app close while a batch tag write is in progress.
+ * The user can force-close (risking partial writes) or wait.
+ * Uses app.exit() on force-quit to avoid re-triggering before-quit.
+ */
+app.on("before-quit", async (event) => {
+  if (isBatchWriteInProgress()) {
+    event.preventDefault();
+    const { response } = await dialog.showMessageBox({
+      type: "warning",
+      title: "Write in Progress",
+      message: "Tags are currently being written to disk.",
+      detail: "Quitting now may leave some files partially updated. Do you want to quit anyway?",
+      buttons: ["Cancel", "Quit Anyway"],
+      defaultId: 0,
+      cancelId: 0,
+    });
+    if (response === 1) {
+      app.exit();
+    }
+  }
 });
 
 app.on("window-all-closed", () => {

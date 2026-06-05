@@ -1,10 +1,35 @@
-import fs from "fs";
 import path from "path";
+import { readFile, writeFile } from "fs/promises";
 import * as NodeID3 from "node-id3";
 
 type NodeID3Module = typeof import("node-id3");
 const nodeId3 = ((NodeID3 as unknown as { default?: NodeID3Module }).default ??
   NodeID3) as NodeID3Module;
+
+/**
+ * Read ID3v2 tags from a file using node-id3's async path.
+ * Wraps the callback-based API in a promise to avoid blocking the main process.
+ */
+function readNodeId3Tags(filePath: string): Promise<NodeID3.Tags> {
+  return new Promise((resolve, reject) => {
+    nodeId3.read(filePath, {}, (err: Error | null, tags: NodeID3.Tags | null) => {
+      if (err) reject(err);
+      else resolve(tags ?? {});
+    });
+  });
+}
+
+/**
+ * Write ID3v2 tags to a file using node-id3's async path.
+ */
+function writeNodeId3Tags(tags: NodeID3.Tags, filePath: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    nodeId3.write(tags, filePath, (err: Error | null) => {
+      if (err) reject(err);
+      else resolve();
+    });
+  });
+}
 
 /**
  * Mapping of field names → tag specs for each format.
@@ -125,9 +150,9 @@ function fieldsToID3v2(fields: WriteFields): NodeID3.Tags {
 /**
  * Write tags to an MP3 file using node-id3.
  */
-function writeMp3(filePath: string, fields: WriteFields): void {
+async function writeMp3(filePath: string, fields: WriteFields): Promise<void> {
   const tags = fieldsToID3v2(fields);
-  const existingTags = nodeId3.read(filePath);
+  const existingTags = await readNodeId3Tags(filePath);
   const custom = mergeMp3UserDefinedText(existingTags.userDefinedText, fields);
   const mergedTags = { ...existingTags, ...tags };
   if (custom !== undefined) {
@@ -135,7 +160,7 @@ function writeMp3(filePath: string, fields: WriteFields): void {
   } else {
     delete mergedTags.userDefinedText;
   }
-  nodeId3.write(mergedTags, filePath);
+  await writeNodeId3Tags(mergedTags, filePath);
 }
 
 function mergeMp3UserDefinedText(
@@ -171,8 +196,8 @@ function mergeMp3UserDefinedText(
   return rows.length > 0 ? rows : undefined;
 }
 
-function writeMp3ExtraTags(filePath: string, extraTags: ExtraTagUpdate[]): void {
-  const existingTags = nodeId3.read(filePath);
+async function writeMp3ExtraTags(filePath: string, extraTags: ExtraTagUpdate[]): Promise<void> {
+  const existingTags = await readNodeId3Tags(filePath);
   const preserved = (Array.isArray(existingTags.userDefinedText)
     ? existingTags.userDefinedText
     : existingTags.userDefinedText
@@ -192,7 +217,7 @@ function writeMp3ExtraTags(filePath: string, extraTags: ExtraTagUpdate[]): void 
     ...existingTags,
     userDefinedText: [...preserved, ...custom],
   };
-  nodeId3.write(nextTags, filePath);
+  await writeNodeId3Tags(nextTags, filePath);
 }
 
 /**
@@ -200,11 +225,11 @@ function writeMp3ExtraTags(filePath: string, extraTags: ExtraTagUpdate[]): void 
  * Vorbis comments are stored as FLAC metadata blocks or OGG page comments
  * as a series of KEY=VALUE strings (UTF-8), prefixed by a 32-bit count.
  */
-function writeVorbis(
+async function writeVorbis(
   filePath: string,
   fields: WriteFields
-): void {
-  const data = fs.readFileSync(filePath);
+): Promise<void> {
+  const data = await readFile(filePath);
   const existing = readVorbisComments(data);
   const updated = { ...existing };
 
@@ -234,7 +259,7 @@ function writeVorbis(
     ];
   }
 
-  writeVorbisComments(filePath, data, updated);
+  await writeVorbisComments(filePath, data, updated);
 }
 
 interface VorbisDict {
@@ -347,11 +372,11 @@ function parseVorbisCommentBlock(
 /**
  * Write Vorbis comments into a FLAC/OGG file buffer.
  */
-function writeVorbisComments(
+async function writeVorbisComments(
   filePath: string,
   origBuf: Buffer,
   comments: VorbisDict
-): void {
+): Promise<void> {
   // Build the comment block body
   const vendorString = Buffer.from("auto-tagger", "utf8");
   const vendorLen = Buffer.alloc(4);
@@ -359,17 +384,19 @@ function writeVorbisComments(
 
   // Build comment entries
   const commentEntries: Buffer[] = [];
+  let commentCount = 0;
   for (const [key, values] of Object.entries(comments)) {
     for (const value of values) {
       const entry = Buffer.from(`${key}=${value}`, "utf8");
       const entryLen = Buffer.alloc(4);
       entryLen.writeUInt32LE(entry.length);
       commentEntries.push(entryLen, entry);
+      commentCount++;
     }
   }
 
   const numComments = Buffer.alloc(4);
-  numComments.writeUInt32LE(commentEntries.length / 2);
+  numComments.writeUInt32LE(commentCount);
 
   const commentBlock = Buffer.concat([
     vendorLen,
@@ -379,15 +406,15 @@ function writeVorbisComments(
   ]);
 
   if (filePath.toLowerCase().endsWith(".flac")) {
-    writeFlacMetadataBlock(filePath, origBuf, 4, commentBlock);
+    await writeFlacMetadataBlock(filePath, origBuf, 4, commentBlock);
   } else if (
     filePath.toLowerCase().endsWith(".ogg") ||
     filePath.toLowerCase().endsWith(".opus")
   ) {
-    writeOggVorbisComments(filePath, commentBlock);
+    await writeOggVorbisComments(filePath, commentBlock);
   } else {
     // Unsupported Vorbis container — fall through
-    fs.writeFileSync(filePath, origBuf);
+    await writeFile(filePath, origBuf);
   }
 }
 
@@ -413,8 +440,8 @@ function oggCrc32(buf: Buffer): number {
  * Write Vorbis comments to an OGG/OPUS file by finding and replacing the
  * Vorbis comment page (packet type 3).
  */
-function writeOggVorbisComments(filePath: string, commentBlock: Buffer): void {
-  const fileBuf = fs.readFileSync(filePath);
+async function writeOggVorbisComments(filePath: string, commentBlock: Buffer): Promise<void> {
+  const fileBuf = await readFile(filePath);
   let offset = 0;
 
   while (offset + 27 <= fileBuf.length) {
@@ -520,7 +547,7 @@ function writeOggVorbisComments(filePath: string, commentBlock: Buffer): void {
           afterPage,
         ]);
 
-        fs.writeFileSync(filePath, result);
+        await writeFile(filePath, result);
         return;
       }
     }
@@ -529,19 +556,19 @@ function writeOggVorbisComments(filePath: string, commentBlock: Buffer): void {
   }
 
   // If no Vorbis comment page found, write unchanged
-  fs.writeFileSync(filePath, fileBuf);
+  await writeFile(filePath, fileBuf);
 }
 
 /**
  * Replace or append a FLAC metadata block.
  */
-function writeFlacMetadataBlock(
+async function writeFlacMetadataBlock(
   filePath: string,
   _origBuf: Buffer,
   blockType: number,
   blockData: Buffer
-): void {
-  const buf = fs.readFileSync(filePath);
+): Promise<void> {
+  const buf = await readFile(filePath);
 
   // Safety guard: abort if file doesn't start with "fLaC" marker.
   // Writing a new block to a headerless file would silently corrupt it
@@ -583,7 +610,7 @@ function writeFlacMetadataBlock(
       }
       const result = Buffer.concat([before, newHeader, blockData, after]);
       fixLastFlacBlock(result);
-      fs.writeFileSync(filePath, result);
+      await writeFile(filePath, result);
       found = true;
       break;
     }
@@ -607,7 +634,7 @@ function writeFlacMetadataBlock(
     const result = Buffer.concat([before, newHeader, blockData, after]);
     result[4] &= 0x7f;
     fixLastFlacBlock(result);
-    fs.writeFileSync(filePath, result);
+    await writeFile(filePath, result);
   }
 }
 
@@ -644,7 +671,7 @@ function fixLastFlacBlock(buf: Buffer): void {
  * Write tags to an M4A/MP4 file by manipulating the moov.udta.meta.ilst atom.
  * (Simplified: replaces the entire metadata if present, or appends a minimal one.)
  */
-function writeMp4(filePath: string, fields: WriteFields): void {
+async function writeMp4(filePath: string, fields: WriteFields): Promise<void> {
   // For MVP: Read → parse existing tags → create a new moov.udta with metadata
   // and write back. This is a placeholder that re-writes the file with
   // a best-effort metadata atom.
@@ -652,15 +679,15 @@ function writeMp4(filePath: string, fields: WriteFields): void {
   // MP4 metadata atoms are complex. For now we use a simpler approach:
   // write to a companion JSON sidecar (like Picard) — no.
   // Instead, we write minimal iTunes atoms.
-  writeMinimalMp4Tags(filePath, fields);
+  await writeMinimalMp4Tags(filePath, fields);
 }
 
 /**
  * Write iTunes-compatible tags to M4A using minimal atom manipulation.
  * Handles: ©nam, ©ART, ©alb, ©day, ©gen, ©wrt, ©lyr, aART
  */
-function writeMinimalMp4Tags(filePath: string, fields: WriteFields): void {
-  const buf = fs.readFileSync(filePath);
+async function writeMinimalMp4Tags(filePath: string, fields: WriteFields): Promise<void> {
+  const buf = await readFile(filePath);
 
   // Build metadata atoms
   const atoms: Buffer[] = [];
@@ -714,10 +741,10 @@ function writeMinimalMp4Tags(filePath: string, fields: WriteFields): void {
   // For MVP, write back as-is (best effort)
   try {
     const result = replaceOrAppendAtom(buf, "moov", [Buffer.from("\xa9nam"), Buffer.from("ilst")], metaAtom);
-    fs.writeFileSync(filePath, result);
+    await writeFile(filePath, result);
   } catch {
     // If atom replacement fails, write unmodified
-    fs.writeFileSync(filePath, buf);
+    await writeFile(filePath, buf);
   }
 }
 
@@ -754,8 +781,8 @@ function replaceOrAppendAtom(
  * Write a WAV file's embedded ID3v2 chunk.
  * Picard/Foobar-style WAV tags use an `id3 ` RIFF chunk, which supports Unicode.
  */
-function writeWav(filePath: string, fields: WriteFields): void {
-  const data = fs.readFileSync(filePath);
+async function writeWav(filePath: string, fields: WriteFields): Promise<void> {
+  const data = await readFile(filePath);
   if (data.length < 12 || data.toString("ascii", 0, 4) !== "RIFF" || data.toString("ascii", 8, 12) !== "WAVE") {
     throw new Error("Invalid WAV file");
   }
@@ -787,7 +814,7 @@ function writeWav(filePath: string, fields: WriteFields): void {
   const header = Buffer.alloc(8);
   header.write("RIFF", 0, 4, "ascii");
   header.writeUInt32LE(body.length, 4);
-  fs.writeFileSync(filePath, Buffer.concat([header, body]));
+  await writeFile(filePath, Buffer.concat([header, body]));
 }
 
 function buildWavId3Chunk(fields: WriteFields, existingTags: NodeID3.Tags = {}): Buffer {
@@ -840,8 +867,8 @@ function isReservedExtraTagKey(key: string): boolean {
   return STANDARD_VORBIS_TAGS.has(key.trim().toUpperCase());
 }
 
-function writeVorbisExtraTags(filePath: string, extraTags: ExtraTagUpdate[]): void {
-  const data = fs.readFileSync(filePath);
+async function writeVorbisExtraTags(filePath: string, extraTags: ExtraTagUpdate[]): Promise<void> {
+  const data = await readFile(filePath);
   const comments = readVorbisComments(data);
 
   for (const key of Object.keys(comments)) {
@@ -857,7 +884,7 @@ function writeVorbisExtraTags(filePath: string, extraTags: ExtraTagUpdate[]): vo
     comments[key].push(tag.value);
   }
 
-  writeVorbisComments(filePath, data, comments);
+  await writeVorbisComments(filePath, data, comments);
 }
 
 /**
@@ -871,21 +898,21 @@ export async function writeTags(
 
   switch (ext) {
     case ".mp3":
-      writeMp3(filePath, fields);
+      await writeMp3(filePath, fields);
       break;
     case ".flac":
-      writeVorbis(filePath, fields);
+      await writeVorbis(filePath, fields);
       break;
     case ".ogg":
     case ".opus":
-      writeVorbis(filePath, fields);
+      await writeVorbis(filePath, fields);
       break;
     case ".m4a":
     case ".mp4":
-      writeMp4(filePath, fields);
+      await writeMp4(filePath, fields);
       break;
     case ".wav":
-      writeWav(filePath, fields);
+      await writeWav(filePath, fields);
       break;
     case ".aiff":
       throw new Error("AIFF metadata writing is not supported");
@@ -902,24 +929,73 @@ export async function writeExtraTags(
 
   switch (ext) {
     case ".mp3":
-      writeMp3ExtraTags(filePath, extraTags);
+      await writeMp3ExtraTags(filePath, extraTags);
       break;
     case ".flac":
     case ".ogg":
     case ".opus":
-      writeVorbisExtraTags(filePath, extraTags);
+      await writeVorbisExtraTags(filePath, extraTags);
       break;
     default:
       throw new Error(`Extra tag editing is not supported for ${ext || "this file type"}`);
   }
 }
 
+/** Yields control back to the event loop so the renderer can repaint. */
+function yieldToEventLoop(): Promise<void> {
+  return new Promise<void>((resolve) => setImmediate(resolve));
+}
+
+/**
+ * Concurrency lock: prevents duplicate / overlapping batch write operations.
+ * Only covers batch writes (batchWriteTags / batchWriteExtraTags);
+ * single-track writes are fast and unguarded.
+ */
+let batchWriteInProgress = false;
+
+/**
+ * Check whether a batch write operation is currently in progress.
+ * Used by the main process to prevent app close during writes.
+ */
+export function isBatchWriteInProgress(): boolean {
+  return batchWriteInProgress;
+}
+
+/**
+ * Error thrown when a batch write is attempted while another is in progress.
+ */
+export class BatchWriteConflictError extends Error {
+  constructor() {
+    super("A batch tag write is already in progress. Please wait for it to complete.");
+    this.name = "BatchWriteConflictError";
+  }
+}
+
+/**
+ * Run a batch operation under the write lock.
+ * Throws BatchWriteConflictError if another batch is already running.
+ */
+async function runWithBatchLock(fn: () => Promise<void>): Promise<void> {
+  if (batchWriteInProgress) {
+    throw new BatchWriteConflictError();
+  }
+  batchWriteInProgress = true;
+  try {
+    await fn();
+  } finally {
+    batchWriteInProgress = false;
+  }
+}
+
 export async function batchWriteExtraTags(
   updates: Array<{ path: string; tags: ExtraTagUpdate[] }>
 ): Promise<void> {
-  for (const update of updates) {
-    await writeExtraTags(update.path, update.tags);
-  }
+  await runWithBatchLock(async () => {
+    for (const update of updates) {
+      await writeExtraTags(update.path, update.tags);
+      await yieldToEventLoop();
+    }
+  });
 }
 
 /**
@@ -928,9 +1004,12 @@ export async function batchWriteExtraTags(
 export async function batchWriteTags(
   updates: Array<{ path: string; fields: WriteFields }>
 ): Promise<void> {
-  for (const update of updates) {
-    await writeTags(update.path, update.fields);
-  }
+  await runWithBatchLock(async () => {
+    for (const update of updates) {
+      await writeTags(update.path, update.fields);
+      await yieldToEventLoop();
+    }
+  });
 }
 
 function normalizeListValue(value: string[] | string | null | undefined): string[] {
