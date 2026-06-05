@@ -56,6 +56,7 @@ const ALL_COLUMNS: Column[] = [
 
 interface FileGridProps {
   tracks: TrackData[];
+  activeAlbumPath?: string | null;
   selectedTrackPath: string | null;
   selectedTrackPaths?: string[];
   filterText: string;
@@ -67,6 +68,7 @@ interface FileGridProps {
 
 export function FileGrid({
   tracks,
+  activeAlbumPath,
   selectedTrackPath,
   selectedTrackPaths = EMPTY_SELECTED_TRACK_PATHS,
   filterText,
@@ -264,8 +266,14 @@ export function FileGrid({
     }
   }, [sortKey]);
 
+  // Filter tracks by active album in-memory (no disk reads)
+  const albumFiltered = useMemo(() => {
+    if (!activeAlbumPath) return tracks;
+    return tracks.filter((t) => t.path.startsWith(activeAlbumPath + "/"));
+  }, [tracks, activeAlbumPath]);
+
   const sorted = useMemo(() => {
-    let list = tracks;
+    let list = albumFiltered;
 
     // Apply filter
     if (filterText) {
@@ -315,7 +323,7 @@ export function FileGrid({
       }
       return sortAsc ? cmp : -cmp;
     });
-  }, [tracks, filterText, sortKey, sortAsc]);
+  }, [albumFiltered, filterText, sortKey, sortAsc]);
 
   // Memoize the sorted paths array for quick lookups in the Cmd+A handler
   const sortedPaths = useMemo(() => sorted.map((t) => t.path), [sorted]);
@@ -359,14 +367,10 @@ export function FileGrid({
       e.preventDefault();
       e.stopPropagation();
 
-      const currentPaths = selectedTrackPaths;
-      const isSelected = currentPaths.includes(track.path);
-      const menuSelectedPaths =
-        isSelected && currentPaths.length > 1
-          ? currentPaths
-          : [track.path];
+      const isMultiSelected = selectedTrackPaths.length > 1 && selectedTrackPaths.includes(track.path);
+      const contextPaths = isMultiSelected ? selectedTrackPaths : [track.path];
 
-      if (!isSelected || currentPaths.length <= 1) {
+      if (!isMultiSelected) {
         onMultiSelect?.([track.path]);
         onSelectTrack(track.path, track);
       }
@@ -374,9 +378,9 @@ export function FileGrid({
       const action = await showTrackMenu(track);
 
       if (action === "extra-tags") {
-        onEditExtraTags?.(track, menuSelectedPaths);
+        onEditExtraTags?.(track, contextPaths);
       } else if (action === "delete-files") {
-        onDeleteFiles?.(menuSelectedPaths);
+        onDeleteFiles?.(contextPaths);
       }
     },
     [onEditExtraTags, onDeleteFiles, onMultiSelect, onSelectTrack, selectedTrackPaths, showTrackMenu],
@@ -390,9 +394,7 @@ export function FileGrid({
         return;
       }
 
-      const primary =
-        sorted.find((track) => track.path === selectedTrackPaths[0]) ??
-        tracks.find((track) => track.path === selectedTrackPaths[0]);
+      const primary = tracks.find((track) => track.path === selectedTrackPaths[0]);
       if (!primary) {
         return;
       }

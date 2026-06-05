@@ -1,0 +1,87 @@
+{
+  "stage": "interview",
+  "title": "Improve save+reload UX — avoid unnecessary disk re-reads",
+  "goalSlug": "improve-reload-ux",
+  "questions": [
+    {
+      "id": "approach",
+      "prompt": "What approach should we take for in-memory vs disk reads?",
+      "description": "Currently every sidebar click re-reads all track files from disk. The proposed fix keeps all tracks in memory and filters by album at render time.",
+      "answerMode": "multi",
+      "recommendedAnswer": "Keep all tracks in memory, filter at render time. Only re-read from disk after bulk operations (auto-tag, audit) or explicit refresh.",
+      "recommendedOptionIds": ["in-memory-filter"],
+      "options": [
+        { "id": "in-memory-filter", "label": "In-memory filter — load once, navigate instantly" },
+        { "id": "lazy-load", "label": "Lazy load — only load tracks when album is clicked (but not on every navigation)" }
+      ],
+      "required": true
+    },
+    {
+      "id": "auto-tag-reload",
+      "prompt": "After auto-tag/audit, how should we refresh?",
+      "description": "Auto-tag writes new metadata to disk. Currently it re-scans the entire library. We could re-read only the albums that were modified.",
+      "answerMode": "single",
+      "recommendedAnswer": "Re-read only modified albums from disk",
+      "recommendedOptionIds": ["scoped-reload"],
+      "options": [
+        { "id": "scoped-reload", "label": "Re-read only modified albums" },
+        { "id": "full-reload", "label": "Keep full re-scan (simple, always fresh)" }
+      ],
+      "required": true
+    },
+    {
+      "id": "manual-refresh",
+      "prompt": "Should we add a manual refresh button/keyboard shortcut?",
+      "description": "If navigation is instant (no disk reads), users need a way to force a re-scan when files change externally (e.g., copied via Finder).",
+      "answerMode": "single-custom",
+      "recommendedAnswer": "Add a refresh button in the sidebar or title bar, and bind Cmd+R / Ctrl+R to trigger a full re-scan",
+      "recommendedOptionIds": ["refresh-button"],
+      "options": [
+        { "id": "refresh-button", "label": "Yes — add a refresh button + keyboard shortcut" },
+        { "id": "auto-refresh", "label": "No — keep auto-detection on visibility change" }
+      ],
+      "required": false
+    },
+    {
+      "id": "navigation-behavior",
+      "prompt": "When clicking an album in the sidebar, what should happen?",
+      "description": "Currently it re-reads from disk with scanning=true. With in-memory filtering, navigation is instant. Should we still show a brief loading indicator?",
+      "answerMode": "single",
+      "recommendedAnswer": "Instant switch — no loading state at all for in-memory navigation",
+      "recommendedOptionIds": ["instant"],
+      "options": [
+        { "id": "instant", "label": "Instant — no loading indicator for navigation" },
+        { "id": "subtle", "label": "Subtle spinner in sidebar only (no full progress bar)" }
+      ],
+      "required": false
+    },
+    {
+      "id": "save-behavior",
+      "prompt": "After saving a single track's metadata, should we do anything extra?",
+      "description": "Currently we do an optimistic update + API write. The view is already up-to-date. No extra reload is needed.",
+      "answerMode": "single",
+      "recommendedAnswer": "No reload after save — optimistic update is sufficient. Only refresh cover art if album/title changed (already done).",
+      "recommendedOptionIds": ["no-reload-save"],
+      "options": [
+        { "id": "no-reload-save", "label": "No reload — optimistic update is enough" },
+        { "id": "reload-modified", "label": "Re-read the modified track from disk after save" }
+      ],
+      "required": false
+    },
+    {
+      "id": "scope",
+      "prompt": "What is the scope of this change?",
+      "description": "The core change is making sidebar navigation filter in-memory instead of re-reading from disk. What related changes should be included?",
+      "answerMode": "multi",
+      "recommendedAnswer": "In-memory navigation + scoped auto-tag reload + refresh button",
+      "recommendedOptionIds": ["nav-only", "scoped-auto-tag", "refresh-btn"],
+      "options": [
+        { "id": "nav-only", "label": "In-memory navigation only (no disk re-read on album click)" },
+        { "id": "scoped-auto-tag", "label": "Smarter auto-tag/audit refresh (only modified albums)" },
+        { "id": "refresh-btn", "label": "Manual refresh button for re-scanning on demand" },
+        { "id": "save-visual", "label": "Fix save UX — show saving progress clearly, don't block navigation" }
+      ],
+      "required": true
+    }
+  ]
+}

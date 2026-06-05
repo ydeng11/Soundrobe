@@ -212,7 +212,7 @@ describe("appReducer", () => {
   });
 
   describe("SET_ACTIVE_ALBUM", () => {
-    it("sets activeAlbumPath and clears selection", () => {
+    it("sets activeAlbumPath and clears selection when track is outside scope", () => {
       const state = {
         ...initialAppState,
         selectedTrackPath: "/music/track.mp3",
@@ -229,16 +229,56 @@ describe("appReducer", () => {
       expect(next.coverDataUrl).toBeNull();
     });
 
-    it("sets activeAlbumPath to null (show all albums)", () => {
+    it("preserves selection when selected track is inside the new album scope", () => {
+      const track = makeTrack("/music/Album A/song.mp3", { title: "Keep Me" });
       const state = {
         ...initialAppState,
-        activeAlbumPath: "/music/Album",
+        tracks: [track],
+        selectedTrackPath: "/music/Album A/song.mp3",
+        selectedTrack: track,
+        coverDataUrl: "data:image/jpeg;base64,keep",
+      };
+      const next = appReducer(state, {
+        type: "SET_ACTIVE_ALBUM",
+        path: "/music/Album A",
+      });
+      expect(next.activeAlbumPath).toBe("/music/Album A");
+      expect(next.selectedTrackPath).toBe("/music/Album A/song.mp3");
+      expect(next.selectedTrack).toBe(track);
+      expect(next.coverDataUrl).toBe("data:image/jpeg;base64,keep");
+    });
+
+    it("preserves selection when navigating to null (show all)", () => {
+      const track = makeTrack("/music/Album B/song.mp3");
+      const state = {
+        ...initialAppState,
+        tracks: [track],
+        selectedTrackPath: "/music/Album B/song.mp3",
+        selectedTrack: track,
+        coverDataUrl: "data:image/png;base64,keep",
       };
       const next = appReducer(state, {
         type: "SET_ACTIVE_ALBUM",
         path: null,
       });
       expect(next.activeAlbumPath).toBeNull();
+      // null scope means show all — selection is always in scope
+      expect(next.selectedTrackPath).toBe("/music/Album B/song.mp3");
+      expect(next.coverDataUrl).toBe("data:image/png;base64,keep");
+    });
+
+    it("does not modify tracks array", () => {
+      const tracks = [
+        makeTrack("/music/Album A/s1.mp3"),
+        makeTrack("/music/Album B/s2.mp3"),
+      ];
+      const state = { ...initialAppState, tracks };
+      const next = appReducer(state, {
+        type: "SET_ACTIVE_ALBUM",
+        path: "/music/Album A",
+      });
+      expect(next.tracks).toBe(tracks);
+      expect(next.tracks).toHaveLength(2);
     });
   });
 

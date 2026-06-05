@@ -1,0 +1,46 @@
+{
+  "stage": "interview",
+  "title": "Improve save+reload UX — avoid unnecessary disk re-reads",
+  "goalSlug": "improve-reload-ux",
+  "answers": [
+    {
+      "id": "approach",
+      "prompt": "What approach should we take for in-memory vs disk reads?",
+      "answer": "in-memory-filter",
+      "text": "In-memory filter — load once, navigate instantly"
+    },
+    {
+      "id": "auto-tag-reload",
+      "prompt": "After auto-tag/audit, how should we refresh?",
+      "answer": "scoped-reload",
+      "text": "Re-read only modified albums"
+    },
+    {
+      "id": "manual-refresh",
+      "prompt": "Should we add a manual refresh button/keyboard shortcut?",
+      "answer": "refresh-button",
+      "text": "Yes — add a refresh button + keyboard shortcut"
+    },
+    {
+      "id": "navigation-behavior",
+      "prompt": "When clicking an album in the sidebar, what should happen?",
+      "answer": "instant",
+      "text": "Instant — no loading indicator for navigation"
+    },
+    {
+      "id": "save-behavior",
+      "prompt": "After saving a single track's metadata, should we do anything extra?",
+      "answer": "no-reload-save",
+      "text": "No reload — optimistic update is sufficient"
+    },
+    {
+      "id": "scope",
+      "prompt": "What is the scope of this change?",
+      "answer": ["nav-only", "scoped-auto-tag", "refresh-btn", "save-visual"],
+      "text": "In-memory navigation + scoped auto-tag reload + refresh button + rollback guard"
+    }
+  ],
+  "notes": [
+    "User raised concern about optimistic update rollback on failure — it could stomp concurrent edits or switch-track state. Include a freshness guard: only roll back if in-memory state still matches what was optimistically written."
+  ]
+}

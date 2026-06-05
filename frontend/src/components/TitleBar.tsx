@@ -13,6 +13,7 @@ interface TitleBarProps {
   darkMode: boolean;
   error: string | null;
   onOpenLibrary: () => void;
+  onRefresh: () => void;
   onConvert: () => void;
   onAutoTag: () => void;
   onGetLyrics: () => void;
@@ -36,6 +37,7 @@ export function TitleBar({
   darkMode,
   error,
   onOpenLibrary,
+  onRefresh,
   onConvert,
   onAutoTag,
   onGetLyrics,
@@ -67,6 +69,17 @@ export function TitleBar({
         <div className="flex items-center gap-1.5 text-[11px] text-text-muted truncate max-w-[180px] no-drag">
           <span className="truncate">{libraryPath}</span>
           <span className="text-text-muted/50 tabular-nums">({trackCount})</span>
+          <button
+            onClick={onRefresh}
+            className="inline-flex items-center justify-center w-5 h-5 text-text-muted hover:text-text-primary rounded hover:bg-surface-hover transition-all shrink-0"
+            title="Refresh library (⌘R)"
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="23 4 23 10 17 10" />
+              <polyline points="1 20 1 14 7 14" />
+              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+            </svg>
+          </button>
         </div>
       )}
 
@@ -171,8 +184,6 @@ export function TitleBar({
       </button>
 
       <div className="w-px h-4 bg-border no-drag" />
-
-
 
       <ToolbarButton
         icon={
@@ -299,13 +310,11 @@ function ToolbarButton({
   icon,
   label,
   disabled,
-  primary,
   onClick,
 }: {
   icon: React.ReactNode;
   label: string;
   disabled?: boolean;
-  primary?: boolean;
   onClick?: () => void;
 }) {
   return (
@@ -315,9 +324,7 @@ function ToolbarButton({
       className={`no-drag inline-flex items-center gap-1 px-2 py-1 text-[11.5px] font-medium rounded-md transition-all active:scale-[0.97] ${
         disabled
           ? "text-text-muted/40 cursor-not-allowed"
-          : primary
-            ? "text-accent hover:bg-accent/10"
-            : "text-text-secondary hover:text-text-primary hover:bg-surface-hover"
+          : "text-text-secondary hover:text-text-primary hover:bg-surface-hover"
       }`}
     >
       <span className="w-3.5 h-3.5 flex items-center justify-center">{icon}</span>

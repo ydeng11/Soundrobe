@@ -25,6 +25,7 @@ function defaultProps(overrides?: Record<string, unknown>) {
     onOpenLibrary: vi.fn(),
     onConvert: vi.fn(),
     onAutoTag: vi.fn(),
+    onRefresh: vi.fn(),
     onToggleDarkMode: vi.fn(),
     onOpenSettings: vi.fn(),
     ...overrides,
@@ -48,13 +49,27 @@ describe("TitleBar — all buttons", () => {
     });
   });
 
-  // ── Library path + track count ───────────────────────────
+  // ── Library path + track count + refresh ──────────────────
 
   describe("library path display", () => {
     it("shows library path and track count when libraryPath is set", () => {
       render(<TitleBar {...defaultProps({ libraryPath: "/my/music", trackCount: 7 })} />);
       expect(screen.getByText("/my/music")).toBeTruthy();
       expect(screen.getByText("(7)")).toBeTruthy();
+    });
+
+    it("shows refresh button when libraryPath is set", () => {
+      render(<TitleBar {...defaultProps({ libraryPath: "/music" })} />);
+      const refreshBtn = screen.getByTitle("Refresh library (⌘R)");
+      expect(refreshBtn).toBeTruthy();
+    });
+
+    it("calls onRefresh when refresh button is clicked", () => {
+      const onRefresh = vi.fn();
+      render(<TitleBar {...defaultProps({ libraryPath: "/music", onRefresh })} />);
+      const refreshBtn = screen.getByTitle("Refresh library (⌘R)");
+      fireEvent.click(refreshBtn);
+      expect(onRefresh).toHaveBeenCalledOnce();
     });
 
     it("hides library path when libraryPath is null", () => {

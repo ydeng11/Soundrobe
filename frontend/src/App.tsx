@@ -19,8 +19,6 @@ import { BatchExtraTagsEditor } from "./components/BatchExtraTagsEditor";
 import type { ConvertResult } from "./components/ConvertDialog";
 import type { ExtraTagUndoSnapshot, TrackData, AlbumInfo } from "../electron/preload";
 
-// dirPath is now imported from ./utils/path
-
 const EXTRA_TAG_UNDO_FIELD = "__assistantExtraTags";
 
 export default function App() {
@@ -38,6 +36,8 @@ export default function App() {
   const coverAbortRef = useRef<AbortController | null>(null);
   // Debounce timer for rapid cover navigation
   const coverDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Monotonic generation counter for save-rollback freshness guard
+  const saveGenerationRef = useRef(0);
 
   /** Fetch cover data URL with caching and stale-response guarding. */
   const fetchCover = useCallback(
@@ -115,6 +115,24 @@ export default function App() {
     [],
   );
 
+  /** Full library re-scan — called on manual refresh. */
+  const handleRefresh = useCallback(async () => {
+    if (!state.libraryPath) return;
+    dispatch({ type: "SET_SCANNING", scanning: true });
+    dispatch({ type: "SET_ERROR", error: null });
+    try {
+      const albums = await window.api.scanLibrary(state.libraryPath);
+      dispatch({ type: "SET_ALBUMS", albums });
+      await loadAlbumTracks(albums);
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : "Failed to refresh library";
+      dispatch({ type: "SET_ERROR", error: message });
+    } finally {
+      dispatch({ type: "SET_SCANNING", scanning: false });
+    }
+  }, [state.libraryPath, loadAlbumTracks]);
+
   // --- Library loading ---
 
   const handleOpenLibrary = useCallback(async () => {
@@ -151,41 +169,14 @@ export default function App() {
     }
   }, [loadAlbumTracks]);
 
-  // --- Album selection ---
+  // --- Album selection (in-memory filter, no disk reads) ---
 
   const handleSelectAlbum = useCallback(
-    async (albumPath: string | null) => {
+    (albumPath: string | null) => {
+      // Just update the filter key — tracks are filtered at render time
       dispatch({ type: "SET_ACTIVE_ALBUM", path: albumPath });
-
-      if (albumPath === null) {
-        if (state.libraryPath) {
-          dispatch({ type: "SET_SCANNING", scanning: true });
-          try {
-            const albums = await window.api.scanLibrary(state.libraryPath);
-            dispatch({ type: "SET_ALBUMS", albums });
-            await loadAlbumTracks(albums);
-          } catch {
-            // ignore
-          } finally {
-            dispatch({ type: "SET_SCANNING", scanning: false });
-          }
-        }
-      } else {
-        dispatch({ type: "SET_SCANNING", scanning: true });
-        try {
-          const detail = await window.api.readAlbum(albumPath);
-          dispatch({ type: "SET_TRACKS", tracks: detail.tracks });
-        } catch {
-          dispatch({
-            type: "SET_ERROR",
-            error: "Failed to read album",
-          });
-        } finally {
-          dispatch({ type: "SET_SCANNING", scanning: false });
-        }
-      }
     },
-    [state.libraryPath, loadAlbumTracks],
+    [],
   );
 
   // --- Multi-track selection ---
@@ -277,29 +268,7 @@ export default function App() {
       if (!state.selectedTrack) return;
       const track = state.selectedTrack;
 
-      // Create undo snapshot with previous state
-      const snapshot: TrackSnapshot = {
-        path: track.path,
-        fields: {
-          title: track.title,
-          artist: track.artist,
-          artists: track.artists,
-          album: track.album,
-          albumArtist: track.albumArtist,
-          albumArtists: track.albumArtists,
-          year: track.year,
-          trackNumber: track.trackNumber,
-          trackTotal: track.trackTotal,
-          discNumber: track.discNumber,
-          discTotal: track.discTotal,
-          genre: track.genre,
-          composer: track.composer,
-          comment: track.comment ?? null,
-          musicbrainzTrackId: track.musicbrainzTrackId,
-          musicbrainzAlbumId: track.musicbrainzAlbumId,
-          musicbrainzArtistId: track.musicbrainzArtistId,
-        },
-      };
+      const snapshot = createTrackSnapshot(track);
       dispatch({
         type: "PUSH_UNDO",
         description: "Metadata save",
@@ -341,6 +310,9 @@ export default function App() {
       });
       dispatch({ type: "SET_SAVING", saving: true });
 
+      // Capture save generation for rollback freshness guard
+      const thisGeneration = ++saveGenerationRef.current;
+
       try {
         const result = await window.api.writeTrack(track.path, writeFields);
         dispatch({
@@ -355,11 +327,14 @@ export default function App() {
           fetchCover(dirPath(track.path));
         }
       } catch (err: unknown) {
-        dispatch({
-          type: "UPDATE_TRACK",
-          path: track.path,
-          track,
-        });
+        // Only roll back if no further save has been attempted since our optimistic write
+        if (saveGenerationRef.current === thisGeneration) {
+          dispatch({
+            type: "UPDATE_TRACK",
+            path: track.path,
+            track,
+          });
+        }
         const message =
           err instanceof Error ? err.message : "Failed to save tags";
         dispatch({ type: "SET_ERROR", error: message });
@@ -488,28 +463,7 @@ export default function App() {
     const affectedTracks = state.tracks.filter((t) =>
       albumPathSet.has(dirPath(t.path))
     );
-    const snapshots: TrackSnapshot[] = affectedTracks.map((t) => ({
-      path: t.path,
-      fields: {
-        title: t.title,
-        artist: t.artist,
-        artists: t.artists,
-        album: t.album,
-        albumArtist: t.albumArtist,
-        albumArtists: t.albumArtists,
-        year: t.year,
-        trackNumber: t.trackNumber,
-        trackTotal: t.trackTotal,
-        discNumber: t.discNumber,
-        discTotal: t.discTotal,
-        genre: t.genre,
-        composer: t.composer,
-        comment: t.comment ?? null,
-        musicbrainzTrackId: t.musicbrainzTrackId,
-        musicbrainzAlbumId: t.musicbrainzAlbumId,
-        musicbrainzArtistId: t.musicbrainzArtistId,
-      },
-    }));
+    const snapshots = affectedTracks.map(createTrackSnapshot);
     dispatch({
       type: "PUSH_UNDO",
       description: `Auto-tag (${targetPaths.length} album${targetPaths.length !== 1 ? "s" : ""})`,
@@ -580,19 +534,25 @@ export default function App() {
         completed++;
       }
 
-      // Re-scan after all albums tagged
-      const albums = await window.api.scanLibrary(state.libraryPath);
-      dispatch({ type: "SET_ALBUMS", albums });
+      // Scoped refresh: only re-read tracks for tagged albums
+      const scannedAlbums = await window.api.scanLibrary(state.libraryPath);
+      dispatch({ type: "SET_ALBUMS", albums: scannedAlbums });
 
+      const taggedAlbumSet = new Set(targetPaths);
       if (state.activeAlbumPath) {
+        taggedAlbumSet.add(state.activeAlbumPath);
+      }
+      const updatedTrackList: TrackData[] = [];
+      for (const albumPath of taggedAlbumSet) {
         try {
-          const detail = await window.api.readAlbum(state.activeAlbumPath);
-          dispatch({ type: "SET_TRACKS", tracks: detail.tracks });
+          const detail = await window.api.readAlbum(albumPath);
+          updatedTrackList.push(...detail.tracks);
         } catch {
-          dispatch({ type: "SET_ERROR", error: "Failed to re-read album after auto-tag" });
+          // Skip albums that fail to read
         }
-      } else {
-        await loadAlbumTracks(albums);
+      }
+      if (updatedTrackList.length > 0) {
+        dispatch({ type: "UPDATE_TRACKS", tracks: updatedTrackList });
       }
 
       if (totalErrors > 0) {
@@ -700,11 +660,30 @@ export default function App() {
         await window.api.runAudit(state.libraryPath);
       }
 
-      // Refresh the visible tracks so fixed metadata shows up
+      // Scoped refresh: only re-read tracks for audited albums
       if (state.activeAlbumPath) {
         const detail = await window.api.readAlbum(state.activeAlbumPath);
-        dispatch({ type: "SET_TRACKS", tracks: detail.tracks });
+        dispatch({ type: "UPDATE_TRACKS", tracks: detail.tracks });
+      } else if (state.selectedTrackPaths.length > 0) {
+        // Re-read albums containing selected tracks
+        const albumPaths = [...new Set(state.selectedTrackPaths.map(dirPath))];
+        const updatedAuditTracks: TrackData[] = [];
+        for (const ap of albumPaths) {
+          try {
+            const detail = await window.api.readAlbum(ap);
+            updatedAuditTracks.push(...detail.tracks);
+          } catch {
+            // Skip albums that fail to read
+          }
+        }
+        if (updatedAuditTracks.length > 0) {
+          dispatch({ type: "UPDATE_TRACKS", tracks: updatedAuditTracks });
+        }
+        // Also refresh album metadata
+        const albums = await window.api.scanLibrary(state.libraryPath);
+        dispatch({ type: "SET_ALBUMS", albums });
       } else {
+        // Full library audit — re-read everything
         const albums = await window.api.scanLibrary(state.libraryPath);
         dispatch({ type: "SET_ALBUMS", albums });
         await loadAlbumTracks(albums);
@@ -994,7 +973,7 @@ export default function App() {
     if (state.activeAlbumPath) {
       try {
         const detail = await window.api.readAlbum(state.activeAlbumPath);
-        dispatch({ type: "SET_TRACKS", tracks: detail.tracks });
+        dispatch({ type: "UPDATE_TRACKS", tracks: detail.tracks });
       } catch {
         // Ignore — refresh best-effort
       }
@@ -1002,11 +981,12 @@ export default function App() {
       try {
         const albums = await window.api.scanLibrary(state.libraryPath);
         dispatch({ type: "SET_ALBUMS", albums });
+        await loadAlbumTracks(albums);
       } catch {
         // Ignore
       }
     }
-  }, [state.activeAlbumPath, state.libraryPath]);
+  }, [state.activeAlbumPath, state.libraryPath, loadAlbumTracks]);
 
   const handleAssistantApplyUndo = useCallback(
     (
@@ -1084,28 +1064,7 @@ export default function App() {
       const affectedAlbums = new Set(albumPaths);
       const snapshots: TrackSnapshot[] = state.tracks
         .filter((track) => affectedAlbums.has(dirPath(track.path)))
-        .map((track) => ({
-          path: track.path,
-          fields: {
-            title: track.title,
-            artist: track.artist,
-            artists: track.artists,
-            album: track.album,
-            albumArtist: track.albumArtist,
-            albumArtists: track.albumArtists,
-            year: track.year,
-            trackNumber: track.trackNumber,
-            trackTotal: track.trackTotal,
-            discNumber: track.discNumber,
-            discTotal: track.discTotal,
-            genre: track.genre,
-            composer: track.composer,
-            comment: track.comment ?? null,
-            musicbrainzTrackId: track.musicbrainzTrackId,
-            musicbrainzAlbumId: track.musicbrainzAlbumId,
-            musicbrainzArtistId: track.musicbrainzArtistId,
-          },
-        }));
+        .map(createTrackSnapshot);
       if (snapshots.length > 0) {
         dispatch({
           type: "PUSH_UNDO",
@@ -1209,6 +1168,10 @@ export default function App() {
         e.preventDefault();
         handleAutoTag();
       }
+      if ((e.metaKey || e.ctrlKey) && e.key === "r") {
+        e.preventDefault();
+        handleRefresh();
+      }
       if ((e.metaKey || e.ctrlKey) && e.key === "z" && !e.shiftKey) {
         e.preventDefault();
         handleRevert();
@@ -1216,7 +1179,7 @@ export default function App() {
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [handleOpenLibrary, handleAutoTag, handleRevert]);
+  }, [handleOpenLibrary, handleAutoTag, handleRefresh, handleRevert]);
 
   // --- File watching: re-scan on page visibility change ---
 
@@ -1235,8 +1198,13 @@ export default function App() {
       document.removeEventListener("visibilitychange", handleVisibility);
   }, []);
 
-  // Filter tracks by active album — currently a pass-through (logic in handleSelectAlbum)
-  const filteredTracks = state.tracks;
+  // Filter tracks by active album — in-memory filter, no disk reads
+  const filteredTracks = useMemo(() => {
+    if (!state.activeAlbumPath) return state.tracks;
+    return state.tracks.filter((t) =>
+      t.path.startsWith(state.activeAlbumPath + "/"),
+    );
+  }, [state.tracks, state.activeAlbumPath]);
 
   // Tracks for the currently multi-selected paths
   const selectedTracksForBatch = useMemo(() => {
@@ -1257,28 +1225,7 @@ export default function App() {
         const track = state.tracks.find((t) => t.path === path);
         if (!track) continue;
 
-        snapshots.push({
-          path,
-          fields: {
-            title: track.title,
-            artist: track.artist,
-            artists: track.artists,
-            album: track.album,
-            albumArtist: track.albumArtist,
-            albumArtists: track.albumArtists,
-            year: track.year,
-            trackNumber: track.trackNumber,
-            trackTotal: track.trackTotal,
-            discNumber: track.discNumber,
-            discTotal: track.discTotal,
-            genre: track.genre,
-            composer: track.composer,
-            comment: track.comment ?? null,
-            musicbrainzTrackId: track.musicbrainzTrackId,
-            musicbrainzAlbumId: track.musicbrainzAlbumId,
-            musicbrainzArtistId: track.musicbrainzArtistId,
-          },
-        });
+        snapshots.push(createTrackSnapshot(track));
 
         const writeFields: Record<string, unknown> = {};
         for (const [key, value] of Object.entries(fields)) {
@@ -1341,6 +1288,7 @@ export default function App() {
         auditing={state.auditing}
         error={state.error}
         onOpenLibrary={handleOpenLibrary}
+        onRefresh={handleRefresh}
         onConvert={handleConvert}
         onAutoTag={handleAutoTag}
         onGetLyrics={handleGetLyrics}
@@ -1394,7 +1342,8 @@ export default function App() {
 
         <div className="flex-1 flex flex-col min-w-0 border-r border-border">
           <FileGrid
-            tracks={filteredTracks}
+            tracks={state.tracks}
+            activeAlbumPath={state.activeAlbumPath}
             selectedTrackPath={state.selectedTrackPath}
             selectedTrackPaths={state.selectedTrackPaths}
             filterText={state.filterText}
@@ -1525,6 +1474,32 @@ export default function App() {
       )}
     </div>
   );
+}
+
+/** Build an undo snapshot from a track's current field values. */
+function createTrackSnapshot(track: TrackData): TrackSnapshot {
+  return {
+    path: track.path,
+    fields: {
+      title: track.title,
+      artist: track.artist,
+      artists: track.artists,
+      album: track.album,
+      albumArtist: track.albumArtist,
+      albumArtists: track.albumArtists,
+      year: track.year,
+      trackNumber: track.trackNumber,
+      trackTotal: track.trackTotal,
+      discNumber: track.discNumber,
+      discTotal: track.discTotal,
+      genre: track.genre,
+      composer: track.composer,
+      comment: track.comment ?? null,
+      musicbrainzTrackId: track.musicbrainzTrackId,
+      musicbrainzAlbumId: track.musicbrainzAlbumId,
+      musicbrainzArtistId: track.musicbrainzArtistId,
+    },
+  };
 }
 
 /** Parse a string as track/disc number, returning null on invalid input. */

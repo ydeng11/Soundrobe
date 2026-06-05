@@ -37,7 +37,7 @@ export interface AppState {
   /** Filter text for the file grid */
   filterText: string;
 
-    /** Loading states */
+  /** Loading states */
   scanning: boolean;
   scanningProgress: { current: number; total: number } | null;
   loaded: boolean;
@@ -114,7 +114,7 @@ export type AppAction =
   | { type: "CLEAR_SELECTION" }
   | { type: "SET_COVER_URL"; url: string | null }
   | { type: "SET_FILTER"; filter: string }
-    | { type: "SET_SCANNING"; scanning: boolean }
+  | { type: "SET_SCANNING"; scanning: boolean }
   | { type: "SET_SCANNING_PROGRESS"; progress: { current: number; total: number } | null }
   | { type: "SET_LOADED"; loaded: boolean }
   | { type: "SET_ERROR"; error: string | null }
@@ -185,15 +185,21 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       };
     }
 
-    case "SET_ACTIVE_ALBUM":
+    case "SET_ACTIVE_ALBUM": {
+      const isInScope = action.path === null || (
+        state.selectedTrackPath != null &&
+        state.selectedTrackPath.startsWith(action.path + "/")
+      );
       return {
         ...state,
         activeAlbumPath: action.path,
-        selectedTrackPaths: [],
-        selectedTrackPath: null,
-        selectedTrack: null,
-        coverDataUrl: null,
+        // Only clear selection if the selected track is outside the new scope
+        selectedTrackPaths: isInScope ? state.selectedTrackPaths : [],
+        selectedTrackPath: isInScope ? state.selectedTrackPath : null,
+        selectedTrack: isInScope ? state.selectedTrack : null,
+        coverDataUrl: isInScope ? state.coverDataUrl : null,
       };
+    }
 
     case "SELECT_TRACK":
       return {

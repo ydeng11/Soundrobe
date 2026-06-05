@@ -345,6 +345,11 @@ function InspectorField({
   dirty?: boolean;
 }) {
   const id = useId();
+  const inputClass =
+    "w-full bg-white border rounded-lg px-3 py-1.5 text-[12px] text-text-primary placeholder-text-muted/40 outline-none transition-all duration-200";
+  const borderClass = dirty
+    ? "border-[#ff9f0a]/60 focus:border-[#ff9f0a] focus:shadow-[0_0_0_3px_rgba(255,159,10,0.15)]"
+    : "border-border focus:border-accent/60 focus:shadow-[0_0_0_3px_rgba(0,122,255,0.2)]";
 
   return (
     <div className="relative">
@@ -362,11 +367,7 @@ function InspectorField({
             onChange={(e) => onChange(e.target.value)}
             rows={2}
             placeholder={placeholder}
-            className={`w-full bg-white border rounded-lg px-3 py-1.5 text-[12px] text-text-primary placeholder-text-muted/40 outline-none transition-all duration-200 resize-none ${
-              dirty
-                ? "border-[#ff9f0a]/60 focus:border-[#ff9f0a] focus:shadow-[0_0_0_3px_rgba(255,159,10,0.15)]"
-                : "border-border focus:border-accent/60 focus:shadow-[0_0_0_3px_rgba(0,122,255,0.2)]"
-            }`}
+            className={`${inputClass} resize-none ${borderClass}`}
           />
         ) : (
           <input
@@ -375,11 +376,7 @@ function InspectorField({
             value={value}
             onChange={(e) => onChange(e.target.value)}
             placeholder={placeholder}
-            className={`w-full bg-white border rounded-lg px-3 py-1.5 text-[12px] text-text-primary placeholder-text-muted/40 outline-none transition-all duration-200 ${
-              dirty
-                ? "border-[#ff9f0a]/60 focus:border-[#ff9f0a] focus:shadow-[0_0_0_3px_rgba(255,159,10,0.15)]"
-                : "border-border focus:border-accent/60 focus:shadow-[0_0_0_3px_rgba(0,122,255,0.2)]"
-            }`}
+            className={`${inputClass} ${borderClass}`}
           />
         )}
         {dirty && (
@@ -435,7 +432,7 @@ function hasDetailedTags(track: TrackData): boolean {
     track.musicbrainzAlbumId ||
     track.musicbrainzArtistId ||
     track.compilation != null ||
-    track.lyrics ||
+    (typeof track.lyrics === "string" && track.lyrics) ||
     track.discNumber != null
   );
 }
@@ -446,9 +443,10 @@ function formatDetailedTags(track: TrackData): string {
   if (track.musicbrainzAlbumId) tags.push(`MusicBrainz Album ID: ${track.musicbrainzAlbumId}`);
   if (track.musicbrainzArtistId) tags.push(`MusicBrainz Artist ID: ${track.musicbrainzArtistId}`);
   if (track.compilation != null) tags.push(`Compilation: ${track.compilation}`);
-  if (track.lyrics) {
+  const lyricsStr = typeof track.lyrics === "string" ? track.lyrics : null;
+  if (lyricsStr) {
     tags.push(
-      `Lyrics: ${track.lyrics.slice(0, 100)}${track.lyrics.length > 100 ? "…" : ""}`,
+      `Lyrics: ${lyricsStr.slice(0, 100)}${lyricsStr.length > 100 ? "…" : ""}`,
     );
   }
   if (track.discNumber != null) {

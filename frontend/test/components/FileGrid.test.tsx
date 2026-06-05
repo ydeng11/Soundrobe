@@ -140,6 +140,75 @@ describe("FileGrid", () => {
     expect(screen.getByText(/No files match the filter/i)).toBeTruthy();
   });
 
+  it("filters tracks by activeAlbumPath", () => {
+    const onSelect = vi.fn();
+    const tracksWithAlbums: TrackData[] = [
+      makeTrack("/music/Album X/song1.mp3", { title: "Song One", album: "Album X" }),
+      makeTrack("/music/Album X/song2.mp3", { title: "Song Two", album: "Album X" }),
+      makeTrack("/music/Album Y/song3.mp3", { title: "Song Three", album: "Album Y" }),
+    ];
+
+    const { container } = render(
+      <FileGrid
+        tracks={tracksWithAlbums}
+        activeAlbumPath="/music/Album X"
+        selectedTrackPath={null}
+        filterText=""
+        onSelectTrack={onSelect}
+      />
+    );
+
+    // Should only show Album X tracks (shortPath shows last 4 segments)
+    expect(screen.getByText("music/Album X/song1.mp3")).toBeTruthy();
+    expect(screen.getByText("music/Album X/song2.mp3")).toBeTruthy();
+    expect(screen.queryByText("music/Album Y/song3.mp3")).toBeFalsy();
+  });
+
+  it("shows all tracks when activeAlbumPath is null", () => {
+    const onSelect = vi.fn();
+    const tracksWithAlbums: TrackData[] = [
+      makeTrack("/music/Album X/song1.mp3", { title: "Song One" }),
+      makeTrack("/music/Album Y/song3.mp3", { title: "Song Three" }),
+    ];
+
+    render(
+      <FileGrid
+        tracks={tracksWithAlbums}
+        activeAlbumPath={null}
+        selectedTrackPath={null}
+        filterText=""
+        onSelectTrack={onSelect}
+      />
+    );
+
+    expect(screen.getByText("music/Album X/song1.mp3")).toBeTruthy();
+    expect(screen.getByText("music/Album Y/song3.mp3")).toBeTruthy();
+  });
+
+  it("combines activeAlbumPath filter with text filter", () => {
+    const onSelect = vi.fn();
+    const tracksWithAlbums: TrackData[] = [
+      makeTrack("/music/Album X/song1.mp3", { title: "Song One", album: "Album X" }),
+      makeTrack("/music/Album X/song2.mp3", { title: "Song Two", album: "Album X" }),
+      makeTrack("/music/Album Y/song3.mp3", { title: "Song Three", album: "Album Y" }),
+    ];
+
+    render(
+      <FileGrid
+        tracks={tracksWithAlbums}
+        activeAlbumPath="/music/Album X"
+        selectedTrackPath={null}
+        filterText="Two"
+        onSelectTrack={onSelect}
+      />
+    );
+
+    // Only Album X track whose title contains "Two"
+    expect(screen.getByText("music/Album X/song2.mp3")).toBeTruthy();
+    expect(screen.queryByText("music/Album X/song1.mp3")).toBeFalsy(); // In Album X but title doesn't contain "Two"
+    expect(screen.queryByText("music/Album Y/song3.mp3")).toBeFalsy(); // Not in Album X
+  });
+
   it("shows empty message when tracks list is empty", () => {
     const onSelect = vi.fn();
     render(
