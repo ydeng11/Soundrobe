@@ -1050,6 +1050,12 @@ class TaskManager {
    * Find the folder-sourced fallback candidate, or return null.
    */
   private folderFallback(candidates: AlbumCandidate[]): AlbumCandidate | null {
+    // When LLM selection failed, prefer the richest non-fallback source:
+    // musicbrainz > dataset > discogs > llm > folder
+    const best = candidates.find((c) => c.source !== "folder" && c.source !== "llm");
+    if (best) return best;
+    const llmFallback = candidates.find((c) => c.source === "llm");
+    if (llmFallback) return llmFallback;
     return candidates.find((c) => c.source === "folder") ?? candidates[0] ?? null;
   }
 

@@ -5,6 +5,8 @@
  * Pure fetch() — no external dependencies.
  */
 
+import debug from "./debug";
+
 const OPENROUTER_BASE = "https://openrouter.ai/api/v1";
 const RETRYABLE_STATUSES = new Set([429, 500, 502, 503, 504]);
 
@@ -153,6 +155,17 @@ export class OpenRouterClient {
         lastResponse = response;
 
         if (response.ok) return response;
+
+        // OpenRouter returns HTTP 400 when the upstream provider fails.
+        // The provider error is transient — retry (other providers may work).
+        const isProviderError = response.status === 400 &&
+          (await response.clone().text().catch(() => "")).includes('provider_name');
+
+        if (isProviderError) {
+          debug.debug("openrouter", `Provider error (attempt ${attempt + 1}/${maxRetries + 1}), retrying...`);
+          await new Promise((r) => setTimeout(r, 1000 * (attempt + 1)));
+          continue;
+        }
 
         if (!RETRYABLE_STATUSES.has(response.status) || attempt >= maxRetries) {
           break;
