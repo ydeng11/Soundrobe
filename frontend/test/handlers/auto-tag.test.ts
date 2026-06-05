@@ -41,6 +41,7 @@ import {
 } from "../helpers/flac-helpers";
 import {
   hintsAreAmbiguous,
+  filterCandidatesForAutoApply,
   loadConfig,
   startAutoTag,
   getProgress,
@@ -52,6 +53,7 @@ import {
   buildAliasedLookupVariants,
 } from "../../electron/handlers/auto-tag";
 import { setAliasFilePath, saveAlias } from "../../electron/handlers/aliases";
+import { makeAlbumCandidate, makeLookupRequest } from "../../electron/handlers/candidates";
 import { writeTags, batchWriteTags } from "../../electron/handlers/writer";
 import { readTrackMetadata } from "../../electron/handlers/tracks";
 import * as NodeID3 from "node-id3";
@@ -109,6 +111,36 @@ describe("loadConfig", () => {
   it("respects remote lookup disabled", () => {
     process.env.AUTO_TAG_REMOTE_LOOKUP = "false";
     expect(loadConfig().remoteLookupEnabled).toBe(false);
+  });
+});
+
+describe("filterCandidatesForAutoApply", () => {
+  it("rejects mismatched artist-only dataset candidates before writing tags", () => {
+    const request = makeLookupRequest({
+      artistHint: "邓丽君",
+      albumHint: "假如我是真的",
+    });
+    const wrongDatasetAlbum = makeAlbumCandidate({
+      source: "dataset",
+      artist: "邓丽君",
+      album: "何日君再来演唱会现场实录 (Live)",
+      tracks: [
+        { title: "甜蜜蜜", artist: "邓丽君", artists: ["邓丽君"], trackNumber: 1, trackTotal: 14, discNumber: null, discTotal: null, musicbrainzTrackId: null, length: null },
+      ],
+    });
+    const safeFolderFallback = makeAlbumCandidate({
+      source: "folder",
+      artist: "邓丽君",
+      album: "假如我是真的",
+      tracks: [],
+    });
+
+    const filtered = filterCandidatesForAutoApply(request, [
+      wrongDatasetAlbum,
+      safeFolderFallback,
+    ]);
+
+    expect(filtered).toEqual([safeFolderFallback]);
   });
 });
 

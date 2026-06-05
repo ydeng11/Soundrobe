@@ -17,7 +17,7 @@ import { ConvertDialog } from "./components/ConvertDialog";
 import { ExtraTagsEditor } from "./components/ExtraTagsEditor";
 import { BatchExtraTagsEditor } from "./components/BatchExtraTagsEditor";
 import type { ConvertResult } from "./components/ConvertDialog";
-import type { ExtraTagUndoSnapshot, TrackData, AlbumInfo } from "../electron/preload";
+import type { ExtraTagUndoSnapshot, TrackData, AlbumInfo, AlbumDetail } from "../electron/preload";
 
 const EXTRA_TAG_UNDO_FIELD = "__assistantExtraTags";
 
@@ -458,18 +458,6 @@ export default function App() {
 
     const isBatch = targetPaths.length > 1;
 
-    // Push undo snapshots for all tracks that will be touched
-    const albumPathSet = new Set(targetPaths);
-    const affectedTracks = state.tracks.filter((t) =>
-      albumPathSet.has(dirPath(t.path))
-    );
-    const snapshots = affectedTracks.map(createTrackSnapshot);
-    dispatch({
-      type: "PUSH_UNDO",
-      description: `Auto-tag (${targetPaths.length} album${targetPaths.length !== 1 ? "s" : ""})`,
-      snapshots,
-    });
-
     dispatch({ type: "SET_AUTO_TAGGING", autoTagging: true });
     dispatch({ type: "SET_ERROR", error: null });
 
@@ -477,6 +465,17 @@ export default function App() {
     let totalErrors = 0;
 
     try {
+      const snapshots = await buildAutoTagUndoSnapshots(
+        targetPaths,
+        state.tracks,
+        window.api.readAlbum,
+      );
+      dispatch({
+        type: "PUSH_UNDO",
+        description: `Auto-tag (${targetPaths.length} album${targetPaths.length !== 1 ? "s" : ""})`,
+        snapshots,
+      });
+
       for (const albumPath of targetPaths) {
         const albumName = basename(albumPath) ?? albumPath;
         dispatch({
@@ -1500,6 +1499,47 @@ function createTrackSnapshot(track: TrackData): TrackSnapshot {
       musicbrainzArtistId: track.musicbrainzArtistId,
     },
   };
+}
+
+export async function buildAutoTagUndoSnapshots(
+  targetPaths: string[],
+  loadedTracks: TrackData[],
+  readAlbum: (albumPath: string) => Promise<AlbumDetail>,
+): Promise<TrackSnapshot[]> {
+  const snapshots: TrackSnapshot[] = [];
+  const seen = new Set<string>();
+  const loadedByAlbum = new Map<string, TrackData[]>();
+
+  for (const track of loadedTracks) {
+    const albumPath = dirPath(track.path);
+    const tracks = loadedByAlbum.get(albumPath) ?? [];
+    tracks.push(track);
+    loadedByAlbum.set(albumPath, tracks);
+  }
+
+  for (const albumPath of targetPaths) {
+    let tracks = loadedByAlbum.get(albumPath) ?? [];
+    try {
+      tracks = (await readAlbum(albumPath)).tracks;
+    } catch (err) {
+      if (tracks.length === 0) {
+        const message = err instanceof Error ? err.message : String(err);
+        throw new Error(`Cannot auto-tag without undo snapshot for ${albumPath}: ${message}`);
+      }
+    }
+
+    if (tracks.length === 0) {
+      throw new Error(`Cannot auto-tag without undo snapshot for ${albumPath}: no tracks found`);
+    }
+
+    for (const track of tracks) {
+      if (seen.has(track.path)) continue;
+      seen.add(track.path);
+      snapshots.push(createTrackSnapshot(track));
+    }
+  }
+
+  return snapshots;
 }
 
 /** Parse a string as track/disc number, returning null on invalid input. */

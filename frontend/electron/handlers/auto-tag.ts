@@ -15,6 +15,7 @@ import {
   makeAlbumCandidate,
   makeLookupRequest,
   splitArtistNames,
+  verifyAlbumName,
 } from "./candidates";
 import { MatchCache } from "./cache";
 import { DatasetReader } from "./dataset";
@@ -33,6 +34,17 @@ import { basename, dirname, join, extname } from "node:path";
 const AUDIO_EXTENSIONS = new Set([".mp3", ".flac", ".m4a", ".mp4", ".wav", ".ogg", ".opus", ".aiff"]);
 import { homedir } from "node:os";
 import debug from "./debug";
+
+export function filterCandidatesForAutoApply(
+  request: ReturnType<typeof makeLookupRequest>,
+  candidates: AlbumCandidate[],
+): AlbumCandidate[] {
+  return candidates.filter((candidate) => {
+    const verification = verifyAlbumName(request.albumHint, candidate);
+    candidate.verification = verification;
+    return verification !== "mismatch";
+  });
+}
 
 function pathSegments(inputPath: string): string[] {
   return inputPath.split(/[\\/]+/).filter((segment) => segment.length > 0);
@@ -534,10 +546,7 @@ class TaskManager {
         const folderCandidate = candidateFromFolder(correctedRequest);
         allCandidates.push(folderCandidate);
 
-        // Apply verification status
-        for (const c of allCandidates) {
-          c.verification = "match";
-        }
+        allCandidates = filterCandidatesForAutoApply(correctedRequest, allCandidates);
 
         debug.info("auto-tag", `Total candidates across all sources: ${allCandidates.length}`);
 
