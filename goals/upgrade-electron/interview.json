@@ -1,0 +1,58 @@
+{
+  "stage": "interview",
+  "title": "Upgrade Electron to latest stable",
+  "goalSlug": "upgrade-electron",
+  "questions": [
+    {
+      "id": "increment-stops",
+      "prompt": "Which intermediate versions should we stop and test at?",
+      "description": "Current is 34.5.8. Latest stable is 42.3.3.",
+      "answerMode": "multi-custom",
+      "recommendedAnswer": "37 → 40 → 42",
+      "recommendedOptionIds": ["37_40_42"],
+      "options": [
+        { "id": "37_40_42", "label": "37 → 40 → 42 (3 hops, covers Node 22 and 24 transitions)" },
+        { "id": "34_direct_42", "label": "Direct 34 → 42 (fastest, riskiest)" },
+        { "id": "36_38_40_42", "label": "36 → 38 → 40 → 42 (most cautious)" }
+      ],
+      "required": true
+    },
+    {
+      "id": "dependency-upgrades",
+      "prompt": "How should we handle related dependency upgrades?",
+      "description": "vite-plugin-electron has a 0.x → 1.x major. electron-builder and native modules may need version bumps.",
+      "answerMode": "multi-custom",
+      "recommendedAnswer": "Upgrade deps only when they block compilation or tests.",
+      "recommendedOptionIds": ["upgrade-what-breaks"],
+      "options": [
+        { "id": "upgrade-what-breaks", "label": "Minimal: upgrade deps only when they block compilation or tests" },
+        { "id": "all-dev-deps", "label": "Generous: also bump vite-plugin-electron, electron-builder, typescript to latest" }
+      ],
+      "required": true
+    },
+    {
+      "id": "verification",
+      "prompt": "What's the verification gate at each stop?",
+      "answerMode": "multi-custom",
+      "recommendedAnswer": "TypeCheck + All unit tests pass + App launches",
+      "recommendedOptionIds": ["compile_tests_launch"],
+      "options": [
+        { "id": "compile_tests_launch", "label": "TypeCheck ✅, Unit tests ✅, App launches ✅" },
+        { "id": "full_suite", "label": "Above plus manual smoke test (click around, auto-tag an album)" }
+      ],
+      "required": true
+    },
+    {
+      "id": "rollback",
+      "prompt": "What if a stop blocks us (unfixable breakage)?",
+      "answerMode": "single-custom",
+      "recommendedAnswer": "Skip the blocking version, try next. If two consecutive fail, revert to last known good and stop.",
+      "recommendedOptionIds": ["skip"],
+      "options": [
+        { "id": "skip", "label": "Skip the blocking version, try next" },
+        { "id": "revert_all", "label": "Revert to original 34 and stop" }
+      ],
+      "required": true
+    }
+  ]
+}

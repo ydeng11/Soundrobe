@@ -1,0 +1,63 @@
+{
+  "stage": "facts",
+  "title": "Upgrade Electron to latest stable — Fact Sheet",
+  "goalSlug": "upgrade-electron",
+  "facts": [
+    {
+      "id": "fact-electron-version-target",
+      "text": "Electron is upgraded from 34.5.8 to 42.3.3 (latest stable).",
+      "accepted": false,
+      "removed": false,
+      "recommendedAutomatedVerification": true,
+      "automatedVerification": true
+    },
+    {
+      "id": "fact-increment-stops",
+      "text": "Upgrade proceeds incrementally through intermediate versions: 37.x then 40.x then 42.x. Each intermediate version is fully verified before moving to the next.",
+      "accepted": false,
+      "removed": false,
+      "recommendedAutomatedVerification": true,
+      "automatedVerification": true
+    },
+    {
+      "id": "fact-minimal-deps",
+      "text": "Related dependencies (vite-plugin-electron, electron-builder, native modules) are upgraded only when they block compilation or test execution. Unnecessary version bumps are avoided.",
+      "accepted": false,
+      "removed": false,
+      "recommendedAutomatedVerification": true,
+      "automatedVerification": true
+    },
+    {
+      "id": "fact-verification-gate",
+      "text": "At each intermediate version, three checks pass before proceeding: (1) TypeScript compilation (tsc --noEmit) succeeds, (2) all unit tests (vitest run) pass, (3) the dev server launches without errors.",
+      "accepted": false,
+      "removed": false,
+      "recommendedAutomatedVerification": true,
+      "automatedVerification": true
+    },
+    {
+      "id": "fact-rollback-strategy",
+      "text": "If a version blocks with an unfixable breakage, that version is skipped and the next intermediate version is attempted. If two consecutive intermediate versions both fail, the upgrade is reverted to the last known good version (or 34.5.8 if no intermediate succeeded).",
+      "accepted": false,
+      "removed": false,
+      "recommendedAutomatedVerification": false,
+      "automatedVerification": false
+    },
+    {
+      "id": "fact-abi-handling",
+      "text": "The existing inline rebuild fix (npm test always runs electron-rebuild after tests via shell ; operator) is preserved. The Node ABI will remain different from system Node.js (26, ABI 147) — the upgrade is about security support and API modernity, not ABI alignment.",
+      "accepted": false,
+      "removed": false,
+      "recommendedAutomatedVerification": true,
+      "automatedVerification": true
+    },
+    {
+      "id": "fact-commit-strategy",
+      "text": "Each intermediate version upgrade is committed separately with a clear message (e.g., 'Upgrade Electron 34→37') so individual steps can be reverted independently.",
+      "accepted": false,
+      "removed": false,
+      "recommendedAutomatedVerification": false,
+      "automatedVerification": false
+    }
+  ]
+}

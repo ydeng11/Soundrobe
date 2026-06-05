@@ -1,0 +1,8 @@
+- Electron is upgraded from 34.5.8 to 42.3.3 (latest stable).
+- Upgrade proceeds incrementally through intermediate versions: 37.x then 40.x then 42.x.
+- Each intermediate version is fully verified before moving to the next.
+- Related dependencies are upgraded only when they block compilation or test execution.
+- At each stop: TypeScript compilation succeeds, all unit tests pass, dev server launches.
+- If a version blocks, skip to next. If two consecutive fail, revert to last known good.
+- The existing inline rebuild fix (; operator in test script) is preserved.
+- Each intermediate version is committed separately for clean revert paths.
