@@ -313,6 +313,45 @@ export function buildAuditMessages(
   ];
 }
 
+// ── Genre Fill ───────────────────────────────────────────────────────
+
+/**
+ * Build a prompt asking the LLM to provide genre for an album that already
+ * has all other metadata resolved (artist, album, tracks from MusicBrainz/Discogs).
+ * Only called when no source (Discogs, LLM enhance) provided genre.
+ *
+ * Returns JSON with just: { genre: string | null, confidence: number }
+ */
+export function buildGenreFillMessages(
+  artist: string | null,
+  album: string | null,
+  trackTitles: string[],
+): Array<{ role: string; content: string }> {
+  const payload = {
+    artist,
+    album,
+    track_titles: trackTitles,
+  };
+
+  return [
+    {
+      role: "system",
+      content:
+        "Classify the musical genre of this album. " +
+        "Return only JSON with genre (string or null) and confidence (0.0-1.0). " +
+        "Use Discogs-style comma-separated tags " +
+        "(e.g. 'Electronic, House, Deep House' or 'Rock, Alternative, Indie' " +
+        "or 'Stage & Screen, Score, Contemporary Classical'). " +
+        "Leave genre null if you are not confident. " +
+        "Do not invent information or guess from artist name alone.",
+    },
+    {
+      role: "user",
+      content: JSON.stringify(payload, null, 2),
+    },
+  ];
+}
+
 function candidateSummary(
   index: number,
   candidate: AlbumCandidate,

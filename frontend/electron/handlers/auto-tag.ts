@@ -23,7 +23,7 @@ import { MusicBrainzClient } from "./musicbrainz";
 import { DiscogsClient } from "./discogs";
 import { OpenRouterClient } from "./openrouter";
 import { parseAlbumWithTags, candidateFromFolder } from "./fallback";
-import { buildSelectionMessages, buildTagCorrectionMessages } from "./prompts";
+import { buildGenreFillMessages, buildSelectionMessages, buildTagCorrectionMessages } from "./prompts";
 import { getAllNameVariants } from "./aliases";
 import { writeTags, type WriteFields } from "./writer";
 import { readLocalLyrics, LyricsClient } from "./lyrics";
@@ -560,18 +560,20 @@ class TaskManager {
           mergedCount: mergedCandidates.length,
         });
 
-        // LLM selection
-        update("Selecting candidate...", 8);
-        const selected = await this.selectCandidate(
-          correctedRequest,
-          mergedCandidates,
-          signal,
-        );
-        const candidate = selected ?? (mergedCandidates.length > 0 ? mergedCandidates[0] : null);
+        // Use the merged candidate directly (it already contains the best data
+        // from all sources, filled in by mergeCandidateFields). No LLM selection
+        // step — that was a fragile bottleneck (HTTP 400 failures).
+        const candidate = mergedCandidates.length > 0 ? mergedCandidates[0] : null;
         if (candidate) {
+          // Conditional genre fill: only call LLM if genre is still missing
+          // after Discogs and LLM tag resolution.
+          update("Resolving genre...", 8);
+          const filledCandidate = await this.fillGenreIfMissing(candidate, correctedRequest, signal);
+          debug.info("auto-tag", `Step 8/9: Genre resolved: "${filledCandidate.genre ?? "(none)"}"`);
+
           debug.info("auto-tag", "Step 9/9: Applying album tags...");
           update("Applying tags...", 9);
-          await this.applyCandidateTags(taskId, correctedRequest.path, candidate);
+          await this.applyCandidateTags(taskId, correctedRequest.path, filledCandidate);
         }
         this.completeTask(taskId, candidate ?? mergedCandidates);
       } catch (err) {
@@ -963,26 +965,21 @@ class TaskManager {
   }
 
   /**
-   * Use LLM to select the best candidate from the results.
-   * Candidate must meet minimum confidence (0.8) and match the album hint.
+   * Fill genre via LLM if no source provided one.
+   * Only called when genre is still null after Discogs and LLM tag resolution.
+   * Non-fatal — if LLM fails, the candidate is used without genre.
    */
-  private async selectCandidate(
+  private async fillGenreIfMissing(
+    candidate: AlbumCandidate,
     request: ReturnType<typeof makeLookupRequest>,
-    candidates: AlbumCandidate[],
     signal: AbortSignal,
-  ): Promise<AlbumCandidate | null> {
-    if (!this.config.llmApiKey) {
-      debug.debug("auto-tag", "No LLM API key — skipping candidate selection");
-      return null;
+  ): Promise<AlbumCandidate> {
+    if (candidate.genre || !this.config.llmApiKey || signal.aborted) {
+      return candidate;
     }
-    if (candidates.length <= 1) {
-      debug.debug("auto-tag", `Only ${candidates.length} candidate(s) — no selection needed`);
-      return null;
-    }
-    if (signal.aborted) return null;
 
-    debug.info("auto-tag", `Selecting best candidate from ${candidates.length} via LLM...`);
-    debug.startTimer("select-candidate");
+    debug.info("auto-tag", "Genre missing after all sources — filling via LLM...");
+    debug.startTimer("fill-genre");
 
     try {
       const client = new OpenRouterClient({
@@ -990,82 +987,43 @@ class TaskManager {
         model: this.config.llmModel,
       });
 
-      const messages = buildSelectionMessages(request, candidates);
+      const messages = buildGenreFillMessages(
+        candidate.artist ?? request.artistHint,
+        candidate.album ?? request.albumHint,
+        candidate.tracks.map((t) => t.title).filter(Boolean) as string[],
+      );
+
       const schema = {
         type: "object",
         properties: {
-          selectedIndex: { type: "number" },
+          genre: { type: "string" },
           confidence: { type: "number" },
-          reason: { type: "string" },
         },
-        required: ["confidence", "reason"],
+        required: ["genre", "confidence"],
       };
 
       const response = await client.completeJson(
         messages,
-        "CandidateSelectionResponse",
+        "GenreFillResponse",
         schema,
       );
 
-      const idx = response.data.selectedIndex as number | null;
-      if (idx != null && idx >= 0 && idx < candidates.length) {
-        const confidence = response.data.confidence as number | null;
-        const reason = (response.data.reason as string) ?? "";
-        debug.info("auto-tag", `LLM selected candidate ${idx}: confidence=${confidence}, reason="${reason}"`);
+      const genre = response.data.genre as string | null;
+      const confidence = response.data.confidence as number | null;
 
-        // Confidence must meet threshold
-        const MIN_CONFIDENCE = 0.8;
-        if (confidence != null && confidence < MIN_CONFIDENCE) {
-          debug.warn("auto-tag", `Rejecting candidate ${idx}: confidence ${confidence} < ${MIN_CONFIDENCE}`);
-          return null;
-        }
-
-        // Selected candidate's album must overlap with the request's album hint
-        const candidate = candidates[idx];
-        if (!this.candidateMatchesAlbumHint(candidate, request.albumHint)) {
-          debug.warn("auto-tag", `Rejecting candidate ${idx}: album "${candidate.album}" does not match hint "${request.albumHint}"`);
-          return null;
-        }
-
-        return candidate;
-      } else {
-        debug.warn("auto-tag", `LLM returned invalid index ${idx} — returning all candidates`);
+      if (genre && confidence != null && confidence >= 0.6) {
+        debug.info("auto-tag", `LLM genre fill: "${genre}" (confidence=${confidence})`);
+        return { ...candidate, genre };
       }
+
+      debug.debug("auto-tag", "LLM genre fill returned null or low confidence — skipping");
     } catch (err) {
-      debug.warn("auto-tag", `LLM candidate selection failed (non-fatal)`, err);
-      // Selection failure is non-fatal — return all candidates
+      debug.warn("auto-tag", "LLM genre fill failed (non-fatal)", err);
     } finally {
-      debug.endTimer("select-candidate", "auto-tag", "LLM candidate selection");
+      debug.endTimer("fill-genre", "auto-tag", "LLM genre fill");
     }
-    return null;
-  }
 
-  /**
-   * Check if a candidate's album name matches the request's album hint.
-   * Returns true if either string contains the other (case-insensitive),
-   * or if either hint is null/empty (no constraint to enforce).
-   */
-  private candidateMatchesAlbumHint(
-    candidate: AlbumCandidate,
-    albumHint: string | null | undefined,
-  ): boolean {
-    if (!albumHint || !candidate.album) return true;
-    const hint = albumHint.toLowerCase().trim();
-    const cand = candidate.album.toLowerCase().trim();
-    return cand.includes(hint) || hint.includes(cand);
-  }
-
-  /**
-   * Find the folder-sourced fallback candidate, or return null.
-   */
-  private folderFallback(candidates: AlbumCandidate[]): AlbumCandidate | null {
-    // When LLM selection failed, prefer the richest non-fallback source:
-    // musicbrainz > dataset > discogs > llm > folder
-    const best = candidates.find((c) => c.source !== "folder" && c.source !== "llm");
-    if (best) return best;
-    const llmFallback = candidates.find((c) => c.source === "llm");
-    if (llmFallback) return llmFallback;
-    return candidates.find((c) => c.source === "folder") ?? candidates[0] ?? null;
+    return candidate;
   }
 
   // ── Task helpers ────────────────────────────────────────────────
