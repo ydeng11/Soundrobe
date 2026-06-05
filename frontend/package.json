@@ -8,7 +8,8 @@
   "type": "module",
   "main": "dist-electron/main.js",
   "scripts": {
-    "dev": "npm run rebuild:electron && vite",
+    "dev": "vite",
+    "dev:rebuild": "npm run rebuild:electron && vite",
     "build": "tsc && vite build",
     "dist": "npm run build && electron-builder",
     "dist:mac": "npm run build && electron-builder --mac",
