@@ -1,5 +1,5 @@
 # Auto Tagger Configuration Example
-# Copy to ~/.config/auto-tagger/config.yaml or ./auto-tagger.yaml
+# Copy to ~/.auto-tagger/config.yaml
 
 # Output format: table, json, or plain
 output_format: table

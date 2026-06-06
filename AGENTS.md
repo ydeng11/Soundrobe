@@ -16,59 +16,78 @@ Auto Tagger is a desktop **Electron + React** app for intelligent audio file tag
 
 ```
 auto_tagger/
-├── .planning/                # Project planning & roadmap (outdated — refer to plans/)
+├── .env                      # Local env vars (loaded by just's dotenv-load)
+├── .planning/                # Project planning & roadmap
 ├── AGENTS.md                 # This file — agent orientation guide
 ├── Justfile                  # Development task runner (just)
 ├── PLAN.md                   # Active plan
 ├── README.md
-├── plans/                    # Active plans and designs
-│   └── llm-tag-parsing-redesign.md
-├── docs/                     # Documentation
-│   ├── HANDOFF.md
-│   ├── dataset-handoff.md
-│   └── plans/
-├── config.example.yaml       # Example YAML config (shared between Python & Electron)
+├── plans/
+├── docs/
+├── config.example.yaml
 └── frontend/                 # ★ PRIMARY: Electron desktop app
-    ├── package.json          # Dependencies & scripts
-    ├── tsconfig.json         # TypeScript config
-    ├── vite.config.ts        # Vite bundler config
-    ├── tailwind.config.ts    # Tailwind CSS config
-    ├── playwright.config.ts  # E2E test config
-    ├── electron/             # Main process (Node.js backend)
-    │   ├── main.ts           # Electron main process entry
-    │   ├── preload.ts        # Preload script (context bridge)
-    │   └── handlers/         # Tagging pipeline handlers
-    │       ├── aliases.ts       # Artist name aliases / variants
-    │       ├── audit.ts         # Audit report generation
-    │       ├── auto-tag.ts      # ★ Central orchestrator (processAlbum)
-    │       ├── cache.ts         # SQLite-based request cache
-    │       ├── candidates.ts    # Candidate types, merging, ranking
-    │       ├── cover.ts         # Cover art embedding
-    │       ├── dataset.ts       # Dataset index (SQLite) queries
-    │       ├── debug.ts         # Debug logging for pipeline
-    │       ├── directory.ts     # Directory scanning & structuring
-    │       ├── discogs.ts       # Discogs API client
-    │       ├── fallback.ts      # Path-based & track-hint fallback
-    │       ├── library.ts       # Library scanning
-    │       ├── musicbrainz.ts   # MusicBrainz / Beets client
-    │       ├── native-check.ts  # Native module & binary checks
-    │       ├── openrouter.ts    # LLM API client (OpenRouter)
-    │       ├── prompts.ts       # LLM prompt templates
-    │       ├── schemas.ts       # LLM structured output schemas
-    │       ├── tracks.ts        # Track reading & writing
-    │       └── writer.ts        # Tag writing
+    ├── package.json
+    ├── tsconfig.json
+    ├── vite.config.ts
+    ├── tailwind.config.ts
+    ├── playwright.config.ts
+    ├── electron/             # Main process (Node.js)
+    │   ├── main.ts           # Entry, IPC registration
+    │   ├── preload.ts        # Context bridge (api.*)
+    │   ├── better-sqlite3.d.ts
+    │   ├── handlers/         # IPC handlers + business logic
+    │   │   ├── aliases.ts
+    │   │   ├── assistant.ts
+    │   │   ├── audit.ts
+    │   │   ├── auto-tag.ts      # ★ Central orchestrator
+    │   │   ├── cache.ts
+    │   │   ├── candidates.ts
+    │   │   ├── conversation-logger.ts
+    │   │   ├── cover.ts
+    │   │   ├── dataset.ts
+    │   │   ├── debug.ts
+    │   │   ├── directory.ts
+    │   │   ├── discogs.ts
+    │   │   ├── fallback.ts
+    │   │   ├── library.ts
+    │   │   ├── lyrics.ts
+    │   │   ├── musicbrainz.ts
+    │   │   ├── native-check.ts
+    │   │   ├── openrouter.ts
+    │   │   ├── organizer.ts
+    │   │   ├── prompts.ts
+    │   │   ├── schemas.ts
+    │   │   ├── tracks.ts
+    │   │   └── writer.ts
+    │   └── services/         # Pure logic (no Electron APIs)
+    │       ├── AssistantRuntime.ts
+    │       ├── AssistantToolRegistry.ts
+    │       ├── ConvertService.ts
+    │       ├── ExtraTagService.ts
+    │       ├── FilenameTagInferenceService.ts
+    │       ├── FolderOrganizerService.ts
+    │       ├── LibraryService.ts
+    │       ├── LlmTaskRunner.ts
+    │       ├── PlanExecutor.ts
+    │       ├── SafeApiRequestService.ts
+    │       ├── SafeQueryService.ts
+    │       └── TrackTagService.ts
     ├── src/                  # Renderer process (React UI)
-    │   ├── main.tsx          # React entry
-    │   ├── App.tsx           # Root component
-    │   ├── index.css         # Tailwind + custom styles
-    │   ├── global.d.ts       # Global type declarations
-    │   ├── vite-env.d.ts     # Vite type shims
-    │   ├── components/       # UI components
+    │   ├── main.tsx
+    │   ├── App.tsx
+    │   ├── index.css
+    │   ├── global.d.ts
+    │   ├── vite-env.d.ts
+    │   ├── utils/
+    │   │   └── path.ts
+    │   ├── components/
+    │   │   ├── AssistantPanel.tsx
     │   │   ├── AuditBanner.tsx
     │   │   ├── AuditPanel.tsx
     │   │   ├── BatchEditor.tsx
     │   │   ├── BatchExtraTagsEditor.tsx
     │   │   ├── ConvertDialog.tsx
+    │   │   ├── ErrorBoundary.tsx
     │   │   ├── ExtraTagsEditor.tsx
     │   │   ├── FileGrid.tsx
     │   │   ├── FolderTree.tsx
@@ -77,42 +96,19 @@ auto_tagger/
     │   │   ├── SettingsModal.tsx
     │   │   ├── Sidebar.tsx
     │   │   └── TitleBar.tsx
-    │   └── state/            # State management
-    │       ├── AppState.ts       # Central app state & reducer
-    │       └── UndoManager.ts    # Undo/redo for tag edits
-    ├── test/                 # Test suite (Vitest + Testing Library)
-    │   ├── components/       # Component tests
-    │   │   ├── BatchEditor.test.tsx
-    │   │   ├── BatchExtraTagsEditor.test.tsx
-    │   │   ├── ExtraTagsEditor.test.tsx
-    │   │   ├── FileGrid.test.tsx
-    │   │   ├── MetadataEditor.test.tsx
-    │   │   ├── SettingsModal.test.tsx
-    │   │   └── TitleBar.test.tsx
-    │   ├── handlers/         # Handler unit tests
-    │   │   ├── aliases.test.ts
-    │   │   ├── audit.test.ts
-    │   │   ├── auto-tag.test.ts
-    │   │   ├── cache.test.ts
-    │   │   ├── candidates.test.ts
-    │   │   ├── config.test.ts
-    │   │   ├── cover.test.ts
-    │   │   ├── dataset.test.ts
-    │   │   ├── debug.test.ts
-    │   │   ├── directory.test.ts
-    │   │   ├── discogs.test.ts
-    │   │   ├── fallback.test.ts
-    │   │   ├── library.test.ts
-    │   │   ├── musicbrainz.test.ts
-    │   │   ├── native-check.test.ts
-    │   │   ├── openrouter.test.ts
-    │   │   ├── prompts.test.ts
-    │   │   ├── tracks.test.ts
-    │   │   └── writer.test.ts
-    │   └── state/            # State tests
-    │       ├── app-reducer.test.ts
-    │       └── undo-manager.test.ts
-    └── e2e/                  # E2E tests (Playwright)
+    │   └── state/
+    │       ├── AppState.ts
+    │       └── UndoManager.ts
+    ├── test/
+    │   ├── components/
+    │   ├── handlers/
+    │   ├── services/
+    │   ├── state/
+    │   ├── integration/
+    │   ├── helpers/
+    │   └── utils/
+    └── e2e/
+        ├── convert.electron.spec.ts
         └── extra-tags.electron.spec.ts
 ```
 
@@ -141,6 +137,10 @@ auto_tagger/
 ## Available Recipes (just)
 
 Prerequisite: Install [just](https://github.com/casey/just) (`brew install just`) and run `npm install` in `frontend/`.
+
+> **`.env` loading**: All `just fe-*` recipes automatically load `.env` from the project root
+> via `set dotenv-load` in the Justfile. `LLM_API_KEY`, `LLM_MODEL`, and other env vars
+> are exported into the app's environment without manual `export`.
 
 ### Development
 
@@ -172,24 +172,6 @@ Prerequisite: Install [just](https://github.com/casey/just) (`brew install just`
 
 ---
 
-## Configuration
-
-Settings are managed through the **Electron UI** (Settings modal) and persisted to `~/.auto-tagger/config.yaml`.
-
-Key config fields the agent may reference:
-
-| Field              | Default                           | Description                        |
-|--------------------|-----------------------------------|------------------------------------|
-| `llm_api_key`      | —                                 | OpenRouter API key                 |
-| `llm_model`        | `openrouter/owl-alpha`            | LLM model for tag generation       |
-| `discogs_token`    | —                                 | Discogs personal access token      |
-| `discogs_enabled`  | `true`                            | Enable Discogs genre enrichment    |
-| `remote_lookup_enabled` | `true`                       | Enable MusicBrainz + Discogs APIs  |
-
-Config is loaded from (in priority order): CLI flags → environment variables → `~/.auto-tagger/config.yaml` (also checks `~/.config/auto-tagger/config.yaml` and `./auto-tagger.yaml`).
-
----
-
 ## Testing
 
 The primary test runner is **Vitest**, run via `just fe-test` or `cd frontend && npm test`.
@@ -214,29 +196,23 @@ cd frontend && npx playwright test
 
 ---
 
+## Rules
+
+1. **Never edit Python files** (`src/auto_tagger/`, `tests/`, `pyproject.toml`). The CLI in `src/` is a legacy Python implementation — all active development is the Electron app in `frontend/`.
+
+2. **Tagging pipeline immutability**: folder hints → MusicBrainz → Discogs → LLM. Each step sets fields only if not already set. Never overwrites.
+
+3. **LLM cost target**: under $0.01/album. Prefer free-tier OpenRouter models.
+
+5. **IPC boundary**: `handlers/` receive IPC calls and wire services. `services/` contain pure business logic (no Electron APIs, testable in plain Node).
+
+6. **`.env` is local-only**: never loaded by app code. The Justfile's `dotenv-load` exports it before running `npm`. Tests manage env vars explicitly.
+
 ## Key Design Decisions
 
 - **Tagging pipeline**: folder hints → MusicBrainz lookup → Discogs lookup → LLM fallback (each step sets fields; never overwrites once set)
-- **Config path priority**: Electron's `getConfigPaths()` checks `~/.auto-tagger/config.yaml` before `~/.config/auto-tagger/config.yaml` (opposite of Python CLI — see `config.ts`)
+- **Config path priority**: Electron's `getConfigPaths()` checks `~/.auto-tagger/config.yaml` before `~/.config/auto-tagger/config.yaml`
 - **LLM cost target**: Under $0.01 per album (uses cost-efficient models via OpenRouter)
-- **Read files up to 50KB / 2000 lines**: output truncation limit — use offset/limit for larger files
+- **Services vs handlers**: `electron/services/` contains pure business logic (no Electron APIs, testable in Node). `electron/handlers/` wires services to IPC channels.
 - **Never edit Python files** (`src/auto_tagger/`, `tests/`, `pyproject.toml`) — those are the legacy CLI; only the TypeScript Electron app (`frontend/`) is maintained
 
----
-
-## Common Workflows
-
-### Quick start
-
-```bash
-cd frontend && npm install
-just fe-check       # Run tests + typecheck
-just fe-dev         # Start Electron dev server
-```
-
-### Tag an album (via app)
-
-1. Open the app (`just fe-dev`)
-2. Select an album folder in the sidebar
-3. Click "Auto Tag" — the pipeline runs MusicBrainz → Discogs → LLM
-4. Review candidate and apply tags

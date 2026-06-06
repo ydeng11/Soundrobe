@@ -158,10 +158,10 @@ function getConfigPaths(): string[] {
   const home = process.env.HOME || homedir();
   return [
     join(home, ".auto-tagger", "config.yaml"),
-    join(home, ".config", "auto-tagger", "config.yaml"),
-    join(home, ".auto-tagger.yaml"),
   ];
 }
+
+
 
 /**
  * Load config from YAML file (simple key-value parse, no YAML dep).
@@ -1233,7 +1233,8 @@ const CONFIG_KEY_MAP: Record<string, string> = {
 
 /**
  * Save a single config value back to the YAML config file.
- * Finds the first existing config file, or creates ~/.auto-tagger/config.yaml.
+ * Writes a config value to ~/.auto-tagger/config.yaml.
+ * Creates the file and parent directory if they don't exist.
  * Handles simple flat YAML (one level, no nested structures).
  */
 export function saveConfig(key: string, value: unknown): void {

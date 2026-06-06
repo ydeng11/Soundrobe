@@ -61,7 +61,7 @@ When the local index is missing, tagging prints a warning and continues with
 the existing API fallback.
 
 Configuration loads from CLI args, environment variables, YAML config, then defaults.
-The default config location is `~/.config/auto-tagger/config.yaml`.
+The default config location is `~/.auto-tagger/config.yaml`.
 
 Common environment variables:
 
