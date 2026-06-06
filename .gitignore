@@ -56,7 +56,6 @@ dmypy.json
 *.db
 
 # Test data
-潘玮柏/
 tests/fixtures/data/coverage.json
 
 # Frontend (Electron v2)
