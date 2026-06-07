@@ -172,6 +172,76 @@ Prerequisite: Install [just](https://github.com/casey/just) (`brew install just`
 
 ---
 
+## Logging & Debugging
+
+### Debug Logs (Electron App)
+
+The debug logger writes timestamped JSON entries to :
+
+```
+~/.auto-tagger/auto-tag-debug-YYYY-MM-DD.log
+```
+
+Each log entry contains `timestamp`, `tag`, `level` (info/warn/error/debug), `message`, and optional `data`. Tags include `auto-tag`, `config`, `cache`, `dataset`, `musicbrainz`, `discogs`, `timer`, and `debug`.
+
+The file is truncated at each app session start. The logger lives in `frontend/electron/handlers/debug.ts`.
+
+### Auto-Tagger General Log
+
+```
+~/.auto-tagger/auto-tagger.log
+```
+
+### Enabling Debug Mode
+
+- **Via Settings UI**: Toggle "Debug mode" in the app settings
+- **Via env var** (before launch): `AUTO_TAG_DEBUG=true`
+- **Via config file**: Add `debug: true` to `~/.auto-tagger/config.yaml`
+
+When debug mode is enabled, live log entries are forwarded to the renderer's DevTools console via IPC (`debug:log` channel).
+
+### Agent Session
+
+When troubleshooting an active app session:
+
+1. **Check running processes**: `ps aux | grep -i electron | grep -v Helper | grep -v grep` — look for the main `Electron .` process
+2. **Check logs**: Tail the debug log for the current day: `tail -f ~/.auto-tagger/auto-tag-debug-$(date +%F).log`
+3. **Check app config**: `~/.auto-tagger/config.yaml` — library path, API keys, feature toggles
+4. **Check window state**: `~/.auto-tagger/window-state.json` — last window position/size
+5. **Check cache DB**: `~/.auto-tagger/cache.db` — SQLite database with three tables:
+   - `lookup_cache` — MusicBrainz/Discogs lookup results by query hash
+   - `album_state` — Per-album processing status (pending, llm_parsed, tagged_ok, error) + LLM extraction results
+   - `conversation_log` — AI assistant conversation history (user messages, assistant responses, API calls, tool calls)
+
+   Query recent assistant sessions:
+   ```bash
+   sqlite3 ~/.auto-tagger/cache.db "SELECT session_number, entry_count, firstMessage, lastActivity, totalCost FROM (
+     SELECT session_number, COUNT(*) as entry_count,
+       (SELECT content FROM conversation_log cl2 WHERE cl2.session_uuid = cl.session_uuid AND cl2.entry_type = 'user_message' ORDER BY cl2.id ASC LIMIT 1) as firstMessage,
+       MAX(timestamp) as lastActivity,
+       COALESCE(SUM(cost), 0) as totalCost
+     FROM conversation_log cl
+     GROUP BY session_uuid
+     ORDER BY MAX(id) DESC LIMIT 10
+   );"
+   ```
+
+   Query album processing state:
+   ```bash
+   sqlite3 ~/.auto-tagger/cache.db "SELECT status, disc_count, error, processed_at FROM album_state ORDER BY processed_at DESC LIMIT 20;"
+   ```
+
+6. **Check user data dir**: `/Users/ihelio/Library/Application Support/auto-tagger/` — Electron's standard user data (session storage, local storage, preferences)
+7. **Vite HMR status**: Verify the Vite dev server responds: `curl -s -o /dev/null -w "%{http_code}" http://localhost:5173/`
+
+For log analysis, use `tail` or `grep` on the debug log to filter by level or tag:
+```bash
+grep '"level":"error"' ~/.auto-tagger/auto-tag-debug-$(date +%F).log
+grep '"tag":"auto-tag"' ~/.auto-tagger/auto-tag-debug-$(date +%F).log | tail -30
+```
+
+---
+
 ## Testing
 
 The primary test runner is **Vitest**, run via `just fe-test` or `cd frontend && npm test`.
