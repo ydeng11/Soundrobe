@@ -184,6 +184,10 @@ export function updateAssistantConfig(config: {
 
 // ── Build read-only tools ────────────────────────────────────────
 
+export function buildReadOnlyToolsForTesting(): AssistantToolDef[] {
+  return buildReadOnlyTools();
+}
+
 function buildReadOnlyTools(): AssistantToolDef[] {
   if (!libraryService || !safeQueryService || !safeApiRequestService) {
     throw new Error("Assistant services not initialized");
@@ -192,7 +196,7 @@ function buildReadOnlyTools(): AssistantToolDef[] {
   return [
     {
       name: "library.summarize",
-      description: "Summarize the current library, active album, and selection. Includes track counts, artist counts, genre counts, and tag completeness.",
+      description: "Summarize the current library, active album, and selection. Returns track counts, artist counts, genre counts, tag completeness (missing titles/artists/albums/years/genres), total size, and total duration. Use this first to understand what's loaded before making changes. Read-only, no API calls.",
       inputSchema: {
         type: "object",
         properties: {},
@@ -254,7 +258,7 @@ function buildReadOnlyTools(): AssistantToolDef[] {
     },
     {
       name: "tracks.search",
-      description: "Search the current library tracks by title, artist, album, genre, year, codec, or missing fields. Use this to find specific tracks or groups of tracks.",
+      description: "Search the current library tracks by title, artist, album, genre, year, codec, or missing fields (missingTitle, missingArtist, missingAlbum, missingYear, missingGenre, missingCover) or duplicates (hasDuplicates). Every result includes the full file path so you can pass it to mutating tools. Use this to find specific tracks or groups of tracks before editing. Read-only, no API calls.",
       inputSchema: {
         type: "object",
         properties: {
@@ -285,7 +289,7 @@ function buildReadOnlyTools(): AssistantToolDef[] {
         } else {
           summary = `Found ${results.length} track(s):\n`;
           for (const t of limited) {
-            summary += `  - ${t.title ?? "?"} by ${t.artist ?? "?"} (${t.album ?? "?"}) [${t.codec}]\n`;
+            summary += `  - ${t.path}\n    ${t.title ?? "?"} by ${t.artist ?? "?"} (${t.album ?? "?"}) [${t.codec}]\n`;
           }
           if (results.length > 20) {
             summary += `  ... and ${results.length - 20} more`;
@@ -311,7 +315,7 @@ function buildReadOnlyTools(): AssistantToolDef[] {
     },
     {
       name: "tracks.inspect",
-      description: "Inspect one or more tracks by path. Pass selectedTrackPaths to inspect the current selection, or provide explicit paths. If both are empty, inspects all loaded tracks. Returns at most the first `limit` tracks (default 20, max 500). To inspect all tracks, set limit to a higher value or use tracks.search with specific filters.",
+      description: "Inspect one or more tracks by path and return full metadata: filename, full file path, artists, album, albumArtist, track number, disc number, year, genre, codec, duration, cover art presence, comment, and description. Pass selectedTrackPaths to inspect the current selection, or provide explicit paths. If both are empty, inspects all loaded tracks. Returns at most `limit` tracks (default 20, max 500). Use this to see detailed metadata before editing. Read-only, no API calls.",
       inputSchema: {
         type: "object",
         properties: {
@@ -356,6 +360,7 @@ function buildReadOnlyTools(): AssistantToolDef[] {
           }
           const filename = track.path.split(/[\/\\]/).pop() ?? track.path;
           summary += `    File: ${filename}\n`;
+          summary += `    Path: ${track.path}\n`;
           summary += `    Artists: ${(track.artists ?? []).join('; ') || '(none)'}\n`;
           summary += `    Album: ${track.album ?? "?"} (${track.albumArtist ?? "?"})\n`;
           summary += `    Track ${track.trackNumber ?? "?"}/${track.trackTotal ?? "?"} | Year: ${track.year ?? "?"} | Genre: ${track.genre ?? "?"}\n`;
@@ -372,7 +377,7 @@ function buildReadOnlyTools(): AssistantToolDef[] {
     },
     {
       name: "albums.inspect",
-      description: "Inspect an album by path. Provide the album path, or leave empty for the active album.",
+      description: "Inspect an album by path and return its track listing, artist hint, and track count. Provide the album path, or leave empty for the active album. Use this to see an album's track list before editing. Read-only, no API calls.",
       inputSchema: {
         type: "object",
         properties: {
@@ -399,7 +404,8 @@ function buildReadOnlyTools(): AssistantToolDef[] {
         if (albumTracks.length > 0) {
           summary += `\nTracks:\n`;
           for (const t of albumTracks) {
-            summary += `  ${t.trackNumber != null ? `${t.trackNumber}.` : "-"} ${t.title ?? "?"} (${t.artist ?? "?"})\n`;
+            const fname = t.path.split(/[\\/]/).pop() ?? t.path;
+            summary += `  ${t.trackNumber != null ? `${t.trackNumber}.` : "-"} ${t.title ?? "?"} (${t.artist ?? "?"})\n    File: ${fname}\n    Path: ${t.path}\n`;
           }
         }
 
@@ -408,7 +414,7 @@ function buildReadOnlyTools(): AssistantToolDef[] {
     },
     {
       name: "query.metadata",
-      description: "Run typed read-only queries against the library metadata. Get aggregate counts, find missing tags, or detect duplicates.",
+      description: "Run typed read-only queries against the library metadata. Use aggregate for counts by album/artist/genre/year/codec plus tag completeness percentages. Use missingTags value (title/artist/album/year/genre) to find tracks missing a specific tag. Use duplicates to find tracks with duplicate title+artist+album combos. Every result includes full file paths. Read-only, no API calls.",
       inputSchema: {
         type: "object",
         properties: {
@@ -453,7 +459,7 @@ function buildReadOnlyTools(): AssistantToolDef[] {
           const limited = results.slice(0, 20);
           let summary = `Found ${results.length} track(s) missing ${field}:\n`;
           for (const t of limited) {
-            summary += `  - ${t.title ?? "(no title)"} by ${t.artist ?? "?"} (${t.album ?? "?"})\n`;
+            summary += `  - ${t.path}\n    ${t.title ?? "(no title)"} by ${t.artist ?? "?"} (${t.album ?? "?"})\n`;
           }
           if (results.length > 20) summary += `  ... and ${results.length - 20} more`;
           return {
@@ -472,6 +478,15 @@ function buildReadOnlyTools(): AssistantToolDef[] {
           let summary = results.length > 0
             ? `Found ${results.length} tracks with potential duplicates:\n`
             : "No duplicate tracks found.";
+          if (results.length > 0) {
+            for (const t of results.slice(0, 20)) {
+              const fname = t.path.split(/[\\/]/).pop() ?? t.path;
+              summary += `  - ${t.title ?? "?"} by ${t.artist ?? "?"} (${t.album ?? "?"})\n    File: ${fname}\n    Path: ${t.path}\n`;
+            }
+            if (results.length > 20) {
+              summary += `  ... and ${results.length - 20} more`;
+            }
+          }
           return { ok: true, summary, data: { total: results.length, tracks: results.slice(0, 20) } };
         }
 
@@ -480,7 +495,7 @@ function buildReadOnlyTools(): AssistantToolDef[] {
     },
     {
       name: "query.datasetStatus",
-      description: "Check if the local dataset index is available and return status information.",
+      description: "Check if the local dataset index is available and return status information. The dataset is a local SQLite index of MusicBrainz/other metadata for offline lookups. If unavailable, auto-tagging will rely on online API lookups instead. Read-only, no API calls.",
       inputSchema: {
         type: "object",
         properties: {},
@@ -493,7 +508,7 @@ function buildReadOnlyTools(): AssistantToolDef[] {
     },
     {
       name: "api.musicbrainzSearch",
-      description: "Search MusicBrainz for a release by artist and album. Returns summarized results.",
+      description: "Search MusicBrainz for a release by artist and album. Use a query like 'artist:Radiohead album:OK Computer'. Returns release ID, title, artist, date, and track count for matching releases. This makes an external API call — use sparingly. Only available when MusicBrainz integration is configured.",
       inputSchema: {
         type: "object",
         properties: {
@@ -518,7 +533,7 @@ function buildReadOnlyTools(): AssistantToolDef[] {
     },
     {
       name: "api.discogsSearch",
-      description: "Search Discogs for a release by query. Requires Discogs token to be configured.",
+      description: "Search Discogs for a release by query. Supports type: release, master, artist, or label (default: release). Returns release details including year, genre, style, and cover art info. This makes an external API call — use sparingly. A Discogs token must be configured in Settings.",
       inputSchema: {
         type: "object",
         properties: {
@@ -545,7 +560,7 @@ function buildReadOnlyTools(): AssistantToolDef[] {
     },
     {
       name: "api.lyricsSearch",
-      description: "Search for lyrics of a specific track. Requires lyrics host to be configured.",
+      description: "Search for lyrics of a specific track by artist and title. Returns lyrics text if found. This makes an external API call — use sparingly. A lyrics host must be configured in Settings.",
       inputSchema: {
         type: "object",
         properties: {
@@ -913,11 +928,15 @@ export function planStripFilenamePrefixes(
   return results;
 }
 
+export function buildMutatingToolsForTesting(): AssistantToolDef[] {
+  return buildMutatingTools();
+}
+
 function buildMutatingTools(): AssistantToolDef[] {
   return [
     {
       name: "edit_metadata",
-      description: "Composite macro: plan standard tag edits and extra tag edits in one preview action batch.",
+      description: "Composite macro: plan standard tag edits and extra tag edits in one preview action batch. Supports target_scope selected/active_album/library/explicit_paths. Use standard_updates for known tag fields (title, artist, artists, album, albumArtist, albumArtists, year, trackNumber, trackTotal, discNumber, discTotal, genre, composer, comment, description, lyrics, compilation, musicbrainzTrackId, musicbrainzAlbumId, musicbrainzArtistId). Use standard_removes to clear fields. Use extra_upserts/extra_removes for custom tags. IMPORTANT: standard_updates apply the SAME value to ALL targeted tracks — do NOT use per-track fields (title, artist, artists, trackNumber) with library/active_album scope unless every track should get the same value. Use infer_tags_from_filenames for per-track title/artist from filenames. Use auto_numbering_tracks for renumbering. Creates a preview action batch for user approval.",
       inputSchema: {
         type: "object",
         properties: {
@@ -1012,7 +1031,7 @@ function buildMutatingTools(): AssistantToolDef[] {
           const fieldList = uniqueFieldsPresent.join(", ");
           return {
             ok: true,
-            summary: `⚠️ WARNING: The same ${fieldList} value(s) would be applied to ALL ${targetPaths.length} targeted tracks via target_scope "${targetScope}". This is likely wrong — each track needs different values for these fields. First use tracks.inspect or tracks.search to find the specific file paths, then call edit_metadata with target_scope "explicit_paths" for each batch of tracks that should get the same values.`,
+            summary: `⚠️ WARNING: The same ${fieldList} value(s) would be applied to ALL ${targetPaths.length} targeted tracks via target_scope "${targetScope}". This is likely wrong — each track needs different values for these fields. Instead of edit_metadata with the same value for all tracks, use infer_tags_from_filenames to parse per-track title/artist/artists from filenames (expects "Artist - Title.ext" format). For track/disc numbers, use auto_numbering_tracks. To set an album-scope field (album, albumArtist, year, genre) for all tracks, use edit_metadata with target_scope "active_album" or "library" without per-track fields.`,
           };
         }
 
@@ -1451,7 +1470,7 @@ function buildMutatingTools(): AssistantToolDef[] {
     },
     {
       name: "group_by_album",
-      description: "Composite macro: move files on disk into album folders. It groups tracks by their album metadata tag and moves each track into a subfolder named after its album. Do not use this to fix track numbers or other metadata; use auto_numbering_tracks for numbering.",
+      description: "Composite macro: move files on disk into album folders. Groups tracks by their album metadata tag (not by folder — uses the ID3/FLAC album tag) and moves each track into a subfolder named after its album under the library root. Skips tracks that already have the correct album folder. Supports target_scope selected/active_album/library/explicit_paths. Creates a preview action batch for user approval. Do NOT use this to fix track numbers or other metadata; use auto_numbering_tracks for numbering.",
       inputSchema: {
         type: "object",
         properties: {
@@ -1521,7 +1540,7 @@ function buildMutatingTools(): AssistantToolDef[] {
     },
     {
       name: "run_library_task",
-      description: "Composite macro: plan an auto-tag or audit task for selected tracks, active album, entire library, or explicit track paths.",
+      description: "Composite macro: plan an auto-tag or audit task for selected tracks, active album, entire library, or explicit track paths. Use task: auto_tag to run the full auto-tagging pipeline (folder hints → MusicBrainz → Discogs → LLM fallback) on the target tracks. Use task: audit to scan tracks for missing/inconsistent metadata and report issues. Supports target_scope selected/active_album/library/explicit_paths. Creates a preview action batch for user approval.",
       inputSchema: {
         type: "object",
         properties: {

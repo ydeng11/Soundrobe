@@ -9,7 +9,7 @@
  *  - Step timing (start/end pairs)
  */
 
-import { appendFileSync, existsSync, mkdirSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
 import { BrowserWindow, ipcMain } from "electron";
@@ -35,6 +35,7 @@ class DebugLogger {
   private subscribers: Set<LogCallback> = new Set();
   private logDir: string;
   private timers = new Map<string, number>();
+  private truncatedLogFiles = new Set<string>();
 
   constructor() {
     this.logDir = join(homedir(), ".auto-tagger");
@@ -50,6 +51,15 @@ class DebugLogger {
         `auto-tag-debug-${new Date().toISOString().slice(0, 10)}.log`,
       );
       this.logToFile = true;
+      if (!this.truncatedLogFiles.has(this.logFilePath)) {
+        this.truncatedLogFiles.add(this.logFilePath);
+        // Truncate once per process so toggling debug mode does not erase diagnostics.
+        try {
+          writeFileSync(this.logFilePath, "", "utf-8");
+        } catch {
+          // Silently skip if write fails
+        }
+      }
       this.info("debug", `Debug logging enabled → ${this.logFilePath}`);
     } else {
       this.info("debug", "Debug logging disabled");

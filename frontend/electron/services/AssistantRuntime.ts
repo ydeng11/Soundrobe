@@ -101,6 +101,7 @@ Guidelines:
 - To inspect specific tracks use tracks.inspect or tracks.search.
 - To get album details use albums.inspect.
 - tracks.inspect returns at most 20 tracks by default. Pass a limit (up to 500) to see more: e.g., tracks.inspect with limit: 500 shows all tracks.
+- All track-level tool results include the full file path for each track. Use these paths with target_scope "explicit_paths" in mutating tools to target specific files.
 
 SAFETY RULES FOR edit_metadata:
 - The standard_updates and extra_upserts fields in edit_metadata apply the SAME values to EVERY targeted track.
@@ -150,7 +151,7 @@ export class AssistantRuntime {
   private registry: AssistantToolRegistry;
   private autonomous: boolean;
   private cancelled = false;
-  private maxSteps = 6;
+  private maxSteps = 10;
   private eventCallbacks: AssistantEventCallback[] = [];
   private pendingBatches: Map<string, AssistantActionBatch> = new Map();
   private nextBatchId = 1;
@@ -484,9 +485,13 @@ export class AssistantRuntime {
       .map((m) => `${m.role}: ${m.content.slice(0, 200)}`)
       .join("\n");
     let diagMsg =
-      `I reached the maximum step limit (${this.maxSteps}) and couldn't complete the task. ` +
-      `This often happens when tool calls return unexpected results or the task ` +
-      `requires more steps than allowed.`;
+      `I reached the maximum step limit (${this.maxSteps}) and couldn't complete the task in one response. ` +
+      `You can try rephrasing your request or doing less per message. ` +
+      `Common fixes:\n` +
+      `- For per-track title/artist fixes: ask to \"infer tags from filenames\" (parses \"Artist - Title.ext\" patterns)\n` +
+      `- For track numbering: ask to \"fix track numbers\" (uses auto_numbering_tracks)\n` +
+      `- For stripping number prefixes from titles: ask to \"strip title prefixes\"\n` +
+      `- Be more specific: provide exact file paths or a narrower filter`;
     if (repeatedCalls) {
       diagMsg += `\n\nThe assistant called "${repeatedCalls.toolName}" with the same arguments ${repeatedCalls.callCount} times. This suggests the tool results were not what was expected. Try rephrasing your request or providing more specific file paths.`;
     }
@@ -618,7 +623,7 @@ export class AssistantRuntime {
   resetSession(): void {
     this.conversation = [];
     this.sessionId = this.generateSessionId();
-    this.maxSteps = 6;
+    this.maxSteps = 10;
     console.log(`[AssistantRuntime] Session reset, new id: ${this.sessionId}`);
   }
 

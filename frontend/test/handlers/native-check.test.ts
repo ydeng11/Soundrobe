@@ -99,6 +99,34 @@ describe("ensureNativeModules", () => {
     expect(result).toBe(false);
     expect(dialog.showMessageBox).toHaveBeenCalledOnce();
   });
+
+  it("returns false when ABI rebuild fails so startup does not continue", async () => {
+    vi.resetModules();
+    const mismatch = Object.assign(new Error("NODE_MODULE_VERSION 147 requires 146"), {
+      code: "ERR_DLOPEN_FAILED",
+    });
+    nativeRequireMock.mockImplementation(() => {
+      throw mismatch;
+    });
+    vi.mocked(execSync).mockImplementation(() => {
+      throw new Error("rebuild failed");
+    });
+
+    const { app, dialog } = await import("electron");
+    vi.mocked(app.isReady).mockReturnValue(true);
+    vi.mocked(dialog.showMessageBox)
+      .mockResolvedValueOnce({ response: 0, checkboxChecked: false })
+      .mockResolvedValueOnce({ response: 0, checkboxChecked: false });
+
+    const { ensureNativeModules } = await import(
+      "../../electron/handlers/native-check"
+    );
+
+    const result = await ensureNativeModules();
+
+    expect(result).toBe(false);
+    expect(dialog.showMessageBox).toHaveBeenCalledTimes(2);
+  });
 });
 
 describe("attemptRebuild", () => {

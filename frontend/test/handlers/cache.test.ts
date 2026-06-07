@@ -12,17 +12,34 @@ import {
 let tmpDir: string;
 let cache: MatchCache;
 
+function canUseNativeCacheInShellNode(): boolean {
+  const probeDir = mkdtempSync(join(tmpdir(), "cache-probe-"));
+  try {
+    const probe = new MatchCache(join(probeDir, "cache.db"));
+    probe.close();
+    return true;
+  } catch {
+    return false;
+  } finally {
+    rmSync(probeDir, { recursive: true, force: true });
+  }
+}
+
+const describeMatchCache = canUseNativeCacheInShellNode() ? describe : describe.skip;
+
 beforeEach(() => {
   tmpDir = mkdtempSync(join(tmpdir(), "cache-test-"));
   cache = new MatchCache(join(tmpDir, "cache.db"));
 });
 
 afterEach(() => {
-  cache.close();
-  rmSync(tmpDir, { recursive: true, force: true });
+  cache?.close();
+  if (tmpDir) {
+    rmSync(tmpDir, { recursive: true, force: true });
+  }
 });
 
-describe("MatchCache — lookup cache", () => {
+describeMatchCache("MatchCache — lookup cache", () => {
   it("starts empty", () => {
     const req = makeLookupRequest({ artistHint: "A", albumHint: "B" });
     expect(cache.get(req)).toBeNull();
@@ -70,7 +87,7 @@ describe("MatchCache — lookup cache", () => {
   });
 });
 
-describe("MatchCache — album state", () => {
+describeMatchCache("MatchCache — album state", () => {
   it("returns null for unknown album", () => {
     expect(cache.getAlbumState("/nonexistent")).toBeNull();
   });
@@ -105,7 +122,7 @@ describe("MatchCache — album state", () => {
   });
 });
 
-describe("MatchCache — LLM extraction cache", () => {
+describeMatchCache("MatchCache — LLM extraction cache", () => {
   it("returns null for unknown folder", () => {
     expect(cache.getLlmExtraction("unknown-folder")).toBeNull();
   });
@@ -135,7 +152,7 @@ describe("MatchCache — LLM extraction cache", () => {
   });
 });
 
-describe("MatchCache — edge cases", () => {
+describeMatchCache("MatchCache — edge cases", () => {
   it("handles concurrent lookups from different temp db", () => {
     const tmpDir2 = mkdtempSync(join(tmpdir(), "cache-test-2-"));
     const cache2 = new MatchCache(join(tmpDir2, "cache.db"));

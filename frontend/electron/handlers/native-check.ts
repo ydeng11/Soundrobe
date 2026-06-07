@@ -102,7 +102,10 @@ export async function ensureNativeModules(): Promise<boolean> {
     title: "Native Module Mismatch",
     message: "better-sqlite3 was compiled for a different Node.js version.",
     detail:
-      "The auto-tag and dataset features won't work until it's rebuilt for Electron's ABI. Rebuild now?",
+      `The auto-tag and dataset features won't work until it's rebuilt for Electron's ABI.\n\n` +
+      `Electron ABI: ${process.versions.modules}\n` +
+      `Repair command: npm run ensure:electron-abi\n\n` +
+      "Rebuild now?",
     buttons: ["Rebuild", "Quit"],
     defaultId: 0,
     cancelId: 1,
@@ -121,10 +124,10 @@ export async function ensureNativeModules(): Promise<boolean> {
     type: "error",
     title: "Native Module Error",
     message: "Could not rebuild better-sqlite3 for Electron.",
-    detail: `Please try running manually:\n\n  cd ${resolve(__dirname, "../..")} && npm run rebuild:electron\n\nOr reinstall: npm install`,
+    detail: `Please try running manually:\n\n  cd ${resolve(__dirname, "../..")} && npm run ensure:electron-abi\n\nOr reinstall: npm install`,
   });
 
-  return true; // let the app start anyway, handlers will fail
+  return false;
 }
 
 /**

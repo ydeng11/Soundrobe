@@ -133,10 +133,24 @@ function detectExternalCover(albumPath: string): string | null {
   return null;
 }
 
+/**
+ * Wrapper around parseFile with a timeout to prevent hanging on
+ * corrupt or problematic files (e.g. large files on slow external drives).
+ */
+async function parseFileWithTimeout(filePath: string, timeoutMs = 30000): Promise<ReturnType<typeof parseFile>> {
+  const result = await Promise.race([
+    parseFile(filePath),
+    new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error(`parseFile timed out after ${timeoutMs}ms: ${filePath}`)), timeoutMs),
+    ),
+  ]);
+  return result;
+}
+
 export async function readTrackMetadata(filePath: string): Promise<TrackData> {
   let metadata;
   try {
-    metadata = await parseFile(filePath);
+    metadata = await parseFileWithTimeout(filePath);
   } catch (error) {
     const fallback = readFlacMetadataFallback(filePath);
     if (fallback) return fallback;

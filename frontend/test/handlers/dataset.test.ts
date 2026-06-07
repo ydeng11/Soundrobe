@@ -2,13 +2,37 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtempSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import Database from "better-sqlite3";
+import { createRequire } from "node:module";
 import { DatasetReader } from "../../electron/handlers/dataset";
 
 let tmpDir: string;
 let dbPath: string;
 
+type NativeDatabaseConstructor = new (path: string) => {
+  pragma(sql: string): unknown;
+  exec(sql: string): void;
+  prepare(sql: string): { run(...params: unknown[]): unknown };
+  close(): void;
+};
+
+function tryLoadNativeDatabase(): NativeDatabaseConstructor | null {
+  try {
+    const Database = createRequire(import.meta.url)("better-sqlite3") as NativeDatabaseConstructor;
+    const probe = new Database(":memory:");
+    probe.close();
+    return Database;
+  } catch {
+    return null;
+  }
+}
+
+const Database = tryLoadNativeDatabase();
+const describeDatasetReader = Database ? describe : describe.skip;
+
 function createFixtureDb(): void {
+  if (!Database) {
+    throw new Error("better-sqlite3 is not available under the shell Node ABI");
+  }
   const db = new Database(dbPath);
   db.pragma("journal_mode = WAL");
 
@@ -151,7 +175,7 @@ afterEach(() => {
   rmSync(tmpDir, { recursive: true, force: true });
 });
 
-describe("DatasetReader — setup", () => {
+describeDatasetReader("DatasetReader — setup", () => {
   it("detects available database", () => {
     const reader = new DatasetReader(dbPath);
     expect(reader.isAvailable()).toBe(true);
@@ -180,7 +204,7 @@ describe("DatasetReader — setup", () => {
   });
 });
 
-describe("DatasetReader — queries", () => {
+describeDatasetReader("DatasetReader — queries", () => {
   it("returns results for exact match", () => {
     const reader = new DatasetReader(dbPath);
     const results = reader.queryAlbum("The Beatles", "Abbey Road");
@@ -249,7 +273,7 @@ describe("DatasetReader — queries", () => {
   });
 });
 
-describe("DatasetReader — progressive prefix fallback", () => {
+describeDatasetReader("DatasetReader — progressive prefix fallback", () => {
   it("matches when folder name is a superset of DB album", () => {
     const reader = new DatasetReader(dbPath);
     // User's folder might be "T-Time 新歌+精选" but DB has "T-time"
@@ -260,7 +284,7 @@ describe("DatasetReader — progressive prefix fallback", () => {
   });
 });
 
-describe("DatasetReader — artist hint cleanup", () => {
+describeDatasetReader("DatasetReader — artist hint cleanup", () => {
   it("strips parenthetical suffix from artist hint", () => {
     const reader = new DatasetReader(dbPath);
     // DB has "蛋堡", query with "蛋堡 (Soft Lipa)"
@@ -281,7 +305,7 @@ describe("DatasetReader — artist hint cleanup", () => {
   });
 });
 
-describe("DatasetReader — year-prefix fallback", () => {
+describeDatasetReader("DatasetReader — year-prefix fallback", () => {
   it("strips leading year from album hint and finds match", () => {
     const reader = new DatasetReader(dbPath);
     // DB has "Abbey Road", query with "1969 Abbey Road"
@@ -300,7 +324,7 @@ describe("DatasetReader — year-prefix fallback", () => {
   });
 });
 
-describe("DatasetReader — cross-service deduplication", () => {
+describeDatasetReader("DatasetReader — cross-service deduplication", () => {
   it("returns one result when same album exists in multiple services", () => {
     const reader = new DatasetReader(dbPath);
     // "Abbey Road" exists in both musicbrainz and spotify with the same name
@@ -313,7 +337,7 @@ describe("DatasetReader — cross-service deduplication", () => {
   });
 });
 
-describe("DatasetReader — artist-only fallback", () => {
+describeDatasetReader("DatasetReader — artist-only fallback", () => {
   it("returns albums by artist when album hint does not match", () => {
     const reader = new DatasetReader(dbPath);
     // Artist matches "The Beatles", album "Nonexistent" won't match

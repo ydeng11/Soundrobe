@@ -103,20 +103,40 @@ export default function App() {
   /** Read track data for every album and dispatch results. */
   const loadAlbumTracks = useCallback(
     async (albums: AlbumInfo[]) => {
-      const allTracks: TrackData[] = [];
-      for (let i = 0; i < albums.length; i++) {
-        dispatch({
-          type: "SET_SCANNING_PROGRESS",
-          progress: { current: i + 1, total: albums.length },
-        });
+      const trackGroups: TrackData[][] = Array.from({ length: albums.length }, () => []);
+      const concurrency = 4;
+      let nextIndex = 0;
+      let completed = 0;
+
+      const processAlbum = async (album: AlbumInfo) => {
         try {
-          const detail = await window.api.readAlbum(albums[i].path);
-          allTracks.push(...detail.tracks);
+          const detail = await window.api.readAlbum(album.path);
+          return detail.tracks;
         } catch {
-          // Skip albums that fail to read
+          return [] as TrackData[];
         }
-      }
+      };
+
+      // Process albums concurrently with a concurrency limit
+      const worker = async () => {
+        while (true) {
+          const idx = nextIndex++;
+          if (idx >= albums.length) break;
+          dispatch({
+            type: "SET_SCANNING_PROGRESS",
+            progress: { current: Math.min(completed + 1, albums.length), total: albums.length },
+          });
+          const tracks = await processAlbum(albums[idx]);
+          trackGroups[idx] = tracks;
+          completed += 1;
+        }
+      };
+
+      const workers = Array.from({ length: Math.min(concurrency, albums.length) }, () => worker());
+      await Promise.all(workers);
+
       dispatch({ type: "SET_SCANNING_PROGRESS", progress: null });
+      const allTracks = trackGroups.flat();
       dispatch({ type: "SET_TRACKS", tracks: allTracks });
     },
     [],
@@ -541,6 +561,12 @@ export default function App() {
       }
 
       // Scoped refresh: only re-read tracks for tagged albums
+      dispatch({
+        type: "SET_AUTO_TAG_PROGRESS",
+        progress: isBatch
+          ? { current: completed, total: targetPaths.length, message: "Refreshing tracks..." }
+          : { current: 9, total: 9, message: "Refreshing tracks..." },
+      });
       const scannedAlbums = await window.api.scanLibrary(state.libraryPath);
       dispatch({ type: "SET_ALBUMS", albums: scannedAlbums });
 
@@ -667,6 +693,10 @@ export default function App() {
       }
 
       // Scoped refresh: only re-read tracks for audited albums
+      dispatch({
+        type: "SET_AUDIT_PROGRESS",
+        progress: { current: 0, total: 1, message: "Refreshing tracks..." },
+      });
       if (state.activeAlbumPath) {
         const detail = await window.api.readAlbum(state.activeAlbumPath);
         dispatch({ type: "UPDATE_TRACKS", tracks: detail.tracks });
