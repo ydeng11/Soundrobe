@@ -14,6 +14,7 @@ import {
   buildLookupVariantPairs,
   makeAlbumCandidate,
   makeLookupRequest,
+  normalizeLookupText,
   splitArtistNames,
   verifyAlbumName,
 } from "./candidates";
@@ -43,6 +44,34 @@ export function filterCandidatesForAutoApply(
     const verification = verifyAlbumName(request.albumHint, candidate);
     candidate.verification = verification;
     return verification !== "mismatch";
+  });
+}
+
+const REMOTE_TRACK_SOURCES = new Set<AlbumCandidate["source"]>(["dataset", "discogs", "musicbrainz"]);
+
+function remoteTracklistMatchesLocalRequest(
+  request: ReturnType<typeof makeLookupRequest>,
+  candidate: AlbumCandidate,
+): boolean {
+  if (request.tracks.length === 0 || candidate.tracks.length === 0) return true;
+  if (request.tracks.length !== candidate.tracks.length) return false;
+
+  return request.tracks.every((localTrack, index) => {
+    const localTitle = normalizeLookupText(localTrack.title);
+    if (!localTitle) return true;
+    const remoteTitle = normalizeLookupText(candidate.tracks[index]?.title ?? null);
+    return localTitle === remoteTitle;
+  });
+}
+
+export function protectCandidateTrackFieldsForAutoApply(
+  request: ReturnType<typeof makeLookupRequest>,
+  candidates: AlbumCandidate[],
+): AlbumCandidate[] {
+  return candidates.map((candidate) => {
+    if (!REMOTE_TRACK_SOURCES.has(candidate.source)) return candidate;
+    if (remoteTracklistMatchesLocalRequest(request, candidate)) return candidate;
+    return { ...candidate, tracks: [] };
   });
 }
 
@@ -160,8 +189,6 @@ function getConfigPaths(): string[] {
     join(home, ".auto-tagger", "config.yaml"),
   ];
 }
-
-
 
 /**
  * Load config from YAML file (simple key-value parse, no YAML dep).
@@ -546,7 +573,10 @@ class TaskManager {
         const folderCandidate = candidateFromFolder(correctedRequest);
         allCandidates.push(folderCandidate);
 
-        allCandidates = filterCandidatesForAutoApply(correctedRequest, allCandidates);
+        allCandidates = protectCandidateTrackFieldsForAutoApply(
+          correctedRequest,
+          filterCandidatesForAutoApply(correctedRequest, allCandidates),
+        );
 
         debug.info("auto-tag", `Total candidates across all sources: ${allCandidates.length}`);
 
@@ -695,8 +725,13 @@ class TaskManager {
         yearHint: (data.year as string) || request.yearHint,
       };
 
-      // Build fallback candidate with genre (used when APIs return nothing)
-      const llmTracks = Array.isArray(data.tracks) ? data.tracks as Array<Record<string, unknown>> : [];
+      // Build fallback candidate with genre (used when APIs return nothing).
+      // Normalize LLM track indices: some models return 1-based indices
+      // instead of 0-based, which causes title-to-file mapping drift.
+      const rawTracks = Array.isArray(data.tracks)
+        ? (data.tracks as Array<Record<string, unknown>>)
+        : [];
+      const llmTracks = normalizeLlmTrackIndices(rawTracks, request.tracks.length);
       const fallbackCandidate: AlbumCandidate = {
         artist: (data.artist as string) || request.artistHint,
         artists: splitArtistNames([(data.artist as string) || request.artistHint]),
@@ -709,7 +744,7 @@ class TaskManager {
         musicbrainzArtistId: null,
         tracks: request.tracks.length > 0
           ? request.tracks.map((t, i) => {
-              const llmTrack = llmTracks.find((lt) => lt.index === i);
+              const llmTrack = llmTracks[i];
               return {
                 ...t,
                 title: (llmTrack?.title as string) || t.title,
@@ -799,31 +834,32 @@ class TaskManager {
       this.emitTask(taskId, "source", `Local cover: ${cover.path}`, { source: "cover", path: cover.path });
     }
 
-    // Build track-level fields indexed by track number
-    const trackMap = new Map<number, WriteFields>();
-    for (const tc of candidate.tracks) {
-      if (tc.trackNumber != null) {
-        const fields: WriteFields = {};
-        if (tc.title !== undefined) fields.title = tc.title;
-        if (tc.artist !== undefined) fields.artist = tc.artist;
-        if (tc.artists.length > 0) fields.artists = splitArtistNames(tc.artists);
-        if (tc.trackNumber != null) fields.trackNumber = tc.trackNumber;
-        if (tc.trackTotal != null) fields.trackTotal = tc.trackTotal;
-        if (tc.discNumber != null) fields.discNumber = tc.discNumber;
-        if (tc.discTotal != null) fields.discTotal = tc.discTotal;
-        if (tc.musicbrainzTrackId != null) fields.musicbrainzTrackId = tc.musicbrainzTrackId;
-        trackMap.set(tc.trackNumber, fields);
-      }
-    }
+    // Build track-level fields, preserving input order.
+    // Positional matching avoids Map<number, ...> which silently drops
+    // duplicate track numbers (common on multi-disc compilations).
+    // Both arrays are filename-sorted identically, so index i is correct.
+    const trackFieldsList: WriteFields[] = candidate.tracks.map((tc) => {
+      const fields: WriteFields = {};
+      if (tc.title !== undefined) fields.title = tc.title;
+      if (tc.artist !== undefined) fields.artist = tc.artist;
+      if (tc.artists.length > 0) fields.artists = splitArtistNames(tc.artists);
+      if (tc.trackNumber != null) fields.trackNumber = tc.trackNumber;
+      if (tc.trackTotal != null) fields.trackTotal = tc.trackTotal;
+      if (tc.discNumber != null) fields.discNumber = tc.discNumber;
+      if (tc.discTotal != null) fields.discTotal = tc.discTotal;
+      if (tc.musicbrainzTrackId != null) fields.musicbrainzTrackId = tc.musicbrainzTrackId;
+      return fields;
+    });
 
-    // Write tags — album-level to every file, track-level when matching by position
+    // Write tags — album-level to every file, track-level matched by
+    // position in the sorted directory listing.
+    // Positional matching (not Map<number, ...>) avoids cascade shifts
+    // when files have duplicate or non-contiguous track numbers.
     let written = 0;
     let errors = 0;
     for (let i = 0; i < audioFiles.length; i++) {
       const filePath = audioFiles[i];
-      const trackNum = i + 1; // 1-based position fallback
-
-      const trackFields = trackMap.get(trackNum) ?? {};
+      const trackFields = i < trackFieldsList.length ? trackFieldsList[i] : {};
       const mergedFields: WriteFields = { ...albumFields, ...trackFields };
 
       // 1. Read local lyrics (with encoding fix)
@@ -864,7 +900,7 @@ class TaskManager {
         written++;
         this.emitTask(taskId, "write", `Wrote tags: ${basename(filePath)}`, {
           path: filePath,
-          trackNumber: mergedFields.trackNumber ?? trackNum,
+          trackNumber: mergedFields.trackNumber ?? i + 1,
         });
         debug.debug("auto-tag", `Wrote tags: ${filePath}`);
       } catch (err) {
@@ -948,7 +984,7 @@ class TaskManager {
       "folder",
       "front",
       "album",
-    ].filter((name): name is string => !!name && name.trim().length > 0);
+    ].filter((name): name is string => !!name?.trim());
     const exts = [".jpg", ".jpeg", ".png"];
     for (const name of names) {
       for (const ext of exts) {
@@ -1269,6 +1305,88 @@ function formatYamlValue(value: unknown): string {
     return `"${str.replace(/"/g, '\\"')}"`;
   }
   return str;
+}
+
+// ── LLM track index normalization ────────────────────────────────
+
+/**
+ * Normalize LLM track indices to 0-based, positional array.
+ *
+ * Problem: Some LLMs return 1-based indices (index: 1, 2, 3...) instead
+ * of 0-based (index: 0, 1, 2...). When the code matches by `lt.index === i`
+ * and the LLM uses 1-based, track 0 gets no match (drift).
+ *
+ * Strategy:
+ *  1. If the minimum index is 1 and count matches, subtract 1 from all.
+ *  2. If indices don't align (count mismatch or gaps), sort by index
+ *     and use positional order, ignoring the absolute index values.
+ *  3. Return a positional array (index = position).
+ */
+function normalizeLlmTrackIndices(
+  tracks: Array<Record<string, unknown>>,
+  expectedCount: number,
+): Array<Record<string, unknown>> {
+  if (tracks.length === 0) return [];
+
+  const indices = tracks
+    .map((t) => Number(t.index))
+    .filter((n) => !Number.isNaN(n));
+
+  if (indices.length === 0) {
+    // No usable indices — assign by position
+    return tracks.slice(0, expectedCount);
+  }
+
+  const minIndex = Math.min(...indices);
+  const maxIndex = Math.max(...indices);
+  const uniqueIndices = new Set(indices).size;
+
+  // Case 1: 1-based indexing (min index is 1, max matches expected count)
+  if (minIndex === 1 && maxIndex === expectedCount && uniqueIndices === expectedCount) {
+    // Sort by index and return positional array (subtracting 1)
+    const sorted = [...tracks].sort((a, b) => Number(a.index) - Number(b.index));
+    return sorted.slice(0, expectedCount);
+  }
+
+  // Case 2: 0-based indexing with contiguous indices
+  if (
+    minIndex === 0 &&
+    uniqueIndices >= Math.min(tracks.length, expectedCount)
+  ) {
+    const sorted = [...tracks].sort((a, b) => Number(a.index) - Number(b.index));
+    return sorted.slice(0, expectedCount);
+  }
+
+  // Case 3: non-contiguous or mismatched — use positional fallback
+  debug.warn(
+    "auto-tag",
+    `LLM track indices don't align with input (min=${minIndex}, max=${maxIndex}, ` +
+    `unique=${uniqueIndices}, expected=${expectedCount}, received=${tracks.length}) ` +
+    `— using positional fallback`,
+  );
+  return tracks.slice(0, expectedCount);
+}
+
+// ── Track number extraction from filename ──────────────────────
+
+/**
+ * Extract track number from a filename.
+ *
+ * Handles common patterns:
+ *   "01 - Title.ext"  → 1
+ *   "01 Title.ext"    → 1
+ *   "01.Title.ext"    → 1
+ *   "101-Title.ext"   → 101
+ *   "track 1.ext"     → null (not a numeric prefix)
+ *   "- no number.ext" → null
+ */
+function extractTrackNumberFromFilename(filename: string): number | null {
+  const base = filename.replace(/\.[^.]+$/, "");
+  const match = base.match(/^(\d+)/);
+  if (!match) return null;
+  const num = parseInt(match[1], 10);
+  if (Number.isNaN(num) || num < 1) return null;
+  return num;
 }
 
 // ── Standalone lyrics download (independent of auto-tag) ───────────

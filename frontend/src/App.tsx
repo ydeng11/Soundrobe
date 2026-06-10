@@ -25,6 +25,10 @@ import {
   type ConvertTrackData,
 } from "../electron/services/ConvertService";
 import type { ExtraTagUndoSnapshot, TrackData, AlbumInfo, AlbumDetail } from "../electron/preload";
+import {
+  computeNumberedTracks,
+  type OrderingRule,
+} from "../electron/services/TrackNumberingService";
 
 const EXTRA_TAG_UNDO_FIELD = "__assistantExtraTags";
 
@@ -1048,7 +1052,51 @@ export default function App() {
     [state.selectedTrackPaths, state.tracks]
   );
 
+  // --- Number Tracks ---
 
+  const handleNumberTracks = useCallback(
+    async (rule: OrderingRule) => {
+      if (!state.activeAlbumPath) return;
+      const albumTracks = state.tracks.filter((t) =>
+        t.path.startsWith(state.activeAlbumPath + "/"),
+      );
+      if (albumTracks.length === 0) return;
+
+      const inputs = albumTracks.map((t) => ({
+        path: t.path,
+        title: t.title,
+        trackNumber: t.trackNumber,
+        duration: t.duration,
+      }));
+
+      const updates = computeNumberedTracks(inputs, rule);
+
+      // Undo snapshots: save current trackNumber/trackTotal for each track
+      const snapshots: TrackSnapshot[] = albumTracks.map((t) => ({
+        path: t.path,
+        fields: { trackNumber: t.trackNumber, trackTotal: t.trackTotal },
+      }));
+
+      dispatch({
+        type: "PUSH_UNDO",
+        description: `Number tracks (${rule})`,
+        snapshots,
+      });
+
+      dispatch({ type: "SET_SAVING", saving: true });
+      try {
+        const results = await window.api.writeTracks(updates);
+        dispatch({ type: "UPDATE_TRACKS", tracks: results });
+      } catch (err: unknown) {
+        const message =
+          err instanceof Error ? err.message : "Numbering failed";
+        dispatch({ type: "SET_ERROR", error: message });
+      } finally {
+        dispatch({ type: "SET_SAVING", saving: false });
+      }
+    },
+    [state.activeAlbumPath, state.tracks],
+  );
 
   // --- Settings ---
 
@@ -1408,6 +1456,8 @@ export default function App() {
         onAutoTag={handleAutoTag}
         onGetLyrics={handleGetLyrics}
         onAudit={handleAudit}
+        onNumberTracks={handleNumberTracks}
+        activeAlbumPath={state.activeAlbumPath}
         darkMode={state.darkMode}
         onToggleDarkMode={handleToggleDarkMode}
         onOpenSettings={handleOpenSettings}
@@ -1549,19 +1599,7 @@ export default function App() {
         open={showConvertDialog}
         onClose={() => setShowConvertDialog(false)}
         onConvert={handleConvertAction}
-        tracks={selectedTracksForBatch.map((t) => ({
-          filename: basename(t.path) ?? t.path,
-          title: t.title,
-          artist: t.artist,
-          album: t.album,
-          year: t.year,
-          track: t.trackNumber,
-          genre: t.genre,
-          albumArtist: t.albumArtist,
-          composer: t.composer,
-          comment: t.comment,
-          discNumber: t.discNumber,
-        }))}
+        tracks={selectedTracksForBatch.map(toConvertTrack)}
       />
 
       {extraTagsTrack && (
