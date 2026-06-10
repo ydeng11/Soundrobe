@@ -148,6 +148,24 @@ describe("AssistantPanel — status indicator", () => {
     });
   });
 
+  it("treats incomplete backend completion events as failed", async () => {
+    renderPanel();
+    const input = screen.getByPlaceholderText(/ask the assistant/i);
+    fireEvent.change(input, { target: { value: "number" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+
+    emitEvent({
+      sessionId: "s1",
+      type: "completed",
+      message: "I reached the maximum step limit (10) and couldn't complete the task in one response.",
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText("Failed")).toBeTruthy();
+      expect(screen.getByText(/maximum step limit/i)).toBeTruthy();
+    });
+  });
+
   it("transitions to 'failed' on error event and shows retry button", async () => {
     renderPanel();
     const input = screen.getByPlaceholderText(/ask the assistant/i);

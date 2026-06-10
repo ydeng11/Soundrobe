@@ -80,6 +80,12 @@ export class OpenRouterClient {
 
   /**
    * Call OpenRouter and parse structured JSON content.
+   *
+   * Some free-tier models ignore `response_format: json_schema` and return
+   * natural-language text instead of JSON, or return empty content.
+   * We handle these cases gracefully instead of throwing:
+   * - Empty content → synthetic message with empty string
+   * - Non-JSON natural language → wrapped as a "message" type response
    */
   async completeJson(
     messages: Array<{ role: string; content: string }>,
@@ -92,7 +98,16 @@ export class OpenRouterClient {
     let parseError: Error | null = null;
 
     for (let attempt = 0; attempt < 2; attempt++) {
-      const response = await this.postWithRetries(messages, schemaName, schema, model);
+      // If the previous attempt was truncated (finish_reason=length), double
+      // the token budget so the model can complete its JSON output.
+      const maxTokensOverride =
+        attempt > 0 && this.getFinishReason(payload) === "length"
+          ? (this.config.maxTokens ?? 4096) * 2
+          : undefined;
+
+      const response = await this.postWithRetries(
+        messages, schemaName, schema, model, 2, maxTokensOverride,
+      );
       const responsePayload = await response.json() as Record<string, unknown>;
       payload = responsePayload;
 
@@ -102,7 +117,9 @@ export class OpenRouterClient {
       }
       content = choices[0]?.message?.content ?? "";
       if (!content) {
-        throw new Error("OpenRouter response did not include message content");
+        // Empty content — not a JSON parse issue, the API simply didn't
+        // return content. Fall through to the message-wrapper logic below.
+        break;
       }
       content = String(content);
 
@@ -114,10 +131,24 @@ export class OpenRouterClient {
       }
     }
 
-    const choices = ((payload ?? {}) as any).choices ?? [];
-    const finishReason = choices[0]?.finish_reason;
+    // If after retries we have empty content or natural-language text,
+    // return a synthetic message response instead of crashing.
+    // This handles free-tier models that ignore response_format constraints.
+    const trimmed = content.trim();
+    if (!trimmed || !trimmed.startsWith("{") && !trimmed.startsWith("[")) {
+      const wrapped = { type: "message", content: trimmed };
+      return this.buildResponse(payload ?? { usage: {}, model: model ?? this.config.model }, wrapped, model);
+    }
+
+    const finishReason = this.getFinishReason(payload);
     const reason = finishReason ? ` (finish_reason=${String(finishReason)})` : "";
     throw new Error(`LLM returned malformed JSON${reason}: ${parseError?.message ?? "unknown parse error"}`);
+  }
+
+  /** Extract finish_reason from an OpenRouter response payload, or null. */
+  private getFinishReason(payload: Record<string, unknown> | null): string | null {
+    const choices = ((payload ?? {}) as any).choices ?? [];
+    return choices[0]?.finish_reason ?? null;
   }
 
   private buildResponse(
@@ -145,13 +176,14 @@ export class OpenRouterClient {
     schema: Record<string, unknown>,
     model?: string,
     maxRetries = 2,
+    maxTokensOverride?: number,
   ): Promise<Response> {
     let lastResponse: Response | null = null;
     let lastError: Error | null = null;
 
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       try {
-        const response = await this.post(messages, schemaName, schema, model);
+        const response = await this.post(messages, schemaName, schema, model, maxTokensOverride);
         lastResponse = response;
 
         if (response.ok) return response;
@@ -196,6 +228,7 @@ export class OpenRouterClient {
     schemaName: string,
     schema: Record<string, unknown>,
     model?: string,
+    maxTokensOverride?: number,
   ): Promise<Response> {
     const url = `${this.config.baseUrl!.replace(/\/$/, "")}/chat/completions`;
 
@@ -203,7 +236,7 @@ export class OpenRouterClient {
       model: model ?? this.config.model,
       messages,
       temperature: this.config.temperature,
-      max_tokens: this.config.maxTokens,
+      max_tokens: maxTokensOverride ?? this.config.maxTokens,
       response_format: {
         type: "json_schema",
         json_schema: {

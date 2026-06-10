@@ -191,7 +191,9 @@ export async function readTrackMetadata(filePath: string): Promise<TrackData> {
     year,
     genre: common.genre?.[0] ?? null,
     composer: common.composer?.[0] ?? null,
-    comment: (common.comment as string | undefined) ?? null,
+    comment: Array.isArray(common.comment)
+        ? (common.comment[0]?.text ?? null)
+        : (common.comment as string | undefined) ?? null,
     description: extractNativeTag(metadata, "DESCRIPTION") ?? null,
     lyrics: (common.lyrics?.[0] as string | undefined) ?? null,
     compilation: common.compilation ?? null,

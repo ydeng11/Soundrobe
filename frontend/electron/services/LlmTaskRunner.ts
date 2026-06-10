@@ -269,7 +269,7 @@ export class LlmTaskRunner {
       )
       .join("\n");
 
-    const fullSystemPrompt = `${input.systemPrompt}\n\nAvailable tools:\n${toolDescriptions}\n\nRespond with either:\n1. A natural language message (no JSON wrapper)\n2. A tool call in JSON format: {"type":"tool_call","toolName":"...","args":{...},"reason":"..."}`;
+    const fullSystemPrompt = `${input.systemPrompt}\n\nAvailable tools:\n${toolDescriptions}\n\nRespond in JSON format. Choose the appropriate shape:\n- For a reply or clarification: {"type":"message","content":"..."}\n- For a tool call: {"type":"tool_call","toolName":"...","args":{...},"reason":"..."}`;
 
     // Build the conversation messages
     const conversation: Array<{ role: string; content: string }> = [
@@ -309,13 +309,15 @@ export class LlmTaskRunner {
 
       if (parsed.type === "tool_call") {
         const toolName = this.resolveToolName(parsed, input.tools);
-        // When the tool name can't be resolved, the LLM is actually sending
-        // a message (the content/reason is its response). Treat as a message.
         if (toolName === "unknown") {
           steps.push({
             type: "message",
-            content: parsed.reason || parsed.content || "I couldn't determine the right tool.",
+            content:
+              `Malformed tool call: the assistant returned type "tool_call" ` +
+              `without a valid toolName. Content: ${parsed.reason || parsed.content || "(empty)"}`,
           });
+          stoppedEarly = true;
+          reason = "malformed_tool_call";
           break;
         }
         const args = parsed.args ?? {};

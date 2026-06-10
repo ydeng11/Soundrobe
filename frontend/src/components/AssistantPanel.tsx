@@ -190,7 +190,11 @@ export function AssistantPanel({
           pendingMsgRef.current = null;
           break;
         case "completed":
-          updatePendingMsg({ status: "completed", content: event.message || "Completed." });
+          if (/\b(couldn'?t complete|maximum step limit|no action was performed|malformed tool call)\b/i.test(event.message || "")) {
+            updatePendingMsg({ status: "failed", content: event.message || "Incomplete.", detail: { icon: "⚠️", text: event.message || "Incomplete." } });
+          } else {
+            updatePendingMsg({ status: "completed", content: event.message || "Completed." });
+          }
           setSending(false);
           pendingMsgRef.current = null;
           break;

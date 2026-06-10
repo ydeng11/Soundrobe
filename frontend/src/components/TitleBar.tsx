@@ -1,4 +1,9 @@
-import React from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
+import type { OrderingRule } from "../../electron/services/TrackNumberingService";
+import { ORDERING_RULE_LABELS } from "../../electron/services/TrackNumberingService";
+
+/** All ordering rules, derived from the canonical label map. */
+const NUMBERING_RULES = Object.keys(ORDERING_RULE_LABELS) as OrderingRule[];
 
 interface TitleBarProps {
   libraryPath: string | null;
@@ -18,11 +23,15 @@ interface TitleBarProps {
   onAutoTag: () => void;
   onGetLyrics: () => void;
   onAudit: () => void;
+  onNumberTracks: (rule: OrderingRule) => void;
+  activeAlbumPath: string | null;
   onToggleDarkMode: () => void;
   onOpenSettings: () => void;
   onToggleAssistant: () => void;
   onErrorDismiss: () => void;
 }
+
+
 
 export function TitleBar({
   libraryPath,
@@ -42,11 +51,48 @@ export function TitleBar({
   onAutoTag,
   onGetLyrics,
   onAudit,
+  onNumberTracks,
+  activeAlbumPath,
   onToggleDarkMode,
   onOpenSettings,
   onToggleAssistant,
   onErrorDismiss,
 }: TitleBarProps) {
+  const [numberMenuOpen, setNumberMenuOpen] = useState(false);
+  const numberBtnRef = useRef<HTMLButtonElement>(null);
+  const numberMenuRef = useRef<HTMLDivElement>(null);
+
+  // Close the numbering dropdown when clicking outside
+  useEffect(() => {
+    if (!numberMenuOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (
+        numberBtnRef.current &&
+        !numberBtnRef.current.contains(e.target as Node) &&
+        numberMenuRef.current &&
+        !numberMenuRef.current.contains(e.target as Node)
+      ) {
+        setNumberMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [numberMenuOpen]);
+
+  const handleNumberClick = useCallback(() => {
+    setNumberMenuOpen((prev) => !prev);
+  }, []);
+
+  const handleRuleSelect = useCallback(
+    (rule: OrderingRule) => {
+      setNumberMenuOpen(false);
+      onNumberTracks(rule);
+    },
+    [onNumberTracks],
+  );
+
+  const numberDisabled = !libraryPath || !activeAlbumPath;
+
   return (
     <div className="flex items-center h-[38px] px-3 bg-white/95 backdrop-blur-md border-b border-border drag-region select-none gap-2">
       {/* Spacer for traffic light controls (70px accounts for native red/yellow/green) */}
@@ -182,6 +228,53 @@ export function TitleBar({
         )}
         <span>{auditing ? "Auditing…" : "Audit"}</span>
       </button>
+
+      <div className="w-px h-4 bg-border no-drag" />
+
+      {/* Number button with dropdown */}
+      <div className="relative no-drag">
+        <button
+          ref={numberBtnRef}
+          onClick={handleNumberClick}
+          disabled={numberDisabled}
+          className={`inline-flex items-center gap-1.5 px-3 py-1 text-[11.5px] font-medium rounded-md transition-all duration-200 active:scale-[0.95] hover:scale-[1.03] ${
+            numberDisabled
+              ? "text-text-muted/40 cursor-not-allowed"
+              : "text-[#5e5ce6] hover:bg-[#5e5ce6]/10"
+          }`}
+          title="Auto-number tracks within the selected album"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="4" y1="9" x2="20" y2="9" />
+            <line x1="4" y1="15" x2="20" y2="15" />
+            <line x1="4" y1="12" x2="20" y2="12" />
+            <line x1="4" y1="6" x2="12" y2="6" />
+            <line x1="4" y1="18" x2="12" y2="18" />
+          </svg>
+          <span>Number</span>
+        </button>
+
+        {numberMenuOpen && !numberDisabled && (
+          <div
+            ref={numberMenuRef}
+            className="absolute right-0 top-full mt-1 z-50 min-w-[200px] bg-white border border-border rounded-lg shadow-lg py-1"
+          >
+            <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-widest text-text-muted">
+              Number tracks by…
+            </div>
+            <div className="h-px bg-border/50 mx-2 my-0.5" />
+            {NUMBERING_RULES.map((rule) => (
+              <button
+                key={rule}
+                onClick={() => handleRuleSelect(rule)}
+                className="w-full flex items-center gap-2 px-3 py-1.5 text-[12px] text-left text-text-secondary hover:bg-surface-hover hover:text-text-primary transition-colors"
+              >
+                {ORDERING_RULE_LABELS[rule]}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
 
       <div className="w-px h-4 bg-border no-drag" />
 

@@ -246,8 +246,8 @@ function BatchField({
         />
         {suggestions.length > 0 && (
           <datalist id={listId}>
-            {suggestions.map((s) => (
-              <option key={s} value={s} />
+            {suggestions.map((s, i) => (
+              <option key={i} value={String(s)} />
             ))}
           </datalist>
         )}

@@ -53,19 +53,23 @@ describe("OpenRouterClient", () => {
     expect(result.usage.totalTokens).toBe(150);
   });
 
-  it("throws on malformed JSON", async () => {
+  it("wraps natural language text as a message when JSON parsing fails", async () => {
     globalThis.fetch = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({
         choices: [{ message: { content: "not json" } }],
-        usage: {},
+        usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 },
+        model: "test-model",
       }),
     });
 
     const client = new OpenRouterClient({ apiKey: "test" });
-    await expect(
-      client.completeJson([{ role: "user", content: "x" }], "s", {}),
-    ).rejects.toThrow("malformed JSON");
+    const result = await client.completeJson(
+      [{ role: "user", content: "x" }],
+      "s", {},
+    );
+    expect(result.data).toEqual({ type: "message", content: "not json" });
+    expect(result.usage.promptTokens).toBe(10);
   });
 
   it("retries once when the first response has malformed JSON", async () => {
@@ -164,19 +168,23 @@ describe("OpenRouterClient", () => {
     ).rejects.toThrow("did not include choices");
   });
 
-  it("throws on empty message content", async () => {
+  it("wraps empty message content as a message rather than throwing", async () => {
     globalThis.fetch = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({
         choices: [{ message: { content: "" } }],
-        usage: {},
+        usage: { prompt_tokens: 5, completion_tokens: 3, total_tokens: 8 },
+        model: "test-model",
       }),
     });
 
     const client = new OpenRouterClient({ apiKey: "test" });
-    await expect(
-      client.completeJson([{ role: "user", content: "x" }], "s", {}),
-    ).rejects.toThrow("did not include message content");
+    const result = await client.completeJson(
+      [{ role: "user", content: "x" }],
+      "s", {},
+    );
+    expect(result.data).toEqual({ type: "message", content: "" });
+    expect(result.model).toBe("test-model");
   });
 });
 

@@ -20,14 +20,22 @@ function defaultProps(overrides?: Record<string, unknown>) {
     selectedFilePath: null,
     saving: false,
     autoTagging: false,
+    lyricsGetting: false,
+    auditing: false,
     darkMode: false,
     error: null,
     onOpenLibrary: vi.fn(),
+    onRefresh: vi.fn(),
     onConvert: vi.fn(),
     onAutoTag: vi.fn(),
-    onRefresh: vi.fn(),
+    onGetLyrics: vi.fn(),
+    onAudit: vi.fn(),
+    onNumberTracks: vi.fn(),
+    activeAlbumPath: "/music/Album",
     onToggleDarkMode: vi.fn(),
     onOpenSettings: vi.fn(),
+    onToggleAssistant: vi.fn(),
+    onErrorDismiss: vi.fn(),
     ...overrides,
   } as const;
 }
@@ -180,6 +188,95 @@ describe("TitleBar — all buttons", () => {
       render(<TitleBar {...defaultProps()} />);
       const btn = screen.getByText("Convert").closest("button");
       expect(btn?.disabled).toBe(false);
+    });
+  });
+
+  // ── Number button ────────────────────────────────────────
+
+  describe("Number button", () => {
+    it("renders the button", () => {
+      render(<TitleBar {...defaultProps()} />);
+      expect(screen.getByText("Number")).toBeTruthy();
+    });
+
+    it("is disabled when libraryPath is null", () => {
+      render(<TitleBar {...defaultProps({ libraryPath: null })} />);
+      const btn = screen.getByText("Number").closest("button");
+      expect(btn?.disabled).toBe(true);
+    });
+
+    it("is disabled when activeAlbumPath is null", () => {
+      render(<TitleBar {...defaultProps({ activeAlbumPath: null })} />);
+      const btn = screen.getByText("Number").closest("button");
+      expect(btn?.disabled).toBe(true);
+    });
+
+    it("shows the dropdown when clicked", () => {
+      render(<TitleBar {...defaultProps()} />);
+      const numberBtn = screen.getByText("Number");
+      fireEvent.click(numberBtn);
+
+      expect(screen.getByText("Number tracks by…")).toBeTruthy();
+      expect(screen.getByText("By filename (A-Z)")).toBeTruthy();
+      expect(screen.getByText("By title (A-Z)")).toBeTruthy();
+    });
+
+    it("calls onNumberTracks with the correct rule when a rule is clicked", () => {
+      const onNumberTracks = vi.fn();
+      render(<TitleBar {...defaultProps({ onNumberTracks })} />);
+
+      const numberBtn = screen.getByText("Number");
+      fireEvent.click(numberBtn);
+
+      fireEvent.click(screen.getByText("By filename (A-Z)"));
+      expect(onNumberTracks).toHaveBeenCalledWith("filename-asc");
+    });
+
+    it("calls onNumberTracks with title-desc when By title Z-A is clicked", () => {
+      const onNumberTracks = vi.fn();
+      render(<TitleBar {...defaultProps({ onNumberTracks })} />);
+
+      fireEvent.click(screen.getByText("Number"));
+      expect(screen.getByText("By title (Z-A)")).toBeTruthy();
+      fireEvent.click(screen.getByText("By title (Z-A)"));
+      expect(onNumberTracks).toHaveBeenCalledWith("title-desc");
+    });
+
+    it("closes the dropdown after selecting a rule", () => {
+      const onNumberTracks = vi.fn();
+      render(<TitleBar {...defaultProps({ onNumberTracks })} />);
+
+      fireEvent.click(screen.getByText("Number"));
+      expect(screen.getByText("Number tracks by…")).toBeTruthy();
+
+      fireEvent.click(screen.getByText("By filename (A-Z)"));
+      expect(screen.queryByText("Number tracks by…")).toBeFalsy();
+    });
+
+    it("closes the dropdown when clicking outside", () => {
+      render(<TitleBar {...defaultProps()} />);
+
+      fireEvent.click(screen.getByText("Number"));
+      expect(screen.getByText("Number tracks by…")).toBeTruthy();
+
+      // Click outside (on the document body)
+      fireEvent.mouseDown(document.body);
+      expect(screen.queryByText("Number tracks by…")).toBeFalsy();
+    });
+
+    it("shows all 8 ordering rules in the dropdown", () => {
+      render(<TitleBar {...defaultProps()} />);
+
+      fireEvent.click(screen.getByText("Number"));
+
+      expect(screen.getByText("By filename (A-Z)")).toBeTruthy();
+      expect(screen.getByText("By filename (Z-A)")).toBeTruthy();
+      expect(screen.getByText("By title (A-Z)")).toBeTruthy();
+      expect(screen.getByText("By title (Z-A)")).toBeTruthy();
+      expect(screen.getByText("By existing track # (asc)")).toBeTruthy();
+      expect(screen.getByText("By existing track # (desc)")).toBeTruthy();
+      expect(screen.getByText("By duration (short→long)")).toBeTruthy();
+      expect(screen.getByText("By duration (long→short)")).toBeTruthy();
     });
   });
 

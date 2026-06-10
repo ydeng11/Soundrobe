@@ -73,3 +73,33 @@ describe("LlmTaskRunner — resolveToolName", () => {
     expect(result).toBe("unknown");
   });
 });
+
+describe("LlmTaskRunner — malformed assistant tool calls", () => {
+  it("reports a tool_call without a resolvable tool as incomplete instead of a final message", async () => {
+    const runner = makeRunner();
+    (runner as any).client = {
+      completeJson: vi.fn().mockResolvedValue({
+        data: {
+          type: "tool_call",
+          content: "Applying automatic track numbering to all tracks in the library.",
+        },
+        usage: { promptTokens: 10, completionTokens: 5, totalTokens: 15 },
+        model: "openai/gpt-oss-120b:free",
+      }),
+    };
+
+    const result = await runner.runToolLoop({
+      systemPrompt: "test",
+      messages: [{ role: "user", content: "number" }],
+      tools,
+      maxSteps: 1,
+    });
+
+    expect(result.stoppedEarly).toBe(true);
+    expect(result.reason).toBe("malformed_tool_call");
+    expect(result.steps.at(-1)).toMatchObject({
+      type: "message",
+      content: expect.stringContaining("Malformed tool call"),
+    });
+  });
+});

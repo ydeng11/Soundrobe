@@ -93,7 +93,7 @@ Guidelines:
 - Never request or expose API keys.
 - Never invent file paths outside the current library.
 - Prefer small, reversible batches.
-- Prefer composite macro tools for write/task work: auto_numbering_tracks, strip_track_title_prefixes, strip_filename_prefixes, infer_tags_from_filenames, edit_metadata, organize_files, group_by_album, and run_library_task.
+- Prefer composite macro tools for write/task work: auto_numbering_tracks, strip_track_title_prefixes, strip_filename_prefixes, infer_tags_from_filenames, extract_tag_value, edit_metadata, organize_files, group_by_album, and run_library_task.
 - Use read-only tools to discover context, then call one macro with clear parameters.
 - Before calling a mutating tool, identify the intended operation type. If the user asks to fix metadata, do not choose a file-moving tool.
 - Be concise but helpful.
@@ -120,6 +120,24 @@ interface ToolIntentMismatch {
   summary: string;
 }
 
+type AssistantTaskContractKind =
+  | "read_only_answer"
+  | "action_preview_required"
+  | "clarification_required"
+  | "chat_only";
+
+interface AssistantTaskRoute {
+  toolName: string;
+  args: Record<string, unknown>;
+}
+
+interface AssistantTaskContract {
+  kind: AssistantTaskContractKind;
+  route?: AssistantTaskRoute;
+  reason: string;
+  requiresCompletionEvidence: boolean;
+}
+
 function hasTrackNumberIntent(text: string): boolean {
   return /\b(track\s*(number|numbers|#)|tracknumber|tracktotal|renumber|renumbering|numbering)\b/i.test(text)
     || /number(?:ed|ing)?\s+within\s+(each\s+)?album/i.test(text)
@@ -128,6 +146,136 @@ function hasTrackNumberIntent(text: string): boolean {
 
 function hasExplicitFileMoveIntent(text: string): boolean {
   return /\b(move|moving|organize|organise|folder|folders|directory|directories|rename|relocate)\b/i.test(text);
+}
+
+function hasExtractTagValueIntent(text: string): boolean {
+  // Detect requests to clean/extract values from tag fields.
+  // e.g. "remove number and - from Album", "strip suffix from title", or "clean album tag value"
+  const TAG_FIELDS = /\b(album|title|artist|genre|year|composer|comment|description|artists)\b/i;
+  const EXTRACT_VERBS = /\b(remove|strip|extract|clear|delete|clean|cleanup)\b/i;
+  return EXTRACT_VERBS.test(text) && TAG_FIELDS.test(text);
+}
+
+function buildExtractTagValueRoute(text: string): AssistantTaskRoute | undefined {
+  const fieldMatch = /\b(album|title|artist|artists|genre|year|composer|comment|description)\b(?:\s+tag)?/i.exec(text);
+  if (!fieldMatch) return undefined;
+
+  const isValueCleanup = /\b(value|tag)\b/i.test(text);
+  const mentionsNumberish = /\b(number|numbers|numeric|digit|digits)\b/i.test(text);
+  const mentionsSeparator = /[-–—.]|\bdash\b|\bdashes\b|\bdot\b|\bdots\b/i.test(text);
+  const mentionsPrefix = /\b(prefix|leading|start|beginning)\b/i.test(text);
+  const mentionsSuffix = /\b(suffix|trailing|ending|end)\b/i.test(text);
+  if (!isValueCleanup && !mentionsNumberish && !mentionsSeparator && !mentionsPrefix && !mentionsSuffix) {
+    return undefined;
+  }
+
+  let pattern = "^(?:\\d+[\\s.\\)\\-–—]+)?(.+?)(?:[\\s.\\)\\-–—]+\\d+)?$";
+  if (mentionsPrefix && !mentionsSuffix) {
+    pattern = "^\\d+[\\s.\\)\\-–—]+(.+)$";
+  } else if (mentionsSuffix && !mentionsPrefix) {
+    pattern = "^(.+?)[\\s.\\)\\-–—]+\\d+$";
+  }
+
+  return {
+    toolName: "extract_tag_value",
+    args: {
+      target_scope: "library",
+      field: fieldMatch[1].toLowerCase(),
+      pattern,
+      group_index: 1,
+    },
+  };
+}
+
+function hasGeneralActionIntent(text: string): boolean {
+  return /\b(apply|change|fix|update|edit|set|write|audit|number|renumber|infer|parse|strip|organize|organise|move|run)\b/i.test(text)
+    || /^\s*tag\b/i.test(text);
+}
+
+function hasReadOnlyIntent(text: string): boolean {
+  return /\b(summarize|summary|find|search|list|show|inspect|what|which|how many|count|missing|duplicate|duplicates)\b/i.test(text);
+}
+
+export function deriveAssistantTaskContract(userMessage: string): AssistantTaskContract {
+  const text = userMessage.trim();
+  const normalized = text.toLowerCase();
+
+  if (normalized.length === 0) {
+    return {
+      kind: "clarification_required",
+      reason: "empty_user_message",
+      requiresCompletionEvidence: false,
+    };
+  }
+
+  if (/^(number|renumber|track\s*numbers?|fix\s+track\s+numbers?|number\s+tracks)$/i.test(text) || hasTrackNumberIntent(text)) {
+    return {
+      kind: "action_preview_required",
+      route: { toolName: "auto_numbering_tracks", args: { target_scope: "library" } },
+      reason: "track_numbering_intent",
+      requiresCompletionEvidence: true,
+    };
+  }
+
+  if (/\b(auto[-\s]?tag|tag this|fill tags|fill missing tags)\b/i.test(text)) {
+    return {
+      kind: "action_preview_required",
+      route: { toolName: "run_library_task", args: { task: "auto_tag", target_scope: "library" } },
+      reason: "auto_tag_intent",
+      requiresCompletionEvidence: true,
+    };
+  }
+
+  if (/\b(audit|check missing|check metadata|scan metadata)\b/i.test(text)) {
+    return {
+      kind: "action_preview_required",
+      route: { toolName: "run_library_task", args: { task: "audit", target_scope: "library" } },
+      reason: "audit_intent",
+      requiresCompletionEvidence: true,
+    };
+  }
+
+  if (/\b(infer|parse)\b.*\b(filename|filenames)\b/i.test(text)
+    || /\b(filename|filenames)\b.*\b(title|artist|artists)\b/i.test(text)) {
+    return {
+      kind: "action_preview_required",
+      route: { toolName: "infer_tags_from_filenames", args: { target_scope: "library" } },
+      reason: "filename_inference_intent",
+      requiresCompletionEvidence: true,
+    };
+  }
+
+  if (hasExtractTagValueIntent(text)) {
+    const route = buildExtractTagValueRoute(text);
+    return {
+      kind: "action_preview_required",
+      route,
+      reason: "extract_tag_value_intent",
+      requiresCompletionEvidence: true,
+    };
+  }
+
+  if (hasGeneralActionIntent(text)) {
+    return {
+      kind: "action_preview_required",
+      reason: "general_action_intent",
+      requiresCompletionEvidence: true,
+    };
+  }
+
+  if (hasReadOnlyIntent(text)) {
+    return {
+      kind: "read_only_answer",
+      reason: "read_only_intent",
+      requiresCompletionEvidence: false,
+    };
+  }
+
+  return {
+    kind: "chat_only",
+    reason: "no_action_or_read_only_intent",
+    requiresCompletionEvidence: false,
+  };
 }
 
 export function detectToolIntentMismatch(
@@ -287,6 +435,173 @@ export class AssistantRuntime {
     return { repeated: false, toolName: "", callCount: 0 };
   }
 
+  private emitError(message: string, metadata?: Record<string, unknown>): AssistantEvent {
+    this.logger.recordEntry({
+      sessionUuid: this.sessionId,
+      entryType: "system",
+      content: message,
+      metadata,
+    });
+    const event: AssistantEvent = {
+      sessionId: this.sessionId,
+      type: "error",
+      message,
+      data: metadata,
+    };
+    this.emit(event);
+    return event;
+  }
+
+  private isToolArgumentValidationError(toolResult: AssistantToolResult): boolean {
+    if (toolResult.ok || !toolResult.error) return false;
+    return /^(Missing required field|Unknown field|Field ".+" should be|Field ".+" should be one of)/.test(toolResult.error);
+  }
+
+  private async executeToolCall(input: {
+    userMessage: string;
+    toolName: string;
+    toolArgs: Record<string, unknown>;
+    contract: AssistantTaskContract;
+    source: "llm" | "deterministic";
+  }): Promise<{ event?: AssistantEvent; continueLoop: boolean; toolResult?: AssistantToolResult }> {
+    const { userMessage, toolName, toolArgs, contract, source } = input;
+
+    this.logger.recordEntry({
+      sessionUuid: this.sessionId,
+      entryType: "tool_call",
+      content: JSON.stringify({ toolName, toolArgs, source }),
+      metadata: { toolName, args: toolArgs, source, taskContract: contract },
+    });
+
+    this.conversation.push({
+      role: "assistant",
+      content: JSON.stringify({ type: "tool_call", toolName, args: toolArgs, reason: source }),
+    });
+
+    this.emit({
+      sessionId: this.sessionId,
+      type: "tool_running",
+      message: `Running tool: ${toolName}`,
+      data: { toolName, toolArgs, source },
+    });
+
+    const tool = this.registry.get(toolName);
+    if (!tool) {
+      this.conversation.push({
+        role: "user",
+        content: `Error: Unknown tool: ${toolName}. Available tools: ${this.registry.getAll().map((t) => t.name).join(", ")}`,
+      });
+      return {
+        continueLoop: source === "deterministic",
+        event: source === "deterministic"
+          ? undefined
+          : this.emitError(`Unknown tool: ${toolName}`, { toolName, source, taskContract: contract }),
+      };
+    }
+
+    const mismatch = detectToolIntentMismatch({
+      userMessage,
+      toolName,
+      operationKind: tool.operationKind,
+    });
+    if (mismatch) {
+      const toolResult: AssistantToolResult = {
+        ok: false,
+        summary: mismatch.summary,
+        error: "TOOL_INTENT_MISMATCH",
+      };
+
+      this.logger.recordEntry({
+        sessionUuid: this.sessionId,
+        entryType: "tool_result",
+        content: toolResult.summary,
+        metadata: { toolName, args: toolArgs, ok: toolResult.ok, blocked: true, source, taskContract: contract },
+      });
+      this.conversation.push({ role: "user", content: toolResult.summary });
+      this.emit({
+        sessionId: this.sessionId,
+        type: "tool_result",
+        message: toolResult.summary,
+        data: toolResult,
+      });
+      return { continueLoop: true, toolResult };
+    }
+
+    const toolResult = await this.registry.execute(toolName, toolArgs);
+
+    this.logger.recordEntry({
+      sessionUuid: this.sessionId,
+      entryType: "tool_result",
+      content: toolResult.summary,
+      metadata: {
+        toolName,
+        args: toolArgs,
+        ok: toolResult.ok,
+        source,
+        taskContract: contract,
+        completionEvidence: Boolean(toolResult.pendingActionBatchId),
+      },
+    });
+
+    if (this.isToolArgumentValidationError(toolResult)) {
+      this.conversation.push({ role: "user", content: toolResult.summary });
+      this.emit({
+        sessionId: this.sessionId,
+        type: "tool_result",
+        message: toolResult.summary,
+        data: toolResult,
+      });
+      return { continueLoop: true, toolResult };
+    }
+
+    if (!tool.isReadOnly && !this.autonomous) {
+      this.conversation.push({ role: "user", content: toolResult.summary });
+      this.emit({
+        sessionId: this.sessionId,
+        type: "tool_result",
+        message: toolResult.summary,
+        data: toolResult,
+      });
+
+      if (toolResult.pendingActionBatchId) {
+        const event: AssistantEvent = {
+          sessionId: this.sessionId,
+          type: "action_batch_created",
+          message: toolResult.summary,
+          data: { actionBatchId: toolResult.pendingActionBatchId, toolResult },
+        };
+        this.emit(event);
+        return { event, continueLoop: false, toolResult };
+      }
+
+      if (contract.requiresCompletionEvidence) {
+        return {
+          event: this.emitError(
+            `No action was performed. The assistant selected "${toolName}", but it did not create a preview batch: ${toolResult.summary}`,
+            { toolName, args: toolArgs, source, taskContract: contract, toolResult },
+          ),
+          continueLoop: false,
+          toolResult,
+        };
+      }
+
+      return { continueLoop: true, toolResult };
+    }
+
+    const safeResult = redactSensitive(toolResult.summary);
+    this.conversation.push({
+      role: "user",
+      content: `Tool "${toolName}" result: ${safeResult}`,
+    });
+    this.emit({
+      sessionId: this.sessionId,
+      type: "tool_result",
+      message: safeResult,
+      data: toolResult,
+    });
+    return { continueLoop: true, toolResult };
+  }
+
   /**
    * Send a user message and process the assistant loop.
    */
@@ -295,6 +610,31 @@ export class AssistantRuntime {
     this.conversation.push({ role: "user", content: userMessage });
 
     let repeatedCalls: { toolName: string; callCount: number } | null = null;
+    let repairedInvalidArgs = false;
+    const contract = deriveAssistantTaskContract(userMessage);
+
+    this.logger.recordEntry({
+      sessionUuid: this.sessionId,
+      entryType: "system",
+      content: `Assistant task contract: ${contract.kind}`,
+      metadata: { taskContract: contract },
+    });
+
+    if (contract.route && this.registry.get(contract.route.toolName)) {
+      this.emit({
+        sessionId: this.sessionId,
+        type: "step",
+        message: `Deterministic route: ${contract.route.toolName}`,
+      });
+      const routed = await this.executeToolCall({
+        userMessage,
+        toolName: contract.route.toolName,
+        toolArgs: contract.route.args,
+        contract,
+        source: "deterministic",
+      });
+      if (routed.event) return routed.event;
+    }
 
     for (let step = 0; step < this.maxSteps; step++) {
       if (this.cancelled) {
@@ -309,8 +649,10 @@ export class AssistantRuntime {
       const detected = this.detectRepeatedToolCalls();
       if (detected.repeated && !repeatedCalls) {
         repeatedCalls = { toolName: detected.toolName, callCount: detected.callCount };
-        const hint = `[System note: You called "${detected.toolName}" with the same arguments ${detected.callCount} times in a row. Consider a different approach or different arguments.]`;
-        this.conversation.push({ role: "system", content: hint });
+        return this.emitError(
+          `The assistant repeated "${detected.toolName}" with the same arguments ${detected.callCount} times, so I stopped instead of claiming the task was complete.`,
+          { repeatedCalls, taskContract: contract },
+        );
       }
 
       this.emit({
@@ -331,23 +673,24 @@ export class AssistantRuntime {
       const lastStep = result.steps.at(-1);
 
       if (!lastStep) {
-        const errMsg = "No response from assistant";
-        this.logger.recordEntry({
-          sessionUuid: this.sessionId,
-          entryType: "system",
-          content: errMsg,
-        });
-        const errorEvent: AssistantEvent = {
-          sessionId: this.sessionId,
-          type: "error",
-          message: errMsg,
-        };
-        this.emit(errorEvent);
-        return errorEvent;
+        return this.emitError("No response from assistant", { taskContract: contract });
+      }
+
+      if (result.stoppedEarly && result.reason && result.reason !== "awaiting_tool_execution") {
+        return this.emitError(
+          lastStep.content || `Assistant stopped early: ${result.reason}`,
+          { reason: result.reason, taskContract: contract },
+        );
       }
 
       if (lastStep.type === "message") {
         this.conversation.push({ role: "assistant", content: lastStep.content });
+        if (contract.requiresCompletionEvidence) {
+          return this.emitError(
+            `No action was performed. This request requires a preview batch, but the assistant only replied: ${lastStep.content}`,
+            { taskContract: contract, finalMessage: lastStep.content },
+          );
+        }
         const event: AssistantEvent = {
           sessionId: this.sessionId,
           type: "message",
@@ -361,120 +704,49 @@ export class AssistantRuntime {
         const toolName = lastStep.toolName ?? "unknown";
         const toolArgs = lastStep.toolArgs ?? {};
 
-        this.logger.recordEntry({
-          sessionUuid: this.sessionId,
-          entryType: "tool_call",
-          content: JSON.stringify({ toolName, toolArgs, reason: lastStep.content }),
-          metadata: { toolName, args: toolArgs },
-        });
-
-        // Push tool call into conversation history (shared by all branches)
-        this.conversation.push({
-          role: "assistant",
-          content: JSON.stringify({ type: "tool_call", toolName, args: toolArgs, reason: "" }),
-        });
-
-        this.emit({
-          sessionId: this.sessionId,
-          type: "tool_running",
-          message: `Running tool: ${toolName}`,
-          data: { toolName, toolArgs },
-        });
-
         const tool = this.registry.get(toolName);
-        if (!tool) {
-          const errorMsg = `Unknown tool: ${toolName}`;
-          this.conversation.push({
-            role: "user",
-            content: `Error: ${errorMsg}. Available tools: ${this.registry.getAll().map((t) => t.name).join(", ")}`,
-          });
-          const errorEvent: AssistantEvent = {
-            sessionId: this.sessionId,
-            type: "error",
-            message: errorMsg,
-          };
-          this.emit(errorEvent);
-          continue;
-        }
-
-        const mismatch = detectToolIntentMismatch({
+        const mismatch = tool ? detectToolIntentMismatch({
           userMessage,
           toolName,
           operationKind: tool.operationKind,
+        }) : null;
+
+        const executed = await this.executeToolCall({
+          userMessage,
+          toolName,
+          toolArgs,
+          contract,
+          source: "llm",
         });
-        if (mismatch) {
-          const toolResult: AssistantToolResult = {
-            ok: false,
-            summary: mismatch.summary,
-            error: "TOOL_INTENT_MISMATCH",
-          };
+        if (executed.event) return executed.event;
 
-          this.logger.recordEntry({
-            sessionUuid: this.sessionId,
-            entryType: "tool_result",
-            content: toolResult.summary,
-            metadata: { toolName, args: toolArgs, ok: toolResult.ok, blocked: true },
-          });
-          this.conversation.push({
-            role: "user",
-            content: toolResult.summary,
-          });
-          this.emit({
-            sessionId: this.sessionId,
-            type: "tool_result",
-            message: toolResult.summary,
-            data: toolResult,
-          });
-          continue;
-        }
-
-        const toolResult = await this.registry.execute(toolName, toolArgs);
-
-        this.logger.recordEntry({
-          sessionUuid: this.sessionId,
-          entryType: "tool_result",
-          content: toolResult.summary,
-          metadata: { toolName, args: toolArgs, ok: toolResult.ok },
-        });
-
-        if (!tool.isReadOnly && !this.autonomous) {
-          this.conversation.push({ role: "user", content: toolResult.summary });
-          this.emit({
-            sessionId: this.sessionId,
-            type: "tool_result",
-            message: toolResult.summary,
-            data: toolResult,
-          });
-
-          if (toolResult.pendingActionBatchId) {
-            this.emit({
-              sessionId: this.sessionId,
-              type: "action_batch_created",
-              message: toolResult.summary,
-              data: { actionBatchId: toolResult.pendingActionBatchId, toolResult },
+        if (executed.toolResult && this.isToolArgumentValidationError(executed.toolResult)) {
+          if (!repairedInvalidArgs) {
+            repairedInvalidArgs = true;
+            const repairHint =
+              `Tool argument validation failed for "${toolName}": ${executed.toolResult.error}. ` +
+              `Retry once with only fields allowed by that tool schema.`;
+            this.logger.recordEntry({
+              sessionUuid: this.sessionId,
+              entryType: "system",
+              content: repairHint,
+              metadata: { toolName, retryReason: "invalid_tool_args", taskContract: contract },
             });
-            return {
-              sessionId: this.sessionId,
-              type: "action_batch_created",
-              message: toolResult.summary,
-              data: { actionBatchId: toolResult.pendingActionBatchId, toolResult },
-            };
+            this.conversation.push({ role: "system", content: repairHint });
+            continue;
           }
-          continue;
+          return this.emitError(
+            `Tool argument validation failed after retry for "${toolName}": ${executed.toolResult.error}`,
+            { toolName, args: toolArgs, retryReason: "invalid_tool_args", taskContract: contract },
+          );
         }
 
-        // Read-only tools: feed result back and continue
-        const safeResult = redactSensitive(toolResult.summary);
-        this.conversation.push({
-          role: "user",
-          content: `Tool "${toolName}" result: ${safeResult}`,
-        });
-        this.emit({
-          sessionId: this.sessionId,
-          type: "tool_result",
-          message: safeResult,
-          data: toolResult,
-        });
+        if (executed.toolResult && !executed.toolResult.ok && !mismatch) {
+          return this.emitError(
+            executed.toolResult.summary,
+            { toolName, args: toolArgs, taskContract: contract, toolResult: executed.toolResult },
+          );
+        }
       }
     }
 
@@ -492,17 +764,8 @@ export class AssistantRuntime {
       `- For track numbering: ask to \"fix track numbers\" (uses auto_numbering_tracks)\n` +
       `- For stripping number prefixes from titles: ask to \"strip title prefixes\"\n` +
       `- Be more specific: provide exact file paths or a narrower filter`;
-    if (repeatedCalls) {
-      diagMsg += `\n\nThe assistant called "${repeatedCalls.toolName}" with the same arguments ${repeatedCalls.callCount} times. This suggests the tool results were not what was expected. Try rephrasing your request or providing more specific file paths.`;
-    }
     diagMsg += `\n\nLast conversation entries:\n${recentEntries}`;
-    const event: AssistantEvent = {
-      sessionId: this.sessionId,
-      type: "completed",
-      message: diagMsg,
-    };
-    this.emit(event);
-    return event;
+    return this.emitError(diagMsg, { reason: "max_steps_reached", taskContract: contract });
   }
 
   /**

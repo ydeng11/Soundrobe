@@ -928,6 +928,90 @@ export function planStripFilenamePrefixes(
   return results;
 }
 
+// ── Regex-based tag value extraction ──────────────────────────────
+
+/**
+ * Apply a regex pattern to extract a new value from an existing tag value.
+ * Returns the first capture group (or group specified by groupIndex) if the
+ * pattern matches. Returns the original value if the pattern doesn't match.
+ * Returns null if input is null.
+ *
+ * @param value - Current tag field value.
+ * @param pattern - Compiled regex to apply.
+ * @param groupIndex - Capture group to use (0 = full match, 1+ = specific group). Default: 1.
+ */
+export function extractTagValue(
+  value: string | null,
+  pattern: RegExp,
+  groupIndex = 1,
+): string | null {
+  if (value === null) return null;
+
+  const match = value.match(pattern);
+  if (!match) return value;
+
+  const extracted = match[groupIndex];
+  // If group doesn't exist, return original
+  if (extracted === undefined) return value;
+
+  return extracted;
+}
+
+/**
+ * Plan regex-based tag value extraction for a set of track paths.
+ * Applies the given regex pattern to each track's current value for the
+ * specified field and, if the extracted value differs, queues a tag update.
+ *
+ * @param trackPaths - The track paths to process.
+ * @param allTracks - The full track list (from currentAppState).
+ * @param field - The tag field to modify (e.g. "album", "title", "artist").
+ * @param patternString - JS regex pattern string (e.g. "^\\\d+[\\\s.-]+(.+)$").
+ * @param groupIndex - Capture group to use (0 = full match, 1+ = specific group). Default: 1.
+ * @returns TagUpdateInstructions for TrackTagService.
+ * @throws If the pattern string is not a valid regex.
+ */
+export function planExtractTagValues(
+  trackPaths: string[],
+  allTracks: TrackData[],
+  field: string,
+  patternString: string,
+  groupIndex = 1,
+): TagUpdateInstruction[] {
+  let pattern: RegExp;
+  try {
+    pattern = new RegExp(patternString);
+  } catch (e) {
+    throw new Error(
+      `Invalid regex pattern: ${patternString}. ${e instanceof Error ? e.message : String(e)}`,
+    );
+  }
+
+  const trackByPath = new Map<string, TrackData>();
+  for (const t of allTracks) {
+    trackByPath.set(t.path, t);
+  }
+
+  const instructions: TagUpdateInstruction[] = [];
+
+  for (const tp of trackPaths) {
+    const track = trackByPath.get(tp);
+    if (!track) continue;
+
+    const currentValue = track[field as keyof TrackData] as string | null | undefined;
+    if (currentValue === null || currentValue === undefined) continue;
+
+    const extracted = extractTagValue(currentValue, pattern, groupIndex);
+    if (extracted !== currentValue) {
+      instructions.push({
+        trackPath: tp,
+        fields: { [field]: extracted },
+      });
+    }
+  }
+
+  return instructions;
+}
+
 export function buildMutatingToolsForTesting(): AssistantToolDef[] {
   return buildMutatingTools();
 }
@@ -1237,6 +1321,101 @@ function buildMutatingTools(): AssistantToolDef[] {
           summary: `Preview created (${batch.id}): ${summary}. Approve in the assistant panel to apply.`,
           pendingActionBatchId: batch.id,
           data: { batch, standardPlan, instructions },
+        };
+      },
+    },
+    {
+      name: "extract_tag_value",
+      description: "Composite macro: apply a regex pattern to extract a new value from an existing tag field across targeted tracks. The regex pattern is applied to each track's current value for the specified field. If the pattern matches, the first capture group replaces the field value. Use this for regex-based transformations like stripping prefixes from album/title values or extracting substrings. Creates a preview action batch for user approval. No API calls.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          target_scope: {
+            type: "string",
+            enum: ["selected", "active_album", "library", "explicit_paths"],
+            description: "Target tracks. Use explicit_paths for specific tracks, active_album for the current album, selected for selection, or library for all loaded tracks.",
+          },
+          paths: {
+            type: "array",
+            items: { type: "string" },
+            description: "Track paths used when target_scope is explicit_paths.",
+          },
+          field: {
+            type: "string",
+            description: "Tag field to modify (e.g. \"album\", \"title\", \"artist\", \"genre\", \"composer\"). The regex pattern is applied to this field's current value.",
+          },
+          pattern: {
+            type: "string",
+            description: "JavaScript regex pattern string. Must include at least one capture group (parentheses). The first capture group becomes the new field value. Example: '^\\\\d+[\\\\s.-]+(.+)$' strips leading numbers/dots/dashes from a value.",
+          },
+          group_index: {
+            type: "number",
+            description: "Capture group index to use as the new value. 0 = full match, 1 = first capture group (default), 2 = second, etc. Default: 1.",
+          },
+        },
+        required: ["target_scope", "field", "pattern"],
+      },
+      isReadOnly: false,
+      riskLevel: "low",
+      operationKind: "metadata_edit",
+      executor: async (args) => {
+        if (!trackTagService) {
+          return { ok: false, summary: "TrackTagService not initialized", error: "SERVICE_NOT_INITIALIZED" };
+        }
+
+        const targetScope = String(args.target_scope) as TaskTargetScope;
+        const field = String(args.field);
+        const pattern = String(args.pattern);
+        const groupIndex = args.group_index !== undefined ? Number(args.group_index) : 1;
+        const { paths: targetPaths, description } = resolveTargetPaths(
+          targetScope,
+          args.paths as string[] | undefined,
+        );
+
+        if (targetPaths.length === 0) {
+          return { ok: true, summary: `No tracks found for target_scope "${targetScope}".${noTracksSuggestion(targetScope)}` };
+        }
+
+        let instructions: TagUpdateInstruction[];
+        try {
+          instructions = planExtractTagValues(targetPaths, currentAppState.tracks, field, pattern, groupIndex);
+        } catch (e) {
+          return {
+            ok: false,
+            summary: `Invalid regex pattern: ${e instanceof Error ? e.message : String(e)}`,
+            error: "INVALID_REGEX",
+          };
+        }
+
+        if (instructions.length === 0) {
+          return {
+            ok: true,
+            summary: `No ${field} values matched the pattern for ${description} — no changes needed.`,
+          };
+        }
+
+        // Use planTagUpdates to compute diff/preview
+        const standardPlan = await trackTagService.planTagUpdates(instructions);
+        const summary = standardPlan.summary;
+
+        if (!currentRuntime) {
+          return { ok: true, summary };
+        }
+
+        const batch = currentRuntime.createActionBatch({
+          kind: "metadata-update",
+          title: `Extract tag value (${field}) for ${description}`,
+          summary,
+          riskLevel: "low",
+          actions: metadataPreviewActions({ standardActions: standardPlan.actions, extraActions: [] }),
+          reversible: true,
+        });
+
+        return {
+          ok: true,
+          summary: `Preview created (${batch.id}): ${summary}. Approve in the assistant panel to apply.`,
+          pendingActionBatchId: batch.id,
+          data: { batch, standardPlan, instructions, field, pattern, groupIndex },
         };
       },
     },
@@ -1949,6 +2128,18 @@ export function registerAssistantHandlers(): void {
         return event;
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
+        // Log the error to conversation_log for traceability
+        try {
+          const logger = currentRuntime?.getConversationLogger();
+          if (logger) {
+            logger.recordEntry({
+              sessionUuid: currentRuntime!.getSessionId(),
+              entryType: "system",
+              content: message,
+              metadata: { source: "assistant:send.catch" },
+            });
+          }
+        } catch { /* logger unavailable */ }
         const event: AssistantEvent = {
           sessionId: currentRuntime?.getSessionId() ?? "none",
           type: "error",

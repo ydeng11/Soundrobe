@@ -14,8 +14,10 @@ import {
   planTrackNumbering,
   planStripFilenamePrefixes,
   planStripTitlePrefixes,
+  planExtractTagValues,
   stripFilenamePrefix,
   stripTitlePrefix,
+  extractTagValue,
   resolveTargetPathsForState,
 } from "../../electron/handlers/assistant";
 
@@ -564,5 +566,208 @@ describe("planStripFilenamePrefixes", () => {
       { sourcePath: "/lib/compilation/disc1/01 Track.flac", destinationPath: "/lib/compilation/disc1/Track.flac" },
       { sourcePath: "/lib/compilation/disc1/02 Track.flac", destinationPath: "/lib/compilation/disc1/Track.flac" },
     ]);
+  });
+});
+
+describe("extractTagValue", () => {
+  it("extracts first capture group from a string", () => {
+    expect(extractTagValue("01 - My Album", /^\d+[\s.-]+(.+)$/)).toBe("My Album");
+  });
+
+  it("extracts first capture group from Chinese text", () => {
+    expect(extractTagValue("01 寂寞在唱歌", /^\d+\s+(.+)$/)).toBe("寂寞在唱歌");
+  });
+
+  it("returns original value when pattern does not match", () => {
+    expect(extractTagValue("Clean Album", /^\d+[\s.-]+(.+)$/)).toBe("Clean Album");
+  });
+
+  it("returns null for null input", () => {
+    expect(extractTagValue(null, /(.+)/)).toBeNull();
+  });
+
+  it("returns full match when groupIndex is 0", () => {
+    expect(extractTagValue("2025 Album", /^\d{4}\s(.+)/, 0)).toBe("2025 Album");
+  });
+
+  it("supports extracting a specific capture group", () => {
+    expect(extractTagValue("Artist - Song", /^(.+)\s-\s(.+)$/, 2)).toBe("Song");
+  });
+
+  it("returns original value when groupIndex exceeds match groups", () => {
+    expect(extractTagValue("A - B", /^(.+)\s-\s(.+)$/, 3)).toBe("A - B");
+  });
+
+  it("handles stripping dashes and spaces with en-dash", () => {
+    expect(extractTagValue("01 – Album", /^\d+\s*[–-]\s*(.+)$/)).toBe("Album");
+  });
+
+  it("handles stripping just-number prefix", () => {
+    expect(extractTagValue("01 Album", /^\d+\s+(.+)$/)).toBe("Album");
+  });
+
+  it("handles multi-digit prefix with dot", () => {
+    expect(extractTagValue("123. Title", /^\d+\.\s?(.+)$/)).toBe("Title");
+  });
+});
+
+describe("planExtractTagValues", () => {
+  it("strips leading numbers and dashes from album tags", () => {
+    const allTracks = [
+      { ...track("/lib/album/01.flac"), album: "01 - My Album" },
+      { ...track("/lib/album/02.flac"), album: "02 - My Album" },
+    ];
+
+    const result = planExtractTagValues(
+      allTracks.map((t) => t.path),
+      allTracks,
+      "album",
+      "^\\d+[\\s.-]+(.+)$",
+    );
+
+    expect(result).toHaveLength(2);
+    expect(result[0]).toEqual({
+      trackPath: "/lib/album/01.flac",
+      fields: { album: "My Album" },
+    });
+    expect(result[1]).toEqual({
+      trackPath: "/lib/album/02.flac",
+      fields: { album: "My Album" },
+    });
+  });
+
+  it("strips leading numbers and dashes from title tags", () => {
+    const allTracks = [
+      { ...track("/lib/album/01.flac"), title: "01. 友情岁月" },
+      { ...track("/lib/album/02.flac"), title: "02 - 一直很安静" },
+    ];
+
+    const result = planExtractTagValues(
+      allTracks.map((t) => t.path),
+      allTracks,
+      "title",
+      "^\\d+[\\s.\\)-]+(.+)$",
+    );
+
+    expect(result).toHaveLength(2);
+    expect(result[0]).toEqual({
+      trackPath: "/lib/album/01.flac",
+      fields: { title: "友情岁月" },
+    });
+    expect(result[1]).toEqual({
+      trackPath: "/lib/album/02.flac",
+      fields: { title: "一直很安静" },
+    });
+  });
+
+  it("skips tracks where pattern does not match", () => {
+    const allTracks = [
+      { ...track("/lib/album/01.flac"), album: "Clean Album" },
+      { ...track("/lib/album/02.flac"), album: "01 - Prefix Album" },
+    ];
+
+    const result = planExtractTagValues(
+      allTracks.map((t) => t.path),
+      allTracks,
+      "album",
+      "^\\d+[\\s.-]+(.+)$",
+    );
+
+    expect(result).toHaveLength(1);
+    expect(result[0]).toEqual({
+      trackPath: "/lib/album/02.flac",
+      fields: { album: "Prefix Album" },
+    });
+  });
+
+  it("skips tracks where field is null", () => {
+    const allTracks = [
+      { ...track("/lib/album/01.flac"), album: null },
+    ];
+
+    const result = planExtractTagValues(
+      allTracks.map((t) => t.path),
+      allTracks,
+      "album",
+      "^\\d+[\\s.-]+(.+)$",
+    );
+
+    expect(result).toEqual([]);
+  });
+
+  it("skips track where extracted value equals current value (no change)", () => {
+    const allTracks = [
+      { ...track("/lib/album/01.flac"), album: "My Album" },
+    ];
+
+    // Pattern matches but capture group 1 = "My Album" which equals current
+    const result = planExtractTagValues(
+      allTracks.map((t) => t.path),
+      allTracks,
+      "album",
+      "^(.+)$",
+    );
+
+    expect(result).toEqual([]);
+  });
+
+  it("handles empty input", () => {
+    const result = planExtractTagValues([], [], "album", "(.+)");
+    expect(result).toEqual([]);
+  });
+
+  it("throws on invalid regex pattern", () => {
+    const allTracks = [
+      { ...track("/lib/album/01.flac"), album: "Test" },
+    ];
+
+    expect(() => planExtractTagValues(
+      allTracks.map((t) => t.path),
+      allTracks,
+      "album",
+      "[invalid",
+    )).toThrow(/Invalid regex/i);
+  });
+
+  it("supports explicit groupIndex parameter", () => {
+    const allTracks = [
+      { ...track("/lib/album/01.flac"), album: "Artist - 01 - Album" },
+    ];
+
+    const result = planExtractTagValues(
+      allTracks.map((t) => t.path),
+      allTracks,
+      "album",
+      "^(.+)\\s-\\s\\d+\\s-\\s(.+)$",
+      2,
+    );
+
+    expect(result).toHaveLength(1);
+    expect(result[0]).toEqual({
+      trackPath: "/lib/album/01.flac",
+      fields: { album: "Album" },
+    });
+  });
+
+  it("processes a mix of matching, non-matching, and null-field tracks", () => {
+    const allTracks = [
+      { ...track("/lib/album/01.flac"), album: "01 - First" },
+      { ...track("/lib/album/02.flac"), album: null },
+      { ...track("/lib/album/03.flac"), album: "Clean" },
+      { ...track("/lib/album/04.flac"), album: "04 - Fourth" },
+    ];
+
+    const result = planExtractTagValues(
+      allTracks.map((t) => t.path),
+      allTracks,
+      "album",
+      "^\\d+[\\s.-]+(.+)$",
+    );
+
+    expect(result).toHaveLength(2);
+    expect(result[0].trackPath).toBe("/lib/album/01.flac");
+    expect(result[0].fields).toEqual({ album: "First" });
+    expect(result[1].trackPath).toBe("/lib/album/04.flac");
+    expect(result[1].fields).toEqual({ album: "Fourth" });
   });
 });

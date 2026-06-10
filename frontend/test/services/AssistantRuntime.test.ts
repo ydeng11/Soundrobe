@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   AssistantRuntime,
+  deriveAssistantTaskContract,
   detectToolIntentMismatch,
 } from "../../electron/services/AssistantRuntime";
 import { AssistantToolRegistry } from "../../electron/services/AssistantToolRegistry";
@@ -42,6 +43,40 @@ function makeRuntime(
 ): AssistantRuntime {
   const runner = new (LlmTaskRunner as any)({ apiKey: "test-key" });
   return new AssistantRuntime(runner, reg, autonomous);
+}
+
+function registerPreviewTool(
+  runtime: AssistantRuntime,
+  reg: AssistantToolRegistry,
+  name: string,
+  schema: Record<string, unknown>,
+): ReturnType<typeof vi.fn> {
+  const executor = vi.fn().mockImplementation(async (args: Record<string, unknown>) => {
+    const batch = runtime.createActionBatch({
+      kind: name === "run_library_task" ? "auto-tag-run" : "metadata-update",
+      title: `Preview ${name}`,
+      summary: `Preview ${name}`,
+      riskLevel: "low",
+      actions: [{ description: JSON.stringify(args) }],
+      reversible: true,
+    });
+    return {
+      ok: true,
+      summary: `Preview created (${batch.id}): ${name}`,
+      pendingActionBatchId: batch.id,
+      data: { batch, args },
+    };
+  });
+  reg.register({
+    name,
+    description: `Preview ${name}`,
+    inputSchema: schema,
+    executor,
+    isReadOnly: false,
+    riskLevel: "low",
+    operationKind: "metadata_edit",
+  });
+  return executor;
 }
 
 describe("AssistantRuntime", () => {
@@ -215,6 +250,98 @@ describe("AssistantRuntime", () => {
     expect(typeof logger.getOrCreateSessionNumber).toBe("function");
   });
 
+  it("routes 'number' directly to auto_numbering_tracks without an LLM call", async () => {
+    const reg = new AssistantToolRegistry();
+    const runner = {
+      onApiCall: vi.fn().mockReturnValue(vi.fn()),
+      runToolLoop: vi.fn(),
+    };
+    const runtime = new AssistantRuntime(runner as any, reg, false);
+    const executor = registerPreviewTool(runtime, reg, "auto_numbering_tracks", {
+      type: "object",
+      properties: {
+        target_scope: { type: "string", enum: ["library"] },
+      },
+      required: ["target_scope"],
+    });
+
+    const result = await runtime.send("number");
+
+    expect(result.type).toBe("action_batch_created");
+    expect(executor).toHaveBeenCalledWith({ target_scope: "library" });
+    expect(runner.runToolLoop).not.toHaveBeenCalled();
+  });
+
+  it("routes auto-tag requests directly to run_library_task without an LLM call", async () => {
+    const reg = new AssistantToolRegistry();
+    const runner = {
+      onApiCall: vi.fn().mockReturnValue(vi.fn()),
+      runToolLoop: vi.fn(),
+    };
+    const runtime = new AssistantRuntime(runner as any, reg, false);
+    const executor = registerPreviewTool(runtime, reg, "run_library_task", {
+      type: "object",
+      properties: {
+        task: { type: "string", enum: ["auto_tag"] },
+        target_scope: { type: "string", enum: ["library"] },
+      },
+      required: ["task", "target_scope"],
+    });
+
+    const result = await runtime.send("auto tag this");
+
+    expect(result.type).toBe("action_batch_created");
+    expect(executor).toHaveBeenCalledWith({ task: "auto_tag", target_scope: "library" });
+    expect(runner.runToolLoop).not.toHaveBeenCalled();
+  });
+
+  it("routes explicit album prefix cleanup directly to extract_tag_value without an LLM call", async () => {
+    const reg = new AssistantToolRegistry();
+    const runner = {
+      onApiCall: vi.fn().mockReturnValue(vi.fn()),
+      runToolLoop: vi.fn(),
+    };
+    const runtime = new AssistantRuntime(runner as any, reg, false);
+    const executor = registerPreviewTool(runtime, reg, "extract_tag_value", {
+      type: "object",
+      properties: {
+        target_scope: { type: "string", enum: ["library"] },
+        field: { type: "string" },
+        pattern: { type: "string" },
+        group_index: { type: "number" },
+      },
+      required: ["target_scope", "field", "pattern"],
+    });
+
+    const result = await runtime.send("keep album name in Album tag only. Remove the prefix - number and dash.");
+
+    expect(result.type).toBe("action_batch_created");
+    expect(executor).toHaveBeenCalledWith({
+      target_scope: "library",
+      field: "album",
+      pattern: "^\\d+[\\s.\\)\\-–—]+(.+)$",
+      group_index: 1,
+    });
+    expect(runner.runToolLoop).not.toHaveBeenCalled();
+  });
+
+  it("allows vague chat to complete as a normal message", async () => {
+    const reg = makeRegistry();
+    const runner = {
+      onApiCall: vi.fn().mockReturnValue(vi.fn()),
+      runToolLoop: vi.fn().mockResolvedValue({
+        stoppedEarly: false,
+        steps: [{ type: "message", content: "Hello!" }],
+      }),
+    };
+    const runtime = new AssistantRuntime(runner as any, reg, false);
+
+    const result = await runtime.send("hello");
+
+    expect(result.type).toBe("message");
+    expect(result.message).toBe("Hello!");
+  });
+
   it("blocks file-moving tools when the user is correcting track-number metadata", async () => {
     const moveExecutor = vi.fn().mockResolvedValue({ ok: true, summary: "Move files" });
     const numberingExecutor = vi.fn().mockResolvedValue({
@@ -269,6 +396,246 @@ describe("AssistantRuntime", () => {
     expect(moveExecutor).not.toHaveBeenCalled();
     expect(numberingExecutor).toHaveBeenCalledOnce();
     expect(result.type).toBe("action_batch_created");
+  });
+
+  it("fails loudly when an action request reaches max steps without completing", async () => {
+    const reg = new AssistantToolRegistry();
+    reg.register({
+      name: "mock.read",
+      description: "Read",
+      inputSchema: {
+        type: "object",
+        properties: { n: { type: "number" } },
+        required: ["n"],
+      },
+      executor: vi.fn().mockResolvedValue({ ok: true, summary: "read" }),
+      isReadOnly: true,
+    });
+    let n = 0;
+    const runner = {
+      onApiCall: vi.fn().mockReturnValue(vi.fn()),
+      runToolLoop: vi.fn().mockImplementation(async () => ({
+        stoppedEarly: true,
+        reason: "awaiting_tool_execution",
+        steps: [{
+          type: "tool_call",
+          content: "read",
+          toolName: "mock.read",
+          toolArgs: { n: n++ },
+        }],
+      })),
+    };
+    const runtime = new AssistantRuntime(runner as any, reg, false);
+    const events: string[] = [];
+    runtime.onEvent((event) => events.push(event.type));
+
+    const result = await runtime.send("please update the metadata");
+
+    expect(result.type).toBe("error");
+    expect(result.message).toContain("maximum step limit");
+    expect(events).not.toContain("completed");
+  });
+
+  it("stops repeated identical tool calls instead of fake-completing", async () => {
+    const reg = makeRegistry();
+    const runner = {
+      onApiCall: vi.fn().mockReturnValue(vi.fn()),
+      runToolLoop: vi.fn().mockResolvedValue({
+        stoppedEarly: true,
+        reason: "awaiting_tool_execution",
+        steps: [{
+          type: "tool_call",
+          content: "summarize",
+          toolName: "library.summarize",
+          toolArgs: {},
+        }],
+      }),
+    };
+    const runtime = new AssistantRuntime(runner as any, reg, false);
+
+    const result = await runtime.send("please update the metadata");
+
+    expect(result.type).toBe("error");
+    expect(result.message).toContain("repeated");
+  });
+
+  it("does not accept a no-tool final message for an actionable request", async () => {
+    const reg = makeRegistry();
+    const runner = {
+      onApiCall: vi.fn().mockReturnValue(vi.fn()),
+      runToolLoop: vi.fn().mockResolvedValue({
+        stoppedEarly: false,
+        steps: [{
+          type: "message",
+          content: "Applying automatic track numbering to all tracks in the library.",
+        }],
+      }),
+    };
+    const runtime = new AssistantRuntime(runner as any, reg, false);
+
+    const result = await runtime.send("please update the metadata");
+
+    expect(result.type).toBe("error");
+    expect(result.message).toContain("No action was performed");
+  });
+
+  it("surfaces malformed tool loop responses as errors", async () => {
+    const reg = makeRegistry();
+    const runner = {
+      onApiCall: vi.fn().mockReturnValue(vi.fn()),
+      runToolLoop: vi.fn().mockResolvedValue({
+        stoppedEarly: true,
+        reason: "malformed_tool_call",
+        steps: [{
+          type: "message",
+          content: "Malformed tool call: missing toolName.",
+        }],
+      }),
+    };
+    const runtime = new AssistantRuntime(runner as any, reg, false);
+
+    const result = await runtime.send("please update the metadata");
+
+    expect(result.type).toBe("error");
+    expect(result.message).toContain("Malformed tool call");
+  });
+
+  it("retries invalid tool arguments once, then fails loudly", async () => {
+    const reg = new AssistantToolRegistry();
+    reg.register({
+      name: "mock.edit",
+      description: "Edit",
+      inputSchema: {
+        type: "object",
+        properties: {
+          target_scope: { type: "string", enum: ["library"] },
+        },
+        required: ["target_scope"],
+      },
+      executor: vi.fn().mockResolvedValue({ ok: true, summary: "should not run" }),
+      isReadOnly: false,
+      riskLevel: "low",
+      operationKind: "metadata_edit",
+    });
+    const runner = {
+      onApiCall: vi.fn().mockReturnValue(vi.fn()),
+      runToolLoop: vi.fn().mockResolvedValue({
+        stoppedEarly: true,
+        reason: "awaiting_tool_execution",
+        steps: [{
+          type: "tool_call",
+          content: "edit",
+          toolName: "mock.edit",
+          toolArgs: {},
+        }],
+      }),
+    };
+    const runtime = new AssistantRuntime(runner as any, reg, false);
+
+    const result = await runtime.send("please update the metadata");
+
+    expect(runner.runToolLoop).toHaveBeenCalledTimes(2);
+    expect(result.type).toBe("error");
+    expect(result.message).toContain("after retry");
+  });
+});
+
+describe("deriveAssistantTaskContract", () => {
+  it("classifies common action requests with deterministic routes", () => {
+    expect(deriveAssistantTaskContract("number")).toMatchObject({
+      kind: "action_preview_required",
+      route: { toolName: "auto_numbering_tracks", args: { target_scope: "library" } },
+    });
+    expect(deriveAssistantTaskContract("auto tag this")).toMatchObject({
+      route: { toolName: "run_library_task", args: { task: "auto_tag", target_scope: "library" } },
+    });
+    expect(deriveAssistantTaskContract("infer tags from filenames")).toMatchObject({
+      route: { toolName: "infer_tags_from_filenames", args: { target_scope: "library" } },
+    });
+  });
+
+  it("routes explicit tag value cleanup to extract_tag_value", () => {
+    const contract = deriveAssistantTaskContract('remove number and "-" from Album');
+    expect(contract).toMatchObject({
+      kind: "action_preview_required",
+      route: {
+        toolName: "extract_tag_value",
+        args: {
+          target_scope: "library",
+          field: "album",
+          pattern: "^(?:\\d+[\\s.\\)\\-–—]+)?(.+?)(?:[\\s.\\)\\-–—]+\\d+)?$",
+          group_index: 1,
+        },
+      },
+      reason: "extract_tag_value_intent",
+      requiresCompletionEvidence: true,
+    });
+
+    const contract2 = deriveAssistantTaskContract("strip prefix from title");
+    expect(contract2).toMatchObject({
+      route: {
+        toolName: "extract_tag_value",
+        args: {
+          target_scope: "library",
+          field: "title",
+          pattern: "^\\d+[\\s.\\)\\-–—]+(.+)$",
+          group_index: 1,
+        },
+      },
+      reason: "extract_tag_value_intent",
+      requiresCompletionEvidence: true,
+    });
+
+    const contract3 = deriveAssistantTaskContract("remove suffix number from album tag");
+    expect(contract3).toMatchObject({
+      route: {
+        toolName: "extract_tag_value",
+        args: {
+          target_scope: "library",
+          field: "album",
+          pattern: "^(.+?)[\\s.\\)\\-–—]+\\d+$",
+          group_index: 1,
+        },
+      },
+      reason: "extract_tag_value_intent",
+      requiresCompletionEvidence: true,
+    });
+
+    const contract4 = deriveAssistantTaskContract("clean album tag value");
+    expect(contract4).toMatchObject({
+      route: {
+        toolName: "extract_tag_value",
+        args: {
+          target_scope: "library",
+          field: "album",
+          pattern: "^(?:\\d+[\\s.\\)\\-–—]+)?(.+?)(?:[\\s.\\)\\-–—]+\\d+)?$",
+          group_index: 1,
+        },
+      },
+      reason: "extract_tag_value_intent",
+      requiresCompletionEvidence: true,
+    });
+
+    const contract5 = deriveAssistantTaskContract("clean album name");
+    expect(contract5).toMatchObject({
+      reason: "extract_tag_value_intent",
+      requiresCompletionEvidence: true,
+    });
+    expect(contract5.route).toBeUndefined();
+  });
+
+  it("keeps non-action chat out of preview gating", () => {
+    expect(deriveAssistantTaskContract("hello")).toMatchObject({
+      kind: "chat_only",
+      requiresCompletionEvidence: false,
+    });
+  });
+
+  it("keeps missing-tag discovery read-only", () => {
+    expect(deriveAssistantTaskContract("find tracks missing tags")).toMatchObject({
+      kind: "read_only_answer",
+      requiresCompletionEvidence: false,
+    });
   });
 });
 
