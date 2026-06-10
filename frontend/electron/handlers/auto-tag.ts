@@ -1,5 +1,5 @@
 /**
- * Auto-tag orchestrator — implements the full lookup chain.
+ * Auto-tag orchestrator - implements the full lookup chain.
  *
  * Lookup chain:
  *   Parse hints → LLM enhancement → Dataset → Cache → MusicBrainz
@@ -11,10 +11,8 @@ import {
   type AlbumCandidate,
   type TrackCandidate,
   artistDisplayName,
-  buildLookupVariantPairs,
   makeAlbumCandidate,
   makeLookupRequest,
-  normalizeLookupText,
   splitArtistNames,
   verifyAlbumName,
 } from "./candidates";
@@ -24,9 +22,10 @@ import { MusicBrainzClient } from "./musicbrainz";
 import { DiscogsClient } from "./discogs";
 import { OpenRouterClient } from "./openrouter";
 import { parseAlbumWithTags, candidateFromFolder } from "./fallback";
-import { buildGenreFillMessages, buildSelectionMessages, buildTagCorrectionMessages } from "./prompts";
+import { buildGenreFillMessages, buildTagCorrectionMessages } from "./prompts";
 import { getAllNameVariants } from "./aliases";
 import { writeTags, type WriteFields } from "./writer";
+import { matchRemoteCandidateTracks } from "../services/RemoteTrackMatcher";
 import { readLocalLyrics, LyricsClient } from "./lyrics";
 import { readTrackMetadata } from "./tracks";
 import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, statSync } from "node:fs";
@@ -35,6 +34,27 @@ import { basename, dirname, join, extname } from "node:path";
 const AUDIO_EXTENSIONS = new Set([".mp3", ".flac", ".m4a", ".mp4", ".wav", ".ogg", ".opus", ".aiff"]);
 import { homedir } from "node:os";
 import debug from "./debug";
+
+/**
+ * Get sorted audio filenames from an album path.
+ * Returns only the basenames (not full paths) in filesystem sort order.
+ */
+function getSortedAudioFilenames(albumPath: string): string[] {
+  if (!albumPath || albumPath === ".") return [];
+  const filenames: string[] = [];
+  try {
+    const entries = readdirSync(albumPath).sort();
+    for (const entry of entries) {
+      if (entry.startsWith(".")) continue;
+      if (AUDIO_EXTENSIONS.has(extname(entry).toLowerCase())) {
+        filenames.push(entry);
+      }
+    }
+  } catch {
+    // directory unreadable - return empty
+  }
+  return filenames;
+}
 
 export function filterCandidatesForAutoApply(
   request: ReturnType<typeof makeLookupRequest>,
@@ -49,30 +69,44 @@ export function filterCandidatesForAutoApply(
 
 const REMOTE_TRACK_SOURCES = new Set<AlbumCandidate["source"]>(["dataset", "discogs", "musicbrainz"]);
 
-function remoteTracklistMatchesLocalRequest(
-  request: ReturnType<typeof makeLookupRequest>,
-  candidate: AlbumCandidate,
-): boolean {
-  if (request.tracks.length === 0 || candidate.tracks.length === 0) return true;
-  if (request.tracks.length !== candidate.tracks.length) return false;
-
-  return request.tracks.every((localTrack, index) => {
-    const localTitle = normalizeLookupText(localTrack.title);
-    if (!localTitle) return true;
-    const remoteTitle = normalizeLookupText(candidate.tracks[index]?.title ?? null);
-    return localTitle === remoteTitle;
-  });
-}
-
-export function protectCandidateTrackFieldsForAutoApply(
+/**
+ * Replace the coarse positional guard with deterministic per-file matching.
+ * Uses matchRemoteCandidateTracks to align remote tracks to local files by
+ * title + duration evidence. Unmatched tracks keep their local metadata.
+ */
+export async function protectCandidateTrackFieldsForAutoApply(
   request: ReturnType<typeof makeLookupRequest>,
   candidates: AlbumCandidate[],
-): AlbumCandidate[] {
-  return candidates.map((candidate) => {
+): Promise<AlbumCandidate[]> {
+  // Discover sorted audio filenames for filename-derived title matching
+  const albumPath = extname(basename(request.path)) ? dirname(request.path) : request.path;
+  const filenames = getSortedAudioFilenames(albumPath);
+
+  return Promise.all(candidates.map(async (candidate) => {
     if (!REMOTE_TRACK_SOURCES.has(candidate.source)) return candidate;
-    if (remoteTracklistMatchesLocalRequest(request, candidate)) return candidate;
-    return { ...candidate, tracks: [] };
-  });
+
+    const matcher = await matchRemoteCandidateTracks(
+      request.tracks,
+      filenames,
+      candidate.tracks,
+      candidate.source,
+    );
+
+    // Log when tracklists don't fully align
+    if (!matcher.isFullOrderedMatch && request.tracks.length > 0 && candidate.tracks.length > 0) {
+      const skipSummary = matcher.stats.skipped
+        .map((s) => `${s.localIndex}:${s.reason}`)
+        .join(", ");
+      debug.warn(
+        "auto-tag",
+        `Tracklist mismatch for source="${candidate.source}" album="${candidate.album ?? "?"}": ` +
+        `matched=${matcher.stats.matched} local=${matcher.stats.local} ` +
+        `remote=${matcher.stats.remote} skipped=[${skipSummary}]`,
+      );
+    }
+
+    return { ...candidate, tracks: matcher.tracks };
+  }));
 }
 
 function pathSegments(inputPath: string): string[] {
@@ -88,7 +122,7 @@ function pathSegments(inputPath: string): string[] {
  * parser might misinterpret.
  *
  * Known format suffixes like "[flac]", "[MP3]" are stripped before the
- * bracket check — they are not ambiguous naming conventions.
+ * bracket check - they are not ambiguous naming conventions.
  */
 export function hintsAreAmbiguous(
   albumHint: string | null | undefined,
@@ -104,7 +138,7 @@ export function hintsAreAmbiguous(
   const folderName = pathSegments(path).pop() ?? "";
 
   // Strip known format suffixes (e.g. "[flac]", "[FLAC]", "[MP3]") before
-  // checking brackets — these are not ambiguous naming conventions.
+  // checking brackets - these are not ambiguous naming conventions.
   const cleanName = folderName.replace(
     /\[?(flac|mp3|wav|aac|ogg|m4a|wma|ape|flac\s*分轨|wav\s*分轨)\]?\s*$/i,
     "",
@@ -272,7 +306,7 @@ export function loadConfig(): AutoTagConfig {
   }
   if (config.llmModel) debug.info("config", `LLM_MODEL loaded from env: ${config.llmModel}`);
   if (config.discogsToken) debug.info("config", "AUTO_TAG_DISCOGS_TOKEN loaded from env");
-  if (config.debug) debug.info("config", "AUTO_TAG_DEBUG loaded from env — debug mode enabled");
+  if (config.debug) debug.info("config", "AUTO_TAG_DEBUG loaded from env - debug mode enabled");
 
   return config;
 }
@@ -294,6 +328,18 @@ export function loadConfig(): AutoTagConfig {
  *   - The original name
  *   - Non-Latin aliases
  */
+/**
+ * Safely fetch name variants (aliases + SC/TC), falling back to original.
+ */
+async function safeGetNameVariants(text: string): Promise<string[]> {
+  try {
+    const variants = text ? await getAllNameVariants(text) : [text];
+    return variants.length > 0 ? variants : [text];
+  } catch {
+    return [text];
+  }
+}
+
 export async function buildAliasedLookupVariants(
   artistHint: string | null | undefined,
   albumHint: string | null | undefined,
@@ -308,24 +354,8 @@ export async function buildAliasedLookupVariants(
   const artistText = artistHint ?? "";
   const albumText = albumHint ?? "";
 
-  // Get all artist name variants: learned Latin aliases first,
-  // then script variants (SC/TC), then the original, then non-Latin aliases.
-  let artistVariants: string[];
-  try {
-    artistVariants = artistText ? await getAllNameVariants(artistText) : [artistText];
-  } catch {
-    artistVariants = [artistText];
-  }
-  if (artistVariants.length === 0) artistVariants = [artistText];
-
-  // Get all album name variants (script variants + original).
-  let albumVariants: string[];
-  try {
-    albumVariants = albumText ? await getAllNameVariants(albumText) : [albumText];
-  } catch {
-    albumVariants = [albumText];
-  }
-  if (albumVariants.length === 0) albumVariants = [albumText];
+  const artistVariants = await safeGetNameVariants(artistText);
+  const albumVariants = await safeGetNameVariants(albumText);
 
   // Generate cross-product: every artist variant × every album variant.
   // This ensures that e.g. "Jay Chou" + "叶惠美" is tried,
@@ -385,7 +415,7 @@ class TaskManager {
       abort,
     });
 
-    // Start the async processing (don't await — runs in background)
+    // Start the async processing (don't await - runs in background)
     this.processAlbum(taskId, albumPath, abort.signal).catch((err) => {
       const msg = err instanceof Error ? err.message : "Unknown error";
       debug.error("auto-tag", `Task ${taskId} failed: ${msg}`, err);
@@ -436,7 +466,7 @@ class TaskManager {
       const request = await parseAlbumWithTags(albumPath);
       debug.info("auto-tag", `Parsed hints: artist="${request.artistHint}" album="${request.albumHint}" year="${request.yearHint}"`);
 
-      // Step 2: LLM tag resolution — uses folder name + existing file metadata
+      // Step 2: LLM tag resolution - uses folder name + existing file metadata
       // to produce corrected search hints AND a fallback candidate with genre.
       debug.info("auto-tag", "Step 2/9: Resolving tags via LLM...");
       update("Resolving tags via LLM...", 2);
@@ -501,7 +531,7 @@ class TaskManager {
           });
           allCandidates.push(...cached);
         } else {
-          debug.debug("auto-tag", "Cache MISS — proceeding with remote lookups");
+          debug.debug("auto-tag", "Cache MISS - proceeding with remote lookups");
         }
         if (signal.aborted) {
           return this.failCancelled(taskId);
@@ -526,7 +556,7 @@ class TaskManager {
             this.emitTask(taskId, "warning", "MusicBrainz lookup failed", { error: String(err) });
           }
         } else {
-          debug.info("auto-tag", "Remote lookups disabled — skipping MusicBrainz");
+          debug.info("auto-tag", "Remote lookups disabled - skipping MusicBrainz");
         }
         if (signal.aborted) {
           return this.failCancelled(taskId);
@@ -553,7 +583,7 @@ class TaskManager {
             this.emitTask(taskId, "warning", "Discogs lookup failed", { error: String(err) });
           }
         } else {
-          debug.info("auto-tag", "Discogs disabled — skipping");
+          debug.info("auto-tag", "Discogs disabled - skipping");
         }
         if (signal.aborted) {
           return this.failCancelled(taskId);
@@ -573,7 +603,7 @@ class TaskManager {
         const folderCandidate = candidateFromFolder(correctedRequest);
         allCandidates.push(folderCandidate);
 
-        allCandidates = protectCandidateTrackFieldsForAutoApply(
+        allCandidates = await protectCandidateTrackFieldsForAutoApply(
           correctedRequest,
           filterCandidatesForAutoApply(correctedRequest, allCandidates),
         );
@@ -592,7 +622,7 @@ class TaskManager {
 
         // Use the merged candidate directly (it already contains the best data
         // from all sources, filled in by mergeCandidateFields). No LLM selection
-        // step — that was a fragile bottleneck (HTTP 400 failures).
+        // step - that was a fragile bottleneck (HTTP 400 failures).
         const candidate = mergedCandidates.length > 0 ? mergedCandidates[0] : null;
         if (candidate) {
           // Conditional genre fill: only call LLM if genre is still missing
@@ -641,7 +671,7 @@ class TaskManager {
     fallbackCandidate: AlbumCandidate | null;
   }> {
     if (!this.config.llmApiKey) {
-      debug.debug("auto-tag", "No LLM API key — skipping LLM tag resolution");
+      debug.debug("auto-tag", "No LLM API key - skipping LLM tag resolution");
       return { correctedRequest: request, fallbackCandidate: null };
     }
 
@@ -767,7 +797,7 @@ class TaskManager {
       return { correctedRequest, fallbackCandidate };
     } catch (err) {
       debug.warn("auto-tag", `LLM tag resolution failed (non-fatal)`, err);
-      // LLM failure is non-fatal — fall back to original hints and folder fallback
+      // LLM failure is non-fatal - fall back to original hints and folder fallback
       return { correctedRequest: request, fallbackCandidate: null };
     } finally {
       debug.endTimer("resolve-tags", "auto-tag", "LLM tag resolution");
@@ -817,7 +847,7 @@ class TaskManager {
     if (audioFiles.length === 0) return 0;
 
     // Build album-level fields applied to every file
-    // NOTE: artist/artists are per-track fields — they must NOT be set at the
+    // NOTE: artist/artists are per-track fields - they must NOT be set at the
     // album level. Setting them here would overwrite per-track artist data
     // for multi-disc compilations where file position ≠ track number.
     const albumFields: WriteFields = {};
@@ -851,7 +881,7 @@ class TaskManager {
       return fields;
     });
 
-    // Write tags — album-level to every file, track-level matched by
+    // Write tags - album-level to every file, track-level matched by
     // position in the sorted directory listing.
     // Positional matching (not Map<number, ...>) avoids cascade shifts
     // when files have duplicate or non-contiguous track numbers.
@@ -873,25 +903,14 @@ class TaskManager {
       if (!lyrics && this.config.lyricsDownloadEnabled) {
         const trackName = mergedFields.title;
         const artistName = mergedFields.artist ?? albumFields.albumArtist ?? folderName;
-        if (trackName && artistName) {
-          const client = new LyricsClient({
-            baseUrl: this.config.lyricsApiUrl,
-          });
-          const downloaded = await client.fetchLyrics(
-            trackName,
-            artistName,
-            mergedFields.album ?? undefined,
-            undefined,
-          );
-          if (downloaded) {
-            mergedFields.lyrics = downloaded;
-            this.emitTask(taskId, "source", `Downloaded lyrics for “${trackName}”`, { source: "lyrics-download", track: trackName });
-          }
+        const downloaded = await this.fetchTrackLyrics(taskId, trackName, artistName, mergedFields.album);
+        if (downloaded) {
+          mergedFields.lyrics = downloaded;
         }
       }
 
       if (Object.keys(mergedFields).length === 0) {
-        debug.debug("auto-tag", `No fields to write for: ${filePath} — skipping`);
+        debug.debug("auto-tag", `No fields to write for: ${filePath} - skipping`);
         continue;
       }
 
@@ -912,6 +931,32 @@ class TaskManager {
     debug.info("auto-tag", `Applied tags: ${written}/${audioFiles.length} files (${errors} errors)`);
     debug.endTimer("apply-candidate-tags", "auto-tag", `Tag application for ${albumPath}`);
     return written;
+  }
+
+  /**
+   * Fetch lyrics for a track from the API, or return null if unavailable.
+   */
+  private async fetchTrackLyrics(
+    taskId: string,
+    trackName: string | null | undefined,
+    artistName: string | null | undefined,
+    album: string | null | undefined,
+  ): Promise<string | null> {
+    if (!trackName || !artistName) return null;
+    const client = new LyricsClient({ baseUrl: this.config.lyricsApiUrl });
+    const downloaded = await client.fetchLyrics(
+      trackName,
+      artistName,
+      album ?? undefined,
+      undefined,
+    );
+    if (downloaded) {
+      this.emitTask(taskId, "source", `Downloaded lyrics for "${trackName}"`, {
+        source: "lyrics-download",
+        track: trackName,
+      });
+    }
+    return downloaded;
   }
 
   private async searchVariants(
@@ -954,22 +999,18 @@ class TaskManager {
     return [merged, ...rest];
   }
 
+  /**
+   * Fill safe gaps in target tracks from source tracks by position (index).
+   * Both arrays are in the same local file order after protection.
+   * Only fills safe nullable fields that the matcher allows.
+   */
   private fillTrackGaps(target: TrackCandidate[], source: TrackCandidate[]): void {
-    const byNumber = new Map<number, TrackCandidate>();
-    for (const track of target) {
-      if (track.trackNumber != null) byNumber.set(track.trackNumber, track);
-    }
-    for (const sourceTrack of source) {
-      if (sourceTrack.trackNumber == null) continue;
-      const targetTrack = byNumber.get(sourceTrack.trackNumber);
-      if (!targetTrack) continue;
-      targetTrack.title ??= sourceTrack.title;
-      targetTrack.artist ??= sourceTrack.artist;
-      if (targetTrack.artists.length === 0) targetTrack.artists = sourceTrack.artists;
-      targetTrack.discNumber ??= sourceTrack.discNumber;
-      targetTrack.discTotal ??= sourceTrack.discTotal;
+    for (let i = 0; i < Math.min(target.length, source.length); i++) {
+      const targetTrack = target[i];
+      const sourceTrack = source[i];
       targetTrack.musicbrainzTrackId ??= sourceTrack.musicbrainzTrackId;
       targetTrack.length ??= sourceTrack.length;
+      targetTrack.genre ??= sourceTrack.genre;
     }
   }
 
@@ -1003,7 +1044,7 @@ class TaskManager {
   /**
    * Fill genre via LLM if no source provided one.
    * Only called when genre is still null after Discogs and LLM tag resolution.
-   * Non-fatal — if LLM fails, the candidate is used without genre.
+   * Non-fatal - if LLM fails, the candidate is used without genre.
    */
   private async fillGenreIfMissing(
     candidate: AlbumCandidate,
@@ -1014,7 +1055,7 @@ class TaskManager {
       return candidate;
     }
 
-    debug.info("auto-tag", "Genre missing after all sources — filling via LLM...");
+    debug.info("auto-tag", "Genre missing after all sources - filling via LLM...");
     debug.startTimer("fill-genre");
 
     try {
@@ -1052,7 +1093,7 @@ class TaskManager {
         return { ...candidate, genre };
       }
 
-      debug.debug("auto-tag", "LLM genre fill returned null or low confidence — skipping");
+      debug.debug("auto-tag", "LLM genre fill returned null or low confidence - skipping");
     } catch (err) {
       debug.warn("auto-tag", "LLM genre fill failed (non-fatal)", err);
     } finally {
@@ -1153,7 +1194,7 @@ export function getProgress(
 ): TaskProgress | null {
   const progress = getTaskManager().getTaskProgress(taskId);
   if (progress) {
-    debug.debug("auto-tag", `Progress [${taskId}]: ${progress.progress}/${progress.total} — ${progress.message}`);
+    debug.debug("auto-tag", `Progress [${taskId}]: ${progress.progress}/${progress.total} - ${progress.message}`);
   }
   return progress;
 }
@@ -1182,7 +1223,7 @@ export function getDatasetStatus(): {
 
 /**
  * Get the raw (unredacted) API config for main-process internal use.
- * Returns the actual API key — DO NOT send this to the renderer.
+ * Returns the actual API key - DO NOT send this to the renderer.
  */
 export function getRawApiConfig(): { apiKey: string; model: string } {
   const cfg = getTaskManager().getConfig();
@@ -1333,7 +1374,7 @@ function normalizeLlmTrackIndices(
     .filter((n) => !Number.isNaN(n));
 
   if (indices.length === 0) {
-    // No usable indices — assign by position
+    // No usable indices - assign by position
     return tracks.slice(0, expectedCount);
   }
 
@@ -1357,12 +1398,12 @@ function normalizeLlmTrackIndices(
     return sorted.slice(0, expectedCount);
   }
 
-  // Case 3: non-contiguous or mismatched — use positional fallback
+  // Case 3: non-contiguous or mismatched - use positional fallback
   debug.warn(
     "auto-tag",
     `LLM track indices don't align with input (min=${minIndex}, max=${maxIndex}, ` +
     `unique=${uniqueIndices}, expected=${expectedCount}, received=${tracks.length}) ` +
-    `— using positional fallback`,
+    `- using positional fallback`,
   );
   return tracks.slice(0, expectedCount);
 }

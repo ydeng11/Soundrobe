@@ -42,6 +42,7 @@ import {
 import {
   hintsAreAmbiguous,
   filterCandidatesForAutoApply,
+  protectCandidateTrackFieldsForAutoApply,
   loadConfig,
   startAutoTag,
   getProgress,
@@ -53,7 +54,7 @@ import {
   buildAliasedLookupVariants,
 } from "../../electron/handlers/auto-tag";
 import { setAliasFilePath, saveAlias } from "../../electron/handlers/aliases";
-import { makeAlbumCandidate, makeLookupRequest } from "../../electron/handlers/candidates";
+import { makeAlbumCandidate, makeLookupRequest, makeTrackCandidate } from "../../electron/handlers/candidates";
 import { writeTags, batchWriteTags } from "../../electron/handlers/writer";
 import { readTrackMetadata } from "../../electron/handlers/tracks";
 import * as NodeID3 from "node-id3";
@@ -141,6 +142,126 @@ describe("filterCandidatesForAutoApply", () => {
     ]);
 
     expect(filtered).toEqual([safeFolderFallback]);
+  });
+});
+
+describe("protectCandidateTrackFieldsForAutoApply", () => {
+  it("keeps remote album fields but only matches subset tracks by title+duration", async () => {
+    const request = makeLookupRequest({
+      path: "/tmp/费玉清/一剪梅",
+      artistHint: "费玉清",
+      albumHint: "一剪梅",
+      tracks: [
+        makeTrackCandidate({ title: "不变的心", trackNumber: 1 }),
+        makeTrackCandidate({ title: "变色的长城", trackNumber: 2 }),
+        makeTrackCandidate({ title: "楚留香新传", trackNumber: 3 }),
+        makeTrackCandidate({ title: "船歌", trackNumber: 4 }),
+        makeTrackCandidate({ title: "黄叶舞秋风", trackNumber: 5 }),
+      ],
+    });
+    const remoteCompilation = makeAlbumCandidate({
+      source: "musicbrainz",
+      album: "一剪梅 黑胶唱片3CD精品典藏",
+      musicbrainzAlbumId: "remote-release",
+      tracks: [
+        makeTrackCandidate({ title: "梦驼铃", trackNumber: 1 }),
+        makeTrackCandidate({ title: "一剪梅", trackNumber: 2 }),
+        makeTrackCandidate({ title: "挑夫", trackNumber: 3 }),
+        makeTrackCandidate({ title: "送你一把土", trackNumber: 4 }),
+        makeTrackCandidate({ title: "变色的长城", trackNumber: 5 }),
+        makeTrackCandidate({ title: "长江水", trackNumber: 6 }),
+      ],
+    });
+
+    const [protectedCandidate] = await protectCandidateTrackFieldsForAutoApply(request, [remoteCompilation]);
+
+    // Album-level fields preserved
+    expect(protectedCandidate.album).toBe("一剪梅 黑胶唱片3CD精品典藏");
+    expect(protectedCandidate.musicbrainzAlbumId).toBe("remote-release");
+
+    // Only `变色的长城` matches — tracks preserved, no remote overwrites for non-matched
+    expect(protectedCandidate.tracks).toHaveLength(5);
+    expect(protectedCandidate.tracks[0].title).toBe("不变的心");
+    expect(protectedCandidate.tracks[0].trackNumber).toBe(1);
+    expect(protectedCandidate.tracks[1].title).toBe("变色的长城");
+    // Not a full ordered match — remote track number NOT written
+    expect(protectedCandidate.tracks[1].trackNumber).toBe(2);
+    expect(protectedCandidate.tracks[2].title).toBe("楚留香新传");
+    expect(protectedCandidate.tracks[3].title).toBe("船歌");
+    expect(protectedCandidate.tracks[4].title).toBe("黄叶舞秋风");
+  });
+
+  it("allows remote per-track fields for a full ordered match", async () => {
+    const request = makeLookupRequest({
+      path: "/tmp/费玉清/唱一遍一遍",
+      artistHint: "费玉清",
+      albumHint: "唱一遍一遍",
+      tracks: [
+        makeTrackCandidate({ title: "唱一遍一遍", trackNumber: 1 }),
+        makeTrackCandidate({ title: "传奇", trackNumber: 2 }),
+      ],
+    });
+    const remoteAlbum = makeAlbumCandidate({
+      source: "musicbrainz",
+      album: "唱一遍一遍",
+      tracks: [
+        makeTrackCandidate({ title: "唱一遍一遍", trackNumber: 1 }),
+        makeTrackCandidate({ title: "传奇", trackNumber: 2 }),
+      ],
+    });
+
+    const [protectedCandidate] = await protectCandidateTrackFieldsForAutoApply(request, [remoteAlbum]);
+
+    expect(protectedCandidate.tracks.map((track) => track.title)).toEqual(["唱一遍一遍", "传奇"]);
+    // Full ordered match — remote track numbers may be used
+    expect(protectedCandidate.tracks[0].trackNumber).toBe(1);
+    expect(protectedCandidate.tracks[1].trackNumber).toBe(2);
+  });
+
+  it("does not overwrite non-empty local artist with remote artist", async () => {
+    const request = makeLookupRequest({
+      path: "/tmp/Artist/Album",
+      artistHint: "Artist",
+      albumHint: "Album",
+      tracks: [
+        makeTrackCandidate({ title: "Song", trackNumber: 1, artist: "Local Artist", artists: ["Local Artist"] }),
+      ],
+    });
+    const remoteAlbum = makeAlbumCandidate({
+      source: "musicbrainz",
+      album: "Album",
+      tracks: [
+        makeTrackCandidate({ title: "Song", trackNumber: 1, artist: "Remote Artist", artists: ["Remote Artist"] }),
+      ],
+    });
+
+    const [protectedCandidate] = await protectCandidateTrackFieldsForAutoApply(request, [remoteAlbum]);
+
+    // Local artist is non-empty — remote should NOT overwrite
+    expect(protectedCandidate.tracks[0].artist).toBe("Local Artist");
+    expect(protectedCandidate.tracks[0].artists).toEqual(["Local Artist"]);
+  });
+
+  it("fills blank local artist from remote for matched tracks", async () => {
+    const request = makeLookupRequest({
+      path: "/tmp/Artist/Album",
+      artistHint: "Artist",
+      albumHint: "Album",
+      tracks: [
+        makeTrackCandidate({ title: "Song", trackNumber: 1, artist: null, artists: [] }),
+      ],
+    });
+    const remoteAlbum = makeAlbumCandidate({
+      source: "musicbrainz",
+      album: "Album",
+      tracks: [
+        makeTrackCandidate({ title: "Song", trackNumber: 1, artist: "Remote Artist", artists: ["Remote Artist"] }),
+      ],
+    });
+
+    const [protectedCandidate] = await protectCandidateTrackFieldsForAutoApply(request, [remoteAlbum]);
+
+    expect(protectedCandidate.tracks[0].artist).toBe("Remote Artist");
   });
 });
 
