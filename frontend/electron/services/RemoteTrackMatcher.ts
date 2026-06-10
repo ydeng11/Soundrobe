@@ -58,6 +58,7 @@ const ANNOTATION_PATTERNS = [
 const FILENAME_TRACK_PREFIX_RE = /^(\d+)[\s.\u2010\u2011\u2012\u2013\u2014\u2015\-]*/;
 const FILENAME_ARTIST_PREFIX_RE =
   /^(.*?)[\s\-–—]+(?:[-–—]|[\u2013\u2014])\s*/;
+const FILENAME_DIRECT_ARTIST_SEPARATOR_RE = /[-–—]/g;
 
 // ── Unicode punctuation/symbol regex ──────────────────────────────
 
@@ -127,6 +128,10 @@ export interface NormalizedTitleForm {
   source: "tag" | "filename";
 }
 
+export interface RemoteTrackMatcherOptions {
+  artistHints?: string[];
+}
+
 /**
  * Generate all normalized title forms for a local track.
  *
@@ -144,6 +149,7 @@ export interface NormalizedTitleForm {
 export async function generateTitleForms(
   tagTitle: string | null,
   filename: string,
+  knownArtists: string[] = [],
 ): Promise<NormalizedTitleForm[]> {
   const forms: NormalizedTitleForm[] = [];
   const oc = await getOpenCC();
@@ -172,7 +178,7 @@ export async function generateTitleForms(
   }
 
   // ── Filename-derived forms ──────────────────────────────────
-  const stem = extractFilenameStem(filename);
+  const stem = extractFilenameStem(filename, knownArtists);
   if (stem) {
     addForm(stem, "filename");
 
@@ -189,8 +195,11 @@ export async function generateTitleForms(
  * Extract a cleaned title from a filename stem.
  * Used when writing back the filename-derived title for matched tracks.
  */
-export function cleanFilenameTitle(filename: string): string | null {
-  const stem = extractFilenameStem(filename);
+export function cleanFilenameTitle(
+  filename: string,
+  knownArtists: string[] = [],
+): string | null {
+  const stem = extractFilenameStem(filename, knownArtists);
   if (!stem) return null;
   return stripAnnotations(stem).trim() || null;
 }
@@ -199,7 +208,10 @@ export function cleanFilenameTitle(filename: string): string | null {
  * Extract a cleaned, unnormalized filename stem.
  * Strip extension, leading track number, common Artist - prefix.
  */
-function extractFilenameStem(filename: string): string | null {
+function extractFilenameStem(
+  filename: string,
+  knownArtists: string[] = [],
+): string | null {
   if (!filename) return null;
   // Strip extension
   const dotIdx = filename.lastIndexOf(".");
@@ -218,9 +230,38 @@ function extractFilenameStem(filename: string): string | null {
     if (artistPart.length > 0 && titlePart.length > 0) {
       stripped = titlePart;
     }
+  } else {
+    const titlePart = stripKnownArtistPrefix(stripped, knownArtists);
+    if (titlePart) stripped = titlePart;
   }
 
   return stripped.trim() || null;
+}
+
+function stripKnownArtistPrefix(
+  stem: string,
+  knownArtists: string[],
+): string | null {
+  const normalizedArtists = knownArtists
+    .map((artist) => stripPunctuationAndSymbols(stripAnnotations(artist)))
+    .filter((artist) => artist.length > 0);
+  if (normalizedArtists.length === 0) return null;
+
+  for (const match of stem.matchAll(FILENAME_DIRECT_ARTIST_SEPARATOR_RE)) {
+    const index = match.index;
+    if (index == null || index <= 0) continue;
+    const artistPart = stem.slice(0, index).trim();
+    const titlePart = stem.slice(index + match[0].length).trim();
+    if (!artistPart || !titlePart) continue;
+    const normalizedArtistPart = stripPunctuationAndSymbols(
+      stripAnnotations(artistPart),
+    );
+    if (normalizedArtists.includes(normalizedArtistPart)) {
+      return titlePart;
+    }
+  }
+
+  return null;
 }
 
 /**
@@ -299,6 +340,7 @@ export async function matchRemoteCandidateTracks(
   filenames: string[],
   remoteTracks: TrackCandidate[],
   source: string,
+  options: RemoteTrackMatcherOptions = {},
 ): Promise<MatchedCandidate> {
   const stats: MatchStats = {
     matched: 0,
@@ -326,7 +368,12 @@ export async function matchRemoteCandidateTracks(
   for (let i = 0; i < localTracks.length; i++) {
     const lt = localTracks[i];
     const fname = filenames[i] ?? "";
-    const forms = await generateTitleForms(lt.title, fname);
+    const knownArtists = [
+      ...(options.artistHints ?? []),
+      ...(lt.artist ? [lt.artist] : []),
+      ...lt.artists,
+    ];
+    const forms = await generateTitleForms(lt.title, fname, knownArtists);
     localForms.push({
       tagForms: forms.filter((f) => f.source === "tag").map((f) => f.text),
       filenameForms: forms.filter((f) => f.source === "filename").map((f) => f.text),
@@ -507,7 +554,12 @@ export async function matchRemoteCandidateTracks(
       result.title = localTrack.title;
     } else {
       // Only filename-derived title matched — write cleaned filename title
-      const cleaned = cleanFilenameTitle(lf.filename);
+      const knownArtists = [
+        ...(options.artistHints ?? []),
+        ...(localTrack.artist ? [localTrack.artist] : []),
+        ...localTrack.artists,
+      ];
+      const cleaned = cleanFilenameTitle(lf.filename, knownArtists);
       result.title = cleaned || localTrack.title;
     }
 

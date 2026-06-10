@@ -90,6 +90,15 @@ export async function protectCandidateTrackFieldsForAutoApply(
       filenames,
       candidate.tracks,
       candidate.source,
+      {
+        artistHints: [
+          request.artistHint,
+          candidate.artist,
+          candidate.albumArtist,
+          ...candidate.artists,
+          ...candidate.albumArtists,
+        ].filter((artist): artist is string => !!artist?.trim()),
+      },
     );
 
     // Log when tracklists don't fully align

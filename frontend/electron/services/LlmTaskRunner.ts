@@ -287,6 +287,7 @@ export class LlmTaskRunner {
         "assistant_response",
         toolCallSchema,
         input.model,
+        { allowMessageFallback: true },
       );
       const durationMs = Math.round(performance.now() - startTime);
 

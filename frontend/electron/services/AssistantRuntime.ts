@@ -196,6 +196,11 @@ function hasReadOnlyIntent(text: string): boolean {
   return /\b(summarize|summary|find|search|list|show|inspect|what|which|how many|count|missing|duplicate|duplicates)\b/i.test(text);
 }
 
+function hasReadOnlyTrackNumberIntent(text: string): boolean {
+  if (!hasReadOnlyIntent(text) || !hasTrackNumberIntent(text)) return false;
+  return !/\b(fix|repair|set|write|apply|renumber|number\s+tracks?|numbering)\b/i.test(text);
+}
+
 export function deriveAssistantTaskContract(userMessage: string): AssistantTaskContract {
   const text = userMessage.trim();
   const normalized = text.toLowerCase();
@@ -204,6 +209,14 @@ export function deriveAssistantTaskContract(userMessage: string): AssistantTaskC
     return {
       kind: "clarification_required",
       reason: "empty_user_message",
+      requiresCompletionEvidence: false,
+    };
+  }
+
+  if (hasReadOnlyTrackNumberIntent(text)) {
+    return {
+      kind: "read_only_answer",
+      reason: "read_only_track_number_intent",
       requiresCompletionEvidence: false,
     };
   }

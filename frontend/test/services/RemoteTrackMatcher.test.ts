@@ -107,6 +107,14 @@ describe("cleanFilenameTitle", () => {
     expect(cleanFilenameTitle("05. 费玉清 - 变色湖长城.flac")).toBe("变色湖长城");
   });
 
+  it("strips no-space Artist-Title prefix when artist evidence matches", () => {
+    expect(cleanFilenameTitle("费玉清-不变的心.flac", ["费玉清"])).toBe("不变的心");
+  });
+
+  it("keeps hyphenated titles when artist evidence does not match", () => {
+    expect(cleanFilenameTitle("费玉清-不变的心.flac", ["邓丽君"])).toBe("费玉清-不变的心");
+  });
+
   it("returns null for empty filename", () => {
     expect(cleanFilenameTitle("")).toBeNull();
   });
@@ -424,6 +432,28 @@ describe("matchRemoteCandidateTracks", () => {
     // Tag title ("Wrong Title") doesn't match remote ("Song A")
     // Filename form matches → write cleaned filename title
     expect(result.tracks[0].title).toBe("Song A");
+  });
+
+  it("matches no-space Chinese Artist-Title filenames by known artist", async () => {
+    const localTracks = [
+      makeTrackCandidate({
+        title: "Wrong Title",
+        artist: "费玉清",
+        artists: ["费玉清"],
+      }),
+    ];
+    const filenames = ["费玉清-不变的心.flac"];
+
+    const result = await matchRemoteCandidateTracks(
+      localTracks,
+      filenames,
+      [makeTrackCandidate({ title: "不变的心" })],
+      "musicbrainz",
+      { artistHints: ["费玉清"] },
+    );
+
+    expect(result.stats.matched).toBe(1);
+    expect(result.tracks[0].title).toBe("不变的心");
   });
 });
 

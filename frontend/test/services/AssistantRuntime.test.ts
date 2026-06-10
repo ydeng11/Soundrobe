@@ -637,6 +637,34 @@ describe("deriveAssistantTaskContract", () => {
       requiresCompletionEvidence: false,
     });
   });
+
+  it("keeps read-only track-number questions read-only", () => {
+    expect(deriveAssistantTaskContract("find tracks missing track numbers")).toMatchObject({
+      kind: "read_only_answer",
+      requiresCompletionEvidence: false,
+    });
+    expect(deriveAssistantTaskContract("show track numbers")).toMatchObject({
+      kind: "read_only_answer",
+      requiresCompletionEvidence: false,
+    });
+    expect(deriveAssistantTaskContract("how many tracks have no track number?")).toMatchObject({
+      kind: "read_only_answer",
+      requiresCompletionEvidence: false,
+    });
+  });
+
+  it("still routes imperative track-number fixes to auto_numbering_tracks", () => {
+    expect(deriveAssistantTaskContract("fix track numbers")).toMatchObject({
+      kind: "action_preview_required",
+      route: { toolName: "auto_numbering_tracks", args: { target_scope: "library" } },
+      requiresCompletionEvidence: true,
+    });
+    expect(deriveAssistantTaskContract("number tracks within album")).toMatchObject({
+      kind: "action_preview_required",
+      route: { toolName: "auto_numbering_tracks", args: { target_scope: "library" } },
+      requiresCompletionEvidence: true,
+    });
+  });
 });
 
 describe("detectToolIntentMismatch", () => {

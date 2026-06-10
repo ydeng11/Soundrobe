@@ -30,6 +30,10 @@ export interface OpenRouterConfig {
   maxTokens?: number;
 }
 
+export interface CompleteJsonOptions {
+  allowMessageFallback?: boolean;
+}
+
 /**
  * Cost estimates for common models (USD per 1K tokens).
  * Source: openrouter.ai/models as of 2026-05.
@@ -81,17 +85,15 @@ export class OpenRouterClient {
   /**
    * Call OpenRouter and parse structured JSON content.
    *
-   * Some free-tier models ignore `response_format: json_schema` and return
-   * natural-language text instead of JSON, or return empty content.
-   * We handle these cases gracefully instead of throwing:
-   * - Empty content → synthetic message with empty string
-   * - Non-JSON natural language → wrapped as a "message" type response
+   * Structured callers fail loud on malformed content by default.
+   * Assistant chat/tool-loop callers may opt in to natural-language fallback.
    */
   async completeJson(
     messages: Array<{ role: string; content: string }>,
     schemaName: string,
     schema: Record<string, unknown>,
     model?: string,
+    options: CompleteJsonOptions = {},
   ): Promise<LLMResponse> {
     let payload: Record<string, unknown> | null = null;
     let content = "";
@@ -117,11 +119,20 @@ export class OpenRouterClient {
       }
       content = choices[0]?.message?.content ?? "";
       if (!content) {
-        // Empty content — not a JSON parse issue, the API simply didn't
-        // return content. Fall through to the message-wrapper logic below.
-        break;
+        if (options.allowMessageFallback) {
+          break;
+        }
+        throw new Error("OpenRouter response did not include message content");
       }
       content = String(content);
+
+      const trimmed = content.trim();
+      if (!trimmed.startsWith("{") && !trimmed.startsWith("[")) {
+        if (options.allowMessageFallback) {
+          break;
+        }
+        throw new Error(`LLM returned non-JSON content: ${trimmed.slice(0, 120)}`);
+      }
 
       try {
         const data = JSON.parse(content) as Record<string, unknown>;
@@ -131,11 +142,8 @@ export class OpenRouterClient {
       }
     }
 
-    // If after retries we have empty content or natural-language text,
-    // return a synthetic message response instead of crashing.
-    // This handles free-tier models that ignore response_format constraints.
     const trimmed = content.trim();
-    if (!trimmed || !trimmed.startsWith("{") && !trimmed.startsWith("[")) {
+    if (options.allowMessageFallback && (!trimmed || !trimmed.startsWith("{") && !trimmed.startsWith("["))) {
       const wrapped = { type: "message", content: trimmed };
       return this.buildResponse(payload ?? { usage: {}, model: model ?? this.config.model }, wrapped, model);
     }

@@ -53,7 +53,23 @@ describe("OpenRouterClient", () => {
     expect(result.usage.totalTokens).toBe(150);
   });
 
-  it("wraps natural language text as a message when JSON parsing fails", async () => {
+  it("throws on natural language text by default", async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        choices: [{ message: { content: "not json" } }],
+        usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 },
+        model: "test-model",
+      }),
+    });
+
+    const client = new OpenRouterClient({ apiKey: "test" });
+    await expect(
+      client.completeJson([{ role: "user", content: "x" }], "s", {}),
+    ).rejects.toThrow("LLM returned non-JSON content");
+  });
+
+  it("wraps natural language text as a message when explicitly allowed", async () => {
     globalThis.fetch = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({
@@ -66,7 +82,10 @@ describe("OpenRouterClient", () => {
     const client = new OpenRouterClient({ apiKey: "test" });
     const result = await client.completeJson(
       [{ role: "user", content: "x" }],
-      "s", {},
+      "s",
+      {},
+      undefined,
+      { allowMessageFallback: true },
     );
     expect(result.data).toEqual({ type: "message", content: "not json" });
     expect(result.usage.promptTokens).toBe(10);
@@ -168,7 +187,23 @@ describe("OpenRouterClient", () => {
     ).rejects.toThrow("did not include choices");
   });
 
-  it("wraps empty message content as a message rather than throwing", async () => {
+  it("throws on empty message content by default", async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        choices: [{ message: { content: "" } }],
+        usage: { prompt_tokens: 5, completion_tokens: 3, total_tokens: 8 },
+        model: "test-model",
+      }),
+    });
+
+    const client = new OpenRouterClient({ apiKey: "test" });
+    await expect(
+      client.completeJson([{ role: "user", content: "x" }], "s", {}),
+    ).rejects.toThrow("OpenRouter response did not include message content");
+  });
+
+  it("wraps empty message content when explicitly allowed", async () => {
     globalThis.fetch = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({
@@ -181,7 +216,10 @@ describe("OpenRouterClient", () => {
     const client = new OpenRouterClient({ apiKey: "test" });
     const result = await client.completeJson(
       [{ role: "user", content: "x" }],
-      "s", {},
+      "s",
+      {},
+      undefined,
+      { allowMessageFallback: true },
     );
     expect(result.data).toEqual({ type: "message", content: "" });
     expect(result.model).toBe("test-model");
