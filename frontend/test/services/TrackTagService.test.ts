@@ -6,14 +6,15 @@ vi.mock("../../electron/handlers/tracks", () => ({
   readTrackMetadata: vi.fn(),
 }));
 
-// Mock the writer module
-vi.mock("../../electron/handlers/writer", () => ({
-  writeTags: vi.fn(),
-  batchWriteTags: vi.fn(),
+// Mock the write queue
+const mockQueueSubmit = vi.fn();
+vi.mock("../../electron/services/TagWriteQueue", () => ({
+  getDefaultWriteQueue: () => ({
+    submit: mockQueueSubmit,
+  }),
 }));
 
 import { readTrackMetadata } from "../../electron/handlers/tracks";
-import { batchWriteTags } from "../../electron/handlers/writer";
 
 describe("TrackTagService", () => {
   let service: TrackTagService;
@@ -159,6 +160,10 @@ describe("TrackTagService", () => {
 
   describe("applyTagUpdates", () => {
     it("writes tags and re-reads metadata", async () => {
+      mockQueueSubmit.mockResolvedValue([
+        { filePath: "/test/track.flac", success: true },
+      ]);
+
       (readTrackMetadata as any).mockResolvedValue({
         path: "/test/track.flac",
         title: "Updated",
@@ -195,8 +200,9 @@ describe("TrackTagService", () => {
         },
       ]);
 
-      expect(batchWriteTags).toHaveBeenCalledWith([
-        { path: "/test/track.flac", fields: { title: "Updated" } },
+      // Verify the queue was called with the right job
+      expect(mockQueueSubmit).toHaveBeenCalledWith([
+        { filePath: "/test/track.flac", fields: { title: "Updated" } },
       ]);
       expect(results).toHaveLength(1);
       expect(results[0].success).toBe(true);

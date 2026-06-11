@@ -34,6 +34,8 @@ import { basename, dirname, join, extname } from "node:path";
 const AUDIO_EXTENSIONS = new Set([".mp3", ".flac", ".m4a", ".mp4", ".wav", ".ogg", ".opus", ".aiff"]);
 import { homedir } from "node:os";
 import debug from "./debug";
+import { AUTO_TAG_ALBUM_CONCURRENCY, LOCAL_READ_CONCURRENCY } from "../services/concurrency";
+import { getDefaultWriteQueue } from "../services/TagWriteQueue";
 
 /**
  * Get sorted audio filenames from an album path.
@@ -392,6 +394,18 @@ class TaskManager {
   private counter = 0;
   private config: AutoTagConfig;
 
+  // ── Concurrency-limited task queue ──────────────────────────────
+  /** Maximum concurrent album processing tasks. */
+  private maxConcurrency = AUTO_TAG_ALBUM_CONCURRENCY;
+  /** Number of currently running album tasks. */
+  private runningCount = 0;
+  /** Queue of pending album tasks: { taskId, albumPath, abort, queued: true }. */
+  private pendingQueue: Array<{
+    taskId: string;
+    albumPath: string;
+    abort: AbortController;
+  }> = [];
+
   constructor(config?: AutoTagConfig) {
     this.config = config ?? loadConfig();
   }
@@ -408,6 +422,7 @@ class TaskManager {
   /**
    * Start auto-tagging an album.
    * Returns a taskId that can be used to poll progress or cancel.
+   * The task is queued if the concurrency limit is reached.
    */
   startAutoTag(albumPath: string): string {
     const taskId = `auto-tag-${++this.counter}-${Date.now()}`;
@@ -419,24 +434,73 @@ class TaskManager {
         status: "running",
         progress: 0,
         total: 9,
-        message: "Starting...",
+        message: this.runningCount >= this.maxConcurrency
+          ? "Queued (waiting for slot)..."
+          : "Starting...",
         result: null,
       },
       abort,
     });
 
-    // Start the async processing (don't await - runs in background)
-    this.processAlbum(taskId, albumPath, abort.signal).catch((err) => {
-      const msg = err instanceof Error ? err.message : "Unknown error";
-      debug.error("auto-tag", `Task ${taskId} failed: ${msg}`, err);
-      this.updateTask(taskId, {
-        status: "failed",
-        message: msg,
-      });
-      this.emitTask(taskId, "failed", msg, { error: msg });
-    });
+    if (this.runningCount >= this.maxConcurrency) {
+      // Queue the task — it will start when a slot opens
+      debug.info("auto-tag", `Task ${taskId} queued for ${albumPath} (running=${this.runningCount}, max=${this.maxConcurrency})`);
+      this.pendingQueue.push({ taskId, albumPath, abort });
+    } else {
+      this.startTask(taskId, albumPath, abort);
+    }
 
     return taskId;
+  }
+
+  /**
+   * Start a task immediately (increments running count).
+   */
+  private startTask(taskId: string, albumPath: string, abort: AbortController): void {
+    this.runningCount++;
+    debug.debug("auto-tag", `Task ${taskId} started (running=${this.runningCount})`);
+
+    this.processAlbum(taskId, albumPath, abort.signal)
+      .catch((err) => {
+        const msg = err instanceof Error ? err.message : "Unknown error";
+        debug.error("auto-tag", `Task ${taskId} failed: ${msg}`, err);
+        if (!abort.signal.aborted) {
+          this.updateTask(taskId, {
+            status: "failed",
+            message: msg,
+          });
+          this.emitTask(taskId, "failed", msg, { error: msg });
+        }
+      })
+      .finally(() => {
+        this.runningCount--;
+        // Dequeue the next pending task
+        this.dequeueNext();
+      });
+  }
+
+  /**
+   * Start the next queued task if concurrency allows.
+   */
+  private dequeueNext(): void {
+    while (this.pendingQueue.length > 0 && this.runningCount < this.maxConcurrency) {
+      const next = this.pendingQueue.shift()!;
+      if (next.abort.signal.aborted) {
+        // Task was cancelled while queued — skip it
+        this.updateTask(next.taskId, {
+          status: "cancelled",
+          message: "Cancelled (queued)",
+        });
+        this.emitTask(next.taskId, "cancelled", "Cancelled before starting");
+        this.cleanupTask(next.taskId);
+        continue;
+      }
+      this.updateTask(next.taskId, {
+        message: "Starting...",
+        progress: 0,
+      });
+      this.startTask(next.taskId, next.albumPath, next.abort);
+    }
   }
 
   getTaskProgress(taskId: string): TaskProgress | null {
@@ -444,6 +508,21 @@ class TaskManager {
   }
 
   cancelTask(taskId: string): void {
+    // Check if the task is still queued (not yet started)
+    const queueIndex = this.pendingQueue.findIndex((q) => q.taskId === taskId);
+    if (queueIndex >= 0) {
+      const [queued] = this.pendingQueue.splice(queueIndex, 1);
+      queued.abort.abort();
+      this.updateTask(taskId, {
+        status: "cancelled",
+        message: "Cancelled (queued)",
+      });
+      this.emitTask(taskId, "cancelled", "Cancelled before starting");
+      this.cleanupTask(taskId);
+      return;
+    }
+
+    // Task is running (or finished) — abort the signal
     const task = this.tasks.get(taskId);
     if (task) {
       task.abort.abort();
@@ -893,10 +972,10 @@ class TaskManager {
 
     // Write tags - album-level to every file, track-level matched by
     // position in the sorted directory listing.
-    // Positional matching (not Map<number, ...>) avoids cascade shifts
-    // when files have duplicate or non-contiguous track numbers.
-    let written = 0;
-    let errors = 0;
+    // All writes go through the concurrent write queue for bounded parallelism.
+
+    // 1. Collect all write jobs (with lyrics resolution)
+    const writeJobs: Array<{ filePath: string; fields: WriteFields }> = [];
     for (let i = 0; i < audioFiles.length; i++) {
       const filePath = audioFiles[i];
       const trackFields = i < trackFieldsList.length ? trackFieldsList[i] : {};
@@ -923,18 +1002,22 @@ class TaskManager {
         debug.debug("auto-tag", `No fields to write for: ${filePath} - skipping`);
         continue;
       }
+      writeJobs.push({ filePath, fields: mergedFields });
+    }
 
-      try {
-        await writeTags(filePath, mergedFields);
-        written++;
-        this.emitTask(taskId, "write", `Wrote tags: ${basename(filePath)}`, {
-          path: filePath,
-          trackNumber: mergedFields.trackNumber ?? i + 1,
+    // 2. Submit all write jobs through the concurrent queue
+    const writeResults = await getDefaultWriteQueue().submit(writeJobs);
+    const written = writeResults.filter((r) => r.success).length;
+    const errors = writeResults.filter((r) => !r.success).length;
+
+    for (const r of writeResults) {
+      if (r.success) {
+        this.emitTask(taskId, "write", `Wrote tags: ${basename(r.filePath)}`, {
+          path: r.filePath,
         });
-        debug.debug("auto-tag", `Wrote tags: ${filePath}`);
-      } catch (err) {
-        errors++;
-        debug.warn("auto-tag", `Failed to write tags to: ${filePath}`, err);
+        debug.debug("auto-tag", `Wrote tags: ${r.filePath}`);
+      } else {
+        debug.warn("auto-tag", `Failed to write tags to: ${r.filePath} — ${r.error}`);
       }
     }
 
@@ -1150,6 +1233,13 @@ class TaskManager {
       this.tasks.delete(taskId);
       debug.debug("auto-tag", `Task ${taskId} cleaned up`);
     }, 5 * 60 * 1000);
+  }
+
+  /**
+   * Immediately remove a task (used for cancelled queued tasks).
+   */
+  private cleanupTask(taskId: string): void {
+    this.tasks.delete(taskId);
   }
 
   private failCancelled(taskId: string): void {
@@ -1476,15 +1566,13 @@ export async function downloadAlbumLyrics(
 
   if (audioFiles.length === 0) return 0;
 
-  let written = 0;
-  // Always create client for standalone button (ignore lyricsDownloadEnabled toggle)
+  // Collect write jobs: read local lyrics or fetch from API
   const client = new LyricsClient({ baseUrl: config.lyricsApiUrl });
+  const writeJobs: Array<{ filePath: string; fields: WriteFields }> = [];
 
   for (const filePath of audioFiles) {
-    // 1. Try local file first (with encoding fix)
     let lyrics = readLocalLyrics(filePath);
 
-    // 2. If no local file, fetch from API
     if (!lyrics) {
       try {
         const meta = await readTrackMetadata(filePath);
@@ -1501,16 +1589,14 @@ export async function downloadAlbumLyrics(
       }
     }
 
-    // 3. Write lyrics to tag (only if we got something new)
     if (lyrics) {
-      try {
-        await writeTags(filePath, { lyrics });
-        written++;
-      } catch {
-        // skip write failures
-      }
+      writeJobs.push({ filePath, fields: { lyrics } });
     }
   }
 
-  return written;
+  // Submit all lyrics writes through the concurrent queue
+  if (writeJobs.length === 0) return 0;
+  const writeResults = await getDefaultWriteQueue().submit(writeJobs);
+
+  return writeResults.filter((r) => r.success).length;
 }

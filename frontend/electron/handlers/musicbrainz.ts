@@ -16,34 +16,26 @@ import {
 const MUSICBRAINZ_BASE = "https://musicbrainz.org/ws/2";
 const USER_AGENT = "auto-tagger/0.1.0 ( https://github.com/auto-tagger )";
 
-interface RateLimiter {
-  wait(): Promise<void>;
-}
-
 /**
- * Simple 1-req/sec rate limiter.
+ * App-wide 1-req/sec rate limiter for MusicBrainz API.
+ * Module-level state so all MusicBrainzClient instances share the same
+ * request budget across the entire application.
  */
-function createRateLimiter(): RateLimiter {
-  let lastCall = 0;
-  return {
-    async wait(): Promise<void> {
-      const now = Date.now();
-      const elapsed = now - lastCall;
-      if (elapsed < 1000 && lastCall > 0) {
-        await new Promise((r) => setTimeout(r, 1000 - elapsed));
-      }
-      lastCall = Date.now();
-    },
-  };
+let lastMusicBrainzCall = 0;
+async function musicBrainzRateLimit(): Promise<void> {
+  const now = Date.now();
+  const elapsed = now - lastMusicBrainzCall;
+  if (elapsed < 1000 && lastMusicBrainzCall > 0) {
+    await new Promise((r) => setTimeout(r, 1000 - elapsed));
+  }
+  lastMusicBrainzCall = Date.now();
 }
 
 export class MusicBrainzClient {
-  private rateLimiter: RateLimiter;
   private baseUrl: string;
 
   constructor(baseUrl?: string) {
     this.baseUrl = baseUrl ?? MUSICBRAINZ_BASE;
-    this.rateLimiter = createRateLimiter();
   }
 
   /**
@@ -58,7 +50,7 @@ export class MusicBrainzClient {
 
     const query = `artist:"${escapeQuery(artistHint)}" AND release:"${escapeQuery(albumHint)}"`;
 
-    await this.rateLimiter.wait();
+    await musicBrainzRateLimit();
 
     const url = `${this.baseUrl}/release?query=${encodeURIComponent(query)}&fmt=json&limit=${Math.min(maxCandidates, 25)}`;
 
@@ -91,19 +83,16 @@ export class MusicBrainzClient {
     for (const release of releases.slice(0, maxCandidates)) {
       const releaseId = release.id as string;
       const title = (release.title as string) ?? null;
-      const artistCredit = (release["artist-credit"] as Array<Record<string, unknown>>) ?? [];
-      const artistName =
-        artistCredit.length > 0
-          ? ((artistCredit[0].name as string) ??
-             ((artistCredit[0] as Record<string, unknown>)?.["name"] as string)) ?? null
-          : null;
+      const credit = (release["artist-credit"] as Array<Record<string, unknown>>) ?? [];
+      const firstCredit = credit[0] as Record<string, unknown> | undefined;
+      const artistName = (firstCredit?.name as string) ?? null;
+      const musicbrainzArtistId = (firstCredit?.artist as Record<string, unknown>)?.id as string ?? null;
 
       const date = (release.date as string) ?? null;
       const year = date ? date.slice(0, 4) : null;
 
       // Load tracks for this release
       const tracks = await this.loadTracks(releaseId, artistName);
-      const status = release.status as string | null;
 
       candidates.push(
         makeAlbumCandidate({
@@ -114,7 +103,7 @@ export class MusicBrainzClient {
           albumArtists: artistName ? [artistName] : [],
           year,
           musicbrainzAlbumId: releaseId,
-          musicbrainzArtistId: ((release["artist-credit"] as Array<Record<string, unknown>>)?.[0]?.artist as Record<string, unknown>)?.id as string ?? null,
+          musicbrainzArtistId,
           tracks,
           source: "musicbrainz",
         }),
@@ -131,7 +120,7 @@ export class MusicBrainzClient {
     releaseId: string,
     artistName: string | null,
   ): Promise<TrackCandidate[]> {
-    await this.rateLimiter.wait();
+    await musicBrainzRateLimit();
 
     const url = `${this.baseUrl}/release/${releaseId}?fmt=json&inc=recordings`;
 

@@ -16,7 +16,10 @@ import {
 
 const DISCOGS_BASE = "https://api.discogs.com";
 
-// Sliding-window rate limiter: 25 req / 60s unauthenticated
+// ── App-wide rate limiter for Discogs API ──────────────────────────
+// Sliding-window rate limiter: 25 req / 60s unauthenticated, 60/min with token.
+// Created at module level so all DiscogsClient instances share the same budget.
+
 class DiscogsRateLimiter {
   private timestamps: number[] = [];
   private maxReqs: number;
@@ -42,6 +45,24 @@ class DiscogsRateLimiter {
 
     this.timestamps.push(Date.now());
   }
+
+  /** Update the max requests per window (e.g. when token becomes available). */
+  setMaxReqs(n: number): void {
+    this.maxReqs = n;
+  }
+}
+
+/** Shared app-wide Discogs rate limiter. Starts at 25/min (anonymous). */
+const sharedDiscogsRateLimiter = new DiscogsRateLimiter(25);
+
+/**
+ * Update the shared Discogs rate limit when an API token is available.
+ * Called during client construction; safe to call multiple times.
+ */
+function updateDiscogsRateLimit(hasToken: boolean): void {
+  if (hasToken) {
+    sharedDiscogsRateLimiter.setMaxReqs(60);
+  }
 }
 
 export class DiscogsClient {
@@ -50,7 +71,6 @@ export class DiscogsClient {
   private userAgent: string;
   private maxCandidates: number;
   private timeoutMs: number;
-  private rateLimiter: DiscogsRateLimiter;
 
   constructor(options?: {
     token?: string | null;
@@ -63,7 +83,8 @@ export class DiscogsClient {
     this.userAgent = options?.userAgent ?? "auto-tagger/0.1.0";
     this.maxCandidates = options?.maxCandidates ?? 3;
     this.timeoutMs = (options?.timeoutSeconds ?? 20) * 1000;
-    this.rateLimiter = new DiscogsRateLimiter(this.token ? 60 : 25);
+    // Update shared rate limiter when token is present
+    updateDiscogsRateLimit(!!this.token);
   }
 
   /**
@@ -86,7 +107,7 @@ export class DiscogsClient {
     searchType: "release" | "master",
   ): Promise<AlbumCandidate[]> {
     const query = `${artist} ${album}`.trim();
-    await this.rateLimiter.wait();
+    await sharedDiscogsRateLimiter.wait();
 
     const url = `${this.baseUrl}/database/search?q=${encodeURIComponent(query)}&type=${searchType}&per_page=${this.maxCandidates * 3}`;
 
@@ -164,7 +185,7 @@ export class DiscogsClient {
     fallbackYear: string | null,
     fallbackGenre: string | null,
   ): Promise<AlbumCandidate | null> {
-    await this.rateLimiter.wait();
+    await sharedDiscogsRateLimiter.wait();
 
     try {
       const response = await fetch(url, {

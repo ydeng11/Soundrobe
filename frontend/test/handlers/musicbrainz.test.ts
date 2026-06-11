@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, afterAll, beforeAll } from "vitest";
+import { describe, it, expect, vi, afterAll } from "vitest";
 import { MusicBrainzClient } from "../../electron/handlers/musicbrainz";
 
 describe("MusicBrainzClient", () => {
@@ -22,9 +22,7 @@ describe("MusicBrainzClient", () => {
   });
 
   it("returns candidates for valid search", async () => {
-    let callCount = 0;
     globalThis.fetch = vi.fn().mockImplementation(async (url: string) => {
-      callCount++;
       // First call: release search
       if (url.includes("/release?")) {
         return mockReleaseResponse([
@@ -117,5 +115,40 @@ describe("MusicBrainzClient", () => {
     await expect(
       client.searchAlbum("The Beatles", "Abbey Road"),
     ).rejects.toThrow("Network error");
+  });
+
+  it("shares rate limiter across instances (app-wide 1 req/sec)", async () => {
+    // Verify that two MusicBrainzClient instances share the same
+    // module-level rate limiter by measuring the time between sequential
+    // requests issued from different instances.
+    let callCount = 0;
+
+    globalThis.fetch = vi.fn().mockImplementation(async (url: string) => {
+      callCount++;
+      if (url.includes("/release?")) {
+        // Add a small delay so the second instance's rate limiter
+        // triggers its 1-second wait
+        await new Promise((r) => setTimeout(r, 5));
+        return mockReleaseResponse([]);
+      }
+      return { ok: false };
+    });
+
+    const client1 = new MusicBrainzClient();
+    const client2 = new MusicBrainzClient();
+
+    const t0 = Date.now();
+    // Make concurrent requests from both instances
+    await Promise.all([
+      client1.searchAlbum("Test", "Album1"),
+      client2.searchAlbum("Test", "Album2"),
+    ]);
+    const elapsed = Date.now() - t0;
+
+    // Both requests should have been made
+    expect(callCount).toBe(2);
+    // With shared rate limiter, second request waits ~1000ms
+    // If they used separate limiters, both would complete in ~5ms.
+    expect(elapsed).toBeGreaterThanOrEqual(900);
   });
 });

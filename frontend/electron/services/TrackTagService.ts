@@ -6,10 +6,11 @@
  * Tag updates are reversible through existing undo snapshots.
  */
 
-import { writeTags, batchWriteTags } from "../handlers/writer";
 import type { WriteFields } from "../handlers/writer";
 import { readTrackMetadata } from "../handlers/tracks";
 import type { TrackData } from "../handlers/tracks";
+import { getDefaultWriteQueue } from "./TagWriteQueue";
+import { mapConcurrent, LOCAL_READ_CONCURRENCY } from "./concurrency";
 
 export interface TagUpdateInstruction {
   trackPath: string;
@@ -86,31 +87,43 @@ export class TrackTagService {
   async applyTagUpdates(
     updates: TagUpdateInstruction[],
   ): Promise<TagUpdateResult[]> {
-    // Write tags
-    const writeUpdates = updates.map((u) => ({
-      path: u.trackPath,
+    // Write tags through the concurrent write queue
+    const writeJobs = updates.map((u) => ({
+      filePath: u.trackPath,
       fields: u.fields,
     }));
-    await batchWriteTags(writeUpdates);
+    const writeResults = await getDefaultWriteQueue().submit(writeJobs);
 
-    // Re-read all updated tracks
-    const results: TagUpdateResult[] = [];
-    for (const update of updates) {
-      try {
-        const updatedTrack = await readTrackMetadata(update.trackPath);
-        results.push({
-          trackPath: update.trackPath,
-          success: true,
-          updatedTrack,
-        });
-      } catch (error) {
-        results.push({
-          trackPath: update.trackPath,
-          success: false,
-          error: error instanceof Error ? error.message : String(error),
-        });
-      }
-    }
+    // Re-read all updated tracks using bounded concurrent reads
+    const results: TagUpdateResult[] = await mapConcurrent(
+      updates,
+      LOCAL_READ_CONCURRENCY,
+      async (update) => {
+        // Find the corresponding write result
+        const wr = writeResults.find((r) => r.filePath === update.trackPath);
+        if (wr && !wr.success) {
+          return {
+            trackPath: update.trackPath,
+            success: false,
+            error: wr.error ?? "Write failed",
+          };
+        }
+        try {
+          const updatedTrack = await readTrackMetadata(update.trackPath);
+          return {
+            trackPath: update.trackPath,
+            success: true,
+            updatedTrack,
+          };
+        } catch (error) {
+          return {
+            trackPath: update.trackPath,
+            success: false,
+            error: error instanceof Error ? error.message : String(error),
+          };
+        }
+      },
+    );
 
     return results;
   }

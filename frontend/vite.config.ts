@@ -44,6 +44,27 @@ export default defineConfig({
           },
         },
       },
+      {
+        entry: "electron/tag-worker.ts",
+        vite: {
+          build: {
+            outDir: "dist-electron",
+            rollupOptions: {
+              external: [
+                "better-sqlite3",
+                "music-metadata",
+                "node-id3",
+                "opencc-js",
+                "sharp",
+              ],
+              output: {
+                entryFileNames: "tag-worker.mjs",
+                format: "es",
+              },
+            },
+          },
+        },
+      },
     ]),
   ],
   build: {

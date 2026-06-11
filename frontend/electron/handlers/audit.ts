@@ -13,7 +13,9 @@ import { parseFile } from "music-metadata";
 import { OpenRouterClient } from "./openrouter";
 import { buildAuditMessages } from "./prompts";
 import { loadConfig } from "./auto-tag";
-import { writeTags, type WriteFields } from "./writer";
+import type { WriteFields } from "./writer";
+import { getDefaultWriteQueue } from "../services/TagWriteQueue";
+import { AUDIT_ALBUM_CONCURRENCY, LOCAL_READ_CONCURRENCY, mapConcurrent } from "../services/concurrency";
 import debug from "./debug";
 
 const AUDIO_EXTENSIONS = new Set([".mp3", ".flac", ".m4a", ".mp4", ".wav", ".ogg", ".opus", ".aiff"]);
@@ -233,22 +235,30 @@ function buildAuditWriteFields(result: AuditTrackResult): WriteFields | null {
 }
 
 async function applyAuditFixes(audioFiles: string[], results: AuditTrackResult[]): Promise<number> {
-  let fixedCount = 0;
+  const jobs: Array<{ filePath: string; fields: WriteFields }> = [];
   for (const result of results) {
     if (result.field === "path") continue;
     const filePath = audioFiles[result.index];
     if (!filePath) continue;
     const fields = buildAuditWriteFields(result);
     if (!fields) continue;
+    jobs.push({ filePath, fields });
+  }
 
-    try {
-      await writeTags(filePath, fields);
-      fixedCount++;
-      debug.info("audit", `auditAlbum: fixed ${basename(filePath)} field="${result.field}"`);
-    } catch (err) {
-      debug.warn("audit", `auditAlbum: failed to fix ${basename(filePath)} — ${(err as Error).message}`);
+  if (jobs.length === 0) return 0;
+
+  // Submit through the concurrent write queue
+  const writeResults = await getDefaultWriteQueue().submit(jobs);
+  const fixedCount = writeResults.filter((r) => r.success).length;
+
+  for (const r of writeResults) {
+    if (r.success) {
+      debug.info("audit", `auditAlbum: fixed ${basename(r.filePath)}`);
+    } else {
+      debug.warn("audit", `auditAlbum: failed to fix ${basename(r.filePath)} — ${r.error}`);
     }
   }
+
   return fixedCount;
 }
 
@@ -272,17 +282,19 @@ async function auditAlbum(
 
   if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
 
-  const tracksMeta: Array<TrackMeta | null> = [];
-  const filenames: string[] = [];
-
-  for (let i = 0; i < audioFiles.length; i++) {
-    if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
-    const meta = await readTrackMetadata(audioFiles[i]);
-    tracksMeta.push(meta);
-    const fn = basename(audioFiles[i]);
-    filenames.push(fn);
-    debug.debug("audit", `  [${i + 1}/${audioFiles.length}] ${fn} — ${meta ? "metadata OK" : "no metadata"}`);
-  }
+  // Read track metadata concurrently using the shared read concurrency limit
+  const filenames = audioFiles.map((f) => basename(f));
+  const readResults = await mapConcurrent(
+    audioFiles,
+    LOCAL_READ_CONCURRENCY,
+    async (filePath, i) => {
+      if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
+      const meta = await readTrackMetadata(filePath);
+      debug.debug("audit", `  [${i + 1}/${audioFiles.length}] ${basename(filePath)} — ${meta ? "metadata OK" : "no metadata"}`);
+      return meta;
+    },
+  );
+  const tracksMeta = readResults;
 
   const artistHint = basename(dirname(albumPath));
   const albumHint = basename(albumPath);
@@ -324,67 +336,78 @@ async function auditAlbum(
 
 /**
  * Audit a specific list of album directories, emitting progress events.
+ * Albums are processed concurrently up to AUDIT_ALBUM_CONCURRENCY.
  */
 async function auditSpecificAlbums(
   client: OpenRouterClient,
   albumPaths: string[],
   signal?: AbortSignal,
 ): Promise<{ albums: number; issues: number }> {
+  const total = albumPaths.length;
   let albumsAudited = 0;
   let totalIssues = 0;
-  const total = albumPaths.length;
 
-  debug.info("audit", `auditSpecificAlbums: auditing ${total} album(s)`);
+  debug.info("audit", `auditSpecificAlbums: auditing ${total} album(s) with concurrency ${AUDIT_ALBUM_CONCURRENCY}`);
   auditEvents.emit("event", { type: "progress", current: 0, total });
 
-  for (let i = 0; i < albumPaths.length; i++) {
-    if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
+  // Process albums concurrently using a bounded pool
+  const pool = Array.from({ length: Math.min(AUDIT_ALBUM_CONCURRENCY, total) });
+  let nextAlbumIndex = 0;
 
-    const albumPath = albumPaths[i];
-    const albumName = basename(albumPath);
+  const worker = async (): Promise<void> => {
+    while (nextAlbumIndex < albumPaths.length) {
+      if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
 
-    debug.info("audit", `auditSpecificAlbums: album ${i + 1}/${total} — ${albumName}`);
+      const i = nextAlbumIndex++;
+      const albumPath = albumPaths[i];
+      const albumName = basename(albumPath);
 
-    auditEvents.emit("event", {
-      type: "album-start",
-      albumPath,
-      current: i + 1,
-      total,
-      message: `Auditing: ${albumName}`,
-    });
-
-    try {
-      const results = await auditAlbum(client, albumPath, signal);
-      totalIssues += results.length;
-      debug.info("audit", `auditSpecificAlbums: ${albumName} — ${results.length} issue(s) (running total: ${totalIssues})`);
+      debug.info("audit", `auditSpecificAlbums: album ${i + 1}/${total} — ${albumName}`);
 
       auditEvents.emit("event", {
-        type: "album-result",
+        type: "album-start",
         albumPath,
         current: i + 1,
         total,
-        results,
-        message: results.length > 0
-          ? `${albumName}: ${results.length} issue(s)`
-          : `${albumName}: OK`,
+        message: `Auditing: ${albumName}`,
       });
 
-      albumsAudited++;
-    } catch (err) {
-      if (signal?.aborted) {
-        debug.warn("audit", `auditSpecificAlbums: ${albumName} — aborted`);
-        throw err;
+      try {
+        const results = await auditAlbum(client, albumPath, signal);
+        totalIssues += results.length;
+
+        debug.info("audit", `auditSpecificAlbums: ${albumName} — ${results.length} issue(s) (running total: ${totalIssues})`);
+
+        auditEvents.emit("event", {
+          type: "album-result",
+          albumPath,
+          current: albumsAudited + 1,
+          total,
+          results,
+          message: results.length > 0
+            ? `${albumName}: ${results.length} issue(s)`
+            : `${albumName}: OK`,
+        });
+
+        albumsAudited++;
+      } catch (err) {
+        if (signal?.aborted) {
+          debug.warn("audit", `auditSpecificAlbums: ${albumName} — aborted`);
+          return; // Worker exits gracefully on abort
+        }
+        debug.error("audit", `auditSpecificAlbums: ${albumName} — error: ${(err as Error).message}`);
+        auditEvents.emit("event", {
+          type: "album-error",
+          albumPath,
+          current: albumsAudited + 1,
+          total,
+          message: `${albumName}: ${(err as Error).message}`,
+        });
       }
-      debug.error("audit", `auditSpecificAlbums: ${albumName} — error: ${(err as Error).message}`);
-      auditEvents.emit("event", {
-        type: "album-error",
-        albumPath,
-        current: i + 1,
-        total,
-        message: `${albumName}: ${(err as Error).message}`,
-      });
     }
-  }
+  };
+
+  await Promise.all(pool.map(() => worker()));
 
   debug.info("audit", `auditSpecificAlbums: complete — ${albumsAudited} album(s), ${totalIssues} issue(s)`);
   return { albums: albumsAudited, issues: totalIssues };

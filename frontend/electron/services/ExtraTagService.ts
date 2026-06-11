@@ -6,11 +6,11 @@
  * Extra-tag changes are reversible by storing previous extra tags.
  */
 
-import { writeExtraTags, batchWriteExtraTags } from "../handlers/writer";
 import type { ExtraTagUpdate } from "../handlers/writer";
 import { readExtraTags, readTrackMetadata } from "../handlers/tracks";
 import type { ExtraTag as TrackExtraTag } from "../handlers/tracks";
 import type { TrackData } from "../handlers/tracks";
+import { getDefaultWriteQueue } from "./TagWriteQueue";
 
 export interface ExtraTagPlanInput {
   trackPath: string;
@@ -112,19 +112,18 @@ export class ExtraTagService {
     inputs: ExtraTagPlanInput[],
   ): Promise<ExtraTagApplyResult[]> {
     const results: ExtraTagApplyResult[] = [];
+    // Build write jobs (prepare tag sets, then submit batch through queue)
+    const jobs: Array<{ filePath: string; extraTags: ExtraTagUpdate[] }> = [];
 
     for (const input of inputs) {
       try {
-        // Build the full tag set: current tags minus removes, plus upserts
         const currentTags = await readExtraTags(input.trackPath);
         const removeKeys = new Set(input.removes.map((k) => k.trim().toLowerCase()));
 
-        // Keep tags not in remove list and not in upsert list (will be re-added)
         const keptTags: ExtraTagUpdate[] = currentTags
           .filter((tag) => !removeKeys.has(tag.key.toLowerCase()))
           .map((tag) => ({ key: tag.key, value: tag.value }));
 
-        // Merge upserts (overwriting any existing kept tag)
         const upsertMap = new Map<string, string>();
         for (const tag of keptTags) {
           upsertMap.set(tag.key.toLowerCase(), tag.value);
@@ -133,10 +132,8 @@ export class ExtraTagService {
           upsertMap.set(upsert.key.trim().toLowerCase(), upsert.value.trim());
         }
 
-        // Build final list
         const finalTags: ExtraTagUpdate[] = [];
         for (const [key, value] of upsertMap) {
-          // Find original key casing from kept tags or upserts
           const original = keptTags.find(
             (t) => t.key.toLowerCase() === key,
           )?.key
@@ -147,13 +144,25 @@ export class ExtraTagService {
           finalTags.push({ key: original, value });
         }
 
-        await writeExtraTags(input.trackPath, finalTags);
-        results.push({ trackPath: input.trackPath, success: true });
+        jobs.push({ filePath: input.trackPath, extraTags: finalTags });
       } catch (error) {
+        // If reading fails, record the error
         results.push({
           trackPath: input.trackPath,
           success: false,
           error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+
+    // Submit all write jobs through the concurrent queue
+    if (jobs.length > 0) {
+      const writeResults = await getDefaultWriteQueue().submit(jobs);
+      for (const wr of writeResults) {
+        results.push({
+          trackPath: wr.filePath,
+          success: wr.success,
+          error: wr.error,
         });
       }
     }

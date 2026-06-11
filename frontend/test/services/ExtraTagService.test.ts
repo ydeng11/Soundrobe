@@ -7,13 +7,15 @@ vi.mock("../../electron/handlers/tracks", () => ({
   readTrackMetadata: vi.fn(),
 }));
 
-// Mock the writer module
-vi.mock("../../electron/handlers/writer", () => ({
-  writeExtraTags: vi.fn(),
+// Mock the write queue
+const mockQueueSubmit = vi.fn();
+vi.mock("../../electron/services/TagWriteQueue", () => ({
+  getDefaultWriteQueue: () => ({
+    submit: mockQueueSubmit,
+  }),
 }));
 
 import { readExtraTags } from "../../electron/handlers/tracks";
-import { writeExtraTags } from "../../electron/handlers/writer";
 
 describe("ExtraTagService", () => {
   let service: ExtraTagService;
@@ -106,6 +108,10 @@ describe("ExtraTagService", () => {
 
   describe("applyExtraTagUpdates", () => {
     it("applies upserts and preserves other tags", async () => {
+      mockQueueSubmit.mockResolvedValue([
+        { filePath: "/test/track.flac", success: true },
+      ]);
+
       (readExtraTags as any).mockResolvedValue([
         { key: "MOOD", value: "happy", source: "id3" },
         { key: "BPM", value: "120", source: "id3" },
@@ -119,15 +125,25 @@ describe("ExtraTagService", () => {
         },
       ]);
 
-      expect(writeExtraTags).toHaveBeenCalledWith("/test/track.flac", [
-        { key: "MOOD", value: "chill" },
-        { key: "BPM", value: "120" },
+      // The queue should receive the merged extra tags
+      expect(mockQueueSubmit).toHaveBeenCalledWith([
+        expect.objectContaining({
+          filePath: "/test/track.flac",
+          extraTags: expect.arrayContaining([
+            { key: "MOOD", value: "chill" },
+            { key: "BPM", value: "120" },
+          ]),
+        }),
       ]);
       expect(results).toHaveLength(1);
       expect(results[0].success).toBe(true);
     });
 
     it("removes specified tags", async () => {
+      mockQueueSubmit.mockResolvedValue([
+        { filePath: "/test/track.flac", success: true },
+      ]);
+
       (readExtraTags as any).mockResolvedValue([
         { key: "MOOD", value: "happy", source: "id3" },
       ]);
@@ -140,13 +156,21 @@ describe("ExtraTagService", () => {
         },
       ]);
 
-      expect(writeExtraTags).toHaveBeenCalledWith("/test/track.flac", []);
+      expect(mockQueueSubmit).toHaveBeenCalledWith([
+        expect.objectContaining({
+          filePath: "/test/track.flac",
+          extraTags: [],
+        }),
+      ]);
       expect(results[0].success).toBe(true);
     });
 
     it("handles write errors gracefully", async () => {
+      mockQueueSubmit.mockResolvedValue([
+        { filePath: "/test/track.flac", success: false, error: "Write failed" },
+      ]);
+
       (readExtraTags as any).mockResolvedValue([]);
-      (writeExtraTags as any).mockRejectedValue(new Error("Write failed"));
 
       const results = await service.applyExtraTagUpdates([
         {

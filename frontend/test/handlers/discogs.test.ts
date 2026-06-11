@@ -183,4 +183,28 @@ describe("DiscogsClient", () => {
     expect(results[0].tracks[0].discNumber).toBe(1);
     expect(results[0].tracks[0].trackNumber).toBe(1);
   });
+
+  it("shares rate limiter across instances (app-wide)", async () => {
+    // Multiple instances share the same module-level DiscogsRateLimiter.
+    let callCount = 0;
+
+    globalThis.fetch = vi.fn().mockImplementation(async () => {
+      callCount++;
+      await new Promise((r) => setTimeout(r, 2));
+      return { ok: true, json: async () => ({ results: [] }) };
+    });
+
+    const clientA = new DiscogsClient({ token: null });
+    const clientB = new DiscogsClient({ token: null });
+    const clientC = new DiscogsClient({ token: "token" }); // upgrades limit → 60/min
+
+    await Promise.all([
+      clientA.searchAlbum("Test", "A"),
+      clientB.searchAlbum("Test", "B"),
+      clientC.searchAlbum("Test", "C"),
+    ]);
+
+    // Each searchAlbum calls searchAlbumByType twice (release + master)
+    expect(callCount).toBe(6);
+  });
 });

@@ -3,8 +3,10 @@ import { parseFile } from "music-metadata";
 import fs from "fs";
 import path from "path";
 import type { CoverInfo } from "../preload";
-import { writeTags, batchWriteTags, writeExtraTags, batchWriteExtraTags } from "./writer";
+import { writeTags, writeExtraTags } from "./writer";
 import type { ExtraTagUpdate, WriteFields } from "./writer";
+import { getDefaultWriteQueue } from "../services/TagWriteQueue";
+import { mapConcurrent, LOCAL_READ_CONCURRENCY } from "../services/concurrency";
 
 export interface TrackData {
   path: string;
@@ -441,30 +443,6 @@ function parsePositiveInt(value: string | undefined): number | null {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
 }
 
-/**
- * Concurrent map with a concurrency limit.
- * Preserves output order relative to input order.
- */
-async function mapLimit<T, U>(
-  items: T[],
-  limit: number,
-  fn: (item: T) => Promise<U>,
-): Promise<U[]> {
-  const results: U[] = new Array(items.length);
-  let nextIndex = 0;
-
-  const worker = async (): Promise<void> => {
-    while (nextIndex < items.length) {
-      const i = nextIndex++;
-      results[i] = await fn(items[i]);
-    }
-  };
-
-  const workers = Array.from({ length: Math.min(limit, items.length) }, () => worker());
-  await Promise.all(workers);
-  return results;
-}
-
 /** Read all track metadata for an album directory. */
 export async function readAlbum(
   albumPath: string
@@ -491,7 +469,7 @@ export async function readAlbum(
 
   let errorCount = 0;
 
-  const tracks = await mapLimit(audioFiles, 6, async (audioFile) => {
+  const tracks = await mapConcurrent(audioFiles, LOCAL_READ_CONCURRENCY, async (audioFile) => {
     try {
       return await readTrackMetadata(audioFile);
     } catch {
@@ -573,12 +551,13 @@ export function registerTrackHandlers(): void {
       trackPath: string,
       fields: Record<string, unknown>
     ): Promise<TrackData> => {
-      // Cast fields to WriteFields (unknown keys are safely ignored by writer)
       const writeFields = fields as unknown as WriteFields;
-      await writeTags(trackPath, writeFields);
+      const result = await getDefaultWriteQueue().submitOne(trackPath, writeFields);
+      if (!result.success) {
+        throw new Error(result.error ?? "Write failed");
+      }
       // Re-read and return updated metadata — gracefully fall back to a
-      // minimal track if the parser can't read the file (e.g. FLAC comment
-      // block was restructured by the writer).
+      // minimal track if the parser can't read the file.
       try {
         return await readTrackMetadata(trackPath);
       } catch {
@@ -595,12 +574,33 @@ export function registerTrackHandlers(): void {
       updates: Array<{ path: string; fields: Record<string, unknown> }>
     ): Promise<TrackData[]> => {
       const writeUpdates = updates.map((u) => ({
-        path: u.path,
+        filePath: u.path,
         fields: u.fields as unknown as WriteFields,
       }));
-      await batchWriteTags(writeUpdates);
-      // Re-read all updated tracks
-      return Promise.all(updates.map((u) => readTrackMetadata(u.path)));
+      const writeResults = await getDefaultWriteQueue().submit(writeUpdates);
+
+      // Surface write failures clearly before readback
+      const failures = writeResults.filter((r) => !r.success);
+      if (failures.length > 0) {
+        const details = failures
+          .map((f) => `${f.filePath}: ${f.error ?? "unknown error"}`)
+          .join("; ");
+        throw new Error(`Write failed for ${failures.length} file(s): ${details}`);
+      }
+
+      // Re-read all updated tracks using bounded concurrency
+      return mapConcurrent(
+        updates,
+        LOCAL_READ_CONCURRENCY,
+        async (u) => {
+          try {
+            return await readTrackMetadata(u.path);
+          } catch {
+            const stat = fs.statSync(u.path);
+            return minimalTrack(u.path, stat.size);
+          }
+        },
+      );
     }
   );
 
@@ -618,7 +618,10 @@ export function registerTrackHandlers(): void {
       trackPath: string,
       tags: ExtraTagUpdate[]
     ): Promise<TrackData> => {
-      await writeExtraTags(trackPath, tags);
+      const result = await getDefaultWriteQueue().submitOne(trackPath, undefined, tags);
+      if (!result.success) {
+        throw new Error(result.error ?? "Write failed");
+      }
       return readTrackMetadata(trackPath);
     }
   );
@@ -629,8 +632,25 @@ export function registerTrackHandlers(): void {
       _event,
       updates: Array<{ path: string; tags: ExtraTagUpdate[] }>
     ): Promise<TrackData[]> => {
-      await batchWriteExtraTags(updates);
-      return Promise.all(updates.map((u) => readTrackMetadata(u.path)));
+      const writeUpdates = updates.map((u) => ({
+        filePath: u.path,
+        extraTags: u.tags,
+      }));
+      await getDefaultWriteQueue().submit(writeUpdates);
+
+      // Re-read all updated tracks using bounded concurrency
+      return mapConcurrent(
+        updates,
+        LOCAL_READ_CONCURRENCY,
+        async (u) => {
+          try {
+            return await readTrackMetadata(u.path);
+          } catch {
+            const stat = fs.statSync(u.path);
+            return minimalTrack(u.path, stat.size);
+          }
+        },
+      );
     }
   );
 

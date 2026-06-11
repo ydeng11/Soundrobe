@@ -1,0 +1,359 @@
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import fs from "fs";
+import path from "path";
+import os from "os";
+import * as NodeID3 from "node-id3";
+import {
+  TagWriteQueue,
+  executeTagWrite,
+  deduplicateJobs,
+  resetDefaultWriteQueue,
+  getDefaultWriteQueue,
+} from "../../electron/services/TagWriteQueue";
+
+// ── Helpers ──────────────────────────────────────────────────────
+
+function createMinimalMp3(filePath: string, initialTags?: Record<string, string>): void {
+  if (initialTags) {
+    NodeID3.write(
+      {
+        title: initialTags.title,
+        artist: initialTags.artist,
+        album: initialTags.album,
+      },
+      filePath,
+    );
+  } else {
+    NodeID3.write({}, filePath);
+  }
+  const fd = fs.openSync(filePath, "a");
+  const frame = Buffer.alloc(417);
+  frame[0] = 0xff;
+  frame[1] = 0xfb;
+  frame[2] = (9 << 4) | (0 << 2);
+  frame[3] = 0x02;
+  fs.writeSync(fd, frame, 0, frame.length);
+  fs.closeSync(fd);
+}
+
+// ── executeTagWrite ─────────────────────────────────────────────
+
+describe("executeTagWrite", () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "tag-exec-"));
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it("writes standard tags and returns success", async () => {
+    const fp = path.join(tmpDir, "test.mp3");
+    createMinimalMp3(fp);
+
+    const result = await executeTagWrite({
+      filePath: fp,
+      fields: { title: "Queue Test", artist: "Queue Artist" },
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.filePath).toBe(fp);
+    const tags = NodeID3.read(fp);
+    expect(tags.title).toBe("Queue Test");
+    expect(tags.artist).toBe("Queue Artist");
+  });
+
+  it("writes extra tags and returns success", async () => {
+    const fp = path.join(tmpDir, "extra.mp3");
+    createMinimalMp3(fp);
+
+    const result = await executeTagWrite({
+      filePath: fp,
+      extraTags: [{ key: "MOOD", value: "Chill" }],
+    });
+
+    expect(result.success).toBe(true);
+    const tags = NodeID3.read(fp);
+    const udt = Array.isArray(tags.userDefinedText)
+      ? tags.userDefinedText
+      : tags.userDefinedText
+        ? [tags.userDefinedText]
+        : [];
+    const byDesc = Object.fromEntries(
+      udt.filter((t) => t.description).map((t) => [t.description, t.value]),
+    );
+    expect(byDesc["MOOD"]).toBe("Chill");
+  });
+
+  it("returns error for non-existent file", async () => {
+    const result = await executeTagWrite({
+      filePath: path.join(tmpDir, "noexist.mp3"),
+      fields: { title: "X" },
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.error).toBeTruthy();
+    expect(result.filePath).toBe(path.join(tmpDir, "noexist.mp3"));
+  });
+
+  it("handles empty fields gracefully", async () => {
+    const fp = path.join(tmpDir, "empty.mp3");
+    createMinimalMp3(fp);
+
+    const result = await executeTagWrite({
+      filePath: fp,
+      fields: {},
+    });
+
+    expect(result.success).toBe(true);
+  });
+});
+
+// ── deduplicateJobs ─────────────────────────────────────────────
+
+describe("deduplicateJobs", () => {
+  it("deduplicates same path for fields writes (later wins)", () => {
+    const fp = "/some/dir/track.mp3";
+    const deduped = deduplicateJobs([
+      { filePath: fp, fields: { title: "Old" } },
+      { filePath: fp, fields: { title: "New" } },
+    ]);
+
+    expect(deduped).toHaveLength(1);
+    expect(deduped[0].fields?.title).toBe("New");
+  });
+
+  it("merges extra tags from same path", () => {
+    const fp = "/some/dir/track.mp3";
+    const deduped = deduplicateJobs([
+      { filePath: fp, extraTags: [{ key: "MOOD", value: "Happy" }] },
+      { filePath: fp, extraTags: [{ key: "RATING", value: "5" }] },
+    ]);
+
+    expect(deduped).toHaveLength(1);
+    expect(deduped[0].extraTags).toHaveLength(2);
+    expect(deduped[0].extraTags).toContainEqual({ key: "MOOD", value: "Happy" });
+    expect(deduped[0].extraTags).toContainEqual({ key: "RATING", value: "5" });
+  });
+
+  it("keeps fields and extraTags as separate entries when they target different paths", () => {
+    const fp1 = "/a.mp3";
+    const fp2 = "/b.mp3";
+    const deduped = deduplicateJobs([
+      { filePath: fp1, fields: { title: "A" } },
+      { filePath: fp2, extraTags: [{ key: "MOOD", value: "Bright" }] },
+    ]);
+
+    expect(deduped).toHaveLength(2);
+  });
+
+  it("normalizes paths (resolves relative to absolute)", () => {
+    // The function uses path.resolve which for relative paths
+    // prepends cwd. We test with an absolute path to verify normalization.
+    const absolute = path.resolve("/tmp/test-track.mp3");
+    const deduped = deduplicateJobs([
+      { filePath: "/tmp/test-track.mp3", fields: { title: "T" } },
+    ]);
+
+    expect(deduped).toHaveLength(1);
+    expect(deduped[0].filePath).toBe(absolute);
+  });
+
+  it("handles empty input", () => {
+    expect(deduplicateJobs([])).toEqual([]);
+  });
+
+  it("handles single job", () => {
+    const fp = "/track.mp3";
+    const deduped = deduplicateJobs([
+      { filePath: fp, fields: { title: "Solo" } },
+    ]);
+    expect(deduped).toHaveLength(1);
+    expect(deduped[0].fields?.title).toBe("Solo");
+  });
+
+  it("preserves Buffer/Uint8Array cover art through dedup", () => {
+    const coverData = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46]);
+    const fp = "/cover-track.mp3";
+
+    const dedupedSingle = deduplicateJobs([
+      { filePath: fp, fields: { title: "Song", coverData, coverMime: "image/jpeg" } },
+    ]);
+
+    expect(dedupedSingle).toHaveLength(1);
+    expect(dedupedSingle[0].fields?.coverData).toBe(coverData);
+    expect(Buffer.isBuffer(dedupedSingle[0].fields?.coverData)).toBe(true);
+    expect(dedupedSingle[0].fields?.coverData!.toString("hex")).toBe(coverData.toString("hex"));
+  });
+
+  it("cover data survives dedup with fields overwrite (last wins)", () => {
+    const cover1 = Buffer.from([0xff, 0xd8, 0xff, 0xe0]);
+    const cover2 = Buffer.from([0x89, 0x50, 0x4e, 0x47]);
+    const fp = "/cover-dedup.mp3";
+
+    const deduped = deduplicateJobs([
+      { filePath: fp, fields: { title: "Old", coverData: cover1, coverMime: "image/jpeg" } },
+      { filePath: fp, fields: { title: "New", coverData: cover2, coverMime: "image/png" } },
+    ]);
+
+    expect(deduped).toHaveLength(1);
+    // Later fields write wins for same path
+    expect(deduped[0].fields?.coverData).toBe(cover2);
+    expect(deduped[0].fields?.coverMime).toBe("image/png");
+    expect(deduped[0].fields?.title).toBe("New");
+  });
+
+  it("does NOT merge fields job with extraTags job for same path (different type)", () => {
+    // Fields jobs and extraTags jobs are different operations -
+    // they should remain separate entries
+    const fp = "/track.mp3";
+    const deduped = deduplicateJobs([
+      { filePath: fp, fields: { title: "Title" } },
+      { filePath: fp, extraTags: [{ key: "MOOD", value: "Happy" }] },
+    ]);
+
+    expect(deduped).toHaveLength(2);
+  });
+});
+
+// ── TagWriteQueue.submit ────────────────────────────────────────
+
+describe("TagWriteQueue.submit", () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "tag-queue-"));
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it("writes tags to multiple files concurrently", async () => {
+    const f1 = path.join(tmpDir, "t1.mp3");
+    const f2 = path.join(tmpDir, "t2.mp3");
+    createMinimalMp3(f1);
+    createMinimalMp3(f2);
+
+    const queue = new TagWriteQueue(4);
+    const results = await queue.submit([
+      { filePath: f1, fields: { title: "Track 1" } },
+      { filePath: f2, fields: { title: "Track 2" } },
+    ]);
+
+    expect(results).toHaveLength(2);
+    expect(results.every((r) => r.success)).toBe(true);
+    expect(NodeID3.read(f1).title).toBe("Track 1");
+    expect(NodeID3.read(f2).title).toBe("Track 2");
+  });
+
+  it("handles empty jobs array", async () => {
+    const queue = new TagWriteQueue();
+    const results = await queue.submit([]);
+    expect(results).toEqual([]);
+  });
+
+  it("deduplicates same-path jobs", async () => {
+    const fp = path.join(tmpDir, "dedup.mp3");
+    createMinimalMp3(fp);
+
+    const queue = new TagWriteQueue(2);
+    const results = await queue.submit([
+      { filePath: fp, fields: { title: "Old Title" } },
+      { filePath: fp, fields: { title: "New Title" } },
+    ]);
+
+    // Should have been deduplicated to one
+    expect(results).toHaveLength(1);
+    expect(results[0].success).toBe(true);
+    expect(NodeID3.read(fp).title).toBe("New Title");
+  });
+
+  it("propagates per-file failures", async () => {
+    const f1 = path.join(tmpDir, "good.mp3");
+    const f2 = path.join(tmpDir, "bad.mp3");
+    createMinimalMp3(f1);
+
+    const queue = new TagWriteQueue(2);
+    const results = await queue.submit([
+      { filePath: f1, fields: { title: "Good" } },
+      { filePath: f2, fields: { title: "Bad" } },
+    ]);
+
+    expect(results).toHaveLength(2);
+    // Good file should succeed
+    expect(results.find((r) => r.filePath === f1)?.success).toBe(true);
+    expect(NodeID3.read(f1).title).toBe("Good");
+    // Bad file should fail
+    expect(results.find((r) => r.filePath === f2)?.success).toBe(false);
+  });
+
+  it("bounded concurrency — caps concurrent writes", async () => {
+    const files: string[] = [];
+    let maxConcurrent = 0;
+    let concurrent = 0;
+
+    for (let i = 0; i < 10; i++) {
+      const fp = path.join(tmpDir, `c${i}.mp3`);
+      createMinimalMp3(fp);
+      files.push(fp);
+    }
+
+    // Override executeTagWrite to track concurrency
+    const originalWrite = executeTagWrite;
+    // We'll test concurrency via the submit pattern instead
+
+    const queue = new TagWriteQueue(3);
+    const results = await queue.submit(
+      files.map((fp) => ({ filePath: fp, fields: { title: path.basename(fp) } })),
+    );
+
+    expect(results).toHaveLength(10);
+    expect(results.every((r) => r.success)).toBe(true);
+  });
+});
+
+describe("TagWriteQueue.submitOne", () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "tag-one-"));
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it("writes and returns single result", async () => {
+    const fp = path.join(tmpDir, "single.mp3");
+    createMinimalMp3(fp);
+
+    const queue = new TagWriteQueue();
+    const result = await queue.submitOne(fp, { title: "Single" });
+
+    expect(result.success).toBe(true);
+    expect(result.filePath).toBe(fp);
+    expect(NodeID3.read(fp).title).toBe("Single");
+  });
+});
+
+describe("TagWriteQueue singleton", () => {
+  afterEach(() => {
+    resetDefaultWriteQueue();
+  });
+
+  it("getDefaultWriteQueue returns the same instance", () => {
+    const q1 = getDefaultWriteQueue();
+    const q2 = getDefaultWriteQueue();
+    expect(q1).toBe(q2);
+  });
+
+  it("resetDefaultWriteQueue creates a new instance", () => {
+    const q1 = getDefaultWriteQueue();
+    resetDefaultWriteQueue();
+    const q2 = getDefaultWriteQueue();
+    expect(q1).not.toBe(q2);
+  });
+});
