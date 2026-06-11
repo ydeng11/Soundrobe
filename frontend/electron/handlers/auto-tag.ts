@@ -41,19 +41,13 @@ import debug from "./debug";
  */
 function getSortedAudioFilenames(albumPath: string): string[] {
   if (!albumPath || albumPath === ".") return [];
-  const filenames: string[] = [];
   try {
-    const entries = readdirSync(albumPath).sort();
-    for (const entry of entries) {
-      if (entry.startsWith(".")) continue;
-      if (AUDIO_EXTENSIONS.has(extname(entry).toLowerCase())) {
-        filenames.push(entry);
-      }
-    }
+    return readdirSync(albumPath)
+      .filter((e) => !e.startsWith(".") && AUDIO_EXTENSIONS.has(extname(e).toLowerCase()))
+      .sort();
   } catch {
-    // directory unreadable - return empty
+    return [];
   }
-  return filenames;
 }
 
 export function filterCandidatesForAutoApply(
@@ -244,6 +238,9 @@ export function loadConfig(): AutoTagConfig {
   };
 
   // Map config file keys to config object setters
+  const parseBoolOrNull = (v: string): boolean | null =>
+    v === "true" ? true : v === "false" ? false : null;
+
   const configSetters: Record<
     string,
     (value: string) => void
@@ -253,16 +250,20 @@ export function loadConfig(): AutoTagConfig {
     discogs_token: (v) => { config.discogsToken = v; },
     dataset_path: (v) => { config.datasetPath = v; },
     remote_lookup_enabled: (v) => {
-      if (v === "false" || v === "true") config.remoteLookupEnabled = v === "true";
+      const b = parseBoolOrNull(v);
+      if (b !== null) config.remoteLookupEnabled = b;
     },
     discogs_enabled: (v) => {
-      if (v === "false" || v === "true") config.discogsEnabled = v === "true";
+      const b = parseBoolOrNull(v);
+      if (b !== null) config.discogsEnabled = b;
     },
     debug: (v) => {
-      if (v === "false" || v === "true") config.debug = v === "true";
+      const b = parseBoolOrNull(v);
+      if (b !== null) config.debug = b;
     },
     lyrics_download_enabled: (v) => {
-      if (v === "false" || v === "true") config.lyricsDownloadEnabled = v === "true";
+      const b = parseBoolOrNull(v);
+      if (b !== null) config.lyricsDownloadEnabled = b;
     },
     lyrics_api_url: (v) => { config.lyricsApiUrl = v; },
   };
@@ -1004,6 +1005,14 @@ class TaskManager {
       }
     }
 
+    // Keep albumArtist and albumArtists in sync — they may come from
+    // different independent candidates (first-nonnull vs first-nonempty).
+    if (merged.albumArtists.length > 0 && merged.albumArtist == null) {
+      merged.albumArtist = merged.albumArtists[0];
+    } else if (merged.albumArtists.length === 0 && merged.albumArtist != null) {
+      merged.albumArtists = [merged.albumArtist];
+    }
+
     const rest = candidates.filter((candidate) => candidate !== preferred);
     return [merged, ...rest];
   }
@@ -1343,17 +1352,10 @@ export function saveConfig(key: string, value: unknown): void {
 }
 
 function formatYamlValue(value: unknown): string {
-  if (typeof value === "boolean") {
-    return value ? "true" : "false";
-  }
-  if (value === null || value === undefined) {
-    return "null";
-  }
+  if (typeof value === "boolean") return value ? "true" : "false";
+  if (value == null) return "null";
   const str = String(value);
-  // Quote if contains spaces, colons, or special chars
-  if (/[\s:#]/.test(str)) {
-    return `"${str.replace(/"/g, '\\"')}"`;
-  }
+  if (/[\s:#]/.test(str)) return `"${str.replace(/"/g, '\\"')}"`;
   return str;
 }
 

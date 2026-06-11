@@ -120,17 +120,23 @@ function fieldsToID3v2(fields: WriteFields): NodeID3.Tags {
   if (fields.album !== undefined) tags.album = fields.album ?? undefined;
   if (fields.albumArtist !== undefined) tags.performerInfo = fields.albumArtist ?? undefined;
   if (fields.year !== undefined) tags.year = fields.year ?? undefined;
-  if (fields.trackNumber !== undefined || fields.track !== undefined)
-    tags.trackNumber = formatPosition(fields.trackNumber ?? (fields.track ? parseInt(fields.track) : undefined), fields.trackTotal) ?? undefined;
-  if (fields.discNumber !== undefined || fields.disc !== undefined)
-    tags.partOfSet = formatPosition(fields.discNumber ?? (fields.disc ? parseInt(fields.disc) : undefined), fields.discTotal) ?? undefined;
+  if (fields.trackNumber !== undefined || fields.track !== undefined) {
+    const rawTrack = fields.trackNumber ?? (fields.track ? parseInt(fields.track) : undefined);
+    tags.trackNumber = formatPosition(rawTrack, fields.trackTotal) ?? undefined;
+  }
+  if (fields.discNumber !== undefined || fields.disc !== undefined) {
+    const rawDisc = fields.discNumber ?? (fields.disc ? parseInt(fields.disc) : undefined);
+    tags.partOfSet = formatPosition(rawDisc, fields.discTotal) ?? undefined;
+  }
   if (fields.genre !== undefined) tags.genre = fields.genre ?? undefined;
-  if (fields.composer !== undefined)
+  if (fields.composer !== undefined) {
     tags.composer = fields.composer ?? undefined;
-  if (fields.comment !== undefined)
+  }
+  if (fields.comment !== undefined) {
     tags.comment = fields.comment
       ? { language: "eng", text: fields.comment }
       : undefined;
+  }
   if (fields.lyrics !== undefined) {
     tags.unsynchronisedLyrics = fields.lyrics
       ? { language: "eng", text: fields.lyrics }
@@ -167,16 +173,14 @@ function mergeMp3UserDefinedText(
   current: NodeID3.Tags["userDefinedText"],
   fields: WriteFields,
 ): NodeID3.Tags["userDefinedText"] {
-  const rows = (Array.isArray(current) ? current : current ? [current] : []).filter(
-    (row) => row.description,
-  );
+  const rows = toArray(current).filter((row) => row.description);
   const upserts: Array<{ description: string; value: string | string[] | null | undefined }> = [
     { description: "ARTISTS", value: normalizeListValue(fields.artists) },
     { description: "ALBUMARTISTS", value: normalizeListValue(fields.albumArtists) },
     { description: "MusicBrainz Track Id", value: fields.musicbrainzTrackId },
     { description: "MusicBrainz Album Id", value: fields.musicbrainzAlbumId },
     { description: "MusicBrainz Artist Id", value: fields.musicbrainzArtistId },
-    { description: "COMPILATION", value: fields.compilation == null ? undefined : fields.compilation ? "1" : null },
+    { description: "COMPILATION", value: compilationToTag(fields.compilation) },
     { description: "DESCRIPTION", value: fields.description },
   ];
 
@@ -198,12 +202,7 @@ function mergeMp3UserDefinedText(
 
 async function writeMp3ExtraTags(filePath: string, extraTags: ExtraTagUpdate[]): Promise<void> {
   const existingTags = await readNodeId3Tags(filePath);
-  const preserved = (Array.isArray(existingTags.userDefinedText)
-    ? existingTags.userDefinedText
-    : existingTags.userDefinedText
-      ? [existingTags.userDefinedText]
-      : []
-  ).filter(
+  const preserved = toArray(existingTags.userDefinedText).filter(
     (tag) =>
       tag.description &&
       isReservedExtraTagKey(tag.description) &&
@@ -252,7 +251,7 @@ async function writeVorbis(
   setVorbisField(updated, "MUSICBRAINZ_TRACKID", fields.musicbrainzTrackId);
   setVorbisField(updated, "MUSICBRAINZ_ALBUMID", fields.musicbrainzAlbumId);
   setVorbisField(updated, "MUSICBRAINZ_ARTISTID", fields.musicbrainzArtistId);
-  setVorbisField(updated, "COMPILATION", fields.compilation == null ? undefined : fields.compilation ? "1" : null);
+  setVorbisField(updated, "COMPILATION", compilationToTag(fields.compilation));
   if (fields.coverData) {
     updated.METADATA_BLOCK_PICTURE = [
       buildFlacPictureBlock(fields.coverData, fields.coverMime ?? "image/jpeg").toString("base64"),
@@ -793,8 +792,8 @@ async function writeWav(filePath: string, fields: WriteFields): Promise<void> {
     const id = data.toString("ascii", offset, offset + 4);
     const size = data.readUInt32LE(offset + 4);
     const end = offset + 8 + size + (size % 2);
-    if (end > data.length) {
-      chunks.push(data.subarray(offset));
+    if (end > data.length || end < offset + 8) {
+      // Corrupt chunk — discard tail data so appended ID3 tags remain reachable.
       break;
     }
     if (id === "id3 " || id === "ID3 ") {
@@ -1016,6 +1015,19 @@ function normalizeListValue(value: string[] | string | null | undefined): string
   if (value == null) return [];
   const values = Array.isArray(value) ? value : value.split(/[;,]/);
   return values.map((item) => item.trim()).filter(Boolean);
+}
+
+/** Map a nullable boolean compilation field to an ID3/Vorbis tag value. */
+function compilationToTag(value: boolean | null | undefined): string | null | undefined {
+  if (value == null) return undefined;
+  return value ? "1" : null;
+}
+
+/** Normalize T | T[] | null | undefined to T[]. */
+function toArray<T>(value: T | T[] | null | undefined): T[] {
+  if (Array.isArray(value)) return value;
+  if (value != null) return [value];
+  return [];
 }
 
 function formatPosition(current: number | null | undefined, total: number | null | undefined): string | null {
