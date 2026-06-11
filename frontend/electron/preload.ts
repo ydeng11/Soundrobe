@@ -323,6 +323,8 @@ export interface ElectronAPI {
   getCoverDataUrl: (albumPath: string) => Promise<string | null>;
   setCover: (albumPath: string) => Promise<string | null>;
   removeCover: (albumPath: string) => Promise<boolean>;
+  downloadCoverArt: (albumPath: string) => Promise<string | null>;
+  downloadArtistArt: (albumPath: string) => Promise<{ path: string; source: string } | null>;
 
   // Lyrics
   fetchLyrics: (
@@ -449,6 +451,12 @@ contextBridge.exposeInMainWorld("api", {
     ipcRenderer.invoke("cover:set", albumPath),
   removeCover: (albumPath: string): Promise<boolean> =>
     ipcRenderer.invoke("cover:remove", albumPath),
+  downloadCoverArt: (albumPath: string): Promise<string | null> =>
+    ipcRenderer.invoke("cover:download", albumPath),
+  downloadArtistArt: (
+    albumPath: string,
+  ): Promise<{ path: string; source: string } | null> =>
+    ipcRenderer.invoke("cover:download-artist-art", albumPath),
 
   // Directory browser
   listDirectory: (dirPath: string) =>

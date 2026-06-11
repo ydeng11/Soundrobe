@@ -253,4 +253,40 @@ describe("MetadataEditor", () => {
     expect(screen.queryByText(/Save Changes/i)).toBeNull();
     expect(screen.queryByText(/Discard/i)).toBeNull();
   });
+
+  describe("download buttons", () => {
+    function findButton(name: string) {
+      return screen.queryByRole("button", { name });
+    }
+
+    it("renders Download button when onDownloadCover is provided", () => {
+      render(<MetadataEditor {...baseProps} onDownloadCover={vi.fn()} />);
+      expect(findButton("Download")).toBeTruthy();
+    });
+
+    it("calls onDownloadCover when Download button is clicked", () => {
+      const onDownloadCover = vi.fn();
+      render(<MetadataEditor {...baseProps} onDownloadCover={onDownloadCover} />);
+      fireEvent.click(findButton("Download")!);
+      expect(onDownloadCover).toHaveBeenCalledOnce();
+    });
+
+    it("renders Artist button when onDownloadArtistArt is provided", () => {
+      render(<MetadataEditor {...baseProps} onDownloadArtistArt={vi.fn()} />);
+      expect(findButton("Artist")).toBeTruthy();
+    });
+
+    it("calls onDownloadArtistArt when Artist button is clicked", () => {
+      const onDownloadArtistArt = vi.fn();
+      render(<MetadataEditor {...baseProps} onDownloadArtistArt={onDownloadArtistArt} />);
+      fireEvent.click(findButton("Artist")!);
+      expect(onDownloadArtistArt).toHaveBeenCalledOnce();
+    });
+
+    it("does not render Download or Artist buttons when not provided", () => {
+      render(<MetadataEditor {...baseProps} onDownloadCover={undefined} onDownloadArtistArt={undefined} />);
+      expect(findButton("Download")).toBeNull();
+      expect(findButton("Artist")).toBeNull();
+    });
+  });
 });

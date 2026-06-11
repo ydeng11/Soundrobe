@@ -422,6 +422,47 @@ export default function App() {
     }
   }, [state.selectedTrack]);
 
+  const handleDownloadCover = useCallback(async () => {
+    if (!state.selectedTrack) return;
+    const albumPath = dirPath(state.selectedTrack.path);
+    dispatch({ type: "SET_SAVING", saving: true });
+    dispatch({ type: "SET_ERROR", error: null });
+    try {
+      const dataUrl = await window.api.downloadCoverArt(albumPath);
+      if (dataUrl) {
+        dispatch({ type: "SET_COVER_URL", url: dataUrl });
+        coverUrlCacheRef.current.set(albumPath, dataUrl);
+      } else {
+        dispatch({ type: "SET_ERROR", error: "No cover art found from any source" });
+      }
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Cover download failed";
+      dispatch({ type: "SET_ERROR", error: message });
+    } finally {
+      dispatch({ type: "SET_SAVING", saving: false });
+    }
+  }, [state.selectedTrack]);
+
+  const handleDownloadArtistArt = useCallback(async () => {
+    if (!state.selectedTrack) return;
+    const albumPath = dirPath(state.selectedTrack.path);
+    dispatch({ type: "SET_SAVING", saving: true });
+    dispatch({ type: "SET_ERROR", error: null });
+    try {
+      const result = await window.api.downloadArtistArt(albumPath);
+      if (result) {
+        dispatch({ type: "SET_ERROR", error: `Artist image saved from ${result.source}` });
+      } else {
+        dispatch({ type: "SET_ERROR", error: "No artist image found from any source" });
+      }
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Artist image download failed";
+      dispatch({ type: "SET_ERROR", error: message });
+    } finally {
+      dispatch({ type: "SET_SAVING", saving: false });
+    }
+  }, [state.selectedTrack]);
+
   // --- Undo (triggered by Cmd+Z) ---
 
   const handleRevert = useCallback(async () => {
@@ -1534,6 +1575,8 @@ export default function App() {
               onSave={handleSaveMetadata}
               onChangeCover={handleChangeCover}
               onRemoveCover={handleRemoveCover}
+              onDownloadCover={handleDownloadCover}
+              onDownloadArtistArt={handleDownloadArtistArt}
             />
           ) : state.activeAlbumPath && state.auditResults[state.activeAlbumPath] ? (
             <AuditPanel

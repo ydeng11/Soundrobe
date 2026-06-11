@@ -9,6 +9,10 @@ interface MetadataEditorProps {
   saving: boolean;
   onChangeCover: () => void;
   onRemoveCover: () => void;
+  /** Download cover art from online providers. */
+  onDownloadCover?: () => Promise<void>;
+  /** Download artist image from online providers. */
+  onDownloadArtistArt?: () => Promise<void>;
   /** Called to write changed fields to disk. Fires when focus leaves the panel. */
   onSave: (fields: Record<string, string>) => void;
 }
@@ -20,6 +24,8 @@ export function MetadataEditor({
   saving,
   onChangeCover,
   onRemoveCover,
+  onDownloadCover,
+  onDownloadArtistArt,
   onSave,
 }: MetadataEditorProps) {
   const filename = basename(track.path) ?? track.path;
@@ -177,7 +183,7 @@ export function MetadataEditor({
               </div>
             )}
           </div>
-          <div className="flex gap-2 mt-2.5 justify-center">
+          <div className="flex gap-2 mt-2.5 justify-center flex-wrap">
             <button
               onClick={onChangeCover}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium rounded-lg bg-accent text-white hover:bg-accent/90 transition-all shadow-sm hover:shadow-md active:scale-[0.97]"
@@ -188,6 +194,31 @@ export function MetadataEditor({
               </svg>
               Change
             </button>
+            {onDownloadCover && (
+              <button
+                onClick={onDownloadCover}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium rounded-lg bg-[#34c759] text-white hover:bg-[#30b753] transition-all shadow-sm hover:shadow-md active:scale-[0.97]"
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="7 10 12 15 17 10" />
+                  <line x1="12" y1="15" x2="12" y2="3" />
+                </svg>
+                Download
+              </button>
+            )}
+            {onDownloadArtistArt && (
+              <button
+                onClick={onDownloadArtistArt}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium rounded-lg bg-[#34c759] text-white hover:bg-[#30b753] transition-all shadow-sm hover:shadow-md active:scale-[0.97]"
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                  <circle cx="12" cy="7" r="4" />
+                </svg>
+                Artist
+              </button>
+            )}
             {coverDataUrl && (
               <button
                 onClick={onRemoveCover}

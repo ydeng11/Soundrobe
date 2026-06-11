@@ -10,6 +10,11 @@ interface SettingsState {
   lyricsDownloadEnabled: boolean;
   lyricsApiUrl: string;
   assistantAutonomous: boolean;
+  googleImageApiKey: string;
+  googleImageSearchEngineId: string;
+  googleImageEnabled: boolean;
+  theAudioDbApiKey: string;
+  theAudioDbEnabled: boolean;
 }
 
 interface SettingsModalProps {
@@ -28,6 +33,11 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
     lyricsDownloadEnabled: false,
     lyricsApiUrl: "",
     assistantAutonomous: false,
+    googleImageApiKey: "",
+    googleImageSearchEngineId: "",
+    googleImageEnabled: true,
+    theAudioDbApiKey: "",
+    theAudioDbEnabled: true,
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -51,6 +61,11 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
           discogsToken: "",
           debug: (cfg.debug as boolean) ?? false,
           assistantAutonomous: (cfg.assistantAutonomous as boolean) ?? false,
+          googleImageApiKey: "",
+          googleImageSearchEngineId: (cfg.googleImageSearchEngineId as string) ?? "",
+          googleImageEnabled: (cfg.googleImageEnabled as boolean) ?? true,
+          theAudioDbApiKey: "",
+          theAudioDbEnabled: (cfg.theAudioDbEnabled as boolean) ?? true,
         });
       } catch (err) {
         setSaveError(
@@ -76,6 +91,25 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
           window.api.setConfig("discogsToken", settings.discogsToken),
         );
       }
+      if (settings.googleImageApiKey) {
+        promises.push(
+          window.api.setConfig("googleImageApiKey", settings.googleImageApiKey),
+        );
+      }
+      promises.push(
+        window.api.setConfig("googleImageSearchEngineId", settings.googleImageSearchEngineId || null),
+      );
+      promises.push(
+        window.api.setConfig("googleImageEnabled", settings.googleImageEnabled),
+      );
+      if (settings.theAudioDbApiKey) {
+        promises.push(
+          window.api.setConfig("theAudioDbApiKey", settings.theAudioDbApiKey),
+        );
+      }
+      promises.push(
+        window.api.setConfig("theAudioDbEnabled", settings.theAudioDbEnabled),
+      );
       promises.push(window.api.setConfig("llmModel", settings.llmModel));
       promises.push(
         window.api.setConfig("remoteLookupEnabled", settings.remoteLookupEnabled),
@@ -204,6 +238,50 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
                   placeholder="(leave blank to keep current)"
                 />
               </FieldRow>
+
+              <hr className="border-border/40 my-2" />
+              <h3 className="text-[11px] font-semibold text-text-primary tracking-wide uppercase">Artwork</h3>
+
+              <FieldRow label="Google Custom Search API Key" description="Google Custom Search JSON API key for image fallback">
+                <InputField
+                  type="password"
+                  value={settings.googleImageApiKey}
+                  onChange={(v) => setSettings({ ...settings, googleImageApiKey: v })}
+                  placeholder="AIzaSy… (leave blank to keep current)"
+                />
+              </FieldRow>
+
+              <FieldRow label="Google Search Engine ID" description="Custom Search Engine ID (cx) for image search">
+                <InputField
+                  value={settings.googleImageSearchEngineId}
+                  onChange={(v) => setSettings({ ...settings, googleImageSearchEngineId: v })}
+                  placeholder="0123456789…"
+                />
+              </FieldRow>
+
+              <FieldRow label="TheAudioDB API Key" description="Optional: theaudiodb.com API key for album art">
+                <InputField
+                  type="password"
+                  value={settings.theAudioDbApiKey}
+                  onChange={(v) => setSettings({ ...settings, theAudioDbApiKey: v })}
+                  placeholder="(leave blank to disable)"
+                />
+              </FieldRow>
+
+              <div className="pt-1 space-y-3">
+                <ToggleRow
+                  label="Google Image Search"
+                  description="Allow Google Custom Search as fallback for artwork"
+                  checked={settings.googleImageEnabled}
+                  onChange={(v) => setSettings({ ...settings, googleImageEnabled: v })}
+                />
+                <ToggleRow
+                  label="TheAudioDB"
+                  description="Use TheAudioDB as an album art source"
+                  checked={settings.theAudioDbEnabled}
+                  onChange={(v) => setSettings({ ...settings, theAudioDbEnabled: v })}
+                />
+              </div>
 
               <hr className="border-border/40 my-2" />
               <h3 className="text-[11px] font-semibold text-text-primary tracking-wide uppercase">Lyrics</h3>
