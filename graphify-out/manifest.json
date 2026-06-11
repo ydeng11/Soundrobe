@@ -1,0 +1,652 @@
+{
+  "/Users/ihelio/code/auto_tagger/frontend/data/artist-aliases.json": {
+    "mtime": 1780024596.7091343,
+    "ast_hash": "45c679a478e2f0297e4bac65a5ea6e97",
+    "semantic_hash": "45c679a478e2f0297e4bac65a5ea6e97"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/e2e/assistant-organize.electron.spec.ts": {
+    "mtime": 1780460724.7326686,
+    "ast_hash": "a7e3a92564de5dfcd344d6a3b814457f",
+    "semantic_hash": "a7e3a92564de5dfcd344d6a3b814457f"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/e2e/convert.electron.spec.ts": {
+    "mtime": 1780691748.9092731,
+    "ast_hash": "d4980cfc4402e7d19bb4b7cc2487e559",
+    "semantic_hash": "d4980cfc4402e7d19bb4b7cc2487e559"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/e2e/extra-tags.electron.spec.ts": {
+    "mtime": 1779948385.30245,
+    "ast_hash": "3f9f998c6f0de77c35f8521295be0d1a",
+    "semantic_hash": "3f9f998c6f0de77c35f8521295be0d1a"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/electron/better-sqlite3.d.ts": {
+    "mtime": 1779818391.828755,
+    "ast_hash": "b1cb9e938525d8063e0a88674da40450",
+    "semantic_hash": "b1cb9e938525d8063e0a88674da40450"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/electron/handlers/aliases.ts": {
+    "mtime": 1780022865.5206702,
+    "ast_hash": "0d19676490488e8cba4a7fa60c3095f7",
+    "semantic_hash": "0d19676490488e8cba4a7fa60c3095f7"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/electron/handlers/assistant.ts": {
+    "mtime": 1780607880.7432456,
+    "ast_hash": "56a7eb1423226acfb0290661b246384e",
+    "semantic_hash": "56a7eb1423226acfb0290661b246384e"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/electron/handlers/audit.ts": {
+    "mtime": 1780158120.5050116,
+    "ast_hash": "dbad102e08e963366a59a09e7c6a4aec",
+    "semantic_hash": "dbad102e08e963366a59a09e7c6a4aec"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/electron/handlers/auto-tag.ts": {
+    "mtime": 1780707912.6611824,
+    "ast_hash": "db54baf20ea7909ebf9a73a5ab56e661",
+    "semantic_hash": "db54baf20ea7909ebf9a73a5ab56e661"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/electron/handlers/cache.ts": {
+    "mtime": 1779855079.6497557,
+    "ast_hash": "7107509f64ff40405e754d160b3464a7",
+    "semantic_hash": "7107509f64ff40405e754d160b3464a7"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/electron/handlers/candidates.ts": {
+    "mtime": 1780007077.8527122,
+    "ast_hash": "94ae05ed0568d946d8ae4c59a3be4156",
+    "semantic_hash": "94ae05ed0568d946d8ae4c59a3be4156"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/electron/handlers/conversation-logger.ts": {
+    "mtime": 1780455332.789847,
+    "ast_hash": "63fbe9de65689098878003f5e43347ef",
+    "semantic_hash": "63fbe9de65689098878003f5e43347ef"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/electron/handlers/cover.ts": {
+    "mtime": 1779658254.5227947,
+    "ast_hash": "5a1b49b7478cfcdf3163213c52e51a7b",
+    "semantic_hash": "5a1b49b7478cfcdf3163213c52e51a7b"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/electron/handlers/dataset.ts": {
+    "mtime": 1780085761.6056166,
+    "ast_hash": "23e4a22b688b81bec70d1229f5fe4d46",
+    "semantic_hash": "23e4a22b688b81bec70d1229f5fe4d46"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/electron/handlers/debug.ts": {
+    "mtime": 1779851778.8093915,
+    "ast_hash": "9dbe8bad7ec7998a93f3d2611a0be0b8",
+    "semantic_hash": "9dbe8bad7ec7998a93f3d2611a0be0b8"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/electron/handlers/directory.ts": {
+    "mtime": 1779896726.0886316,
+    "ast_hash": "2d9f62a943ea0eb86a708b65b40bad88",
+    "semantic_hash": "2d9f62a943ea0eb86a708b65b40bad88"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/electron/handlers/discogs.ts": {
+    "mtime": 1779942456.1558547,
+    "ast_hash": "ccabaab52c6da86a4b47fe98b90d2d9d",
+    "semantic_hash": "ccabaab52c6da86a4b47fe98b90d2d9d"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/electron/handlers/fallback.ts": {
+    "mtime": 1780036147.8637693,
+    "ast_hash": "fda9f98cfd99bc75671da1cf8be92e47",
+    "semantic_hash": "fda9f98cfd99bc75671da1cf8be92e47"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/electron/handlers/library.ts": {
+    "mtime": 1779655910.503586,
+    "ast_hash": "ae437eb180be09f8a6c7201d345dbefc",
+    "semantic_hash": "ae437eb180be09f8a6c7201d345dbefc"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/electron/handlers/lyrics.ts": {
+    "mtime": 1780027364.3258395,
+    "ast_hash": "37219e7d5a4eaa591f37f05980b222e5",
+    "semantic_hash": "37219e7d5a4eaa591f37f05980b222e5"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/electron/handlers/musicbrainz.ts": {
+    "mtime": 1779818332.981593,
+    "ast_hash": "76be001aa327c1d269a7c6e66d4ebb58",
+    "semantic_hash": "76be001aa327c1d269a7c6e66d4ebb58"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/electron/handlers/native-check.ts": {
+    "mtime": 1779855074.1169388,
+    "ast_hash": "6425fd5ba4c426049603b60650e41a74",
+    "semantic_hash": "6425fd5ba4c426049603b60650e41a74"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/electron/handlers/openrouter.ts": {
+    "mtime": 1780671213.2282043,
+    "ast_hash": "cd5ff5bd5b696bfc7f7b1ab5f049fb18",
+    "semantic_hash": "cd5ff5bd5b696bfc7f7b1ab5f049fb18"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/electron/handlers/organizer.ts": {
+    "mtime": 1780167659.9742622,
+    "ast_hash": "cc7388ada2929b469d072bd0c97a70a4",
+    "semantic_hash": "cc7388ada2929b469d072bd0c97a70a4"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/electron/handlers/prompts.ts": {
+    "mtime": 1780690565.3468995,
+    "ast_hash": "13b01d5ada9b76732a646ed4ca81c98b",
+    "semantic_hash": "13b01d5ada9b76732a646ed4ca81c98b"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/electron/handlers/schemas.ts": {
+    "mtime": 1779775826.9484575,
+    "ast_hash": "2ba8c0e9ce0d7703e862a85bd3531c99",
+    "semantic_hash": "2ba8c0e9ce0d7703e862a85bd3531c99"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/electron/handlers/tracks.ts": {
+    "mtime": 1780539781.9494543,
+    "ast_hash": "f4da0a486553a61970248da273fc7483",
+    "semantic_hash": "f4da0a486553a61970248da273fc7483"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/electron/handlers/writer.ts": {
+    "mtime": 1780634574.0631711,
+    "ast_hash": "39758c67c0816e1bd91a98dad72eb1e8",
+    "semantic_hash": "39758c67c0816e1bd91a98dad72eb1e8"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/electron/main.ts": {
+    "mtime": 1780629831.5967774,
+    "ast_hash": "51920b8f5718a51dfa880d99b3d5ab74",
+    "semantic_hash": "51920b8f5718a51dfa880d99b3d5ab74"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/electron/preload.ts": {
+    "mtime": 1780504053.3231246,
+    "ast_hash": "f6d59f0dd8c3fcd4666777747a106375",
+    "semantic_hash": "f6d59f0dd8c3fcd4666777747a106375"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/electron/services/AssistantRuntime.ts": {
+    "mtime": 1780553652.4276729,
+    "ast_hash": "a97d50fedb758414997322d2eb21c544",
+    "semantic_hash": "a97d50fedb758414997322d2eb21c544"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/electron/services/AssistantToolRegistry.ts": {
+    "mtime": 1780550236.9507093,
+    "ast_hash": "c93f14c46e3525b181db225aea018754",
+    "semantic_hash": "c93f14c46e3525b181db225aea018754"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/electron/services/ConvertService.ts": {
+    "mtime": 1780695884.2991412,
+    "ast_hash": "f8ae1760df31d7b18ad44cea3045588b",
+    "semantic_hash": "f8ae1760df31d7b18ad44cea3045588b"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/electron/services/ExtraTagService.ts": {
+    "mtime": 1780120504.5858603,
+    "ast_hash": "9bc21389abc40d94b979f669f43318f0",
+    "semantic_hash": "9bc21389abc40d94b979f669f43318f0"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/electron/services/FilenameTagInferenceService.ts": {
+    "mtime": 1780542889.178973,
+    "ast_hash": "61b64b0d674dd331c7705eb166a48858",
+    "semantic_hash": "61b64b0d674dd331c7705eb166a48858"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/electron/services/FolderOrganizerService.ts": {
+    "mtime": 1780212072.594229,
+    "ast_hash": "17d4357cb9ee93287f3669128a550f9d",
+    "semantic_hash": "17d4357cb9ee93287f3669128a550f9d"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/electron/services/LibraryService.ts": {
+    "mtime": 1780242619.2410154,
+    "ast_hash": "74eb1dfa64731d925422f869ace3e014",
+    "semantic_hash": "74eb1dfa64731d925422f869ace3e014"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/electron/services/LlmTaskRunner.ts": {
+    "mtime": 1780607887.6276786,
+    "ast_hash": "e8c077c2e1079048b59567b917e5f253",
+    "semantic_hash": "e8c077c2e1079048b59567b917e5f253"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/electron/services/PlanExecutor.ts": {
+    "mtime": 1780511692.9642217,
+    "ast_hash": "6b3eea3859b27e379e470e2c314ab9f9",
+    "semantic_hash": "6b3eea3859b27e379e470e2c314ab9f9"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/electron/services/SafeApiRequestService.ts": {
+    "mtime": 1780267725.2758622,
+    "ast_hash": "87dd10097e6bc09b1a464ff57625e241",
+    "semantic_hash": "87dd10097e6bc09b1a464ff57625e241"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/electron/services/SafeQueryService.ts": {
+    "mtime": 1780242558.4279163,
+    "ast_hash": "d61ca27c377d807295e3a89671837d42",
+    "semantic_hash": "d61ca27c377d807295e3a89671837d42"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/electron/services/TrackTagService.ts": {
+    "mtime": 1780539759.5926676,
+    "ast_hash": "1fbcb889e1d524418c87f9cf66466a95",
+    "semantic_hash": "1fbcb889e1d524418c87f9cf66466a95"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/package.json": {
+    "mtime": 1780690671.503118,
+    "ast_hash": "563c9fdb8cf1b5d5b23a0ba93ea0b502",
+    "semantic_hash": "563c9fdb8cf1b5d5b23a0ba93ea0b502"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/playwright.config.ts": {
+    "mtime": 1779946127.3098164,
+    "ast_hash": "ff07a0912cb57c03d04251f279f71cef",
+    "semantic_hash": "ff07a0912cb57c03d04251f279f71cef"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/postcss.config.js": {
+    "mtime": 1779655668.052843,
+    "ast_hash": "c735540bb63936a123bc867d950c9f69",
+    "semantic_hash": "c735540bb63936a123bc867d950c9f69"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/src/App.tsx": {
+    "mtime": 1780696460.7607834,
+    "ast_hash": "8ffa5720a431afab81154ab4dd428675",
+    "semantic_hash": "8ffa5720a431afab81154ab4dd428675"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/src/components/AssistantPanel.tsx": {
+    "mtime": 1780539540.7436786,
+    "ast_hash": "2ea28d0a59abef648938a5c99b073852",
+    "semantic_hash": "2ea28d0a59abef648938a5c99b073852"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/src/components/AuditBanner.tsx": {
+    "mtime": 1779930067.2906313,
+    "ast_hash": "5a6637ccf06f54606d3f038043e21575",
+    "semantic_hash": "5a6637ccf06f54606d3f038043e21575"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/src/components/AuditPanel.tsx": {
+    "mtime": 1779930073.872845,
+    "ast_hash": "81136f258d3a69b3cf269fd1ce97512b",
+    "semantic_hash": "81136f258d3a69b3cf269fd1ce97512b"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/src/components/BatchEditor.tsx": {
+    "mtime": 1780031858.4449296,
+    "ast_hash": "a126c95f3deff0d4551a2fd2a55ffb61",
+    "semantic_hash": "a126c95f3deff0d4551a2fd2a55ffb61"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/src/components/BatchExtraTagsEditor.tsx": {
+    "mtime": 1779948250.4981077,
+    "ast_hash": "4bc412a3fd879f951f17bc98de304dd5",
+    "semantic_hash": "4bc412a3fd879f951f17bc98de304dd5"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/src/components/ConvertDialog.tsx": {
+    "mtime": 1780696445.4083123,
+    "ast_hash": "e6698fc64ccee4d8eb95e55140794756",
+    "semantic_hash": "e6698fc64ccee4d8eb95e55140794756"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/src/components/ErrorBoundary.tsx": {
+    "mtime": 1780123970.4213438,
+    "ast_hash": "3136f5082b4790008fb301eae0cf8d7d",
+    "semantic_hash": "3136f5082b4790008fb301eae0cf8d7d"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/src/components/ExtraTagsEditor.tsx": {
+    "mtime": 1780452387.6357877,
+    "ast_hash": "7b49a5527d34cbb05df565c71210d5aa",
+    "semantic_hash": "7b49a5527d34cbb05df565c71210d5aa"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/src/components/FileGrid.tsx": {
+    "mtime": 1780622789.086471,
+    "ast_hash": "7c80ac1763646152c28d1a9537eec8f6",
+    "semantic_hash": "7c80ac1763646152c28d1a9537eec8f6"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/src/components/FolderTree.tsx": {
+    "mtime": 1780452387.6333995,
+    "ast_hash": "324c0779e10c040f788d5e67075dbb41",
+    "semantic_hash": "324c0779e10c040f788d5e67075dbb41"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/src/components/MetadataEditor.tsx": {
+    "mtime": 1780622768.6458104,
+    "ast_hash": "f0b5eb6acadfb22209b3e204b547b1c7",
+    "semantic_hash": "f0b5eb6acadfb22209b3e204b547b1c7"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/src/components/ScanProgressBar.tsx": {
+    "mtime": 1780104662.5415947,
+    "ast_hash": "44706bff0c86b75468440a766c3ad0ea",
+    "semantic_hash": "44706bff0c86b75468440a766c3ad0ea"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/src/components/SettingsModal.tsx": {
+    "mtime": 1780161951.5025585,
+    "ast_hash": "f1ff1124c581f2093bedbdc337b24983",
+    "semantic_hash": "f1ff1124c581f2093bedbdc337b24983"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/src/components/Sidebar.tsx": {
+    "mtime": 1780104589.2496078,
+    "ast_hash": "c0f15f91e265bd50e094bb0242924cf7",
+    "semantic_hash": "c0f15f91e265bd50e094bb0242924cf7"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/src/components/TitleBar.tsx": {
+    "mtime": 1780622755.3565836,
+    "ast_hash": "a7b19c16d2cc31e64f85a524d4f291e8",
+    "semantic_hash": "a7b19c16d2cc31e64f85a524d4f291e8"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/src/global.d.ts": {
+    "mtime": 1779655698.9160628,
+    "ast_hash": "fd9c299ff9abcc5fa59a82454fa6c161",
+    "semantic_hash": "fd9c299ff9abcc5fa59a82454fa6c161"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/src/main.tsx": {
+    "mtime": 1779655698.916299,
+    "ast_hash": "87a14170fb160b764721b7e71785aa8c",
+    "semantic_hash": "87a14170fb160b764721b7e71785aa8c"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/src/state/AppState.ts": {
+    "mtime": 1780622745.741071,
+    "ast_hash": "88bdfb6bf3eb1e99dc9e01ec8e09924f",
+    "semantic_hash": "88bdfb6bf3eb1e99dc9e01ec8e09924f"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/src/state/UndoManager.ts": {
+    "mtime": 1780452460.8950362,
+    "ast_hash": "0618fc8d6cc8060381d0683f64c14f60",
+    "semantic_hash": "0618fc8d6cc8060381d0683f64c14f60"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/src/utils/path.ts": {
+    "mtime": 1780452349.2716491,
+    "ast_hash": "92a24ab7f28f8dae6dbed674fde61402",
+    "semantic_hash": "92a24ab7f28f8dae6dbed674fde61402"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/src/vite-env.d.ts": {
+    "mtime": 1779655698.9159276,
+    "ast_hash": "0352474ba2918efe13895edbc3780d94",
+    "semantic_hash": "0352474ba2918efe13895edbc3780d94"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/tailwind.config.ts": {
+    "mtime": 1779833539.0741625,
+    "ast_hash": "91b66ac168d1565253182bd017c870b5",
+    "semantic_hash": "91b66ac168d1565253182bd017c870b5"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/test/components/AssistantPanel.test.tsx": {
+    "mtime": 1780539561.4920282,
+    "ast_hash": "d8df1f19bce8155954a6a89badc9b7d7",
+    "semantic_hash": "d8df1f19bce8155954a6a89badc9b7d7"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/test/components/BatchEditor.test.tsx": {
+    "mtime": 1780031886.70683,
+    "ast_hash": "e3e523896ab244ef2855cb149831bcfd",
+    "semantic_hash": "e3e523896ab244ef2855cb149831bcfd"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/test/components/BatchExtraTagsEditor.test.tsx": {
+    "mtime": 1780000313.8934686,
+    "ast_hash": "4585a3a6256a2a298d5f5df4ecb10ffe",
+    "semantic_hash": "4585a3a6256a2a298d5f5df4ecb10ffe"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/test/components/ConvertDialog.test.tsx": {
+    "mtime": 1780696343.5886736,
+    "ast_hash": "ef1b2d44da90d0a54c6cf32e1c4d669b",
+    "semantic_hash": "ef1b2d44da90d0a54c6cf32e1c4d669b"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/test/components/ExtraTagsEditor.test.tsx": {
+    "mtime": 1780000304.343922,
+    "ast_hash": "6b73d6bdd606ded09d72ec55825f0ed0",
+    "semantic_hash": "6b73d6bdd606ded09d72ec55825f0ed0"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/test/components/FileGrid.test.tsx": {
+    "mtime": 1780619618.3016176,
+    "ast_hash": "372ff496167299cdad8b6ec1b930b0f7",
+    "semantic_hash": "372ff496167299cdad8b6ec1b930b0f7"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/test/components/MetadataEditor.test.tsx": {
+    "mtime": 1780031874.1277146,
+    "ast_hash": "8311d65df1ab3512ebe0f48b9ebcb8f5",
+    "semantic_hash": "8311d65df1ab3512ebe0f48b9ebcb8f5"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/test/components/SettingsModal.test.tsx": {
+    "mtime": 1779848299.4225385,
+    "ast_hash": "ed52751b06af308d86ae1c3da146d34e",
+    "semantic_hash": "ed52751b06af308d86ae1c3da146d34e"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/test/components/TitleBar.test.tsx": {
+    "mtime": 1780619562.2874432,
+    "ast_hash": "0407f9692bbc75178049af93cb5062ad",
+    "semantic_hash": "0407f9692bbc75178049af93cb5062ad"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/test/handlers/aliases.test.ts": {
+    "mtime": 1779773584.194331,
+    "ast_hash": "c75b372ffe41dfebfb8e52b9b13d9164",
+    "semantic_hash": "c75b372ffe41dfebfb8e52b9b13d9164"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/test/handlers/assistant.test.ts": {
+    "mtime": 1780542965.9870255,
+    "ast_hash": "8c89d33d35255a1a9557a507d4c99397",
+    "semantic_hash": "8c89d33d35255a1a9557a507d4c99397"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/test/handlers/audit.test.ts": {
+    "mtime": 1779936434.633562,
+    "ast_hash": "2eb5e658b7de216387b5dab173858890",
+    "semantic_hash": "2eb5e658b7de216387b5dab173858890"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/test/handlers/auto-tag-chinese.test.ts": {
+    "mtime": 1780082683.1831105,
+    "ast_hash": "41a022052bb023f0d014cda6b730165e",
+    "semantic_hash": "41a022052bb023f0d014cda6b730165e"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/test/handlers/auto-tag.test.ts": {
+    "mtime": 1780690565.3489022,
+    "ast_hash": "59836fbe6a72797e6563a290aa929dd0",
+    "semantic_hash": "59836fbe6a72797e6563a290aa929dd0"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/test/handlers/cache.test.ts": {
+    "mtime": 1779773501.9464679,
+    "ast_hash": "5352e73c39c55b8ca07990c43624e447",
+    "semantic_hash": "5352e73c39c55b8ca07990c43624e447"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/test/handlers/candidates.test.ts": {
+    "mtime": 1780032460.800601,
+    "ast_hash": "9918977b6dfa3a172d6013564c0d8f90",
+    "semantic_hash": "9918977b6dfa3a172d6013564c0d8f90"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/test/handlers/config.test.ts": {
+    "mtime": 1780161975.8662744,
+    "ast_hash": "c3e0ccf14ade9cf0546806c62f450e74",
+    "semantic_hash": "c3e0ccf14ade9cf0546806c62f450e74"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/test/handlers/conversation-logger.test.ts": {
+    "mtime": 1780455371.7992394,
+    "ast_hash": "add6252f72e48c565deb223517efa8f4",
+    "semantic_hash": "add6252f72e48c565deb223517efa8f4"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/test/handlers/cover.test.ts": {
+    "mtime": 1779659420.4956982,
+    "ast_hash": "50b851113ac254de3046ab3713b3e14a",
+    "semantic_hash": "50b851113ac254de3046ab3713b3e14a"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/test/handlers/dataset-lookup.test.ts": {
+    "mtime": 1780085768.139882,
+    "ast_hash": "4f2609f66d8699b5830081e02d4dd782",
+    "semantic_hash": "4f2609f66d8699b5830081e02d4dd782"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/test/handlers/dataset.test.ts": {
+    "mtime": 1780019401.7970726,
+    "ast_hash": "82bc8ac0b4acb23075b74213ddc4965f",
+    "semantic_hash": "82bc8ac0b4acb23075b74213ddc4965f"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/test/handlers/debug.test.ts": {
+    "mtime": 1779850795.185239,
+    "ast_hash": "275141ed6c2e8fd56c9d0d1de73ab2d6",
+    "semantic_hash": "275141ed6c2e8fd56c9d0d1de73ab2d6"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/test/handlers/directory.test.ts": {
+    "mtime": 1779859875.0122242,
+    "ast_hash": "8ddabfbcb3744624171cac3a7f9da6b8",
+    "semantic_hash": "8ddabfbcb3744624171cac3a7f9da6b8"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/test/handlers/discogs.test.ts": {
+    "mtime": 1779920351.2041662,
+    "ast_hash": "677e62d5cfd57f338a233022a4fa350d",
+    "semantic_hash": "677e62d5cfd57f338a233022a4fa350d"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/test/handlers/fallback.test.ts": {
+    "mtime": 1779773664.6786768,
+    "ast_hash": "52b31322ace05706286da057bb1338c2",
+    "semantic_hash": "52b31322ace05706286da057bb1338c2"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/test/handlers/library.test.ts": {
+    "mtime": 1779655917.0231698,
+    "ast_hash": "5c4d1dba342d1b623504e436f4daa1d7",
+    "semantic_hash": "5c4d1dba342d1b623504e436f4daa1d7"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/test/handlers/lyrics-smoke.test.ts": {
+    "mtime": 1780027088.931042,
+    "ast_hash": "3401ebe40d5ebc86f7a346102970c328",
+    "semantic_hash": "3401ebe40d5ebc86f7a346102970c328"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/test/handlers/lyrics.test.ts": {
+    "mtime": 1780025627.1671422,
+    "ast_hash": "3a9c80fc22030ab8bf587de726e6401c",
+    "semantic_hash": "3a9c80fc22030ab8bf587de726e6401c"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/test/handlers/musicbrainz.test.ts": {
+    "mtime": 1779775896.5688393,
+    "ast_hash": "abd93b4d6b637f9ff7334f904191fced",
+    "semantic_hash": "abd93b4d6b637f9ff7334f904191fced"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/test/handlers/native-check.test.ts": {
+    "mtime": 1779851997.8025508,
+    "ast_hash": "d371691f78c85f5d7bce8dbbcab3bf78",
+    "semantic_hash": "d371691f78c85f5d7bce8dbbcab3bf78"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/test/handlers/openrouter.test.ts": {
+    "mtime": 1779936795.2526598,
+    "ast_hash": "747c45d83818dbafa1c2df9a490b8184",
+    "semantic_hash": "747c45d83818dbafa1c2df9a490b8184"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/test/handlers/prompts.test.ts": {
+    "mtime": 1780006141.8780947,
+    "ast_hash": "333057593da8c07b3c75ccebf04bc8bb",
+    "semantic_hash": "333057593da8c07b3c75ccebf04bc8bb"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/test/handlers/tracks.test.ts": {
+    "mtime": 1780114746.2643209,
+    "ast_hash": "453a199e8c49a26758467bfb2098a3b1",
+    "semantic_hash": "453a199e8c49a26758467bfb2098a3b1"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/test/handlers/writer.test.ts": {
+    "mtime": 1780590662.4617877,
+    "ast_hash": "3f0ec64d9a167074c8be8f24204fe7b2",
+    "semantic_hash": "3f0ec64d9a167074c8be8f24204fe7b2"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/test/helpers/flac-helpers.ts": {
+    "mtime": 1780082545.8667955,
+    "ast_hash": "4655d02005927bd497afa03d0101e5eb",
+    "semantic_hash": "4655d02005927bd497afa03d0101e5eb"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/test/integration/auto-tag-compilation-e2e.test.ts": {
+    "mtime": 1780161975.8664162,
+    "ast_hash": "0878b5c9800382a4c8d94fbd8228daa7",
+    "semantic_hash": "0878b5c9800382a4c8d94fbd8228daa7"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/test/package-scripts.test.ts": {
+    "mtime": 1780690671.503388,
+    "ast_hash": "ec8a84394dbab725e425464bcd1712ae",
+    "semantic_hash": "ec8a84394dbab725e425464bcd1712ae"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/test/services/AssistantRuntime.test.ts": {
+    "mtime": 1780550296.0869114,
+    "ast_hash": "ce89aaf8a8c86b99ce0ea8351eaad62a",
+    "semantic_hash": "ce89aaf8a8c86b99ce0ea8351eaad62a"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/test/services/AssistantToolRegistry.test.ts": {
+    "mtime": 1780211228.7228322,
+    "ast_hash": "79e9a0fede594edb2c367dc7a4f67791",
+    "semantic_hash": "79e9a0fede594edb2c367dc7a4f67791"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/test/services/ConvertService.test.ts": {
+    "mtime": 1780693344.1365893,
+    "ast_hash": "903254ed2048e0982e4f6d7c6e04ef6b",
+    "semantic_hash": "903254ed2048e0982e4f6d7c6e04ef6b"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/test/services/ExtraTagService.test.ts": {
+    "mtime": 1780121617.5857494,
+    "ast_hash": "7ef65b4e98656622556a0499b76919e0",
+    "semantic_hash": "7ef65b4e98656622556a0499b76919e0"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/test/services/FilenameTagInferenceService.test.ts": {
+    "mtime": 1780542903.8567235,
+    "ast_hash": "af006e54a13f62614fdc93085f01d2bc",
+    "semantic_hash": "af006e54a13f62614fdc93085f01d2bc"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/test/services/FolderOrganizerService.test.ts": {
+    "mtime": 1780211210.7709274,
+    "ast_hash": "f6b11d97c08b87121ba3af7480aebb7c",
+    "semantic_hash": "f6b11d97c08b87121ba3af7480aebb7c"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/test/services/LibraryService.test.ts": {
+    "mtime": 1780242606.02642,
+    "ast_hash": "beebee7c586bdd4e0a6c3fc3032eb357",
+    "semantic_hash": "beebee7c586bdd4e0a6c3fc3032eb357"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/test/services/LlmTaskRunner.test.ts": {
+    "mtime": 1780458141.8298593,
+    "ast_hash": "68c7c4eadf2120e26a3d397b051d47ad",
+    "semantic_hash": "68c7c4eadf2120e26a3d397b051d47ad"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/test/services/PlanExecutor.test.ts": {
+    "mtime": 1780511848.3554068,
+    "ast_hash": "0098fbd203f87541266de66e950fbb90",
+    "semantic_hash": "0098fbd203f87541266de66e950fbb90"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/test/services/SafeApiRequestService.test.ts": {
+    "mtime": 1780267702.6544907,
+    "ast_hash": "5ae1fef8bf72ad8a9dfc9fa9d5f45300",
+    "semantic_hash": "5ae1fef8bf72ad8a9dfc9fa9d5f45300"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/test/services/SafeQueryService.test.ts": {
+    "mtime": 1780242537.9066546,
+    "ast_hash": "f37d99ce6d20314d078330e48db9dd0b",
+    "semantic_hash": "f37d99ce6d20314d078330e48db9dd0b"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/test/services/TrackTagService.test.ts": {
+    "mtime": 1780121609.5334399,
+    "ast_hash": "57d283483037dcfec42652e7b205a12b",
+    "semantic_hash": "57d283483037dcfec42652e7b205a12b"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/test/services/assistant-composite-macros.test.ts": {
+    "mtime": 1780554202.6298277,
+    "ast_hash": "e029ffb7e9504204dd389b06fb6f631b",
+    "semantic_hash": "e029ffb7e9504204dd389b06fb6f631b"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/test/services/assistant-folder-group.integration.test.ts": {
+    "mtime": 1780155705.1634538,
+    "ast_hash": "67f31a4987dc965780919f5899c661c9",
+    "semantic_hash": "67f31a4987dc965780919f5899c661c9"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/test/services/assistant-organize-files.integration.test.ts": {
+    "mtime": 1780454792.0084333,
+    "ast_hash": "17260f5ad5f159e392305d558e61ddce",
+    "semantic_hash": "17260f5ad5f159e392305d558e61ddce"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/test/services/group-by-album.integration.test.ts": {
+    "mtime": 1780460801.4409006,
+    "ast_hash": "f4a9d1474cdba9ad7e3e1a9d752a6699",
+    "semantic_hash": "f4a9d1474cdba9ad7e3e1a9d752a6699"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/test/state/app-reducer.test.ts": {
+    "mtime": 1780619543.0926096,
+    "ast_hash": "9a8d692a501d5af4310584149b9d6573",
+    "semantic_hash": "9a8d692a501d5af4310584149b9d6573"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/test/state/auto-tag-undo.test.ts": {
+    "mtime": 1780690565.3495948,
+    "ast_hash": "29a5ae2e7439ca42926ed9ee612b4bce",
+    "semantic_hash": "29a5ae2e7439ca42926ed9ee612b4bce"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/test/state/undo-manager.test.ts": {
+    "mtime": 1779659297.8720245,
+    "ast_hash": "897738c460ce421cdf8996589e584275",
+    "semantic_hash": "897738c460ce421cdf8996589e584275"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/test/utils/path.test.ts": {
+    "mtime": 1780452559.9240286,
+    "ast_hash": "a3f7c4888a6610a1ceff843ecfe281d2",
+    "semantic_hash": "a3f7c4888a6610a1ceff843ecfe281d2"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/tsconfig.json": {
+    "mtime": 1779655668.0496917,
+    "ast_hash": "1a9bc42f574c13863d1dcf93a894d9b5",
+    "semantic_hash": "1a9bc42f574c13863d1dcf93a894d9b5"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/vite.config.ts": {
+    "mtime": 1780242930.5091767,
+    "ast_hash": "698fbbe263f328e0d923403df78b758e",
+    "semantic_hash": "698fbbe263f328e0d923403df78b758e"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/electron-builder.yml": {
+    "mtime": 1779818193.6282983,
+    "ast_hash": "1eb4f25a7b9c775fc8fc55fd204825c7",
+    "semantic_hash": "1eb4f25a7b9c775fc8fc55fd204825c7"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/index.html": {
+    "mtime": 1779824045.9900272,
+    "ast_hash": "52a1e6146d872855a3b0db4d1468c1d4",
+    "semantic_hash": "52a1e6146d872855a3b0db4d1468c1d4"
+  },
+  "/Users/ihelio/code/auto_tagger/frontend/plans/plan-executor.md": {
+    "mtime": 1780511522.4702346,
+    "ast_hash": "737d70b9bdfcd3ce697d4f7f406bed3e",
+    "semantic_hash": "737d70b9bdfcd3ce697d4f7f406bed3e"
+  }
+}
