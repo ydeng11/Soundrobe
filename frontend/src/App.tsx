@@ -1413,17 +1413,15 @@ export default function App() {
     [state.selectedTrackPaths, state.tracks],
   );
 
-  // Handle batch extra tags save
+  // Handle batch extra tags save with per-track origin-scoped updates
   const handleBatchExtraTagsSave = useCallback(
-    async (tags: Array<{ key: string; value: string }>) => {
-      const paths = state.selectedTrackPaths;
-      if (paths.length === 0) return;
+    async (updates: Array<{ path: string; tags: Array<{ key: string; value: string }> }>) => {
+      if (updates.length === 0) return;
 
       dispatch({ type: "SET_SAVING", saving: true });
       dispatch({ type: "SET_ERROR", error: null });
 
       try {
-        const updates = paths.map((path) => ({ path, tags }));
         const results = await window.api.writeExtraTagsBatch(updates);
         dispatch({ type: "UPDATE_TRACKS", tracks: results });
         setBatchExtraTagsOpen(false);
@@ -1434,7 +1432,7 @@ export default function App() {
         dispatch({ type: "SET_SAVING", saving: false });
       }
     },
-    [state.selectedTrackPaths],
+    [],
   );
 
   return (

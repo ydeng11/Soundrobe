@@ -176,7 +176,7 @@ describe("writeTags — MP3", () => {
     expect(extras.find((tag) => tag.key === "MOOD")?.value).toBe("Bright");
   });
 
-  it("does not show sidebar detail tags as MP3 extra tags", async () => {
+  it("shows musicbrainz and compilation detail tags as MP3 extra tags", async () => {
     const fp = path.join(tmpDir, "test.mp3");
     createMinimalMp3(fp);
 
@@ -187,11 +187,18 @@ describe("writeTags — MP3", () => {
       musicbrainzArtistId: "mb-artist",
       compilation: true,
     });
-    await writeExtraTags(fp, [{ key: "MOOD", value: "Bright" }]);
 
+    // readExtraTags should now show MusicBrainz fields (no longer hidden)
     const extras = await readExtraTags(fp);
-    expect(extras.map((tag) => tag.key)).toEqual(["MOOD"]);
-    expect(extras[0]?.value).toBe("Bright");
+    const keys = extras.map((tag) => tag.key);
+    expect(keys).toContain("MusicBrainz Track Id");
+    expect(keys).toContain("MusicBrainz Album Id");
+    expect(keys).toContain("MusicBrainz Artist Id");
+    expect(keys).toContain("COMPILATION");
+    // Standard editor fields remain hidden
+    expect(keys).not.toContain("TITLE");
+    expect(keys).not.toContain("ARTIST");
+    expect(keys).not.toContain("ALBUM");
   });
 
   it("writes album + year + genre — verified with node-id3", async () => {
@@ -952,15 +959,50 @@ describe("batchWriteExtraTags", () => {
     expect(values).toEqual(["foo", "bar"]);
   });
 
-  it("preserves hidden MP3 sidebar detail tags except ARTISTS when replacing extra tags", async () => {
-    const fp = path.join(tmpDir, "preserve-hidden.mp3");
+  it("allows editing musicbrainz and compilation detail tags through MP3 extra tags", async () => {
+    const fp = path.join(tmpDir, "allow-edit-mb.mp3");
     createMinimalMp3(fp);
 
+    // Write initial detail tags via sidebar write
     await writeTags(fp, {
       artists: ["Primary", "Guest"],
       musicbrainzTrackId: "mb-track",
       compilation: true,
     });
+
+    // Write extra tags including the musicbrainz fields (now editable through extras)
+    await writeExtraTags(fp, [
+      { key: "MusicBrainz Track Id", value: "new-mb-track" },
+      { key: "COMPILATION", value: "0" },
+      { key: "MOOD", value: "Bright" },
+    ]);
+
+    const tags = NodeID3.read(fp);
+    const userDefinedText = Array.isArray(tags.userDefinedText)
+      ? tags.userDefinedText
+      : tags.userDefinedText
+        ? [tags.userDefinedText]
+        : [];
+    const byDescription = Object.fromEntries(
+      userDefinedText.filter((tag) => tag.description).map((tag) => [tag.description, tag.value]),
+    );
+    // ARTISTS is still reserved but in EXTRA_TAG_RESERVED_EXCEPTIONS so it's removed
+    expect(byDescription["ARTISTS"]).toBeUndefined();
+    // MusicBrainz fields are now editable through extra tags
+    expect(byDescription["MusicBrainz Track Id"]).toBe("new-mb-track");
+    expect(byDescription["COMPILATION"]).toBe("0");
+    expect(byDescription["MOOD"]).toBe("Bright");
+  });
+
+  it("removes musicbrainz detail tags when not included in extra tags write", async () => {
+    const fp = path.join(tmpDir, "remove-mb.mp3");
+    createMinimalMp3(fp);
+
+    await writeTags(fp, {
+      musicbrainzTrackId: "mb-track",
+      compilation: true,
+    });
+    // Write extra tags without musicbrainz fields — they get removed
     await writeExtraTags(fp, [{ key: "MOOD", value: "Bright" }]);
 
     const tags = NodeID3.read(fp);
@@ -972,9 +1014,8 @@ describe("batchWriteExtraTags", () => {
     const byDescription = Object.fromEntries(
       userDefinedText.filter((tag) => tag.description).map((tag) => [tag.description, tag.value]),
     );
-    expect(byDescription["ARTISTS"]).toBeUndefined();
-    expect(byDescription["MusicBrainz Track Id"]).toBe("mb-track");
-    expect(byDescription["COMPILATION"]).toBe("1");
+    expect(byDescription["MusicBrainz Track Id"]).toBeUndefined();
+    expect(byDescription["COMPILATION"]).toBeUndefined();
     expect(byDescription["MOOD"]).toBe("Bright");
   });
 
@@ -1246,6 +1287,74 @@ describe("writeExtraTags — FLAC round-trip", () => {
 
     const extras = await readExtraTags(fp);
     expect(extras.find((t) => t.key === "GENRE")).toBeUndefined();
+  });
+
+  it("shows DESCRIPTION and ALBUMARTISTS in FLAC extra tags", async () => {
+    const fp = path.join(tmpDir, "detail-tags.flac");
+    createMinimalFlac(fp, "Title", "Artist", "Album");
+
+    await writeTags(fp, {
+      description: "A great album",
+      albumArtists: ["Alice", "Bob"],
+      compilation: true,
+    });
+
+    const extras = await readExtraTags(fp);
+    const keys = extras.map((t) => t.key);
+    expect(keys).toContain("DESCRIPTION");
+    expect(keys).toContain("ALBUMARTISTS");
+    expect(keys).toContain("COMPILATION");
+    // Standard editor fields remain hidden
+    expect(keys).not.toContain("TITLE");
+    expect(keys).not.toContain("ARTIST");
+    expect(keys).not.toContain("ALBUM");
+    expect(keys).not.toContain("ALBUMARTIST");
+    expect(keys).not.toContain("ALBUM ARTIST");
+  });
+
+  it("allows editing DESCRIPTION through FLAC extra tags", async () => {
+    const fp = path.join(tmpDir, "edit-desc.flac");
+    createMinimalFlac(fp, "Title");
+
+    await writeTags(fp, { description: "Old description" });
+    await writeExtraTags(fp, [{ key: "DESCRIPTION", value: "New description" }]);
+
+    const extras = await readExtraTags(fp);
+    expect(extras.find((t) => t.key === "DESCRIPTION")?.value).toBe("New description");
+  });
+
+  it("allows editing MUSICBRAINZ_ALBUMID through FLAC extra tags", async () => {
+    const fp = path.join(tmpDir, "edit-mb-vorbis.flac");
+    createMinimalFlac(fp, "Title");
+
+    await writeTags(fp, { musicbrainzAlbumId: "old-mb-id" });
+    await writeExtraTags(fp, [{ key: "MUSICBRAINZ_ALBUMID", value: "new-mb-id" }]);
+
+    const extras = await readExtraTags(fp);
+    expect(extras.find((t) => t.key === "MUSICBRAINZ_ALBUMID")?.value).toBe("new-mb-id");
+  });
+
+  it("removes MUSICBRAINZ_ALBUMID from FLAC when not included in extra tags write", async () => {
+    const fp = path.join(tmpDir, "remove-mb-vorbis.flac");
+    createMinimalFlac(fp, "Title");
+
+    await writeTags(fp, { musicbrainzAlbumId: "remove-me" });
+    await writeExtraTags(fp, [{ key: "MOOD", value: "Happy" }]);
+
+    const extras = await readExtraTags(fp);
+    expect(extras.find((t) => t.key === "MUSICBRAINZ_ALBUMID")).toBeUndefined();
+    expect(extras.find((t) => t.key === "MOOD")?.value).toBe("Happy");
+  });
+
+  it("allows editing DESCRIPTION through MP3 extra tags (TXXX)", async () => {
+    const fp = path.join(tmpDir, "edit-desc-mp3.mp3");
+    createMinimalMp3(fp);
+
+    await writeTags(fp, { description: "Old MP3 desc" });
+    await writeExtraTags(fp, [{ key: "DESCRIPTION", value: "New MP3 desc" }]);
+
+    const extras = await readExtraTags(fp);
+    expect(extras.find((t) => t.key === "DESCRIPTION")?.value).toBe("New MP3 desc");
   });
 
   it("allows multiple ARTISTS values as Vorbis extra tags", async () => {

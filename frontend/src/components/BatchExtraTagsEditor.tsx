@@ -5,13 +5,15 @@ interface BatchExtraTagsEditorProps {
   tracks: TrackData[];
   saving: boolean;
   onClose: () => void;
-  onSave: (tags: Array<{ key: string; value: string }>) => Promise<void>;
+  onSave: (updates: Array<{ path: string; tags: Array<{ key: string; value: string }> }>) => Promise<void>;
 }
 
 interface DraftRow {
   id: string;
   key: string;
   value: string;
+  /** Track paths that contributed this key/value pair. Empty = new tag. */
+  origins: Set<string>;
 }
 
 export function BatchExtraTagsEditor({
@@ -27,6 +29,8 @@ export function BatchExtraTagsEditor({
   const newKeyRef = useRef<HTMLInputElement | null>(null);
 
   const trackCount = tracks.length;
+  const trackPathsRef = useRef(tracks.map((t) => t.path));
+  trackPathsRef.current = tracks.map((t) => t.path);
 
   useEffect(() => {
     let cancelled = false;
@@ -36,7 +40,7 @@ export function BatchExtraTagsEditor({
     Promise.all(tracks.map((track) => window.api.readExtraTags(track.path))).then(
       (tagLists) => {
         if (cancelled) return;
-        const loadedRows = extraTagsToRows(tagLists.flat());
+        const loadedRows = extraTagsToRows(tagLists, tracks.map((t) => t.path));
         const nextRows = loadedRows.length > 0 ? loadedRows : [createNewRow()];
         setRows(nextRows);
         setOriginalRows(nextRows);
@@ -86,12 +90,46 @@ export function BatchExtraTagsEditor({
   }, []);
 
   const handleSave = useCallback(async () => {
-    const tags = rows
-      .map((row) => ({ key: row.key.trim(), value: row.value.trim() }))
-      .filter((row) => row.key && row.value);
+    const allPaths = trackPathsRef.current;
 
-    await onSave(tags);
-    const savedRows = tags.length > 0 ? tagsToRows(tags) : [createNewRow()];
+    // Build per-track tag arrays
+    // - Rows with origins: only tracks in those origins get the tag
+    // - Rows without origins (new tags): every selected track gets the tag
+    const trackTags = new Map<string, Array<{ key: string; value: string }>>();
+
+    for (const row of rows) {
+      const key = row.key.trim();
+      const value = row.value.trim();
+      if (!key || !value) continue;
+
+      if (row.origins.size > 0) {
+        // Existing tag: apply to its origin tracks only
+        for (const trackPath of row.origins) {
+          const list = trackTags.get(trackPath) ?? [];
+          list.push({ key, value });
+          trackTags.set(trackPath, list);
+        }
+      } else {
+        // New tag: apply to all selected tracks
+        for (const trackPath of allPaths) {
+          const list = trackTags.get(trackPath) ?? [];
+          list.push({ key, value });
+          trackTags.set(trackPath, list);
+        }
+      }
+    }
+
+    // Also include unchanged rows in the output for their origin tracks
+    // (already handled above — every row is either in the user's saved rows or not)
+
+    // Build updates array, ensuring every selected track has an entry
+    const updates = allPaths.map((path) => ({
+      path,
+      tags: trackTags.get(path) ?? [],
+    }));
+
+    await onSave(updates);
+    const savedRows = rowsToDraftRows(rows);
     setRows(savedRows);
     setOriginalRows(savedRows);
   }, [rows, onSave]);
@@ -126,8 +164,7 @@ export function BatchExtraTagsEditor({
         </div>
 
         <div className="px-5 py-3 bg-amber-50/80 border-b border-border text-[11px] text-amber-800 leading-relaxed">
-          Tags shown here are the combined extra tags from all selected files and will be <strong>set on all {trackCount} selected files</strong>.
-          Leave a row empty to skip it.
+          Tags shown here are grouped from all selected files. Tags that already exist are applied only to the files that originally had them; new tags (blank origin) are applied to <strong>all {trackCount} selected files</strong>.
         </div>
 
         <div className="grid grid-cols-[220px_1fr_44px] px-5 py-2 bg-white border-b border-border text-[10px] uppercase tracking-widest text-text-muted font-semibold">
@@ -154,6 +191,7 @@ export function BatchExtraTagsEditor({
               <BatchExtraTagRow
                 key={row.id}
                 row={row}
+                trackCount={trackCount}
                 newKeyRef={row === rows[rows.length - 1] ? newKeyRef : undefined}
                 onUpdate={(patch) => updateRow(row.id, patch)}
                 onRemove={() => removeRow(row.id)}
@@ -199,27 +237,42 @@ export function BatchExtraTagsEditor({
 
 function BatchExtraTagRow({
   row,
+  trackCount,
   newKeyRef,
   onUpdate,
   onRemove,
 }: {
   row: DraftRow;
+  trackCount: number;
   newKeyRef?: React.Ref<HTMLInputElement>;
   onUpdate: (patch: Partial<DraftRow>) => void;
   onRemove: () => void;
 }) {
   const keyId = useId();
 
+  const originCount = row.origins.size;
+  const hasOrigin = originCount > 0;
+
   return (
     <div className="group grid grid-cols-[220px_1fr_44px] items-center gap-0 px-5 min-h-[42px] border-b border-border/40 bg-white">
-      <input
-        ref={newKeyRef}
-        value={row.key}
-        onChange={(event) => onUpdate({ key: event.target.value })}
-        className="h-8 bg-transparent border border-transparent rounded-md px-2 text-[12px] font-medium outline-none focus:border-accent/60 focus:bg-white focus:shadow-[0_0_0_3px_rgba(0,122,255,0.14)]"
-        placeholder="Tag key (e.g. MUSICBRAINZ_ALBUMID)"
-        list={keyId}
-      />
+      <div className="flex items-center gap-1.5">
+        <input
+          ref={newKeyRef}
+          value={row.key}
+          onChange={(event) => onUpdate({ key: event.target.value })}
+          className="h-8 bg-transparent border border-transparent rounded-md px-2 text-[12px] font-medium outline-none focus:border-accent/60 focus:bg-white focus:shadow-[0_0_0_3px_rgba(0,122,255,0.14)] flex-1 min-w-0"
+          placeholder="Tag key (e.g. MUSICBRAINZ_ALBUMID)"
+          list={keyId}
+        />
+        {hasOrigin && (
+          <span
+            className="shrink-0 text-[10px] text-text-muted/60 font-mono"
+            title={`Present in ${originCount} of ${trackCount} file(s)`}
+          >
+            {originCount}/{trackCount}
+          </span>
+        )}
+      </div>
       <input
         value={row.value}
         onChange={(event) => onUpdate({ value: event.target.value })}
@@ -255,6 +308,9 @@ function BatchExtraTagRow({
         <option value="ASIN" />
         <option value="SCRIPT" />
         <option value="LANGUAGE" />
+        <option value="ALBUMARTISTS" />
+        <option value="DESCRIPTION" />
+        <option value="COMPILATION" />
       </datalist>
     </div>
   );
@@ -262,37 +318,73 @@ function BatchExtraTagRow({
 
 let idCounter = 0;
 function createNewRow(): DraftRow {
-  return { id: `batch-extra-${++idCounter}`, key: "", value: "" };
+  return { id: `batch-extra-${++idCounter}`, key: "", value: "", origins: new Set() };
 }
 
-function extraTagsToRows(tags: ExtraTag[]): DraftRow[] {
-  const seen = new Set<string>();
-  const rows: DraftRow[] = [];
+/**
+ * Combine extra tags from multiple tracks into grouped rows.
+ * Identical key+value pairs from different tracks are deduped
+ * but track which origin paths they came from.
+ */
+function extraTagsToRows(
+  tagLists: ExtraTag[][],
+  trackPaths: string[],
+): DraftRow[] {
+  // Map: normalizedKey\0value → { origins: Set<trackPath>, originalKey: string }
+  const grouped = new Map<string, { origins: Set<string>; originalKey: string }>();
 
-  for (const tag of tags) {
-    const key = tag.key.trim();
-    const value = tag.value.trim();
-    const identity = `${key.toUpperCase()}\0${value}`;
-    if (!key || !value || seen.has(identity)) continue;
-    seen.add(identity);
-    rows.push({ id: `batch-extra-${++idCounter}`, key, value });
+  for (let i = 0; i < tagLists.length; i++) {
+    const trackPath = trackPaths[i];
+    const tags = tagLists[i];
+
+    for (const tag of tags) {
+      const key = tag.key.trim();
+      const value = tag.value.trim();
+      if (!key || !value) continue;
+
+      const identity = `${key.toUpperCase()}\0${value}`;
+      let entry = grouped.get(identity);
+      if (!entry) {
+        entry = { origins: new Set(), originalKey: key };
+        grouped.set(identity, entry);
+      }
+      entry.origins.add(trackPath);
+    }
+  }
+
+  const rows: DraftRow[] = [];
+  for (const [identity, entry] of grouped) {
+    const nullIdx = identity.indexOf("\0");
+    const value = identity.slice(nullIdx + 1);
+    rows.push({
+      id: `batch-extra-${++idCounter}`,
+      key: entry.originalKey,
+      value,
+      origins: new Set(entry.origins),
+    });
   }
 
   return rows.sort((a, b) => a.key.localeCompare(b.key));
 }
 
-function tagsToRows(tags: Array<{ key: string; value: string }>): DraftRow[] {
-  return tags.map((tag) => ({
-    id: `batch-extra-${++idCounter}`,
-    key: tag.key,
-    value: tag.value,
-  }));
+function rowsToDraftRows(rows: DraftRow[]): DraftRow[] {
+  return rows
+    .map((row) => ({
+      id: `batch-extra-${++idCounter}`,
+      key: row.key,
+      value: row.value,
+      origins: new Set(row.origins),
+    }));
 }
 
 function serializeRows(rows: DraftRow[]): string {
   return JSON.stringify(
     rows
-      .map((row) => ({ key: row.key.trim(), value: row.value.trim() }))
+      .map((row) => ({
+        key: row.key.trim(),
+        value: row.value.trim(),
+        origins: Array.from(row.origins).sort(),
+      }))
       .filter((row) => row.key && row.value)
       .sort((a, b) => {
         const keyCmp = a.key.localeCompare(b.key);

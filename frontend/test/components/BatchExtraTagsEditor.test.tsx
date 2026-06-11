@@ -160,7 +160,7 @@ describe("BatchExtraTagsEditor", () => {
     expect(remaining.length).toBe(1);
   });
 
-  it("calls onSave with only non-empty tags when Apply is clicked", async () => {
+  it("calls onSave with per-track updates when Apply is clicked", async () => {
     const onSave = vi.fn().mockResolvedValue(undefined);
     render(
       <BatchExtraTagsEditor
@@ -181,7 +181,8 @@ describe("BatchExtraTagsEditor", () => {
 
     await waitFor(() => {
       expect(onSave).toHaveBeenCalledWith([
-        { key: "BARCODE", value: "ABC-123" },
+        { path: "/music/song.mp3", tags: [{ key: "BARCODE", value: "ABC-123" }] },
+        { path: "/music/song2.mp3", tags: [{ key: "BARCODE", value: "ABC-123" }] },
       ]);
     });
   });
@@ -215,8 +216,10 @@ describe("BatchExtraTagsEditor", () => {
 
     await waitFor(() => {
       expect(onSave).toHaveBeenCalledWith([
-        { key: "MOOD", value: "Bright" },
-        { key: "ISRC", value: "US-ABC-24-00001" },
+        { path: "/music/song.mp3", tags: [
+          { key: "MOOD", value: "Bright" },
+          { key: "ISRC", value: "US-ABC-24-00001" },
+        ]},
       ]);
     });
   });
@@ -249,8 +252,14 @@ describe("BatchExtraTagsEditor", () => {
 
     await waitFor(() => {
       expect(onSave).toHaveBeenCalledWith([
-        { key: "ARTISTS", value: "foo" },
-        { key: "ARTISTS", value: "bar" },
+        { path: "/music/song1.flac", tags: [
+          { key: "ARTISTS", value: "foo" },
+          { key: "ARTISTS", value: "bar" },
+        ]},
+        { path: "/music/song2.flac", tags: [
+          { key: "ARTISTS", value: "foo" },
+          { key: "ARTISTS", value: "bar" },
+        ]},
       ]);
     });
   });
@@ -298,7 +307,10 @@ describe("BatchExtraTagsEditor", () => {
     fireEvent.click(screen.getByText("Apply to 2 files"));
 
     await waitFor(() => {
-      expect(onSave).toHaveBeenCalledWith([]);
+      expect(onSave).toHaveBeenCalledWith([
+        { path: "/music/song.mp3", tags: [] },
+        { path: "/music/song2.mp3", tags: [] },
+      ]);
     });
   });
 
@@ -337,7 +349,7 @@ describe("BatchExtraTagsEditor", () => {
 
     await waitFor(() => {
       expect(onSave).toHaveBeenCalledWith([
-        { key: "CATALOGNUMBER", value: "CN-999" },
+        { path: "/music/song.mp3", tags: [{ key: "CATALOGNUMBER", value: "CN-999" }] },
       ]);
     });
   });
@@ -389,7 +401,7 @@ describe("BatchExtraTagsEditor", () => {
     expect(onClose).toHaveBeenCalled();
   });
 
-  it("renders the info banner about setting tags on all files", () => {
+  it("renders the info banner about origin-scoped editing", () => {
     render(
       <BatchExtraTagsEditor
         tracks={[makeTrack(), makeTrack({ path: "/music/song2.mp3" })]}
@@ -399,7 +411,8 @@ describe("BatchExtraTagsEditor", () => {
       />,
     );
 
-    expect(screen.getByText(/set on all 2 selected files/i)).toBeTruthy();
+    expect(screen.getByText(/origin/i)).toBeTruthy();
+    expect(screen.getByText(/all 2 selected files/i)).toBeTruthy();
   });
 
   it("renders a datalist with common tag suggestions", async () => {
@@ -442,5 +455,156 @@ describe("BatchExtraTagsEditor", () => {
     const backdrop = container.firstChild as HTMLElement;
     fireEvent.mouseDown(backdrop);
     expect(onClose).toHaveBeenCalled();
+  });
+
+  // ── Origin-scoped batch editing tests ─────────────────────
+
+  it("existing tag from one track only applies to its origin track", async () => {
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    const track1 = makeTrack({ path: "/music/track1.mp3" });
+    const track2 = makeTrack({ path: "/music/track2.mp3" });
+
+    window.api = {
+      readExtraTags: vi.fn()
+        .mockResolvedValueOnce([{ key: "MOOD", value: "Happy", source: "vorbis" }])
+        .mockResolvedValueOnce([]),
+    } as unknown as Window["api"];
+
+    render(
+      <BatchExtraTagsEditor
+        tracks={[track1, track2]}
+        saving={false}
+        onClose={vi.fn()}
+        onSave={onSave}
+      />,
+    );
+
+    // MOOD appears (from track1), but no other tags from track2
+    expect(await screen.findByDisplayValue("MOOD")).toBeTruthy();
+    expect(screen.getByDisplayValue("Happy")).toBeTruthy();
+
+    // Change value to test origin-scoped save
+    fireEvent.change(screen.getByDisplayValue("Happy"), { target: { value: "Excited" } });
+    fireEvent.click(screen.getByText("Apply to 2 files"));
+
+    await waitFor(() => {
+      expect(onSave).toHaveBeenCalledWith([
+        { path: "/music/track1.mp3", tags: [{ key: "MOOD", value: "Excited" }] },
+        { path: "/music/track2.mp3", tags: [] },
+      ]);
+    });
+  });
+
+  it("new tag (no origin) applies to all selected tracks", async () => {
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    const track1 = makeTrack({ path: "/music/track1.flac" });
+    const track2 = makeTrack({ path: "/music/track2.flac" });
+
+    window.api = {
+      readExtraTags: vi.fn()
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([]),
+    } as unknown as Window["api"];
+
+    render(
+      <BatchExtraTagsEditor
+        tracks={[track1, track2]}
+        saving={false}
+        onClose={vi.fn()}
+        onSave={onSave}
+      />,
+    );
+
+    await screen.findByPlaceholderText("Tag key (e.g. MUSICBRAINZ_ALBUMID)");
+    const keyInput = screen.getByPlaceholderText("Tag key (e.g. MUSICBRAINZ_ALBUMID)");
+    const valueInput = screen.getByPlaceholderText("Value");
+    fireEvent.change(keyInput, { target: { value: "BARCODE" } });
+    fireEvent.change(valueInput, { target: { value: "NEW-001" } });
+
+    fireEvent.click(screen.getByText("Apply to 2 files"));
+
+    await waitFor(() => {
+      expect(onSave).toHaveBeenCalledWith([
+        { path: "/music/track1.flac", tags: [{ key: "BARCODE", value: "NEW-001" }] },
+        { path: "/music/track2.flac", tags: [{ key: "BARCODE", value: "NEW-001" }] },
+      ]);
+    });
+  });
+
+  it("mix of existing and new tags: existing only to origin, new to all", async () => {
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    const track1 = makeTrack({ path: "/music/track1.flac" });
+    const track2 = makeTrack({ path: "/music/track2.flac" });
+
+    window.api = {
+      readExtraTags: vi.fn()
+        .mockResolvedValueOnce([{ key: "MOOD", value: "Happy", source: "vorbis" }])
+        .mockResolvedValueOnce([]),
+    } as unknown as Window["api"];
+
+    render(
+      <BatchExtraTagsEditor
+        tracks={[track1, track2]}
+        saving={false}
+        onClose={vi.fn()}
+        onSave={onSave}
+      />,
+    );
+
+    // Wait for MOOD to appear
+    expect(await screen.findByDisplayValue("MOOD")).toBeTruthy();
+
+    // Add a new tag (no origin)
+    fireEvent.click(screen.getByText("Add Tag"));
+    const keyInputs = screen.getAllByPlaceholderText("Tag key (e.g. MUSICBRAINZ_ALBUMID)");
+    const valueInputs = screen.getAllByPlaceholderText("Value");
+    // New tag is the last row
+    fireEvent.change(keyInputs[keyInputs.length - 1], { target: { value: "ISRC" } });
+    fireEvent.change(valueInputs[valueInputs.length - 1], { target: { value: "US-NEW" } });
+
+    fireEvent.click(screen.getByText("Apply to 2 files"));
+
+    await waitFor(() => {
+      expect(onSave).toHaveBeenCalledWith([
+        {
+          path: "/music/track1.flac",
+          tags: [
+            { key: "MOOD", value: "Happy" },
+            { key: "ISRC", value: "US-NEW" },
+          ],
+        },
+        {
+          path: "/music/track2.flac",
+          tags: [
+            { key: "ISRC", value: "US-NEW" },
+          ],
+        },
+      ]);
+    });
+  });
+
+  it("shows origin count indicator on existing tags", async () => {
+    window.api = {
+      readExtraTags: vi.fn()
+        .mockResolvedValueOnce([{ key: "MOOD", value: "Happy", source: "vorbis" }])
+        .mockResolvedValueOnce([{ key: "MOOD", value: "Happy", source: "vorbis" }])
+        .mockResolvedValueOnce([]),
+    } as unknown as Window["api"];
+
+    render(
+      <BatchExtraTagsEditor
+        tracks={[
+          makeTrack({ path: "/music/t1.flac" }),
+          makeTrack({ path: "/music/t2.flac" }),
+          makeTrack({ path: "/music/t3.flac" }),
+        ]}
+        saving={false}
+        onClose={vi.fn()}
+        onSave={vi.fn()}
+      />,
+    );
+
+    // MOOD exists in 2 of 3 tracks
+    expect(await screen.findByText("2/3")).toBeTruthy();
   });
 });

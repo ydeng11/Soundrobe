@@ -68,11 +68,10 @@ const METADATA_EDITOR_KEYS = new Set([
   // Album
   "TALB",
   "ALBUM",
-  // Album Artist
+  // Album Artist (singular — right-panel editable)
   "TPE2",
   "ALBUMARTIST",
   "ALBUM ARTIST",
-  "ALBUMARTISTS",
   // Year
   "TDRC",
   "TYER",
@@ -96,19 +95,7 @@ const METADATA_EDITOR_KEYS = new Set([
   // Comment
   "COMM",
   "COMMENT",
-  "DESCRIPTION",
-  // Detailed metadata shown in the sidebar
-  "USLT",
-  "LYRICS",
-  "SYLT",
-  "COMPILATION",
-  "TCMP",
-  "MUSICBRAINZ TRACK ID",
-  "MUSICBRAINZ ALBUM ID",
-  "MUSICBRAINZ ARTIST ID",
-  "MUSICBRAINZ_TRACKID",
-  "MUSICBRAINZ_ALBUMID",
-  "MUSICBRAINZ_ARTISTID",
+  // Embedded artwork — not shown as extra tags
   "METADATA_BLOCK_PICTURE",
   "APIC",
 ]);
