@@ -110,20 +110,28 @@ const AUDIT_SCHEMA = {
 const DISCOGS_BASE = "https://api.discogs.com";
 
 /**
+ * Result of resolving a Discogs artist alias.
+ * Returns both the alias title string and the numeric Discogs artist ID.
+ */
+export interface DiscogsAliasResult {
+  alias: string;
+  artistId: number;
+}
+
+/**
  * Check if an artist exists on Discogs by name.
  * First tries the precise artist=<name> search, then falls back to
  * generic q=<name>&type=artist (handles non-Latin names where the
  * Discogs artist title is in Latin script).
  *
- * Returns the Discogs artist title (the alias to use for lookup)
- * if the artist was found via generic search but NOT via precise.
- * Returns null if the artist was found via precise search (no alias
- * needed) or if the artist wasn't found at all.
+ * Returns { alias, artistId } if the artist was found via generic
+ * search but NOT via precise. Returns null if the artist was found
+ * via precise search (no alias needed) or not found at all.
  */
 export async function resolveDiscogsArtistAlias(
   artistName: string,
   discogsToken: string | undefined,
-): Promise<string | null> {
+): Promise<DiscogsAliasResult | null> {
   if (!discogsToken) return null;
 
   const headers: Record<string, string> = {
@@ -161,10 +169,12 @@ export async function resolveDiscogsArtistAlias(
     const genericResults = genericData.results ?? [];
 
     if (genericResults.length > 0) {
-      const discogsTitle = genericResults[0].title ?? null;
-      if (discogsTitle && discogsTitle !== artistName) {
-        debug.debug("audit", `resolveDiscogsArtistAlias: generic search found alias "${discogsTitle}" for "${artistName}"`);
-        return discogsTitle;
+      const first = genericResults[0];
+      const discogsTitle: string | null = (first.title as string) ?? null;
+      const discogsId: number | null = first.id != null ? Number(first.id) : null;
+      if (discogsTitle && discogsTitle !== artistName && discogsId != null) {
+        debug.debug("audit", `resolveDiscogsArtistAlias: generic search found alias "${discogsTitle}" (id=${discogsId})`);
+        return { alias: discogsTitle, artistId: discogsId };
       }
       debug.debug("audit", `resolveDiscogsArtistAlias: generic search found same title "${discogsTitle}"`);
     }
@@ -452,35 +462,43 @@ async function auditAlbum(
 
   const config = loadConfig();
   const discogsToken = config.discogsToken;
+  // Track discogsArtistId for writing to file tags after audit fix
+  let discogsArtistId: string | null = null;
+
   if (discogsToken && artistHint && isChineseName(artistHint)) {
     debug.debug("audit", `${albumName}: checking Discogs for artist="${artistHint}"`);
-    const alias = await resolveDiscogsArtistAlias(artistHint, discogsToken);
+    const aliasResult = await resolveDiscogsArtistAlias(artistHint, discogsToken);
 
-    if (alias === null) {
+    if (aliasResult === null) {
       // Precise search found the artist, no alias needed
       debug.debug("audit", `${albumName}: artist resolves directly on Discogs`);
-    } else if (typeof alias === "string") {
-      // Generic search found an alias — this is the Discogs lookup name
-      debug.info("audit", `${albumName}: Discogs alias found: "${artistHint}" → "${alias}"`);
-      discogsAlias = alias;
+    } else {
+      // Generic search found an alias with Discogs artist ID
+      debug.info("audit", `${albumName}: Discogs alias found: "${artistHint}" → "${aliasResult.alias}" (id=${aliasResult.artistId})`);
+      discogsAlias = aliasResult.alias;
+      discogsArtistId = String(aliasResult.artistId);
       aliasWasSuggested = false;
 
       // Persist the alias for future lookups
-      saveAlias(artistHint, alias);
-    } else {
-      // Neither search found the artist — ask LLM for alias suggestions
+      saveAlias(artistHint, aliasResult.alias);
+
+      // Ask LLM for alias suggestions if neither search found it
+    }
+
+    if (!discogsAlias) {
       debug.debug("audit", `${albumName}: artist not found on Discogs, asking LLM for aliases`);
       const suggested = await suggestDiscogsAliases(artistHint, client);
 
       for (const suggestedAlias of suggested) {
         const confirmed = await resolveDiscogsArtistAlias(suggestedAlias, discogsToken);
         if (confirmed) {
-          debug.info("audit", `${albumName}: LLM-suggested alias "${suggestedAlias}" confirmed as "${confirmed}"`);
-          discogsAlias = confirmed;
+          debug.info("audit", `${albumName}: LLM-suggested alias "${suggestedAlias}" confirmed as "${confirmed.alias}" (id=${confirmed.artistId})`);
+          discogsAlias = confirmed.alias;
+          discogsArtistId = String(confirmed.artistId);
           aliasWasSuggested = true;
 
           // Persist the confirmed alias
-          saveAlias(artistHint, confirmed);
+          saveAlias(artistHint, confirmed.alias);
           break;
         } else {
           debug.debug("audit", `${albumName}: LLM-suggested alias "${suggestedAlias}" not confirmed on Discogs`);
@@ -496,6 +514,18 @@ async function auditAlbum(
   const auditData = response.data as { tracks: AuditTrackResult[] };
   const rawTracks = (auditData.tracks ?? []).filter((t) => t.status !== "correct");
   const fixedCount = await applyAuditFixes(audioFiles, rawTracks);
+
+  // ── Write discogsArtistId if Discogs alias was found ──────
+  // Persist the Discogs artist ID to file tags so the auto-tag
+  // pipeline can reuse it for direct ID lookups on future scans.
+  if (discogsArtistId && audioFiles.length > 0) {
+    const discogsIdJobs = audioFiles.map((filePath) => ({
+      filePath,
+      fields: { discogsArtistId } as WriteFields,
+    }));
+    await getDefaultWriteQueue().submit(discogsIdJobs);
+    debug.info("audit", `auditAlbum: wrote discogsArtistId=${discogsArtistId} to ${audioFiles.length} file(s)`);
+  }
 
   debug.info("audit", `auditAlbum: ${albumName} — ${rawTracks.length} issue(s) found, ${fixedCount} fixed`);
   if (rawTracks.length > 0) {

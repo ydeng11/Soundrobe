@@ -15,7 +15,7 @@ describe("resolveDiscogsArtistAlias", () => {
     expect(result).toBeNull(); // resolves directly, no alias needed
   });
 
-  it("returns Discogs title alias when Chinese name finds nothing but generic q search finds it", async () => {
+  it("returns alias + artistId when Chinese name finds nothing but generic q search finds it", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch");
     // First: precise artist search returns nothing
     fetchSpy.mockResolvedValueOnce(
@@ -29,7 +29,7 @@ describe("resolveDiscogsArtistAlias", () => {
     );
 
     const result = await resolveDiscogsArtistAlias("刺猬", "test-token");
-    expect(result).toBe("Hedgehog (4)");
+    expect(result).toEqual({ alias: "Hedgehog (4)", artistId: 1902728 });
   });
 
   it("returns null when neither search finds anything", async () => {
