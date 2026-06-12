@@ -13,6 +13,7 @@ import { parseFile } from "music-metadata";
 import { OpenRouterClient } from "./openrouter";
 import { buildAuditMessages } from "./prompts";
 import { loadConfig } from "./auto-tag";
+import { saveAlias, isChineseName } from "./aliases";
 import type { WriteFields } from "./writer";
 import { getDefaultWriteQueue } from "../services/TagWriteQueue";
 import { AUDIT_ALBUM_CONCURRENCY, LOCAL_READ_CONCURRENCY, mapConcurrent } from "../services/concurrency";
@@ -103,6 +104,132 @@ const AUDIT_SCHEMA = {
   },
   required: ["tracks"],
 };
+
+// ── Discogs alias resolution ────────────────────────────────────────
+
+const DISCOGS_BASE = "https://api.discogs.com";
+
+/**
+ * Check if an artist exists on Discogs by name.
+ * First tries the precise artist=<name> search, then falls back to
+ * generic q=<name>&type=artist (handles non-Latin names where the
+ * Discogs artist title is in Latin script).
+ *
+ * Returns the Discogs artist title (the alias to use for lookup)
+ * if the artist was found via generic search but NOT via precise.
+ * Returns null if the artist was found via precise search (no alias
+ * needed) or if the artist wasn't found at all.
+ */
+export async function resolveDiscogsArtistAlias(
+  artistName: string,
+  discogsToken: string | undefined,
+): Promise<string | null> {
+  if (!discogsToken) return null;
+
+  const headers: Record<string, string> = {
+    "User-Agent": "auto-tagger/0.1.0",
+    Authorization: `Discogs token=${discogsToken}`,
+  };
+
+  // Step 1: Try precise artist=<name> search
+  try {
+    const preciseUrl = `${DISCOGS_BASE}/database/search?type=artist&artist=${encodeURIComponent(artistName)}&per_page=5`;
+    const preciseRes = await fetch(preciseUrl, { headers, signal: AbortSignal.timeout(10_000) });
+
+    if (preciseRes.ok) {
+      const preciseData = (await preciseRes.json()) as { results?: Array<{ title?: string }> };
+      const preciseResults = preciseData.results ?? [];
+
+      // If precise search returns results, the artist resolves directly
+      if (preciseResults.length > 0) {
+        debug.debug("audit", `resolveDiscogsArtistAlias: precise search found "${artistName}" — no alias needed`);
+        return null;
+      }
+    }
+  } catch {
+    // fall through to generic search
+  }
+
+  // Step 2: Try generic q=<name>&type=artist search (for non-Latin names)
+  try {
+    const genericUrl = `${DISCOGS_BASE}/database/search?type=artist&q=${encodeURIComponent(artistName)}&per_page=5`;
+    const genericRes = await fetch(genericUrl, { headers, signal: AbortSignal.timeout(10_000) });
+
+    if (!genericRes.ok) return null;
+
+    const genericData = (await genericRes.json()) as { results?: Array<{ title?: string; id?: number }> };
+    const genericResults = genericData.results ?? [];
+
+    if (genericResults.length > 0) {
+      const discogsTitle = genericResults[0].title ?? null;
+      if (discogsTitle && discogsTitle !== artistName) {
+        debug.debug("audit", `resolveDiscogsArtistAlias: generic search found alias "${discogsTitle}" for "${artistName}"`);
+        return discogsTitle;
+      }
+      debug.debug("audit", `resolveDiscogsArtistAlias: generic search found same title "${discogsTitle}"`);
+    }
+  } catch {
+    // ignore
+  }
+
+  return null;
+}
+
+/**
+ * Ask the LLM to suggest likely Discogs search aliases for a CJK artist
+ * name that didn't resolve directly on Discogs.
+ * Only makes sense for Chinese/Japanese/Korean names.
+ */
+export async function suggestDiscogsAliases(
+  artistName: string,
+  client: OpenRouterClient,
+): Promise<string[]> {
+  if (!isChineseName(artistName)) return [];
+
+  debug.debug("audit", `suggestDiscogsAliases: asking LLM for aliases for "${artistName}"`);
+
+  const messages = [
+    {
+      role: "system" as const,
+      content:
+        "You suggest artist name aliases for Discogs search. " +
+        "The input is a Chinese artist name that doesn't resolve on Discogs. " +
+        "Suggest 1-3 English/Latin aliases that might work on Discogs. " +
+        "For example, for '刺猬' (a Chinese rock band), suggest 'Hedgehog' " +
+        "because Discogs lists them as 'Hedgehog (4)'.\n\n" +
+        "Return as JSON: { \"aliases\": [\"alias1\", \"alias2\"] }\n" +
+        "If no alias makes sense, return { \"aliases\": [] }",
+    },
+    {
+      role: "user" as const,
+      content: JSON.stringify({ artist: artistName }),
+    },
+  ];
+
+  const ALIAS_SCHEMA = {
+    type: "object",
+    properties: {
+      aliases: {
+        type: "array",
+        items: { type: "string" },
+      },
+    },
+    required: ["aliases"],
+  };
+
+  try {
+    const response = await client.completeJson(messages, "AliasSuggestions", ALIAS_SCHEMA);
+    const raw = (response.data as { aliases?: unknown[] })?.aliases ?? [];
+    const aliases = raw
+      .filter((a): a is string => typeof a === "string" && a.trim().length > 0)
+      .map((a) => a.trim());
+    debug.debug("audit", `suggestDiscogsAliases: LLM suggested [${aliases.join(", ")}]`);
+    return aliases;
+  } catch (err) {
+    debug.warn("audit", `suggestDiscogsAliases: LLM call failed`, err);
+    return [];
+  }
+}
 
 // ── Task manager ────────────────────────────────────────────────────
 
@@ -316,8 +443,54 @@ async function auditAlbum(
 
   const validTracks = tracksMeta.map((m) => m ?? defaultMeta);
 
+  // ── Discogs alias preflight ──────────────────────────────────
+  // Before calling the LLM for corrections, check if the artist name
+  // resolves on Discogs. If not, try to find an alias so the audit
+  // prompt can include it as context while still preferring Chinese names.
+  let discogsAlias: string | null = null;
+  let aliasWasSuggested = false;
+
+  const config = loadConfig();
+  const discogsToken = config.discogsToken;
+  if (discogsToken && artistHint && isChineseName(artistHint)) {
+    debug.debug("audit", `${albumName}: checking Discogs for artist="${artistHint}"`);
+    const alias = await resolveDiscogsArtistAlias(artistHint, discogsToken);
+
+    if (alias === null) {
+      // Precise search found the artist, no alias needed
+      debug.debug("audit", `${albumName}: artist resolves directly on Discogs`);
+    } else if (typeof alias === "string") {
+      // Generic search found an alias — this is the Discogs lookup name
+      debug.info("audit", `${albumName}: Discogs alias found: "${artistHint}" → "${alias}"`);
+      discogsAlias = alias;
+      aliasWasSuggested = false;
+
+      // Persist the alias for future lookups
+      saveAlias(artistHint, alias);
+    } else {
+      // Neither search found the artist — ask LLM for alias suggestions
+      debug.debug("audit", `${albumName}: artist not found on Discogs, asking LLM for aliases`);
+      const suggested = await suggestDiscogsAliases(artistHint, client);
+
+      for (const suggestedAlias of suggested) {
+        const confirmed = await resolveDiscogsArtistAlias(suggestedAlias, discogsToken);
+        if (confirmed) {
+          debug.info("audit", `${albumName}: LLM-suggested alias "${suggestedAlias}" confirmed as "${confirmed}"`);
+          discogsAlias = confirmed;
+          aliasWasSuggested = true;
+
+          // Persist the confirmed alias
+          saveAlias(artistHint, confirmed);
+          break;
+        } else {
+          debug.debug("audit", `${albumName}: LLM-suggested alias "${suggestedAlias}" not confirmed on Discogs`);
+        }
+      }
+    }
+  }
+
   debug.info("audit", `auditAlbum: calling LLM for ${albumName} (${validTracks.length} track(s))`);
-  const messages = buildAuditMessages(artistHint, albumHint, validTracks, filenames);
+  const messages = buildAuditMessages(artistHint, albumHint, validTracks, filenames, { discogsAlias });
 
   const response = await client.completeJson(messages, "AuditResponse", AUDIT_SCHEMA);
   const auditData = response.data as { tracks: AuditTrackResult[] };

@@ -195,6 +195,11 @@ export function buildTagCorrectionMessages(
 
 // ── Audit ──────────────────────────────────────────────────────────
 
+export interface AuditContext {
+  /** Discogs lookup alias (English search name for a Chinese artist). */
+  discogsAlias?: string | null;
+}
+
 export function buildAuditMessages(
   albumArtistHint: string | null,
   albumHint: string | null,
@@ -207,6 +212,7 @@ export function buildAuditMessages(
     path?: string;
   }>,
   filenames: string[],
+  context?: AuditContext,
 ): Array<{ role: string; content: string }> {
   const trackData = tracks.map((meta, i) => ({
     index: i,
@@ -218,11 +224,16 @@ export function buildAuditMessages(
     artists: (meta.artists ?? []).join(", "),
   }));
 
-  const payload = {
+  const payload: Record<string, unknown> = {
     album_folder: albumHint ?? "",
     artist_folder: albumArtistHint ?? "",
+    preferred_artist_name: albumArtistHint ?? "",
     tracks: trackData,
   };
+
+  if (context?.discogsAlias) {
+    payload.discogs_lookup_alias = context.discogsAlias;
+  }
 
   return [
     {
@@ -256,10 +267,17 @@ export function buildAuditMessages(
         "9. Be conservative — only flag when you have reasonable confidence.\n" +
         "10. Title casing variations ('Come Together' vs 'come together') are warnings, " +
         "not errors.\n" +
-        "11. For Chinese tracks: judge the correct character script " +
+        "11. **Chinese name preference**: When the `preferred_artist_name` " +
+        "(from folder/tags) is in Chinese and a `discogs_lookup_alias` is " +
+        "provided (an English name found on Discogs for the same artist), " +
+        "always prefer the Chinese name in `corrected` metadata. The English " +
+        "alias is only a search aid for external lookups, not a replacement " +
+        "tag value. Do NOT write the English alias into `artist`, `artists`, " +
+        "or `album_artist` fields when the Chinese name is available.\n" +
+        "12. For Chinese tracks: judge the correct character script " +
         "(Simplified vs Traditional) based on the filename. The filename " +
         "is the authoritative source for which script to use.\n" +
-        "12. **For every track with a warning or error, provide the complete " +
+        "13. **For every track with a warning or error, provide the complete " +
         "corrected metadata in the `corrected` field.** Populate `corrected` " +
         "with all the metadata fields that the track SHOULD have — title, " +
         "artist, artists, album, album_artist, year, genre. Only include " +
