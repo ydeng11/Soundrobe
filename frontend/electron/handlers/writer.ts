@@ -226,6 +226,90 @@ async function writeMp3ExtraTags(filePath: string, extraTags: ExtraTagUpdate[]):
 }
 
 /**
+ * Write extra tags to a WAV file's embedded ID3v2 chunk.
+ * WAV uses an `id3 ` RIFF chunk with standard ID3v2 frames,
+ * so the same node-id3 logic as MP3 extra tags applies.
+ */
+async function writeWavExtraTags(filePath: string, extraTags: ExtraTagUpdate[]): Promise<WriteOutcome> {
+  const data = await readFile(filePath);
+  if (
+    data.length < 12 ||
+    data.toString("ascii", 0, 4) !== "RIFF" ||
+    data.toString("ascii", 8, 12) !== "WAVE"
+  ) {
+    throw new Error("Invalid WAV file");
+  }
+
+  let existingTags: NodeID3.Tags = {};
+  let existingId3Offset = -1;
+  let existingId3Size = 0;
+  const chunks: Buffer[] = [];
+
+  for (let offset = 12; offset + 8 <= data.length; ) {
+    const id = data.toString("ascii", offset, offset + 4);
+    const size = data.readUInt32LE(offset + 4);
+    const end = offset + 8 + size + (size % 2);
+    if (end > data.length || end < offset + 8) break;
+    if (id === "id3 " || id === "ID3 ") {
+      existingTags = {
+        ...existingTags,
+        ...nodeId3.read(data.subarray(offset + 8, offset + 8 + size)),
+      };
+      existingId3Offset = offset;
+      existingId3Size = size;
+    } else {
+      chunks.push(data.subarray(offset, end));
+    }
+    offset = end;
+  }
+
+  // Apply extra-tag update (same logic as MP3)
+  const preserved = toArray(existingTags.userDefinedText).filter(
+    (tag) =>
+      tag.description &&
+      isReservedExtraTagKey(tag.description) &&
+      !EXTRA_TAG_RESERVED_EXCEPTIONS.has(tag.description.trim().toUpperCase()),
+  );
+  const custom = normalizeExtraTags(extraTags, EXTRA_TAG_RESERVED_EXCEPTIONS).map((tag) => ({
+    description: tag.key,
+    value: tag.value,
+  }));
+  const mergedTags: NodeID3.Tags = {
+    ...existingTags,
+    userDefinedText: [...preserved, ...custom],
+  };
+
+  const id3Payload = nodeId3.create(mergedTags);
+
+  // Try in-place: existing chunk has enough room
+  if (existingId3Offset >= 0 && id3Payload.length <= existingId3Size) {
+    const dataOffset = existingId3Offset + 8;
+    const handle = await open(filePath, "r+");
+    try {
+      await handle.write(id3Payload, 0, id3Payload.length, dataOffset);
+      if (id3Payload.length < existingId3Size) {
+        const zeroBuf = Buffer.alloc(existingId3Size - id3Payload.length);
+        await handle.write(zeroBuf, 0, zeroBuf.length, dataOffset + id3Payload.length);
+      }
+    } finally {
+      await handle.close();
+    }
+    return "in_place";
+  }
+
+  // Full rewrite: append new ID3 chunk
+  const id3Chunk = wavChunk("id3 ", id3Payload);
+  chunks.push(id3Chunk);
+
+  const body = Buffer.concat([Buffer.from("WAVE", "ascii"), ...chunks]);
+  const header = Buffer.alloc(8);
+  header.write("RIFF", 0, 4, "ascii");
+  header.writeUInt32LE(body.length, 4);
+  await writeFile(filePath, Buffer.concat([header, body]));
+  return "full_rewrite";
+}
+
+/**
  * Write Vorbis comments to a FLAC / OGG / OPUS file.
  * Vorbis comments are stored as FLAC metadata blocks or OGG page comments
  * as a series of KEY=VALUE strings (UTF-8), prefixed by a 32-bit count.
@@ -1142,6 +1226,9 @@ export async function writeExtraTags(
     case ".opus":
       await writeVorbisExtraTags(filePath, extraTags);
       break;
+    case ".wav":
+      await writeWavExtraTags(filePath, extraTags);
+      break;
     default:
       throw new Error(`Extra tag editing is not supported for ${ext || "this file type"}`);
   }
@@ -1195,6 +1282,8 @@ export async function writeExtraTagsWithOutcome(
     case ".ogg":
     case ".opus":
       return await writeVorbisExtraTags(filePath, extraTags);
+    case ".wav":
+      return await writeWavExtraTags(filePath, extraTags);
     default:
       throw new Error(`Extra tag editing is not supported for ${ext || "this file type"}`);
   }

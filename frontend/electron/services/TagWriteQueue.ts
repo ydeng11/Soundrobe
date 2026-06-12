@@ -44,18 +44,28 @@ export interface TagWriteResult {
   durationMs?: number;
 }
 
+// ── Job classification helper ────────────────────────────────────
+
+/**
+ * Determine whether a job is an extra-tag operation.
+ * Any job with `extraTags !== undefined`, including an empty array,
+ * is classified as an extra-tag job. A job with only `fields` is not.
+ */
+export function isExtraTagJob(job: TagWriteJob): boolean {
+  return job.extraTags !== undefined;
+}
+
 // ── Inline write execution ─────────────────────────────────────────
 
 /**
- * Execute a single tag write job by calling the low-level writer directly.
- * Kept separate from the queue so it remains individually testable.
+ * Execute a single tag write job by calling the low-level writer directly.\n * Kept separate from the queue so it remains individually testable.
  */
 export async function executeTagWrite(job: TagWriteJob): Promise<TagWriteResult> {
   const start = Date.now();
   try {
     let outcome: WriteOutcome = "full_rewrite";
-    if (job.extraTags && job.extraTags.length > 0) {
-      outcome = await writeExtraTagsWithOutcome(job.filePath, job.extraTags);
+    if (isExtraTagJob(job)) {
+      outcome = await writeExtraTagsWithOutcome(job.filePath, job.extraTags!);
     } else if (job.fields && Object.keys(job.fields).length > 0) {
       outcome = await writeTagsWithOutcome(job.filePath, job.fields);
     }
@@ -93,7 +103,7 @@ export function deduplicateJobs(jobs: TagWriteJob[]): TagWriteJob[] {
   for (const job of jobs) {
     const normalized = path.resolve(job.filePath);
 
-    if (job.extraTags && job.extraTags.length > 0) {
+    if (isExtraTagJob(job)) {
       const existing = extraTagsByPath.get(normalized) ?? [];
       existing.push({ ...job, filePath: normalized });
       extraTagsByPath.set(normalized, existing);
@@ -204,6 +214,7 @@ export class TagWriteQueue {
     if (jobs.length === 0) return [];
 
     const deduped = deduplicateJobs(jobs);
+    if (deduped.length === 0) return [];
 
     return new Promise<TagWriteResult[]>((resolve, reject) => {
       const batchId = this.nextBatchId++;
@@ -472,7 +483,7 @@ export function createWorkerExecutor(workerPath?: string): TagWriteExecutor {
       const request: TagWorkerRequest = {
         type: "write",
         jobId,
-        action: job.extraTags && job.extraTags.length > 0 ? "writeExtraTags" : "writeTags",
+        action: isExtraTagJob(job) ? "writeExtraTags" : "writeTags",
         filePath: job.filePath,
         fields: job.fields,
         extraTags: job.extraTags,

@@ -9,6 +9,7 @@ import {
   deduplicateJobs,
   resetDefaultWriteQueue,
   getDefaultWriteQueue,
+  isExtraTagJob,
 } from "../../electron/services/TagWriteQueue";
 import type { TagWriteExecutor } from "../../electron/services/TagWriteQueue";
 
@@ -137,6 +138,16 @@ describe("deduplicateJobs", () => {
     expect(deduped[0].extraTags).toHaveLength(2);
     expect(deduped[0].extraTags).toContainEqual({ key: "MOOD", value: "Happy" });
     expect(deduped[0].extraTags).toContainEqual({ key: "RATING", value: "5" });
+  });
+
+  it("preserves extraTags: [] as a real write operation", () => {
+    const fp = "/some/dir/track.mp3";
+    const deduped = deduplicateJobs([
+      { filePath: fp, extraTags: [] },
+    ]);
+
+    expect(deduped).toHaveLength(1);
+    expect(deduped[0].extraTags).toEqual([]);
   });
 
   it("keeps fields and extraTags as separate entries when they target different paths", () => {
@@ -338,6 +349,40 @@ describe("TagWriteQueue.submit", () => {
     expect(results).toHaveLength(10);
     expect(results.every((r) => r.success)).toBe(true);
   });
+
+  it("handles empty extra-tags array without hanging", async () => {
+    const fp = path.join(tmpDir, "empty-extra.mp3");
+    createMinimalMp3(fp);
+
+    // Write an extra tag first so we can verify it gets cleared
+    await executeTagWrite({ filePath: fp, extraTags: [{ key: "MOOD", value: "Chill" }] });
+
+    const queue = new TagWriteQueue(1);
+    // Submit with empty extraTags — should clear extra tags, not hang
+    const results = await queue.submit([{ filePath: fp, extraTags: [] }]);
+
+    expect(results).toHaveLength(1);
+    expect(results[0].success).toBe(true);
+    // Verify the extra tag was cleared
+    const tags = NodeID3.read(fp);
+    const udt = Array.isArray(tags.userDefinedText)
+      ? tags.userDefinedText
+      : tags.userDefinedText
+        ? [tags.userDefinedText]
+        : [];
+    const byDesc = Object.fromEntries(
+      udt.filter((t) => t.description).map((t) => [t.description, t.value]),
+    );
+    expect(byDesc["MOOD"]).toBeUndefined();
+  });
+
+  it("zero-dedup safety — submits with no fields and no extraTags resolve immediately", async () => {
+    const queue = new TagWriteQueue(1);
+    // A job with no fields and no extraTags should resolve immediately
+    // via the defensive guard in submit()
+    const results = await queue.submit([{ filePath: "/nonexistent/track.mp3" }]);
+    expect(results).toEqual([]);
+  });
 });
 
 describe("TagWriteQueue.submitOne", () => {
@@ -380,6 +425,88 @@ describe("TagWriteQueue singleton", () => {
     resetDefaultWriteQueue();
     const q2 = getDefaultWriteQueue();
     expect(q1).not.toBe(q2);
+  });
+});
+
+// ── isExtraTagJob ────────────────────────────────────────────
+
+describe("isExtraTagJob", () => {
+  it("returns true when extraTags is an empty array", () => {
+    expect(isExtraTagJob({ filePath: "/x.mp3", extraTags: [] })).toBe(true);
+  });
+
+  it("returns true when extraTags has entries", () => {
+    expect(isExtraTagJob({ filePath: "/x.mp3", extraTags: [{ key: "MOOD", value: "Chill" }] })).toBe(true);
+  });
+
+  it("returns false when extraTags is undefined (fields-only)", () => {
+    expect(isExtraTagJob({ filePath: "/x.mp3", fields: { title: "Song" } })).toBe(false);
+  });
+
+  it("returns false when both fields and extraTags are undefined", () => {
+    expect(isExtraTagJob({ filePath: "/x.mp3" })).toBe(false);
+  });
+});
+
+// ── Queue executor routing tests (worker action classification) ─
+
+describe("TagWriteQueue executor routing", () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "tag-routing-"));
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it("routes extraTags: [] to executor with extraTags present and no fields", async () => {
+    const received: Array<{ fields?: unknown; extraTags?: unknown }> = [];
+
+    const recordingExec: TagWriteExecutor = async (job) => {
+      received.push({ fields: job.fields, extraTags: job.extraTags });
+      return { filePath: job.filePath, success: true };
+    };
+
+    const queue = new TagWriteQueue(1, recordingExec);
+    await queue.submitOne(tmpDir + "/track.mp3", undefined, []);
+
+    expect(received).toHaveLength(1);
+    expect(received[0].extraTags).toEqual([]);
+    expect(received[0].fields).toBeUndefined();
+  });
+
+  it("routes extraTags with entries to executor with extraTags and no fields", async () => {
+    const received: Array<{ fields?: unknown; extraTags?: unknown }> = [];
+
+    const recordingExec: TagWriteExecutor = async (job) => {
+      received.push({ fields: job.fields, extraTags: job.extraTags });
+      return { filePath: job.filePath, success: true };
+    };
+
+    const queue = new TagWriteQueue(1, recordingExec);
+    await queue.submitOne(tmpDir + "/track.mp3", undefined, [{ key: "MOOD", value: "Chill" }]);
+
+    expect(received).toHaveLength(1);
+    expect(received[0].extraTags).toEqual([{ key: "MOOD", value: "Chill" }]);
+    expect(received[0].fields).toBeUndefined();
+  });
+
+  it("routes fields-only job to executor with fields and undefined extraTags", async () => {
+    const received: Array<{ fields?: unknown; extraTags?: unknown }> = [];
+
+    const recordingExec: TagWriteExecutor = async (job) => {
+      received.push({ fields: job.fields, extraTags: job.extraTags });
+      return { filePath: job.filePath, success: true };
+    };
+
+    const queue = new TagWriteQueue(1, recordingExec);
+    await queue.submitOne(tmpDir + "/track.mp3", { title: "Song" });
+
+    expect(received).toHaveLength(1);
+    expect(received[0].fields).toEqual({ title: "Song" });
+    expect(received[0].extraTags).toBeUndefined();
   });
 });
 

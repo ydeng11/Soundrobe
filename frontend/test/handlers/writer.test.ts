@@ -6,6 +6,7 @@ import * as NodeID3 from "node-id3";
 import { parseFile } from "music-metadata";
 import { writeTags, batchWriteTags, batchWriteExtraTags, writeExtraTags } from "../../electron/handlers/writer";
 import { readExtraTags } from "../../electron/handlers/tracks";
+import { TagWriteQueue } from "../../electron/services/TagWriteQueue";
 
 /**
  * Create a minimal valid MP3 file with ID3v2 tags using node-id3,
@@ -1837,6 +1838,89 @@ function commentEntry(key: string, value: string): Buffer {
   len.writeUInt32LE(raw.length);
   return Buffer.concat([len, raw]);
 }
+
+describe("writeExtraTags — Queue round-trip (extra tags clear via TagWriteQueue)", () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "writer-queue-extra-"));
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it("write extra tags to FLAC then clear them via TagWriteQueue, standard tags remain", async () => {
+    const fp = path.join(tmpDir, "clear-queue.flac");
+    createMinimalFlac(fp, "Queue Title", "Queue Artist", "Queue Album");
+
+    // Write extra tags directly
+    await writeExtraTags(fp, [
+      { key: "MOOD", value: "Bright" },
+      { key: "RATING", value: "5" },
+    ]);
+
+    // Verify extra tags exist
+    let extras = await readExtraTags(fp);
+    expect(extras).toHaveLength(2);
+
+    // Clear all extra tags via the queue
+    const queue = new TagWriteQueue(1);
+    const results = await queue.submit([{ filePath: fp, extraTags: [] }]);
+
+    expect(results).toHaveLength(1);
+    expect(results[0].success).toBe(true);
+
+    // Verify extra tags are cleared
+    extras = await readExtraTags(fp);
+    expect(extras).toEqual([]);
+
+    // Standard tags must remain intact
+    const meta = await parseFile(fp, { duration: false });
+    expect(meta.common.title).toBe("Queue Title");
+    expect(meta.common.artist).toBe("Queue Artist");
+    expect(meta.common.album).toBe("Queue Album");
+  });
+
+  it("write extra tags to MP3 then clear them via TagWriteQueue, standard tags remain", async () => {
+    const fp = path.join(tmpDir, "clear-queue.mp3");
+    createMinimalMp3(fp);
+
+    // Write standard tags first via writeTags (which properly creates the file)
+    await writeTags(fp, { title: "MP3 Title", artist: "MP3 Artist", album: "MP3 Album" });
+
+    // Write extra tags directly
+    await writeExtraTags(fp, [
+      { key: "MOOD", value: "Bright" },
+      { key: "RATING", value: "5" },
+    ]);
+
+    // Verify extra tags exist
+    let extras = await readExtraTags(fp);
+    expect(extras).toHaveLength(2);
+
+    // Standard tags survive extra-tag write
+    let tags = NodeID3.read(fp);
+    expect(tags.title).toBe("MP3 Title");
+
+    // Clear all extra tags via the queue
+    const queue = new TagWriteQueue(1);
+    const results = await queue.submit([{ filePath: fp, extraTags: [] }]);
+
+    expect(results).toHaveLength(1);
+    expect(results[0].success).toBe(true);
+
+    // Verify extra tags are cleared
+    extras = await readExtraTags(fp);
+    expect(extras).toEqual([]);
+
+    // Standard tags must remain intact
+    tags = NodeID3.read(fp);
+    expect(tags.title).toBe("MP3 Title");
+    expect(tags.artist).toBe("MP3 Artist");
+    expect(tags.album).toBe("MP3 Album");
+  });
+});
 
 describe("writeExtraTags — OGG round-trip", () => {
   let tmpDir: string;

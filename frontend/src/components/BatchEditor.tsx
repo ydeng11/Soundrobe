@@ -14,7 +14,6 @@ const BATCH_FIELDS: { key: string; label: string; placeholder: string }[] = [
   { key: "albumArtist", label: "Album Artist", placeholder: "Common album artist…" },
   { key: "genre", label: "Genre", placeholder: "Common genre…" },
   { key: "year", label: "Year", placeholder: "2024" },
-  { key: "comment", label: "Comment", placeholder: "Common comment…" },
 ];
 
 export function BatchEditor({
@@ -35,7 +34,6 @@ export function BatchEditor({
       if (t.albumArtist) map.albumArtist.add(t.albumArtist);
       if (t.genre) map.genre.add(t.genre);
       if (t.year) map.year.add(t.year);
-      if (t.comment) map.comment.add(t.comment);
     }
     const sorted: Record<string, string[]> = {};
     for (const f of BATCH_FIELDS) {

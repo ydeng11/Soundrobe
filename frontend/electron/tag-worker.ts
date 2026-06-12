@@ -66,8 +66,8 @@ parentPort.on("message", async (msg: WorkerMessage) => {
 
   if (msg.type === "write") {
     try {
-      if (msg.action === "writeExtraTags" && msg.extraTags) {
-        await writeExtraTags(msg.filePath, msg.extraTags);
+      if (msg.action === "writeExtraTags") {
+        await writeExtraTags(msg.filePath, msg.extraTags ?? []);
       } else if (msg.action === "writeTags" && msg.fields) {
         await writeTags(msg.filePath, msg.fields);
       }

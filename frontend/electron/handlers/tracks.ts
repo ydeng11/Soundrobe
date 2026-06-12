@@ -3,10 +3,18 @@ import { parseFile } from "music-metadata";
 import fs from "fs";
 import path from "path";
 import type { CoverInfo } from "../preload";
-import { writeTags, writeExtraTags } from "./writer";
+import { writeTags } from "./writer";
 import type { ExtraTagUpdate, WriteFields } from "./writer";
 import { getDefaultWriteQueue } from "../services/TagWriteQueue";
 import { mapConcurrent, LOCAL_READ_CONCURRENCY } from "../services/concurrency";
+import logger from "./debug";
+
+// Set of file extensions that support extra tag writing.
+const EXTRA_TAG_EXTENSIONS = new Set([".mp3", ".flac", ".ogg", ".opus", ".wav"]);
+
+function isExtraTagSupported(filePath: string): boolean {
+  return EXTRA_TAG_EXTENSIONS.has(path.extname(filePath).toLowerCase());
+}
 
 export interface TrackData {
   path: string;
@@ -97,6 +105,10 @@ const METADATA_EDITOR_KEYS = new Set([
   // Embedded artwork — not shown as extra tags
   "METADATA_BLOCK_PICTURE",
   "APIC",
+  // Standard ID3v2 Comment frame — managed via sidebar editor, not extra tags
+  "COMM",
+  // Standard Vorbis Comment tag (FLAC/OGG/OPUS) — managed via sidebar editor
+  "COMMENT",
 ]);
 
 export function isAudioFile(filePath: string): boolean {
@@ -628,11 +640,47 @@ export function registerTrackHandlers(): void {
       _event,
       updates: Array<{ path: string; tags: ExtraTagUpdate[] }>
     ): Promise<TrackData[]> => {
-      const writeUpdates = updates.map((u) => ({
+      // Filter to only formats that support extra tags; warn for skipped files
+      const filtered = updates.filter((u) => {
+        const ok = isExtraTagSupported(u.path);
+        if (!ok) {
+          logger.debug(
+            "write",
+            `Skipping extra-tag write for unsupported format: ${u.path}`,
+          );
+        }
+        return ok;
+      });
+
+      if (filtered.length === 0) {
+        return mapConcurrent(
+          updates,
+          LOCAL_READ_CONCURRENCY,
+          async (u) => {
+            try {
+              return await readTrackMetadata(u.path);
+            } catch {
+              const stat = fs.statSync(u.path);
+              return minimalTrack(u.path, stat.size);
+            }
+          },
+        );
+      }
+
+      const writeUpdates = filtered.map((u) => ({
         filePath: u.path,
         extraTags: u.tags,
       }));
-      await getDefaultWriteQueue().submit(writeUpdates);
+      const results = await getDefaultWriteQueue().submit(writeUpdates);
+
+      // Surface any queue failures before readback
+      const failures = results.filter((r) => !r.success);
+      if (failures.length > 0) {
+        const errMsg = failures
+          .map((f) => `${f.filePath}: ${f.error ?? "unknown error"}`)
+          .join("; ");
+        throw new Error(`Batch extra-tag write failed for ${failures.length} file(s): ${errMsg}`);
+      }
 
       // Re-read all updated tracks using bounded concurrency
       return mapConcurrent(
