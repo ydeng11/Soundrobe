@@ -57,8 +57,6 @@ export function MetadataEditor({
           return track.genre ?? "";
         case "composer":
           return track.composer ?? "";
-        case "comment":
-          return track.comment ?? "";
         default:
           return "";
       }
@@ -287,22 +285,13 @@ export function MetadataEditor({
             placeholder="Album artist"
             dirty={isDirty("albumArtist")}
           />
-          <div className="grid grid-cols-2 gap-2.5">
-            <InspectorField
-              label="Disc"
-              value={value("disc")}
-              onChange={(v) => setField("disc", v)}
-              placeholder="1/1"
-              dirty={isDirty("disc")}
-            />
-            <InspectorField
-              label="Comment"
-              value={value("comment")}
-              onChange={(v) => setField("comment", v)}
-              placeholder="Comment"
-              dirty={isDirty("comment")}
-            />
-          </div>
+          <InspectorField
+            label="Disc"
+            value={value("disc")}
+            onChange={(v) => setField("disc", v)}
+            placeholder="1/1"
+            dirty={isDirty("disc")}
+          />
           <InspectorField
             label="Composer"
             value={value("composer")}

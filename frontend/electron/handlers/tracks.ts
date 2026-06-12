@@ -94,9 +94,6 @@ const METADATA_EDITOR_KEYS = new Set([
   // Composer
   "TCOM",
   "COMPOSER",
-  // Comment
-  "COMM",
-  "COMMENT",
   // Embedded artwork — not shown as extra tags
   "METADATA_BLOCK_PICTURE",
   "APIC",
@@ -126,14 +123,13 @@ function detectExternalCover(albumPath: string): string | null {
  * Wrapper around parseFile with a timeout to prevent hanging on
  * corrupt or problematic files (e.g. large files on slow external drives).
  */
-async function parseFileWithTimeout(filePath: string, timeoutMs = 30000): Promise<ReturnType<typeof parseFile>> {
-  const result = await Promise.race([
+function parseFileWithTimeout(filePath: string, timeoutMs = 30000): ReturnType<typeof parseFile> {
+  return Promise.race([
     parseFile(filePath),
     new Promise<never>((_, reject) =>
       setTimeout(() => reject(new Error(`parseFile timed out after ${timeoutMs}ms: ${filePath}`)), timeoutMs),
     ),
   ]);
-  return result;
 }
 
 export async function readTrackMetadata(filePath: string): Promise<TrackData> {
