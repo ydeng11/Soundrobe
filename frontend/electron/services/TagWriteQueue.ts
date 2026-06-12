@@ -3,10 +3,10 @@
  *
  * All tag writes (auto-tag, audit, batch save, extra tags, assistant tag
  * services) go through this queue. It ensures:
- *   - Bounded concurrency (never exceeds LOCAL_WRITE_CONCURRENCY)
- *   - Same-path serialization (one file is never written concurrently)
- *   - Per-file error propagation (one failure does not cancel other writes)
- *   - Safe Buffer/Uint8Array handling for cover art
+ *   - Bounded concurrency globally across ALL submit() calls (not just within one).
+ *   - Same-path serialization (one file is never written concurrently).
+ *   - Per-file error propagation (one failure does not cancel other writes).
+ *   - Safe Buffer/Uint8Array handling for cover art.
  *
  * Two execution modes:
  *   1. Inline (default): calls writeTags/writeExtraTags directly. Fast, simple,
@@ -24,8 +24,6 @@ import { Worker } from "node:worker_threads";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { writeTagsWithOutcome, writeExtraTagsWithOutcome } from "../handlers/writer";
 import type { WriteFields, ExtraTagUpdate, WriteOutcome } from "../handlers/writer";
-import { mapConcurrent, mapConcurrentContinue } from "./concurrency";
-import { LOCAL_WRITE_CONCURRENCY } from "./concurrency";
 import logger from "../handlers/debug";
 
 // ── Types ──────────────────────────────────────────────────────────
@@ -139,19 +137,48 @@ export function deduplicateJobs(jobs: TagWriteJob[]): TagWriteJob[] {
   return result;
 }
 
+// ── Internal queue primitives ──────────────────────────────────────
+
+/** A job enqueued in the shared pending queue, tagged with its batch. */
+interface QueuedJob {
+  job: TagWriteJob;
+  batchId: number;
+  index: number;
+}
+
+/** Tracks one batch of jobs submitted via a single `submit()` call. */
+interface BatchState {
+  results: (TagWriteResult | undefined)[];
+  remaining: number;
+  resolve: (results: TagWriteResult[]) => void;
+  reject: (err: Error) => void;
+}
+
 // ── Queue ──────────────────────────────────────────────────────────
 
 /**
- * Tag write queue that bounds concurrent writes and deduplicates
- * same-path updates. Used by IPC handlers, audit, auto-tag, assistant
- * tag services, and batch save paths.
+ * Tag write queue that bounds concurrent writes across ALL callers and
+ * deduplicates same-path updates. Used by IPC handlers, audit, auto-tag,
+ * assistant tag services, and batch save paths.
+ *
+ * Key difference from a per-call concurrent-map: tasks from overlapping
+ * `submit()` / `submitOne()` calls share one pending queue and one
+ * concurrency limit. With `maxConcurrency = 1`, undo's
+ * `Promise.all(... writeTrack ...)` runs sequentially instead of starting
+ * multiple SMB reads at once.
  */
 export class TagWriteQueue {
   private maxConcurrency: number;
   private executor: TagWriteExecutor;
+  private pending: QueuedJob[] = [];
+  private batches = new Map<number, BatchState>();
+  private nextBatchId = 0;
+  /** Number of writes currently executing. */
+  private active = 0;
 
   /**
-   * @param maxConcurrency Max concurrent tag writes. Defaults to LOCAL_WRITE_CONCURRENCY.
+   * @param maxConcurrency Max concurrent tag writes across the entire instance.
+   *                        Defaults to 1 for NAS-safe serialized writes.
    * @param executor Optional custom executor (e.g. from createWorkerExecutor()).
    *                 Defaults to inline executeTagWrite.
    */
@@ -161,11 +188,12 @@ export class TagWriteQueue {
   }
 
   /**
-   * Submit one or more tag write jobs for concurrent execution.
+   * Submit one or more tag write jobs.
    *
    * Features:
-   *   - Path deduplication: same-path updates are merged or serialized.
-   *   - Bounded concurrency: max concurrent writes = `maxConcurrency`.
+   *   - Path deduplication per call: same-path updates are merged or serialized.
+   *   - Global bounded concurrency: max concurrent writes across ALL submit calls
+   *     = `maxConcurrency`.
    *   - Per-file error propagation: one failure does not cancel others.
    *
    * @returns Results in the same order as the deduplicated jobs.
@@ -177,73 +205,22 @@ export class TagWriteQueue {
 
     const deduped = deduplicateJobs(jobs);
 
-    // Wrap executor with timing + debug logging for both inline and worker paths
-    const timedExecutor = async (job: TagWriteJob): Promise<TagWriteResult> => {
-      const start = Date.now();
-      let fileSize = 0;
-      try {
-        fileSize = (await stat(job.filePath)).size;
-      } catch {
-        // File may not exist yet; size stays 0
+    return new Promise<TagWriteResult[]>((resolve, reject) => {
+      const batchId = this.nextBatchId++;
+      const batch: BatchState = {
+        results: new Array(deduped.length),
+        remaining: deduped.length,
+        resolve,
+        reject,
+      };
+      this.batches.set(batchId, batch);
+
+      for (let i = 0; i < deduped.length; i++) {
+        this.pending.push({ job: deduped[i], batchId, index: i });
       }
-      try {
-        const result = await this.executor(job);
-        if (result.durationMs === undefined) {
-          result.durationMs = Date.now() - start;
-        }
-        // Emit a structured debug log entry for each write
-        logger.info("write", `${path.basename(job.filePath)} — ${result.outcome ?? "full_rewrite"} — ${result.durationMs}ms`, {
-          path: job.filePath,
-          extension: path.extname(job.filePath),
-          size: fileSize,
-          durationMs: result.durationMs,
-          outcome: result.outcome,
-          error: result.error ?? null,
-        });
-        return result;
-      } catch (err) {
-        const durationMs = Date.now() - start;
-        logger.info("write", `${path.basename(job.filePath)} — error — ${durationMs}ms`, {
-          path: job.filePath,
-          extension: path.extname(job.filePath),
-          size: fileSize,
-          durationMs,
-          error: err instanceof Error ? err.message : String(err),
-        });
-        return {
-          filePath: job.filePath,
-          success: false,
-          error: err instanceof Error ? err.message : String(err),
-          durationMs,
-        };
-      }
-    };
 
-    const { results, errors } = await mapConcurrentContinue(
-      deduped,
-      this.maxConcurrency,
-      timedExecutor,
-    );
-
-    // Merge errors and results preserving deduped order
-    const resultMap = new Map<string, TagWriteResult>();
-    for (const r of results) {
-      resultMap.set(r.filePath, r);
-    }
-
-    // Build result in deduped order
-    const allResults: TagWriteResult[] = deduped.map((job) => {
-      const normalized = path.resolve(job.filePath);
-      return (
-        resultMap.get(normalized) ?? {
-          filePath: normalized,
-          success: false,
-          error: "Unknown error",
-        }
-      );
+      this.drain();
     });
-
-    return allResults;
   }
 
   /**
@@ -271,6 +248,91 @@ export class TagWriteQueue {
   setMaxConcurrency(value: number): void {
     if (value < 1) throw new Error("Max concurrency must be >= 1");
     this.maxConcurrency = value;
+  }
+
+  // ── Drain loop ──────────────────────────────────────────────────
+
+  /**
+   * Start as many pending jobs as the concurrency limit allows.
+   *
+   * Safe to call multiple times — it is idempotent. Always called after
+   * enqueueing new jobs and after a job completes.
+   */
+  private drain(): void {
+    while (this.active < this.maxConcurrency && this.pending.length > 0) {
+      const entry = this.pending.shift()!;
+      this.active++;
+      // Fire-and-forget the async execution; it will call drain() on completion.
+      this.executeJob(entry);
+    }
+  }
+
+  /**
+   * Execute one job with timing, logging, and batch-result routing.
+   * Calls drain() on completion to start the next pending job.
+   */
+  private async executeJob(entry: QueuedJob): Promise<void> {
+    const start = Date.now();
+    let fileSize = 0;
+    try {
+      fileSize = (await stat(entry.job.filePath)).size;
+    } catch {
+      // File may not exist yet; size stays 0
+    }
+
+    try {
+      const result = await this.executor(entry.job);
+      if (result.durationMs === undefined) {
+        result.durationMs = Date.now() - start;
+      }
+
+      logger.info("write", `${path.basename(entry.job.filePath)} — ${result.outcome ?? "full_rewrite"} — ${result.durationMs}ms`, {
+        path: entry.job.filePath,
+        extension: path.extname(entry.job.filePath),
+        size: fileSize,
+        durationMs: result.durationMs,
+        outcome: result.outcome,
+        error: result.error ?? null,
+      });
+
+      this.resolveBatchJob(entry.batchId, entry.index, result);
+    } catch (err) {
+      const durationMs = Date.now() - start;
+      logger.info("write", `${path.basename(entry.job.filePath)} — error — ${durationMs}ms`, {
+        path: entry.job.filePath,
+        extension: path.extname(entry.job.filePath),
+        size: fileSize,
+        durationMs,
+        error: err instanceof Error ? err.message : String(err),
+      });
+
+      this.resolveBatchJob(entry.batchId, entry.index, {
+        filePath: entry.job.filePath,
+        success: false,
+        error: err instanceof Error ? err.message : String(err),
+        durationMs,
+      });
+    } finally {
+      this.active--;
+      this.drain();
+    }
+  }
+
+  /**
+   * Route a completed job's result back to its batch and resolve the
+   * batch promise when all jobs in the batch are done.
+   */
+  private resolveBatchJob(batchId: number, index: number, result: TagWriteResult): void {
+    const batch = this.batches.get(batchId);
+    if (!batch) return;
+
+    batch.results[index] = result;
+    batch.remaining--;
+
+    if (batch.remaining === 0) {
+      this.batches.delete(batchId);
+      batch.resolve(batch.results as TagWriteResult[]);
+    }
   }
 }
 

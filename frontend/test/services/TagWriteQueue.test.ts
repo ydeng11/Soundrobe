@@ -10,6 +10,7 @@ import {
   resetDefaultWriteQueue,
   getDefaultWriteQueue,
 } from "../../electron/services/TagWriteQueue";
+import type { TagWriteExecutor } from "../../electron/services/TagWriteQueue";
 
 // ── Helpers ──────────────────────────────────────────────────────
 
@@ -379,5 +380,92 @@ describe("TagWriteQueue singleton", () => {
     resetDefaultWriteQueue();
     const q2 = getDefaultWriteQueue();
     expect(q1).not.toBe(q2);
+  });
+});
+
+// ── Cross-call concurrency regression tests ─────────────────────
+
+describe("TagWriteQueue cross-call concurrency", () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "tag-reg-"));
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it("serializes overlapping submitOne calls with concurrency 1", async () => {
+    let currentActive = 0;
+    let maxActive = 0;
+
+    const delayedExec: TagWriteExecutor = async (job) => {
+      currentActive++;
+      maxActive = Math.max(maxActive, currentActive);
+      await new Promise((resolve) => setTimeout(resolve, 30));
+      currentActive--;
+      return { filePath: job.filePath, success: true };
+    };
+
+    const queue = new TagWriteQueue(1, delayedExec);
+
+    // Launch 5 submitOne calls concurrently (as undo's Promise.all would)
+    const results = await Promise.all(
+      Array.from({ length: 5 }, (_, i) => {
+        const fp = path.join(tmpDir, `c${i}.mp3`);
+        createMinimalMp3(fp);
+        return queue.submitOne(fp, { title: `Test ${i}` });
+      }),
+    );
+
+    // Never more than 1 active write at a time
+    expect(maxActive).toBeLessThanOrEqual(1);
+    expect(results).toHaveLength(5);
+    expect(results.every((r) => r.success)).toBe(true);
+  });
+
+  it("bounds concurrent writes across overlapping submit batches with concurrency 2", async () => {
+    let currentActive = 0;
+    let maxActive = 0;
+
+    const delayedExec: TagWriteExecutor = async (job) => {
+      currentActive++;
+      maxActive = Math.max(maxActive, currentActive);
+      await new Promise((resolve) => setTimeout(resolve, 30));
+      currentActive--;
+      return { filePath: job.filePath, success: true };
+    };
+
+    const queue = new TagWriteQueue(2, delayedExec);
+
+    // Start two submit() calls before either finishes
+    const batch1 = queue.submit([
+      { filePath: path.join(tmpDir, "a1.mp3"), fields: { title: "A1" } },
+      { filePath: path.join(tmpDir, "a2.mp3"), fields: { title: "A2" } },
+      { filePath: path.join(tmpDir, "a3.mp3"), fields: { title: "A3" } },
+    ]);
+    const batch2 = queue.submit([
+      { filePath: path.join(tmpDir, "b1.mp3"), fields: { title: "B1" } },
+      { filePath: path.join(tmpDir, "b2.mp3"), fields: { title: "B2" } },
+      { filePath: path.join(tmpDir, "b3.mp3"), fields: { title: "B3" } },
+    ]);
+
+    const [results1, results2] = await Promise.all([batch1, batch2]);
+
+    // Global active count must never exceed 2
+    expect(maxActive).toBeLessThanOrEqual(2);
+    expect(results1).toHaveLength(3);
+    expect(results1.every((r) => r.success)).toBe(true);
+    expect(results2).toHaveLength(3);
+    expect(results2.every((r) => r.success)).toBe(true);
+
+    // Each submit resolves in its own input order
+    expect(results1[0].filePath).toBe(path.resolve(path.join(tmpDir, "a1.mp3")));
+    expect(results1[1].filePath).toBe(path.resolve(path.join(tmpDir, "a2.mp3")));
+    expect(results1[2].filePath).toBe(path.resolve(path.join(tmpDir, "a3.mp3")));
+    expect(results2[0].filePath).toBe(path.resolve(path.join(tmpDir, "b1.mp3")));
+    expect(results2[1].filePath).toBe(path.resolve(path.join(tmpDir, "b2.mp3")));
+    expect(results2[2].filePath).toBe(path.resolve(path.join(tmpDir, "b3.mp3")));
   });
 });
