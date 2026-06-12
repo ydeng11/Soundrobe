@@ -14,6 +14,7 @@ import { OpenRouterClient } from "./openrouter";
 import { buildAuditMessages } from "./prompts";
 import { loadConfig } from "./auto-tag";
 import { saveAlias, isChineseName } from "./aliases";
+import { DiscogsService } from "../services/DiscogsService";
 import type { WriteFields } from "./writer";
 import { getDefaultWriteQueue } from "../services/TagWriteQueue";
 import { AUDIT_ALBUM_CONCURRENCY, LOCAL_READ_CONCURRENCY, mapConcurrent } from "../services/concurrency";
@@ -107,8 +108,6 @@ const AUDIT_SCHEMA = {
 
 // ── Discogs alias resolution ────────────────────────────────────────
 
-const DISCOGS_BASE = "https://api.discogs.com";
-
 /**
  * Result of resolving a Discogs artist alias.
  * Returns both the alias title string and the numeric Discogs artist ID.
@@ -119,11 +118,7 @@ export interface DiscogsAliasResult {
 }
 
 /**
- * Check if an artist exists on Discogs by name.
- * First tries the precise artist=<name> search, then falls back to
- * generic q=<name>&type=artist (handles non-Latin names where the
- * Discogs artist title is in Latin script).
- *
+ * Check if an artist exists on Discogs by name using DiscogsService.
  * Returns { alias, artistId } if the artist was found via generic
  * search but NOT via precise. Returns null if the artist was found
  * via precise search (no alias needed) or not found at all.
@@ -134,55 +129,20 @@ export async function resolveDiscogsArtistAlias(
 ): Promise<DiscogsAliasResult | null> {
   if (!discogsToken) return null;
 
-  const headers: Record<string, string> = {
-    "User-Agent": "auto-tagger/0.1.0",
-    Authorization: `Discogs token=${discogsToken}`,
-  };
-
-  // Step 1: Try precise artist=<name> search
   try {
-    const preciseUrl = `${DISCOGS_BASE}/database/search?type=artist&artist=${encodeURIComponent(artistName)}&per_page=5`;
-    const preciseRes = await fetch(preciseUrl, { headers, signal: AbortSignal.timeout(10_000) });
+    const service = new DiscogsService({ token: discogsToken });
+    const result = await service.searchArtists(artistName);
 
-    if (preciseRes.ok) {
-      const preciseData = (await preciseRes.json()) as { results?: Array<{ title?: string }> };
-      const preciseResults = preciseData.results ?? [];
-
-      // If precise search returns results, the artist resolves directly
-      if (preciseResults.length > 0) {
-        debug.debug("audit", `resolveDiscogsArtistAlias: precise search found "${artistName}" — no alias needed`);
-        return null;
-      }
+    if (result === null) {
+      debug.debug("audit", `resolveDiscogsArtistAlias: precise search found "${artistName}" — no alias needed`);
+      return null;
     }
+
+    debug.debug("audit", `resolveDiscogsArtistAlias: found alias "${result.title}" (id=${result.artistId})`);
+    return { alias: result.title, artistId: result.artistId };
   } catch {
-    // fall through to generic search
+    return null;
   }
-
-  // Step 2: Try generic q=<name>&type=artist search (for non-Latin names)
-  try {
-    const genericUrl = `${DISCOGS_BASE}/database/search?type=artist&q=${encodeURIComponent(artistName)}&per_page=5`;
-    const genericRes = await fetch(genericUrl, { headers, signal: AbortSignal.timeout(10_000) });
-
-    if (!genericRes.ok) return null;
-
-    const genericData = (await genericRes.json()) as { results?: Array<{ title?: string; id?: number }> };
-    const genericResults = genericData.results ?? [];
-
-    if (genericResults.length > 0) {
-      const first = genericResults[0];
-      const discogsTitle: string | null = (first.title as string) ?? null;
-      const discogsId: number | null = first.id != null ? Number(first.id) : null;
-      if (discogsTitle && discogsTitle !== artistName && discogsId != null) {
-        debug.debug("audit", `resolveDiscogsArtistAlias: generic search found alias "${discogsTitle}" (id=${discogsId})`);
-        return { alias: discogsTitle, artistId: discogsId };
-      }
-      debug.debug("audit", `resolveDiscogsArtistAlias: generic search found same title "${discogsTitle}"`);
-    }
-  } catch {
-    // ignore
-  }
-
-  return null;
 }
 
 /**

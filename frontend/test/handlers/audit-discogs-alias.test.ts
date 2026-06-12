@@ -16,17 +16,16 @@ describe("resolveDiscogsArtistAlias", () => {
   });
 
   it("returns alias + artistId when Chinese name finds nothing but generic q search finds it", async () => {
-    const fetchSpy = vi.spyOn(globalThis, "fetch");
-    // First: precise artist search returns nothing
-    fetchSpy.mockResolvedValueOnce(
-      new Response(JSON.stringify({ results: [] }), { status: 200 }),
-    );
-    // Second: generic q search finds the artist with English title
-    fetchSpy.mockResolvedValueOnce(
-      new Response(JSON.stringify({
+    let callCount = 0;
+    vi.spyOn(globalThis, "fetch").mockImplementation(() => {
+      callCount++;
+      if (callCount === 1) {
+        return Promise.resolve(new Response(JSON.stringify({ results: [] }), { status: 200 }));
+      }
+      return Promise.resolve(new Response(JSON.stringify({
         results: [{ title: "Hedgehog (4)", id: 1902728 }],
-      }), { status: 200 }),
-    );
+      }), { status: 200 }));
+    });
 
     const result = await resolveDiscogsArtistAlias("刺猬", "test-token");
     expect(result).toEqual({ alias: "Hedgehog (4)", artistId: 1902728 });
