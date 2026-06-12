@@ -114,7 +114,91 @@ export class MusicBrainzClient {
   }
 
   /**
-   * Load tracks for a release by its MBID.
+   * Look up a release by MusicBrainz release ID (MBID).
+   * Calls /ws/2/release/{id}?inc=recordings+artist-credits directly.
+   */
+  async lookupReleaseById(releaseId: string): Promise<AlbumCandidate | null> {
+    await musicBrainzRateLimit();
+
+    const url = `${this.baseUrl}/release/${releaseId}?fmt=json&inc=recordings+artist-credits`;
+
+    try {
+      const response = await fetch(url, {
+        headers: {
+          "User-Agent": USER_AGENT,
+          Accept: "application/json",
+        },
+      });
+
+      if (!response.ok) return null;
+
+      const data = (await response.json()) as {
+        id?: string;
+        title?: string;
+        "artist-credit"?: Array<Record<string, unknown>>;
+        date?: string;
+        media?: Array<Record<string, unknown>>;
+      };
+
+      const credit = data["artist-credit"] ?? [];
+      const firstCredit = credit[0] as Record<string, unknown> | undefined;
+      const artistName = (firstCredit?.name as string) ?? null;
+      const mbArtistId = (firstCredit?.artist as Record<string, unknown>)?.id as string ?? null;
+      const year = data.date ? data.date.slice(0, 4) : null;
+
+      const tracks = this.parseTracksFromMedia(data.media ?? [], artistName);
+
+      return makeAlbumCandidate({
+        artist: artistName,
+        artists: artistName ? [artistName] : [],
+        album: data.title ?? null,
+        albumArtist: artistName,
+        albumArtists: artistName ? [artistName] : [],
+        year,
+        musicbrainzAlbumId: data.id ?? releaseId,
+        musicbrainzArtistId: mbArtistId,
+        tracks,
+        source: "musicbrainz",
+      });
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Parse TrackCandidate array from release media data.
+   */
+  private parseTracksFromMedia(
+    media: Array<Record<string, unknown>>,
+    artistName: string | null,
+  ): TrackCandidate[] {
+    const tracks: TrackCandidate[] = [];
+
+    for (const medium of media) {
+      const discNumber = (medium.position as number) ?? null;
+      const recordings = (medium.tracks as Array<Record<string, unknown>>) ?? [];
+
+      for (const track of recordings) {
+        const recording = track.recording as Record<string, unknown> | undefined;
+        tracks.push(
+          makeTrackCandidate({
+            title: (track.title as string) ?? (recording?.title as string) ?? null,
+            artist: artistName,
+            artists: artistName ? [artistName] : [],
+            trackNumber: (track.number as number) ?? (track.position as number) ?? null,
+            discNumber,
+            musicbrainzTrackId: recording?.id as string ?? null,
+            length: recording?.length as number ?? null,
+          }),
+        );
+      }
+    }
+
+    return tracks;
+  }
+
+  /**
+   * Load tracks for a release by its MBID (separate API call).
    */
   private async loadTracks(
     releaseId: string,
@@ -138,30 +222,7 @@ export class MusicBrainzClient {
         media?: Array<Record<string, unknown>>;
       };
 
-      const tracks: TrackCandidate[] = [];
-      const media = data.media ?? [];
-
-      for (const medium of media) {
-        const discNumber = (medium.position as number) ?? null;
-        const recordings = (medium.tracks as Array<Record<string, unknown>>) ?? [];
-
-        for (const track of recordings) {
-          const recording = track.recording as Record<string, unknown> | undefined;
-          tracks.push(
-            makeTrackCandidate({
-              title: (track.title as string) ?? (recording?.title as string) ?? null,
-              artist: artistName,
-              artists: artistName ? [artistName] : [],
-              trackNumber: (track.number as number) ?? (track.position as number) ?? null,
-              discNumber,
-              musicbrainzTrackId: recording?.id as string ?? null,
-              length: recording?.length as number ?? null,
-            }),
-          );
-        }
-      }
-
-      return tracks;
+      return this.parseTracksFromMedia(data.media ?? [], artistName);
     } catch {
       return [];
     }

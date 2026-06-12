@@ -1,16 +1,17 @@
 import { ipcMain } from "electron";
 import { parseFile } from "music-metadata";
 import fs from "fs";
+import { readFile } from "fs/promises";
 import path from "path";
 import type { CoverInfo } from "../preload";
-import { writeTags } from "./writer";
+import { writeTags, parseApeTagItems } from "./writer";
 import type { ExtraTagUpdate, WriteFields } from "./writer";
 import { getDefaultWriteQueue } from "../services/TagWriteQueue";
 import { mapConcurrent, LOCAL_READ_CONCURRENCY } from "../services/concurrency";
 import logger from "./debug";
 
 // Set of file extensions that support extra tag writing.
-const EXTRA_TAG_EXTENSIONS = new Set([".mp3", ".flac", ".ogg", ".opus", ".wav"]);
+const EXTRA_TAG_EXTENSIONS = new Set([".mp3", ".flac", ".ogg", ".opus", ".wav", ".ape"]);
 
 function isExtraTagSupported(filePath: string): boolean {
   return EXTRA_TAG_EXTENSIONS.has(path.extname(filePath).toLowerCase());
@@ -38,6 +39,8 @@ export interface TrackData {
   musicbrainzTrackId: string | null;
   musicbrainzAlbumId: string | null;
   musicbrainzArtistId: string | null;
+  discogsArtistId: string | null;
+  discogsReleaseId: string | null;
   hasCover: boolean;
   sizeBytes: number;
   bitrate: number | null;
@@ -61,6 +64,7 @@ const SUPPORTED_EXTENSIONS = new Set([
   ".ogg",
   ".opus",
   ".aiff",
+  ".ape",
 ]);
 
 /**
@@ -173,7 +177,7 @@ export async function readTrackMetadata(filePath: string): Promise<TrackData> {
 
   const hasCover = (common.picture?.length ?? 0) > 0;
 
-  return {
+  const result: TrackData = {
     path: filePath,
     title: common.title ?? null,
     artist: common.artist ?? null,
@@ -194,9 +198,11 @@ export async function readTrackMetadata(filePath: string): Promise<TrackData> {
     description: extractNativeTag(metadata, "DESCRIPTION") ?? null,
     lyrics: (common.lyrics?.[0] as string | undefined) ?? null,
     compilation: common.compilation ?? null,
-    musicbrainzTrackId: null,
-    musicbrainzAlbumId: null,
-    musicbrainzArtistId: null,
+    musicbrainzTrackId: extractNativeTag(metadata, "MUSICBRAINZ_TRACKID") ?? null,
+    musicbrainzAlbumId: extractNativeTag(metadata, "MUSICBRAINZ_ALBUMID") ?? null,
+    musicbrainzArtistId: extractNativeTag(metadata, "MUSICBRAINZ_ARTISTID") ?? null,
+    discogsArtistId: extractNativeTag(metadata, "DISCOGS_ARTIST_ID") ?? null,
+    discogsReleaseId: extractNativeTag(metadata, "DISCOGS_RELEASE_ID") ?? null,
     hasCover,
     sizeBytes: stat.size,
     bitrate: format.bitrate ?? null,
@@ -204,6 +210,71 @@ export async function readTrackMetadata(filePath: string): Promise<TrackData> {
     codec: format.codec ?? format.container ?? "unknown",
     duration: format.duration ?? 0,
   };
+
+  // Safety net: for APE files, if common fields are blank but raw APEv2
+  // items exist (e.g. music-metadata couldn't map them), use raw items
+  if (path.extname(filePath).toLowerCase() === ".ape" && !result.title) {
+    try {
+      const raw = await readFile(filePath);
+      const items = parseApeTagItems(raw);
+      if (items.length > 0) {
+        const tags = new Map<string, string[]>();
+        for (const { key, value } of items) {
+          const u = key.toUpperCase();
+          if (!tags.has(u)) tags.set(u, []);
+          tags.get(u)!.push(value);
+        }
+        const get = (k: string): string | null => {
+          const v = tags.get(k);
+          return v && v.length > 0 ? v[0] : null;
+        };
+        const parseComposite = (val: string | null): { no: number | null; of: number | null } => {
+          if (!val) return { no: null, of: null };
+          const parts = val.split("/");
+          const no = parts[0] ? parseInt(parts[0], 10) || null : null;
+          const of = parts[1] ? parseInt(parts[1], 10) || null : null;
+          return { no, of };
+        };
+        const apeTrack = parseComposite(get("TRACK"));
+        const apeDisc = parseComposite(get("DISC"));
+        return {
+          path: filePath,
+          title: result.title ?? get("TITLE"),
+          artist: result.artist ?? get("ARTIST"),
+          artists: result.artists.length > 0 ? result.artists : (tags.get("ARTIST") ?? []),
+          album: result.album ?? get("ALBUM"),
+          albumArtist: result.albumArtist ?? get("ALBUM ARTIST"),
+          albumArtists: result.albumArtist ? [result.albumArtist] : get("ALBUM ARTIST") ? [get("ALBUM ARTIST")!] : [],
+          trackNumber: result.trackNumber ?? apeTrack.no,
+          trackTotal: result.trackTotal ?? apeTrack.of,
+          discNumber: result.discNumber ?? apeDisc.no,
+          discTotal: result.discTotal ?? apeDisc.of,
+          year: result.year ?? get("DATE"),
+          genre: result.genre ?? get("GENRE"),
+          composer: result.composer ?? get("COMPOSER"),
+          comment: result.comment ?? get("COMMENT"),
+          description: result.description ?? get("DESCRIPTION"),
+          lyrics: result.lyrics ?? get("LYRICS"),
+          compilation: result.compilation,
+          musicbrainzTrackId: null,
+          musicbrainzAlbumId: null,
+          musicbrainzArtistId: null,
+          discogsArtistId: null,
+          discogsReleaseId: null,
+          hasCover: false,
+          sizeBytes: stat.size,
+          bitrate: format.bitrate ?? null,
+          sampleRate: format.sampleRate ?? null,
+          codec: format.codec ?? format.container ?? "unknown",
+          duration: format.duration ?? 0,
+        };
+      }
+    } catch {
+      // ignore fallback failures
+    }
+  }
+
+  return result;
 }
 
 export async function readExtraTags(filePath: string): Promise<ExtraTag[]> {
@@ -223,6 +294,23 @@ export async function readExtraTags(filePath: string): Promise<ExtraTag[]> {
       if (seen.has(identity)) continue;
       seen.add(identity);
       rows.push({ key, value, source });
+    }
+  }
+
+  // APEv2 fallback: if native tags are empty, try raw parsing
+  if (rows.length === 0 && path.extname(filePath).toLowerCase() === ".ape") {
+    try {
+      const raw = await readFile(filePath);
+      const items = parseApeTagItems(raw);
+      for (const { key, value } of items) {
+        if (!key || METADATA_EDITOR_KEYS.has(key.toUpperCase())) continue;
+        const identity = `APEv2\0${key}\0${value}`;
+        if (seen.has(identity)) continue;
+        seen.add(identity);
+        rows.push({ key, value, source: "APEv2" });
+      }
+    } catch {
+      // ignore
     }
   }
 
@@ -271,18 +359,62 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 /**
  * Extract a tag value from music-metadata's native format by key name.
  * Searches all native formats (vorbis, id3v2.4, etc.) for the given key.
+ * For ID3v2 TXXX frames, matches against the description field.
+ * Returns the first matching value, or null if not found.
+ */
+/**
+ * Normalize a tag key or description for comparison by removing
+ * underscores, hyphens, and spaces and uppercasing.
+ * This allows Vorbis-style "MUSICBRAINZ_TRACKID" to match
+ * TXXX-style "MusicBrainz Track Id" and vice versa.
+ */
+function normalizeTagKey(s: string): string {
+  return s.replace(/[\s_-]/g, "").toUpperCase();
+}
+
+/**
+ * Extract a tag value from music-metadata's native format by key name.
+ * Searches all native formats (vorbis, id3v2.4, etc.) for the given key.
+ * For ID3v2 TXXX frames, matches against the description field.
+ * Uses normalized comparison so "MUSICBRAINZ_TRACKID" matches
+ * "MusicBrainz Track Id" (underscores vs spaces).
  * Returns the first matching value, or null if not found.
  */
 function extractNativeTag(
   metadata: Awaited<ReturnType<typeof parseFile>>,
   key: string,
 ): string | null {
-  const upperKey = key.toUpperCase();
+  const normalizedKey = normalizeTagKey(key);
   for (const [, tags] of Object.entries(metadata.native)) {
     for (const tag of tags) {
-      const tagKey = typeof tag.id === "string" ? tag.id.toUpperCase() : "";
-      if (tagKey === upperKey && typeof tag.value === "string") {
-        return tag.value;
+      if (typeof tag.id !== "string") continue;
+      const tagId = tag.id.toUpperCase();
+
+      // Direct key match (FLAC Vorbis, APEv2) — normalized
+      if (normalizeTagKey(tag.id) === normalizedKey) {
+        if (typeof tag.value === "string") return tag.value;
+        const rec = tag.value;
+        if (isRecord(rec) && typeof rec.value === "string") return rec.value;
+        if (isRecord(rec) && typeof rec.text === "string") return rec.text;
+      }
+
+      // TXXX frame with description embedded in tag.id (e.g. "TXXX:MusicBrainz Track Id")
+      if (tagId.startsWith("TXXX:")) {
+        const description = tag.id.slice("TXXX:".length);
+        if (normalizeTagKey(description) === normalizedKey) {
+          if (typeof tag.value === "string") return tag.value;
+          if (isRecord(tag.value) && typeof tag.value.value === "string") return tag.value.value;
+          if (isRecord(tag.value) && typeof tag.value.text === "string") return tag.value.text;
+        }
+      }
+
+      // TXXX frame with description in value object
+      if (tagId === "TXXX" && isRecord(tag.value)) {
+        const description = (tag.value.description as string) ?? "";
+        if (normalizeTagKey(description) === normalizedKey) {
+          if (typeof tag.value.value === "string") return tag.value.value;
+          if (typeof tag.value.text === "string") return tag.value.text;
+        }
       }
     }
   }
@@ -332,6 +464,8 @@ function readFlacMetadataFallback(filePath: string): TrackData | null {
     musicbrainzTrackId: firstComment(comments, "MUSICBRAINZ_TRACKID"),
     musicbrainzAlbumId: firstComment(comments, "MUSICBRAINZ_ALBUMID"),
     musicbrainzArtistId: firstComment(comments, "MUSICBRAINZ_ARTISTID"),
+    discogsArtistId: firstComment(comments, "DISCOGS_ARTIST_ID"),
+    discogsReleaseId: firstComment(comments, "DISCOGS_RELEASE_ID"),
     hasCover: hasFlacPictureBlock(data),
     sizeBytes: stat.size,
     bitrate:
@@ -538,6 +672,8 @@ function minimalTrack(filePath: string, sizeBytes: number): TrackData {
     musicbrainzTrackId: null,
     musicbrainzAlbumId: null,
     musicbrainzArtistId: null,
+    discogsArtistId: null,
+    discogsReleaseId: null,
     hasCover: false,
     sizeBytes,
     bitrate: null,

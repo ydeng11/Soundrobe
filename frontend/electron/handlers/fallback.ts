@@ -153,6 +153,10 @@ export function parseAlbumPath(filePath: string): LookupRequest {
     artistHint,
     albumHint,
     yearHint,
+    musicbrainzAlbumId: null,
+    musicbrainzArtistId: null,
+    discogsReleaseId: null,
+    discogsArtistId: null,
     tracks: [],
   };
 }
@@ -191,6 +195,10 @@ export async function parseAlbumWithTags(filePath: string): Promise<LookupReques
     artistHint,
     albumHint,
     yearHint: folderRequest.yearHint || tagHints.year,
+    musicbrainzAlbumId: tagHints.musicbrainzAlbumId,
+    musicbrainzArtistId: tagHints.musicbrainzArtistId,
+    discogsReleaseId: tagHints.discogsReleaseId,
+    discogsArtistId: tagHints.discogsArtistId,
     tracks,
   };
 }
@@ -200,7 +208,15 @@ export async function parseAlbumWithTags(filePath: string): Promise<LookupReques
  */
 async function readAlbumTagsFromFirstFile(
   path: string,
-): Promise<{ artist: string | null; album: string | null; year: string | null }> {
+): Promise<{
+  artist: string | null;
+  album: string | null;
+  year: string | null;
+  musicbrainzAlbumId: string | null;
+  musicbrainzArtistId: string | null;
+  discogsReleaseId: string | null;
+  discogsArtistId: string | null;
+}> {
   const isFile = !!extname(basename(path));
   const dirPath = isFile ? dirname(path) : path;
 
@@ -218,6 +234,10 @@ async function readAlbumTagsFromFirstFile(
                 artist: meta.artist || meta.albumArtist,
                 album: meta.album,
                 year: meta.year,
+                musicbrainzAlbumId: meta.musicbrainzAlbumId,
+                musicbrainzArtistId: meta.musicbrainzArtistId,
+                discogsReleaseId: meta.discogsReleaseId,
+                discogsArtistId: meta.discogsArtistId,
               };
             }
           } catch {
@@ -229,7 +249,7 @@ async function readAlbumTagsFromFirstFile(
   } catch {
     // directory doesn't exist or can't be read
   }
-  return { artist: null, album: null, year: null };
+  return { artist: null, album: null, year: null, musicbrainzAlbumId: null, musicbrainzArtistId: null, discogsReleaseId: null, discogsArtistId: null };
 }
 
 // ── Track hints ─────────────────────────────────────────────────────

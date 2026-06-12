@@ -86,6 +86,8 @@ export interface AlbumCandidate {
   genre: string | null;
   musicbrainzAlbumId: string | null;
   musicbrainzArtistId: string | null;
+  discogsArtistId: string | null;
+  discogsReleaseId: string | null;
   tracks: TrackCandidate[];
   distance: number | null;
   source: LookupSource;
@@ -105,6 +107,8 @@ export function makeAlbumCandidate(
     genre: null,
     musicbrainzAlbumId: null,
     musicbrainzArtistId: null,
+    discogsArtistId: null,
+    discogsReleaseId: null,
     tracks: [],
     distance: null,
     source: "beets",
@@ -124,6 +128,8 @@ export function albumCandidateToJson(c: AlbumCandidate): Record<string, unknown>
     genre: c.genre,
     musicbrainz_albumid: c.musicbrainzAlbumId,
     musicbrainz_artistid: c.musicbrainzArtistId,
+    discogs_artist_id: c.discogsArtistId,
+    discogs_release_id: c.discogsReleaseId,
     tracks: c.tracks.map(trackCandidateToJson),
     distance: c.distance,
     source: c.source,
@@ -142,6 +148,8 @@ export function albumCandidateFromJson(data: Record<string, unknown>): AlbumCand
     genre: (data.genre as string) ?? null,
     musicbrainzAlbumId: (data.musicbrainz_albumid as string) ?? null,
     musicbrainzArtistId: (data.musicbrainz_artistid as string) ?? null,
+    discogsArtistId: (data.discogs_artist_id as string) ?? null,
+    discogsReleaseId: (data.discogs_release_id as string) ?? null,
     tracks: ((data.tracks as Record<string, unknown>[]) ?? []).map(trackCandidateFromJson),
     distance: (data.distance as number) ?? null,
     source: (data.source as LookupSource) ?? "beets",
@@ -164,6 +172,10 @@ export interface LookupRequest {
   artistHint: string | null;
   albumHint: string | null;
   yearHint: string | null;
+  musicbrainzAlbumId: string | null;
+  musicbrainzArtistId: string | null;
+  discogsReleaseId: string | null;
+  discogsArtistId: string | null;
   tracks: TrackCandidate[];
 }
 
@@ -175,6 +187,10 @@ export function makeLookupRequest(
     artistHint: null,
     albumHint: null,
     yearHint: null,
+    musicbrainzAlbumId: null,
+    musicbrainzArtistId: null,
+    discogsReleaseId: null,
+    discogsArtistId: null,
     tracks: [],
     ...overrides,
   };
@@ -186,6 +202,10 @@ export function lookupRequestToJson(r: LookupRequest): Record<string, unknown> {
     artist_hint: r.artistHint,
     album_hint: r.albumHint,
     year_hint: r.yearHint,
+    musicbrainz_album_id: r.musicbrainzAlbumId,
+    musicbrainz_artist_id: r.musicbrainzArtistId,
+    discogs_release_id: r.discogsReleaseId,
+    discogs_artist_id: r.discogsArtistId,
     tracks: r.tracks.map(trackCandidateToJson),
   };
 }
@@ -196,6 +216,10 @@ export function lookupRequestFromJson(data: Record<string, unknown>): LookupRequ
     artistHint: (data.artist_hint as string) ?? null,
     albumHint: (data.album_hint as string) ?? null,
     yearHint: (data.year_hint as string) ?? null,
+    musicbrainzAlbumId: (data.musicbrainz_album_id as string) ?? null,
+    musicbrainzArtistId: (data.musicbrainz_artist_id as string) ?? null,
+    discogsReleaseId: (data.discogs_release_id as string) ?? null,
+    discogsArtistId: (data.discogs_artist_id as string) ?? null,
     tracks: ((data.tracks as Record<string, unknown>[]) ?? []).map(trackCandidateFromJson),
   });
 }
@@ -208,6 +232,10 @@ export function queryHash(request: LookupRequest): string {
   const query: Record<string, unknown> = {
     artist_hint: request.artistHint,
     album_hint: request.albumHint,
+    musicbrainz_album_id: request.musicbrainzAlbumId,
+    musicbrainz_artist_id: request.musicbrainzArtistId,
+    discogs_release_id: request.discogsReleaseId,
+    discogs_artist_id: request.discogsArtistId,
     tracks: request.tracks.map((t) => ({
       title: t.title,
       track_number: t.trackNumber,

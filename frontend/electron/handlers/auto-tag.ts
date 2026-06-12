@@ -574,6 +574,13 @@ class TaskManager {
       // Step 1: Parse folder hints
       debug.info("auto-tag", "Step 1/9: Parsing folder hints...");
       update("Parsing folder hints...", 1);
+
+      // Fail fast if album directory does not exist
+      // (prevents wasting 30-60s running the full pipeline on stale paths)
+      if (!existsSync(albumPath)) {
+        throw new Error(`Album directory does not exist: ${albumPath}`);
+      }
+
       if (signal.aborted) return this.failCancelled(taskId);
       const request = await parseAlbumWithTags(albumPath);
       debug.info("auto-tag", `Parsed hints: artist="${request.artistHint}" album="${request.albumHint}" year="${request.yearHint}"`);
@@ -644,6 +651,22 @@ class TaskManager {
           allCandidates.push(...cached);
         } else {
           debug.debug("auto-tag", "Cache MISS - proceeding with remote lookups");
+        }
+        if (signal.aborted) {
+          return this.failCancelled(taskId);
+        }
+
+        // Step 4b: Direct provider ID lookups (before name-based search)
+        // If the file tags contained provider IDs, bypass the generic search
+        // and fetch the release directly from the provider's API.
+        const directLookups = await this.performDirectIdLookups(correctedRequest);
+        if (directLookups.length > 0) {
+          debug.info("auto-tag", `Direct ID lookups returned ${directLookups.length} candidate(s)`);
+          this.emitTask(taskId, "source", `Direct ID lookup: ${directLookups.length} candidate(s)`, {
+            source: "direct-id",
+            count: directLookups.length,
+          });
+          allCandidates.push(...directLookups);
         }
         if (signal.aborted) {
           return this.failCancelled(taskId);
@@ -884,6 +907,8 @@ class TaskManager {
         genre: (data.genre as string) || null,
         musicbrainzAlbumId: null,
         musicbrainzArtistId: null,
+        discogsArtistId: null,
+        discogsReleaseId: null,
         tracks: request.tracks.length > 0
           ? request.tracks.map((t, i) => {
               const llmTrack = llmTracks[i];
@@ -1075,6 +1100,89 @@ class TaskManager {
     return downloaded;
   }
 
+  /**
+   * Perform direct provider ID lookups when file tags contain
+   * MusicBrainz or Discogs IDs. Uses dedicated endpoints before
+   * falling back to name-based search.
+   */
+  private async performDirectIdLookups(
+    request: ReturnType<typeof makeLookupRequest>,
+  ): Promise<AlbumCandidate[]> {
+    const results: AlbumCandidate[] = [];
+    const albumHint = request.albumHint ?? "";
+
+    // 1. MusicBrainz album ID → direct release fetch
+    if (request.musicbrainzAlbumId) {
+      debug.info("auto-tag", `Direct MB lookup: albumId=${request.musicbrainzAlbumId}`);
+      try {
+        const mb = new MusicBrainzClient();
+        const candidate = await mb.lookupReleaseById(request.musicbrainzAlbumId);
+        if (candidate) {
+          debug.info("auto-tag", `Direct MB lookup: found album="${candidate.album}"`);
+          results.push(candidate);
+        } else {
+          debug.warn("auto-tag", `Direct MB lookup: release not found for albumId=${request.musicbrainzAlbumId}`);
+        }
+      } catch (err) {
+        debug.warn("auto-tag", `Direct MB lookup failed (non-fatal)`, err);
+      }
+    }
+
+    // 2. MusicBrainz artist ID only (no album ID) → browse artist releases
+    if (!request.musicbrainzAlbumId && request.musicbrainzArtistId) {
+      debug.info("auto-tag", `Direct MB artist lookup: artistId=${request.musicbrainzArtistId}`);
+      try {
+        const mb = new MusicBrainzClient();
+        // Use the existing searchAlbum but this goes through /release?query=artistid:...
+        // For now, fall back to search by name since MusicBrainz search
+        // with artist ID requires browsing all releases which MB rate-limits heavily.
+        debug.debug("auto-tag", "MB artist-only ID — falling back to name search");
+      } catch (err) {
+        debug.warn("auto-tag", `Direct MB artist lookup failed (non-fatal)`, err);
+      }
+    }
+
+    // 3. Discogs release ID → direct release fetch
+    if (request.discogsReleaseId) {
+      debug.info("auto-tag", `Direct Discogs lookup: releaseId=${request.discogsReleaseId}`);
+      try {
+        const discogs = new DiscogsClient({
+          token: this.config.discogsToken,
+        });
+        const candidate = await discogs.lookupReleaseById(request.discogsReleaseId);
+        if (candidate) {
+          debug.info("auto-tag", `Direct Discogs lookup: found album="${candidate.album}"`);
+          results.push(candidate);
+        } else {
+          debug.warn("auto-tag", `Direct Discogs lookup: release not found for releaseId=${request.discogsReleaseId}`);
+        }
+      } catch (err) {
+        debug.warn("auto-tag", `Direct Discogs lookup failed (non-fatal)`, err);
+      }
+    }
+
+    // 4. Discogs artist ID only (no release ID) → browse artist releases
+    if (!request.discogsReleaseId && request.discogsArtistId && albumHint) {
+      debug.info("auto-tag", `Direct Discogs artist lookup: artistId=${request.discogsArtistId} album="${albumHint}"`);
+      try {
+        const discogs = new DiscogsClient({
+          token: this.config.discogsToken,
+        });
+        const candidate = await discogs.lookupArtistReleaseByAlbum(request.discogsArtistId, albumHint);
+        if (candidate) {
+          debug.info("auto-tag", `Direct Discogs artist lookup: found album="${candidate.album}"`);
+          results.push(candidate);
+        } else {
+          debug.debug("auto-tag", `Direct Discogs artist lookup: no matching release found`);
+        }
+      } catch (err) {
+        debug.warn("auto-tag", `Direct Discogs artist lookup failed (non-fatal)`, err);
+      }
+    }
+
+    return results;
+  }
+
   private async searchVariants(
     client: { searchAlbum(artist: string, album: string): Promise<AlbumCandidate[]> },
     variants: Array<[string, string]>,
@@ -1102,8 +1210,14 @@ class TaskManager {
       if (merged.albumArtists.length === 0) merged.albumArtists = candidate.albumArtists;
       merged.year ??= candidate.year;
       merged.genre ??= candidate.genre;
-      merged.musicbrainzAlbumId ??= candidate.musicbrainzAlbumId;
-      merged.musicbrainzArtistId ??= candidate.musicbrainzArtistId;
+
+      // Provider ID conflict detection: prefer existing (direct ID-backed) values.
+      // Log a warning if a later name-search candidate has a conflicting ID.
+      this.mergeProviderId(merged, candidate, "musicbrainzAlbumId");
+      this.mergeProviderId(merged, candidate, "musicbrainzArtistId");
+      this.mergeProviderId(merged, candidate, "discogsReleaseId");
+      this.mergeProviderId(merged, candidate, "discogsArtistId");
+
       if (merged.tracks.length === 0 && candidate.tracks.length > 0) {
         merged.tracks = candidate.tracks;
       } else if (merged.tracks.length > 0 && candidate.tracks.length > 0) {
@@ -1128,7 +1242,33 @@ class TaskManager {
    * Both arrays are in the same local file order after protection.
    * Only fills safe nullable fields that the matcher allows.
    */
-  private fillTrackGaps(target: TrackCandidate[], source: TrackCandidate[]): void {
+  /**
+   * Merge a provider ID field from candidate into merged.
+   * Prefers the existing value (direct ID-backed result) over a new one.
+   * Logs a warning on conflict.
+   */
+  private mergeProviderId(
+    merged: AlbumCandidate,
+    candidate: AlbumCandidate,
+    field: "musicbrainzAlbumId" | "musicbrainzArtistId" | "discogsReleaseId" | "discogsArtistId",
+  ): void {
+    const existing = merged[field];
+    const incoming = candidate[field];
+
+    if (!incoming) return; // nothing to merge
+
+    if (!existing) {
+      merged[field] = incoming;
+      return;
+    }
+
+    // Conflict: existing (from direct lookup) vs incoming (from name search)
+    if (existing !== incoming) {
+      debug.warn("auto-tag", `Provider ID conflict: ${field} existing="${existing}" (direct) vs incoming="${incoming}" (name-search) — keeping existing`);
+    }
+  }
+
+  private fillTrackGaps(target: TrackCandidate[], source: TrackCandidate[]): void { 
     for (let i = 0; i < Math.min(target.length, source.length); i++) {
       const targetTrack = target[i];
       const sourceTrack = source[i];

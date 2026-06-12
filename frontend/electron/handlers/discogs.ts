@@ -254,6 +254,109 @@ export class DiscogsClient {
   }
 
   /**
+   * Look up a release by Discogs release ID (no search needed).
+   * Calls /releases/{id} directly.
+   */
+  async lookupReleaseById(releaseId: string): Promise<AlbumCandidate | null> {
+    await sharedDiscogsRateLimiter.wait();
+    const url = `${this.baseUrl}/releases/${releaseId}`;
+
+    try {
+      const response = await fetch(url, {
+        headers: this.buildHeaders(),
+        signal: AbortSignal.timeout(this.timeoutMs),
+      });
+      if (!response.ok) return null;
+
+      const data = (await response.json()) as {
+        id?: number;
+        title?: string;
+        artists?: Array<Record<string, unknown>>;
+        year?: number | string;
+        genres?: string[];
+        styles?: string[];
+        tracklist?: Array<Record<string, unknown>>;
+      };
+
+      const artists = parseDiscogsArtists(data.artists, null);
+      const albumArtist = artistDisplayName(artists, null);
+      const tracks = this.tracksFromRelease(data.tracklist ?? [], artists);
+      const releaseIdStr = data.id != null ? String(data.id) : releaseId;
+
+      return makeAlbumCandidate({
+        artist: albumArtist,
+        artists,
+        album: data.title ?? null,
+        albumArtist,
+        albumArtists: artists,
+        year: data.year != null ? String(data.year) : null,
+        genre: mergeGenreStyle(data.genres, data.styles),
+        discogsReleaseId: releaseIdStr,
+        tracks,
+        source: "discogs",
+      });
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Look up an album by Discogs artist ID + album title.
+   * Calls /artists/{id}/releases then resolves the best match.
+   */
+  async lookupArtistReleaseByAlbum(
+    artistId: string,
+    albumHint: string,
+  ): Promise<AlbumCandidate | null> {
+    await sharedDiscogsRateLimiter.wait();
+    const url = `${this.baseUrl}/artists/${artistId}/releases?per_page=50`;
+
+    try {
+      const response = await fetch(url, {
+        headers: this.buildHeaders(),
+        signal: AbortSignal.timeout(this.timeoutMs),
+      });
+      if (!response.ok) return null;
+
+      const data = (await response.json()) as {
+        releases?: Array<{ id: number; title: string; artist?: string; year?: number }>;
+      };
+
+      if (!data.releases || data.releases.length === 0) return null;
+
+      // Normalize album hint for matching
+      const hintNorm = albumHint.toLowerCase().trim();
+
+      // Find best matching release by normalized title
+      let bestMatch: { id: number; title: string } | null = null;
+      let bestScore = 0;
+
+      for (const release of data.releases) {
+        const titleNorm = release.title.toLowerCase().trim();
+        let score = 0;
+
+        if (titleNorm === hintNorm) {
+          score = 100; // exact match
+        } else if (titleNorm.includes(hintNorm) || hintNorm.includes(titleNorm)) {
+          score = 50; // substring match
+        }
+
+        if (score > bestScore) {
+          bestScore = score;
+          bestMatch = { id: release.id, title: release.title };
+        }
+      }
+
+      if (!bestMatch) return null;
+
+      // Resolve the full release detail
+      return this.lookupReleaseById(String(bestMatch.id));
+    } catch {
+      return null;
+    }
+  }
+
+  /**
    * Check if the Discogs artist name matches the hint.
    */
   private artistMatchesHint(

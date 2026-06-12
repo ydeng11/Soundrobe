@@ -65,6 +65,8 @@ export interface WriteFields {
   musicbrainzTrackId?: string | null;
   musicbrainzAlbumId?: string | null;
   musicbrainzArtistId?: string | null;
+  discogsArtistId?: string | null;
+  discogsReleaseId?: string | null;
   coverData?: Buffer | null;
   coverMime?: string | null;
 }
@@ -186,6 +188,8 @@ function mergeMp3UserDefinedText(
     { description: "MusicBrainz Track Id", value: fields.musicbrainzTrackId },
     { description: "MusicBrainz Album Id", value: fields.musicbrainzAlbumId },
     { description: "MusicBrainz Artist Id", value: fields.musicbrainzArtistId },
+    { description: "Discogs Artist Id", value: fields.discogsArtistId },
+    { description: "Discogs Release Id", value: fields.discogsReleaseId },
     { description: "COMPILATION", value: compilationToTag(fields.compilation) },
     { description: "DESCRIPTION", value: fields.description },
   ];
@@ -341,6 +345,8 @@ async function writeVorbis(
   setVorbisField(updated, "MUSICBRAINZ_TRACKID", fields.musicbrainzTrackId);
   setVorbisField(updated, "MUSICBRAINZ_ALBUMID", fields.musicbrainzAlbumId);
   setVorbisField(updated, "MUSICBRAINZ_ARTISTID", fields.musicbrainzArtistId);
+  setVorbisField(updated, "DISCOGS_ARTIST_ID", fields.discogsArtistId);
+  setVorbisField(updated, "DISCOGS_RELEASE_ID", fields.discogsReleaseId);
   setVorbisField(updated, "COMPILATION", compilationToTag(fields.compilation));
   if (fields.coverData) {
     updated.METADATA_BLOCK_PICTURE = [
@@ -1177,6 +1183,349 @@ async function writeVorbisExtraTags(filePath: string, extraTags: ExtraTagUpdate[
   return await writeVorbisComments(filePath, data, comments);
 }
 
+// ── APEv2 tag writer (Monkey's Audio .ape) ────────────────────────────
+
+/**
+ * Compute the end of Monkey's Audio data from the MAC descriptor/header.
+ * Returns the byte offset where audio data ends and tag/metadata can begin.
+ * If the file doesn't have a valid MAC descriptor, returns the eariliest
+ * APETAGEX offset minus 32 as fallback.
+ */
+function computeAudioEnd(data: Buffer): number | null {
+  // Minimal MAC descriptor parser (52 bytes)
+  if (data.length < 52) return null;
+  const descId = data.toString("ascii", 0, 4);
+  if (descId !== "MAC ") return null;
+
+  const descriptorBytes = data.readUInt32LE(8);
+  const headerBytes = data.readUInt32LE(12);
+  // At offset 12: seekTableBytes, headerDataBytes, apeFrameDataBytes,
+  //              apeFrameDataBytesHigh, terminatingDataBytes
+  if (data.length < descriptorBytes + headerBytes) return null;
+
+  const seekTableBytes = data.readUInt32LE(16);
+  const headerDataBytes = data.readUInt32LE(20);
+  const apeFrameDataBytes = data.readUInt32LE(24);
+  const terminatingDataBytes = data.readUInt32LE(32);
+
+  const forwardBytes =
+    seekTableBytes + headerDataBytes +
+    apeFrameDataBytes + terminatingDataBytes;
+
+  return descriptorBytes + headerBytes + forwardBytes;
+}
+
+/**
+ * Find all APEv2 tags in the file and compute the earliest byte at which
+ * tag/ID3v1 data begins, accounting for any gap between MAC audio data
+ * and the first APEv2 tag. Everything from this offset onward is stripped.
+ *
+ * Handles:
+ *   - Multiple separate APEv2 tags (header+footer or footer-only)
+ *   - ID3v1 tag (128 bytes) between APEv2 tags
+ *   - Gap between MAC audio data end and first APEv2 tag
+ *   - Single footer-only or header+footer tag at end
+ *
+ * Returns `null` if no APEv2 tag is found.
+ */
+function getApeTagStart(data: Buffer): number | null {
+  if (data.length < 32) return null;
+
+  // Use Buffer.indexOf to find all "APETAGEX" occurrences (fast even on 30MB files)
+  const preamble = Buffer.from("APETAGEX", "ascii");
+  const offsets: number[] = [];
+  let searchFrom = 0;
+  while (true) {
+    const idx = data.indexOf(preamble, searchFrom);
+    if (idx === -1) break;
+    offsets.push(idx);
+    searchFrom = idx + 1;
+  }
+
+  if (offsets.length === 0) return null;
+
+  // Resolve each APETAGEX to find the earliest byte it occupies
+  let earliest = data.length;
+  for (const offset of offsets) {
+    const flags = data.readUInt32LE(offset + 20);
+    const isHeader = !!(flags & 0x20000000);
+    const tagSize = data.readUInt32LE(offset + 12);
+
+    if (isHeader) {
+      // Header: the tag data starts at this offset
+      if (offset < earliest) earliest = offset;
+    } else {
+      // Footer: items start at `offset + 32 - tagSize`
+      const itemsStart = offset + 32 - tagSize;
+      if (itemsStart >= 0 && itemsStart < earliest) {
+        // Check for a header preceding items
+        const hdrOff = itemsStart - 32;
+        if (
+          hdrOff >= 0 &&
+          data.toString("ascii", hdrOff, hdrOff + 8) === "APETAGEX" &&
+          (data.readUInt32LE(hdrOff + 20) & 0x20000000)
+        ) {
+          if (hdrOff < earliest) earliest = hdrOff;
+        } else {
+          earliest = itemsStart;
+        }
+      }
+    }
+  }
+
+  // If the earliest tag byte is after the MAC audio data end, strip
+  // from audio end (to remove the gap). Otherwise strip from earliest tag.
+  const audioEnd = computeAudioEnd(data);
+  if (audioEnd !== null && earliest > audioEnd) {
+    return audioEnd;
+  }
+
+  return earliest < data.length ? earliest : null;
+}
+
+/**
+ * @deprecated Use getApeTagStart instead, which handles multiple tags.
+ * Kept for backward compatibility with test file.
+ */
+export function findApeFooterOffset(data: Buffer): number {
+  if (data.length < 32) return -1;
+  const limit = Math.min(data.length, 2048);
+  for (let offset = data.length - 8; offset >= data.length - limit; offset--) {
+    if (data.toString("ascii", offset, offset + 8) === "APETAGEX") {
+      const flags = data.readUInt32LE(offset + 20);
+      if (!(flags & 0x20000000)) return offset;
+    }
+  }
+  return -1;
+}
+
+/**
+ * Strip an existing APEv2 tag from the end of a file buffer.
+ * Handles both footer-only and header+footer layouts.
+ * Returns the buffer with the tag removed, or the original buffer unchanged.
+ */
+function stripApeTag(data: Buffer): Buffer {
+  const tagStart = getApeTagStart(data);
+  if (tagStart === null) return data;
+  return data.subarray(0, tagStart);
+}
+
+/**
+ * Build APEv2 tag items from a set of key-value pairs.
+ * Returns { items: Buffer, count: number }.
+ */
+function buildApeTagItems(entries: Array<{ key: string; value: string }>): { items: Buffer; count: number } {
+  const chunks: Buffer[] = [];
+  let count = 0;
+  for (const { key, value } of entries) {
+    if (!key || value == null || value === "") continue;
+    const keyBuf = Buffer.from(key.toUpperCase() + "\0", "utf8");
+    const valBuf = Buffer.from(value, "utf8");
+    const header = Buffer.alloc(8);
+    header.writeUInt32LE(valBuf.length, 0);  // value size
+    header.writeUInt32LE(0x20000000, 4);      // flags: UTF-8 text
+    chunks.push(header, keyBuf, valBuf);
+    count++;
+  }
+  return { items: Buffer.concat(chunks), count };
+}
+
+/**
+ * Parse APEv2 tag items from a buffer.
+ * Returns an array of { key, value } pairs, or an empty array if no valid tag is found.
+ */
+export function parseApeTagItems(data: Buffer): Array<{ key: string; value: string }> {
+  const items: Array<{ key: string; value: string }> = [];
+  if (data.length < 32) return items;
+
+  const footerOffset = findApeFooterOffset(data);
+  if (footerOffset < 0) return items;
+
+  const tagSize = data.readUInt32LE(footerOffset + 12);
+  const itemCount = data.readUInt32LE(footerOffset + 16);
+  if (tagSize < 32 || tagSize > data.length) return items;
+
+  // itemsStart relative to the footer, NOT relative to file end,
+  // because ID3v1 tag may trail after the APEv2 footer.
+  const itemsStart = footerOffset + 32 - tagSize;
+  if (itemsStart < 0 || itemsStart >= footerOffset) return items;
+
+  let offset = itemsStart;
+  for (let i = 0; i < itemCount; i++) {
+    if (offset + 8 > footerOffset) break;
+    const valSize = data.readUInt32LE(offset);
+    offset += 8;
+    const nullIdx = data.indexOf(0, offset);
+    if (nullIdx < 0 || nullIdx >= footerOffset) break;
+    const key = data.toString("utf8", offset, nullIdx);
+    offset = nullIdx + 1;
+    const value = data.toString("utf8", offset, Math.min(offset + valSize, footerOffset));
+    offset += valSize;
+    items.push({ key, value });
+  }
+  return items;
+}
+
+/**
+ * Build an APEv2 footer (32 bytes).
+ */
+function buildApeFooter(tagSize: number, itemCount: number): Buffer {
+  const footer = Buffer.alloc(32);
+  footer.write("APETAGEX", 0, 8, "ascii");       // preamble
+  footer.writeUInt32LE(2000, 8);                    // version
+  footer.writeUInt32LE(tagSize, 12);                // tag size (items + footer)
+  footer.writeUInt32LE(itemCount, 16);              // item count
+  footer.writeUInt32LE(0x80000000, 20);             // flags: footer present
+  // Bytes 24-31 reserved (zeros)
+  return footer;
+}
+
+/**
+ * Write APEv2 tags to a Monkey's Audio (.ape) file.
+ *
+ * Follows the same merge pattern as the Vorbis writer:
+ * 1. Read existing APEv2 items from the file
+ * 2. Start with those as defaults
+ * 3. Overlay fields from `WriteFields` (undefined = keep, null = delete, string = set)
+ * 4. Write the merged result
+ */
+async function writeApe(filePath: string, fields: WriteFields): Promise<void> {
+  const data = await readFile(filePath);
+
+  // 1. Read existing items into a key→values map (supports duplicate keys)
+  const existing = parseApeTagItems(data);
+  const merged = new Map<string, string[]>();
+  for (const { key, value } of existing) {
+    const upper = key.toUpperCase();
+    if (!merged.has(upper)) merged.set(upper, []);
+    merged.get(upper)!.push(value);
+  }
+
+  // 2. Helper: set or delete a single-value field
+  const setField = (key: string, value: string | null | undefined) => {
+    if (value === undefined) return; // keep existing
+    if (value == null || value === "") {
+      merged.delete(key); // delete
+    } else {
+      merged.set(key, [value]); // replace
+    }
+  };
+
+  // 3. Helper: replace a multi-value field
+  const setList = (key: string, values: string[] | string | null | undefined) => {
+    if (values === undefined) return; // keep existing
+    const list = normalizeListValue(values);
+    if (list.length === 0) {
+      merged.delete(key);
+    } else {
+      merged.set(key, list);
+    }
+  };
+
+  // 4. Apply fields on top of existing
+  setField("TITLE", fields.title);
+  setField("ALBUM", fields.album);
+  setField("ALBUM ARTIST", fields.albumArtist);
+  setField("DATE", fields.year);
+  setField("GENRE", fields.genre);
+  setField("COMPOSER", fields.composer);
+  setField("COMMENT", fields.comment);
+  setField("DESCRIPTION", fields.description);
+  setField("LYRICS", fields.lyrics);
+  // Artist: merge primary + multi-value if either is provided
+  if (fields.artist !== undefined || fields.artists !== undefined) {
+    const mergedArtists = new Set<string>();
+    if (fields.artist) mergedArtists.add(fields.artist);
+    for (const v of normalizeListValue(fields.artists)) mergedArtists.add(v);
+    if (mergedArtists.size > 0) {
+      merged.set("ARTIST", [...mergedArtists]);
+    } else {
+      merged.delete("ARTIST");
+    }
+  }
+
+  // Album Artist: merge primary + multi-value
+  if (fields.albumArtist !== undefined || fields.albumArtists !== undefined) {
+    const mergedAlbumArtists = new Set<string>();
+    if (fields.albumArtist) mergedAlbumArtists.add(fields.albumArtist);
+    for (const v of normalizeListValue(fields.albumArtists)) mergedAlbumArtists.add(v);
+    if (mergedAlbumArtists.size > 0) {
+      merged.set("ALBUM ARTIST", [...mergedAlbumArtists]);
+    } else {
+      merged.delete("ALBUM ARTIST");
+    }
+  }
+
+  setField("COMPILATION", compilationToTag(fields.compilation));
+  setField("MUSICBRAINZ_TRACKID", fields.musicbrainzTrackId);
+  setField("MUSICBRAINZ_ALBUMID", fields.musicbrainzAlbumId);
+  setField("MUSICBRAINZ_ARTISTID", fields.musicbrainzArtistId);
+  setField("DISCOGS_ARTIST_ID", fields.discogsArtistId);
+  setField("DISCOGS_RELEASE_ID", fields.discogsReleaseId);
+
+  // Track / Disc (composite fields)
+  const trackVal = fields.trackNumber != null
+    ? (fields.trackTotal != null ? `${fields.trackNumber}/${fields.trackTotal}` : String(fields.trackNumber))
+    : fields.track;
+  setField("TRACK", trackVal);
+
+  const discVal = fields.discNumber != null
+    ? (fields.discTotal != null ? `${fields.discNumber}/${fields.discTotal}` : String(fields.discNumber))
+    : fields.disc;
+  setField("DISC", discVal);
+
+  // 5. Flatten map back to entries
+  const entries: Array<{ key: string; value: string }> = [];
+  for (const [key, values] of merged) {
+    for (const value of values) {
+      entries.push({ key, value });
+    }
+  }
+
+  if (entries.length === 0) {
+    await writeFile(filePath, stripApeTag(data));
+    return;
+  }
+
+  const { items, count } = buildApeTagItems(entries);
+  const tagSize = items.length + 32;
+  const body = stripApeTag(data);
+  await writeFile(filePath, Buffer.concat([body, items, buildApeFooter(tagSize, count)]));
+}
+
+/**
+ * Write extra tags to a Monkey's Audio (.ape) file using APEv2.
+ * Preserves standard Vorbis-compatible tag keys, replaces non-standard ones
+ * with the given extra tags (matching the Vorbis extra-tag behavior).
+ */
+async function writeApeExtraTags(filePath: string, extraTags: ExtraTagUpdate[]): Promise<void> {
+  const data = await readFile(filePath);
+  const existing = parseApeTagItems(data);
+
+  // Preserve standard (reserved) keys; drop non-standard ones
+  const kept = existing.filter(
+    (t) => STANDARD_VORBIS_TAGS.has(t.key.toUpperCase()) && !EXTRA_TAG_RESERVED_EXCEPTIONS.has(t.key.toUpperCase()),
+  );
+
+  // Apply extra tag upserts
+  const extraEntries: Array<{ key: string; value: string }> = [];
+  for (const tag of normalizeExtraTags(extraTags, EXTRA_TAG_RESERVED_EXCEPTIONS)) {
+    extraEntries.push({ key: tag.key.toUpperCase(), value: tag.value });
+  }
+
+  const finalEntries = kept.concat(extraEntries);
+
+  if (finalEntries.length === 0) {
+    await writeFile(filePath, stripApeTag(data));
+    return;
+  }
+
+  const { items, count } = buildApeTagItems(finalEntries);
+  const tagSize = items.length + 32;
+  const body = stripApeTag(data);
+  await writeFile(filePath, Buffer.concat([body, items, buildApeFooter(tagSize, count)]));
+}
+
 /**
  * Main entry point: detect format and write tags.
  */
@@ -1206,6 +1555,9 @@ export async function writeTags(
       break;
     case ".aiff":
       throw new Error("AIFF metadata writing is not supported");
+    case ".ape":
+      await writeApe(filePath, fields);
+      break;
     default:
       throw new Error(`Unsupported format for writing: ${ext}`);
   }
@@ -1229,6 +1581,9 @@ export async function writeExtraTags(
     case ".wav":
       await writeWavExtraTags(filePath, extraTags);
       break;
+    case ".ape":
+      await writeApeExtraTags(filePath, extraTags);
+      break;
     default:
       throw new Error(`Extra tag editing is not supported for ${ext || "this file type"}`);
   }
@@ -1242,27 +1597,16 @@ export async function writeTagsWithOutcome(
   fields: WriteFields
 ): Promise<WriteOutcome> {
   const ext = path.extname(filePath).toLowerCase();
-
-  switch (ext) {
-    case ".mp3":
-      await writeMp3(filePath, fields);
-      return "full_rewrite";
-    case ".flac":
-      return await writeVorbis(filePath, fields);
-    case ".ogg":
-    case ".opus":
-      return await writeVorbis(filePath, fields);
-    case ".m4a":
-    case ".mp4":
-      await writeMp4(filePath, fields);
-      return "full_rewrite";
-    case ".wav":
-      return await writeWav(filePath, fields);
-    case ".aiff":
-      throw new Error("AIFF metadata writing is not supported");
-    default:
-      throw new Error(`Unsupported format for writing: ${ext}`);
+  // Formats whose writers return an outcome: flac, ogg, opus, wav
+  if (ext === ".flac" || ext === ".ogg" || ext === ".opus") {
+    return await writeVorbis(filePath, fields);
   }
+  if (ext === ".wav") {
+    return await writeWav(filePath, fields);
+  }
+  // All others: delegate to writeTags (which throws for unsupported)
+  await writeTags(filePath, fields);
+  return "full_rewrite";
 }
 
 /**
@@ -1273,20 +1617,16 @@ export async function writeExtraTagsWithOutcome(
   extraTags: ExtraTagUpdate[]
 ): Promise<WriteOutcome> {
   const ext = path.extname(filePath).toLowerCase();
-
-  switch (ext) {
-    case ".mp3":
-      await writeMp3ExtraTags(filePath, extraTags);
-      return "full_rewrite";
-    case ".flac":
-    case ".ogg":
-    case ".opus":
-      return await writeVorbisExtraTags(filePath, extraTags);
-    case ".wav":
-      return await writeWavExtraTags(filePath, extraTags);
-    default:
-      throw new Error(`Extra tag editing is not supported for ${ext || "this file type"}`);
+  // Formats whose writers return an outcome: flac, ogg, opus, wav
+  if (ext === ".flac" || ext === ".ogg" || ext === ".opus") {
+    return await writeVorbisExtraTags(filePath, extraTags);
   }
+  if (ext === ".wav") {
+    return await writeWavExtraTags(filePath, extraTags);
+  }
+  // All others: delegate to writeExtraTags (which throws for unsupported)
+  await writeExtraTags(filePath, extraTags);
+  return "full_rewrite";
 }
 
 /** Yields control back to the event loop so the renderer can repaint. */

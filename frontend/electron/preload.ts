@@ -36,6 +36,8 @@ export interface TrackData {
   musicbrainzTrackId: string | null;
   musicbrainzAlbumId: string | null;
   musicbrainzArtistId: string | null;
+  discogsArtistId: string | null;
+  discogsReleaseId: string | null;
   hasCover: boolean;
   sizeBytes: number;
   bitrate: number | null;
