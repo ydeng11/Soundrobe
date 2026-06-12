@@ -804,6 +804,352 @@ describe("writeTags — FLAC with corrupted metadata", () => {
   });
 });
 
+// ── FLAC padding-aware in-place write tests ─────────────────────────
+
+function findAudioOffset(buf: Buffer): number {
+  // Parse FLAC layout to find first audio byte
+  let offset = 4; // skip "fLaC"
+  while (offset + 4 <= buf.length) {
+    const isLast = !!(buf[offset] >> 7);
+    const length =
+      (buf[offset + 1] << 16) |
+      (buf[offset + 2] << 8) |
+      buf[offset + 3];
+    if (offset + 4 + length > buf.length) break;
+    offset += 4 + length;
+    if (isLast) break;
+  }
+  return offset;
+}
+
+function buildFlacWithPadding(
+  filePath: string,
+  paddingSize: number,
+  comments: Record<string, string> = {},
+): void {
+  const parts: Buffer[] = [];
+  parts.push(Buffer.from("fLaC", "ascii"));
+
+  // STREAMINFO
+  const si = Buffer.alloc(34);
+  si.writeUInt16BE(4096, 0);
+  si.writeUInt16BE(4096, 2);
+  si[12] = 0x00; si[13] = 0xac; si[14] = 0x44; si[15] = 0x02; si[16] = 0x1f;
+  const siH = Buffer.alloc(4);
+  siH[0] = 0x00;
+  siH[1] = (si.length >> 16) & 0xff;
+  siH[2] = (si.length >> 8) & 0xff;
+  siH[3] = si.length & 0xff;
+  parts.push(siH, si);
+
+  // VORBIS_COMMENT (not last)
+  const vendor = Buffer.from("test", "utf8");
+  const vLen = Buffer.alloc(4);
+  vLen.writeUInt32LE(vendor.length);
+  const cBufs: Buffer[] = [];
+  for (const [k, v] of Object.entries(comments)) {
+    const cb = Buffer.from(`${k}=${v}`, "utf8");
+    const cl = Buffer.alloc(4);
+    cl.writeUInt32LE(cb.length);
+    cBufs.push(cl, cb);
+  }
+  const n = Buffer.alloc(4);
+  n.writeUInt32LE(Object.keys(comments).length);
+  const vb = Buffer.concat([vLen, vendor, n, ...cBufs]);
+
+  const vcH = Buffer.alloc(4);
+  vcH[0] = 0x00 | 0x04;
+  vcH[1] = (vb.length >> 16) & 0xff;
+  vcH[2] = (vb.length >> 8) & 0xff;
+  vcH[3] = vb.length & 0xff;
+  parts.push(vcH, vb);
+
+  if (paddingSize > 0) {
+    const padH = Buffer.alloc(4);
+    padH[0] = 0x80 | 0x01; // isLast | PADDING
+    padH[1] = (paddingSize >> 16) & 0xff;
+    padH[2] = (paddingSize >> 8) & 0xff;
+    padH[3] = paddingSize & 0xff;
+    const padBody = Buffer.alloc(paddingSize);
+    parts.push(padH, padBody);
+  } else {
+    // Mark Vorbis as last
+    const buf = Buffer.concat(parts);
+    buf[4 + 4 + 34] |= 0x80; // set isLast on Vorbis block
+    fs.writeFileSync(filePath, buf);
+    return;
+  }
+
+  // Audio data
+  const audio = Buffer.alloc(10000);
+  for (let i = 0; i < audio.length; i++) audio[i] = i % 256;
+  parts.push(audio);
+
+  fs.writeFileSync(filePath, Buffer.concat(parts));
+}
+
+describe("writeTags — FLAC in-place padding-aware", () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "writer-flac-pad-"));
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it("smaller Vorbis update keeps file size and audio bytes unchanged", async () => {
+    const fp = path.join(tmpDir, "smaller.flac");
+    buildFlacWithPadding(fp, 100, { TITLE: "A Very Long Title That Takes Up A Lot Of Space", ARTIST: "An Even Longer Artist Name Here To Fill Bytes" });
+
+    const statBefore = fs.statSync(fp);
+    const bufBefore = fs.readFileSync(fp);
+    const audioOffBefore = findAudioOffset(bufBefore);
+    const audioBefore = bufBefore.slice(audioOffBefore);
+
+    await writeTags(fp, { title: "Short", artist: "Short" });
+
+    const statAfter = fs.statSync(fp);
+    const bufAfter = fs.readFileSync(fp);
+
+    // File size must not change
+    expect(statAfter.size).toBe(statBefore.size);
+    // Audio bytes must be identical (same offset, same content)
+    const audioAfter = bufAfter.slice(audioOffBefore);
+    expect(audioAfter.length).toBe(audioBefore.length);
+    expect(audioAfter.equals(audioBefore)).toBe(true);
+    // Tags are correctly readable
+    const meta = await parseFile(fp, { duration: false });
+    expect(meta.common.title).toBe("Short");
+    expect(meta.common.artist).toBe("Short");
+  });
+
+  it("equal Vorbis update keeps file size and audio bytes unchanged", async () => {
+    const fp = path.join(tmpDir, "equal.flac");
+    buildFlacWithPadding(fp, 100, { TITLE: "ExactMatch" });
+
+    const statBefore = fs.statSync(fp);
+    const bufBefore = fs.readFileSync(fp);
+    const audioOffBefore = findAudioOffset(bufBefore);
+    const audioBefore = bufBefore.slice(audioOffBefore);
+
+    await writeTags(fp, { title: "UpdatedX" });
+
+    const statAfter = fs.statSync(fp);
+    const bufAfter = fs.readFileSync(fp);
+
+    expect(statAfter.size).toBe(statBefore.size);
+    const audioAfter = bufAfter.slice(audioOffBefore);
+    expect(audioAfter.equals(audioBefore)).toBe(true);
+    const meta = await parseFile(fp, { duration: false });
+    expect(meta.common.title).toBe("UpdatedX");
+  });
+
+  it("larger Vorbis update consumes adjacent padding and preserves audio offset/content", async () => {
+    const fp = path.join(tmpDir, "grow.flac");
+    buildFlacWithPadding(fp, 5000, { TITLE: "Short" });
+
+    const bufBefore = fs.readFileSync(fp);
+    const audioOffBefore = findAudioOffset(bufBefore);
+    const audioBefore = bufBefore.slice(audioOffBefore);
+    const sizeBefore = bufBefore.length;
+
+    await writeTags(fp, {
+      title: "A Much Longer Title Here",
+      artist: "Artist Name",
+      album: "Album That Has A Name",
+      genre: "Rock",
+      composer: "Composer Name",
+      year: "2024",
+    });
+
+    const bufAfter = fs.readFileSync(fp);
+
+    // Audio offset should not have moved (padding was consumed)
+    expect(bufAfter.length).toBe(sizeBefore);
+    const audioAfter = bufAfter.slice(audioOffBefore);
+    expect(audioAfter.equals(audioBefore)).toBe(true);
+    // Tags are correct
+    const meta = await parseFile(fp, { duration: false });
+    expect(meta.common.title).toBe("A Much Longer Title Here");
+    expect(meta.common.artist).toBe("Artist Name");
+    expect(meta.common.album).toBe("Album That Has A Name");
+  });
+
+  it("insufficient padding falls back and then second write is in-place", async () => {
+    const fp = path.join(tmpDir, "fallback.flac");
+    buildFlacWithPadding(fp, 0, { TITLE: "InitialTitle" });
+
+    const sizeBefore = fs.statSync(fp).size;
+
+    // First write: should fall back (no padding initially)
+    await writeTags(fp, {
+      title: "After Fallback",
+      artist: "New Artist",
+      album: "New Album",
+      genre: "Electronic",
+      composer: "Producer",
+      year: "2025",
+      trackNumber: 1,
+      trackTotal: 12,
+      discNumber: 1,
+      discTotal: 2,
+    });
+
+    const bufAfterFirst = fs.readFileSync(fp);
+    // File should have grown due to added 64K padding
+    expect(bufAfterFirst.length).toBeGreaterThan(sizeBefore);
+
+    // Second write with slightly changed tags: should be in-place (padding available)
+    const audioOffAfterFirst = findAudioOffset(bufAfterFirst);
+    const audioAfterFirst = bufAfterFirst.slice(audioOffAfterFirst);
+
+    await writeTags(fp, { title: "After InPlace" });
+
+    const bufAfterSecond = fs.readFileSync(fp);
+    const audioAfterSecond = bufAfterSecond.slice(bufAfterSecond.length - audioAfterFirst.length);
+    expect(audioAfterSecond.equals(audioAfterFirst)).toBe(true);
+
+    const meta = await parseFile(fp, { duration: false });
+    expect(meta.common.title).toBe("After InPlace");
+    expect(meta.common.artist).toBe("New Artist");
+  });
+
+  it("no-op FLAC write keeps file identical", async () => {
+    const fp = path.join(tmpDir, "noop.flac");
+    buildFlacWithPadding(fp, 100, { TITLE: "Stay", ARTIST: "Same" });
+
+    const bufBefore = fs.readFileSync(fp);
+
+    await writeTags(fp, { title: "Stay", artist: "Same" });
+
+    const bufAfter = fs.readFileSync(fp);
+    expect(bufAfter.equals(bufBefore)).toBe(true);
+
+    // Still readable
+    const meta = await parseFile(fp, { duration: false });
+    expect(meta.common.title).toBe("Stay");
+    expect(meta.common.artist).toBe("Same");
+  });
+});
+
+describe("writeTags — WAV in-place", () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "writer-wav-pad-"));
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  /** Create a WAV with an existing id3 chunk already embedded. */
+  function createWavWithId3(filePath: string, existingTags?: Record<string, string>): void {
+    const fmt = Buffer.alloc(16);
+    fmt.writeUInt16LE(1, 0);
+    fmt.writeUInt16LE(1, 2);
+    fmt.writeUInt32LE(44100, 4);
+    fmt.writeUInt32LE(88200, 8);
+    fmt.writeUInt16LE(2, 12);
+    fmt.writeUInt16LE(16, 14);
+
+    const data = Buffer.alloc(882);
+
+    // Build initial ID3 chunk with tags
+    const nodeId3Tags: NodeID3.Tags = {};
+    if (existingTags) {
+      if (existingTags.title) nodeId3Tags.title = existingTags.title;
+      if (existingTags.artist) nodeId3Tags.artist = existingTags.artist;
+      if (existingTags.album) nodeId3Tags.album = existingTags.album;
+    }
+    const id3Payload = NodeID3.create(nodeId3Tags);
+
+    const chunks: Buffer[] = [
+      Buffer.from("WAVE", "ascii"),
+      riffChunk("fmt ", fmt),
+      riffChunk("data", data),
+      riffChunk("id3 ", id3Payload),
+    ];
+
+    const body = Buffer.concat(chunks);
+    const header = Buffer.alloc(8);
+    header.write("RIFF", 0, 4, "ascii");
+    header.writeUInt32LE(body.length, 4);
+    fs.writeFileSync(filePath, Buffer.concat([header, body]));
+  }
+
+  it("existing id3 chunk update fits in place, preserves file size and audio bytes", async () => {
+    const fp = path.join(tmpDir, "inplace.wav");
+    createWavWithId3(fp, { title: "Long Title That Takes Space", artist: "Long Artist Name" });
+
+    const statBefore = fs.statSync(fp);
+    const bufBefore = fs.readFileSync(fp);
+
+    // Find data chunk position
+    let dataStart = -1;
+    let dataEnd = -1;
+    for (let off = 12; off + 8 <= bufBefore.length;) {
+      const id = bufBefore.toString("ascii", off, off + 4);
+      const sz = bufBefore.readUInt32LE(off + 4);
+      const end = off + 8 + sz + (sz % 2);
+      if (id === "data") {
+        dataStart = off;
+        dataEnd = end;
+        break;
+      }
+      off = end;
+    }
+    const audioBefore = bufBefore.slice(dataStart, dataEnd);
+
+    await writeTags(fp, { title: "Short" });
+
+    const statAfter = fs.statSync(fp);
+    const bufAfter = fs.readFileSync(fp);
+
+    expect(statAfter.size).toBe(statBefore.size);
+    // Audio chunk must be unchanged
+    const audioAfter = bufAfter.slice(dataStart, dataEnd);
+    expect(audioAfter.equals(audioBefore)).toBe(true);
+    // Tags are correctly readable
+    const meta = await parseFile(fp, { duration: false });
+    expect(meta.common.title).toBe("Short");
+  });
+
+  it("oversized ID3 update falls back and remains readable by music-metadata", async () => {
+    const fp = path.join(tmpDir, "oversized.wav");
+    createWavWithId3(fp, { title: "Short" });
+
+    const statBefore = fs.statSync(fp);
+
+    // Write much larger tags that won't fit in the existing id3 chunk
+    await writeTags(fp, {
+      title: "A",
+      artist: "B",
+      album: "C",
+      genre: "D",
+      composer: "E",
+      year: "2024",
+      comment: "F",
+      lyrics: "G",
+      musicbrainzTrackId: "H",
+      musicbrainzAlbumId: "I",
+      musicbrainzArtistId: "J",
+    });
+
+    const statAfter = fs.statSync(fp);
+    // File grew because full rewrite occurred
+    expect(statAfter.size).toBeGreaterThan(statBefore.size);
+
+    // Tags are readable
+    const meta = await parseFile(fp, { duration: false });
+    expect(meta.common.title).toBe("A");
+    expect(meta.common.artist).toBe("B");
+    expect(meta.common.album).toBe("C");
+  });
+});
+
 describe("batchWriteTags", () => {
   let tmpDir: string;
 

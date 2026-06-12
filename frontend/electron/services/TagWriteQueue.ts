@@ -19,12 +19,14 @@
  */
 
 import path from "node:path";
+import { stat } from "node:fs/promises";
 import { Worker } from "node:worker_threads";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { writeTags, writeExtraTags } from "../handlers/writer";
-import type { WriteFields, ExtraTagUpdate } from "../handlers/writer";
+import { writeTagsWithOutcome, writeExtraTagsWithOutcome } from "../handlers/writer";
+import type { WriteFields, ExtraTagUpdate, WriteOutcome } from "../handlers/writer";
 import { mapConcurrent, mapConcurrentContinue } from "./concurrency";
 import { LOCAL_WRITE_CONCURRENCY } from "./concurrency";
+import logger from "../handlers/debug";
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -38,6 +40,10 @@ export interface TagWriteResult {
   filePath: string;
   success: boolean;
   error?: string;
+  /** Internal write outcome — how the write was performed. */
+  outcome?: WriteOutcome;
+  /** Duration in milliseconds for the write operation. */
+  durationMs?: number;
 }
 
 // ── Inline write execution ─────────────────────────────────────────
@@ -47,18 +53,21 @@ export interface TagWriteResult {
  * Kept separate from the queue so it remains individually testable.
  */
 export async function executeTagWrite(job: TagWriteJob): Promise<TagWriteResult> {
+  const start = Date.now();
   try {
+    let outcome: WriteOutcome = "full_rewrite";
     if (job.extraTags && job.extraTags.length > 0) {
-      await writeExtraTags(job.filePath, job.extraTags);
+      outcome = await writeExtraTagsWithOutcome(job.filePath, job.extraTags);
     } else if (job.fields && Object.keys(job.fields).length > 0) {
-      await writeTags(job.filePath, job.fields);
+      outcome = await writeTagsWithOutcome(job.filePath, job.fields);
     }
-    return { filePath: job.filePath, success: true };
+    return { filePath: job.filePath, success: true, outcome, durationMs: Date.now() - start };
   } catch (err) {
     return {
       filePath: job.filePath,
       success: false,
       error: err instanceof Error ? err.message : String(err),
+      durationMs: Date.now() - start,
     };
   }
 }
@@ -146,7 +155,7 @@ export class TagWriteQueue {
    * @param executor Optional custom executor (e.g. from createWorkerExecutor()).
    *                 Defaults to inline executeTagWrite.
    */
-  constructor(maxConcurrency: number = LOCAL_WRITE_CONCURRENCY, executor?: TagWriteExecutor) {
+  constructor(maxConcurrency: number = 1, executor?: TagWriteExecutor) {
     this.maxConcurrency = maxConcurrency;
     this.executor = executor ?? executeTagWrite;
   }
@@ -168,21 +177,58 @@ export class TagWriteQueue {
 
     const deduped = deduplicateJobs(jobs);
 
+    // Wrap executor with timing + debug logging for both inline and worker paths
+    const timedExecutor = async (job: TagWriteJob): Promise<TagWriteResult> => {
+      const start = Date.now();
+      let fileSize = 0;
+      try {
+        fileSize = (await stat(job.filePath)).size;
+      } catch {
+        // File may not exist yet; size stays 0
+      }
+      try {
+        const result = await this.executor(job);
+        if (result.durationMs === undefined) {
+          result.durationMs = Date.now() - start;
+        }
+        // Emit a structured debug log entry for each write
+        logger.info("write", `${path.basename(job.filePath)} — ${result.outcome ?? "full_rewrite"} — ${result.durationMs}ms`, {
+          path: job.filePath,
+          extension: path.extname(job.filePath),
+          size: fileSize,
+          durationMs: result.durationMs,
+          outcome: result.outcome,
+          error: result.error ?? null,
+        });
+        return result;
+      } catch (err) {
+        const durationMs = Date.now() - start;
+        logger.info("write", `${path.basename(job.filePath)} — error — ${durationMs}ms`, {
+          path: job.filePath,
+          extension: path.extname(job.filePath),
+          size: fileSize,
+          durationMs,
+          error: err instanceof Error ? err.message : String(err),
+        });
+        return {
+          filePath: job.filePath,
+          success: false,
+          error: err instanceof Error ? err.message : String(err),
+          durationMs,
+        };
+      }
+    };
+
     const { results, errors } = await mapConcurrentContinue(
       deduped,
       this.maxConcurrency,
-      async (job) => this.executor(job),
+      timedExecutor,
     );
 
     // Merge errors and results preserving deduped order
     const resultMap = new Map<string, TagWriteResult>();
     for (const r of results) {
       resultMap.set(r.filePath, r);
-    }
-    for (const e of errors) {
-      // mapConcurrentContinue errors don't carry the filePath directly.
-      // We handle this: errors from executeTagWrite are always TagWriteResults.
-      // For unexpected errors, we catch them here.
     }
 
     // Build result in deduped order
@@ -394,7 +440,7 @@ export function getDefaultWriteQueue(): TagWriteQueue {
       const fs = require("node:fs") as typeof import("node:fs");
       if (fs.existsSync(workerPath)) {
         const executor = createWorkerExecutor(workerPath);
-        defaultQueue = new TagWriteQueue(LOCAL_WRITE_CONCURRENCY, executor);
+        defaultQueue = new TagWriteQueue(1, executor);
       } else {
         defaultQueue = new TagWriteQueue();
       }

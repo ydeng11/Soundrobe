@@ -290,6 +290,30 @@ describe("TagWriteQueue.submit", () => {
     expect(results.find((r) => r.filePath === f2)?.success).toBe(false);
   });
 
+  it("default write concurrency is 1", () => {
+    const queue = new TagWriteQueue();
+    expect(queue.getMaxConcurrency()).toBe(1);
+  });
+
+  it("write results include durationMs and outcome metadata", async () => {
+    const fp = path.join(tmpDir, "meta.mp3");
+    createMinimalMp3(fp);
+
+    const queue = new TagWriteQueue(1);
+    const results = await queue.submit([
+      { filePath: fp, fields: { title: "Meta Test" } },
+    ]);
+
+    expect(results).toHaveLength(1);
+    expect(results[0].success).toBe(true);
+    expect(typeof results[0].durationMs).toBe("number");
+    expect(results[0].durationMs).toBeGreaterThanOrEqual(0);
+    // outcome should be present (even if full_rewrite for MP3)
+    expect(results[0].outcome).toBeDefined();
+    expect(["skipped", "in_place", "metadata_rewrite", "full_rewrite"]).toContain(results[0].outcome);
+    expect(NodeID3.read(fp).title).toBe("Meta Test");
+  });
+
   it("bounded concurrency — caps concurrent writes", async () => {
     const files: string[] = [];
     let maxConcurrent = 0;
