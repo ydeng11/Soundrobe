@@ -5,18 +5,7 @@ import fs from "fs";
 import path from "path";
 import { ArtworkResolverService } from "../services/ArtworkResolverService";
 import { loadConfig } from "./auto-tag";
-
-// ── Download result types ───────────────────────────────────────────
-
-export interface CoverDownloadResult {
-  dataUrl: string;
-  source: string;
-}
-
-export interface ArtistArtDownloadResult {
-  path: string;
-  source: string;
-}
+import debug from "./debug";
 
 const COVER_NAMES = [
   "cover",
@@ -74,22 +63,6 @@ async function imageToDataUrl(
   } catch {
     return null;
   }
-}
-
-function findFirstAudioFile(dirPath: string): string | null {
-  try {
-    const entries = fs.readdirSync(dirPath, { withFileTypes: true });
-    for (const entry of entries) {
-      if (entry.name.startsWith(".")) continue;
-      const fullPath = path.join(dirPath, entry.name);
-      if (AUDIO_EXTS.includes(path.extname(entry.name).toLowerCase())) {
-        return fullPath;
-      }
-    }
-  } catch {
-    // ignore
-  }
-  return null;
 }
 
 // ── Artwork resolver factory ──────────────────────────────────────
@@ -168,10 +141,13 @@ export function registerCoverHandlers(): void {
     "cover:data-url",
     async (_event, albumPath: string): Promise<string | null> => {
       try {
+        debug.debug("cover", `cover:data-url for ${albumPath}`);
+
         // 1. Check for external cover file
         const externalCover = findExternalCover(albumPath);
         if (externalCover) {
           const imageData = fs.readFileSync(externalCover);
+          debug.debug("cover", `cover:data-url found external ${externalCover} (${imageData.length} bytes)`);
           return imageToDataUrl(imageData);
         }
 
@@ -195,6 +171,7 @@ export function registerCoverHandlers(): void {
               metadata.common.picture &&
               metadata.common.picture.length > 0
             ) {
+              debug.debug("cover", `cover:data-url found embedded cover in ${entry.name}`);
               return imageToDataUrl(metadata.common.picture[0].data);
             }
           } catch {
@@ -202,8 +179,10 @@ export function registerCoverHandlers(): void {
           }
         }
 
+        debug.debug("cover", `cover:data-url no cover found for ${albumPath}`);
         return null;
-      } catch {
+      } catch (err) {
+        debug.warn("cover", "cover:data-url threw", err);
         return null;
       }
     }
@@ -276,10 +255,22 @@ export function registerCoverHandlers(): void {
     kind: "album-cover" | "artist-image",
     albumPath: string,
   ): Promise<{ bytes: Buffer; source: string; savePath: string } | null> {
-    if (!fs.existsSync(albumPath)) return null;
+    if (!fs.existsSync(albumPath)) {
+      debug.warn("cover", `resolveAndWriteArtwork: path does not exist ${albumPath}`);
+      return null;
+    }
+
     const metadata = await readFirstTrackMetadata(albumPath);
-    if (!metadata) return null;
-    if (kind === "artist-image" && !metadata.artist) return null;
+    if (!metadata) {
+      debug.warn("cover", `resolveAndWriteArtwork: no metadata found for ${albumPath}`);
+      return null;
+    }
+    if (kind === "artist-image" && !metadata.artist) {
+      debug.debug("cover", `resolveAndWriteArtwork: artist-image but no artist metadata`);
+      return null;
+    }
+
+    debug.info("cover", `resolveAndWriteArtwork: kind=${kind} artist="${metadata.artist ?? ""}" album="${metadata.album ?? ""}" mbid=${metadata.musicbrainzAlbumId ?? "null"}`);
 
     const resolver = getArtworkResolver();
     const ctx = resolver.buildContext(
@@ -291,16 +282,25 @@ export function registerCoverHandlers(): void {
     );
 
     const result = await resolver.resolve(ctx);
-    if (!result) return null;
+    if (!result) {
+      debug.info("cover", `resolveAndWriteArtwork: resolve returned null — no artwork found`);
+      return null;
+    }
+
+    debug.info("cover", `resolveAndWriteArtwork: resolved source=${result.source} url=${result.url ?? "(none)"} bytes=${result.bytes.length}`);
 
     const normalized = await normalizeDownloadImage(result.bytes);
-    if (!normalized) return null;
+    if (!normalized) {
+      debug.warn("cover", `resolveAndWriteArtwork: normalization failed`);
+      return null;
+    }
 
     const savePath = kind === "album-cover"
       ? path.join(albumPath, "cover.jpg")
       : path.join(path.dirname(albumPath), "artist.jpg");
 
     fs.writeFileSync(savePath, normalized);
+    debug.info("cover", `resolveAndWriteArtwork: saved to ${savePath} (${normalized.length} bytes)`);
 
     return { bytes: normalized, source: result.source, savePath };
   }
@@ -308,11 +308,17 @@ export function registerCoverHandlers(): void {
   ipcMain.handle(
     "cover:download",
     async (_event, albumPath: string): Promise<string | null> => {
+      debug.info("cover", `cover:download for ${albumPath}`);
       try {
         const out = await resolveAndWriteArtwork("album-cover", albumPath);
-        if (!out) return null;
+        if (!out) {
+          debug.info("cover", "cover:download failed — no artwork found");
+          return null;
+        }
+        debug.info("cover", `cover:download SUCCESS source=${out.source} bytes=${out.bytes.length}`);
         return `data:image/jpeg;base64,${out.bytes.toString("base64")}`;
-      } catch {
+      } catch (err) {
+        debug.warn("cover", "cover:download threw", err);
         return null;
       }
     }
@@ -321,11 +327,17 @@ export function registerCoverHandlers(): void {
   ipcMain.handle(
     "cover:download-artist-art",
     async (_event, albumPath: string): Promise<{ path: string; source: string } | null> => {
+      debug.info("cover", `cover:download-artist-art for ${albumPath}`);
       try {
         const out = await resolveAndWriteArtwork("artist-image", albumPath);
-        if (!out) return null;
+        if (!out) {
+          debug.info("cover", "cover:download-artist-art failed — no artwork found");
+          return null;
+        }
+        debug.info("cover", `cover:download-artist-art SUCCESS source=${out.source} path=${out.savePath}`);
         return { path: out.savePath, source: out.source };
-      } catch {
+      } catch (err) {
+        debug.warn("cover", "cover:download-artist-art threw", err);
         return null;
       }
     }

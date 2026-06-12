@@ -60,6 +60,7 @@ auto_tagger/
     │   │   ├── tracks.ts
     │   │   └── writer.ts
     │   └── services/         # Pure logic (no Electron APIs)
+    │       ├── ArtworkResolverService.ts
     │       ├── AssistantRuntime.ts
     │       ├── AssistantToolRegistry.ts
     │       ├── ConvertService.ts
@@ -182,7 +183,7 @@ The debug logger writes timestamped JSON entries to :
 ~/.auto-tagger/auto-tag-debug-YYYY-MM-DD.log
 ```
 
-Each log entry contains `timestamp`, `tag`, `level` (info/warn/error/debug), `message`, and optional `data`. Tags include `auto-tag`, `config`, `cache`, `dataset`, `musicbrainz`, `discogs`, `timer`, and `debug`.
+Each log entry contains `timestamp`, `tag`, `level` (info/warn/error/debug), `message`, and optional `data`. Tags include `auto-tag`, `config`, `cache`, `dataset`, `musicbrainz`, `discogs`, `cover`, `timer`, and `debug`.
 
 The file is truncated at each app session start. The logger lives in `frontend/electron/handlers/debug.ts`.
 
@@ -285,4 +286,66 @@ cd frontend && npx playwright test
 - **LLM cost target**: Under $0.01 per album (uses cost-efficient models via OpenRouter)
 - **Services vs handlers**: `electron/services/` contains pure business logic (no Electron APIs, testable in Node). `electron/handlers/` wires services to IPC channels.
 - **Never edit Python files** (`src/auto_tagger/`, `tests/`, `pyproject.toml`) — those are the legacy CLI; only the TypeScript Electron app (`frontend/`) is maintained
+
+---
+
+## Metadata Handling
+
+The app reads audio file metadata using the **[music-metadata](https://github.com/Borewit/music-metadata)** library (`parseFile` from `music-metadata`).
+
+### Tag normalization
+
+`music-metadata` normalizes format-specific tag keys into a `common` object with consistent property names regardless of the source format:
+
+| Vorbis Comment (FLAC/OGG) | ID3 (MP3) | `common` property |
+|---|---|---|
+| `ARTIST` | `TPE1` | `common.artist` |
+| `ALBUM` | `TALB` | `common.album` |
+| `TITLE` | `TIT2` | `common.title` |
+| `DATE` / `YEAR` | `TDRC` / `TYER` | `common.year` |
+| `GENRE` | `TCON` | `common.genre` |
+| `ALBUMARTIST` / `album_artist` | `TPE2` | `common.albumartist` |
+| `TRACKNUMBER` / `track` | `TRCK` | `common.track.no` |
+| `DISCNUMBER` / `disc` | `TPOS` | `common.disc.no` |
+| `COMPOSER` | `TCOM` | `common.composer` |
+| `LYRICS` | `USLT` | `common.lyrics` |
+| `ARTISTS` | `TSOP` | `common.artists` (array) |
+| `MUSICBRAINZ_ALBUMID` | `TXXX:MusicBrainz Album Id` | `common.musicbrainz_albumid` |
+| `MUSICBRAINZ_ARTISTID` | `TXXX:MusicBrainz Artist Id` | `common.musicbrainz_artistid` |
+| `MUSICBRAINZ_TRACKID` | `UFID:http://musicbrainz.org` | `common.musicbrainz_trackid` |
+
+**Key consequence for agent troubleshooting**: When searching for metadata with `ffprobe`, Vorbis comment keys are **uppercase** (`ARTIST`, `ALBUM`, `TITLE`). The `music-metadata` library normalizes them to lowercase `common` properties. The grep pattern `artist|album|title|genre` matches ID3 keys but **not** uppercase Vorbis keys. Use a **case-insensitive grep** or search for the uppercase keys directly when investigating FLAC/OGG files.
+
+Example — FLAC metadata displayed by `ffprobe`:
+```
+TAG:ARTIST=F.I.R.飞儿乐团
+TAG:ALBUM=无限
+TAG:TITLE=千年之恋
+```
+These are read by `parseFile()` as `common.artist = "F.I.R.飞儿乐团"`, `common.album = "无限"`, `common.title = "千年之恋"`.
+
+### Reading conventions in the codebase
+
+| File | Function | How metadata is read |
+|---|---|---|
+| `handlers/cover.ts` | `readFirstTrackMetadata()` | `parseFile(filePath)` → `common.artist`, `common.album`, `common.musicbrainz_albumid` |
+| `handlers/auto-tag.ts` | `parseAlbumWithTags()` | Uses `music-metadata` to extract all per-track fields including artist, title, track number, genre from each audio file |
+| `handlers/tracks.ts` | `readTrackTags()` | Full tag reading for the metadata editor; accesses both `common` and `native` format-specific tag representations |
+| `services/FilenameTagInferenceService.ts` | — | Infers tags from filenames (not from file metadata) |
+
+### Cover / artwork resolution chain
+
+The `ArtworkResolverService` (`services/ArtworkResolverService.ts`) resolves album covers and artist images by trying providers in fixed order:
+
+**Album covers**: `local → cover-art-archive → discogs → theaudiodb → google`
+
+1. **local**: Checks for `cover.jpg`, `Cover.jpg`, `front.jpg`, `folder.jpg`, etc. in the album directory. For artist images, checks `artist.jpg` in the parent folder.
+2. **cover-art-archive**: Requires `musicbrainzAlbumId` from file metadata. Fetches from https://coverartarchive.org/release/{mbid}.
+3. **discogs**: Requires both `artist` and `album` metadata. Searches Discogs database with `per_page=10` and scans candidates, validating that the returned release's artist and album actually match the requested ones (with normalization for Chinese variants, punctuation, containment, etc.). Only downloads the cover from the first valid match. **Warning**: Discogs search is unreliable for non-Latin scripts — Chinese queries often return incorrect results or the same unrelated release for multiple different albums. The validation rejects these mismatches. This is the primary source used when Discogs token is configured.
+4. **theaudiodb**: Requires `theAudioDbApiKey` config. Skipped when key is missing.
+5. **google**: Requires `googleApiKey` + `googleImageSearchEngineId` config. Skipped when missing.
+
+**Artist images**: `local → wikimedia → google`
+
+The `cover` tag is used in debug log filtering. Enable debug mode (`AUTO_TAG_DEBUG=true`) to trace each provider attempt, search query, and result via `grep '\"tag\":\"cover\"' ~/.auto-tagger/auto-tag-debug-*.log`.
 
