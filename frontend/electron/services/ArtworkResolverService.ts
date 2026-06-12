@@ -53,8 +53,6 @@ export interface ArtworkCredentials {
 }
 
 // ── Default provider order per kind ────────────────────────────
-// album-cover: local → cover-art-archive → discogs → theaudiodb → google
-// artist-image: local → wikimedia → google
 
 function defaultAlbumCoverProviders(): ArtworkProvider[] {
   return [
@@ -66,22 +64,37 @@ function defaultAlbumCoverProviders(): ArtworkProvider[] {
   ];
 }
 
+function defaultArtistImageProviders(): ArtworkProvider[] {
+  return [
+    { name: "local", needsCredentials: false, find: findLocal },
+    { name: "discogs", needsCredentials: false, find: findDiscogs },
+    { name: "wikimedia", needsCredentials: false, find: findWikimedia },
+    { name: "google", needsCredentials: true, find: findGoogle },
+  ];
+}
+
 // ── Service ─────────────────────────────────────────────────────────
 
 export class ArtworkResolverService {
+  private albumProviders: ArtworkProvider[];
+  private artistProviders: ArtworkProvider[];
   private providers: ArtworkProvider[];
   private credentials: ArtworkCredentials = {};
 
   constructor() {
-    this.providers = defaultAlbumCoverProviders();
+    this.albumProviders = defaultAlbumCoverProviders();
+    this.artistProviders = defaultArtistImageProviders();
+    this.providers = this.albumProviders;
   }
 
-  /** Override the provider list (for testing or customization). */
+  /** Override the provider list (for testing or customization). Sets all kind-specific lists. */
   setProviders(providers: ArtworkProvider[]): void {
     this.providers = providers;
+    this.albumProviders = providers;
+    this.artistProviders = providers;
   }
 
-  /** Get current provider names in order. */
+  /** Get current provider names in order. Defaults to album-cover providers. */
   getProviderNames(): ArtworkSource[] {
     return this.providers.map((p) => p.name);
   }
@@ -93,9 +106,15 @@ export class ArtworkResolverService {
 
   /** Resolve artwork by trying providers in order. */
   async resolve(ctx: ArtworkContext): Promise<ArtworkResult | null> {
-    logger.info("cover", `Resolve: kind=${ctx.kind} artist="${ctx.artistName ?? ""}" album="${ctx.albumName ?? ""}" mbid=${ctx.musicbrainzAlbumId ?? "null"} providers=[${this.providers.map(p => p.name).join(",")}]`);
+    const providers = ctx.kind === "album-cover" ? this.albumProviders : this.artistProviders;
 
-    for (const provider of this.providers) {
+    if (ctx.kind === "artist-image") {
+      logger.info("cover", `Resolve: kind=${ctx.kind} artist="${ctx.artistName ?? ""}" providers=[${providers.map(p => p.name).join(",")}]`);
+    } else {
+      logger.info("cover", `Resolve: kind=${ctx.kind} artist="${ctx.artistName ?? ""}" album="${ctx.albumName ?? ""}" mbid=${ctx.musicbrainzAlbumId ?? "null"} providers=[${providers.map(p => p.name).join(",")}]`);
+    }
+
+    for (const provider of providers) {
       const skipReason = this.skipReasonForProvider(provider, ctx);
       if (skipReason) {
         logger.debug("cover", `Resolve: skip provider=${provider.name} reason=${skipReason}`);
@@ -136,7 +155,11 @@ export class ArtworkResolverService {
       }
     }
 
-    logger.info("cover", `Resolve: ALL PROVIDERS FAILED for kind=${ctx.kind} artist="${ctx.artistName ?? ""}" album="${ctx.albumName ?? ""}"`);
+    if (ctx.kind === "artist-image") {
+      logger.info("cover", `Resolve: ALL PROVIDERS FAILED for kind=${ctx.kind} artist="${ctx.artistName ?? ""}"`);
+    } else {
+      logger.info("cover", `Resolve: ALL PROVIDERS FAILED for kind=${ctx.kind} artist="${ctx.artistName ?? ""}" album="${ctx.albumName ?? ""}"`);
+    }
     return null;
   }
 
@@ -184,7 +207,10 @@ export class ArtworkResolverService {
       if (ctx.kind !== "album-cover") return "wrong kind";
       if (!ctx.musicbrainzAlbumId) return "no mbid";
     }
+    // Safety nets for custom provider lists (setProviders):
+    // These guards fire only when a test provides a non-kind-specific provider list.
     if (provider.name === "wikimedia" && ctx.kind !== "artist-image") return "wrong kind";
+    if (provider.name === "theaudiodb" && ctx.kind !== "album-cover") return "wrong kind";
     if (provider.needsCredentials && !this.hasCredentials(provider.name)) return "missing credentials";
     return null;
   }
@@ -302,95 +328,44 @@ async function findCoverArtArchive(
  * downloads the cover from the first valid match. If no valid match exists,
  * returns null so the next provider can run.
  */
+/** Helper: download an image from a URL, return bytes + mime. */
+async function downloadImage(
+  url: string,
+): Promise<{ bytes: Buffer; mime: string } | null> {
+  const res = await fetch(url, { signal: AbortSignal.timeout(10_000) });
+  if (!res.ok) return null;
+  const bytes = Buffer.from(await res.arrayBuffer());
+  const mime = res.headers.get("content-type") ?? "image/jpeg";
+  return { bytes, mime };
+}
+
+// ── Discogs via DiscogsService ──────────────────────────────────────
+
+/**
+ * Discogs artwork lookup (artist-image + album-cover) via DiscogsService.
+ */
 async function findDiscogs(
   ctx: ArtworkContext,
   creds: ArtworkCredentials,
 ): Promise<ArtworkResult | null> {
   const artist = ctx.artistName;
-  const album = ctx.albumName;
-  if (!artist || !album) {
-    logger.debug("cover", "findDiscogs: skip — no artist or album name");
+  if (!artist) {
+    logger.debug("cover", "findDiscogs: skip — no artist");
     return null;
   }
 
-  const DISCOGS_BASE = "https://api.discogs.com";
-  const token = creds.discogsToken;
-
   try {
-    // Search releases with per_page=10 for candidate filtering
-    const searchUrl = `${DISCOGS_BASE}/database/search?type=release&per_page=10&q=${encodeURIComponent(`${artist} ${album}`)}`;
-    const headers: Record<string, string> = {
-      "User-Agent": "auto-tagger/0.1.0",
-    };
-    if (token) headers["Authorization"] = `Discogs token=${token}`;
+    if (ctx.kind === "artist-image") {
+      return await findDiscogsArtistImage(artist, creds);
+    }
 
-    logger.debug("cover", `findDiscogs: searching q="${artist} ${album}" per_page=10 token=${!!token}`);
-
-    const searchRes = await fetch(searchUrl, { headers, signal: AbortSignal.timeout(10_000) });
-    if (!searchRes.ok) {
-      logger.debug("cover", `findDiscogs: search HTTP ${searchRes.status}`);
+    const album = ctx.albumName;
+    if (!album) {
+      logger.debug("cover", "findDiscogs: skip — no album name");
       return null;
     }
 
-    const searchData = (await searchRes.json()) as {
-      results?: Array<{ cover_image?: string; title?: string; id?: number }>;
-    };
-    const results = searchData.results ?? [];
-    logger.debug("cover", `findDiscogs: search returned ${results.length} results`);
-
-    if (results.length === 0) return null;
-
-    // Scan all candidates for a valid artist+album match
-    for (let i = 0; i < results.length; i++) {
-      const candidate = results[i];
-      const title = candidate.title ?? "";
-
-      // Parse Discogs title as "Artist - Album"
-      const parsed = parseDiscogsTitle(title);
-      if (!parsed) {
-        logger.debug("cover", `findDiscogs: candidate[${i}] cannot parse title="${title}" — skip`);
-        continue;
-      }
-
-      // Validate artist match
-      const artistOk = await artistMatchesQuery(parsed.artist, ctx.artistName!);
-      if (!artistOk) {
-        logger.debug("cover", `findDiscogs: candidate[${i}] REJECT artist — title="${title}"`);
-        continue;
-      }
-
-      // Validate album match
-      const albumOk = await albumMatchesQuery(parsed.album, ctx.albumName!, ctx.artistName!);
-      if (!albumOk) {
-        logger.debug("cover", `findDiscogs: candidate[${i}] REJECT album — title="${title}"`);
-        continue;
-      }
-
-      // Found a match — use this candidate's cover
-      const coverUrl = candidate.cover_image;
-      if (!coverUrl) {
-        logger.debug("cover", `findDiscogs: candidate[${i}] ACCEPT artist+album but has no cover_image — title="${title}" id=${candidate.id ?? "?"}`);
-        continue;
-      }
-
-      logger.info("cover", `findDiscogs: candidate[${i}] ACCEPTED title="${title}" id=${candidate.id ?? "?"} url=${coverUrl}`);
-
-      // Download the cover image
-      const imgRes = await fetch(coverUrl, { signal: AbortSignal.timeout(10_000) });
-      if (!imgRes.ok) {
-        logger.debug("cover", `findDiscogs: image fetch HTTP ${imgRes.status} — try next candidate`);
-        continue;
-      }
-
-      const bytes = Buffer.from(await imgRes.arrayBuffer());
-      const mime = imgRes.headers.get("content-type") ?? "image/jpeg";
-      logger.debug("cover", `findDiscogs: downloaded ${bytes.length} bytes, type=${mime}`);
-
-      return { kind: ctx.kind, source: "discogs", bytes, mime, url: coverUrl };
-    }
-
-    logger.info("cover", `findDiscogs: no acceptable candidate among ${results.length} results for q="${artist} ${album}"`);
-    return null;
+    return await findDiscogsAlbumCover(artist, album, creds);
   } catch (err) {
     logger.warn("cover", "findDiscogs: threw", err);
     return null;
@@ -398,375 +373,102 @@ async function findDiscogs(
 }
 
 /**
- * TheAudioDB — album art from theaudiodb.com.
- * Credential: theaudiodb_api_key (required).
+ * Discogs artist image search.
+ * Uses DiscogsService.searchArtists() + getArtistDetail() to find
+ * artist images, with fallback from search cover_image to dedicated
+ * artist endpoint for images.
  */
-async function findTheAudioDb(
-  ctx: ArtworkContext,
+async function findDiscogsArtistImage(
+  artist: string,
   creds: ArtworkCredentials,
 ): Promise<ArtworkResult | null> {
-  const apiKey = creds.theAudioDbApiKey;
-  const album = ctx.albumName;
-  if (!apiKey || !album) {
-    logger.debug("cover", `findTheAudioDb: skip — apiKey=${!!apiKey} album=${!!album}`);
+  const token = creds.discogsToken;
+  if (!token) {
+    logger.debug("cover", "findDiscogsArtistImage: skip — no Discogs token");
     return null;
   }
 
-  try {
-    const url = `https://theaudiodb.com/api/v1/json/${encodeURIComponent(apiKey)}/searchalbum.php?s=${encodeURIComponent(ctx.artistName ?? "")}&a=${encodeURIComponent(album)}`;
-    logger.debug("cover", `findTheAudioDb: searching artist="${ctx.artistName ?? ""}" album="${album}"`);
+  const service = new DiscogsService({ token });
 
-    const res = await fetch(url, { signal: AbortSignal.timeout(10_000) });
-    if (!res.ok) {
-      logger.debug("cover", `findTheAudioDb: HTTP ${res.status}`);
-      return null;
-    }
-
-    const data = (await res.json()) as {
-      album?: Array<{ strAlbumThumb?: string }>;
-    };
-    const albumCount = data.album?.length ?? 0;
-    logger.debug("cover", `findTheAudioDb: returned ${albumCount} albums`);
-
-    if (!data.album || data.album.length === 0) return null;
-
-    const thumbUrl = data.album[0].strAlbumThumb;
-    if (!thumbUrl) {
-      logger.debug("cover", "findTheAudioDb: album result has no strAlbumThumb");
-      return null;
-    }
-
-    // TheAudioDB thumbs are often small; try replacing "preview" with larger
-    const largeUrl = thumbUrl.replace("/preview/", "/");
-    logger.debug("cover", `findTheAudioDb: thumb=${largeUrl}`);
-
-    const imgRes = await fetch(largeUrl, { signal: AbortSignal.timeout(10_000) });
-    if (!imgRes.ok) {
-      logger.debug("cover", `findTheAudioDb: image fetch HTTP ${imgRes.status}`);
-      return null;
-    }
-
-    const bytes = Buffer.from(await imgRes.arrayBuffer());
-    const mime = imgRes.headers.get("content-type") ?? "image/jpeg";
-    logger.debug("cover", `findTheAudioDb: downloaded ${bytes.length} bytes, type=${mime}`);
-
-    return { kind: ctx.kind, source: "theaudiodb", bytes, mime, url: largeUrl };
-  } catch (err) {
-    logger.warn("cover", "findTheAudioDb: threw", err);
+  // Use searchArtists for two-tier search (precise + generic)
+  const aliasResult = await service.searchArtists(artist);
+  if (!aliasResult) {
+    logger.debug("cover", `findDiscogsArtistImage: no artist results for "${artist}"`);
     return null;
   }
+
+  logger.debug("cover", `findDiscogsArtistImage: found artist id=${aliasResult.artistId} title="${aliasResult.title}"`);
+
+  // Try the dedicated /artists/{id} endpoint for images
+  const detail = await service.getArtistDetail(aliasResult.artistId);
+  if (detail && detail.images.length > 0) {
+    const image = detail.images.find((img) => img.type === "primary") ?? detail.images[0];
+    logger.info("cover", `findDiscogsArtistImage: ACCEPTED id=${aliasResult.artistId} url=${image.uri}`);
+    const img = await service.fetchImage(image.uri);
+    if (img) {
+      return { kind: "artist-image", source: "discogs", bytes: img.bytes, mime: img.mime, url: image.uri };
+    }
+  }
+
+  logger.info("cover", `findDiscogsArtistImage: no image for artist="${artist}" (id=${aliasResult.artistId})`);
+  return null;
 }
 
 /**
- * Wikimedia/Wikidata — artist image search.
- * Only applies for artist-image. Uses Wikidata API to find the artist,
- * then retrieves the Commons image.
+ * Discogs album cover search.
+ * Uses DiscogsService.searchReleases() and validates artist + album match.
  */
-async function findWikimedia(
-  ctx: ArtworkContext,
-  _creds: ArtworkCredentials,
-): Promise<ArtworkResult | null> {
-  const artist = ctx.artistName;
-  if (!artist) {
-    logger.debug("cover", "findWikimedia: skip — no artist");
-    return null;
-  }
-
-  try {
-    // 1. Search Wikidata for the artist
-    const wikiDataUrl = `https://www.wikidata.org/w/api.php?action=wbsearchentities&search=${encodeURIComponent(artist)}&language=en&limit=5&format=json`;
-    logger.debug("cover", `findWikimedia: searching Wikidata for "${artist}"`);
-
-    const wdRes = await fetch(wikiDataUrl, { signal: AbortSignal.timeout(10_000) });
-    if (!wdRes.ok) {
-      logger.debug("cover", `findWikimedia: Wikidata HTTP ${wdRes.status}`);
-      return null;
-    }
-
-    const wdData = (await wdRes.json()) as {
-      search?: Array<{ id: string; label?: string }>;
-    };
-    const searchCount = wdData.search?.length ?? 0;
-    logger.debug("cover", `findWikimedia: Wikidata returned ${searchCount} entities`);
-
-    if (!wdData.search || wdData.search.length === 0) return null;
-
-    // 2. Check for P18 (image) property on the first result
-    const entityId = wdData.search[0].id;
-    logger.debug("cover", `findWikimedia: selected entity ${entityId} ("${wdData.search[0].label ?? "?"}")`);
-
-    const entityUrl = `https://www.wikidata.org/wiki/Special:EntityData/${entityId}.json`;
-    const entityRes = await fetch(entityUrl, { signal: AbortSignal.timeout(10_000) });
-    if (!entityRes.ok) {
-      logger.debug("cover", `findWikimedia: entity HTTP ${entityRes.status}`);
-      return null;
-    }
-
-    const entityData = (await entityRes.json()) as Record<string, unknown>;
-    const entity = (entityData.entities as Record<string, unknown>)?.[entityId] as Record<string, unknown> | undefined;
-    if (!entity) {
-      logger.debug("cover", "findWikimedia: entity not found in response");
-      return null;
-    }
-
-    const claims = entity.claims as Record<string, unknown> | undefined;
-    if (!claims) {
-      logger.debug("cover", "findWikimedia: entity has no claims");
-      return null;
-    }
-
-    const p18 = claims.P18 as Array<Record<string, unknown>> | undefined;
-    if (!p18 || p18.length === 0) {
-      logger.debug("cover", "findWikimedia: entity has no P18 (image) claim");
-      return null;
-    }
-
-    const filename = ((p18[0].mainsnak as any)?.datavalue?.value as string | undefined);
-    if (!filename) {
-      logger.debug("cover", "findWikimedia: P18 claim has no value");
-      return null;
-    }
-
-    // 3. Fetch the image via Wikimedia Commons
-    const commonsUrl = `https://commons.wikimedia.org/wiki/Special:FilePath/${encodeURIComponent(filename.replace(/ /g, "_"))}`;
-    logger.debug("cover", `findWikimedia: Commons filename="${filename}" url=${commonsUrl}`);
-
-    const imgRes = await fetch(commonsUrl, { signal: AbortSignal.timeout(15_000) });
-    if (!imgRes.ok) {
-      logger.debug("cover", `findWikimedia: Commons HTTP ${imgRes.status}`);
-      return null;
-    }
-
-    const bytes = Buffer.from(await imgRes.arrayBuffer());
-    const mime = imgRes.headers.get("content-type") ?? "image/jpeg";
-    logger.debug("cover", `findWikimedia: downloaded ${bytes.length} bytes, type=${mime}`);
-
-    return { kind: "artist-image", source: "wikimedia", bytes, mime, url: commonsUrl };
-  } catch (err) {
-    logger.warn("cover", "findWikimedia: threw", err);
-    return null;
-  }
-}
-
-/**
- * Google Custom Search — final fallback.
- * Requires googleApiKey and googleSearchEngineId credentials.
- * Searches for "{artist} {album} cover" for album covers,
- * or "{artist} artist photo" for artist images.
- */
-async function findGoogle(
-  ctx: ArtworkContext,
+async function findDiscogsAlbumCover(
+  artist: string,
+  album: string,
   creds: ArtworkCredentials,
 ): Promise<ArtworkResult | null> {
-  const apiKey = creds.googleApiKey;
-  const cx = creds.googleSearchEngineId;
-  if (!apiKey || !cx) {
-    logger.debug("cover", "findGoogle: skip — missing apiKey or cx");
+  const token = creds.discogsToken;
+  if (!token) {
+    logger.debug("cover", "findDiscogsAlbumCover: skip — no Discogs token");
     return null;
   }
 
-  try {
-    const query =
-      ctx.kind === "album-cover"
-        ? `${ctx.artistName ?? ""} ${ctx.albumName ?? ""} album cover`
-        : `${ctx.artistName ?? ""} artist photo`;
+  const service = new DiscogsService({ token });
+  const searchResults = await service.searchReleases(artist, album, "release", 10);
 
-    const url = `https://www.googleapis.com/customsearch/v1?key=${encodeURIComponent(apiKey)}&cx=${encodeURIComponent(cx)}&searchType=image&q=${encodeURIComponent(query)}&num=1`;
-    logger.debug("cover", `findGoogle: query="${query}"`);
-
-    const res = await fetch(url, { signal: AbortSignal.timeout(10_000) });
-    if (!res.ok) {
-      logger.debug("cover", `findGoogle: HTTP ${res.status}`);
-      return null;
-    }
-
-    const data = (await res.json()) as {
-      items?: Array<{ link?: string; mime?: string }>;
-    };
-    const itemCount = data.items?.length ?? 0;
-    logger.debug("cover", `findGoogle: returned ${itemCount} items`);
-
-    if (!data.items || data.items.length === 0) return null;
-
-    const imageUrl = data.items[0].link;
-    if (!imageUrl) {
-      logger.debug("cover", "findGoogle: first item has no link");
-      return null;
-    }
-
-    logger.debug("cover", `findGoogle: selected image ${imageUrl}`);
-
-    const imgRes = await fetch(imageUrl, { signal: AbortSignal.timeout(10_000) });
-    if (!imgRes.ok) {
-      logger.debug("cover", `findGoogle: image fetch HTTP ${imgRes.status}`);
-      return null;
-    }
-
-    const bytes = Buffer.from(await imgRes.arrayBuffer());
-    const mime = imgRes.headers.get("content-type") ?? data.items[0].mime ?? "image/jpeg";
-    logger.debug("cover", `findGoogle: downloaded ${bytes.length} bytes, type=${mime}`);
-
-    return { kind: ctx.kind, source: "google", bytes, mime, url: imageUrl };
-  } catch (err) {
-    logger.warn("cover", "findGoogle: threw", err);
+  if (searchResults.length === 0) {
+    logger.debug("cover", `findDiscogsAlbumCover: no results for artist="${artist}" album="${album}"`);
     return null;
   }
-}
 
-// ── Discogs title parsing and candidate matching ────────────────────
+  for (let i = 0; i < searchResults.length; i++) {
+    const candidate = searchResults[i];
+    const title = candidate.title ?? "";
 
-const UNICODE_PUNCT_SYMBOL_RE = /[\p{P}\p{S}]+/gu;
-const WHITESPACE_RE = /\s+/g;
+    // Parse title format: "Artist - Album" (Discogs format)
+    const candidateArtist = title.includes(" - ") ? title.split(" - ")[0].trim() : "";
+    const candidateAlbum = title.includes(" - ") ? title.split(" - ")[1].trim() : title;
 
-/**
- * Parse a Discogs release title into artist and album parts.
- * Discogs titles follow the format "Artist Name - Album Title".
- * Returns null if the title can't be parsed.
- */
-function parseDiscogsTitle(title: string): { artist: string; album: string } | null {
-  if (!title) return null;
-  const sepIndex = title.indexOf(" - ");
-  if (sepIndex === -1) return null;
-  return {
-    artist: title.slice(0, sepIndex).trim(),
-    album: title.slice(sepIndex + 3).trim(),
-  };
-}
+    // Validate artist and album match
+    const artistOk = candidateArtist ? await artistMatchesQuery(candidateArtist, artist) : false;
+    if (!artistOk) {
+      logger.debug("cover", `findDiscogsAlbumCover: candidate[${i}] REJECT artist — title="${title}"`);
+      continue;
+    }
 
-/**
- * Normalize text for comparison: NFKC + lowercase + strip punctuation/symbols + collapse whitespace.
- */
-function normalizeForMatch(text: string): string {
-  return text
-    .normalize("NFKC")
-    .toLowerCase()
-    .replace(UNICODE_PUNCT_SYMBOL_RE, " ")
-    .replace(WHITESPACE_RE, " ")
-    .trim();
-}
+    const albumOk = candidateAlbum ? await artistMatchesQuery(candidateAlbum, album) : false;
+    if (!albumOk) {
+      logger.debug("cover", `findDiscogsAlbumCover: candidate[${i}] REJECT album — title="${title}"`);
+      continue;
+    }
 
-// ── Lazy OpenCC loader for Simplified/Traditional Chinese conversion ─
+    if (!candidate.cover_image) {
+      logger.debug("cover", `findDiscogsAlbumCover: candidate[${i}] ACCEPT artist+album but no cover_image — title="${title}"`);
+      continue;
+    }
 
-let openCCLazyInstance: {
-  s2t: (s: string) => string;
-  t2s: (s: string) => string;
-} | null | undefined = undefined;
-
-async function getOpenCCLazy(): Promise<{
-  s2t: (s: string) => string;
-  t2s: (s: string) => string;
-} | null> {
-  if (openCCLazyInstance !== undefined) return openCCLazyInstance;
-  try {
-    const mod = await import("opencc-js");
-    const s2t = mod.Converter({ from: "cn", to: "tw" });
-    const t2s = mod.Converter({ from: "tw", to: "cn" });
-    openCCLazyInstance = { s2t, t2s };
-    return openCCLazyInstance;
-  } catch {
-    openCCLazyInstance = null;
-    return null;
-  }
-}
-
-/**
- * Generate normalized variants of a name, including Simplified/Traditional Chinese conversions.
- */
-async function getNormalizedVariants(name: string): Promise<string[]> {
-  const variants = new Set<string>();
-  const nf = normalizeForMatch(name);
-  variants.add(nf);
-
-  const oc = await getOpenCCLazy();
-  if (oc) {
-    const s2tNorm = normalizeForMatch(oc.s2t(name));
-    if (s2tNorm !== nf) variants.add(s2tNorm);
-    const t2sNorm = normalizeForMatch(oc.t2s(name));
-    if (t2sNorm !== nf && t2sNorm !== s2tNorm) variants.add(t2sNorm);
-  }
-
-  return [...variants];
-}
-
-/**
- * Clean a Discogs artist string and return parts for matching.
- * - Strips trailing `*` (Discogs label-artifact indicator)
- * - Splits on ` = ` to get alternative representations (e.g. "F.I.R. = 飛兒楽團")
- */
-function cleanDiscogsArtistParts(artist: string): string[] {
-  const cleaned = artist.replace(/\s*\*+$/, "").trim();
-  if (!cleaned) return [];
-  const parts = cleaned.split(/\s*=\s*/).map((p) => p.trim()).filter(Boolean);
-  return parts.length > 0 ? parts : [cleaned];
-}
-
-/**
- * Check whether a Discogs parsed artist name matches the requested query artist.
- *
- * Rejects:
- * - "Various" and "Various Artists"
- * - Artists with no overlap after normalization
- *
- * Accepts:
- * - Exact match after NFKC + punct/symbol stripping
- * - Simplified/Traditional Chinese variants
- * - Matching any part of a " = " separated artist (e.g. "F.I.R." matches "F.I.R. = 飛兒楽團")
- * - Safe containment when one normalized form is a substring of another
- *   (handles cases like "F.I.R." contained in "F.I.R.飞儿乐团")
- */
-async function artistMatchesQuery(discogsArtist: string, queryArtist: string): Promise<boolean> {
-  // Reject "Various" outright (first word check covers "Various" and "Various Artists")
-  const firstWord = discogsArtist.split(/\s+/)[0]?.toLowerCase() ?? "";
-  if (firstWord === "various") return false;
-
-  const parts = cleanDiscogsArtistParts(discogsArtist);
-  const queryVariants = await getNormalizedVariants(queryArtist);
-
-  for (const part of parts) {
-    const partVariants = await getNormalizedVariants(part);
-
-    // Exact / variant match
-    if (partVariants.some((pv) => queryVariants.includes(pv))) return true;
-
-    // Safe containment: one normalized variant contains the other
-    // (min length 3 to avoid false positives on single characters)
-    for (const pv of partVariants) {
-      if (pv.length < 3) continue;
-      for (const qv of queryVariants) {
-        if (qv.length < 3) continue;
-        if (pv.includes(qv) || qv.includes(pv)) return true;
-      }
+    logger.info("cover", `findDiscogsAlbumCover: candidate[${i}] ACCEPTED title="${title}" id=${candidate.id ?? "?"} url=${candidate.cover_image}`);
+    const img = await downloadImage(candidate.cover_image);
+    if (img) {
+      return { kind: "album-cover", source: "discogs", bytes: img.bytes, mime: img.mime, url: candidate.cover_image };
     }
   }
 
-  return false;
-}
 
-/**
- * Check whether a Discogs parsed album name matches the requested query album.
- *
- * Accepts (in order of preference):
- * 1. Exact match after NFKC + punct/symbol normalization
- * 2. Simplified/Traditional Chinese variant match (e.g. "無限" ≈ "无限")
- * 3. Self-titled convention: if the Discogs title is "同名专辑" / "同名"
- *    and the query album is the same as the query artist (self-titled release),
- *    it's a match.
- */
-async function albumMatchesQuery(discogsAlbum: string, queryAlbum: string, queryArtist?: string): Promise<boolean> {
-  const queryNorm = normalizeForMatch(queryAlbum);
-
-  // Check if queryNorm matches any normalized variant of the discogs album
-  // (handles exact match and Simplified/Traditional Chinese variants)
-  const albumVariants = await getNormalizedVariants(discogsAlbum);
-  if (albumVariants.includes(queryNorm)) return true;
-
-  // Self-titled convention: "同名专辑" (same-name album) on Discogs
-  // matches when the query album name equals the query artist name.
-  if (queryArtist) {
-    const albumNorm = normalizeForMatch(discogsAlbum);
-    if ((albumNorm === "同名专辑" || albumNorm === "同名") && queryNorm === normalizeForMatch(queryArtist)) return true;
-  }
-
-  return false;
-}
 
