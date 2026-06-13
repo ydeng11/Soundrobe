@@ -1533,14 +1533,13 @@ function buildMutatingTools(): AssistantToolDef[] {
           };
         }
 
-        // Text fields that can be converted
         const TEXT_FIELDS = ["title", "artist", "album", "albumArtist", "genre", "composer", "comment", "description", "lyrics"];
-        // Array fields (string[] in TrackData, stored as "; "-joined strings)
-        const ARRAY_FIELDS = ["artists", "albumArtists"];
+        const ARRAY_FIELD_NAMES = new Set(["artists", "albumArtists"]);
+        const ALL_FIELDS = [...TEXT_FIELDS, ...ARRAY_FIELD_NAMES];
 
         const fieldsToConvert = fieldFilter && fieldFilter.length > 0
-          ? fieldFilter.filter((f) => [...TEXT_FIELDS, ...ARRAY_FIELDS].includes(f))
-          : [...TEXT_FIELDS, ...ARRAY_FIELDS];
+          ? fieldFilter.filter((f) => ALL_FIELDS.includes(f))
+          : ALL_FIELDS;
 
         if (fieldsToConvert.length === 0) {
           return { ok: true, summary: "No valid tag fields specified for conversion." };
@@ -1548,20 +1547,7 @@ function buildMutatingTools(): AssistantToolDef[] {
 
         const directionLabel = direction === "s2t" ? "Simplified → Traditional" : "Traditional → Simplified";
 
-        // Convert a single string value
-        function convertValue(val: string): string {
-          return converter!(val);
-        }
-
-        // Convert an array value (joined as "; ")
-        function convertArrayValue(val: string): string {
-          return val.split(/;\s*/).map((part) => {
-            const trimmed = part.trim();
-            return trimmed ? converter!(trimmed) : part;
-          }).join("; ");
-        }
-
-        // Build instructions per track
+        // Build per-track conversion instructions
         const instructions: TagUpdateInstruction[] = [];
         const trackByPath = new Map<string, TrackData>();
         for (const t of currentAppState.tracks) {
@@ -1574,23 +1560,22 @@ function buildMutatingTools(): AssistantToolDef[] {
 
           const fields: Record<string, string | null> = {};
           for (const field of fieldsToConvert) {
-            const currentValue = track[field as keyof TrackData];
-            if (currentValue === null || currentValue === undefined) continue;
+            const raw = track[field as keyof TrackData];
+            if (raw == null) continue;
 
-            if (ARRAY_FIELDS.includes(field)) {
-              const str = Array.isArray(currentValue)
-                ? (currentValue as string[]).join("; ")
-                : String(currentValue);
-              if (!str) continue;
-              const converted = convertArrayValue(str);
-              if (converted !== str) {
+            if (ARRAY_FIELD_NAMES.has(field)) {
+              const arr = raw as string[];
+              if (arr.length === 0) continue;
+              const original = arr.join("; ");
+              const converted = arr.map((part) => converter!(part)).join("; ");
+              if (converted !== original) {
                 fields[field] = converted;
               }
             } else {
-              const str = String(currentValue);
-              if (!str) continue;
-              const converted = convertValue(str);
-              if (converted !== str) {
+              const original = String(raw);
+              if (!original) continue;
+              const converted = converter!(original);
+              if (converted !== original) {
                 fields[field] = converted;
               }
             }
