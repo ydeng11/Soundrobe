@@ -1467,6 +1467,173 @@ function buildMutatingTools(): AssistantToolDef[] {
       },
     },
     {
+      name: "chinese_convert",
+      description: "Composite macro: convert Chinese text between Simplified and Traditional scripts across specified tag fields. Uses opencc-js for conversion. Creates a preview action batch for user approval. No API calls.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          target_scope: {
+            type: "string",
+            enum: ["selected", "active_album", "library", "explicit_paths"],
+            description: "Target tracks. Use explicit_paths for specific tracks, active_album for the current album, selected for selection, or library for all loaded tracks.",
+          },
+          paths: {
+            type: "array",
+            items: { type: "string" },
+            description: "Track paths used when target_scope is explicit_paths.",
+          },
+          fields: {
+            type: "array",
+            items: {
+              type: "string",
+              enum: ["title", "artist", "artists", "album", "albumArtist", "albumArtists", "genre", "composer", "comment", "description", "lyrics"],
+            },
+            description: "Tag fields to convert between scripts. Defaults to all text-based fields (title, artist, artists, album, albumArtist, albumArtists, genre, composer, comment, description, lyrics).",
+          },
+          direction: {
+            type: "string",
+            enum: ["s2t", "t2s"],
+            description: "Conversion direction. 's2t' = Simplified Chinese to Traditional Chinese (CN → TW/HK). 't2s' = Traditional Chinese to Simplified Chinese (TW/HK → CN).",
+          },
+        },
+        required: ["target_scope", "direction"],
+      },
+      isReadOnly: false,
+      riskLevel: "low",
+      operationKind: "metadata_edit",
+      executor: async (args) => {
+        if (!trackTagService) {
+          return { ok: false, summary: "TrackTagService not initialized", error: "SERVICE_NOT_INITIALIZED" };
+        }
+
+        const targetScope = String(args.target_scope) as TaskTargetScope;
+        const direction = String(args.direction) as "s2t" | "t2s";
+        const fieldFilter = args.fields as string[] | undefined;
+        const { paths: targetPaths, description } = resolveTargetPaths(
+          targetScope,
+          args.paths as string[] | undefined,
+        );
+
+        if (targetPaths.length === 0) {
+          return { ok: true, summary: `No tracks found for target_scope "${targetScope}".${noTracksSuggestion(targetScope)}` };
+        }
+
+        // Build opencc-js converter
+        let converter: ((text: string) => string) | null = null;
+        try {
+          const mod = await import("opencc-js");
+          converter = direction === "s2t"
+            ? mod.Converter({ from: "cn", to: "tw" })
+            : mod.Converter({ from: "tw", to: "cn" });
+        } catch {
+          return {
+            ok: false,
+            summary: "opencc-js is not available. Cannot perform Chinese script conversion.",
+            error: "MISSING_DEPENDENCY",
+          };
+        }
+
+        // Text fields that can be converted
+        const TEXT_FIELDS = ["title", "artist", "album", "albumArtist", "genre", "composer", "comment", "description", "lyrics"];
+        // Array fields (string[] in TrackData, stored as "; "-joined strings)
+        const ARRAY_FIELDS = ["artists", "albumArtists"];
+
+        const fieldsToConvert = fieldFilter && fieldFilter.length > 0
+          ? fieldFilter.filter((f) => [...TEXT_FIELDS, ...ARRAY_FIELDS].includes(f))
+          : [...TEXT_FIELDS, ...ARRAY_FIELDS];
+
+        if (fieldsToConvert.length === 0) {
+          return { ok: true, summary: "No valid tag fields specified for conversion." };
+        }
+
+        const directionLabel = direction === "s2t" ? "Simplified → Traditional" : "Traditional → Simplified";
+
+        // Convert a single string value
+        function convertValue(val: string): string {
+          return converter!(val);
+        }
+
+        // Convert an array value (joined as "; ")
+        function convertArrayValue(val: string): string {
+          return val.split(/;\s*/).map((part) => {
+            const trimmed = part.trim();
+            return trimmed ? converter!(trimmed) : part;
+          }).join("; ");
+        }
+
+        // Build instructions per track
+        const instructions: TagUpdateInstruction[] = [];
+        const trackByPath = new Map<string, TrackData>();
+        for (const t of currentAppState.tracks) {
+          trackByPath.set(t.path, t);
+        }
+
+        for (const tp of targetPaths) {
+          const track = trackByPath.get(tp);
+          if (!track) continue;
+
+          const fields: Record<string, string | null> = {};
+          for (const field of fieldsToConvert) {
+            const currentValue = track[field as keyof TrackData];
+            if (currentValue === null || currentValue === undefined) continue;
+
+            if (ARRAY_FIELDS.includes(field)) {
+              const str = Array.isArray(currentValue)
+                ? (currentValue as string[]).join("; ")
+                : String(currentValue);
+              if (!str) continue;
+              const converted = convertArrayValue(str);
+              if (converted !== str) {
+                fields[field] = converted;
+              }
+            } else {
+              const str = String(currentValue);
+              if (!str) continue;
+              const converted = convertValue(str);
+              if (converted !== str) {
+                fields[field] = converted;
+              }
+            }
+          }
+
+          if (Object.keys(fields).length > 0) {
+            instructions.push({ trackPath: tp, fields });
+          }
+        }
+
+        if (instructions.length === 0) {
+          return {
+            ok: true,
+            summary: `No ${directionLabel} conversions needed for ${description} — values already in target script or contain no Chinese text.`,
+          };
+        }
+
+        // Create preview batch
+        const standardPlan = await trackTagService.planTagUpdates(instructions);
+        const summary = standardPlan.summary;
+
+        if (!currentRuntime) {
+          return { ok: true, summary };
+        }
+
+        const batch = currentRuntime.createActionBatch({
+          kind: "metadata-update",
+          title: `Chinese script conversion (${directionLabel}) for ${description}`,
+          summary,
+          riskLevel: "low",
+          actions: metadataPreviewActions({ standardActions: standardPlan.actions, extraActions: [] }),
+          reversible: true,
+        });
+
+        return {
+          ok: true,
+          summary: `Preview created (${batch.id}): ${summary}. Approve in the assistant panel to apply.`,
+          pendingActionBatchId: batch.id,
+          data: { batch, instructions, direction, fieldsToConvert },
+        };
+      },
+    },
+    {
       name: "strip_filename_prefixes",
       description: "Composite macro: strip leading number prefixes from track filenames. Handles patterns like '01  Name.ext', '01. Name.ext', '01 - Name.ext'. Use when the number prefix is in the filename, not the metadata title tag (e.g. '01 寂寞在唱歌.wav' → '寂寞在唱歌.wav'). No API calls.",
       inputSchema: {
