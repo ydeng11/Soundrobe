@@ -525,8 +525,24 @@ export async function matchRemoteCandidateTracks(
     }
   }
 
-  // 5. Determine if we have a full ordered match
-  const isFullOrderedMatch =
+  // 5b. Positional fallback: when NO title matches succeeded but track counts match
+  //     (and there are at least 2 tracks), assume the track listings are in the same
+  //     order. This handles cases like Chinese albums on MusicBrainz where local titles
+  //     (Chinese) differ completely from remote titles (English/Pinyin).
+  //     Requires >=2 tracks because single-track matching is meaningless (only one
+  //     position exists). Only activates when 0 title matches — if any matched,
+  //     alignment is ambiguous.
+  if (stats.matched === 0 && localTracks.length === remoteTracks.length && localTracks.length >= 2) {
+    for (let i = 0; i < localTracks.length; i++) {
+      matchedLocal[i] = i;
+      matchedRemote.add(i);
+    }
+    stats.matched = localTracks.length;
+    // Clear stale skip entries from failed title-match attempt
+    stats.skipped = [];
+  }
+
+  const finalIsFullOrderedMatch =
     stats.matched === localTracks.length &&
     localTracks.length === remoteTracks.length;
 
@@ -580,7 +596,7 @@ export async function matchRemoteCandidateTracks(
     }
 
     // ── Track/disc number fields: only for full ordered match ─
-    if (isFullOrderedMatch) {
+    if (finalIsFullOrderedMatch) {
       if (remoteTrack.trackNumber != null)
         result.trackNumber = remoteTrack.trackNumber;
       if (remoteTrack.trackTotal != null)
@@ -594,5 +610,5 @@ export async function matchRemoteCandidateTracks(
     return result;
   });
 
-  return { tracks: outputTracks, stats, isFullOrderedMatch };
+  return { tracks: outputTracks, stats, isFullOrderedMatch: finalIsFullOrderedMatch };
 }

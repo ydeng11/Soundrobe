@@ -120,6 +120,29 @@ class DebugLogger {
     return elapsed;
   }
 
+  // ── Serialization helpers ──────────────────────────────────────
+
+  /** Recursively convert Error objects to plain objects for JSON serialization. */
+  private serializeData(data: unknown): unknown {
+    if (data instanceof Error) {
+      const plain: Record<string, unknown> = {
+        name: data.name,
+        message: data.message,
+        stack: data.stack,
+      };
+      // Extract any custom enumerable properties the Error might carry
+      for (const key of Object.keys(data)) {
+        plain[key] = (data as unknown as Record<string, unknown>)[key];
+      }
+      // Recursively handle cause chains
+      if (data.cause !== undefined) {
+        plain.cause = this.serializeData(data.cause);
+      }
+      return plain;
+    }
+    return data;
+  }
+
   // ── Internals ──────────────────────────────────────────────────
 
   private emit(
@@ -135,7 +158,7 @@ class DebugLogger {
       tag,
       level,
       message,
-      data,
+      data: this.serializeData(data),
     };
 
     // Console output
