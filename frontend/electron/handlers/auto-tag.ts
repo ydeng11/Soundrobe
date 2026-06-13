@@ -995,6 +995,8 @@ class TaskManager {
     if (candidate.genre) albumFields.genre = candidate.genre;
     if (candidate.musicbrainzAlbumId !== undefined) albumFields.musicbrainzAlbumId = candidate.musicbrainzAlbumId;
     if (candidate.musicbrainzArtistId !== undefined) albumFields.musicbrainzArtistId = candidate.musicbrainzArtistId;
+    if (candidate.discogsReleaseId !== undefined) albumFields.discogsReleaseId = candidate.discogsReleaseId;
+    if (candidate.discogsArtistId !== undefined) albumFields.discogsArtistId = candidate.discogsArtistId;
     if (cover) {
       albumFields.coverData = cover.data;
       albumFields.coverMime = cover.mime;

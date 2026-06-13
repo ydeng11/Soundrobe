@@ -157,6 +157,7 @@ export class DiscogsClient {
         }
         if (!candidate) {
           const artists = splitArtistNames([artistName]);
+          const discogsId = result.id != null ? String(result.id) : null;
           candidate = makeAlbumCandidate({
             artist: artistName,
             artists,
@@ -165,6 +166,7 @@ export class DiscogsClient {
             albumArtists: artists,
             year: result.year != null ? String(result.year) : null,
             genre: mergeGenreStyle(result.genre, result.style),
+            discogsReleaseId: discogsId,
             tracks: [],
             source: "discogs",
           });
@@ -195,6 +197,7 @@ export class DiscogsClient {
       if (!response.ok) return null;
 
       const data = (await response.json()) as {
+        id?: number;
         title?: string;
         artists?: Array<Record<string, unknown>>;
         year?: number | string;
@@ -206,6 +209,7 @@ export class DiscogsClient {
       const artists = parseDiscogsArtists(data.artists, fallbackArtist);
       const albumArtist = artistDisplayName(artists, fallbackArtist);
       const tracks = this.tracksFromRelease(data.tracklist ?? [], artists);
+      const releaseIdStr = data.id != null ? String(data.id) : null;
       return makeAlbumCandidate({
         artist: albumArtist,
         artists,
@@ -214,6 +218,7 @@ export class DiscogsClient {
         albumArtists: artists,
         year: data.year != null ? String(data.year) : fallbackYear,
         genre: mergeGenreStyle(data.genres, data.styles) ?? fallbackGenre,
+        discogsReleaseId: releaseIdStr,
         tracks,
         source: "discogs",
       });

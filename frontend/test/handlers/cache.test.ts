@@ -45,14 +45,18 @@ describeMatchCache("MatchCache — lookup cache", () => {
     expect(cache.get(req)).toBeNull();
   });
 
-  it("stores and retrieves candidates", () => {
+  it("stores and retrieves candidates with provider IDs", () => {
     const req = makeLookupRequest({ artistHint: "Beatles", albumHint: "Abbey Road" });
     const candidates = [
       makeAlbumCandidate({
         artist: "The Beatles",
         album: "Abbey Road",
-        source: "musicbrainz",
+        source: "discogs",
         year: "1969",
+        musicbrainzAlbumId: "mb-album-1",
+        musicbrainzArtistId: "mb-artist-1",
+        discogsReleaseId: "6951078",
+        discogsArtistId: "1902728",
       }),
     ];
     cache.set(req, candidates);
@@ -62,8 +66,12 @@ describeMatchCache("MatchCache — lookup cache", () => {
     expect(retrieved).toHaveLength(1);
     expect(retrieved![0].artist).toBe("The Beatles");
     expect(retrieved![0].album).toBe("Abbey Road");
-    expect(retrieved![0].source).toBe("musicbrainz");
+    expect(retrieved![0].source).toBe("discogs");
     expect(retrieved![0].year).toBe("1969");
+    expect(retrieved![0].musicbrainzAlbumId).toBe("mb-album-1");
+    expect(retrieved![0].musicbrainzArtistId).toBe("mb-artist-1");
+    expect(retrieved![0].discogsReleaseId).toBe("6951078");
+    expect(retrieved![0].discogsArtistId).toBe("1902728");
   });
 
   it("does not store empty candidates list", () => {

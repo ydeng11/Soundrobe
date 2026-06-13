@@ -8,7 +8,7 @@ describe("DiscogsClient", () => {
     globalThis.fetch = originalFetch;
   });
 
-  it("returns candidates from search results", async () => {
+  it("returns candidates from search results with discogsReleaseId", async () => {
     globalThis.fetch = vi.fn().mockImplementation(async (url: string) => {
       if (url.includes("/database/search")) {
         return {
@@ -20,7 +20,7 @@ describe("DiscogsClient", () => {
                 title: "The Beatles - Abbey Road",
                 year: 1969,
                 genre: ["Rock", "Pop"],
-                resource_url: "https://api.discogs.com/masters/123",
+                resource_url: "https://api.discogs.com/releases/123",
               },
             ],
           }),
@@ -30,6 +30,11 @@ describe("DiscogsClient", () => {
         return {
           ok: true,
           json: async () => ({
+            id: 123,
+            title: "Abbey Road",
+            artists: [{ name: "The Beatles" }],
+            genres: ["Rock"],
+            styles: ["Pop"],
             tracklist: [
               { position: "1", title: "Come Together", duration: "4:19" },
               { position: "2", title: "Something", duration: "3:02" },
@@ -48,6 +53,7 @@ describe("DiscogsClient", () => {
     expect(results[0].album).toBe("Abbey Road");
     expect(results[0].year).toBe("1969");
     expect(results[0].source).toBe("discogs");
+    expect(results[0].discogsReleaseId).toBe("123");
   });
 
   it("returns tracks with correct durations", async () => {
@@ -165,6 +171,7 @@ describe("DiscogsClient", () => {
       return {
         ok: true,
         json: async () => ({
+          id: 99,
           title: "Album",
           artists: [{ name: "Artist" }],
           genres: ["Pop"],
@@ -182,6 +189,37 @@ describe("DiscogsClient", () => {
     expect(results[0].genre).toBe("Pop, Cantopop");
     expect(results[0].tracks[0].discNumber).toBe(1);
     expect(results[0].tracks[0].trackNumber).toBe(1);
+    expect(results[0].discogsReleaseId).toBe("99");
+  });
+
+  it("lookupReleaseById returns discogsReleaseId", async () => {
+    globalThis.fetch = vi.fn().mockImplementation(async (url: string) => {
+      if (url.includes("/releases/6951078")) {
+        return {
+          ok: true,
+          json: async () => ({
+            id: 6951078,
+            title: "幻象波普星 = Phantom Pop Star",
+            artists: [{ name: "Hedgehog (4)" }],
+            year: 2017,
+            genres: ["Rock"],
+            styles: [],
+            tracklist: [{ position: "1", title: "幻象波普星", duration: "4:00" }],
+          }),
+        };
+      }
+      return { ok: false };
+    });
+
+    const client = new DiscogsClient({ token: null });
+    const candidate = await client.lookupReleaseById("6951078");
+
+    expect(candidate).not.toBeNull();
+    expect(candidate!.source).toBe("discogs");
+    expect(candidate!.discogsReleaseId).toBe("6951078");
+    expect(candidate!.album).toBe("幻象波普星 = Phantom Pop Star");
+    expect(candidate!.artist).toBe("Hedgehog");
+    expect(candidate!.year).toBe("2017");
   });
 
   it("shares rate limiter across instances (app-wide)", async () => {

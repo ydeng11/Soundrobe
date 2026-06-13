@@ -107,6 +107,58 @@ function createMinimalFlac(
   fs.writeFileSync(filePath, Buffer.concat(parts));
 }
 
+describe("writeTags — combined MusicBrainz + Discogs provider IDs (MP3)", () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "writer-combined-mp3-"));
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it("writes and reads all four provider IDs together via readTrackMetadata", async () => {
+    const fp = path.join(tmpDir, "test.mp3");
+    createMinimalMp3(fp);
+
+    await writeTags(fp, {
+      title: "Test",
+      musicbrainzAlbumId: "mb-album-1",
+      musicbrainzArtistId: "mb-artist-1",
+      musicbrainzTrackId: "mb-track-1",
+      discogsArtistId: "1902728",
+      discogsReleaseId: "6951078",
+    });
+
+    const meta = await readTrackMetadata(fp);
+    expect(meta.musicbrainzAlbumId).toBe("mb-album-1");
+    expect(meta.musicbrainzArtistId).toBe("mb-artist-1");
+    expect(meta.musicbrainzTrackId).toBe("mb-track-1");
+    expect(meta.discogsArtistId).toBe("1902728");
+    expect(meta.discogsReleaseId).toBe("6951078");
+  });
+
+  it("shows all four provider IDs as extra tags on MP3", async () => {
+    const fp = path.join(tmpDir, "test.mp3");
+    createMinimalMp3(fp);
+
+    await writeTags(fp, {
+      musicbrainzAlbumId: "mb-album-1",
+      musicbrainzArtistId: "mb-artist-1",
+      discogsArtistId: "1902728",
+      discogsReleaseId: "6951078",
+    });
+
+    const extras = await readExtraTags(fp);
+    const keys = extras.map((t) => t.key);
+    expect(keys).toContain("MusicBrainz Album Id");
+    expect(keys).toContain("MusicBrainz Artist Id");
+    expect(keys).toContain("Discogs Artist Id");
+    expect(keys).toContain("Discogs Release Id");
+  });
+});
+
 describe("writeTags — Discogs IDs round-trip (MP3)", () => {
   let tmpDir: string;
 

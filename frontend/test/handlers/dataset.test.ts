@@ -205,7 +205,7 @@ describeDatasetReader("DatasetReader — setup", () => {
 });
 
 describeDatasetReader("DatasetReader — queries", () => {
-  it("returns results for exact match", () => {
+  it("returns results for exact match with musicbrainz IDs", () => {
     const reader = new DatasetReader(dbPath);
     const results = reader.queryAlbum("The Beatles", "Abbey Road");
     expect(results).toHaveLength(1);
@@ -213,6 +213,10 @@ describeDatasetReader("DatasetReader — queries", () => {
     expect(results[0].album).toBe("Abbey Road");
     expect(results[0].year).toBe("1969");
     expect(results[0].source).toBe("dataset");
+    expect(results[0].musicbrainzAlbumId).toBe("mb-abbey-1");
+    expect(results[0].musicbrainzArtistId).toBe("mb-beatles-1");
+    expect(results[0].discogsReleaseId).toBeNull();
+    expect(results[0].discogsArtistId).toBeNull();
     reader.close();
   });
 
