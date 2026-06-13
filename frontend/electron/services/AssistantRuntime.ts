@@ -169,18 +169,35 @@ function buildExtractTagValueRoute(text: string): AssistantTaskRoute | undefined
     return undefined;
   }
 
-  let pattern = "^(?:\\d+[\\s.\\)\\-–—]+)?(.+?)(?:[\\s.\\)\\-–—]+\\d+)?$";
-  if (mentionsPrefix && !mentionsSuffix) {
+  // Number-stripping patterns (leading/trailing digits) only make sense
+  // for fields where track numbers can leak into the stored value:
+  // title (from filename parsing like "01_Song_Title.flac") and artist.
+  // Fields like album, genre, year, composer never have leading digits
+  // as artifacts, so skip number patterns unless the user explicitly
+  // mentioned prefix/suffix.
+  const field = fieldMatch[1].toLowerCase();
+  const isNumberCandidate = field === "title" || field === "artist";
+
+  let pattern: string | undefined;
+  if (mentionsPrefix && !mentionsSuffix && isNumberCandidate) {
     pattern = "^\\d+[\\s.\\)\\-–—]+(.+)$";
-  } else if (mentionsSuffix && !mentionsPrefix) {
+  } else if (mentionsSuffix && !mentionsPrefix && isNumberCandidate) {
     pattern = "^(.+?)[\\s.\\)\\-–—]+\\d+$";
+  } else if (mentionsNumberish && isNumberCandidate) {
+    // User mentioned numbers but no explicit prefix/suffix — try both
+    pattern = "^(?:\\d+[\\s.\\)\\-–—]+)?(.+?)(?:[\\s.\\)\\-–—]+\\d+)?$";
   }
+
+  // If no pattern could be built (e.g. "clean album value" with no
+  // specific transformation), return undefined so the caller falls
+  // through to general_action_intent where the LLM can help.
+  if (!pattern) return undefined;
 
   return {
     toolName: "extract_tag_value",
     args: {
       target_scope: "library",
-      field: fieldMatch[1].toLowerCase(),
+      field,
       pattern,
       group_index: 1,
     },
@@ -260,12 +277,15 @@ export function deriveAssistantTaskContract(userMessage: string): AssistantTaskC
 
   if (hasExtractTagValueIntent(text)) {
     const route = buildExtractTagValueRoute(text);
-    return {
-      kind: "action_preview_required",
-      route,
-      reason: "extract_tag_value_intent",
-      requiresCompletionEvidence: true,
-    };
+    if (route) {
+      return {
+        kind: "action_preview_required",
+        route,
+        reason: "extract_tag_value_intent",
+        requiresCompletionEvidence: true,
+      };
+    }
+    // No route could be built — fall through to general_action_intent
   }
 
   if (hasGeneralActionIntent(text)) {

@@ -295,11 +295,13 @@ describe("AssistantRuntime", () => {
     expect(runner.runToolLoop).not.toHaveBeenCalled();
   });
 
-  it("routes explicit album prefix cleanup directly to extract_tag_value without an LLM call", async () => {
+  it("does not route album prefix cleanup to extract_tag_value (albums don't have leading numbers)", async () => {
     const reg = new AssistantToolRegistry();
     const runner = {
       onApiCall: vi.fn().mockReturnValue(vi.fn()),
-      runToolLoop: vi.fn(),
+      runToolLoop: vi.fn().mockResolvedValue({
+        steps: [{ type: "message", content: "Album values don't start with numbers, so there's nothing to strip." }],
+      }),
     };
     const runtime = new AssistantRuntime(runner as any, reg, false);
     const executor = registerPreviewTool(runtime, reg, "extract_tag_value", {
@@ -313,16 +315,17 @@ describe("AssistantRuntime", () => {
       required: ["target_scope", "field", "pattern"],
     });
 
+    // Album prefix cleanup should not hard-route to extract_tag_value
+    // because albums never have leading track numbers.
+    // Falls through to general_action_intent → LLM handles it.
+    // Falls through to general_action_intent → LLM must produce a preview.
+    // The mock LLM returns only a message, so the runtime emits an error.
     const result = await runtime.send("keep album name in Album tag only. Remove the prefix - number and dash.");
 
-    expect(result.type).toBe("action_batch_created");
-    expect(executor).toHaveBeenCalledWith({
-      target_scope: "library",
-      field: "album",
-      pattern: "^\\d+[\\s.\\)\\-–—]+(.+)$",
-      group_index: 1,
-    });
-    expect(runner.runToolLoop).not.toHaveBeenCalled();
+    expect(result.type).toBe("error");
+    expect(result.message).toContain("No action was performed");
+    expect(executor).not.toHaveBeenCalled();
+    expect(runner.runToolLoop).toHaveBeenCalled();
   });
 
   it("allows vague chat to complete as a normal message", async () => {
@@ -555,22 +558,17 @@ describe("deriveAssistantTaskContract", () => {
   });
 
   it("routes explicit tag value cleanup to extract_tag_value", () => {
+    // Album number cleanup: album is not a valid number-strip target,
+    // so falls through to general_action_intent (route undefined)
     const contract = deriveAssistantTaskContract('remove number and "-" from Album');
     expect(contract).toMatchObject({
       kind: "action_preview_required",
-      route: {
-        toolName: "extract_tag_value",
-        args: {
-          target_scope: "library",
-          field: "album",
-          pattern: "^(?:\\d+[\\s.\\)\\-–—]+)?(.+?)(?:[\\s.\\)\\-–—]+\\d+)?$",
-          group_index: 1,
-        },
-      },
-      reason: "extract_tag_value_intent",
+      reason: "general_action_intent",
       requiresCompletionEvidence: true,
     });
+    expect(contract.route).toBeUndefined();
 
+    // Title prefix cleanup: title IS a valid number-strip target → route exists
     const contract2 = deriveAssistantTaskContract("strip prefix from title");
     expect(contract2).toMatchObject({
       route: {
@@ -586,40 +584,32 @@ describe("deriveAssistantTaskContract", () => {
       requiresCompletionEvidence: true,
     });
 
+    // Album suffix cleanup: album is not a valid number-strip target → falls through
     const contract3 = deriveAssistantTaskContract("remove suffix number from album tag");
     expect(contract3).toMatchObject({
-      route: {
-        toolName: "extract_tag_value",
-        args: {
-          target_scope: "library",
-          field: "album",
-          pattern: "^(.+?)[\\s.\\)\\-–—]+\\d+$",
-          group_index: 1,
-        },
-      },
-      reason: "extract_tag_value_intent",
+      kind: "action_preview_required",
+      reason: "general_action_intent",
       requiresCompletionEvidence: true,
     });
+    expect(contract3.route).toBeUndefined();
 
+    // Generic album cleanup without number hint: extract_tag_value returns no
+    // deterministic route, and "clean" is not a general-action verb, so the
+    // assistant will chat with the user to clarify intent.
     const contract4 = deriveAssistantTaskContract("clean album tag value");
     expect(contract4).toMatchObject({
-      route: {
-        toolName: "extract_tag_value",
-        args: {
-          target_scope: "library",
-          field: "album",
-          pattern: "^(?:\\d+[\\s.\\)\\-–—]+)?(.+?)(?:[\\s.\\)\\-–—]+\\d+)?$",
-          group_index: 1,
-        },
-      },
-      reason: "extract_tag_value_intent",
-      requiresCompletionEvidence: true,
+      kind: "chat_only",
+      reason: "no_action_or_read_only_intent",
+      requiresCompletionEvidence: false,
     });
+    expect(contract4.route).toBeUndefined();
 
+    // "clean album name" has no deterministic route → chat with user to clarify
     const contract5 = deriveAssistantTaskContract("clean album name");
     expect(contract5).toMatchObject({
-      reason: "extract_tag_value_intent",
-      requiresCompletionEvidence: true,
+      kind: "chat_only",
+      reason: "no_action_or_read_only_intent",
+      requiresCompletionEvidence: false,
     });
     expect(contract5.route).toBeUndefined();
   });
