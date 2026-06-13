@@ -488,9 +488,9 @@ describe("BatchExtraTagsEditor", () => {
     fireEvent.click(screen.getByText("Apply to 2 files"));
 
     await waitFor(() => {
+      // Only track1 has changes, so only it should be included
       expect(onSave).toHaveBeenCalledWith([
         { path: "/music/track1.mp3", tags: [{ key: "MOOD", value: "Excited" }] },
-        { path: "/music/track2.mp3", tags: [] },
       ]);
     });
   });

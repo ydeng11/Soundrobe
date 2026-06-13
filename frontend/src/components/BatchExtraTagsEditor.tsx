@@ -95,8 +95,24 @@ export function BatchExtraTagsEditor({
     // Build per-track tag arrays
     // - Rows with origins: only tracks in those origins get the tag
     // - Rows without origins (new tags): every selected track gets the tag
+    // - Removed rows (in originalRows but not in rows): their origin tracks get empty tags to clear
     const trackTags = new Map<string, Array<{ key: string; value: string }>>();
 
+    // First, process removed rows - their origin tracks should have those tags cleared
+    const currentRowIds = new Set(rows.map((r) => r.id));
+    for (const origRow of originalRows) {
+      if (!currentRowIds.has(origRow.id) && origRow.key.trim() && origRow.value.trim()) {
+        // This row was removed - add empty entry for its origin tracks
+        for (const trackPath of origRow.origins) {
+          // Only add if not already being modified by a current row
+          if (!trackTags.has(trackPath)) {
+            trackTags.set(trackPath, []);
+          }
+        }
+      }
+    }
+
+    // Then, process current rows
     for (const row of rows) {
       const key = row.key.trim();
       const value = row.value.trim();
@@ -119,14 +135,13 @@ export function BatchExtraTagsEditor({
       }
     }
 
-    // Also include unchanged rows in the output for their origin tracks
-    // (already handled above — every row is either in the user's saved rows or not)
-
-    // Build updates array, ensuring every selected track has an entry
-    const updates = allPaths.map((path) => ({
-      path,
-      tags: trackTags.get(path) ?? [],
-    }));
+    // Build updates array — only include tracks that have actual changes
+    const updates = allPaths
+      .filter((path) => trackTags.has(path))
+      .map((path) => ({
+        path,
+        tags: trackTags.get(path)!,
+      }));
 
     await onSave(updates);
     const savedRows = rowsToDraftRows(rows);

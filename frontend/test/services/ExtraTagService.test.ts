@@ -183,5 +183,80 @@ describe("ExtraTagService", () => {
       expect(results[0].success).toBe(false);
       expect(results[0].error).toBe("Write failed");
     });
+
+    it("skips track when removal key does not exist (optimization)", async () => {
+      // Track has MOOD and BPM, but we're removing GENRE (which doesn't exist)
+      (readExtraTags as any).mockResolvedValue([
+        { key: "MOOD", value: "happy", source: "id3" },
+        { key: "BPM", value: "120", source: "id3" },
+      ]);
+
+      const results = await service.applyExtraTagUpdates([
+        {
+          trackPath: "/test/track.flac",
+          upserts: [],
+          removes: ["GENRE"],  // GENRE doesn't exist on this track
+        },
+      ]);
+
+      // Should return success without submitting to write queue
+      expect(mockQueueSubmit).not.toHaveBeenCalled();
+      expect(results).toHaveLength(1);
+      expect(results[0].success).toBe(true);
+    });
+
+    it("skips track when upsert value is same as current (optimization)", async () => {
+      // Track already has MOOD=happy, upserting same value
+      (readExtraTags as any).mockResolvedValue([
+        { key: "MOOD", value: "happy", source: "id3" },
+      ]);
+
+      const results = await service.applyExtraTagUpdates([
+        {
+          trackPath: "/test/track.flac",
+          upserts: [{ key: "MOOD", value: "happy" }],  // Same value
+          removes: [],
+        },
+      ]);
+
+      // Should return success without submitting to write queue
+      expect(mockQueueSubmit).not.toHaveBeenCalled();
+      expect(results).toHaveLength(1);
+      expect(results[0].success).toBe(true);
+    });
+
+    it("processes only affected tracks when removing tag from multiple tracks (optimization)", async () => {
+      // Simulate 5 tracks, only 2 have the MOOD tag
+      mockQueueSubmit.mockResolvedValue([
+        { filePath: "/test/track1.flac", success: true },
+        { filePath: "/test/track2.flac", success: true },
+      ]);
+
+      (readExtraTags as any)
+        .mockResolvedValueOnce([{ key: "MOOD", value: "happy", source: "id3" }])  // track1 has MOOD
+        .mockResolvedValueOnce([])  // track2 doesn't have MOOD
+        .mockResolvedValueOnce([{ key: "MOOD", value: "sad", source: "id3" }])   // track3 has MOOD
+        .mockResolvedValueOnce([])  // track4 doesn't have MOOD
+        .mockResolvedValueOnce([{ key: "BPM", value: "120", source: "id3" }]); // track5 has BPM, not MOOD
+
+      const results = await service.applyExtraTagUpdates([
+        { trackPath: "/test/track1.flac", upserts: [], removes: ["MOOD"] },
+        { trackPath: "/test/track2.flac", upserts: [], removes: ["MOOD"] },
+        { trackPath: "/test/track3.flac", upserts: [], removes: ["MOOD"] },
+        { trackPath: "/test/track4.flac", upserts: [], removes: ["MOOD"] },
+        { trackPath: "/test/track5.flac", upserts: [], removes: ["MOOD"] },
+      ]);
+
+      // Only track1 and track3 have MOOD, so only 2 should be submitted to queue
+      expect(mockQueueSubmit).toHaveBeenCalledTimes(1);
+      expect(mockQueueSubmit).toHaveBeenCalledWith([
+        expect.objectContaining({ filePath: "/test/track1.flac", extraTags: [] }),
+        expect.objectContaining({ filePath: "/test/track3.flac", extraTags: [] }),
+      ]);
+
+      // All 5 tracks should return success
+      expect(results).toHaveLength(5);
+      expect(results.every((r) => r.success)).toBe(true);
+    });
   });
 });

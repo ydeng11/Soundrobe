@@ -14,6 +14,7 @@ const BATCH_FIELDS: { key: string; label: string; placeholder: string }[] = [
   { key: "albumArtist", label: "Album Artist", placeholder: "Common album artist…" },
   { key: "genre", label: "Genre", placeholder: "Common genre…" },
   { key: "year", label: "Year", placeholder: "2024" },
+  { key: "disc", label: "Disc", placeholder: "Disc number (e.g. 1 or 1/2)" },
 ];
 
 export function BatchEditor({
@@ -35,6 +36,16 @@ export function BatchEditor({
       if (t.genre) map.genre.add(t.genre);
       if (t.year) map.year.add(t.year);
     }
+    // Special handling for disc: combine discNumber + discTotal
+    for (const t of tracks) {
+      if (t.discNumber != null) {
+        const discValue = t.discTotal != null
+          ? `${t.discNumber}/${t.discTotal}`
+          : String(t.discNumber);
+        map.disc.add(discValue);
+      }
+    }
+
     const sorted: Record<string, string[]> = {};
     for (const f of BATCH_FIELDS) {
       sorted[f.key] = [...map[f.key]].sort();
@@ -100,8 +111,18 @@ export function BatchEditor({
     }
     for (const t of tracks) {
       for (const f of BATCH_FIELDS) {
-        const val = (t as unknown as Record<string, unknown>)[f.key];
-        if (typeof val === "string") map[f.key].add(val);
+        // Special handling for disc: derived from discNumber + discTotal
+        if (f.key === "disc") {
+          if (t.discNumber != null) {
+            const discValue = t.discTotal != null
+              ? `${t.discNumber}/${t.discTotal}`
+              : String(t.discNumber);
+            map[f.key].add(discValue);
+          }
+        } else {
+          const val = (t as unknown as Record<string, unknown>)[f.key];
+          if (typeof val === "string") map[f.key].add(val);
+        }
       }
     }
     const diff = new Set<string>();

@@ -7,15 +7,14 @@
  */
 
 import type { ExtraTagUpdate } from "../handlers/writer";
-import { readExtraTags, readTrackMetadata } from "../handlers/tracks";
+import { readExtraTags } from "../handlers/tracks";
 import type { ExtraTag as TrackExtraTag } from "../handlers/tracks";
-import type { TrackData } from "../handlers/tracks";
 import { getDefaultWriteQueue } from "./TagWriteQueue";
 
 export interface ExtraTagPlanInput {
   trackPath: string;
   upserts: ExtraTagUpdate[];
-  removes: string[]; // Keys to remove
+  removes: string[];
 }
 
 export interface ExtraTagAction {
@@ -107,6 +106,11 @@ export class ExtraTagService {
 
   /**
    * Apply extra tag writes to disk.
+   *
+   * Optimization: pre-checks each track's current tags and skips tracks
+   * where the operation would be a no-op (removal of non-existent key,
+   * upsert of same value). This avoids unnecessary file I/O and queue
+   * submissions for unchanged tracks.
    */
   async applyExtraTagUpdates(
     inputs: ExtraTagPlanInput[],
@@ -120,28 +124,60 @@ export class ExtraTagService {
         const currentTags = await readExtraTags(input.trackPath);
         const removeKeys = new Set(input.removes.map((k) => k.trim().toLowerCase()));
 
+        // Build current key → value map for pre-checks
+        const currentByKey = new Map<string, string>();
+        for (const tag of currentTags) {
+          currentByKey.set(tag.key.toLowerCase(), tag.value);
+        }
+
+        // Pre-check removals: skip if key doesn't exist on this track
+        const effectiveRemoves = new Set<string>();
+        for (const key of removeKeys) {
+          if (currentByKey.has(key)) {
+            effectiveRemoves.add(key);
+          }
+        }
+
+        // Pre-check upserts: filter out no-op upserts (same value already exists)
+        const effectiveUpserts = input.upserts.filter((upsert) => {
+          const normalizedKey = upsert.key.trim().toLowerCase();
+          const currentValue = currentByKey.get(normalizedKey) ?? null;
+          return currentValue !== upsert.value.trim();
+        });
+
+        // If no effective removes and no effective upserts, skip this track
+        if (effectiveRemoves.size === 0 && effectiveUpserts.length === 0) {
+          results.push({ trackPath: input.trackPath, success: true });
+          continue;
+        }
+
         const keptTags: ExtraTagUpdate[] = currentTags
-          .filter((tag) => !removeKeys.has(tag.key.toLowerCase()))
+          .filter((tag) => !effectiveRemoves.has(tag.key.toLowerCase()))
           .map((tag) => ({ key: tag.key, value: tag.value }));
 
         const upsertMap = new Map<string, string>();
         for (const tag of keptTags) {
           upsertMap.set(tag.key.toLowerCase(), tag.value);
         }
-        for (const upsert of input.upserts) {
+        for (const upsert of effectiveUpserts) {
           upsertMap.set(upsert.key.trim().toLowerCase(), upsert.value.trim());
+        }
+
+        // Build map from normalized key → original-cased key for output
+        const originalKeyMap = new Map<string, string>();
+        for (const tag of keptTags) {
+          originalKeyMap.set(tag.key.toLowerCase(), tag.key);
+        }
+        for (const upsert of effectiveUpserts) {
+          const normalized = upsert.key.trim().toLowerCase();
+          if (!originalKeyMap.has(normalized)) {
+            originalKeyMap.set(normalized, upsert.key.trim());
+          }
         }
 
         const finalTags: ExtraTagUpdate[] = [];
         for (const [key, value] of upsertMap) {
-          const original = keptTags.find(
-            (t) => t.key.toLowerCase() === key,
-          )?.key
-            ?? input.upserts.find(
-              (u) => u.key.trim().toLowerCase() === key,
-            )?.key.trim()
-            ?? key;
-          finalTags.push({ key: original, value });
+          finalTags.push({ key: originalKeyMap.get(key) ?? key, value });
         }
 
         jobs.push({ filePath: input.trackPath, extraTags: finalTags });
