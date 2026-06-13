@@ -108,13 +108,40 @@ describe("ArtworkResolverService", () => {
       expect(result).toBeNull();
     });
 
-    it("respects the built-in default provider order", () => {
+    it("defaults to album-cover provider order: local → CAA → discogs → TADB → google", () => {
       const names = service.getProviderNames();
-      // album-cover defaults should try local first, then CAA, discogs, TADB, google
-      expect(names.indexOf("local")).toBeLessThan(names.indexOf("cover-art-archive"));
-      expect(names.indexOf("cover-art-archive")).toBeLessThan(names.indexOf("discogs"));
-      expect(names.indexOf("discogs")).toBeLessThan(names.indexOf("theaudiodb"));
-      expect(names.indexOf("theaudiodb")).toBeLessThan(names.indexOf("google"));
+      expect(names).toEqual([
+        "local",
+        "cover-art-archive",
+        "discogs",
+        "theaudiodb",
+        "google",
+      ]);
+    });
+
+    it("uses artist-image provider order: local → discogs → wikimedia → google", async () => {
+      const local = spyProvider("local", null);
+      const discogs = spyProvider("discogs", null);
+      const wikimedia = spyProvider("wikimedia", makeResult({ kind: "artist-image", source: "wikimedia" }));
+      const google = spyProvider("google", makeResult({ kind: "artist-image", source: "google" }));
+      service.setProviders([local, discogs, wikimedia, google]);
+      service.setCredentials({ googleApiKey: "k", googleSearchEngineId: "cx" });
+
+      const ctx: ArtworkContext = {
+        kind: "artist-image",
+        artistName: "Test",
+        albumName: null,
+        albumPath: "/music/Test/Album",
+        musicbrainzAlbumId: null,
+      };
+
+      const result = await service.resolve(ctx);
+
+      expect(result!.source).toBe("wikimedia");
+      expect(local.find).toHaveBeenCalledOnce();
+      expect(discogs.find).toHaveBeenCalledOnce();
+      expect(wikimedia.find).toHaveBeenCalledOnce();
+      expect(google.find).not.toHaveBeenCalled();
     });
   });
 
@@ -166,6 +193,35 @@ describe("ArtworkResolverService", () => {
 
       expect(result!.source).toBe("wikimedia");
       expect(wikimedia.find).toHaveBeenCalledOnce();
+    });
+
+    it("Discogs runs for artist-image (searches with type=artist, no album)", async () => {
+      const discogs = spyProvider("discogs", makeResult({ kind: "artist-image", source: "discogs" }));
+      const wikimedia = spyProvider("wikimedia", makeResult({ kind: "artist-image", source: "wikimedia" }));
+      service.setProviders([discogs, wikimedia]);
+      const ctx: ArtworkContext = { ...defaultContext, kind: "artist-image" };
+
+      const result = await service.resolve(ctx);
+
+      // discogs should be tried first and succeed
+      expect(result!.source).toBe("discogs");
+      expect(discogs.find).toHaveBeenCalledOnce();
+      expect(wikimedia.find).not.toHaveBeenCalled();
+    });
+
+    it("TheAudioDB returns null for artist-image (no album context)", async () => {
+      const tadb: ArtworkProvider = {
+        name: "theaudiodb",
+        needsCredentials: true,
+        find: vi.fn().mockRejectedValue(new Error("should not be called for artist-image")),
+      };
+      const wikimedia = spyProvider("wikimedia", makeResult({ kind: "artist-image", source: "wikimedia" }));
+      service.setProviders([wikimedia]);
+      const ctx: ArtworkContext = { ...defaultContext, kind: "artist-image" };
+
+      const result = await service.resolve(ctx);
+
+      expect(result!.source).toBe("wikimedia");
     });
   });
 

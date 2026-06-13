@@ -99,8 +99,6 @@ export class DiscogsService {
    * neither search finds anything.
    */
   async searchArtists(artistName: string): Promise<DiscogsArtistResult | null> {
-    await sharedLimiter.wait();
-
     // Step 1: Precise artist=<name> search
     const preciseUrl = `${DISCOGS_BASE}/database/search?type=artist&artist=${encodeURIComponent(artistName)}&per_page=5`;
     const preciseRes = await this.fetch(preciseUrl);
@@ -138,8 +136,6 @@ export class DiscogsService {
     perPage = 10,
   ): Promise<DiscogsSearchResult[]> {
     const query = `${artist} ${album}`.trim();
-    await sharedLimiter.wait();
-
     const url = `${DISCOGS_BASE}/database/search?q=${encodeURIComponent(query)}&type=${searchType}&per_page=${perPage}`;
     const res = await this.fetch(url);
     if (!res) return [];
@@ -153,8 +149,6 @@ export class DiscogsService {
    * Used by cover downloader to fetch artist images.
    */
   async getArtistDetail(artistId: number): Promise<DiscogsArtistDetail | null> {
-    await sharedLimiter.wait();
-
     const url = `${DISCOGS_BASE}/artists/${artistId}`;
     const res = await this.fetch(url);
     if (!res) return null;
@@ -172,8 +166,6 @@ export class DiscogsService {
    * Fetch a release by ID.
    */
   async getReleaseDetail(releaseId: number | string): Promise<DiscogsReleaseDetail | null> {
-    await sharedLimiter.wait();
-
     const url = `${DISCOGS_BASE}/releases/${releaseId}`;
     const res = await this.fetch(url);
     if (!res) return null;
@@ -188,8 +180,6 @@ export class DiscogsService {
     artistId: number | string,
     albumHint: string,
   ): Promise<DiscogsReleaseDetail | null> {
-    await sharedLimiter.wait();
-
     const url = `${DISCOGS_BASE}/artists/${artistId}/releases?per_page=50`;
     const res = await this.fetch(url);
     if (!res) return null;
@@ -239,6 +229,7 @@ export class DiscogsService {
   }
 
   private async fetch(url: string): Promise<Response | null> {
+    await sharedLimiter.wait();
     try {
       const res = await fetch(url, {
         headers: this.buildHeaders(),
