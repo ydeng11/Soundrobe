@@ -107,6 +107,116 @@ describe("DebugLogger", () => {
       expect(spy.mock.calls[0][1]).toEqual({ foo: "bar" });
       spy.mockRestore();
     });
+
+    it("converts Error objects in data to a plain object via subscriber", () => {
+      DebugLogger.setEnabled(true);
+
+      const subscriber = vi.fn();
+      const unsub = DebugLogger.subscribe(subscriber);
+
+      const testError = new Error("something broke");
+      testError.name = "TypeError";
+      DebugLogger.warn("cover", "findDiscogs: threw", testError);
+
+      expect(subscriber).toHaveBeenCalledOnce();
+      const entry = subscriber.mock.calls[0][0];
+
+      // The data should be a plain object, not an Error instance
+      expect(entry.data).not.toBeInstanceOf(Error);
+      expect(entry.data).toHaveProperty("name", "TypeError");
+      expect(entry.data).toHaveProperty("message", "something broke");
+      expect(entry.data).toHaveProperty("stack");
+      expect(entry.data.stack).toContain("something broke");
+      expect(entry.tag).toBe("cover");
+      expect(entry.level).toBe("warn");
+      expect(entry.message).toBe("findDiscogs: threw");
+
+      // Verify JSON serialization works (the file-output path)
+      const serialized = JSON.stringify(entry);
+      const parsed = JSON.parse(serialized);
+      expect(parsed.data.name).toBe("TypeError");
+      expect(parsed.data.message).toBe("something broke");
+      expect(parsed.data.stack).toContain("something broke");
+
+      unsub();
+      DebugLogger.setEnabled(false);
+    });
+
+    it("converts Error cause chain in data", () => {
+      DebugLogger.setEnabled(true);
+
+      const subscriber = vi.fn();
+      const unsub = DebugLogger.subscribe(subscriber);
+
+      const inner = new Error("inner failure");
+      const outer = new Error("wrapped", { cause: inner });
+      DebugLogger.error("auto-tag", "pipeline failed", outer);
+
+      const entry = subscriber.mock.calls[0][0];
+      expect(entry.data.name).toBe("Error");
+      expect(entry.data.message).toBe("wrapped");
+      expect(entry.data.cause).toBeDefined();
+      expect(entry.data.cause.message).toBe("inner failure");
+
+      // Verify JSON serialization preserves the cause chain
+      const parsed = JSON.parse(JSON.stringify(entry));
+      expect(parsed.data.cause.message).toBe("inner failure");
+
+      unsub();
+      DebugLogger.setEnabled(false);
+    });
+
+    it("leaves plain objects in data unchanged", () => {
+      DebugLogger.setEnabled(true);
+
+      const subscriber = vi.fn();
+      const unsub = DebugLogger.subscribe(subscriber);
+
+      DebugLogger.info("test", "plain data", { status: 200, ok: true });
+
+      const entry = subscriber.mock.calls[0][0];
+      expect(entry.data).toEqual({ status: 200, ok: true });
+
+      unsub();
+      DebugLogger.setEnabled(false);
+    });
+
+    it("handles null and undefined data", () => {
+      DebugLogger.setEnabled(true);
+
+      const subscriber = vi.fn();
+      const unsub = DebugLogger.subscribe(subscriber);
+
+      DebugLogger.info("test", "null data", null);
+      const entryNull = subscriber.mock.calls[0][0];
+      expect(entryNull.data).toBeNull();
+
+      DebugLogger.info("test", "undefined data", undefined);
+      const entryUndef = subscriber.mock.calls[1][0];
+      expect(entryUndef.data).toBeUndefined();
+
+      unsub();
+      DebugLogger.setEnabled(false);
+    });
+
+    it("passes converted Error data to subscribers (data is not Error instance)", () => {
+      DebugLogger.setEnabled(true);
+
+      const subscriber = vi.fn();
+      const unsub = DebugLogger.subscribe(subscriber);
+
+      const testError = new Error("subscriber sees me");
+      DebugLogger.warn("test", "error data", testError);
+
+      const entry = subscriber.mock.calls[0][0];
+      expect(entry.data).not.toBeInstanceOf(Error);
+      expect(entry.data).toHaveProperty("message", "subscriber sees me");
+      expect(entry.data).toHaveProperty("name", "Error");
+      expect(entry.data).toHaveProperty("stack");
+
+      unsub();
+      DebugLogger.setEnabled(false);
+    });
   });
 
   describe("timing", () => {

@@ -36,4 +36,56 @@ describe("FilenameTagInferenceService", () => {
       "/music/上学嗨mixtape/Cheeseburger.flac",
     ])).toEqual([]);
   });
+
+  it("parses compact artist-title with leading track number and prettifies underscores", () => {
+    const service = new FilenameTagInferenceService();
+    const results = service.inferFromFilenames(
+      [
+        "/Volumes/downloads/music/刺猬乐队/刺猬《神经元》2015 FLAC 分轨/110-hedgehog-you_are_so_famous.flac",
+      ],
+      { prettify: true },
+    );
+
+    expect(results).toEqual([
+      {
+        trackPath: "/Volumes/downloads/music/刺猬乐队/刺猬《神经元》2015 FLAC 分轨/110-hedgehog-you_are_so_famous.flac",
+        fields: {
+          title: "You Are So Famous",
+          artist: "Hedgehog",
+          artists: ["Hedgehog"],
+        },
+        reason: "Parsed \"110-hedgehog-you_are_so_famous.flac\" as compact artist-title filename",
+      },
+    ]);
+  });
+
+  it("parses compact artist-title without prettification", () => {
+    const service = new FilenameTagInferenceService();
+    const results = service.inferFromFilenames([
+      "/music/刺猬乐队/刺猬《神经元》/05_hedgehog-you_are_so_famous.flac",
+    ]);
+
+    expect(results).toEqual([
+      {
+        trackPath: "/music/刺猬乐队/刺猬《神经元》/05_hedgehog-you_are_so_famous.flac",
+        fields: {
+          title: "you_are_so_famous",
+          artist: "hedgehog",
+          artists: ["hedgehog"],
+        },
+        reason: "Parsed \"05_hedgehog-you_are_so_famous.flac\" as compact artist-title filename",
+      },
+    ]);
+  });
+
+  it("does NOT parse compact dash without a leading track number (avoids false positives)", () => {
+    const service = new FilenameTagInferenceService();
+    const results = service.inferFromFilenames([
+      "/music/SomeBand/Album/song-title-only.flac",
+    ]);
+
+    // Without a leading track number, compact dash is ambiguous
+    // (could be a title with a dash, not artist-title), so skip.
+    expect(results).toEqual([]);
+  });
 });

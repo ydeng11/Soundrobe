@@ -20,6 +20,7 @@ const SUPPORTED_EXTENSIONS = new Set([
   ".ogg",
   ".opus",
   ".aiff",
+  ".ape",
 ]);
 
 export function isAudioFile(filePath: string): boolean {

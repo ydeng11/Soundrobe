@@ -557,3 +557,139 @@ describe("matchRemoteCandidateTracks — source-specific durations", () => {
     expect(result.stats.matched).toBe(0);
   });
 });
+
+describe("matchRemoteCandidateTracks — positional fallback", () => {
+  it("falls back to positional matching when 0 title matches but track counts are equal", async () => {
+    // Local tracks with Chinese titles, remote tracks with English titles
+    // (e.g. MusicBrainz for a Chinese album — no title overlap)
+    const localTracks = [
+      makeTrackCandidate({ title: "飞行器的执行周期", trackNumber: 1 }),
+      makeTrackCandidate({ title: "不明下落", trackNumber: 2 }),
+      makeTrackCandidate({ title: "在什么时候", trackNumber: 3 }),
+    ];
+    const remoteTracks = [
+      makeTrackCandidate({ title: "The Lonely Planet of the Flying Object", trackNumber: 1 }),
+      makeTrackCandidate({ title: "Missing", trackNumber: 2 }),
+      makeTrackCandidate({ title: "At What Time", trackNumber: 3 }),
+    ];
+
+    const result = await matchRemoteCandidateTracks(
+      localTracks,
+      [],
+      remoteTracks,
+      "musicbrainz",
+    );
+
+    // Should have full ordered match via positional fallback
+    expect(result.isFullOrderedMatch).toBe(true);
+    expect(result.stats.matched).toBe(3);
+    expect(result.stats.skipped.length).toBe(0);
+
+    // Local titles preserved (not overwritten by remote)
+    expect(result.tracks[0].title).toBe("飞行器的执行周期");
+    expect(result.tracks[1].title).toBe("不明下落");
+    expect(result.tracks[2].title).toBe("在什么时候");
+  });
+
+  it("falls back to positional matching when all tracks fail with no_title_match", async () => {
+    const localTracks = [
+      makeTrackCandidate({ title: "Song A", trackNumber: 1, length: 200 }),
+      makeTrackCandidate({ title: "Song B", trackNumber: 2, length: 210 }),
+    ];
+    const remoteTracks = [
+      makeTrackCandidate({ title: "Different A", trackNumber: 1, length: 200 }),
+      makeTrackCandidate({ title: "Different B", trackNumber: 2, length: 210 }),
+    ];
+
+    const result = await matchRemoteCandidateTracks(
+      localTracks,
+      [],
+      remoteTracks,
+      "musicbrainz",
+    );
+
+    expect(result.isFullOrderedMatch).toBe(true);
+    expect(result.stats.matched).toBe(2);
+    expect(result.stats.skipped.length).toBe(0);
+
+    // Local titles preserved
+    expect(result.tracks[0].title).toBe("Song A");
+    expect(result.tracks[1].title).toBe("Song B");
+  });
+
+  it("does not activate positional fallback when track counts differ", async () => {
+    const localTracks = [
+      makeTrackCandidate({ title: "Song A", trackNumber: 1 }),
+    ];
+    const remoteTracks = [
+      makeTrackCandidate({ title: "Different A", trackNumber: 1 }),
+      makeTrackCandidate({ title: "Different B", trackNumber: 2 }),
+    ];
+
+    const result = await matchRemoteCandidateTracks(
+      localTracks,
+      [],
+      remoteTracks,
+      "musicbrainz",
+    );
+
+    // No fallback — still 0 matches
+    expect(result.isFullOrderedMatch).toBe(false);
+    expect(result.stats.matched).toBe(0);
+  });
+
+  it("does not activate positional fallback when some title matches already succeeded", async () => {
+    const localTracks = [
+      makeTrackCandidate({ title: "Song A", trackNumber: 1 }),
+      makeTrackCandidate({ title: "Unique B", trackNumber: 2 }),
+    ];
+    const remoteTracks = [
+      makeTrackCandidate({ title: "Song A", trackNumber: 1 }),
+      makeTrackCandidate({ title: "Song C", trackNumber: 2 }),
+    ];
+
+    const result = await matchRemoteCandidateTracks(
+      localTracks,
+      [],
+      remoteTracks,
+      "musicbrainz",
+    );
+
+    // First track matched by title, second fails — should NOT use positional fallback
+    // because some matches succeeded (risking misalignment)
+    expect(result.stats.matched).toBe(1);
+    expect(result.isFullOrderedMatch).toBe(false);
+  });
+
+  it("applies remote track/disc numbers when positional fallback succeeds", async () => {
+    const localTracks = [
+      makeTrackCandidate({ title: "本地标题1", trackNumber: null, discNumber: null }),
+      makeTrackCandidate({ title: "本地标题2", trackNumber: null, discNumber: null }),
+    ];
+    const remoteTracks = [
+      makeTrackCandidate({ title: "Remote Title 1", trackNumber: 1, discNumber: 1 }),
+      makeTrackCandidate({ title: "Remote Title 2", trackNumber: 2, discNumber: 1 }),
+    ];
+
+    const result = await matchRemoteCandidateTracks(
+      localTracks,
+      [],
+      remoteTracks,
+      "musicbrainz",
+    );
+
+    // isFullOrderedMatch = true enables remote track/disc field application
+    expect(result.isFullOrderedMatch).toBe(true);
+    expect(result.stats.matched).toBe(2);
+
+    // Remote track/disc numbers applied via the full-ordered-match path
+    expect(result.tracks[0].trackNumber).toBe(1);
+    expect(result.tracks[0].discNumber).toBe(1);
+    expect(result.tracks[1].trackNumber).toBe(2);
+    expect(result.tracks[1].discNumber).toBe(1);
+
+    // Local titles preserved
+    expect(result.tracks[0].title).toBe("本地标题1");
+    expect(result.tracks[1].title).toBe("本地标题2");
+  });
+});

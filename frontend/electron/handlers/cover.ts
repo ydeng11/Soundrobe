@@ -270,7 +270,11 @@ export function registerCoverHandlers(): void {
       return null;
     }
 
-    debug.info("cover", `resolveAndWriteArtwork: kind=${kind} artist="${metadata.artist ?? ""}" album="${metadata.album ?? ""}" mbid=${metadata.musicbrainzAlbumId ?? "null"}`);
+    if (kind === "artist-image") {
+      debug.info("cover", `resolveAndWriteArtwork: kind=${kind} artist="${metadata.artist ?? ""}"`);
+    } else {
+      debug.info("cover", `resolveAndWriteArtwork: kind=${kind} artist="${metadata.artist ?? ""}" album="${metadata.album ?? ""}" mbid=${metadata.musicbrainzAlbumId ?? "null"}`);
+    }
 
     const resolver = getArtworkResolver();
     const ctx = resolver.buildContext(

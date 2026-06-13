@@ -1,209 +1,124 @@
-# Plan: Auto-Number Tracks Button
+# Plan: Add APE (Monkey's Audio) File Support
 
 ## Context
 
-Users need a way to quickly assign sequential track numbers to all tracks in an album. Currently, track numbers must be entered manually one-by-one in the MetadataEditor or via Convert filename patterns. A dedicated "Number Tracks" button with user-selectable ordering rules (filename, title, existing track number, creation time, duration) would save significant manual effort.
+The app (Electron frontend, TypeScript/JavaScript only — no Python) currently does not recognize
+or load `.ape` (Monkey's Audio) files. A user has an APE file at:
+`/Volume/downloads/music/刺猬乐队/刺猬乐队 - 幻象波谱星 APE` that they cannot open.
+
+`music-metadata` (npm, already a dependency) ships with a complete APEv2 parser — reading APE
+metadata works out of the box once the extension is allowed. The missing piece is that `.ape` is
+excluded from the extension allowlists, and the tag writer (`writer.ts`) lacks an APEv2 code path.
+
+Goal: make APE files fully visible, readable, and writable within the app — they should appear in
+the library browser, have their metadata displayed in the editor, and accept tag writes (both
+standard and extra tags).
 
 ## Approach
 
-1. **New service** (`TrackNumberingService.ts`) — pure function that computes sort order and assigns `trackNumber`/`trackTotal` for an album's tracks. No state, no side effects → easily testable.
-2. **UI** — a "Number" button in the TitleBar toolbar. Clicking it shows a small dropdown/popover listing ordering rules. Selecting a rule immediately applies the numbering.
-3. **Backend reuse** — the existing `tracks:batch-write` IPC handler (`frontend/electron/handlers/tracks.ts`, registered on `"tracks:batch-write"`) already supports `trackNumber` and `trackTotal` fields. No new backend handler needed.
-4. **State** — the `App.tsx` `handleNumberTracks` callback sorts tracks within the active album, builds update payloads, pushes undo snapshots, calls `window.api.writeTracks()`, and updates the store.
+### 1. Add `.ape` to extension allowlists (read support)
+
+The `SUPPORTED_EXTENSIONS` sets in `tracks.ts` and `library.ts` need `.ape` added. This makes APE
+files discoverable during scanning and parseable by `music-metadata` (which already registers an
+`apeParserLoader` for `.ape` files in `ParserFactory.ts`).
+
+### 2. Add APEv2 tag writing to the writer
+
+`node-id3` does not support APEv2, so a purpose-built APEv2 tag writer is needed.
+The APEv2 format is a simple key-value binary format: tag items followed by a 32-byte footer at
+the end of the file. This follows the same pattern as the existing Vorbis/writer code.
 
 ## Files to Modify
 
-| File | Change |
-|------|--------|
-| `frontend/electron/services/TrackNumberingService.ts` | **NEW** — core numbering logic |
-| `frontend/electron/services/index.ts` | **NEW** (if needed) — barrel export |
-| `frontend/src/App.tsx` | Add `handleNumberTracks` callback; pass to TitleBar |
-| `frontend/src/components/TitleBar.tsx` | Add "Number" button with dropdown menu |
-| `frontend/test/services/TrackNumberingService.test.ts` | **NEW** — unit tests for numbering logic |
-| `frontend/test/components/TitleBar.test.tsx` | Add tests for Number button & dropdown |
-| `frontend/e2e/number-tracks.electron.spec.ts` | **NEW** — e2e test |
+| # | File | Change |
+|---|------|--------|
+| 1 | `frontend/electron/handlers/tracks.ts` | Add `.ape` to `SUPPORTED_EXTENSIONS` and `EXTRA_TAG_EXTENSIONS` |
+| 2 | `frontend/electron/handlers/library.ts` | Add `.ape` to `SUPPORTED_EXTENSIONS` |
+| 3 | `frontend/electron/handlers/writer.ts` | Add `.ape` case to `writeTags`, `writeExtraTags`, `writeTagsWithOutcome`, `writeExtraTagsWithOutcome`; implement `writeApe` and `writeApeExtraTags` |
 
 ## Reuse
 
-- **`window.api.writeTracks(updates)`** (preload.ts / `"tracks:batch-write"` handler in tracks.ts) → sends `{ path, fields: { trackNumber, trackTotal } }` for each track
-- **UndoManager** — existing `PUSH_UNDO` / `handleRevert` pattern with `TrackSnapshot`
-- **`basename`** from `frontend/src/utils/path.ts` — used in FileGrid already
-- **TrackData interface** — already has `trackNumber`, `trackTotal`, `path`, `title`, `artist`, `duration`, `bitrate`, `sizeBytes`
+- **`music-metadata`** (npm, already a dependency) — `apeParserLoader` maps `.ape` → `APEv2Parser`;
+  reading metadata works automatically once the extension is in the allowlist.
+- Existing `writeVorbis` / `writeMp3` patterns in `writer.ts` — read existing tags from the binary
+  file, merge with new fields, write back. The APEv2 writer follows the identical pattern.
+- Tag field mapping conventions already established for Vorbis/Comments apply directly to APEv2
+  (case-insensitive key-value pairs).
 
 ## Steps
 
-### Step 1: Create TrackNumberingService
+### Step 1: Frontend — Add `.ape` to extension allowlists in `tracks.ts`
 
-Create `frontend/electron/services/TrackNumberingService.ts`:
+- In `frontend/electron/handlers/tracks.ts`:
+  - Add `".ape"` to `SUPPORTED_EXTENSIONS` set (line ~30)
+  - Add `".ape"` to `EXTRA_TAG_EXTENSIONS` set (line ~13)
 
-```typescript
-export type OrderingRule =
-  | "filename-asc"
-  | "filename-desc"
-  | "title-asc"
-  | "title-desc"
-  | "existing-track-asc"
-  | "existing-track-desc"
-  | "creation-time-asc"   // sorted by file modification time
-  | "creation-time-desc"
-  | "duration-asc"
-  | "duration-desc";
+### Step 2: Frontend — Add `.ape` to extension allowlist in `library.ts`
 
-export interface NumberingInput {
-  path: string;
-  title: string | null;
-  trackNumber: number | null;
-  duration: number;
-  // file modification time can be passed optionally
-  mtimeMs?: number;
-}
+- In `frontend/electron/handlers/library.ts`:
+  - Add `".ape"` to `SUPPORTED_EXTENSIONS` set (line ~18)
 
-export interface NumberingUpdate {
-  path: string;
-  fields: { trackNumber: number; trackTotal: number };
-}
+### Step 3: Frontend — Implement APEv2 tag writer in `writer.ts`
 
-export function computeNumberedTracks(
-  tracks: NumberingInput[],
-  rule: OrderingRule,
-  startFrom: number = 1,
-): NumberingUpdate[] { ... }
+APEv2 tag layout (at the **end** of the file):
+
+```
+[APE audio data]
+[Tag items...]
+[Footer (32 bytes)]
 ```
 
-The function:
-1. Sorts tracks according to the chosen rule (case-insensitive for text fields; undefined/null values sort to the end)
-2. Assigns sequential numbers from `startFrom` (default 1)
-3. Sets `trackTotal` to the total track count
-4. Returns an array of `{ path, fields: { trackNumber, trackTotal } }`
+**Footer** (32 bytes):
+| Offset | Size | Field | Value |
+|--------|------|-------|-------|
+| 0 | 8 | Preamble | `APETAGEX` (ASCII) |
+| 8 | 4 | Version | 2000 (LE uint32 = `0x000007D0`) |
+| 12 | 4 | Tag size | Total tag bytes including footer (LE uint32) |
+| 16 | 4 | Item count | Number of tag items (LE uint32) |
+| 20 | 4 | Flags | `0x80000000` (bit 31 = footer present, LE) |
+| 24 | 8 | Reserved | All zeros |
 
-Ordering rule details:
-- **`filename-asc` / `filename-desc`** — extracts the basename of `path` using `path.basename`-like logic
-- **`title-asc` / `title-desc`** — uses `title` field; tracks with null title sort by path basename as fallback
-- **`existing-track-asc` / `existing-track-desc`** — uses current `trackNumber`; tracks with null trackNumber sort to end (asc) or beginning (desc)
-- **`creation-time-asc` / `creation-time-desc`** — uses `mtimeMs` (file modification time from the filesystem, fetched from the backend via a simple stat call)
-- **`duration-asc` / `duration-desc`** — uses `duration` field
+**Each tag item** (immediately before footer):
+| Offset | Size | Field | Value |
+|--------|------|-------|-------|
+| 0 | 4 | Value size | Length of value in bytes (LE uint32) |
+| 4 | 4 | Item flags | `0x20000000` (bit 29 = UTF-8 text, LE) |
+| 8 | varies | Key | Null-terminated ASCII/UTF-8, uppercase |
+| after \0 | varies | Value | Raw bytes (UTF-8 text) |
 
-### Step 2: Add IPC handler for batch stat calls (optional)
+Tag field mapping (same uppercase keys as Vorbis comments):
+- `TITLE`, `ARTIST`, `ALBUM`, `ALBUM ARTIST`, `DATE` (year), `GENRE`, `COMPOSER`,
+  `COMMENT`, `LYRICS`, `DESCRIPTION`
+- `TRACK` (format `"1"` or `"1/10"`), `DISC` (format `"1"` or `"1/2"`)
+- `COMPILATION` (`"1"` / `""`)
+- `MUSICBRAINZ_TRACKID`, `MUSICBRAINZ_ALBUMID`, `MUSICBRAINZ_ARTISTID`
+- Cover art: APEv2 supports `COVER ART (FRONT)` but for MVP we skip cover writing
+  (cover art in APE is uncommon; existing `hasCover` detection via embedded pictures
+  won't find any and the external cover fallback works fine)
 
-If we want "creation time" ordering, we need to get file modification times for tracks in the album. We can either:
-- Read this from the existing `TrackData` (but it's not currently exposed — only `sizeBytes` and `bitrate` are)
-- Add a lightweight IPC handler `"tracks:batch-stat"` that takes an array of paths and returns `{ path, mtimeMs }[]`
+Implementation:
 
-Actually, looking at the existing `TrackData`, `sizeBytes` is available which comes from `fs.statSync()`. We could add `mtimeMs` to `TrackData`, but that would require changes to the backend TrackData interface. 
-
-A simpler approach: no new IPC handler. Just read the current modification times by adding a new minimal IPC handler `"tracks:stat-batch"` that does `fs.statSync` for each path. But let's keep it simple — the two most useful rules are "by filename" and "by title". We can skip "creation time" for v1, or add a lightweight call.
-
-**Decision**: Skip "creation time" ordering for v1. The dropdown will offer: filename A-Z, filename Z-A, title A-Z, title Z-A, existing track number asc, existing track number desc, duration short→long, duration long→short.
-
-### Step 3: Add Number button + dropdown to TitleBar
-
-In `TitleBar.tsx`:
-- Add a "Number" toolbar button (matching the style of Convert, Auto-Tag, etc.)
-- When clicked, show a dropdown/popover positioned below the button listing ordering rules
-- Clicking a rule calls `onNumberTracks(rule)` prop
-- The dropdown closes when a rule is selected or when clicking outside
-
-The dropdown should be lightweight (no modal dialog) — just a simple absolutely-positioned list below the button.
-
-Props to add:
-```typescript
-onNumberTracks: (rule: OrderingRule) => void;
-activeAlbumPath: string | null;
-```
-
-### Step 4: Add number handling to App.tsx
-
-In `App.tsx`:
-1. Import `TrackNumberingService`, `OrderingRule`, `computeNumberedTracks`
-2. Add `handleNumberTracks(rule: OrderingRule)` callback:
-   - Guard: requires `activeAlbumPath` and at least one track in that album
-   - Get tracks scoped to active album (use `filteredTracks`)
-   - Map them to `NumberingInput[]` (path, title, trackNumber, duration)
-   - Call `computeNumberedTracks(tracks, rule)`
-   - Build undo snapshots from current track state
-   - Push undo
-   - Call `window.api.writeTracks(updates)` (batch-write)
-   - Update local state with the new track numbers
-3. Pass `handleNumberTracks` and `activeAlbumPath` to `TitleBar`
-
-```typescript
-const handleNumberTracks = useCallback(
-  async (rule: OrderingRule) => {
-    if (!state.activeAlbumPath) return;
-    const albumTracks = state.tracks.filter(
-      (t) => t.path.startsWith(state.activeAlbumPath + "/")
-    );
-    if (albumTracks.length === 0) return;
-
-    const inputs = albumTracks.map((t) => ({
-      path: t.path,
-      title: t.title,
-      trackNumber: t.trackNumber,
-      duration: t.duration,
-    }));
-
-    const updates = computeNumberedTracks(inputs, rule);
-
-    // Undo snapshots
-    const snapshots: TrackSnapshot[] = albumTracks.map((t) => ({
-      path: t.path,
-      fields: { trackNumber: t.trackNumber, trackTotal: t.trackTotal },
-    }));
-
-    dispatch({
-      type: "PUSH_UNDO",
-      description: `Number tracks (${rule})`,
-      snapshots,
-    });
-
-    dispatch({ type: "SET_SAVING", saving: true });
-    try {
-      const results = await window.api.writeTracks(updates);
-      dispatch({ type: "UPDATE_TRACKS", tracks: results });
-    } catch (err) {
-      dispatch({
-        type: "SET_ERROR",
-        error: err instanceof Error ? err.message : "Numbering failed",
-      });
-    } finally {
-      dispatch({ type: "SET_SAVING", saving: false });
-    }
-  },
-  [state.activeAlbumPath, state.tracks],
-);
-```
-
-### Step 5: Unit tests for TrackNumberingService
-
-`frontend/test/services/TrackNumberingService.test.ts`:
-- Test sort order for each rule (filename-asc, filename-desc, title-asc, etc.)
-- Test tracks with null/undefined fields sort correctly
-- Test startFrom parameter (e.g., start counting from 2)
-- Test trackTotal is set correctly
-- Test empty array returns empty array
-- Test single track returns [{ trackNumber: 1, trackTotal: 1 }]
-- Test tie-breaking (same title → stable sort by path)
-
-### Step 6: Component tests for Number button in TitleBar
-
-`frontend/test/components/TitleBar.test.tsx`:
-- Test that "Number" button renders
-- Test that clicking the button shows the dropdown with ordering rule options
-- Test that selecting a rule calls `onNumberTracks` with the correct rule
-- Test that the dropdown closes after selection
-- Test that the button is disabled when `activeAlbumPath` is null (no album selected)
-
-### Step 7: E2E test
-
-`frontend/e2e/number-tracks.electron.spec.ts`:
-- Create a temp library with an album containing several FLAC files with unordered track numbers
-- Open the app, select the album
-- Click Number → select "By filename A-Z"
-- Verify that track numbers are now sequential (1, 2, 3...) matching filename order
+- Add `writeApe(filePath, fields)`:
+  1. Read file into buffer
+  2. Look for existing APEv2 footer at end of file (scan for `APETAGEX` at `buffer.length - 32`)
+  3. If found, strip existing tag (truncate buffer to `buffer.length - tagSize`)
+  4. Build tag items from `WriteFields` (skip null/undefined fields)
+  5. Serialize items + footer
+  6. Append to buffer and write back with `writeFile`
+- Add `writeApeExtraTags(filePath, extraTags)` — same pattern, but processes `ExtraTagUpdate[]`
+  and preserves standard tags, stripping only non-standard ones (matching Vorbis extra-tag logic)
+- Add `.ape` to the switch statements in `writeTags()`, `writeExtraTags()`,
+  `writeTagsWithOutcome()`, `writeExtraTagsWithOutcome()`
 
 ## Verification
 
-1. **Unit tests**: `cd frontend && npx vitest run test/services/TrackNumberingService.test.ts`
-2. **Component tests**: `cd frontend && npx vitest run test/components/TitleBar.test.tsx` (ensure existing tests still pass)
-3. **E2E test**: `cd frontend && npx playwright test e2e/number-tracks.electron.spec.ts`
-4. **Manual**: Open the app, select an album, use Number button with different ordering rules, verify track numbers update in the grid and inspector, verify undo (⌘Z) restores previous numbers
+1. **Scan test** — Place a real `.ape` file under a test library directory, run a scan, verify
+   the file appears and metadata (title, artist, album, duration) is correctly read.
+2. **Write test** — Generate a minimal APE file via ffmpeg
+   (`ffmpeg -f lavfi -i anullsrc=r=44100:cl=mono -t 1 -acodec ape test.ape`),
+   write tags to it, re-read and verify values.
+3. **Write round-trip test** — Clone an existing test pattern (e.g. `test_flac_write` from specs)
+   adapted for APE — write a known set of tags, read back, assert equality.
+4. **Existing test suite** — Run `npm test` to verify no regressions.
+5. **Manual check** — Open the app, add a folder containing `.ape` files, verify they appear
+   in the library browser, metadata shows correctly in the editor, and tag edits are saved.

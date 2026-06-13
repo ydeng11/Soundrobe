@@ -21,6 +21,7 @@ import { SafeApiRequestService } from "../services/SafeApiRequestService";
 import { FolderOrganizerService } from "../services/FolderOrganizerService";
 import { FilenameTagInferenceService } from "../services/FilenameTagInferenceService";
 import { PlanExecutor, type Plan } from "../services/PlanExecutor";
+import { prettifyTag, prettifyTags } from "../services/TagPrettifyService";
 import type { WriteFields, ExtraTagUpdate } from "./writer";
 import type { AlbumInfo, TrackData } from "../preload";
 
@@ -581,6 +582,52 @@ function buildReadOnlyTools(): AssistantToolDef[] {
         return result.ok
           ? { ok: true, summary: result.summary, data: result.data }
           : { ok: false, summary: result.summary, error: result.error };
+      },
+    },
+    {
+      name: "tags.prettify",
+      description: "Prettify tag strings: converts underscore/hyphen-separated text to title case, strips leading track numbers (01_, 110-), normalizes casing. Handles mixed CJK/Latin text, dotted acronyms (F.I.R.), and parenthetical suffixes. " +
+        "Examples: 'you_are_so_famous' → 'You Are So Famous', " +
+        "'110-hedgehog-you_are_so_famous' → 'Hedgehog You Are So Famous', " +
+        "'枯れゆく花の下で-live_at_budokan-' → '枯れゆく花の下で Live At Budokan'. " +
+        "Provide either a single 'text' field, or a 'fields' object with multiple string values.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          text: { type: "string", description: "Single tag string to prettify" },
+          fields: {
+            type: "object",
+            description: "Multiple tag fields to prettify, e.g. {\"artist\": \"hedgehog\", \"title\": \"you_are_so_famous\"}",
+            additionalProperties: { type: "string" },
+          },
+        },
+      },
+      isReadOnly: true,
+      executor: async (args) => {
+        if (args.text) {
+          const prettified = prettifyTag(String(args.text));
+          return {
+            ok: true,
+            summary: `Prettified: "${prettified}"`,
+            data: { original: args.text, prettified },
+          };
+        }
+        if (args.fields && typeof args.fields === "object") {
+          const prettified = prettifyTags(args.fields as Record<string, string>);
+          const lines = Object.entries(prettified)
+            .map(([k, v]) => `  ${k}: "${v}"`)
+            .join("\n");
+          return {
+            ok: true,
+            summary: `Prettified ${Object.keys(prettified).length} field(s):\n${lines}`,
+            data: { original: args.fields, prettified },
+          };
+        }
+        return {
+          ok: false,
+          summary: "Provide either 'text' (single string) or 'fields' (object with multiple strings).",
+          error: "Missing input",
+        };
       },
     },
   ];
@@ -1495,7 +1542,10 @@ function buildMutatingTools(): AssistantToolDef[] {
     },
     {
       name: "infer_tags_from_filenames",
-      description: "Composite macro: deterministically parse each target filename shaped like 'Artist - Title.ext' and create a preview that sets per-track title, artist, and artists. Use this instead of edit_metadata when each track needs different title/artist values from filenames.",
+      description: "Composite macro: deterministically parse each target filename shaped like 'Artist - Title.ext' (spaced dash) or 'Artist-Title.ext' (compact dash, only when a leading track number like '01_' or '110-' is present) and create a preview that sets per-track title, artist, and artists. " +
+        "Supports prettify: true to title-case and convert underscore-separated text. " +
+        "Example: '110-hedgehog-you_are_so_famous.flac' with prettify=true → title='You Are So Famous', artist='Hedgehog'. " +
+        "Use this instead of edit_metadata when each track needs different title/artist values from filenames.", 
       inputSchema: {
         type: "object",
         properties: {
@@ -1516,6 +1566,12 @@ function buildMutatingTools(): AssistantToolDef[] {
               enum: ["title", "artist", "artists"],
             },
             description: "Fields to infer. Defaults to title, artist, and artists.",
+          },
+          prettify: {
+            type: "boolean",
+            description: "When true, prettifies inferred values: converts underscores to spaces, title-cases words. " +
+              "Use for filenames like '110-hedgehog-you_are_so_famous.flac' where the tag should be " +
+              "'Hedgehog' / 'You Are So Famous'. Defaults to false.",
           },
         },
         required: ["target_scope"],
@@ -1543,12 +1599,13 @@ function buildMutatingTools(): AssistantToolDef[] {
           title: requestedFields.has("title"),
           artist: requestedFields.has("artist"),
           artists: requestedFields.has("artists"),
+          prettify: args.prettify === true,
         });
 
         if (instructions.length === 0) {
           return {
             ok: true,
-            summary: "No target filenames have a clear 'Artist - Title.ext' shape, so no metadata preview was created.",
+            summary: "No target filenames have a clear 'Artist - Title.ext' or compact 'Artist-Title' shape, so no metadata preview was created.",
           };
         }
 
