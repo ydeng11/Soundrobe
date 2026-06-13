@@ -1111,6 +1111,14 @@ class TaskManager {
     const results: AlbumCandidate[] = [];
     const albumHint = request.albumHint ?? "";
 
+    debug.debug("auto-tag",
+      `performDirectIdLookups: mbAlbumId=${request.musicbrainzAlbumId ?? "-"} ` +
+      `mbArtistId=${request.musicbrainzArtistId ?? "-"} ` +
+      `discogsReleaseId=${request.discogsReleaseId ?? "-"} ` +
+      `discogsArtistId=${request.discogsArtistId ?? "-"} ` +
+      `albumHint="${albumHint}"`
+    );
+
     // 1. MusicBrainz album ID → direct release fetch
     if (request.musicbrainzAlbumId) {
       debug.info("auto-tag", `Direct MB lookup: albumId=${request.musicbrainzAlbumId}`);
