@@ -9,6 +9,7 @@
 import sharp from "sharp";
 import logger from "../handlers/debug";
 import { DiscogsService } from "./DiscogsService";
+import { findArtistIdentity } from "./ArtistIdentityResolver";
 
 // ── Types ───────────────────────────────────────────────────────────
 
@@ -323,16 +324,18 @@ async function findDiscogs(
 
   try {
     if (ctx.kind === "artist-image") {
-      const aliasResult = await service.searchArtists(artist);
-      if (!aliasResult) {
-        logger.debug("cover", `findDiscogs (artist-image): no results for "${artist}"`);
+      // Use ArtistIdentityResolver for better Chinese artist matching
+      const identity = await findArtistIdentity(artist, { discogsToken: token });
+      
+      if (!identity.discogsArtistId) {
+        logger.debug("cover", `findDiscogs (artist-image): no Discogs ID for "${artist}"`);
         return null;
       }
 
-      const detail = await service.getArtistDetail(aliasResult.artistId);
+      const detail = await service.getArtistDetail(Number(identity.discogsArtistId));
       if (detail && detail.images.length > 0) {
         const image = detail.images.find((img) => img.type === "primary") ?? detail.images[0];
-        logger.info("cover", `findDiscogs (artist-image): ACCEPTED id=${aliasResult.artistId}`);
+        logger.info("cover", `findDiscogs (artist-image): ACCEPTED id=${identity.discogsArtistId} (source=${identity.source})`);
         const img = await service.fetchImage(image.uri);
         if (img) {
           return { kind: "artist-image", source: "discogs", bytes: img.bytes, mime: img.mime, url: image.uri };

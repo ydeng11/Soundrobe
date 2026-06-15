@@ -2,6 +2,62 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import type { ExtraTag, TrackData } from "../../electron/preload";
 import { basename } from "../utils/path";
 
+/** Common tag keys users may want to add (not in the main editor). */
+const SUGGESTED_TAG_KEYS = [
+  // Vorbis / general
+  "DESCRIPTION",
+  "LYRICIST",
+  "ARRANGER",
+  "CONDUCTOR",
+  "DISCSUBTITLE",
+  "DISCTOTAL",
+  "GROUPING",
+  "ISRC",
+  "LABEL",
+  "LICENSE",
+  "OPUS",
+  "REPLAYGAIN_TRACK_GAIN",
+  "REPLAYGAIN_TRACK_PEAK",
+  "REPLAYGAIN_ALBUM_GAIN",
+  "REPLAYGAIN_ALBUM_PEAK",
+  "SCRIPT",
+  "SUBTITLE",
+  "TOTALDISCS",
+  "TOTALTRACKS",
+  // MusicBrainz
+  "MUSICBRAINZ_ALBUMID",
+  "MUSICBRAINZ_ARTISTID",
+  "MUSICBRAINZ_DISCID",
+  "MUSICBRAINZ_ORIGINALALBUMID",
+  "MUSICBRAINZ_RELEASEGROUPID",
+  "MUSICBRAINZ_RELEASEID",
+  "MUSICBRAINZ_TRACKID",
+  "MUSICBRAINZ_WORKID",
+  // Discogs
+  "DISCOGS_ARTIST_ID",
+  "DISCOGS_ALBUM_ARTISTS",
+  "DISCOGS_CATALOG",
+  "DISCOGS_COUNTRY",
+  "DISCOGS_LABEL",
+  "DISCOGS_RELEASE_ID",
+  "DISCOGS_RELEASED",
+  "DISCOGS_STYLE",
+  "DISCOGS_VOTES",
+  // ID3v2 (native keys)
+  "TCOM",
+  "TIT3",
+  "TSRC",
+  "TPUB",
+  "TCOP",
+  "TOLY",
+  "TPE3",
+  "TPE4",
+  "TSST",
+  "TSOA",
+  "TSOP",
+  "TSOT",
+];
+
 interface ExtraTagsEditorProps {
   track: TrackData;
   saving: boolean;
@@ -29,7 +85,13 @@ export function ExtraTagsEditor({
   const [filter, setFilter] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [activeKeyId, setActiveKeyId] = useState<string | null>(null);
+  const [keyFilter, setKeyFilter] = useState("");
+  const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number; width: number } | null>(null);
   const newKeyRef = useRef<HTMLInputElement | null>(null);
+  const keyInputRefs = useRef<Map<string, HTMLInputElement>>(new Map());
+  const suggestionsRef = useRef<HTMLDivElement | null>(null);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
 
   const filename = basename(track.path) ?? track.path;
 
@@ -73,6 +135,47 @@ export function ExtraTagsEditor({
         row.source.toLowerCase().includes(query),
     );
   }, [rows, filter]);
+
+  // Suggestions for the tag key autocomplete
+  const keySuggestions = useMemo(() => {
+    if (!activeKeyId) return [];
+    const row = rows.find((r) => r.id === activeKeyId);
+    if (!row) return [];
+    const usedKeys = new Set(rows.map((r) => r.key.toUpperCase()));
+    const q = keyFilter.trim().toUpperCase();
+    return SUGGESTED_TAG_KEYS.filter(
+      (k) => !usedKeys.has(k) && (!q || k.includes(q)),
+    ).slice(0, 8); // limit dropdown height
+  }, [activeKeyId, rows, keyFilter]);
+
+  // Close suggestions on outside click
+  useEffect(() => {
+    if (!activeKeyId) return;
+    const handler = (e: MouseEvent) => {
+      const target = e.target as Node;
+      const inputEl = keyInputRefs.current.get(activeKeyId);
+      const dropEl = suggestionsRef.current;
+      if (inputEl?.contains(target) || dropEl?.contains(target)) return;
+      setActiveKeyId(null);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [activeKeyId]);
+
+  // Update dropdown position on scroll
+  useEffect(() => {
+    if (!activeKeyId) return;
+    const updatePos = () => {
+      const el = keyInputRefs.current.get(activeKeyId);
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      setDropdownPos({ top: rect.bottom + 2, left: rect.left, width: rect.width });
+    };
+    updatePos();
+    const scrollEl = scrollRef.current;
+    scrollEl?.addEventListener("scroll", updatePos, { passive: true });
+    return () => scrollEl?.removeEventListener("scroll", updatePos);
+  }, [activeKeyId]);
 
   const requestClose = useCallback(() => {
     if (dirty && !window.confirm("You have unsaved changes. Discard them?")) {
@@ -176,7 +279,7 @@ export function ExtraTagsEditor({
           <div />
         </div>
 
-        <div className="flex-1 overflow-y-auto">
+        <div ref={scrollRef} className="flex-1 overflow-y-auto">
           {loading ? (
             <div className="h-32 flex items-center justify-center text-[12px] text-text-muted">
               Loading tags...
@@ -197,15 +300,32 @@ export function ExtraTagsEditor({
                   row.deleted ? "bg-red-50/80 text-[#c8271d]" : "bg-white"
                 }`}
               >
-                <input
-                  ref={row.isNew ? newKeyRef : undefined}
-                  value={row.key}
-                  onChange={(event) => updateRow(row.id, { key: event.target.value })}
-                  className={`h-8 bg-transparent border border-transparent rounded-md px-2 text-[12px] font-medium outline-none focus:border-accent/60 focus:bg-white focus:shadow-[0_0_0_3px_rgba(0,122,255,0.14)] ${
-                    row.deleted ? "line-through" : ""
-                  }`}
-                  placeholder="Tag key"
-                />
+                <div className="relative">
+                  <input
+                    ref={(el) => {
+                      if (row.isNew) newKeyRef.current = el;
+                      if (el) keyInputRefs.current.set(row.id, el);
+                    }}
+                    value={row.key}
+                    onChange={(event) => {
+                      updateRow(row.id, { key: event.target.value });
+                      setKeyFilter(event.target.value);
+                    }}
+                    onFocus={() => {
+                      setActiveKeyId(row.id);
+                      setKeyFilter(row.key);
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key === "Escape" && activeKeyId === row.id) {
+                        setActiveKeyId(null);
+                      }
+                    }}
+                    className={`h-8 w-full bg-transparent border border-transparent rounded-md px-2 text-[12px] font-medium outline-none focus:border-accent/60 focus:bg-white focus:shadow-[0_0_0_3px_rgba(0,122,255,0.14)] ${
+                      row.deleted ? "line-through" : ""
+                    }`}
+                    placeholder="Tag key"
+                  />
+                </div>
                 <input
                   value={row.value}
                   onChange={(event) => updateRow(row.id, { value: event.target.value })}
@@ -274,6 +394,30 @@ export function ExtraTagsEditor({
           </div>
         </div>
       </div>
+
+      {/* Autocomplete dropdown — rendered outside overflow containers */}
+      {activeKeyId && keySuggestions.length > 0 && dropdownPos && (
+        <div
+          ref={suggestionsRef}
+          style={{ position: "fixed", top: dropdownPos.top, left: dropdownPos.left, width: dropdownPos.width }}
+          className="z-[90] max-h-[160px] overflow-y-auto bg-white border border-border rounded-lg shadow-lg"
+        >
+          {keySuggestions.map((key) => (
+            <button
+              key={key}
+              type="button"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                updateRow(activeKeyId, { key });
+                setActiveKeyId(null);
+              }}
+              className="w-full text-left px-3 py-1.5 text-[11px] hover:bg-accent/10 text-text-primary truncate"
+            >
+              {key}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

@@ -72,7 +72,7 @@ function parseFlacLayout(buf) {
     const dataOffset = offset + 4;
 
     // Sanity: stop if block extends past EOF or looks invalid
-    if (type > 126 || length > 5_000_000 || dataOffset + length > buf.length) break;
+    if (type > 126 || length > 20_000_000 || dataOffset + length > buf.length) break;
 
     blocks.push({ type, headerOffset, dataOffset, length, isLast });
     if (isLast) break;
@@ -164,8 +164,9 @@ function analyzeFlac(filePath) {
   if (layout.blocks.length > 0) {
     const lastBlock = layout.blocks[layout.blocks.length - 1];
     const expectedAudio = lastBlock.dataOffset + lastBlock.length;
-    // Scan for FLAC frame sync starting from expected position
-    for (let i = expectedAudio; i < Math.min(expectedAudio + 200, buf.length - 1); i++) {
+    // Scan for FLAC frame sync starting from expected position.
+    // Some files have hidden PADDING blocks (64 KiB) between metadata and audio.
+    for (let i = expectedAudio; i < Math.min(expectedAudio + 200000, buf.length - 1); i++) {
       if (buf[i] === 0xff && (buf[i + 1] & 0xf8) === 0xf8) {
         metadataAudioGap = i - expectedAudio;
         break;
@@ -398,9 +399,10 @@ function fixMetadataAudioGap(filePath) {
   const lastBlock = layout.blocks[layout.blocks.length - 1];
   const expectedAudioOffset = lastBlock.dataOffset + lastBlock.length;
 
-  // Find actual audio offset by scanning for FLAC frame sync
+  // Find actual audio offset by scanning for FLAC frame sync.
+  // Some files have hidden PADDING blocks (64 KiB) between metadata and audio.
   let actualAudioOffset = -1;
-  for (let i = expectedAudioOffset; i < Math.min(expectedAudioOffset + 200, buf.length - 1); i++) {
+  for (let i = expectedAudioOffset; i < Math.min(expectedAudioOffset + 200000, buf.length - 1); i++) {
     if (buf[i] === 0xff && (buf[i + 1] & 0xf8) === 0xf8) {
       actualAudioOffset = i;
       break;
@@ -411,13 +413,14 @@ function fixMetadataAudioGap(filePath) {
 
   const gap = actualAudioOffset - expectedAudioOffset;
 
-  // Only fix if the gap is all zeros and the last block is PADDING
+  // Only fix if the last block is PADDING
   if (lastBlock.type !== 1) return false;
-  for (let i = expectedAudioOffset; i < actualAudioOffset; i++) {
-    if (buf[i] !== 0) return false;
-  }
 
-  // Absorb the gap into the PADDING block's length
+  // Absorb the entire gap into the PADDING block's length.
+  // The gap may contain:
+  // - All zeros (simple padding)
+  // - A hidden PADDING block header + zeros (auto-tagger wrote extra 64 KiB)
+  // Either way, extending the PADDING length is safe.
   const newPadLen = lastBlock.length + gap;
   buf[lastBlock.headerOffset + 1] = (newPadLen >> 16) & 0xff;
   buf[lastBlock.headerOffset + 2] = (newPadLen >> 8) & 0xff;

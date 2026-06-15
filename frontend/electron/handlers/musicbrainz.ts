@@ -227,6 +227,66 @@ export class MusicBrainzClient {
       return [];
     }
   }
+
+  /**
+   * Search for an artist by name and return artist info with aliases.
+   * Used by ArtistIdentityResolver to find English aliases for CJK artists.
+   */
+  async searchArtistByName(
+    artistName: string,
+  ): Promise<{ id: string; name: string; aliases?: Array<{ name: string; locale?: string; type?: string }> } | null> {
+    await musicBrainzRateLimit();
+
+    const query = `artist:"${escapeQuery(artistName)}"`;
+    const url = `${this.baseUrl}/artist/?query=${encodeURIComponent(query)}&fmt=json&limit=5`;
+
+    try {
+      const response = await fetch(url, {
+        headers: {
+          "User-Agent": USER_AGENT,
+          Accept: "application/json",
+        },
+      });
+
+      if (!response.ok) return null;
+
+      const data = (await response.json()) as {
+        artists?: Array<{
+          id?: string;
+          name?: string;
+          "sort-name"?: string;
+          disambiguation?: string;
+          type?: string;
+          aliases?: Array<{ name: string; locale?: string; type?: string }>;
+        }>;
+      };
+
+      const artists = data.artists ?? [];
+      if (artists.length === 0) return null;
+
+      // Find best match: exact name, Person type, with useful disambiguation
+      let bestMatch = artists[0];
+      for (const artist of artists) {
+        if (!artist.name || !artist.id) continue;
+
+        // Exact name match is preferred
+        if (artist.name === artistName || artist["sort-name"] === artistName) {
+          bestMatch = artist;
+          break;
+        }
+      }
+
+      if (!bestMatch?.id || !bestMatch?.name) return null;
+
+      return {
+        id: bestMatch.id,
+        name: bestMatch.name,
+        aliases: bestMatch.aliases,
+      };
+    } catch {
+      return null;
+    }
+  }
 }
 
 /**

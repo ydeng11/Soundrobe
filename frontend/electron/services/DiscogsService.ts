@@ -228,7 +228,7 @@ export class DiscogsService {
     return headers;
   }
 
-  private async fetch(url: string): Promise<Response | null> {
+  async fetch(url: string): Promise<Response | null> {
     await sharedLimiter.wait();
     try {
       const res = await fetch(url, {

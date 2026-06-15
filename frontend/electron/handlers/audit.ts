@@ -15,6 +15,7 @@ import { buildAuditMessages } from "./prompts";
 import { loadConfig } from "./auto-tag";
 import { saveAlias, isChineseName } from "./aliases";
 import { DiscogsService } from "../services/DiscogsService";
+import { findArtistIdentity } from "../services/ArtistIdentityResolver";
 import type { WriteFields } from "./writer";
 import { getDefaultWriteQueue } from "../services/TagWriteQueue";
 import { AUDIT_ALBUM_CONCURRENCY, LOCAL_READ_CONCURRENCY, mapConcurrent } from "../services/concurrency";
@@ -426,26 +427,21 @@ async function auditAlbum(
   let discogsArtistId: string | null = null;
 
   if (discogsToken && artistHint && isChineseName(artistHint)) {
-    debug.debug("audit", `${albumName}: checking Discogs for artist="${artistHint}"`);
-    const aliasResult = await resolveDiscogsArtistAlias(artistHint, discogsToken);
-
-    if (aliasResult === null) {
-      // Precise search found the artist, no alias needed
-      debug.debug("audit", `${albumName}: artist resolves directly on Discogs`);
+    debug.debug("audit", `${albumName}: checking artist identity for "${artistHint}"`);
+    
+    // Use ArtistIdentityResolver for better Chinese artist matching
+    const identity = await findArtistIdentity(artistHint, { discogsToken });
+    
+    if (identity.discogsArtistId) {
+      discogsArtistId = identity.discogsArtistId;
+      if (identity.englishAliases.length > 0) {
+        discogsAlias = identity.englishAliases[0];
+        aliasWasSuggested = false;
+        debug.info("audit", `${albumName}: Discogs alias found: "${artistHint}" → "${discogsAlias}" (id=${discogsArtistId}, source=${identity.source})`);
+      } else {
+        debug.info("audit", `${albumName}: Discogs ID found directly (id=${discogsArtistId}, source=${identity.source})`);
+      }
     } else {
-      // Generic search found an alias with Discogs artist ID
-      debug.info("audit", `${albumName}: Discogs alias found: "${artistHint}" → "${aliasResult.alias}" (id=${aliasResult.artistId})`);
-      discogsAlias = aliasResult.alias;
-      discogsArtistId = String(aliasResult.artistId);
-      aliasWasSuggested = false;
-
-      // Persist the alias for future lookups
-      saveAlias(artistHint, aliasResult.alias);
-
-      // Ask LLM for alias suggestions if neither search found it
-    }
-
-    if (!discogsAlias) {
       debug.debug("audit", `${albumName}: artist not found on Discogs, asking LLM for aliases`);
       const suggested = await suggestDiscogsAliases(artistHint, client);
 

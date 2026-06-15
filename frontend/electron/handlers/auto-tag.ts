@@ -28,6 +28,7 @@ import { writeTags, type WriteFields } from "./writer";
 import { matchRemoteCandidateTracks } from "../services/RemoteTrackMatcher";
 import { readLocalLyrics, LyricsClient } from "./lyrics";
 import { readTrackMetadata } from "./tracks";
+import { findArtistIdentity } from "../services/ArtistIdentityResolver";
 import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, statSync } from "node:fs";
 import { basename, dirname, join, extname } from "node:path";
 
@@ -760,6 +761,29 @@ class TaskManager {
         // step - that was a fragile bottleneck (HTTP 400 failures).
         const candidate = mergedCandidates.length > 0 ? mergedCandidates[0] : null;
         if (candidate) {
+          // Resolve artist identity if IDs are missing
+          // This uses MusicBrainz aliases to find correct Discogs ID for Chinese artists
+          if (!candidate.musicbrainzArtistId || !candidate.discogsArtistId) {
+            const artistName = candidate.artist ?? candidate.albumArtist;
+            if (artistName) {
+              debug.debug("auto-tag", `Resolving artist identity for "${artistName}"...`);
+              const identity = await findArtistIdentity(artistName, {
+                discogsToken: this.config.discogsToken,
+              });
+              if (identity.musicbrainzArtistId && !candidate.musicbrainzArtistId) {
+                candidate.musicbrainzArtistId = identity.musicbrainzArtistId;
+                debug.info("auto-tag", `Resolved MB artist ID: ${identity.musicbrainzArtistId} (source=${identity.source})`);
+              }
+              if (identity.discogsArtistId && !candidate.discogsArtistId) {
+                candidate.discogsArtistId = identity.discogsArtistId;
+                debug.info("auto-tag", `Resolved Discogs artist ID: ${identity.discogsArtistId} (source=${identity.source})`);
+              }
+              if (identity.englishAliases.length > 0) {
+                debug.info("auto-tag", `Discovered English aliases: ${identity.englishAliases.join(", ")}`);
+              }
+            }
+          }
+
           // Conditional genre fill: only call LLM if genre is still missing
           // after Discogs and LLM tag resolution.
           update("Resolving genre...", 8);
