@@ -926,6 +926,94 @@ describe("writeTags — FLAC in-place padding-aware", () => {
     expect(meta.common.artist).toBe("Short");
   });
 
+  it("shrinking Vorbis block updates header length and converts leftover to PADDING", async () => {
+    const fp = path.join(tmpDir, "shrink-padding.flac");
+    buildFlacWithPadding(fp, 200, {
+      TITLE: "A Very Long Title That Takes Up A Lot Of Space",
+      ARTIST: "An Even Longer Artist Name Here To Fill Bytes",
+    });
+
+    // Read the Vorbis block length before writing
+    const bufBefore = fs.readFileSync(fp);
+    let vorbisLenBefore = 0;
+    let vorbisDataLenBefore = 0;
+    {
+      let off = 4;
+      while (off + 4 <= bufBefore.length) {
+        const isLast = !!(bufBefore[off] >> 7);
+        const type = bufBefore[off] & 0x7f;
+        const len = (bufBefore[off + 1] << 16) | (bufBefore[off + 2] << 8) | bufBefore[off + 3];
+        if (type === 4) {
+          vorbisLenBefore = len;
+          // Compute actual Vorbis content size
+          const vOff = off + 4;
+          const vendorLen = bufBefore.readUInt32LE(vOff);
+          const numComments = bufBefore.readUInt32LE(vOff + 4 + vendorLen);
+          let pos = vOff + 4 + vendorLen + 4;
+          let commentBytes = 0;
+          for (let i = 0; i < numComments; i++) {
+            const cLen = bufBefore.readUInt32LE(pos);
+            pos += 4 + cLen;
+            commentBytes += cLen;
+          }
+          vorbisDataLenBefore = 4 + vendorLen + 4 + numComments * 4 + commentBytes;
+          break;
+        }
+        if (isLast) break;
+        off += 4 + len;
+      }
+    }
+    // Sanity: header length should match content
+    expect(vorbisLenBefore).toBe(vorbisDataLenBefore);
+
+    await writeTags(fp, { title: "Short", artist: "Short" });
+
+    const bufAfter = fs.readFileSync(fp);
+    // Parse Vorbis block after write
+    let vorbisLenAfter = 0;
+    let vorbisDataLenAfter = 0;
+    let vorbisIsLastAfter = false;
+    {
+      let off = 4;
+      while (off + 4 <= bufAfter.length) {
+        const isLast = !!(bufAfter[off] >> 7);
+        const type = bufAfter[off] & 0x7f;
+        const len = (bufAfter[off + 1] << 16) | (bufAfter[off + 2] << 8) | bufAfter[off + 3];
+        if (type === 4) {
+          vorbisLenAfter = len;
+          vorbisIsLastAfter = isLast;
+          const vOff = off + 4;
+          const vendorLen = bufAfter.readUInt32LE(vOff);
+          const numComments = bufAfter.readUInt32LE(vOff + 4 + vendorLen);
+          let pos = vOff + 4 + vendorLen + 4;
+          let commentBytes = 0;
+          for (let i = 0; i < numComments; i++) {
+            const cLen = bufAfter.readUInt32LE(pos);
+            pos += 4 + cLen;
+            commentBytes += cLen;
+          }
+          vorbisDataLenAfter = 4 + vendorLen + 4 + numComments * 4 + commentBytes;
+          break;
+        }
+        if (isLast) break;
+        off += 4 + len;
+      }
+    }
+
+    // The Vorbis block MUST NOT be last anymore (PADDING follows)
+    expect(vorbisIsLastAfter).toBe(false);
+    // Header length must match actual content — the core bug this test guards
+    expect(vorbisLenAfter).toBe(vorbisDataLenAfter);
+    // Vorbis block must have shrunk
+    expect(vorbisLenAfter).toBeLessThan(vorbisLenBefore);
+    // File size unchanged (leftover became PADDING)
+    expect(bufAfter.length).toBe(bufBefore.length);
+    // Tags readable
+    const meta = await parseFile(fp, { duration: false });
+    expect(meta.common.title).toBe("Short");
+    expect(meta.common.artist).toBe("Short");
+  });
+
   it("equal Vorbis update keeps file size and audio bytes unchanged", async () => {
     const fp = path.join(tmpDir, "equal.flac");
     buildFlacWithPadding(fp, 100, { TITLE: "ExactMatch" });

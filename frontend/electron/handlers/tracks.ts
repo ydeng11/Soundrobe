@@ -278,7 +278,16 @@ export async function readTrackMetadata(filePath: string): Promise<TrackData> {
 }
 
 export async function readExtraTags(filePath: string): Promise<ExtraTag[]> {
-  const metadata = await parseFile(filePath, { duration: false });
+  let metadata;
+  try {
+    metadata = await parseFile(filePath, { duration: false });
+  } catch (error) {
+    // Gracefully handle corrupt/unsupported files (e.g. malformed picture tags in FLAC)
+    logger.debug("extra-tags", `Failed to parse file for extra tags: ${filePath}`, {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return [];
+  }
   const rows: ExtraTag[] = [];
   const seen = new Set<string>();
 

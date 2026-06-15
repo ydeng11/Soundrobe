@@ -247,6 +247,7 @@ async function writeWavExtraTags(filePath: string, extraTags: ExtraTagUpdate[]):
   let existingTags: NodeID3.Tags = {};
   let existingId3Offset = -1;
   let existingId3Size = 0;
+  let hasListInfoChunk = false;
   const chunks: Buffer[] = [];
 
   for (let offset = 12; offset + 8 <= data.length; ) {
@@ -261,6 +262,9 @@ async function writeWavExtraTags(filePath: string, extraTags: ExtraTagUpdate[]):
       };
       existingId3Offset = offset;
       existingId3Size = size;
+    } else if (id === "LIST" && size >= 4 && data.toString("ascii", offset + 8, offset + 12) === "INFO") {
+      // Strip legacy LIST INFO chunk (corrupt/mangled metadata)
+      hasListInfoChunk = true;
     } else {
       chunks.push(data.subarray(offset, end));
     }
@@ -285,8 +289,8 @@ async function writeWavExtraTags(filePath: string, extraTags: ExtraTagUpdate[]):
 
   const id3Payload = nodeId3.create(mergedTags);
 
-  // Try in-place: existing chunk has enough room
-  if (existingId3Offset >= 0 && id3Payload.length <= existingId3Size) {
+  // Try in-place: existing chunk has enough room (skip if LIST INFO needs stripping)
+  if (!hasListInfoChunk && existingId3Offset >= 0 && id3Payload.length <= existingId3Size) {
     const dataOffset = existingId3Offset + 8;
     const handle = await open(filePath, "r+");
     try {
@@ -754,20 +758,36 @@ async function writeFlacMetadataBlock(
     return "skipped";
   }
 
-  // Fast path 1: new payload fits inside existing block space
-  // Keep the header's length field unchanged; overwrite payload + zero-fill
+  // Fast path 1: new payload fits inside existing block space.
+  // When the payload shrinks, we MUST update the header length and convert
+  // leftover bytes to a valid PADDING block — leaving stale zeros inside a
+  // Vorbis comment block causes flac -t BAD_METADATA errors.
   if (blockData.length <= existing.length) {
-    const handle = await open(filePath, "r+");
-    try {
-      await handle.write(blockData, 0, blockData.length, existing.dataOffset);
-      if (blockData.length < existing.length) {
-        const zeroBuf = Buffer.alloc(existing.length - blockData.length);
-        await handle.write(zeroBuf, 0, zeroBuf.length, existing.dataOffset + blockData.length);
+    const leftover = existing.length - blockData.length;
+
+    // If leftover is 1–3 bytes, we cannot fit a PADDING header — fall through
+    // to the full-rewrite path which rebuilds the block chain cleanly.
+    if (leftover === 0 || leftover >= 4) {
+      const handle = await open(filePath, "r+");
+      try {
+        await handle.write(blockData, 0, blockData.length, existing.dataOffset);
+        if (leftover >= 4) {
+          // Convert leftover space to a PADDING block inheriting isLast
+          const padHdr = buildFlacBlockHeader(1, leftover - 4, existing.isLast);
+          await handle.write(
+            padHdr, 0, 4, existing.dataOffset + blockData.length,
+          );
+          // Update Vorbis header: correct length, isLast = false
+          const vorbisHdr = buildFlacBlockHeader(
+            4, blockData.length, false,
+          );
+          await handle.write(vorbisHdr, 0, 4, existing.headerOffset);
+        }
+      } finally {
+        await handle.close();
       }
-    } finally {
-      await handle.close();
+      return "in_place";
     }
-    return "in_place";
   }
 
   // Fast path 2: next block is PADDING with enough combined room
@@ -775,7 +795,7 @@ async function writeFlacMetadataBlock(
   const nextBlock = layout.blocks[existingIdx + 1];
   const neededExtra = blockData.length - existing.length;
 
-  if (nextBlock && nextBlock.type === 1 && nextBlock.length >= neededExtra) {
+  if (nextBlock && nextBlock.type === 1 && neededExtra > 0 && nextBlock.length >= neededExtra) {
     const remainingPadding = nextBlock.length - neededExtra;
     // The PADDING header shifts forward by neededExtra bytes
     const newPadHdrOffset = nextBlock.headerOffset + neededExtra;
@@ -899,43 +919,37 @@ async function writeFlacWithPaddingFallback(
     newBlockData,
   ]);
 
-  // Build PADDING block (will be made last by fixLastFlacBlock)
+  // Build PADDING block (isLast=true so fixLastFlacBlock doesn't scan past it
+  // into audio data — which would interpret audio bytes as metadata blocks)
   const padding = Buffer.concat([
-    buildFlacBlockHeader(1, PADDING_SIZE, false),
+    buildFlacBlockHeader(1, PADDING_SIZE, true),
     Buffer.alloc(PADDING_SIZE),
   ]);
 
   const vorbisBlock = layout.blocks.find((b) => b.type === 4);
+  const audio = buf.subarray(layout.audioOffset);
 
-  // IMPORTANT: Clear isLast on the first metadata block (STREAMINFO) because the
-  // original file may have had it set (e.g. when SI was the only block) and
-  // fixLastFlacBlock will stop at the first isLast=true block.
-  const streamInfoOffset = 4;
-
+  // Build: [prefix] + newVorbis + [middle] + padding + audio
+  let prefix: Buffer;
+  let middle: Buffer;
   if (vorbisBlock) {
-    // Replace existing Vorbis, keep all other metadata blocks in order,
-    // insert PADDING between the last metadata block and audio.
-    const beforeVorbis = buf.subarray(0, vorbisBlock.headerOffset);
-    const between = buf.subarray(
+    // Replace existing Vorbis, keep all other metadata blocks in order
+    prefix = buf.subarray(0, vorbisBlock.headerOffset);
+    middle = buf.subarray(
       vorbisBlock.headerOffset + 4 + vorbisBlock.length,
       layout.audioOffset,
     );
-    const audio = buf.subarray(layout.audioOffset);
-    const result = Buffer.concat([beforeVorbis, newVorbis, between, padding, audio]);
-    result[streamInfoOffset] &= 0x7f; // clear isLast on SI
-    fixLastFlacBlock(result);
-    await writeFile(filePath, result);
   } else {
-    // No existing Vorbis — insert after STREAMINFO, keep remaining metadata, add padding before audio
+    // No existing Vorbis — insert after STREAMINFO
     const streamInfoEnd = 4 + 4 + (layout.blocks[0]?.length ?? 0);
-    const before = buf.subarray(0, streamInfoEnd);
-    const afterMetadata = buf.subarray(streamInfoEnd, layout.audioOffset);
-    const audio = buf.subarray(layout.audioOffset);
-    const result = Buffer.concat([before, newVorbis, afterMetadata, padding, audio]);
-    result[streamInfoOffset] &= 0x7f; // clear isLast on SI
-    fixLastFlacBlock(result);
-    await writeFile(filePath, result);
+    prefix = buf.subarray(0, streamInfoEnd);
+    middle = buf.subarray(streamInfoEnd, layout.audioOffset);
   }
+
+  const result = Buffer.concat([prefix, newVorbis, middle, padding, audio]);
+  result[4] &= 0x7f; // clear isLast on STREAMINFO
+  fixLastFlacBlock(result);
+  await writeFile(filePath, result);
 }
 
 /**
@@ -1064,6 +1078,7 @@ async function writeWav(
   let existingTags: NodeID3.Tags = {};
   let existingId3Offset = -1;
   let existingId3Size = 0;
+  let hasListInfoChunk = false;
   const chunks: Buffer[] = [];
 
   for (let offset = 12; offset + 8 <= data.length;) {
@@ -1078,6 +1093,9 @@ async function writeWav(
       };
       existingId3Offset = offset;
       existingId3Size = size;
+    } else if (id === "LIST" && size >= 4 && data.toString("ascii", offset + 8, offset + 12) === "INFO") {
+      // Strip legacy LIST INFO chunk (corrupt/mangled metadata)
+      hasListInfoChunk = true;
     } else {
       chunks.push(data.subarray(offset, end));
     }
@@ -1087,7 +1105,8 @@ async function writeWav(
   const id3Payload = buildWavId3Payload(fields, existingTags);
 
   // Try in-place: existing chunk has enough room (including potential pad byte)
-  if (existingId3Offset >= 0 && id3Payload.length <= existingId3Size) {
+  // Skip in-place when LIST INFO needs stripping (forces full rewrite)
+  if (!hasListInfoChunk && existingId3Offset >= 0 && id3Payload.length <= existingId3Size) {
     const dataOffset = existingId3Offset + 8;
     const handle = await open(filePath, "r+");
     try {
