@@ -488,7 +488,6 @@ function hasApeTag(buf: Buffer): boolean {
 
 function stripApeTagFromBuffer(buf: Buffer): Buffer {
   // APE tag footer is 32 bytes at the very end of the file.
-  // Search only the last 300 bytes to avoid false matches in audio data.
   if (buf.length < 64) return buf;
 
   // The footer must be exactly at the end — APE tags are always last.

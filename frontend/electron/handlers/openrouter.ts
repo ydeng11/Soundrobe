@@ -115,7 +115,11 @@ export class OpenRouterClient {
 
       const choices = (responsePayload as any).choices ?? [];
       if (choices.length === 0) {
-        throw new Error("OpenRouter response did not include choices");
+        // Include response body for debugging — common causes:
+        // - Model returned empty response
+        // - API error wrapped in 200 (e.g. rate limit with body error)
+        const preview = JSON.stringify(responsePayload).slice(0, 200);
+        throw new Error(`OpenRouter response did not include choices: ${preview}`);
       }
       content = choices[0]?.message?.content ?? "";
       if (!content) {
