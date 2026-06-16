@@ -258,6 +258,14 @@ const WHITESPACE_RE = /\s+/g;
  */
 const ASCII_PUNCTUATION_RE = /[!"#$%&'()*+,\-./:;<=>?@[\\\]^_`{|}~]/g;
 
+/** Strip Unicode punctuation chars that commonly appear in album titles:
+ *  - U+2026 (…) horizontal ellipsis
+ *  - U+3000 ideographic space
+ *  - U+FEFF BOM
+ *  These aren't covered by ASCII_PUNCTUATION_RE but cause false mismatches
+ *  between MusicBrainz titles (which often append …) and file metadata. */
+const UNICODE_PUNCT_RE = /[\u2026\u3000\uff00-\uffef\u2000-\u206f\u2010-\u2015\u2018-\u2019\u201c-\u201d\u3008-\u3011\u3014-\u3015]/g;
+
 /**
  * Normalize text for case/punctuation-insensitive comparison.
  * Applies NFKC normalization, case-folds, strips ASCII punctuation, trims whitespace.
@@ -269,8 +277,29 @@ export function normalizeLookupText(value: string | null): string {
     .normalize("NFKC")
     .toLowerCase()
     .replace(ASCII_PUNCTUATION_RE, " ")
+    .replace(UNICODE_PUNCT_RE, " ")
     .replace(WHITESPACE_RE, " ")
     .trim();
+}
+
+/**
+ * Normalize CJK text by also trying Simplified/Traditional Chinese variants
+ * via OpenCC-js. Returns an array of normalized forms (original + variants).
+ */
+async function addOpenCCNormalized(name: string): Promise<string[]> {
+  const forms = [name];
+  try {
+    const mod = await import("opencc-js");
+    const s2t = mod.Converter({ from: "cn", to: "tw" });
+    const t2s = mod.Converter({ from: "tw", to: "cn" });
+    const s2tNorm = normalizeLookupText(s2t(name));
+    const t2sNorm = normalizeLookupText(t2s(name));
+    if (s2tNorm !== name) forms.push(s2tNorm);
+    if (t2sNorm !== name && t2sNorm !== s2tNorm) forms.push(t2sNorm);
+  } catch {
+    // opencc-js not available — fall back to original only
+  }
+  return forms;
 }
 
 /**
@@ -281,18 +310,28 @@ export function normalizeLookupText(value: string | null): string {
  *   "close" — one string contains the other
  *   "mismatch" — no match
  */
-export function verifyAlbumName(
+export async function verifyAlbumName(
   hint: string | null,
   candidate: AlbumCandidate,
-): string {
+): Promise<string> {
   if (!hint || !candidate.album) return "match";
 
   const hintNorm = normalizeLookupText(hint);
   const candNorm = normalizeLookupText(candidate.album);
   if (hintNorm === candNorm) return "match";
 
-  // Substring check
-  if (hintNorm.includes(candNorm) || candNorm.includes(hintNorm)) return "close";
+  // Try OpenCC variants for Simplified/Traditional Chinese
+  const hintForms = await addOpenCCNormalized(hintNorm);
+  const candForms = await addOpenCCNormalized(candNorm);
+  const hasExactFormMatch = hintForms.some((hf) => candForms.includes(hf));
+  if (hasExactFormMatch) return "match";
+
+  // Substring check (also cross-variant)
+  for (const hf of hintForms) {
+    for (const cf of candForms) {
+      if (hf.includes(cf) || cf.includes(hf)) return "close";
+    }
+  }
 
   return "mismatch";
 }

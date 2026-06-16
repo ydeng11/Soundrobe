@@ -116,7 +116,7 @@ describe("loadConfig", () => {
 });
 
 describe("filterCandidatesForAutoApply", () => {
-  it("rejects mismatched artist-only dataset candidates before writing tags", () => {
+  it("rejects mismatched artist-only dataset candidates before writing tags", async () => {
     const request = makeLookupRequest({
       artistHint: "邓丽君",
       albumHint: "假如我是真的",
@@ -136,7 +136,7 @@ describe("filterCandidatesForAutoApply", () => {
       tracks: [],
     });
 
-    const filtered = filterCandidatesForAutoApply(request, [
+    const filtered = await filterCandidatesForAutoApply(request, [
       wrongDatasetAlbum,
       safeFolderFallback,
     ]);

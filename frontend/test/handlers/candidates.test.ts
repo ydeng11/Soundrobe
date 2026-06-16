@@ -233,23 +233,23 @@ describe("buildLookupVariantPairs", () => {
 });
 
 describe("verifyAlbumName", () => {
-  it("returns match when identical", () => {
+  it("returns match when identical", async () => {
     const c = makeAlbumCandidate({ album: "Abbey Road" });
-    expect(verifyAlbumName("Abbey Road", c)).toBe("match");
+    expect(await verifyAlbumName("Abbey Road", c)).toBe("match");
   });
 
-  it("returns match when null hint", () => {
+  it("returns match when null hint", async () => {
     const c = makeAlbumCandidate({ album: "Something" });
-    expect(verifyAlbumName(null, c)).toBe("match");
+    expect(await verifyAlbumName(null, c)).toBe("match");
   });
 
-  it("returns close for substring", () => {
+  it("returns close for substring", async () => {
     const c = makeAlbumCandidate({ album: "The Dark Side of the Moon" });
-    expect(verifyAlbumName("Dark Side", c)).toBe("close");
+    expect(await verifyAlbumName("Dark Side", c)).toBe("close");
   });
 
-  it("returns mismatch for different", () => {
+  it("returns mismatch for different", async () => {
     const c = makeAlbumCandidate({ album: "Revolver" });
-    expect(verifyAlbumName("Abbey Road", c)).toBe("mismatch");
+    expect(await verifyAlbumName("Abbey Road", c)).toBe("mismatch");
   });
 });

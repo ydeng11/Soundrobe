@@ -53,15 +53,17 @@ function getSortedAudioFilenames(albumPath: string): string[] {
   }
 }
 
-export function filterCandidatesForAutoApply(
+export async function filterCandidatesForAutoApply(
   request: ReturnType<typeof makeLookupRequest>,
   candidates: AlbumCandidate[],
-): AlbumCandidate[] {
-  return candidates.filter((candidate) => {
-    const verification = verifyAlbumName(request.albumHint, candidate);
+): Promise<AlbumCandidate[]> {
+  const filtered: AlbumCandidate[] = [];
+  for (const candidate of candidates) {
+    const verification = await verifyAlbumName(request.albumHint, candidate);
     candidate.verification = verification;
-    return verification !== "mismatch";
-  });
+    if (verification !== "mismatch") filtered.push(candidate);
+  }
+  return filtered;
 }
 
 const REMOTE_TRACK_SOURCES = new Set<AlbumCandidate["source"]>(["dataset", "discogs", "musicbrainz"]);
@@ -739,9 +741,10 @@ class TaskManager {
         const folderCandidate = candidateFromFolder(correctedRequest);
         allCandidates.push(folderCandidate);
 
+        const filtered = await filterCandidatesForAutoApply(correctedRequest, allCandidates);
         allCandidates = await protectCandidateTrackFieldsForAutoApply(
           correctedRequest,
-          filterCandidatesForAutoApply(correctedRequest, allCandidates),
+          filtered,
         );
 
         debug.info("auto-tag", `Total candidates across all sources: ${allCandidates.length}`);
