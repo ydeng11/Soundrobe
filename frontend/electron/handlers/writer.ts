@@ -726,7 +726,7 @@ function parseFlacLayout(buf: Buffer): { blocks: FlacBlockInfo[]; audioOffset: n
     const headerOffset = offset;
     const dataOffset = offset + 4;
 
-    if (type > 6 || length > 5_000_000 || dataOffset + length > buf.length) break;
+    if (type > 6 || length > 20_000_000 || dataOffset + length > buf.length) break;
 
     blocks.push({ type, headerOffset, dataOffset, length, isLast });
     if (isLast) break;
@@ -893,7 +893,7 @@ function fixLastFlacBlock(buf: Buffer): void {
     const isLast = buf[offset] >> 7;
     const blockStart = offset;
     const nextOffset = offset + 4 + length;
-    if (type > 6 || nextOffset > buf.length || length > 5_000_000) break;
+    if (type > 6 || nextOffset > buf.length || length > 20_000_000) break;
 
     buf[blockStart] = type & 0x7f;
     lastMetadataBlockOffset = blockStart;

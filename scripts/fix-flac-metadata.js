@@ -160,19 +160,48 @@ function analyzeFlac(filePath) {
   const layout = parseFlacLayout(buf);
   const vorbisBlock = layout.blocks.find((b) => b.type === 4);
 
-  if (!vorbisBlock) {
+  // Check for broken metadata chain: STREAMINFO has isLast=true but
+  // there are more metadata blocks after it. This happens when a Vorbis
+  // block with large embedded art (>5MB) causes fixLastFlacBlock to skip
+  // it, leaving STREAMINFO marked as last.
+  let brokenChain = false;
+  if (layout.blocks.length > 0 && layout.blocks[0].isLast) {
+    const streamInfoEnd = layout.blocks[0].dataOffset + layout.blocks[0].length;
+    if (streamInfoEnd + 4 <= buf.length) {
+      const nextType = buf[streamInfoEnd] & 0x7f;
+      if (nextType <= 6) {
+        brokenChain = true;
+      }
+    }
+  }
+
+  if (!vorbisBlock && !brokenChain) {
     return { file: filePath, error: "no VORBIS_COMMENT block found" };
   }
 
-  const headerLen = vorbisBlock.length;
-  const actualLen = computeVorbisContentSize(buf, vorbisBlock.dataOffset, headerLen);
+  let headerLen = 0;
+  let actualLen = 0;
+  let mismatch = 0;
+  let leftover = 0;
+  let hasTrailingZeros = false;
+  let corruptedPictureTag = false;
 
-  if (actualLen < 0) {
-    return { file: filePath, error: "Vorbis comment block too corrupted to parse" };
+  if (vorbisBlock) {
+    headerLen = vorbisBlock.length;
+    actualLen = computeVorbisContentSize(buf, vorbisBlock.dataOffset, headerLen);
+
+    if (actualLen < 0) {
+      return { file: filePath, error: "Vorbis comment block too corrupted to parse", brokenChain };
+    }
+
+    mismatch = headerLen - actualLen;
+    leftover = mismatch;
+    hasTrailingZeros = mismatch > 0;
+
+    corruptedPictureTag = hasCorruptedMetadataBlockPicture(
+      buf, vorbisBlock.dataOffset, vorbisBlock.length
+    );
   }
-
-  const mismatch = headerLen - actualLen;
-  const leftover = mismatch;
 
   // Check for audio frame sync corruption (first byte bit 7 cleared)
   const audioOffset = layout.audioOffset;
@@ -180,7 +209,6 @@ function analyzeFlac(filePath) {
   if (audioOffset < buf.length) {
     const b0 = buf[audioOffset];
     const b1 = buf[audioOffset + 1] ?? 0;
-    // Valid FLAC frame sync: first byte 0xff, second byte top 3 bits all 1
     audioSyncCorrupted = (b0 === 0x7f && (b1 & 0xf8) === 0xf8);
   }
 
@@ -189,22 +217,16 @@ function analyzeFlac(filePath) {
   if (layout.blocks.length > 0) {
     const lastBlock = layout.blocks[layout.blocks.length - 1];
     const expectedAudio = lastBlock.dataOffset + lastBlock.length;
-    // Scan for FLAC frame sync starting from expected position.
-    // Some files have hidden PADDING blocks (64 KiB) between metadata and audio.
     for (let i = expectedAudio; i < Math.min(expectedAudio + 200000, buf.length - 1); i++) {
       if (buf[i] === 0xff && (buf[i + 1] & 0xf8) === 0xf8) {
         metadataAudioGap = i - expectedAudio;
         break;
       }
     }
-  }
-
-  // Check for corrupted METADATA_BLOCK_PICTURE tag
-  let corruptedPictureTag = false;
-  if (vorbisBlock) {
-    corruptedPictureTag = hasCorruptedMetadataBlockPicture(
-      buf, vorbisBlock.dataOffset, vorbisBlock.length
-    );
+    // Ignore expected PADDING block (65540 bytes = 4-byte header + 65536 zeros).
+    // The auto-tagger's writeFlacWithPaddingFallback inserts this intentionally
+    // so future in-place edits are possible.
+    if (metadataAudioGap === 65540) metadataAudioGap = 0;
   }
 
   return {
@@ -213,12 +235,13 @@ function analyzeFlac(filePath) {
     actualLen,
     mismatch,
     leftover,
-    isLast: vorbisBlock.isLast,
-    hasTrailingZeros: mismatch > 0,
+    isLast: vorbisBlock ? vorbisBlock.isLast : false,
+    hasTrailingZeros,
     audioOffset,
     audioSyncCorrupted,
     metadataAudioGap,
     corruptedPictureTag,
+    brokenChain,
   };
 }
 
@@ -318,6 +341,55 @@ function fixAudioSync(filePath) {
  *
  * Returns true if the file was modified, false otherwise.
  */
+/**
+ * Fix a broken FLAC metadata chain: STREAMINFO has isLast=1 but there
+ * are more metadata blocks after it.
+ *
+ * Clears isLast on STREAMINFO, scans all metadata blocks, and sets
+ * isLast on the last one found.
+ */
+function fixBrokenMetadataChain(filePath) {
+  const buf = fs.readFileSync(filePath);
+
+  // Find fLaC marker
+  let flacOffset = -1;
+  for (let i = 0; i <= Math.min(buf.length - 4, 25000); i++) {
+    if (buf[i] === 0x66 && buf[i + 1] === 0x4C && buf[i + 2] === 0x61 && buf[i + 3] === 0x43) {
+      flacOffset = i;
+      break;
+    }
+  }
+  if (flacOffset < 0) return false;
+
+  // Clear isLast on STREAMINFO
+  buf[flacOffset + 4] &= 0x7f;
+
+  // Scan through ALL metadata blocks (ignoring isLast) to find the last one
+  let offset = flacOffset + 4;
+  let lastMetadataOffset = -1;
+
+  while (offset + 4 <= buf.length) {
+    const byte0 = buf[offset];
+    const type = byte0 & 0x7f;
+    const length = (buf[offset + 1] << 16) | (buf[offset + 2] << 8) | buf[offset + 3];
+    const dataOffset = offset + 4;
+
+    if (type > 6 || length > 20_000_000 || dataOffset + length > buf.length) break;
+
+    // Clear isLast on this block
+    buf[offset] = type & 0x7f;
+    lastMetadataOffset = offset;
+    offset = dataOffset + length;
+  }
+
+  if (lastMetadataOffset >= 0) {
+    buf[lastMetadataOffset] |= 0x80; // set isLast on last block
+  }
+
+  fs.writeFileSync(filePath, buf);
+  return true;
+}
+
 function fixCorruptedPictureTag(filePath) {
   const buf = Buffer.from(fs.readFileSync(filePath));
   const layout = parseFlacLayout(buf);
@@ -568,6 +640,7 @@ function main() {
     audioCorrupted: 0,
     fixedVorbis: 0,
     fixedAudio: 0,
+    fixedChain: 0,
     errors: 0,
   };
 
@@ -584,9 +657,33 @@ function main() {
     }
 
     if (info.error) {
-      stats.errors++;
-      if (VERBOSE) console.error(`  ERROR  ${path.relative(TOP_DIR, filePath)}: ${info.error}`);
-      continue;
+      // Broken chain is recoverable — try to fix it even if analyzeFlac
+      // couldn't find the Vorbis block
+      if (info.brokenChain) {
+        if (VERBOSE) console.log(`  BROKEN_CHAIN    ${path.relative(TOP_DIR, filePath)}  (broken metadata chain)`);
+      } else {
+        // Vorbis too corrupted — try ffmpeg fallback
+        if (!DOCTOR && !DRY_RUN) {
+          console.log(`  VORBIS_CORRUPTED  ${path.relative(TOP_DIR, filePath)}  (Vorbis block unreadable, trying ffmpeg)`);
+          try {
+            const fixed = fixFlacFfmpeg(filePath);
+            if (fixed) {
+              stats.fixedVorbis++;
+              console.log(`                   ✓ fixed via ffmpeg`);
+            } else {
+              stats.errors++;
+              if (VERBOSE) console.error(`  ERROR  ${path.relative(TOP_DIR, filePath)}: ${info.error}`);
+            }
+          } catch (err) {
+            stats.errors++;
+            if (VERBOSE) console.error(`  ERROR  ${path.relative(TOP_DIR, filePath)}: ${info.error}`);
+          }
+        } else {
+          stats.errors++;
+          if (VERBOSE) console.error(`  ERROR  ${path.relative(TOP_DIR, filePath)}: ${info.error}`);
+        }
+        continue;
+      }
     }
 
     const rel = path.relative(TOP_DIR, filePath);
@@ -594,8 +691,9 @@ function main() {
     const hasAudioIssue = info.audioSyncCorrupted;
     const hasGapIssue = info.metadataAudioGap > 0;
     const hasPictureIssue = info.corruptedPictureTag;
+    const hasChainIssue = info.brokenChain;
 
-    if (!hasVorbisIssue && !hasAudioIssue && !hasGapIssue && !hasPictureIssue) {
+    if (!hasVorbisIssue && !hasAudioIssue && !hasGapIssue && !hasPictureIssue && !hasChainIssue) {
       stats.ok++;
       if (VERBOSE) console.log(`  OK     ${rel}`);
       continue;
@@ -619,6 +717,9 @@ function main() {
     if (hasPictureIssue) {
       console.log(`  CORRUPTED_PICTURE  ${rel}  (METADATA_BLOCK_PICTURE contains raw image data)`);
     }
+    if (hasChainIssue) {
+      console.log(`  BROKEN_CHAIN      ${rel}  (STREAMINFO has isLast=1 but metadata blocks follow)`);
+    }
 
     if (DOCTOR || DRY_RUN) continue;
 
@@ -627,6 +728,7 @@ function main() {
     let audioFixed = !hasAudioIssue;   // already good
     let gapFixed = !hasGapIssue;       // already good
     let pictureFixed = !hasPictureIssue; // already good
+    let chainFixed = !hasChainIssue;    // already good
 
     if (hasVorbisIssue) {
       try {
@@ -667,9 +769,18 @@ function main() {
       }
     }
 
-    if (vorbisFixed && audioFixed && gapFixed && pictureFixed) {
+    if (hasChainIssue) {
+      try {
+        chainFixed = fixBrokenMetadataChain(filePath);
+      } catch (err) {
+        if (VERBOSE) console.error(`                   chain fix failed: ${err.message}`);
+      }
+    }
+
+    if (vorbisFixed && audioFixed && gapFixed && pictureFixed && chainFixed) {
       stats.fixedVorbis += hasVorbisIssue ? 1 : 0;
       stats.fixedAudio += hasAudioIssue ? 1 : 0;
+      stats.fixedChain += hasChainIssue ? 1 : 0;
       console.log(`                   ✓ fixed`);
     } else {
       stats.errors++;
@@ -692,11 +803,12 @@ function main() {
   if (!DOCTOR && !DRY_RUN) {
     console.log(`  Vorbis fixed:             ${stats.fixedVorbis}`);
     console.log(`  Audio fixed:              ${stats.fixedAudio}`);
+    console.log(`  Chain fixed:              ${stats.fixedChain}`);
   }
   console.log(`  Errors:                   ${stats.errors}`);
   console.log("─".repeat(60));
 
-  const totalIssues = stats.vorbisMismatch + stats.audioCorrupted;
+  const totalIssues = stats.vorbisMismatch + stats.audioCorrupted + (DOCTOR || DRY_RUN ? (stats.fixedChain || 0) : 0);
   if (DOCTOR && totalIssues > 0) {
     console.log();
     console.log(`Found ${stats.vorbisMismatch} file(s) with Vorbis length mismatch, ${stats.audioCorrupted} with audio corruption.`);
