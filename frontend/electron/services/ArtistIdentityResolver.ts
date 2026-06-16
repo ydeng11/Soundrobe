@@ -12,7 +12,7 @@
 
 import { MusicBrainzClient } from "../handlers/musicbrainz";
 import { DiscogsService } from "./DiscogsService";
-import { saveAlias, getAliases, isChineseName } from "../handlers/aliases";
+import { saveAlias, getAliases, isChineseName, convertScript } from "../handlers/aliases";
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -69,28 +69,43 @@ function namesMatch(a: string, b: string): boolean {
 
 /**
  * Check if Discogs title is an exact match for the artist name.
- * Handles cases like "郭靜" vs "郭静" (traditional vs simplified).
+ * Handles cases like "胡彦斌" vs "胡彥斌" (simplified vs traditional).
  */
-function isExactDiscogsMatch(discogsTitle: string, searchName: string): boolean {
+async function isExactDiscogsMatch(discogsTitle: string, searchName: string): Promise<boolean> {
   if (namesMatch(discogsTitle, searchName)) return true;
 
   // Check if titles are the same after removing common variations
   const clean = (s: string) => s.replace(/[\s\-_.]/g, "").toLowerCase();
-  return clean(discogsTitle) === clean(searchName);
+  if (clean(discogsTitle) === clean(searchName)) return true;
+
+  // Handle simplified vs traditional Chinese variations
+  if (isChineseName(searchName) && isChineseName(discogsTitle)) {
+    const searchVariants = await convertScript(searchName);
+    const titleVariants = await convertScript(discogsTitle);
+    
+    for (const sv of searchVariants) {
+      for (const tv of titleVariants) {
+        if (namesMatch(sv, tv)) return true;
+        if (clean(sv) === clean(tv)) return true;
+      }
+    }
+  }
+
+  return false;
 }
 
 /**
  * Check if a Discogs search result is high-confidence.
  * Rejects generic first results that don't match well.
  */
-function isHighConfidenceDiscogsResult(
+async function isHighConfidenceDiscogsResult(
   result: { title?: string; id?: number },
   searchName: string,
-): boolean {
+): Promise<boolean> {
   if (!result.title || !result.id) return false;
 
   // Exact match is always high confidence
-  if (isExactDiscogsMatch(result.title, searchName)) return true;
+  if (await isExactDiscogsMatch(result.title, searchName)) return true;
 
   // For non-Latin names, reject if Discogs title is completely different
   if (isChineseName(searchName)) {
@@ -224,7 +239,7 @@ async function searchDiscogsExact(
 
       // Look for exact match
       for (const r of results) {
-        if (isHighConfidenceDiscogsResult(r, name)) {
+        if (await isHighConfidenceDiscogsResult(r, name)) {
           return { title: r.title!, artistId: String(r.id) };
         }
       }
@@ -240,7 +255,7 @@ async function searchDiscogsExact(
 
     // Look for exact match only
     for (const r of results) {
-      if (isHighConfidenceDiscogsResult(r, name)) {
+      if (await isHighConfidenceDiscogsResult(r, name)) {
         return { title: r.title!, artistId: String(r.id) };
       }
     }
