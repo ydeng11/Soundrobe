@@ -352,13 +352,21 @@ async function writeVorbis(
   setVorbisField(updated, "DISCOGS_ARTIST_ID", fields.discogsArtistId);
   setVorbisField(updated, "DISCOGS_RELEASE_ID", fields.discogsReleaseId);
   setVorbisField(updated, "COMPILATION", compilationToTag(fields.compilation));
-  if (fields.coverData) {
-    updated.METADATA_BLOCK_PICTURE = [
-      buildFlacPictureBlock(fields.coverData, fields.coverMime ?? "image/jpeg").toString("base64"),
-    ];
+  // Never store cover art in Vorbis comments — it bloats the block and causes
+  // metadata chain breaks with large images. Strip any existing entry too.
+  delete updated.METADATA_BLOCK_PICTURE;
+
+  const outcome = await writeVorbisComments(filePath, data, updated);
+
+  // For FLAC files, write cover as a native METADATA_BLOCK_PICTURE (type 6)
+  // instead of inside Vorbis comments, to avoid bloating the Vorbis block.
+  if (fields.coverData && filePath.toLowerCase().endsWith(".flac")) {
+    const pictureData = buildFlacPictureBlock(fields.coverData, fields.coverMime ?? "image/jpeg");
+    const fileBuf = await readFile(filePath);
+    await writeFlacNonVorbisBlock(filePath, fileBuf, 6, pictureData);
   }
 
-  return await writeVorbisComments(filePath, data, updated);
+  return outcome;
 }
 
 interface VorbisDict {
@@ -514,6 +522,10 @@ async function writeVorbisComments(
   origBuf: Buffer,
   comments: VorbisDict
 ): Promise<WriteOutcome> {
+  // Never store cover art in Vorbis comments — it bloats the block and causes
+  // metadata chain breaks with large images. Strip any existing entry too.
+  delete comments.METADATA_BLOCK_PICTURE;
+
   // Build the comment block body
   const vendorString = Buffer.from("auto-tagger", "utf8");
   const vendorLen = Buffer.alloc(4);
