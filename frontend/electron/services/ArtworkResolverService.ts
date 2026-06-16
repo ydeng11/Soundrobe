@@ -37,6 +37,8 @@ export interface ArtworkContext {
   artistName: string | null;
   albumName: string | null;
   musicbrainzAlbumId: string | null;
+  discogsArtistId?: string | null;
+  discogsReleaseId?: string | null;
 }
 
 export interface ArtworkProvider {
@@ -163,8 +165,10 @@ export class ArtworkResolverService {
     artistName: string | null,
     albumName: string | null,
     musicbrainzAlbumId: string | null,
+    discogsArtistId?: string | null,
+    discogsReleaseId?: string | null,
   ): ArtworkContext {
-    return { kind, albumPath, artistName, albumName, musicbrainzAlbumId };
+    return { kind, albumPath, artistName, albumName, musicbrainzAlbumId, discogsArtistId, discogsReleaseId };
   }
 
   // ── Credential check ───────────────────────────────────────────
@@ -346,13 +350,57 @@ async function findDiscogs(
       return null;
     }
 
-    // Album cover: search releases, validate candidates
+    // Album cover: priority flow — known IDs first, then generic search
     const album = ctx.albumName;
     if (!album) {
       logger.debug("cover", "findDiscogs: skip — no album name");
       return null;
     }
 
+    // Priority 1: Known Discogs release ID — fetch release directly
+    if (ctx.discogsReleaseId) {
+      logger.debug("cover", `findDiscogs: trying direct release ID: ${ctx.discogsReleaseId}`);
+      const release = await service.getReleaseDetail(ctx.discogsReleaseId);
+      if (release && release.images && release.images.length > 0) {
+        const frontImage = release.images.find((i) => i.type === "primary") ?? release.images[0];
+        logger.info("cover", `findDiscogs: DIRECT release=${ctx.discogsReleaseId} url=${frontImage.uri}`);
+        const img = await service.fetchImage(frontImage.uri);
+        if (img) {
+          return { kind: "album-cover", source: "discogs", bytes: img.bytes, mime: img.mime, url: frontImage.uri };
+        }
+      }
+    }
+
+    // Priority 2: Known Discogs artist ID — fetch artist releases, match by album title
+    if (ctx.discogsArtistId) {
+      logger.debug("cover", `findDiscogs: trying artist ID: ${ctx.discogsArtistId}`);
+      const release = await service.getArtistReleaseByTitle(ctx.discogsArtistId, album);
+      if (release) {
+        if (release.images && release.images.length > 0) {
+          const frontImage = release.images.find((i) => i.type === "primary") ?? release.images[0];
+          logger.info("cover", `findDiscogs: ARTIST id=${ctx.discogsArtistId} release=${release.id} url=${frontImage.uri}`);
+          const img = await service.fetchImage(frontImage.uri);
+          if (img) {
+            return { kind: "album-cover", source: "discogs", bytes: img.bytes, mime: img.mime, url: frontImage.uri };
+          }
+        }
+        // The release itself may not have images in the artist-releases list;
+        // fetch release detail to get images
+        if (release.id) {
+          const detail = await service.getReleaseDetail(release.id);
+          if (detail && detail.images && detail.images.length > 0) {
+            const frontImage = detail.images.find((i) => i.type === "primary") ?? detail.images[0];
+            logger.info("cover", `findDiscogs: ARTIST detail release=${detail.id} url=${frontImage.uri}`);
+            const img = await service.fetchImage(frontImage.uri);
+            if (img) {
+              return { kind: "album-cover", source: "discogs", bytes: img.bytes, mime: img.mime, url: frontImage.uri };
+            }
+          }
+        }
+      }
+    }
+
+    // Priority 3: Generic search (fallback)
     const searchResults = await service.searchReleases(artist, album, "release", 10);
     if (searchResults.length === 0) {
       logger.debug("cover", `findDiscogs (album-cover): no results for "${artist} ${album}"`);

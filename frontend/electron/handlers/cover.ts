@@ -93,11 +93,14 @@ function getArtworkResolver(): ArtworkResolverService {
 
 /**
  * Read metadata from the first audio track in an album directory.
+ * Also reads Discogs/MusicBrainz IDs for smarter cover resolution.
  */
 async function readFirstTrackMetadata(albumPath: string): Promise<{
   artist: string | null;
   album: string | null;
   musicbrainzAlbumId: string | null;
+  discogsArtistId: string | null;
+  discogsReleaseId: string | null;
 } | null> {
   try {
     const entries = fs.readdirSync(albumPath, { withFileTypes: true });
@@ -109,10 +112,35 @@ async function readFirstTrackMetadata(albumPath: string): Promise<{
       const metadata = await parseFile(filePath, { duration: false });
       const common = metadata.common;
 
+      // Read Discogs IDs from native tags (Vorbis TXXX or ID3 TXXX)
+      const native = metadata.native ?? {};
+      let discogsArtistId: string | null = null;
+      let discogsReleaseId: string | null = null;
+
+      // Check Vorbis comments (FLAC/OGG)
+      const vorbis = native["VORBIS_COMMENT"] as Array<{ id: string; value: string }> | undefined;
+      if (vorbis) {
+        for (const tag of vorbis) {
+          if (tag.id === "DISCOGS_ARTIST_ID") discogsArtistId = tag.value;
+          if (tag.id === "DISCOGS_RELEASE_ID") discogsReleaseId = tag.value;
+        }
+      }
+
+      // Check ID3v2 (MP3) — stored as TXXX frames
+      const id3v2 = native["ID3v2.4"] ?? native["ID3v2.3"] as Array<{ id: string; value: string }> | undefined;
+      if (id3v2) {
+        for (const tag of id3v2) {
+          if (tag.id === "TXXX:Discogs Artist Id") discogsArtistId = tag.value;
+          if (tag.id === "TXXX:Discogs Release Id") discogsReleaseId = tag.value;
+        }
+      }
+
       return {
         artist: common.artist ?? null,
         album: common.album ?? null,
         musicbrainzAlbumId: common.musicbrainz_albumid?.toString() ?? null,
+        discogsArtistId: discogsArtistId ?? (common as any).discogs_artist_id?.toString() ?? null,
+        discogsReleaseId: discogsReleaseId ?? (common as any).discogs_release_id?.toString() ?? null,
       };
     }
   } catch {
@@ -283,6 +311,8 @@ export function registerCoverHandlers(): void {
       metadata.artist,
       metadata.album,
       metadata.musicbrainzAlbumId,
+      metadata.discogsArtistId,
+      metadata.discogsReleaseId,
     );
 
     const result = await resolver.resolve(ctx);
