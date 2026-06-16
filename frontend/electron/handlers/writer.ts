@@ -471,6 +471,43 @@ function parseVorbisCommentBlock(
 }
 
 /**
+ * Strip APEv2 tag from the end of a FLAC file buffer.
+ *
+ * APEv2 tags are non-standard in FLAC files. They are sometimes injected by
+ * Chinese streaming services (e.g. QQ Music) and cause `music-metadata` to
+ * override Vorbis comment values with stale APE data.
+ *
+ * Returns the buffer with the APE tag removed, or the original buffer if
+ * no APE tag is found.
+ */
+function hasApeTag(buf: Buffer): boolean {
+  if (buf.length < 64) return false;
+  const footerStart = buf.length - 32;
+  return footerStart >= 0 && buf.toString("ascii", footerStart, footerStart + 8) === "APETAGEX";
+}
+
+function stripApeTagFromBuffer(buf: Buffer): Buffer {
+  // APE tag footer is 32 bytes at the very end of the file.
+  // Search only the last 300 bytes to avoid false matches in audio data.
+  if (buf.length < 64) return buf;
+
+  // The footer must be exactly at the end — APE tags are always last.
+  const footerStart = buf.length - 32;
+  if (footerStart < 0) return buf;
+
+  // Check for 'APETAGEX' magic at the expected footer position
+  if (buf.toString("ascii", footerStart, footerStart + 8) !== "APETAGEX") return buf;
+
+  const tagSize = buf.readUInt32LE(footerStart + 12); // includes footer
+  if (tagSize < 32 || tagSize > buf.length) return buf;
+
+  const dataStart = buf.length - tagSize;
+  if (dataStart < 0) return buf;
+
+  return buf.subarray(0, dataStart);
+}
+
+/**
  * Write Vorbis comments into a FLAC/OGG file buffer.
  */
 async function writeVorbisComments(
@@ -507,7 +544,17 @@ async function writeVorbisComments(
   ]);
 
   if (filePath.toLowerCase().endsWith(".flac")) {
-    return await writeFlacMetadataBlock(filePath, origBuf, 4, commentBlock);
+    // Strip non-standard APEv2 tags (injected by QQ Music etc.) that would
+    // override Vorbis comment values in music-metadata reads.
+    const hasApe = hasApeTag(origBuf);
+    const cleaned = hasApe ? stripApeTagFromBuffer(origBuf) : origBuf;
+    if (hasApe) {
+      // Force full rewrite to physically remove APE bytes from the file
+      const layout = parseFlacLayout(cleaned);
+      await writeFlacWithPaddingFallback(filePath, cleaned, layout, commentBlock);
+      return "full_rewrite";
+    }
+    return await writeFlacMetadataBlock(filePath, cleaned, 4, commentBlock);
   } else if (
     filePath.toLowerCase().endsWith(".ogg") ||
     filePath.toLowerCase().endsWith(".opus")

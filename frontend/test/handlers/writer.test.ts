@@ -361,6 +361,55 @@ describe("writeTags — FLAC", () => {
     const meta = await parseFile(fp);
     expect(meta.common.title).toBe("Fresh Title");
   });
+
+  it("strips APEv2 tag that overrides Vorbis comments", async () => {
+    // Use a real FLAC file and add an APE tag to simulate the problem
+    const realFile = "/Volumes/downloads/music/胡彦斌/2011-Who Cares/4. 女人不该让男人流泪.flac";
+    if (!fs.existsSync(realFile)) return; // skip if test env doesn't have the file
+
+    const fp = path.join(tmpDir, "ape-override.flac");
+    fs.copyFileSync(realFile, fp);
+
+    // Append a realistic APEv2 tag (QQ Music style) with wrong album name
+    const apeValue = Buffer.from("WHO CARES", "utf8");
+    const key = Buffer.from("Album\0", "ascii");
+    // APE item: 4 bytes value_size + 4 bytes flags + key + value
+    const itemSize = apeValue.length;
+    const item = Buffer.alloc(8 + key.length + itemSize);
+    item.writeUInt32LE(itemSize, 0);
+    item.writeUInt32LE(0, 4);
+    key.copy(item, 8);
+    apeValue.copy(item, 8 + key.length);
+
+    // APE footer (32 bytes)
+    const footer = Buffer.alloc(32);
+    footer.write("APETAGEX", 0, 8, "ascii");
+    footer.writeUInt32LE(2000, 8);
+    footer.writeUInt32LE(item.length + 32, 12); // tag size = items + footer
+    footer.writeUInt32LE(1, 16); // item count
+    footer.writeUInt32LE(0, 20); // flags
+
+    // Append to end of file using append mode
+    const fd = fs.openSync(fp, "a");
+    fs.writeSync(fd, item);
+    fs.writeSync(fd, footer);
+    fs.closeSync(fd);
+
+    // Verify APE tag exists before write
+    const bufBefore = fs.readFileSync(fp);
+    expect(bufBefore.indexOf("APETAGEX")).toBeGreaterThan(-1);
+
+    // Write tags — should strip the APE tag
+    await writeTags(fp, { album: "Who Cares?" });
+
+    // Verify APE tag is gone from file bytes
+    const bufAfter = fs.readFileSync(fp);
+    expect(bufAfter.indexOf("APETAGEX")).toBe(-1);
+
+    // Verify music-metadata now reads the correct Vorbis value
+    const after = await parseFile(fp);
+    expect(after.common.album).toBe("Who Cares?");
+  });
 });
 
 describe("writeTags — FLAC with corrupted metadata", () => {
