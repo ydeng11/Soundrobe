@@ -61,7 +61,22 @@ if (!fs.existsSync(TOP_DIR) || !fs.statSync(TOP_DIR).isDirectory()) {
  */
 function parseFlacLayout(buf) {
   const blocks = [];
-  let offset = 4; // skip "fLaC"
+  
+  // Find fLaC marker (some files have ID3v2 tag prepended)
+  let flacOffset = -1;
+  for (let i = 0; i <= Math.min(buf.length - 4, 25000); i++) {
+    if (buf[i] === 0x66 && buf[i + 1] === 0x4C && buf[i + 2] === 0x61 && buf[i + 3] === 0x43) {
+      flacOffset = i;
+      break;
+    }
+  }
+  
+  if (flacOffset < 0) {
+    // No fLaC marker found, try offset 4 as fallback
+    flacOffset = 0;
+  }
+  
+  let offset = flacOffset + 4; // skip "fLaC"
 
   while (offset + 4 <= buf.length) {
     const byte0 = buf[offset];
@@ -128,7 +143,17 @@ function computeVorbisContentSize(buf, dataOffset, blockLength) {
  */
 function analyzeFlac(filePath) {
   const buf = fs.readFileSync(filePath);
-  if (buf.length < 8 || buf.toString("ascii", 0, 4) !== "fLaC") {
+  
+  // Find fLaC marker (some files have ID3v2 tag prepended)
+  let hasFlacMarker = false;
+  for (let i = 0; i <= Math.min(buf.length - 4, 25000); i++) {
+    if (buf[i] === 0x66 && buf[i + 1] === 0x4C && buf[i + 2] === 0x61 && buf[i + 3] === 0x43) {
+      hasFlacMarker = true;
+      break;
+    }
+  }
+  
+  if (buf.length < 8 || !hasFlacMarker) {
     return { file: filePath, error: "not a valid FLAC file" };
   }
 

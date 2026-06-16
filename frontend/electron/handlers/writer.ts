@@ -399,7 +399,9 @@ function setVorbisList(
 function readVorbisComments(buf: Buffer): VorbisDict {
   const result: VorbisDict = {};
   // FLAC: comments are in metadata block type 4 (VORBIS_COMMENT)
-  let offset = 4; // skip "fLaC"
+  // Find fLaC marker (some files have ID3v2 tag prepended)
+  const flacOffset = buf.indexOf("fLaC");
+  let offset = flacOffset >= 0 ? flacOffset + 4 : 4; // skip "fLaC"
   while (offset < buf.length) {
     const isLast = buf[offset] >> 7; // bit 7 = isLastBlock
     const type = buf[offset] & 0x7f;
@@ -663,7 +665,11 @@ async function writeOggVorbisComments(filePath: string, commentBlock: Buffer): P
 /** Parse FLAC metadata block layout from a buffer. */
 function parseFlacLayout(buf: Buffer): { blocks: FlacBlockInfo[]; audioOffset: number } {
   const blocks: FlacBlockInfo[] = [];
-  let offset = 4; // skip "fLaC"
+  
+  // Find fLaC marker (some files have ID3v2 tag prepended)
+  const flacOffset = buf.indexOf("fLaC");
+  let offset = flacOffset >= 0 ? flacOffset + 4 : 4; // skip "fLaC"
+  
   while (offset + 4 <= buf.length) {
     const isLast = !!(buf[offset] >> 7);
     const type = buf[offset] & 0x7f;
@@ -731,10 +737,12 @@ async function writeFlacMetadataBlock(
   blockType: number,
   blockData: Buffer
 ): Promise<WriteOutcome> {
-  // Safety guard: abort if file doesn't start with "fLaC" marker.
-  if (buf.length < 4 || buf.toString("ascii", 0, 4) !== "fLaC") {
+  // Safety guard: abort if file doesn't contain "fLaC" marker.
+  // Some FLAC files have ID3v2 tags prepended (non-standard but common).
+  const flacOffset = buf.indexOf("fLaC");
+  if (buf.length < 4 || flacOffset < 0) {
     throw new Error(
-      `Cannot write FLAC metadata: file does not start with fLaC marker (${filePath})`,
+      `Cannot write FLAC metadata: file does not contain fLaC marker (${filePath})`,
     );
   }
 
