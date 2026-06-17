@@ -5,11 +5,12 @@
  * consistent headers, and unified search/lookup methods.
  */
 
-const DISCOGS_BASE = "https://api.discogs.com";
+import {
+  ALBUM_TITLE_MATCH_THRESHOLD,
+  scoreAlbumTitleMatch,
+} from "../handlers/candidates";
 
-/** Unicode punctuation chars commonly found in Discogs/MusicBrainz titles.
- *  Same set as candidates.ts UNICODE_PUNCT_RE — kept in sync for standalone use. */
-const UNICODE_PUNCT_RE = /[\u2026\u3000\uff00-\uffef\u2000-\u206f\u2010-\u2015\u2018-\u2019\u201c-\u201d\u3008-\u3011\u3014-\u3015]/g;
+const DISCOGS_BASE = "https://api.discogs.com";
 
 // ── Rate limiter ────────────────────────────────────────────────────
 
@@ -178,29 +179,9 @@ export class DiscogsService {
   }
 
   /**
-   * Normalize text for Discogs matching: NFKC → Simplified Chinese via OpenCC
-   * → lowercase → strip Unicode punctuation → collapse whitespace.
-   * Returns null if OpenCC is unavailable (falls back to basic normalization).
-   */
-  static async normalizeForMatch(text: string): Promise<string> {
-    let result = text.normalize("NFKC").toLowerCase();
-    try {
-      const mod = await import("opencc-js");
-      const t2s = mod.Converter({ from: "tw", to: "cn" });
-      result = t2s(text).normalize("NFKC").toLowerCase();
-    } catch {
-      // opencc-js not available — use NFKC only
-    }
-    return result
-      .replace(UNICODE_PUNCT_RE, " ")
-      .replace(/\s+/g, " ")
-      .trim();
-  }
-
-  /**
    * Fetch an artist's releases, filtered by album title match.
-   * Normalizes both local hint and Discogs title to Simplified Chinese,
-   * then uses containment matching with a minimum CJK length guard.
+   * Uses the shared album-title scorer so service/artwork matching stays
+   * aligned with auto-tag provider lookup behavior.
    */
   async getArtistReleaseByTitle(
     artistId: number | string,
@@ -208,12 +189,9 @@ export class DiscogsService {
   ): Promise<DiscogsReleaseDetail | null> {
     const MAX_PAGES = 3;
     const PER_PAGE = 50;
-    const MaxReleasesTotal = MAX_PAGES * PER_PAGE;
 
     let bestMatch: number | null = null;
     let bestScore = 0;
-    const hintNorm = await DiscogsService.normalizeForMatch(albumHint);
-    const MIN_CJK_CONTAINMENT = 4;
 
     for (let page = 1; page <= MAX_PAGES; page++) {
 
@@ -228,20 +206,9 @@ export class DiscogsService {
       if (!data.releases || data.releases.length === 0) break;
 
       for (const release of data.releases) {
-        const titleNorm = await DiscogsService.normalizeForMatch(release.title);
-        if (!titleNorm) continue;
-
-        let score = 0;
-        if (titleNorm === hintNorm) {
-          score = 100;
-        } else if (titleNorm.includes(hintNorm)) {
-          score = hintNorm.length >= MIN_CJK_CONTAINMENT ? 80 : 0;
-        } else if (hintNorm.includes(titleNorm)) {
-          score = titleNorm.length >= MIN_CJK_CONTAINMENT ? 50 : 0;
-        }
-
-        if (score > bestScore) {
-          bestScore = score;
+        const match = await scoreAlbumTitleMatch(albumHint, release.title);
+        if (match.score > bestScore) {
+          bestScore = match.score;
           bestMatch = release.id;
         }
       }
@@ -250,7 +217,7 @@ export class DiscogsService {
       if (bestScore === 100 || (data.pagination && page >= data.pagination.pages)) break;
     }
 
-    if (!bestMatch) return null;
+    if (!bestMatch || bestScore < ALBUM_TITLE_MATCH_THRESHOLD) return null;
     return this.getReleaseDetail(bestMatch);
   }
 

@@ -19,6 +19,14 @@ import {
 } from "./candidates";
 import { getBetterSqlite3, type BetterSqlite3Database } from "./native-check";
 
+export interface ReleaseMeta {
+  id: string;
+  title: string;
+  year: number | null;
+  type: "master" | "release" | null;
+  artistName: string | null;
+}
+
 const VALID_STATUSES = new Set(["pending", "llm_parsed", "tagged_ok", "error"]);
 
 function sha256(text: string): string {
@@ -217,6 +225,113 @@ export class MatchCache {
         disc_count INTEGER DEFAULT 0,
         error TEXT,
         processed_at TEXT
+      );
+    `);
+  }
+}
+
+export class ReleaseCache {
+  private db: BetterSqlite3Database;
+
+  constructor(cachePath: string) {
+    try {
+      mkdirSync(dirname(cachePath), { recursive: true });
+    } catch {
+      // directory may already exist
+    }
+    const Database = getBetterSqlite3();
+    this.db = new Database(cachePath);
+    this.db.pragma("journal_mode = WAL");
+    this.initSchema();
+  }
+
+  close(): void {
+    this.db.close();
+  }
+
+  getArtistReleaseList(
+    provider: string,
+    artistId: string,
+    page: number,
+  ): ReleaseMeta[] | null {
+    const row = this.db
+      .prepare(
+        `SELECT releases_json FROM artist_release_cache
+         WHERE provider = ? AND artist_id = ? AND page = ?`,
+      )
+      .get(provider, artistId, page) as { releases_json: string } | undefined;
+    if (!row) return null;
+    return JSON.parse(row.releases_json) as ReleaseMeta[];
+  }
+
+  setArtistReleaseList(
+    provider: string,
+    artistId: string,
+    page: number,
+    releases: ReleaseMeta[],
+  ): void {
+    const now = new Date().toISOString();
+    this.db
+      .prepare(
+        `INSERT OR REPLACE INTO artist_release_cache
+         (provider, artist_id, page, releases_json, fetched_at)
+         VALUES (?, ?, ?, ?, ?)`,
+      )
+      .run(provider, artistId, page, JSON.stringify(releases), now);
+  }
+
+  getReleaseDetail(provider: string, releaseId: string): AlbumCandidate | null {
+    const row = this.db
+      .prepare(
+        `SELECT detail_json FROM release_detail_cache
+         WHERE provider = ? AND release_id = ?`,
+      )
+      .get(provider, releaseId) as { detail_json: string } | undefined;
+    if (!row) return null;
+    return candidatesFromJson(row.detail_json)[0] ?? null;
+  }
+
+  setReleaseDetail(
+    provider: string,
+    releaseId: string,
+    candidate: AlbumCandidate,
+  ): void {
+    const now = new Date().toISOString();
+    this.db
+      .prepare(
+        `INSERT OR REPLACE INTO release_detail_cache
+         (provider, release_id, detail_json, fetched_at)
+         VALUES (?, ?, ?, ?)`,
+      )
+      .run(provider, releaseId, candidatesToJson([candidate]), now);
+  }
+
+  prune(maxAgeHours: number): void {
+    const cutoff = new Date(Date.now() - maxAgeHours * 60 * 60 * 1000).toISOString();
+    this.db
+      .prepare("DELETE FROM artist_release_cache WHERE fetched_at < ?")
+      .run(cutoff);
+    this.db
+      .prepare("DELETE FROM release_detail_cache WHERE fetched_at < ?")
+      .run(cutoff);
+  }
+
+  private initSchema(): void {
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS artist_release_cache (
+        provider TEXT NOT NULL,
+        artist_id TEXT NOT NULL,
+        page INTEGER NOT NULL DEFAULT 1,
+        releases_json TEXT NOT NULL,
+        fetched_at TEXT NOT NULL,
+        PRIMARY KEY (provider, artist_id, page)
+      );
+      CREATE TABLE IF NOT EXISTS release_detail_cache (
+        provider TEXT NOT NULL,
+        release_id TEXT NOT NULL,
+        detail_json TEXT NOT NULL,
+        fetched_at TEXT NOT NULL,
+        PRIMARY KEY (provider, release_id)
       );
     `);
   }

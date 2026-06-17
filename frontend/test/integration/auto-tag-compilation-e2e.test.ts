@@ -33,6 +33,15 @@ vi.mock("../../electron/handlers/cache", () => ({
     set() {}
     close() {}
   },
+  ReleaseCache: class {
+    constructor() {}
+    getArtistReleaseList() { return null; }
+    setArtistReleaseList() {}
+    getReleaseDetail() { return null; }
+    setReleaseDetail() {}
+    prune() {}
+    close() {}
+  },
 }));
 
 vi.mock("../../electron/handlers/dataset", () => ({

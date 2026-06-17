@@ -2,8 +2,8 @@
  * Auto-tag orchestrator - implements the full lookup chain.
  *
  * Lookup chain:
- *   Parse hints → LLM enhancement → Dataset → Cache → MusicBrainz
- *   → Discogs release lookup → Folder fallback → Cache write → LLM selection
+ *   Parse hints → LLM enhancement → Dataset → Cache → provider ID lookups
+ *   → MusicBrainz → Discogs → Folder fallback → Cache write → merge/apply
  */
 
 import { EventEmitter } from "node:events";
@@ -16,12 +16,12 @@ import {
   splitArtistNames,
   verifyAlbumName,
 } from "./candidates";
-import { MatchCache } from "./cache";
+import { MatchCache, ReleaseCache } from "./cache";
 import { DatasetReader } from "./dataset";
 import { MusicBrainzClient } from "./musicbrainz";
 import { DiscogsClient } from "./discogs";
 import { OpenRouterClient } from "./openrouter";
-import { parseAlbumWithTags, candidateFromFolder } from "./fallback";
+import { parseAlbumWithTags, candidateFromFolder, isCompilationFolder } from "./fallback";
 import { buildGenreFillMessages, buildTagCorrectionMessages } from "./prompts";
 import { getAllNameVariants } from "./aliases";
 import { writeTags, type WriteFields } from "./writer";
@@ -600,6 +600,7 @@ class TaskManager {
       } else {
         debug.debug("auto-tag", "Hints unchanged after LLM check");
       }
+      const lookupRequest = await this.resolveProviderArtistIds(correctedRequest);
 
       // Step 3: Local staging-derived dataset index must be checked first.
       debug.info("auto-tag", "Step 3/9: Querying local dataset...");
@@ -607,16 +608,16 @@ class TaskManager {
       if (signal.aborted) return this.failCancelled(taskId);
       let allCandidates: AlbumCandidate[] = [];
       const lookupVariants = await buildAliasedLookupVariants(
-        correctedRequest.artistHint,
-        correctedRequest.albumHint,
+        lookupRequest.artistHint,
+        lookupRequest.albumHint,
       );
       const dataset = new DatasetReader(this.config.datasetPath);
       if (dataset.isAvailable() && dataset.hasLookupTable()) {
         debug.debug("auto-tag", `Dataset available at: ${dataset.getPath()}`);
         try {
           const datasetCandidates = dataset.queryAlbum(
-            correctedRequest.artistHint ?? "",
-            correctedRequest.albumHint ?? "",
+            lookupRequest.artistHint ?? "",
+            lookupRequest.albumHint ?? "",
           );
           debug.info("auto-tag", `Dataset returned ${datasetCandidates.length} candidates`);
           this.emitTask(taskId, "source", `Local dataset: ${datasetCandidates.length} candidate(s)`, {
@@ -643,8 +644,9 @@ class TaskManager {
       const cachePath = this.config.cachePath ?? join(homedir(), ".auto-tagger", "cache.db");
       debug.debug("auto-tag", `Cache path: ${cachePath}`);
       const cache = new MatchCache(cachePath);
+      const releaseCache = new ReleaseCache(cachePath);
       try {
-        const cached = cache.get(correctedRequest);
+        const cached = cache.get(lookupRequest);
         if (cached) {
           debug.info("auto-tag", `Cache HIT: ${cached.length} candidates`);
           this.emitTask(taskId, "source", `Cache: ${cached.length} candidate(s)`, {
@@ -662,7 +664,7 @@ class TaskManager {
         // Step 4b: Direct provider ID lookups (before name-based search)
         // If the file tags contained provider IDs, bypass the generic search
         // and fetch the release directly from the provider's API.
-        const directLookups = await this.performDirectIdLookups(correctedRequest);
+        const directLookups = await this.performDirectIdLookups(lookupRequest, releaseCache);
         if (directLookups.length > 0) {
           debug.info("auto-tag", `Direct ID lookups returned ${directLookups.length} candidate(s)`);
           this.emitTask(taskId, "source", `Direct ID lookup: ${directLookups.length} candidate(s)`, {
@@ -680,9 +682,13 @@ class TaskManager {
           debug.info("auto-tag", "Step 5/9: Searching MusicBrainz...");
           update("Searching MusicBrainz...", 5);
           try {
-            const mb = new MusicBrainzClient();
-            debug.debug("auto-tag", `MusicBrainz search: artist="${correctedRequest.artistHint}" album="${correctedRequest.albumHint}"`);
-            const mbCandidates = await this.searchVariants(mb, lookupVariants);
+            const mb = new MusicBrainzClient({ releaseCache });
+            debug.debug("auto-tag", `MusicBrainz search: artist="${lookupRequest.artistHint}" album="${lookupRequest.albumHint}"`);
+            const mbCandidates = await this.searchVariants(mb, lookupVariants, {
+              artistId: lookupRequest.musicbrainzArtistId,
+              albumHint: lookupRequest.albumHint,
+              yearHint: lookupRequest.yearHint,
+            });
             debug.info("auto-tag", `MusicBrainz returned ${mbCandidates.length} candidates`);
             this.emitTask(taskId, "source", `MusicBrainz: ${mbCandidates.length} candidate(s)`, {
               source: "musicbrainz",
@@ -707,9 +713,14 @@ class TaskManager {
           try {
             const discogs = new DiscogsClient({
               token: this.config.discogsToken,
+              releaseCache,
             });
-            debug.debug("auto-tag", `Discogs search: artist="${correctedRequest.artistHint}" album="${correctedRequest.albumHint}"`);
-            const discogsCandidates = await this.searchVariants(discogs, lookupVariants);
+            debug.debug("auto-tag", `Discogs search: artist="${lookupRequest.artistHint}" album="${lookupRequest.albumHint}"`);
+            const discogsCandidates = await this.searchVariants(discogs, lookupVariants, {
+              artistId: lookupRequest.discogsArtistId,
+              albumHint: lookupRequest.albumHint,
+              yearHint: lookupRequest.yearHint,
+            });
             debug.info("auto-tag", `Discogs returned ${discogsCandidates.length} candidates`);
             this.emitTask(taskId, "source", `Discogs releases: ${discogsCandidates.length} candidate(s)`, {
               source: "discogs",
@@ -738,19 +749,19 @@ class TaskManager {
           allCandidates.push(llmFallback);
         }
         // Always add folder-based fallback as lowest-priority safety net
-        const folderCandidate = candidateFromFolder(correctedRequest);
+        const folderCandidate = candidateFromFolder(lookupRequest);
         allCandidates.push(folderCandidate);
 
-        const filtered = await filterCandidatesForAutoApply(correctedRequest, allCandidates);
+        const filtered = await filterCandidatesForAutoApply(lookupRequest, allCandidates);
         allCandidates = await protectCandidateTrackFieldsForAutoApply(
-          correctedRequest,
+          lookupRequest,
           filtered,
         );
 
         debug.info("auto-tag", `Total candidates across all sources: ${allCandidates.length}`);
 
         // Cache the results
-        cache.set(correctedRequest, allCandidates);
+        cache.set(lookupRequest, allCandidates);
         debug.debug("auto-tag", "Cached results for future lookups");
 
         const mergedCandidates = this.mergeCandidateFields(allCandidates);
@@ -768,10 +779,12 @@ class TaskManager {
           // This uses MusicBrainz aliases to find correct Discogs ID for Chinese artists
           if (!candidate.musicbrainzArtistId || !candidate.discogsArtistId) {
             const artistName = candidate.artist ?? candidate.albumArtist;
-            if (artistName) {
+            if (artistName && !isCompilationFolder(artistName)) {
               debug.debug("auto-tag", `Resolving artist identity for "${artistName}"...`);
               const identity = await findArtistIdentity(artistName, {
                 discogsToken: this.config.discogsToken,
+                skipMusicBrainz: this.config.remoteLookupEnabled === false,
+                skipDiscogs: this.config.discogsEnabled === false,
               });
               if (identity.musicbrainzArtistId && !candidate.musicbrainzArtistId) {
                 candidate.musicbrainzArtistId = identity.musicbrainzArtistId;
@@ -790,18 +803,19 @@ class TaskManager {
           // Conditional genre fill: only call LLM if genre is still missing
           // after Discogs and LLM tag resolution.
           update("Resolving genre...", 8);
-          const filledCandidate = await this.fillGenreIfMissing(candidate, correctedRequest, signal);
+          const filledCandidate = await this.fillGenreIfMissing(candidate, lookupRequest, signal);
           debug.info("auto-tag", `Step 8/9: Genre resolved: "${filledCandidate.genre ?? "(none)"}"`);
 
           debug.info("auto-tag", "Step 9/9: Applying album tags...");
           update("Applying tags...", 9);
-          await this.applyCandidateTags(taskId, correctedRequest.path, filledCandidate);
+          await this.applyCandidateTags(taskId, lookupRequest.path, filledCandidate);
         }
         this.completeTask(taskId, candidate ?? mergedCandidates);
       } catch (err) {
         debug.error("auto-tag", `Unexpected error in lookup chain`, err);
         throw err;
       } finally {
+        releaseCache.close();
         cache.close();
       }
     } catch (err) {
@@ -932,10 +946,10 @@ class TaskManager {
         albumArtists: splitArtistNames([(data.albumArtist as string) || (data.artist as string) || request.artistHint]),
         year: (data.year as string) || request.yearHint || null,
         genre: (data.genre as string) || null,
-        musicbrainzAlbumId: null,
-        musicbrainzArtistId: null,
-        discogsArtistId: null,
-        discogsReleaseId: null,
+        musicbrainzAlbumId: request.musicbrainzAlbumId,
+        musicbrainzArtistId: request.musicbrainzArtistId,
+        discogsArtistId: request.discogsArtistId,
+        discogsReleaseId: request.discogsReleaseId,
         tracks: request.tracks.length > 0
           ? request.tracks.map((t, i) => {
               const llmTrack = llmTracks[i];
@@ -965,6 +979,40 @@ class TaskManager {
       return { correctedRequest: request, fallbackCandidate: null };
     } finally {
       debug.endTimer("resolve-tags", "auto-tag", "LLM tag resolution");
+    }
+  }
+
+  private async resolveProviderArtistIds(
+    request: ReturnType<typeof makeLookupRequest>,
+  ): Promise<ReturnType<typeof makeLookupRequest>> {
+    const shouldResolveMusicBrainz =
+      this.config.remoteLookupEnabled !== false && !request.musicbrainzArtistId;
+    const shouldResolveDiscogs =
+      this.config.discogsEnabled !== false && !request.discogsArtistId;
+
+    if (
+      !request.artistHint ||
+      isCompilationFolder(request.artistHint) ||
+      (!shouldResolveMusicBrainz && !shouldResolveDiscogs)
+    ) {
+      return request;
+    }
+
+    try {
+      debug.debug("auto-tag", `Resolving provider artist IDs for "${request.artistHint}"...`);
+      const identity = await findArtistIdentity(request.artistHint, {
+        discogsToken: this.config.discogsToken,
+        skipMusicBrainz: !shouldResolveMusicBrainz,
+        skipDiscogs: !shouldResolveDiscogs,
+      });
+      return {
+        ...request,
+        musicbrainzArtistId: request.musicbrainzArtistId ?? identity.musicbrainzArtistId,
+        discogsArtistId: request.discogsArtistId ?? identity.discogsArtistId,
+      };
+    } catch (err) {
+      debug.warn("auto-tag", "Provider artist ID resolution failed (non-fatal)", err);
+      return request;
     }
   }
 
@@ -1136,6 +1184,7 @@ class TaskManager {
    */
   private async performDirectIdLookups(
     request: ReturnType<typeof makeLookupRequest>,
+    releaseCache: ReleaseCache,
   ): Promise<AlbumCandidate[]> {
     const results: AlbumCandidate[] = [];
     const albumHint = request.albumHint ?? "";
@@ -1152,7 +1201,7 @@ class TaskManager {
     if (request.musicbrainzAlbumId) {
       debug.info("auto-tag", `Direct MB lookup: albumId=${request.musicbrainzAlbumId}`);
       try {
-        const mb = new MusicBrainzClient();
+        const mb = new MusicBrainzClient({ releaseCache });
         const candidate = await mb.lookupReleaseById(request.musicbrainzAlbumId);
         if (candidate) {
           debug.info("auto-tag", `Direct MB lookup: found album="${candidate.album}"`);
@@ -1169,11 +1218,18 @@ class TaskManager {
     if (!request.musicbrainzAlbumId && request.musicbrainzArtistId) {
       debug.info("auto-tag", `Direct MB artist lookup: artistId=${request.musicbrainzArtistId}`);
       try {
-        const mb = new MusicBrainzClient();
-        // Use the existing searchAlbum but this goes through /release?query=artistid:...
-        // For now, fall back to search by name since MusicBrainz search
-        // with artist ID requires browsing all releases which MB rate-limits heavily.
-        debug.debug("auto-tag", "MB artist-only ID — falling back to name search");
+        const mb = new MusicBrainzClient({ releaseCache });
+        const candidate = albumHint
+          ? await mb.lookupArtistReleaseByAlbum(request.musicbrainzArtistId, albumHint, {
+              yearHint: request.yearHint,
+            })
+          : null;
+        if (candidate) {
+          debug.info("auto-tag", `Direct MB artist lookup: found album="${candidate.album}"`);
+          results.push(candidate);
+        } else {
+          debug.debug("auto-tag", "Direct MB artist lookup: no matching release found");
+        }
       } catch (err) {
         debug.warn("auto-tag", `Direct MB artist lookup failed (non-fatal)`, err);
       }
@@ -1185,6 +1241,7 @@ class TaskManager {
       try {
         const discogs = new DiscogsClient({
           token: this.config.discogsToken,
+          releaseCache,
         });
         const candidate = await discogs.lookupReleaseById(request.discogsReleaseId);
         if (candidate) {
@@ -1204,8 +1261,11 @@ class TaskManager {
       try {
         const discogs = new DiscogsClient({
           token: this.config.discogsToken,
+          releaseCache,
         });
-        const candidate = await discogs.lookupArtistReleaseByAlbum(request.discogsArtistId, albumHint);
+        const candidate = await discogs.lookupArtistReleaseByAlbum(request.discogsArtistId, albumHint, {
+          yearHint: request.yearHint,
+        });
         if (candidate) {
           debug.info("auto-tag", `Direct Discogs artist lookup: found album="${candidate.album}"`);
           results.push(candidate);
@@ -1221,9 +1281,30 @@ class TaskManager {
   }
 
   private async searchVariants(
-    client: { searchAlbum(artist: string, album: string): Promise<AlbumCandidate[]> },
+    client: {
+      searchAlbum(artist: string, album: string): Promise<AlbumCandidate[]>;
+      lookupArtistReleaseByAlbum?(
+        artistId: string,
+        albumHint: string,
+        options?: { yearHint?: string | null },
+      ): Promise<AlbumCandidate | null>;
+    },
     variants: Array<[string, string]>,
+    artistScoped?: {
+      artistId: string | null;
+      albumHint: string | null;
+      yearHint: string | null;
+    },
   ): Promise<AlbumCandidate[]> {
+    if (artistScoped?.artistId && artistScoped.albumHint && client.lookupArtistReleaseByAlbum) {
+      const candidate = await client.lookupArtistReleaseByAlbum(
+        artistScoped.artistId,
+        artistScoped.albumHint,
+        { yearHint: artistScoped.yearHint },
+      );
+      if (candidate) return [candidate];
+    }
+
     for (const [artist, album] of variants) {
       const candidates = await client.searchAlbum(artist, album);
       if (candidates.length > 0) return candidates;

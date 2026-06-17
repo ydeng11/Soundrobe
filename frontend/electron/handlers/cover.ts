@@ -127,7 +127,9 @@ async function readFirstTrackMetadata(albumPath: string): Promise<{
       }
 
       // Check ID3v2 (MP3) — stored as TXXX frames
-      const id3v2 = native["ID3v2.4"] ?? native["ID3v2.3"] as Array<{ id: string; value: string }> | undefined;
+      const id3v2 = (native["ID3v2.4"] ?? native["ID3v2.3"]) as
+        | Array<{ id: string; value: string }>
+        | undefined;
       if (id3v2) {
         for (const tag of id3v2) {
           if (tag.id === "TXXX:Discogs Artist Id") discogsArtistId = tag.value;

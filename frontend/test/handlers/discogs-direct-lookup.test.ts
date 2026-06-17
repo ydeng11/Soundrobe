@@ -1,6 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { DiscogsClient } from "../../electron/handlers/discogs";
-import { makeTrackCandidate } from "../../electron/handlers/candidates";
+import type { ReleaseMeta } from "../../electron/handlers/cache";
 
 const BASE = "https://api.discogs.com";
 
@@ -9,6 +9,10 @@ describe("DiscogsClient — direct ID lookup", () => {
 
   beforeEach(() => {
     client = new DiscogsClient({ token: "test-token" });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it("lookupReleaseById calls /releases/{id}", async () => {
@@ -104,6 +108,62 @@ describe("DiscogsClient — direct ID lookup", () => {
     expect(candidate).not.toBeNull();
     expect(candidate!.album).toBe("幻象波普星");
     expect(candidate!.discogsReleaseId).toBe("6951078");
+  });
+
+  it("lookupArtistReleaseByAlbum matches Traditional Chinese titles through shared normalization", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+
+    fetchSpy
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        releases: [
+          { id: 111, title: "到底有誰能夠告訴我", artist: "Aaron Kwok", year: 1991 },
+        ],
+      }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        id: 111,
+        title: "到底有誰能夠告訴我",
+        artists: [{ name: "Aaron Kwok" }],
+        year: 1991,
+        tracklist: [],
+      }), { status: 200 }));
+
+    const candidate = await client.lookupArtistReleaseByAlbum("123", "到底有谁能够告诉我");
+
+    expect(candidate).not.toBeNull();
+    expect(candidate!.discogsReleaseId).toBe("111");
+  });
+
+  it("uses cached artist release pages before fetching Discogs", async () => {
+    const cachedReleases: ReleaseMeta[] = [
+      {
+        id: "6951078",
+        title: "幻象波普星",
+        year: 2013,
+        type: "release",
+        artistName: "Hedgehog",
+      },
+    ];
+    const releaseCache = {
+      getArtistReleaseList: vi.fn().mockReturnValue(cachedReleases),
+      setArtistReleaseList: vi.fn(),
+      getReleaseDetail: vi.fn().mockReturnValue(null),
+      setReleaseDetail: vi.fn(),
+    };
+    client = new DiscogsClient({ token: "test-token", releaseCache: releaseCache as never });
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    fetchSpy.mockResolvedValueOnce(new Response(JSON.stringify({
+      id: 6951078,
+      title: "幻象波普星",
+      artists: [{ name: "Hedgehog (4)" }],
+      year: 2013,
+      tracklist: [],
+    }), { status: 200 }));
+
+    const candidate = await client.lookupArtistReleaseByAlbum("1902728", "幻象波普星");
+
+    expect(candidate).not.toBeNull();
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    expect(String(fetchSpy.mock.calls[0][0])).toBe(`${BASE}/releases/6951078`);
   });
 
   it("lookupArtistReleaseByAlbum returns null when no album matches", async () => {

@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtempSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { MatchCache } from "../../electron/handlers/cache";
+import { MatchCache, ReleaseCache, type ReleaseMeta } from "../../electron/handlers/cache";
 import {
   makeAlbumCandidate,
   makeLookupRequest,
@@ -11,6 +11,7 @@ import {
 
 let tmpDir: string;
 let cache: MatchCache;
+let releaseCache: ReleaseCache;
 
 function canUseNativeCacheInShellNode(): boolean {
   const probeDir = mkdtempSync(join(tmpdir(), "cache-probe-"));
@@ -30,10 +31,12 @@ const describeMatchCache = canUseNativeCacheInShellNode() ? describe : describe.
 beforeEach(() => {
   tmpDir = mkdtempSync(join(tmpdir(), "cache-test-"));
   cache = new MatchCache(join(tmpDir, "cache.db"));
+  releaseCache = new ReleaseCache(join(tmpDir, "cache.db"));
 });
 
 afterEach(() => {
   cache?.close();
+  releaseCache?.close();
   if (tmpDir) {
     rmSync(tmpDir, { recursive: true, force: true });
   }
@@ -92,6 +95,40 @@ describeMatchCache("MatchCache — lookup cache", () => {
     cache.set(req, [makeAlbumCandidate({ artist: "P", album: "T", year: "2000" })]);
     const retrieved = cache.get(req);
     expect(retrieved![0].year).toBe("2000");
+  });
+});
+
+describeMatchCache("ReleaseCache — provider release data", () => {
+  it("round-trips artist release pages by provider, artist, and page", () => {
+    const releases: ReleaseMeta[] = [
+      {
+        id: "6951078",
+        title: "幻象波普星",
+        year: 2013,
+        type: "release",
+        artistName: "Hedgehog",
+      },
+    ];
+
+    releaseCache.setArtistReleaseList("discogs", "1902728", 1, releases);
+
+    expect(releaseCache.getArtistReleaseList("discogs", "1902728", 1)).toEqual(releases);
+    expect(releaseCache.getArtistReleaseList("musicbrainz", "1902728", 1)).toBeNull();
+    expect(releaseCache.getArtistReleaseList("discogs", "1902728", 2)).toBeNull();
+  });
+
+  it("round-trips provider release details without mixing providers", () => {
+    const candidate = makeAlbumCandidate({
+      source: "discogs",
+      album: "幻象波普星",
+      discogsReleaseId: "6951078",
+      discogsArtistId: "1902728",
+    });
+
+    releaseCache.setReleaseDetail("discogs", "6951078", candidate);
+
+    expect(releaseCache.getReleaseDetail("discogs", "6951078")).toEqual(candidate);
+    expect(releaseCache.getReleaseDetail("musicbrainz", "6951078")).toBeNull();
   });
 });
 

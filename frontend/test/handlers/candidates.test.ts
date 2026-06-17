@@ -13,6 +13,7 @@ import {
   lookupRequestFromJson,
   queryHash,
   normalizeLookupText,
+  scoreAlbumTitleMatch,
   buildLookupVariantPairs,
   splitArtistNames,
   verifyAlbumName,
@@ -178,6 +179,32 @@ describe("normalizeLookupText", () => {
   it("normalizes Unicode fullwidth latin", () => {
     // Fullwidth latin gets NFKC-normalized to ASCII
     expect(normalizeLookupText("ＡＢＣ")).toBe("abc");
+  });
+});
+
+describe("scoreAlbumTitleMatch", () => {
+  it("matches Simplified and Traditional Chinese album titles", async () => {
+    const result = await scoreAlbumTitleMatch("到底有谁能够告诉我", "到底有誰能夠告訴我");
+    expect(result.score).toBeGreaterThanOrEqual(100);
+    expect(result.reason).toBe("exact");
+  });
+
+  it("strips ellipsis and fullwidth punctuation before matching", async () => {
+    const result = await scoreAlbumTitleMatch("Goodbye Hello", "Goodbye…Hello！");
+    expect(result.score).toBeGreaterThanOrEqual(100);
+  });
+
+  it("rejects short CJK containment matches", async () => {
+    const result = await scoreAlbumTitleMatch("爱", "爱在深秋");
+    expect(result.score).toBe(0);
+  });
+
+  it("adds year bonus to accepted title matches", async () => {
+    const result = await scoreAlbumTitleMatch("幻象波普星", "幻象波普星", {
+      localYear: "2013",
+      remoteYear: 2013,
+    });
+    expect(result.score).toBe(110);
   });
 });
 

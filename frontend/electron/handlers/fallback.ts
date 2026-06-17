@@ -339,6 +339,10 @@ export function candidateFromFolder(request: LookupRequest): AlbumCandidate {
     albumArtist,
     albumArtists,
     year,
+    musicbrainzAlbumId: request.musicbrainzAlbumId,
+    musicbrainzArtistId: request.musicbrainzArtistId,
+    discogsReleaseId: request.discogsReleaseId,
+    discogsArtistId: request.discogsArtistId,
     tracks: request.tracks,
     source: "folder",
   });

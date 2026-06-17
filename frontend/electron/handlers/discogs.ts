@@ -11,8 +11,11 @@ import {
   artistDisplayName,
   makeAlbumCandidate,
   makeTrackCandidate,
+  scoreAlbumTitleMatch,
   splitArtistNames,
+  ALBUM_TITLE_MATCH_THRESHOLD,
 } from "./candidates";
+import type { ReleaseCache, ReleaseMeta } from "./cache";
 
 const DISCOGS_BASE = "https://api.discogs.com";
 
@@ -71,18 +74,21 @@ export class DiscogsClient {
   private userAgent: string;
   private maxCandidates: number;
   private timeoutMs: number;
+  private releaseCache: ReleaseCache | null;
 
   constructor(options?: {
     token?: string | null;
     userAgent?: string;
     maxCandidates?: number;
     timeoutSeconds?: number;
+    releaseCache?: ReleaseCache | null;
   }) {
     this.baseUrl = DISCOGS_BASE;
     this.token = options?.token ?? null;
     this.userAgent = options?.userAgent ?? "auto-tagger/0.1.0";
     this.maxCandidates = options?.maxCandidates ?? 3;
     this.timeoutMs = (options?.timeoutSeconds ?? 20) * 1000;
+    this.releaseCache = options?.releaseCache ?? null;
     // Update shared rate limiter when token is present
     updateDiscogsRateLimit(!!this.token);
   }
@@ -263,6 +269,9 @@ export class DiscogsClient {
    * Calls /releases/{id} directly.
    */
   async lookupReleaseById(releaseId: string): Promise<AlbumCandidate | null> {
+    const cached = this.releaseCache?.getReleaseDetail("discogs", releaseId);
+    if (cached) return cached;
+
     await sharedDiscogsRateLimiter.wait();
     const url = `${this.baseUrl}/releases/${releaseId}`;
 
@@ -288,7 +297,7 @@ export class DiscogsClient {
       const tracks = this.tracksFromRelease(data.tracklist ?? [], artists);
       const releaseIdStr = data.id != null ? String(data.id) : releaseId;
 
-      return makeAlbumCandidate({
+      const candidate = makeAlbumCandidate({
         artist: albumArtist,
         artists,
         album: data.title ?? null,
@@ -300,6 +309,8 @@ export class DiscogsClient {
         tracks,
         source: "discogs",
       });
+      this.releaseCache?.setReleaseDetail("discogs", releaseIdStr, candidate);
+      return candidate;
     } catch {
       return null;
     }
@@ -312,52 +323,80 @@ export class DiscogsClient {
   async lookupArtistReleaseByAlbum(
     artistId: string,
     albumHint: string,
+    options?: { yearHint?: string | null },
   ): Promise<AlbumCandidate | null> {
+    const MAX_PAGES = 3;
+    const PER_PAGE = 100;
+
+    let bestMatch: ReleaseMeta | null = null;
+    let bestScore = 0;
+
+    for (let page = 1; page <= MAX_PAGES; page++) {
+      const releases = await this.getArtistReleasePage(artistId, page, PER_PAGE);
+      if (releases.length === 0) break;
+
+      for (const release of releases) {
+        const match = await scoreAlbumTitleMatch(albumHint, release.title, {
+          localYear: options?.yearHint,
+          remoteYear: release.year,
+          artistMatches: true,
+        });
+        if (match.score > bestScore) {
+          bestScore = match.score;
+          bestMatch = release;
+        }
+      }
+
+      if (bestScore >= 100) break;
+    }
+
+    if (!bestMatch || bestScore < ALBUM_TITLE_MATCH_THRESHOLD) return null;
+    return this.lookupReleaseById(bestMatch.id);
+  }
+
+  private async getArtistReleasePage(
+    artistId: string,
+    page: number,
+    perPage: number,
+  ): Promise<ReleaseMeta[]> {
+    const cached = this.releaseCache?.getArtistReleaseList("discogs", artistId, page);
+    if (cached) return cached;
+
     await sharedDiscogsRateLimiter.wait();
-    const url = `${this.baseUrl}/artists/${artistId}/releases?per_page=50`;
+    const url = `${this.baseUrl}/artists/${artistId}/releases?per_page=${perPage}&page=${page}&sort=year&sort_order=desc`;
 
     try {
       const response = await fetch(url, {
         headers: this.buildHeaders(),
         signal: AbortSignal.timeout(this.timeoutMs),
       });
-      if (!response.ok) return null;
+      if (!response.ok) return [];
 
       const data = (await response.json()) as {
-        releases?: Array<{ id: number; title: string; artist?: string; year?: number }>;
+        releases?: Array<{
+          id?: number;
+          main_release?: number;
+          title?: string;
+          artist?: string;
+          year?: number;
+          type?: string;
+        }>;
       };
 
-      if (!data.releases || data.releases.length === 0) return null;
+      const releases: ReleaseMeta[] = (data.releases ?? [])
+        .map((release): ReleaseMeta => ({
+          id: String(release.main_release ?? release.id ?? ""),
+          title: release.title ?? "",
+          year: release.year ?? null,
+          type: release.type === "master" || release.type === "release" ? release.type : null,
+          artistName: release.artist ?? null,
+        }))
+        .filter((release) => release.id && release.title);
 
-      // Normalize album hint for matching
-      const hintNorm = albumHint.toLowerCase().trim();
-
-      // Find best matching release by normalized title
-      let bestMatch: { id: number; title: string } | null = null;
-      let bestScore = 0;
-
-      for (const release of data.releases) {
-        const titleNorm = release.title.toLowerCase().trim();
-        let score = 0;
-
-        if (titleNorm === hintNorm) {
-          score = 100; // exact match
-        } else if (titleNorm.includes(hintNorm) || hintNorm.includes(titleNorm)) {
-          score = 50; // substring match
-        }
-
-        if (score > bestScore) {
-          bestScore = score;
-          bestMatch = { id: release.id, title: release.title };
-        }
-      }
-
-      if (!bestMatch) return null;
-
-      // Resolve the full release detail
-      return this.lookupReleaseById(String(bestMatch.id));
+      this.releaseCache?.setArtistReleaseList("discogs", artistId, page, releases);
+      return releases;
     } catch {
-      return null;
+      return [];
     }
   }
 

@@ -55,6 +55,7 @@ import {
 } from "../../electron/handlers/auto-tag";
 import { setAliasFilePath, saveAlias } from "../../electron/handlers/aliases";
 import { makeAlbumCandidate, makeLookupRequest, makeTrackCandidate } from "../../electron/handlers/candidates";
+import { candidateFromFolder } from "../../electron/handlers/fallback";
 import { writeTags, batchWriteTags } from "../../electron/handlers/writer";
 import { readTrackMetadata } from "../../electron/handlers/tracks";
 import * as NodeID3 from "node-id3";
@@ -142,6 +143,24 @@ describe("filterCandidatesForAutoApply", () => {
     ]);
 
     expect(filtered).toEqual([safeFolderFallback]);
+  });
+});
+
+describe("candidateFromFolder", () => {
+  it("preserves existing provider IDs so fallback writes do not erase durable identity", () => {
+    const candidate = candidateFromFolder(makeLookupRequest({
+      artistHint: "郭富城",
+      albumHint: "到底有谁能够告诉我",
+      musicbrainzAlbumId: "mb-release",
+      musicbrainzArtistId: "mb-artist",
+      discogsReleaseId: "discogs-release",
+      discogsArtistId: "discogs-artist",
+    }));
+
+    expect(candidate.musicbrainzAlbumId).toBe("mb-release");
+    expect(candidate.musicbrainzArtistId).toBe("mb-artist");
+    expect(candidate.discogsReleaseId).toBe("discogs-release");
+    expect(candidate.discogsArtistId).toBe("discogs-artist");
   });
 });
 

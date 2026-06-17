@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, afterAll } from "vitest";
 import { MusicBrainzClient } from "../../electron/handlers/musicbrainz";
+import type { ReleaseMeta } from "../../electron/handlers/cache";
 
 describe("MusicBrainzClient", () => {
   const originalFetch = globalThis.fetch;
@@ -115,6 +116,86 @@ describe("MusicBrainzClient", () => {
     await expect(
       client.searchAlbum("The Beatles", "Abbey Road"),
     ).rejects.toThrow("Network error");
+  });
+
+  it("browses releases by MusicBrainz artist ID and fetches only the matched release detail", async () => {
+    globalThis.fetch = vi.fn().mockImplementation(async (url: string) => {
+      if (url.includes("/release?artist=mb-artist-1")) {
+        return mockReleaseResponse([
+          {
+            id: "mb-wrong",
+            title: "A Different Album",
+            date: "2001-01-01",
+            "artist-credit": [{ name: "Artist", artist: { id: "mb-artist-1" } }],
+          },
+          {
+            id: "mb-good",
+            title: "到底有誰能夠告訴我",
+            date: "1991-01-01",
+            "artist-credit": [{ name: "Artist", artist: { id: "mb-artist-1" } }],
+          },
+        ]);
+      }
+      if (url.includes("/release/mb-good")) {
+        return {
+          ok: true,
+          json: async () => ({
+            id: "mb-good",
+            title: "到底有誰能夠告訴我",
+            date: "1991-01-01",
+            "artist-credit": [{ name: "Artist", artist: { id: "mb-artist-1" } }],
+            media: [],
+          }),
+        };
+      }
+      return { ok: false };
+    });
+
+    const client = new MusicBrainzClient();
+    const candidate = await client.lookupArtistReleaseByAlbum(
+      "mb-artist-1",
+      "到底有谁能够告诉我",
+    );
+
+    expect(candidate).not.toBeNull();
+    expect(candidate!.musicbrainzAlbumId).toBe("mb-good");
+    const urls = vi.mocked(globalThis.fetch).mock.calls.map((call) => String(call[0]));
+    expect(urls.some((url) => url.includes("/release/mb-wrong"))).toBe(false);
+  });
+
+  it("uses cached MusicBrainz artist release pages before fetching", async () => {
+    const cachedReleases: ReleaseMeta[] = [
+      {
+        id: "mb-good",
+        title: "Abbey Road",
+        year: 1969,
+        type: "release",
+        artistName: "The Beatles",
+      },
+    ];
+    const releaseCache = {
+      getArtistReleaseList: vi.fn().mockReturnValue(cachedReleases),
+      setArtistReleaseList: vi.fn(),
+      getReleaseDetail: vi.fn().mockReturnValue(null),
+      setReleaseDetail: vi.fn(),
+    };
+    globalThis.fetch = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        id: "mb-good",
+        title: "Abbey Road",
+        date: "1969-09-26",
+        "artist-credit": [{ name: "The Beatles", artist: { id: "mb-artist-1" } }],
+        media: [],
+      }),
+    });
+
+    const client = new MusicBrainzClient({ releaseCache: releaseCache as never });
+    const candidate = await client.lookupArtistReleaseByAlbum("mb-artist-1", "Abbey Road");
+
+    expect(candidate).not.toBeNull();
+    expect(vi.mocked(globalThis.fetch)).toHaveBeenCalledTimes(1);
+    expect(String(vi.mocked(globalThis.fetch).mock.calls[0][0])).toContain("/release/mb-good");
   });
 
   it("shares rate limiter across instances (app-wide 1 req/sec)", async () => {

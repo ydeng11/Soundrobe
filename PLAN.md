@@ -1,124 +1,204 @@
-# Plan: Add APE (Monkey's Audio) File Support
+# Plan: Artist-Scoped Release Browsing with Cached Normalized Index
 
 ## Context
 
-The app (Electron frontend, TypeScript/JavaScript only — no Python) currently does not recognize
-or load `.ape` (Monkey's Audio) files. A user has an APE file at:
-`/Volume/downloads/music/刺猬乐队/刺猬乐队 - 幻象波谱星 APE` that they cannot open.
+The auto-tagger currently searches MusicBrainz and Discogs by **name-based queries** (`q=artist+album`), which fail for CJK/ non-Latin albums because:
+1. MusicBrainz returns Traditional Chinese + ellipsis titles that `verifyAlbumName` can't match
+2. Discogs generic search returns 0 relevant results for non-Latin queries
+3. The file already has `DISCOGS_ARTIST_ID` (and sometimes `MUSICBRAINZ_ARTIST_ID`) but these IDs are only used for **direct release-ID lookups** — never to browse all releases and find the matching album by title.
 
-`music-metadata` (npm, already a dependency) ships with a complete APEv2 parser — reading APE
-metadata works out of the box once the extension is allowed. The missing piece is that `.ape` is
-excluded from the extension allowlists, and the tag writer (`writer.ts`) lacks an APEv2 code path.
-
-Goal: make APE files fully visible, readable, and writable within the app — they should appear in
-the library browser, have their metadata displayed in the editor, and accept tag writes (both
-standard and extra tags).
+The solution: resolve artist identity early, browse releases by artist ID (with pagination), normalize both sides (OpenCC S/T Chinese + punctuation stripping), score-match with CJK length guards, and cache results to avoid redundant API calls.
 
 ## Approach
 
-### 1. Add `.ape` to extension allowlists (read support)
+### Priority flow in `performDirectIdLookups()`
 
-The `SUPPORTED_EXTENSIONS` sets in `tracks.ts` and `library.ts` need `.ape` added. This makes APE
-files discoverable during scanning and parseable by `music-metadata` (which already registers an
-`apeParserLoader` for `.ape` files in `ParserFactory.ts`).
+```
+1. musicbrainzAlbumId → lookupReleaseById()        ← authoritative, skip rest
+2. discogsReleaseId  → lookupReleaseById()         ← authoritative, skip rest
+3. MB artist ID → browse releases, score-match      ← new
+4. Discogs artist ID → browse releases, score-match  ← upgrade existing
+5. Name-based search (existing)                      ← unchanged fallback
+```
 
-### 2. Add APEv2 tag writing to the writer
+### Core design decisions
 
-`node-id3` does not support APEv2, so a purpose-built APEv2 tag writer is needed.
-The APEv2 format is a simple key-value binary format: tag items followed by a 32-byte footer at
-the end of the file. This follows the same pattern as the existing Vorbis/writer code.
+**Cache**: Prevents redundant API calls for the same artist. Extends the existing `cache.db` SQLite database with two new structured tables:
+  - `artist_release_cache(provider, artist_id, page, releases_json, fetched_at)` — stores lightweight release lists per artist
+  - `release_detail_cache(provider, release_id, detail_json, fetched_at)` — stores full release details
+  Both tables use structured columns in the same `better-sqlite3` database that `MatchCache` uses. An independent module `ReleaseCache` (in `handlers/cache.ts`) provides `getArtistReleaseList()`, `setArtistReleaseList()`, `getReleaseDetail()`, `setReleaseDetail()` methods. The MB and Discogs services call `ReleaseCache` directly — it's their cache layer, not a separate service.
 
-## Files to Modify
+**Normalization helper**: Single shared function in `candidates.ts` — NFKC → lowercase → strip punctuation → OpenCC S/T Chinese. Replaces the regexes duplicated in `candidates.ts`, `DiscogsService.ts`, and `DiscogsService`'s static method.
 
-| # | File | Change |
-|---|------|--------|
-| 1 | `frontend/electron/handlers/tracks.ts` | Add `.ape` to `SUPPORTED_EXTENSIONS` and `EXTRA_TAG_EXTENSIONS` |
-| 2 | `frontend/electron/handlers/library.ts` | Add `.ape` to `SUPPORTED_EXTENSIONS` |
-| 3 | `frontend/electron/handlers/writer.ts` | Add `.ape` case to `writeTags`, `writeExtraTags`, `writeTagsWithOutcome`, `writeExtraTagsWithOutcome`; implement `writeApe` and `writeApeExtraTags` |
+**Matching**: Score-based, not binary. Exact normalized title=100, remote-contains-local=85, local-contains-remote=70. Bonus +10 for: year match, artist credit match, track count within 1. Reject if normalized CJK length <4 or Latin token <3. Threshold ≥75.
+
+**Pagination**: 3-5 pages per artist, 100 items per page. Stop early on exact match.
+
+**Tracklist detail**: Only fetched for top candidate(s), not all releases. MB uses `inc=recordings` for the winner only.
+
+## Files to modify
+
+| File | Change |
+|---|---|
+| `frontend/electron/handlers/candidates.ts` | Extract shared `normalizeForMatch()` used by both services |
+| `frontend/electron/handlers/musicbrainz.ts` | Add `lookupArtistReleaseByAlbum(mbArtistId, albumHint)` using `/release?artist={id}` |
+| `frontend/electron/handlers/discogs.ts` | Upgrade `lookupArtistReleaseByAlbum()` with pagination, OpenCC normalization, scoring matcher, CJK guard |
+| `frontend/electron/handlers/cache.ts` | Add methods: `getArtistReleaseList()`, `setArtistReleaseList()`, `getReleaseDetail()`, `setReleaseDetail()` — keyed by `{provider, artistId, page}` and `{releaseId}` |
+| `frontend/electron/handlers/auto-tag.ts` | Update `performDirectIdLookups()`: resolve artist identity early, add MB and Discogs artist browse steps. Also update `searchVariants()` in steps 5/6 to use artist-scoped browse when artist ID is available. |
+| `frontend/electron/services/ArtistIdentityResolver.ts` | No change needed — already resolves artist identity with caching |
+| `frontend/electron/services/DiscogsService.ts` | Align `getArtistReleaseByTitle()` to use shared `normalizeForMatch()` from `candidates.ts` |
 
 ## Reuse
 
-- **`music-metadata`** (npm, already a dependency) — `apeParserLoader` maps `.ape` → `APEv2Parser`;
-  reading metadata works automatically once the extension is in the allowlist.
-- Existing `writeVorbis` / `writeMp3` patterns in `writer.ts` — read existing tags from the binary
-  file, merge with new fields, write back. The APEv2 writer follows the identical pattern.
-- Tag field mapping conventions already established for Vorbis/Comments apply directly to APEv2
-  (case-insensitive key-value pairs).
+- `findArtistIdentity()` in `ArtistIdentityResolver.ts` — already cached, use directly
+- `DiscogsService.normalizeForMatch()` — replace with shared version in `candidates.ts`
+- `CacheMatch` class in `cache.ts` — extend with artist release list / release detail cache tables
+- `DiscogsClient.lookupArtistReleaseByAlbum()` in `discogs.ts` — upgrade in place
+- `MusicBrainzClient.searchAlbum()` → reuse `loadTracks()` and `parseTracksFromMedia()` for the new method
 
 ## Steps
 
-### Step 1: Frontend — Add `.ape` to extension allowlists in `tracks.ts`
+### Step 1: Extract shared `normalizeForMatch()` in `candidates.ts`
 
-- In `frontend/electron/handlers/tracks.ts`:
-  - Add `".ape"` to `SUPPORTED_EXTENSIONS` set (line ~30)
-  - Add `".ape"` to `EXTRA_TAG_EXTENSIONS` set (line ~13)
+- Move the existing `normalizeLookupText()` + `UNICODE_PUNCT_RE` + add `ASCII_PUNCTUATION_RE` usage into a new exported `normalizeForMatch(text: string): Promise<string>`
+- Add OpenCC Simplified Chinese conversion inside (async)
+- Keep `normalizeLookupText()` calling through to `normalizeForMatch()` for backward compat
+- Export `normalizeForMatch` so `discogs.ts`, `musicbrainz.ts`, `DiscogsService.ts` can import it
 
-### Step 2: Frontend — Add `.ape` to extension allowlist in `library.ts`
+### Step 2: Add `ReleaseCache` to `cache.ts`
 
-- In `frontend/electron/handlers/library.ts`:
-  - Add `".ape"` to `SUPPORTED_EXTENSIONS` set (line ~18)
+Extends the existing `cache.db` SQLite database. `ReleaseCache` is an independent class that works alongside `MatchCache` but is called directly by MB and Discogs services.
 
-### Step 3: Frontend — Implement APEv2 tag writer in `writer.ts`
+**Schema** (two new tables in `cache.db`):
+```sql
+CREATE TABLE IF NOT EXISTS artist_release_cache (
+  provider TEXT NOT NULL,   -- 'musicbrainz' | 'discogs'
+  artist_id TEXT NOT NULL,
+  page INTEGER NOT NULL DEFAULT 1,
+  releases_json TEXT NOT NULL,        -- JSON array of ReleaseMeta[]
+  fetched_at TEXT NOT NULL,           -- ISO 8601
+  PRIMARY KEY (provider, artist_id, page)
+);
 
-APEv2 tag layout (at the **end** of the file):
-
+CREATE TABLE IF NOT EXISTS release_detail_cache (
+  provider TEXT NOT NULL,
+  release_id TEXT NOT NULL,
+  detail_json TEXT NOT NULL,          -- JSON of cached release detail
+  fetched_at TEXT NOT NULL,
+  PRIMARY KEY (provider, release_id)
+);
 ```
-[APE audio data]
-[Tag items...]
-[Footer (32 bytes)]
+
+**`ReleaseMeta` type** (structured per row):
+```ts
+interface ReleaseMeta {
+  id: string;           // Discogs release/master ID or MusicBrainz release ID
+  title: string;
+  year: number | null;
+  type: string | null;  // 'master' | 'release' | null
+  artistName: string | null;
+}
 ```
 
-**Footer** (32 bytes):
-| Offset | Size | Field | Value |
-|--------|------|-------|-------|
-| 0 | 8 | Preamble | `APETAGEX` (ASCII) |
-| 8 | 4 | Version | 2000 (LE uint32 = `0x000007D0`) |
-| 12 | 4 | Tag size | Total tag bytes including footer (LE uint32) |
-| 16 | 4 | Item count | Number of tag items (LE uint32) |
-| 20 | 4 | Flags | `0x80000000` (bit 31 = footer present, LE) |
-| 24 | 8 | Reserved | All zeros |
+**`ReleaseCache` class**:
+```ts
+class ReleaseCache {
+  constructor(cachePath: string)     // same cache.db as MatchCache
+  close(): void
 
-**Each tag item** (immediately before footer):
-| Offset | Size | Field | Value |
-|--------|------|-------|-------|
-| 0 | 4 | Value size | Length of value in bytes (LE uint32) |
-| 4 | 4 | Item flags | `0x20000000` (bit 29 = UTF-8 text, LE) |
-| 8 | varies | Key | Null-terminated ASCII/UTF-8, uppercase |
-| after \0 | varies | Value | Raw bytes (UTF-8 text) |
+  // Artist release list
+  getArtistReleaseList(provider: string, artistId: string, page: number): ReleaseMeta[] | null
+  setArtistReleaseList(provider: string, artistId: string, page: number, releases: ReleaseMeta[]): void
 
-Tag field mapping (same uppercase keys as Vorbis comments):
-- `TITLE`, `ARTIST`, `ALBUM`, `ALBUM ARTIST`, `DATE` (year), `GENRE`, `COMPOSER`,
-  `COMMENT`, `LYRICS`, `DESCRIPTION`
-- `TRACK` (format `"1"` or `"1/10"`), `DISC` (format `"1"` or `"1/2"`)
-- `COMPILATION` (`"1"` / `""`)
-- `MUSICBRAINZ_TRACKID`, `MUSICBRAINZ_ALBUMID`, `MUSICBRAINZ_ARTISTID`
-- Cover art: APEv2 supports `COVER ART (FRONT)` but for MVP we skip cover writing
-  (cover art in APE is uncommon; existing `hasCover` detection via embedded pictures
-  won't find any and the external cover fallback works fine)
+  // Full release detail
+  getReleaseDetail(provider: string, releaseId: string): AlbumCandidate | null
+  setReleaseDetail(provider: string, releaseId: string, candidate: AlbumCandidate): void
 
-Implementation:
+  // Prune entries older than N hours (called on init, or explicitly)
+  prune(maxAgeHours: number): void
+}
+```
 
-- Add `writeApe(filePath, fields)`:
-  1. Read file into buffer
-  2. Look for existing APEv2 footer at end of file (scan for `APETAGEX` at `buffer.length - 32`)
-  3. If found, strip existing tag (truncate buffer to `buffer.length - tagSize`)
-  4. Build tag items from `WriteFields` (skip null/undefined fields)
-  5. Serialize items + footer
-  6. Append to buffer and write back with `writeFile`
-- Add `writeApeExtraTags(filePath, extraTags)` — same pattern, but processes `ExtraTagUpdate[]`
-  and preserves standard tags, stripping only non-standard ones (matching Vorbis extra-tag logic)
-- Add `.ape` to the switch statements in `writeTags()`, `writeExtraTags()`,
-  `writeTagsWithOutcome()`, `writeExtraTagsWithOutcome()`
+**Usage pattern in MB/Discogs services**: Before making any API call, check `ReleaseCache.getArtistReleaseList()`. If cache hit, use cached release list directly. If miss, fetch from API, transform response to `ReleaseMeta[]`, store via `ReleaseCache.setArtistReleaseList()`, then use the returned data. Same pattern for release details (already hit `lookupReleaseById()` which could also benefit from cached release details).
+
+**Note**: The existing `MatchCache` (`lookup_cache` table) caches **album search results** (query → AlbumCandidate[]). The `ReleaseCache` caches **raw API data** (artist releases and release details at a lower level). They are complementary — `ReleaseCache` prevents the API call itself, `MatchCache` prevents re-running the full lookup pipeline.
+
+### Step 3: Add `MusicBrainzClient.lookupArtistReleaseByAlbum()` in `musicbrainz.ts`
+
+- Signature: `async lookupArtistReleaseByAlbum(artistId: string, albumHint: string, options?: { cache }): Promise<AlbumCandidate | null>`
+- Endpoint: `GET /ws/2/release?artist={artistId}&limit=100&offset={page*100}&fmt=json&inc=artist-credits`
+- Paginate: up to 3 pages, stop early on `release-count` exhaustion
+- Normalize: call `normalizeForMatch()` on both `albumHint` and each release title
+- Score: exact=100, remote-contains-local=85, local-contains-remote=70
+- Bonus: year match +10, artist credit match +10, track count match +10
+- Min length guard: reject CJK containment <4 chars
+- Threshold: ≥75
+- Cache: check `ReleaseCache.getArtistReleaseList('musicbrainz', artistId, page)` before each API call. On miss: fetch from API, transform MB release list to `ReleaseMeta[]`, store via `setArtistReleaseList()`.
+- On winner: call `lookupReleaseById()`, cache result via `ReleaseCache.setReleaseDetail()`.
+
+### Step 4: Upgrade `DiscogsClient.lookupArtistReleaseByAlbum()` in `discogs.ts`
+
+- Same signature as MB version
+- Endpoint: `GET /artists/{artistId}/releases?per_page=100&page={N}&sort=year&sort_order=desc`
+- Paginate: up to 3 pages
+- Normalize: use `normalizeForMatch()` from `candidates.ts`
+- Score: same scoring as MB version
+- Min length guard: same as MB version
+- Cache: check `ReleaseCache.getArtistReleaseList('discogs', artistId, page)` before each API call. On miss: fetch from API, transform Discogs releases to `ReleaseMeta[]`, store via `setArtistReleaseList()`.
+- On winner: call `lookupReleaseById()`, cache result via `ReleaseCache.setReleaseDetail()`.
+
+### Step 5: Update `performDirectIdLookups()` in `auto-tag.ts`
+
+Current flow:
+```
+if musicbrainzAlbumId → lookupReleaseById()
+if musicbrainzArtistId only → skip (comment says "falling back to name search")
+if discogsReleaseId → lookupReleaseById()
+if discogsArtistId + albumHint → lookupArtistReleaseByAlbum()
+```
+
+New flow in the same method:
+```
+→ Resolve artist identity early (call findArtistIdentity if IDs missing)
+→ if musicbrainzAlbumId → lookupReleaseById()           ← authoritative
+→ if discogsReleaseId → lookupReleaseById()             ← authoritative
+→ if musicbrainzArtistId + albumHint → MB artist browse  ← new
+→ if discogsArtistId + albumHint → Discogs artist browse  ← upgraded
+→ return results[]
+```
+
+Also update steps 5/6 (`searchVariants`) to pass artist IDs when available:
+- If `musicbrainzArtistId` is known after identity resolution, skip name search and use artist browse directly
+- Same for Discogs
+
+### Step 6: Update `searchVariants()` to use artist-scoped browse when feasible
+
+- Currently: `client.searchAlbum(artist, album)` — generic name-based
+- After step 5: when artist IDs are available, call `client.lookupArtistReleaseByAlbum(artistId, album)` instead of name search
+- Needs: pass the resolved IDs through the pipeline
+
+### Step 7: Align `DiscogsService.getArtistReleaseByTitle()` with shared normalizer
+
+- Import `normalizeForMatch` from `candidates.ts`
+- Remove static `normalizeForMatch()` and `UNICODE_PUNCT_RE` from `DiscogsService.ts`
+- Keep the pagination logic but use shared normalizer
+
+### Step 8: Tests
+
+- `candidates.test.ts`: test `normalizeForMatch()` with CJK, fullwidth, ellipsis cases
+- `musicbrainz.test.ts`: test `lookupArtistReleaseByAlbum()` with mock
+- `discogs.test.ts`: test upgraded `lookupArtistReleaseByAlbum()` with mock
+- `cache.test.ts`: test artist release list cache round-trip
+- `auto-tag.test.ts`: test that `performDirectIdLookups()` calls artist browse when IDs present
 
 ## Verification
 
-1. **Scan test** — Place a real `.ape` file under a test library directory, run a scan, verify
-   the file appears and metadata (title, artist, album, duration) is correctly read.
-2. **Write test** — Generate a minimal APE file via ffmpeg
-   (`ffmpeg -f lavfi -i anullsrc=r=44100:cl=mono -t 1 -acodec ape test.ape`),
-   write tags to it, re-read and verify values.
-3. **Write round-trip test** — Clone an existing test pattern (e.g. `test_flac_write` from specs)
-   adapted for APE — write a known set of tags, read back, assert equality.
-4. **Existing test suite** — Run `npm test` to verify no regressions.
-5. **Manual check** — Open the app, add a folder containing `.ape` files, verify they appear
-   in the library browser, metadata shows correctly in the editor, and tag edits are saved.
+1. Run full test suite: `npx vitest run` — all 1043+ tests must pass
+2. Test with CJK album that has `DISCOGS_ARTIST_ID` but no `DISCOGS_RELEASE_ID` (e.g. 郭富城/到底有谁能够告诉我):
+   - Verify `performDirectIdLookups()` calls Discogs artist browse
+   - Verify normalization matches Simplified Chinese hint to Traditional Chinese title
+   - Verify candidate returned with `discogsReleaseId` populated
+3. Test with English album that has `MUSICBRAINZ_ARTIST_ID` but no `MUSICBRAINZ_ALBUM_ID`
+4. Test cache: second lookup for same artist should skip API call (verify via `ReleaseCache.getArtistReleaseList()` returning cached data before any fetch)
+5. Test cache TTL: verify `prune()` removes entries older than threshold
+6. Test structure: verify `artist_release_cache` and `release_detail_cache` tables round-trip ReleaseMeta[] correctly

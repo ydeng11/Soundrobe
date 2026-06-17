@@ -11,7 +11,10 @@ import {
   makeAlbumCandidate,
   makeTrackCandidate,
   normalizeLookupText,
+  scoreAlbumTitleMatch,
+  ALBUM_TITLE_MATCH_THRESHOLD,
 } from "./candidates";
+import type { ReleaseCache, ReleaseMeta } from "./cache";
 
 const MUSICBRAINZ_BASE = "https://musicbrainz.org/ws/2";
 const USER_AGENT = "auto-tagger/0.1.0 ( https://github.com/auto-tagger )";
@@ -33,9 +36,16 @@ async function musicBrainzRateLimit(): Promise<void> {
 
 export class MusicBrainzClient {
   private baseUrl: string;
+  private releaseCache: ReleaseCache | null;
 
-  constructor(baseUrl?: string) {
-    this.baseUrl = baseUrl ?? MUSICBRAINZ_BASE;
+  constructor(options?: string | { baseUrl?: string; releaseCache?: ReleaseCache | null }) {
+    if (typeof options === "string") {
+      this.baseUrl = options;
+      this.releaseCache = null;
+    } else {
+      this.baseUrl = options?.baseUrl ?? MUSICBRAINZ_BASE;
+      this.releaseCache = options?.releaseCache ?? null;
+    }
   }
 
   /**
@@ -118,6 +128,9 @@ export class MusicBrainzClient {
    * Calls /ws/2/release/{id}?inc=recordings+artist-credits directly.
    */
   async lookupReleaseById(releaseId: string): Promise<AlbumCandidate | null> {
+    const cached = this.releaseCache?.getReleaseDetail("musicbrainz", releaseId);
+    if (cached) return cached;
+
     await musicBrainzRateLimit();
 
     const url = `${this.baseUrl}/release/${releaseId}?fmt=json&inc=recordings+artist-credits`;
@@ -148,7 +161,7 @@ export class MusicBrainzClient {
 
       const tracks = this.parseTracksFromMedia(data.media ?? [], artistName);
 
-      return makeAlbumCandidate({
+      const candidate = makeAlbumCandidate({
         artist: artistName,
         artists: artistName ? [artistName] : [],
         album: data.title ?? null,
@@ -160,8 +173,92 @@ export class MusicBrainzClient {
         tracks,
         source: "musicbrainz",
       });
+      this.releaseCache?.setReleaseDetail("musicbrainz", data.id ?? releaseId, candidate);
+      return candidate;
     } catch {
       return null;
+    }
+  }
+
+  async lookupArtistReleaseByAlbum(
+    artistId: string,
+    albumHint: string,
+    options?: { yearHint?: string | null },
+  ): Promise<AlbumCandidate | null> {
+    const MAX_PAGES = 3;
+    const LIMIT = 100;
+
+    let bestMatch: ReleaseMeta | null = null;
+    let bestScore = 0;
+
+    for (let page = 1; page <= MAX_PAGES; page++) {
+      const releases = await this.getArtistReleasePage(artistId, page, LIMIT);
+      if (releases.length === 0) break;
+
+      for (const release of releases) {
+        const match = await scoreAlbumTitleMatch(albumHint, release.title, {
+          localYear: options?.yearHint,
+          remoteYear: release.year,
+          artistMatches: true,
+        });
+        if (match.score > bestScore) {
+          bestScore = match.score;
+          bestMatch = release;
+        }
+      }
+
+      if (bestScore >= 100) break;
+    }
+
+    if (!bestMatch || bestScore < ALBUM_TITLE_MATCH_THRESHOLD) return null;
+    return this.lookupReleaseById(bestMatch.id);
+  }
+
+  private async getArtistReleasePage(
+    artistId: string,
+    page: number,
+    limit: number,
+  ): Promise<ReleaseMeta[]> {
+    const cached = this.releaseCache?.getArtistReleaseList("musicbrainz", artistId, page);
+    if (cached) return cached;
+
+    await musicBrainzRateLimit();
+    const offset = (page - 1) * limit;
+    const url = `${this.baseUrl}/release?artist=${encodeURIComponent(artistId)}&limit=${limit}&offset=${offset}&fmt=json&inc=artist-credits`;
+
+    try {
+      const response = await fetch(url, {
+        headers: {
+          "User-Agent": USER_AGENT,
+          Accept: "application/json",
+        },
+      });
+
+      if (!response.ok) return [];
+
+      const data = (await response.json()) as {
+        releases?: Array<Record<string, unknown>>;
+      };
+
+      const releases = (data.releases ?? [])
+        .map((release) => {
+          const credit = (release["artist-credit"] as Array<Record<string, unknown>>) ?? [];
+          const firstCredit = credit[0] as Record<string, unknown> | undefined;
+          const date = (release.date as string) ?? null;
+          return {
+            id: (release.id as string) ?? "",
+            title: (release.title as string) ?? "",
+            year: date ? Number(date.slice(0, 4)) : null,
+            type: "release" as const,
+            artistName: (firstCredit?.name as string) ?? null,
+          };
+        })
+        .filter((release) => release.id && release.title);
+
+      this.releaseCache?.setArtistReleaseList("musicbrainz", artistId, page, releases);
+      return releases;
+    } catch {
+      return [];
     }
   }
 

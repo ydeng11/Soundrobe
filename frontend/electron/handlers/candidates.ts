@@ -282,6 +282,123 @@ export function normalizeLookupText(value: string | null): string {
     .trim();
 }
 
+export const ALBUM_TITLE_MATCH_THRESHOLD = 75;
+
+const MIN_CJK_CONTAINMENT_LENGTH = 4;
+const MIN_LATIN_TOKEN_LENGTH = 3;
+const CJK_RE = /[\u3400-\u4dbf\u4e00-\u9fff]/;
+
+function unique(values: string[]): string[] {
+  return [...new Set(values.filter(Boolean))];
+}
+
+function compactLength(value: string): number {
+  return value.replace(/\s+/g, "").length;
+}
+
+function hasUsefulLatinToken(value: string): boolean {
+  return value.split(/\s+/).some((token) => token.length >= MIN_LATIN_TOKEN_LENGTH);
+}
+
+function canUseContainmentMatch(contained: string): boolean {
+  if (!contained) return false;
+  if (CJK_RE.test(contained)) {
+    return compactLength(contained) >= MIN_CJK_CONTAINMENT_LENGTH;
+  }
+  return hasUsefulLatinToken(contained);
+}
+
+/**
+ * Normalize text into equivalent forms for provider title matching.
+ *
+ * Keeps normalizeLookupText synchronous for existing dataset/cache paths, while
+ * adding OpenCC Simplified/Traditional variants for remote CJK matching.
+ */
+export async function normalizedLookupForms(value: string | null): Promise<string[]> {
+  const base = normalizeLookupText(value);
+  if (!base) return [];
+  const forms = [base];
+  try {
+    const mod = await import("opencc-js");
+    const s2t = mod.Converter({ from: "cn", to: "tw" });
+    const t2s = mod.Converter({ from: "tw", to: "cn" });
+    forms.push(normalizeLookupText(s2t(value ?? "")));
+    forms.push(normalizeLookupText(t2s(value ?? "")));
+  } catch {
+    // opencc-js is optional in some test/runtime shells.
+  }
+  return unique(forms);
+}
+
+export interface AlbumTitleMatchScoreOptions {
+  localYear?: string | number | null;
+  remoteYear?: string | number | null;
+  artistMatches?: boolean;
+  trackCountMatches?: boolean;
+}
+
+export interface AlbumTitleMatchScore {
+  score: number;
+  reason: "exact" | "remote-contains-local" | "local-contains-remote" | "none";
+}
+
+function yearPrefix(value: string | number | null | undefined): string | null {
+  if (value == null) return null;
+  const match = String(value).match(/\d{4}/);
+  return match ? match[0] : null;
+}
+
+/**
+ * Score a local album hint against a provider title.
+ *
+ * Exact normalized title matches score 100. Containment matches are accepted
+ * only when the contained text is specific enough, so short CJK/Latin fragments
+ * cannot accidentally match unrelated releases.
+ */
+export async function scoreAlbumTitleMatch(
+  localHint: string | null,
+  remoteTitle: string | null,
+  options: AlbumTitleMatchScoreOptions = {},
+): Promise<AlbumTitleMatchScore> {
+  const localForms = await normalizedLookupForms(localHint);
+  const remoteForms = await normalizedLookupForms(remoteTitle);
+  if (localForms.length === 0 || remoteForms.length === 0) {
+    return { score: 0, reason: "none" };
+  }
+
+  let score = 0;
+  let reason: AlbumTitleMatchScore["reason"] = "none";
+
+  for (const local of localForms) {
+    for (const remote of remoteForms) {
+      if (local === remote) {
+        score = Math.max(score, 100);
+        reason = "exact";
+      } else if (remote.includes(local) && canUseContainmentMatch(local)) {
+        if (score < 85) {
+          score = 85;
+          reason = "remote-contains-local";
+        }
+      } else if (local.includes(remote) && canUseContainmentMatch(remote)) {
+        if (score < 70) {
+          score = 70;
+          reason = "local-contains-remote";
+        }
+      }
+    }
+  }
+
+  if (score > 0) {
+    const localYear = yearPrefix(options.localYear);
+    const remoteYear = yearPrefix(options.remoteYear);
+    if (localYear && remoteYear && localYear === remoteYear) score += 10;
+    if (options.artistMatches) score += 10;
+    if (options.trackCountMatches) score += 10;
+  }
+
+  return { score, reason };
+}
+
 /**
  * Normalize CJK text by also trying Simplified/Traditional Chinese variants
  * via OpenCC-js. Returns an array of normalized forms (original + variants).
