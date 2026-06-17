@@ -566,13 +566,13 @@ async function writeVorbisComments(
     let cleaned = hasApe ? stripApeTagFromBuffer(origBuf) : origBuf;
 
     // Neutralize ghost Vorbis Comment blocks embedded in the audio data.
-    // Some files contain a second VC (with stale tags) after the audio
-    // data starts — music-metadata reads both and stale values win.
+    // music-metadata reads all VCs and merges them, so stale values in a
+    // ghost VC override the correct ones in the metadata chain.
     const ghost = neutralizeGhostVorbisComments(cleaned);
     cleaned = ghost.buf;
 
     if (hasApe || ghost.found) {
-      // Force full rewrite to physically remove APE bytes and/or ghost VCs
+      // Full rewrite required: can't remove bytes via in-place write
       const layout = parseFlacLayout(cleaned);
       await writeFlacWithPaddingFallback(filePath, cleaned, layout, commentBlock);
       return "full_rewrite";
@@ -791,27 +791,22 @@ function neutralizeGhostVorbisComments(buf: Buffer): { buf: Buffer; found: boole
   const audioStart = layout.audioOffset;
   if (audioStart <= 0 || audioStart >= buf.length) return { buf, found: false };
 
-  const vendorStr = "auto-tagger";
-  const vendorBuf = Buffer.from(vendorStr, "utf8");
+  const vendorBuf = Buffer.from("auto-tagger", "utf8");
   let result = buf;
   let searchFrom = audioStart;
   let found = false;
 
-  // eslint-disable-next-line no-constant-condition
-  while (true) {
+  while (searchFrom < buf.length) {
     const vendorPos = result.indexOf(vendorBuf, searchFrom);
     if (vendorPos < 0) break;
 
-    // Check if there's a 4-byte vendor-length field just before the vendor string
+    // Ghost VC header: 4-byte vendor-length + vendor string
+    // Verify the length field matches before zeroing
     if (vendorPos < 4) { searchFrom = vendorPos + 1; continue; }
     const claimedLen = result.readUInt32LE(vendorPos - 4);
     if (claimedLen !== vendorBuf.length) { searchFrom = vendorPos + 1; continue; }
 
-    // Verify the vendor string is valid UTF-8 at the claimed position
-    const vStr = result.toString("utf8", vendorPos, vendorPos + claimedLen);
-    if (vStr !== vendorStr) { searchFrom = vendorPos + 1; continue; }
-
-    // Ghost VC found — zero the vendor-length field to break parsing
+    // Zero the vendor-length field so the parser fails to read the block
     if (result === buf) result = Buffer.from(buf); // copy-on-write
     result.writeUInt32LE(0, vendorPos - 4);
     found = true;
@@ -880,15 +875,11 @@ async function writeFlacMetadataBlock(
     return "full_rewrite";
   }
 
-  // Duplicate Vorbis Comment blocks in the chain (ghost VCs from prior
-  // writes) — force a full rewrite so stripDuplicateVorbisBlocks cleans
-  // them out. In-place writes can't remove blocks from the chain.
-  const duplicateVc = layout.blocks.some(
-    (b, i) =>
-      b.type === 4 &&
-      layout.blocks.findIndex((bb) => bb.type === 4) !== i,
-  );
-  if (duplicateVc) {
+  // Ghost VCs from prior writes may have created multiple Vorbis Comment
+  // blocks in the chain. In-place writes can't remove blocks, so force
+  // a full rewrite that strips them via stripTrailingVorbisBlocks.
+  const vcCount = layout.blocks.filter((b) => b.type === 4).length;
+  if (vcCount > 1) {
     await writeFlacWithPaddingFallback(filePath, buf, layout, blockData);
     return "full_rewrite";
   }
@@ -1046,15 +1037,11 @@ async function writeFlacNonVorbisBlock(
 
 /**
  * Strip any Vorbis Comment blocks (type=4) from a FLAC metadata segment.
- * The middle segment between the primary VC and audio data should never
- * contain another VC — ghost VCs from prior writes appear here and cause
- * music-metadata to read stale values.
+ * The middle segment sits between the primary VC and audio data; any
+ * type=4 block here is a ghost from a prior write.
  */
-function stripDuplicateVorbisBlocks(segment: Buffer): Buffer {
-  let offset = 0;
-  let trimFrom = segment.length; // start trimming from here
-
-  while (offset + 4 <= segment.length) {
+function stripTrailingVorbisBlocks(segment: Buffer): Buffer {
+  for (let offset = 0; offset + 4 <= segment.length; ) {
     const byte0 = segment[offset];
     const isLast = !!(byte0 >> 7);
     const type = byte0 & 0x7f;
@@ -1063,22 +1050,12 @@ function stripDuplicateVorbisBlocks(segment: Buffer): Buffer {
       (segment[offset + 2] << 8) |
       segment[offset + 3];
 
-    // Guard: invalid block header or block extends past segment
     if (type > 6 || length > 20_000_000 || offset + 4 + length > segment.length) break;
-
-    if (type === 4) {
-      // Ghost VC found — trim everything from here onward
-      trimFrom = offset;
-      break;
-    }
-
+    if (type === 4) return segment.subarray(0, offset);
     if (isLast) break;
     offset += 4 + length;
   }
-
-  return trimFrom < segment.length
-    ? segment.subarray(0, trimFrom)
-    : segment;
+  return segment;
 }
 
 /** Fallback: replace Vorbis block, preserve non-Vorbis metadata, and add 64 KiB PADDING before audio. */
@@ -1123,11 +1100,9 @@ async function writeFlacWithPaddingFallback(
     middle = buf.subarray(streamInfoEnd, layout.audioOffset);
   }
 
-  // Strip any duplicate Vorbis Comment blocks (type=4) and orphaned
-  // PADDING blocks from middle. Ghost VCs from prior writes may be
-  // embedded in the metadata chain; keeping them causes music-metadata
-  // to read stale values that override the correct ones.
-  middle = stripDuplicateVorbisBlocks(middle);
+  // Strip ghost Vorbis Comment blocks from middle — they cause
+  // music-metadata to merge stale values over the correct ones.
+  middle = stripTrailingVorbisBlocks(middle);
 
   const result = Buffer.concat([prefix, newVorbis, middle, padding, audio]);
   result[4] &= 0x7f; // clear isLast on STREAMINFO
