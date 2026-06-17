@@ -607,4 +607,43 @@ describe("BatchExtraTagsEditor", () => {
     // MOOD exists in 2 of 3 tracks
     expect(await screen.findByText("2/3")).toBeTruthy();
   });
+
+  it("omits unchanged origin tracks from payload when final values already match", async () => {
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    window.api = {
+      readExtraTags: vi.fn()
+        .mockResolvedValueOnce([{ key: "MOOD", value: "Bright", source: "vorbis" }])
+        .mockResolvedValueOnce([{ key: "MOOD", value: "Excited", source: "vorbis" }])
+        .mockResolvedValueOnce([{ key: "MOOD", value: "Excited", source: "vorbis" }]),
+    } as unknown as Window["api"];
+
+    render(
+      <BatchExtraTagsEditor
+        tracks={[
+          makeTrack({ path: "/music/t1.flac" }),
+          makeTrack({ path: "/music/t2.flac" }),
+          makeTrack({ path: "/music/t3.flac" }),
+        ]}
+        saving={false}
+        onClose={vi.fn()}
+        onSave={onSave}
+      />,
+    );
+
+    // Two MOOD rows are expected: Bright (1/3) and Excited (2/3)
+    expect(await screen.findByDisplayValue("Bright")).toBeTruthy();
+    expect(screen.getByDisplayValue("Excited")).toBeTruthy();
+
+    fireEvent.change(screen.getByDisplayValue("Bright"), { target: { value: "Excited" } });
+    fireEvent.click(screen.getByText("Apply to 3 files"));
+
+    await waitFor(() => {
+      expect(onSave).toHaveBeenCalledWith([
+        {
+          path: "/music/t1.flac",
+          tags: [{ key: "MOOD", value: "Excited" }],
+        },
+      ]);
+    });
+  });
 });

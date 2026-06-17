@@ -4,7 +4,14 @@ import path from "path";
 import os from "os";
 import * as NodeID3 from "node-id3";
 import { parseFile } from "music-metadata";
-import { writeTags, batchWriteTags, batchWriteExtraTags, writeExtraTags } from "../../electron/handlers/writer";
+import {
+  writeTags,
+  batchWriteTags,
+  batchWriteExtraTags,
+  writeExtraTags,
+  writeExtraTagsWithOutcome,
+  writeTagsWithOutcome,
+} from "../../electron/handlers/writer";
 import { readExtraTags } from "../../electron/handlers/tracks";
 import { TagWriteQueue } from "../../electron/services/TagWriteQueue";
 
@@ -1255,6 +1262,24 @@ describe("writeTags — WAV in-place", () => {
     expect(meta.common.title).toBe("Short");
   });
 
+  it("skips WAV metadata writes when requested fields are unchanged", async () => {
+    const fp = path.join(tmpDir, "metadata-noop.wav");
+    createWavWithId3(fp, { title: "Stable Title", artist: "Stable Artist" });
+
+    const baseline = new Date(Date.now() - 60_000);
+    fs.utimesSync(fp, baseline, baseline);
+    const mtimeBefore = fs.statSync(fp).mtimeMs;
+
+    const outcome = await writeTagsWithOutcome(fp, {
+      title: "Stable Title",
+      artist: "Stable Artist",
+    });
+
+    const mtimeAfter = fs.statSync(fp).mtimeMs;
+    expect(outcome).toBe("skipped");
+    expect(mtimeAfter).toBe(mtimeBefore);
+  });
+
   it("oversized ID3 update falls back and remains readable by music-metadata", async () => {
     const fp = path.join(tmpDir, "oversized.wav");
     createWavWithId3(fp, { title: "Short" });
@@ -1285,6 +1310,26 @@ describe("writeTags — WAV in-place", () => {
     expect(meta.common.title).toBe("A");
     expect(meta.common.artist).toBe("B");
     expect(meta.common.album).toBe("C");
+  });
+
+  it("skips WAV extra-tag writes when requested tags are unchanged", async () => {
+    const fp = path.join(tmpDir, "extra-noop.wav");
+    createMinimalWav(fp);
+
+    await writeExtraTags(fp, [{ key: "MOOD", value: "Bright" }]);
+
+    const baseline = new Date(Date.now() - 60_000);
+    fs.utimesSync(fp, baseline, baseline);
+    const mtimeBefore = fs.statSync(fp).mtimeMs;
+
+    const outcome = await writeExtraTagsWithOutcome(fp, [{ key: "MOOD", value: "Bright" }]);
+
+    const mtimeAfter = fs.statSync(fp).mtimeMs;
+    expect(outcome).toBe("skipped");
+    expect(mtimeAfter).toBe(mtimeBefore);
+
+    const extras = await readExtraTags(fp);
+    expect(extras.find((t) => t.key === "MOOD")?.value).toBe("Bright");
   });
 });
 

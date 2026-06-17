@@ -292,6 +292,11 @@ async function writeWavExtraTags(filePath: string, extraTags: ExtraTagUpdate[]):
   // Try in-place: existing chunk has enough room (skip if LIST INFO needs stripping)
   if (!hasListInfoChunk && existingId3Offset >= 0 && id3Payload.length <= existingId3Size) {
     const dataOffset = existingId3Offset + 8;
+    const existingPayload = data.subarray(dataOffset, dataOffset + existingId3Size);
+    if (isWavId3ChunkUnchanged(existingPayload, id3Payload)) {
+      return "skipped";
+    }
+
     const handle = await open(filePath, "r+");
     try {
       await handle.write(id3Payload, 0, id3Payload.length, dataOffset);
@@ -1174,6 +1179,11 @@ async function writeWav(
   // Skip in-place when LIST INFO needs stripping (forces full rewrite)
   if (!hasListInfoChunk && existingId3Offset >= 0 && id3Payload.length <= existingId3Size) {
     const dataOffset = existingId3Offset + 8;
+    const existingPayload = data.subarray(dataOffset, dataOffset + existingId3Size);
+    if (isWavId3ChunkUnchanged(existingPayload, id3Payload)) {
+      return "skipped";
+    }
+
     const handle = await open(filePath, "r+");
     try {
       await handle.write(id3Payload, 0, id3Payload.length, dataOffset);
@@ -1217,6 +1227,17 @@ function wavChunk(id: string, payload: Buffer): Buffer {
   header.writeUInt32LE(payload.length, 4);
   const pad = payload.length % 2 === 1 ? Buffer.from([0]) : Buffer.alloc(0);
   return Buffer.concat([header, payload, pad]);
+}
+
+function isWavId3ChunkUnchanged(existingChunk: Buffer, nextPayload: Buffer): boolean {
+  if (nextPayload.length > existingChunk.length) return false;
+  if (!existingChunk.subarray(0, nextPayload.length).equals(nextPayload)) return false;
+
+  for (let i = nextPayload.length; i < existingChunk.length; i++) {
+    if (existingChunk[i] !== 0x00) return false;
+  }
+
+  return true;
 }
 
 function normalizeExtraTags(

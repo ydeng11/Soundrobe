@@ -30,6 +30,7 @@ export function BatchExtraTagsEditor({
 
   const trackCount = tracks.length;
   const trackPathsRef = useRef(tracks.map((t) => t.path));
+  const originalTagsByPathRef = useRef(new Map<string, ExtraTag[]>());
   trackPathsRef.current = tracks.map((t) => t.path);
 
   useEffect(() => {
@@ -40,14 +41,23 @@ export function BatchExtraTagsEditor({
     Promise.all(tracks.map((track) => window.api.readExtraTags(track.path))).then(
       (tagLists) => {
         if (cancelled) return;
-        const loadedRows = extraTagsToRows(tagLists, tracks.map((t) => t.path));
+        const paths = tracks.map((t) => t.path);
+        const loadedRows = extraTagsToRows(tagLists, paths);
         const nextRows = loadedRows.length > 0 ? loadedRows : [createNewRow()];
+
+        const originalByPath = new Map<string, ExtraTag[]>();
+        for (let i = 0; i < paths.length; i++) {
+          originalByPath.set(paths[i], tagLists[i]);
+        }
+        originalTagsByPathRef.current = originalByPath;
+
         setRows(nextRows);
         setOriginalRows(nextRows);
         setLoading(false);
       },
       (err: unknown) => {
         if (cancelled) return;
+        originalTagsByPathRef.current = new Map();
         setRows([createNewRow()]);
         setOriginalRows([createNewRow()]);
         setError(err instanceof Error ? err.message : "Failed to read extra tags");
@@ -141,9 +151,25 @@ export function BatchExtraTagsEditor({
       .map((path) => ({
         path,
         tags: trackTags.get(path)!,
-      }));
+      }))
+      .filter((update) => {
+        const originalTags = originalTagsByPathRef.current.get(update.path) ?? [];
+        return serializeTagListForComparison(update.tags)
+          !== serializeTagListForComparison(originalTags);
+      });
 
-    await onSave(updates);
+    if (updates.length > 0) {
+      await onSave(updates);
+    }
+
+    const nextOriginalByPath = new Map(originalTagsByPathRef.current);
+    for (const path of allPaths) {
+      const nextTags = trackTags.get(path);
+      if (!nextTags) continue;
+      nextOriginalByPath.set(path, nextTags.map((tag) => ({ key: tag.key, value: tag.value, source: "batch" })));
+    }
+    originalTagsByPathRef.current = nextOriginalByPath;
+
     const savedRows = rowsToDraftRows(rows);
     setRows(savedRows);
     setOriginalRows(savedRows);
@@ -406,4 +432,27 @@ function serializeRows(rows: DraftRow[]): string {
         return keyCmp || a.value.localeCompare(b.value);
       }),
   );
+}
+
+function serializeTagListForComparison(tags: Array<{ key: string; value: string }>): string {
+  const seen = new Set<string>();
+  const normalized: Array<{ key: string; value: string }> = [];
+
+  for (const tag of tags) {
+    const key = tag.key.trim().toUpperCase();
+    const value = tag.value.trim();
+    if (!key || !value) continue;
+
+    const identity = `${key}\0${value}`;
+    if (seen.has(identity)) continue;
+    seen.add(identity);
+    normalized.push({ key, value });
+  }
+
+  normalized.sort((a, b) => {
+    const keyCmp = a.key.localeCompare(b.key);
+    return keyCmp || a.value.localeCompare(b.value);
+  });
+
+  return JSON.stringify(normalized);
 }
