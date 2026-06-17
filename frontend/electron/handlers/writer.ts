@@ -563,9 +563,16 @@ async function writeVorbisComments(
     // Strip non-standard APEv2 tags (injected by QQ Music etc.) that would
     // override Vorbis comment values in music-metadata reads.
     const hasApe = hasApeTag(origBuf);
-    const cleaned = hasApe ? stripApeTagFromBuffer(origBuf) : origBuf;
-    if (hasApe) {
-      // Force full rewrite to physically remove APE bytes from the file
+    let cleaned = hasApe ? stripApeTagFromBuffer(origBuf) : origBuf;
+
+    // Neutralize ghost Vorbis Comment blocks embedded in the audio data.
+    // Some files contain a second VC (with stale tags) after the audio
+    // data starts — music-metadata reads both and stale values win.
+    const ghost = neutralizeGhostVorbisComments(cleaned);
+    cleaned = ghost.buf;
+
+    if (hasApe || ghost.found) {
+      // Force full rewrite to physically remove APE bytes and/or ghost VCs
       const layout = parseFlacLayout(cleaned);
       await writeFlacWithPaddingFallback(filePath, cleaned, layout, commentBlock);
       return "full_rewrite";
@@ -762,6 +769,55 @@ function buildFlacBlockHeader(type: number, dataLength: number, isLast: boolean)
   h[2] = (dataLength >> 8) & 0xff;
   h[3] = dataLength & 0xff;
   return h;
+}
+
+/**
+ * Neutralize ghost Vorbis Comment blocks embedded in the FLAC audio data.
+ *
+ * Some files contain a second Vorbis Comment block after the audio data
+ * starts — typically from a previous tagging session that wrote a VC
+ * (including METADATA_BLOCK_PICTURE) at a wrong offset. music-metadata
+ * reads both VCs and merges them, causing stale values to override the
+ * correct ones in the FLAC metadata chain.
+ *
+ * This function finds such ghost VCs by searching for the vendor string
+ * "auto-tagger" in the audio data area, then zeroes the vendor-length
+ * field so the parser fails to parse the block and skips it.
+ *
+ * Returns the (possibly modified) buffer.
+ */
+function neutralizeGhostVorbisComments(buf: Buffer): { buf: Buffer; found: boolean } {
+  const layout = parseFlacLayout(buf);
+  const audioStart = layout.audioOffset;
+  if (audioStart <= 0 || audioStart >= buf.length) return { buf, found: false };
+
+  const vendorStr = "auto-tagger";
+  const vendorBuf = Buffer.from(vendorStr, "utf8");
+  let result = buf;
+  let searchFrom = audioStart;
+  let found = false;
+
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    const vendorPos = result.indexOf(vendorBuf, searchFrom);
+    if (vendorPos < 0) break;
+
+    // Check if there's a 4-byte vendor-length field just before the vendor string
+    if (vendorPos < 4) { searchFrom = vendorPos + 1; continue; }
+    const claimedLen = result.readUInt32LE(vendorPos - 4);
+    if (claimedLen !== vendorBuf.length) { searchFrom = vendorPos + 1; continue; }
+
+    // Verify the vendor string is valid UTF-8 at the claimed position
+    const vStr = result.toString("utf8", vendorPos, vendorPos + claimedLen);
+    if (vStr !== vendorStr) { searchFrom = vendorPos + 1; continue; }
+
+    // Ghost VC found — zero the vendor-length field to break parsing
+    if (result === buf) result = Buffer.from(buf); // copy-on-write
+    result.writeUInt32LE(0, vendorPos - 4);
+    found = true;
+    searchFrom = vendorPos + 1;
+  }
+  return { buf: result, found };
 }
 
 /** Compare Vorbis comment payloads for semantic equality (ignoring vendor string order). */

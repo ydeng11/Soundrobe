@@ -1177,6 +1177,54 @@ describe("writeTags — FLAC in-place padding-aware", () => {
     expect(meta.common.title).toBe("Stay");
     expect(meta.common.artist).toBe("Same");
   });
+
+  it("neutralizes ghost Vorbis Comment in audio data so title update persists", async () => {
+    const fp = path.join(tmpDir, "ghost-vc.flac");
+    createMinimalFlac(fp, { title: "Original" });
+
+    // Write initial tags
+    await writeTags(fp, { title: "Original", artist: "Artist" });
+
+    // Inject a ghost VC block within the audio data area
+    // (simulating prior bug where a VC was written at a wrong offset)
+    const buf = Buffer.from(fs.readFileSync(fp));
+
+    // Build a ghost VC payload
+    const ghostVendor = Buffer.from("auto-tagger", "utf8");
+    const ghostTag = Buffer.from("TITLE=GhostTitle", "utf8");
+    const ghostPayload = Buffer.concat([
+      Buffer.alloc(4), // vendor len placeholder
+      ghostVendor,
+      Buffer.alloc(4), // num tags
+      Buffer.alloc(4), // tag len placeholder
+      ghostTag,
+    ]);
+    ghostPayload.writeUInt32LE(ghostVendor.length, 0);
+    ghostPayload.writeUInt32LE(1, 4 + ghostVendor.length);
+    ghostPayload.writeUInt32LE(ghostTag.length, 4 + ghostVendor.length + 4);
+
+    // Append ghost VC at end of file (beyond audio data)
+    const patched = Buffer.concat([buf, ghostPayload]);
+    fs.writeFileSync(fp, patched);
+
+    // Verify the ghost VC header is readable in the buffer
+    const patchedBuf = fs.readFileSync(fp);
+    const ghostOffset = patchedBuf.length - ghostPayload.length;
+    const vendorLen = patchedBuf.readUInt32LE(ghostOffset);
+    expect(vendorLen).toBe(ghostVendor.length);
+    const vendor = patchedBuf.toString("utf8", ghostOffset + 4, ghostOffset + 4 + vendorLen);
+    expect(vendor).toBe("auto-tagger");
+
+    // Now write the correct title (this should neutralize the ghost VC)
+    await writeTags(fp, { title: "RealTitle", artist: "Artist" });
+
+    // Verify ghost VC header was zeroed
+    const afterBuf = fs.readFileSync(fp);
+    // The ghost is now at the end — check if vendor len was zeroed
+    const ghostAfterOffset = afterBuf.length - ghostPayload.length;
+    const vendorLenAfter = afterBuf.readUInt32LE(ghostAfterOffset);
+    expect(vendorLenAfter).toBe(0); // neutralized!
+  });
 });
 
 describe("writeTags — WAV in-place", () => {
