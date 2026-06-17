@@ -63,14 +63,28 @@ function makeFlac(filePath: string, comments: string[]): void {
 }
 
 async function launchApp(home: string) {
+  const userDataDir = path.join(home, "electron-profile");
+  const xdgConfigHome = path.join(home, ".config");
+  const xdgCacheHome = path.join(home, ".cache");
+  fs.mkdirSync(userDataDir, { recursive: true });
+  fs.mkdirSync(xdgConfigHome, { recursive: true });
+  fs.mkdirSync(xdgCacheHome, { recursive: true });
+
   return electron.launch({
     executablePath: electronPath as unknown as string,
-    args: [path.join(process.cwd(), "dist-electron/main.js")],
+    args: [
+      "--password-store=basic",
+      "--use-mock-keychain",
+      `--user-data-dir=${userDataDir}`,
+      path.join(process.cwd(), "dist-electron/main.js"),
+    ],
     env: {
       ...process.env,
       AUTO_TAGGER_E2E_RENDERER_PATH: path.join(process.cwd(), "dist/index.html"),
       ELECTRON_DISABLE_SECURITY_WARNINGS: "1",
       HOME: home,
+      XDG_CONFIG_HOME: xdgConfigHome,
+      XDG_CACHE_HOME: xdgCacheHome,
     },
   });
 }
