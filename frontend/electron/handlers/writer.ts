@@ -880,6 +880,19 @@ async function writeFlacMetadataBlock(
     return "full_rewrite";
   }
 
+  // Duplicate Vorbis Comment blocks in the chain (ghost VCs from prior
+  // writes) — force a full rewrite so stripDuplicateVorbisBlocks cleans
+  // them out. In-place writes can't remove blocks from the chain.
+  const duplicateVc = layout.blocks.some(
+    (b, i) =>
+      b.type === 4 &&
+      layout.blocks.findIndex((bb) => bb.type === 4) !== i,
+  );
+  if (duplicateVc) {
+    await writeFlacWithPaddingFallback(filePath, buf, layout, blockData);
+    return "full_rewrite";
+  }
+
   // Skip entirely if comments are unchanged
   if (isVorbisUnchanged(buf, existing, blockData)) {
     return "skipped";
@@ -1031,6 +1044,43 @@ async function writeFlacNonVorbisBlock(
   }
 }
 
+/**
+ * Strip any Vorbis Comment blocks (type=4) from a FLAC metadata segment.
+ * The middle segment between the primary VC and audio data should never
+ * contain another VC — ghost VCs from prior writes appear here and cause
+ * music-metadata to read stale values.
+ */
+function stripDuplicateVorbisBlocks(segment: Buffer): Buffer {
+  let offset = 0;
+  let trimFrom = segment.length; // start trimming from here
+
+  while (offset + 4 <= segment.length) {
+    const byte0 = segment[offset];
+    const isLast = !!(byte0 >> 7);
+    const type = byte0 & 0x7f;
+    const length =
+      (segment[offset + 1] << 16) |
+      (segment[offset + 2] << 8) |
+      segment[offset + 3];
+
+    // Guard: invalid block header or block extends past segment
+    if (type > 6 || length > 20_000_000 || offset + 4 + length > segment.length) break;
+
+    if (type === 4) {
+      // Ghost VC found — trim everything from here onward
+      trimFrom = offset;
+      break;
+    }
+
+    if (isLast) break;
+    offset += 4 + length;
+  }
+
+  return trimFrom < segment.length
+    ? segment.subarray(0, trimFrom)
+    : segment;
+}
+
 /** Fallback: replace Vorbis block, preserve non-Vorbis metadata, and add 64 KiB PADDING before audio. */
 async function writeFlacWithPaddingFallback(
   filePath: string,
@@ -1060,7 +1110,7 @@ async function writeFlacWithPaddingFallback(
   let prefix: Buffer;
   let middle: Buffer;
   if (vorbisBlock) {
-    // Replace existing Vorbis, keep all other metadata blocks in order
+    // Replace existing Vorbis, keep other metadata blocks in order
     prefix = buf.subarray(0, vorbisBlock.headerOffset);
     middle = buf.subarray(
       vorbisBlock.headerOffset + 4 + vorbisBlock.length,
@@ -1072,6 +1122,12 @@ async function writeFlacWithPaddingFallback(
     prefix = buf.subarray(0, streamInfoEnd);
     middle = buf.subarray(streamInfoEnd, layout.audioOffset);
   }
+
+  // Strip any duplicate Vorbis Comment blocks (type=4) and orphaned
+  // PADDING blocks from middle. Ghost VCs from prior writes may be
+  // embedded in the metadata chain; keeping them causes music-metadata
+  // to read stale values that override the correct ones.
+  middle = stripDuplicateVorbisBlocks(middle);
 
   const result = Buffer.concat([prefix, newVorbis, middle, padding, audio]);
   result[4] &= 0x7f; // clear isLast on STREAMINFO
