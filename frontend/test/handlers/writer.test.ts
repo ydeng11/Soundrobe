@@ -883,6 +883,7 @@ function buildFlacWithPadding(
   filePath: string,
   paddingSize: number,
   comments: Record<string, string> = {},
+  options: { includeSeektable?: boolean } = {},
 ): void {
   const parts: Buffer[] = [];
   parts.push(Buffer.from("fLaC", "ascii"));
@@ -920,6 +921,16 @@ function buildFlacWithPadding(
   vcH[2] = (vb.length >> 8) & 0xff;
   vcH[3] = vb.length & 0xff;
   parts.push(vcH, vb);
+
+  if (options.includeSeektable) {
+    const seektable = Buffer.alloc(18);
+    const seekH = Buffer.alloc(4);
+    seekH[0] = 0x03;
+    seekH[1] = (seektable.length >> 16) & 0xff;
+    seekH[2] = (seektable.length >> 8) & 0xff;
+    seekH[3] = seektable.length & 0xff;
+    parts.push(seekH, seektable);
+  }
 
   if (paddingSize > 0) {
     const padH = Buffer.alloc(4);
@@ -1115,6 +1126,15 @@ describe("writeTags — FLAC in-place padding-aware", () => {
     expect(bufAfter.length).toBe(sizeBefore);
     const audioAfter = bufAfter.slice(audioOffBefore);
     expect(audioAfter.equals(audioBefore)).toBe(true);
+
+    // Declared metadata end must align with real audio start.
+    // Regresses a bug where fast-path growth subtracted 4 twice and
+    // left orphaned zero bytes between metadata and audio.
+    const declaredAudioOffset = findAudioOffset(bufAfter);
+    const audioStartPattern = Buffer.from([0, 1, 2, 3, 4, 5, 6, 7]);
+    const actualAudioOffset = bufAfter.indexOf(audioStartPattern, declaredAudioOffset);
+    expect(actualAudioOffset).toBe(declaredAudioOffset);
+
     // Tags are correct
     const meta = await parseFile(fp, { duration: false });
     expect(meta.common.title).toBe("A Much Longer Title Here");
@@ -1159,6 +1179,31 @@ describe("writeTags — FLAC in-place padding-aware", () => {
     const meta = await parseFile(fp, { duration: false });
     expect(meta.common.title).toBe("After InPlace");
     expect(meta.common.artist).toBe("New Artist");
+  });
+
+  it("fallback rewrite drops old trailing padding before appending fresh padding", async () => {
+    const fp = path.join(tmpDir, "seektable-padding.flac");
+    buildFlacWithPadding(fp, 5000, { TITLE: "Short" }, { includeSeektable: true });
+
+    await writeTags(fp, {
+      title: "A Much Longer Title Here",
+      artist: "郭富城",
+      album: "对你爱不完",
+      year: "1990",
+      genre: "Mandopop",
+      discogsArtistId: "211321",
+      musicbrainzAlbumId: "34443d65-15fd-45c2-9cb2-f035374619a3",
+    });
+
+    const bufAfter = fs.readFileSync(fp);
+    const declaredAudioOffset = findAudioOffset(bufAfter);
+    const audioStartPattern = Buffer.from([0, 1, 2, 3, 4, 5, 6, 7]);
+    const actualAudioOffset = bufAfter.indexOf(audioStartPattern, declaredAudioOffset);
+    expect(actualAudioOffset).toBe(declaredAudioOffset);
+
+    const meta = await parseFile(fp, { duration: false });
+    expect(meta.common.title).toBe("A Much Longer Title Here");
+    expect(meta.common.artist).toBe("郭富城");
   });
 
   it("no-op FLAC write keeps file identical", async () => {

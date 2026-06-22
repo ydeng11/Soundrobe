@@ -927,23 +927,25 @@ async function writeFlacMetadataBlock(
   const neededExtra = blockData.length - existing.length;
 
   if (nextBlock && nextBlock.type === 1 && neededExtra > 0 && nextBlock.length >= neededExtra) {
-    const remainingPadding = nextBlock.length - neededExtra;
-    // The PADDING header shifts forward by neededExtra bytes
+    // nextBlock.length is PADDING *data* bytes (header excluded).
+    // After consuming neededExtra bytes from that data, the remaining
+    // PADDING data bytes are exactly nextBlock.length - neededExtra.
+    // Do not subtract 4 again when declaring the new PADDING block length,
+    // or a 4-byte metadata/audio gap is created.
+    const remainingPaddingData = nextBlock.length - neededExtra;
+    // The PADDING header shifts forward by neededExtra bytes.
     const newPadHdrOffset = nextBlock.headerOffset + neededExtra;
-    // Write updated Vorbis header with new length
-    const vorbisHdr = buildFlacBlockHeader(4, blockData.length, remainingPadding < 4);
+    // PADDING block still exists (possibly 0-byte body), so Vorbis is not last.
+    const vorbisHdr = buildFlacBlockHeader(4, blockData.length, false);
     const handle = await open(filePath, "r+");
     try {
       // Update Vorbis block header
       await handle.write(vorbisHdr, 0, 4, existing.headerOffset);
       // Write new payload (extends into old padding area)
       await handle.write(blockData, 0, blockData.length, existing.dataOffset);
-      if (remainingPadding >= 4) {
-        // Write PADDING header at its new shifted position
-        // PADDING body is remainingPadding - 4 bytes (header takes 4)
-        const padHdr = buildFlacBlockHeader(1, remainingPadding - 4, true);
-        await handle.write(padHdr, 0, 4, newPadHdrOffset);
-      }
+      // Rewrite PADDING header at its shifted position.
+      const padHdr = buildFlacBlockHeader(1, remainingPaddingData, nextBlock.isLast);
+      await handle.write(padHdr, 0, 4, newPadHdrOffset);
     } finally {
       await handle.close();
     }
@@ -1058,6 +1060,32 @@ function stripTrailingVorbisBlocks(segment: Buffer): Buffer {
   return segment;
 }
 
+function normalizeFlacRewriteMiddle(segment: Buffer): Buffer {
+  const blocks: Buffer[] = [];
+
+  for (let offset = 0; offset + 4 <= segment.length; ) {
+    const byte0 = segment[offset];
+    const isLast = !!(byte0 >> 7);
+    const type = byte0 & 0x7f;
+    const length =
+      (segment[offset + 1] << 16) |
+      (segment[offset + 2] << 8) |
+      segment[offset + 3];
+    const nextOffset = offset + 4 + length;
+
+    if (type > 6 || length > 20_000_000 || nextOffset > segment.length) break;
+    if (type !== 1 && type !== 4) {
+      const block = Buffer.from(segment.subarray(offset, nextOffset));
+      block[0] &= 0x7f;
+      blocks.push(block);
+    }
+    offset = nextOffset;
+    if (isLast) break;
+  }
+
+  return Buffer.concat(blocks);
+}
+
 /** Fallback: replace Vorbis block, preserve non-Vorbis metadata, and add 64 KiB PADDING before audio. */
 async function writeFlacWithPaddingFallback(
   filePath: string,
@@ -1100,9 +1128,9 @@ async function writeFlacWithPaddingFallback(
     middle = buf.subarray(streamInfoEnd, layout.audioOffset);
   }
 
-  // Strip ghost Vorbis Comment blocks from middle — they cause
-  // music-metadata to merge stale values over the correct ones.
-  middle = stripTrailingVorbisBlocks(middle);
+  // Drop old padding and ghost Vorbis blocks from the preserved middle.
+  // The fresh padding below becomes the only final metadata block.
+  middle = normalizeFlacRewriteMiddle(stripTrailingVorbisBlocks(middle));
 
   const result = Buffer.concat([prefix, newVorbis, middle, padding, audio]);
   result[4] &= 0x7f; // clear isLast on STREAMINFO
