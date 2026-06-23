@@ -5,6 +5,7 @@ import { basename } from "../utils/path";
 /** Common tag keys users may want to add (not in the main editor). */
 const SUGGESTED_TAG_KEYS = [
   // Vorbis / general
+  "COMMENT",
   "DESCRIPTION",
   "LYRICIST",
   "ARRANGER",

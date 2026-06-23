@@ -350,6 +350,7 @@ function BatchExtraTagRow({
         <option value="SCRIPT" />
         <option value="LANGUAGE" />
         <option value="ALBUMARTISTS" />
+        <option value="COMMENT" />
         <option value="DESCRIPTION" />
         <option value="COMPILATION" />
       </datalist>
