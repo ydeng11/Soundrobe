@@ -97,7 +97,12 @@ export class ArtworkResolverService {
 
   /** Resolve artwork by trying providers in order. */
   async resolve(ctx: ArtworkContext): Promise<ArtworkResult | null> {
-    logger.info("cover", `Resolve: kind=${ctx.kind} artist="${ctx.artistName ?? ""}" album="${ctx.albumName ?? ""}" mbid=${ctx.musicbrainzAlbumId ?? "null"} providers=[${this.providers.map(p => p.name).join(",")}]`);
+    logger.info(
+      "cover",
+      `Resolve: kind=${ctx.kind} artist="${ctx.artistName ?? ""}" album="${ctx.albumName ?? ""}" ` +
+      `mbid=${ctx.musicbrainzAlbumId ?? "null"} discogsArtistId=${ctx.discogsArtistId ?? "null"} ` +
+      `discogsReleaseId=${ctx.discogsReleaseId ?? "null"} providers=[${this.providers.map(p => p.name).join(",")}]`,
+    );
 
     for (const provider of this.providers) {
       const skipReason = this.skipReasonForProvider(provider, ctx);
@@ -312,12 +317,6 @@ async function findDiscogs(
   ctx: ArtworkContext,
   creds: ArtworkCredentials,
 ): Promise<ArtworkResult | null> {
-  const artist = ctx.artistName;
-  if (!artist) {
-    logger.debug("cover", "findDiscogs: skip — no artist");
-    return null;
-  }
-
   const token = creds.discogsToken;
   if (!token) {
     logger.debug("cover", "findDiscogs: skip — no token");
@@ -327,7 +326,14 @@ async function findDiscogs(
   const service = new DiscogsService({ token });
 
   try {
+    const artist = ctx.artistName;
+
     if (ctx.kind === "artist-image") {
+      if (!artist) {
+        logger.debug("cover", "findDiscogs (artist-image): skip — no artist");
+        return null;
+      }
+
       // Use ArtistIdentityResolver for better Chinese artist matching
       const identity = await findArtistIdentity(artist, { discogsToken: token });
       
@@ -351,12 +357,6 @@ async function findDiscogs(
     }
 
     // Album cover: priority flow — known IDs first, then generic search
-    const album = ctx.albumName;
-    if (!album) {
-      logger.debug("cover", "findDiscogs: skip — no album name");
-      return null;
-    }
-
     // Priority 1: Known Discogs release ID — fetch release directly
     if (ctx.discogsReleaseId) {
       logger.debug("cover", `findDiscogs: trying direct release ID: ${ctx.discogsReleaseId}`);
@@ -369,6 +369,17 @@ async function findDiscogs(
           return { kind: "album-cover", source: "discogs", bytes: img.bytes, mime: img.mime, url: frontImage.uri };
         }
       }
+      logger.debug("cover", `findDiscogs: direct release ID ${ctx.discogsReleaseId} had no downloadable image`);
+    }
+
+    const album = ctx.albumName;
+    if (!artist) {
+      logger.debug("cover", "findDiscogs: skip search — no artist");
+      return null;
+    }
+    if (!album) {
+      logger.debug("cover", "findDiscogs: skip search — no album name");
+      return null;
     }
 
     // Priority 2: Known Discogs artist ID — fetch artist releases, match by album title
@@ -821,4 +832,3 @@ async function albumMatchesQuery(discogsAlbum: string, queryAlbum: string, query
 
   return false;
 }
-

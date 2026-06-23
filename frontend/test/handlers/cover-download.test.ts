@@ -9,6 +9,7 @@
 
 import { describe, it, expect, vi, beforeEach, afterAll } from "vitest";
 import {
+  extractArtworkProviderIds,
   registerCoverHandlers,
   type CoverDownloadResult,
 } from "../../electron/handlers/cover";
@@ -49,6 +50,58 @@ vi.mock("music-metadata", () => ({
 }));
 
 import * as fs from "fs";
+
+describe("extractArtworkProviderIds", () => {
+  it("reads provider IDs from music-metadata common values", () => {
+    expect(extractArtworkProviderIds({
+      common: {
+        musicbrainz_albumid: "34443d65-15fd-45c2-9cb2-f035374619a3",
+        discogs_artist_id: [211321],
+        discogs_release_id: 9565080,
+      },
+    })).toEqual({
+      musicbrainzAlbumId: "34443d65-15fd-45c2-9cb2-f035374619a3",
+      discogsArtistId: "211321",
+      discogsReleaseId: "9565080",
+    });
+  });
+
+  it("reads provider IDs from FLAC native vorbis tags", () => {
+    expect(extractArtworkProviderIds({
+      common: {},
+      native: {
+        vorbis: [
+          { id: "MUSICBRAINZ_ALBUMID", value: "34443d65-15fd-45c2-9cb2-f035374619a3" },
+          { id: "DISCOGS_ARTIST_ID", value: "211321" },
+          { id: "DISCOGS_RELEASE_ID", value: "9565080" },
+        ],
+      },
+    })).toEqual({
+      musicbrainzAlbumId: "34443d65-15fd-45c2-9cb2-f035374619a3",
+      discogsArtistId: "211321",
+      discogsReleaseId: "9565080",
+    });
+  });
+
+  it("reads provider IDs from legacy Vorbis and ID3 TXXX native tags", () => {
+    expect(extractArtworkProviderIds({
+      common: {},
+      native: {
+        VORBIS_COMMENT: [
+          { id: "MUSICBRAINZ_ALBUMID", value: "mb-from-vorbis" },
+        ],
+        "ID3v2.4": [
+          { id: "TXXX:Discogs Artist Id", value: "211321" },
+          { id: "TXXX:Discogs Release Id", value: "9565080" },
+        ],
+      },
+    })).toEqual({
+      musicbrainzAlbumId: "mb-from-vorbis",
+      discogsArtistId: "211321",
+      discogsReleaseId: "9565080",
+    });
+  });
+});
 
 describe("cover:download (cover art)", () => {
   beforeEach(() => {

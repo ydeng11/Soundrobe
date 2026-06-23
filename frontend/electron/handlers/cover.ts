@@ -26,6 +26,70 @@ const COVER_EXTS = [".jpg", ".jpeg", ".png"];
 /** Audio file extensions used for embedded cover scanning and metadata reading. */
 const AUDIO_EXTS = [".mp3", ".flac", ".m4a", ".mp4", ".wav", ".ogg", ".opus"];
 
+type NativeTag = { id?: string; value?: unknown; description?: string };
+type ProviderIdMetadata = {
+  common?: object;
+  native?: object;
+};
+
+function normalizeProviderId(value: unknown): string | null {
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const normalized = normalizeProviderId(item);
+      if (normalized) return normalized;
+    }
+    return null;
+  }
+  if (typeof value === "number" && Number.isFinite(value)) return String(value);
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function readNativeProviderId(
+  native: object | undefined,
+  keys: string[],
+): string | null {
+  if (!native) return null;
+  const wanted = new Set(keys.map((key) => key.toLowerCase()));
+  for (const tags of Object.values(native as Record<string, unknown>)) {
+    if (!Array.isArray(tags)) continue;
+    for (const tag of tags as NativeTag[]) {
+      const id = typeof tag.id === "string" ? tag.id.toLowerCase() : "";
+      const description = typeof tag.description === "string" ? tag.description.toLowerCase() : "";
+      if (wanted.has(id) || wanted.has(description)) {
+        const value = normalizeProviderId(tag.value);
+        if (value) return value;
+      }
+    }
+  }
+  return null;
+}
+
+export function extractArtworkProviderIds(metadata: ProviderIdMetadata): {
+  musicbrainzAlbumId: string | null;
+  discogsArtistId: string | null;
+  discogsReleaseId: string | null;
+} {
+  const common = (metadata.common ?? {}) as Record<string, unknown>;
+  const native = metadata.native;
+
+  return {
+    musicbrainzAlbumId:
+      normalizeProviderId(common.musicbrainz_albumid) ??
+      normalizeProviderId(common.musicbrainzAlbumId) ??
+      readNativeProviderId(native, ["MUSICBRAINZ_ALBUMID", "MusicBrainz Album Id"]),
+    discogsArtistId:
+      normalizeProviderId(common.discogs_artist_id) ??
+      normalizeProviderId(common.discogsArtistId) ??
+      readNativeProviderId(native, ["DISCOGS_ARTIST_ID", "Discogs Artist Id", "TXXX:Discogs Artist Id"]),
+    discogsReleaseId:
+      normalizeProviderId(common.discogs_release_id) ??
+      normalizeProviderId(common.discogsReleaseId) ??
+      readNativeProviderId(native, ["DISCOGS_RELEASE_ID", "Discogs Release Id", "TXXX:Discogs Release Id"]),
+  };
+}
+
 /**
  * Find external cover art file in a directory.
  */
@@ -111,38 +175,14 @@ async function readFirstTrackMetadata(albumPath: string): Promise<{
       const filePath = path.join(albumPath, entry.name);
       const metadata = await parseFile(filePath, { duration: false });
       const common = metadata.common;
-
-      // Read Discogs IDs from native tags (Vorbis TXXX or ID3 TXXX)
-      const native = metadata.native ?? {};
-      let discogsArtistId: string | null = null;
-      let discogsReleaseId: string | null = null;
-
-      // Check Vorbis comments (FLAC/OGG)
-      const vorbis = native["VORBIS_COMMENT"] as Array<{ id: string; value: string }> | undefined;
-      if (vorbis) {
-        for (const tag of vorbis) {
-          if (tag.id === "DISCOGS_ARTIST_ID") discogsArtistId = tag.value;
-          if (tag.id === "DISCOGS_RELEASE_ID") discogsReleaseId = tag.value;
-        }
-      }
-
-      // Check ID3v2 (MP3) — stored as TXXX frames
-      const id3v2 = (native["ID3v2.4"] ?? native["ID3v2.3"]) as
-        | Array<{ id: string; value: string }>
-        | undefined;
-      if (id3v2) {
-        for (const tag of id3v2) {
-          if (tag.id === "TXXX:Discogs Artist Id") discogsArtistId = tag.value;
-          if (tag.id === "TXXX:Discogs Release Id") discogsReleaseId = tag.value;
-        }
-      }
+      const providerIds = extractArtworkProviderIds(metadata);
 
       return {
         artist: common.artist ?? null,
         album: common.album ?? null,
-        musicbrainzAlbumId: common.musicbrainz_albumid?.toString() ?? null,
-        discogsArtistId: discogsArtistId ?? (common as any).discogs_artist_id?.toString() ?? null,
-        discogsReleaseId: discogsReleaseId ?? (common as any).discogs_release_id?.toString() ?? null,
+        musicbrainzAlbumId: providerIds.musicbrainzAlbumId,
+        discogsArtistId: providerIds.discogsArtistId,
+        discogsReleaseId: providerIds.discogsReleaseId,
       };
     }
   } catch {
@@ -301,9 +341,14 @@ export function registerCoverHandlers(): void {
     }
 
     if (kind === "artist-image") {
-      debug.info("cover", `resolveAndWriteArtwork: kind=${kind} artist="${metadata.artist ?? ""}"`);
+      debug.info("cover", `resolveAndWriteArtwork: kind=${kind} artist="${metadata.artist ?? ""}" discogsArtistId=${metadata.discogsArtistId ?? "null"}`);
     } else {
-      debug.info("cover", `resolveAndWriteArtwork: kind=${kind} artist="${metadata.artist ?? ""}" album="${metadata.album ?? ""}" mbid=${metadata.musicbrainzAlbumId ?? "null"}`);
+      debug.info(
+        "cover",
+        `resolveAndWriteArtwork: kind=${kind} artist="${metadata.artist ?? ""}" album="${metadata.album ?? ""}" ` +
+        `mbid=${metadata.musicbrainzAlbumId ?? "null"} discogsArtistId=${metadata.discogsArtistId ?? "null"} ` +
+        `discogsReleaseId=${metadata.discogsReleaseId ?? "null"}`,
+      );
     }
 
     const resolver = getArtworkResolver();

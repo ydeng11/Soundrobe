@@ -523,6 +523,123 @@ describe("ArtworkResolverService", () => {
     });
 
     describe("Acceptance rules", () => {
+      it("uses a direct Discogs release ID without requiring artist or album text", async () => {
+        global.fetch = vi.fn().mockImplementation(
+          (url: string | Request | URL, init?: RequestInit) => {
+            fetchCalls.push({ url: url.toString(), headers: init?.headers as Record<string, string> ?? {} });
+            const textUrl = url.toString();
+            if (textUrl === "https://api.discogs.com/releases/9565080") {
+              return Promise.resolve(new Response(JSON.stringify({
+                id: 9565080,
+                images: [{ type: "secondary", uri: "https://img.discogs.com/9565080.jpg" }],
+              }), { status: 200, headers: { "Content-Type": "application/json" } }));
+            }
+            if (textUrl === "https://img.discogs.com/9565080.jpg") {
+              return Promise.resolve(mockImageResponse(tinyJpeg));
+            }
+            return Promise.resolve(new Response(null, { status: 404 }));
+          },
+        );
+
+        const ctx: ArtworkContext = {
+          kind: "album-cover",
+          artistName: null,
+          albumName: null,
+          musicbrainzAlbumId: null,
+          discogsReleaseId: "9565080",
+          albumPath: "/music/郭富城/1991-到底有谁能够告诉我",
+        };
+
+        const result = await service.resolve(ctx);
+
+        expect(result).not.toBeNull();
+        expect(result!.source).toBe("discogs");
+        expect(result!.url).toBe("https://img.discogs.com/9565080.jpg");
+        expect(fetchCalls.map((c) => c.url)).toEqual([
+          "https://api.discogs.com/releases/9565080",
+          "https://img.discogs.com/9565080.jpg",
+        ]);
+      });
+
+      it("falls through from a Cover Art Archive miss to direct Discogs release artwork", async () => {
+        global.fetch = vi.fn().mockImplementation(
+          (url: string | Request | URL, init?: RequestInit) => {
+            fetchCalls.push({ url: url.toString(), headers: init?.headers as Record<string, string> ?? {} });
+            const textUrl = url.toString();
+            if (textUrl === "https://coverartarchive.org/release/34443d65-15fd-45c2-9cb2-f035374619a3") {
+              return Promise.resolve(new Response(null, { status: 404 }));
+            }
+            if (textUrl === "https://api.discogs.com/releases/9565080") {
+              return Promise.resolve(new Response(JSON.stringify({
+                id: 9565080,
+                images: [{ type: "secondary", uri: "https://img.discogs.com/9565080.jpg" }],
+              }), { status: 200, headers: { "Content-Type": "application/json" } }));
+            }
+            if (textUrl === "https://img.discogs.com/9565080.jpg") {
+              return Promise.resolve(mockImageResponse(tinyJpeg));
+            }
+            return Promise.resolve(new Response(null, { status: 404 }));
+          },
+        );
+
+        const ctx: ArtworkContext = {
+          kind: "album-cover",
+          artistName: "郭富城",
+          albumName: "到底有谁能够告诉我",
+          musicbrainzAlbumId: "34443d65-15fd-45c2-9cb2-f035374619a3",
+          discogsArtistId: "211321",
+          discogsReleaseId: "9565080",
+          albumPath: "/music/郭富城/1991-到底有谁能够告诉我",
+        };
+
+        const result = await service.resolve(ctx);
+
+        expect(result).not.toBeNull();
+        expect(result!.source).toBe("discogs");
+        expect(result!.url).toBe("https://img.discogs.com/9565080.jpg");
+        expect(fetchCalls.map((c) => c.url)).toEqual([
+          "https://coverartarchive.org/release/34443d65-15fd-45c2-9cb2-f035374619a3",
+          "https://api.discogs.com/releases/9565080",
+          "https://img.discogs.com/9565080.jpg",
+        ]);
+      });
+
+      it("keeps Cover Art Archive ahead of Discogs when the MBID has artwork", async () => {
+        global.fetch = vi.fn().mockImplementation(
+          (url: string | Request | URL, init?: RequestInit) => {
+            fetchCalls.push({ url: url.toString(), headers: init?.headers as Record<string, string> ?? {} });
+            const textUrl = url.toString();
+            if (textUrl === "https://coverartarchive.org/release/mbid-with-cover") {
+              return Promise.resolve(new Response(JSON.stringify({
+                images: [{ image: "https://coverartarchive.org/release/mbid-with-cover/front.jpg", types: ["Front"] }],
+              }), { status: 200, headers: { "Content-Type": "application/json" } }));
+            }
+            if (textUrl === "https://coverartarchive.org/release/mbid-with-cover/front.jpg") {
+              return Promise.resolve(mockImageResponse(tinyJpeg));
+            }
+            return Promise.resolve(new Response(null, { status: 404 }));
+          },
+        );
+
+        const ctx: ArtworkContext = {
+          kind: "album-cover",
+          artistName: "郭富城",
+          albumName: "到底有谁能够告诉我",
+          musicbrainzAlbumId: "mbid-with-cover",
+          discogsReleaseId: "9565080",
+          albumPath: "/music/郭富城/1991-到底有谁能够告诉我",
+        };
+
+        const result = await service.resolve(ctx);
+
+        expect(result).not.toBeNull();
+        expect(result!.source).toBe("cover-art-archive");
+        expect(fetchCalls.map((c) => c.url)).toEqual([
+          "https://coverartarchive.org/release/mbid-with-cover",
+          "https://coverartarchive.org/release/mbid-with-cover/front.jpg",
+        ]);
+      });
+
       it("skips first bad result and uses a later exact match", async () => {
         const searchResponse = mockDiscogsResponse([
           { title: "ちゅううううううう!!!!!! - Unicode", cover_image: "https://img.discogs.com/bad.jpg", id: 23116274 },
