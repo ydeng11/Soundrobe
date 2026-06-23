@@ -1,0 +1,5207 @@
+{
+  "batchId": 102,
+  "completedAt": "2026-06-20T06:41:02.179Z",
+  "count": 100,
+  "results": [
+    {
+      "rel": "陈慧琳/2002.陈慧琳.Baby Cat/陳慧琳 - 08.暖我.flac",
+      "artistName": "陈慧琳",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "陈慧琳",
+        "album": "2002.陈慧琳.Baby Cat",
+        "track": "陳慧琳 - 08.暖我.flac",
+        "relativePath": "陈慧琳/2002.陈慧琳.Baby Cat/陳慧琳 - 08.暖我.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "陈慧琳/2002.陈慧琳.Baby Cat/陳慧琳 - 09.最佳位置.flac",
+      "artistName": "陈慧琳",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "陈慧琳",
+        "album": "2002.陈慧琳.Baby Cat",
+        "track": "陳慧琳 - 09.最佳位置.flac",
+        "relativePath": "陈慧琳/2002.陈慧琳.Baby Cat/陳慧琳 - 09.最佳位置.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "陈慧琳/2002.陈慧琳.Grace/陳慧琳 - 01.朝のヒカリ-晨光.flac",
+      "artistName": "陈慧琳",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "陈慧琳",
+        "album": "2002.陈慧琳.Grace",
+        "track": "陳慧琳 - 01.朝のヒカリ-晨光.flac",
+        "relativePath": "陈慧琳/2002.陈慧琳.Grace/陳慧琳 - 01.朝のヒカリ-晨光.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "陈慧琳/2002.陈慧琳.Grace/陳慧琳 - 02.あかいピストル-紅色手槍.flac",
+      "artistName": "陈慧琳",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "陈慧琳",
+        "album": "2002.陈慧琳.Grace",
+        "track": "陳慧琳 - 02.あかいピストル-紅色手槍.flac",
+        "relativePath": "陈慧琳/2002.陈慧琳.Grace/陳慧琳 - 02.あかいピストル-紅色手槍.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "陈慧琳/2002.陈慧琳.Grace/陳慧琳 - 03.Ask.flac",
+      "artistName": "陈慧琳",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "陈慧琳",
+        "album": "2002.陈慧琳.Grace",
+        "track": "陳慧琳 - 03.Ask.flac",
+        "relativePath": "陈慧琳/2002.陈慧琳.Grace/陳慧琳 - 03.Ask.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "陈慧琳/2002.陈慧琳.Grace/陳慧琳 - 04.あなたを嫌いになる方法-恨你的方法.flac",
+      "artistName": "陈慧琳",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "陈慧琳",
+        "album": "2002.陈慧琳.Grace",
+        "track": "陳慧琳 - 04.あなたを嫌いになる方法-恨你的方法.flac",
+        "relativePath": "陈慧琳/2002.陈慧琳.Grace/陳慧琳 - 04.あなたを嫌いになる方法-恨你的方法.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "陈慧琳/2002.陈慧琳.Grace/陳慧琳 - 05.ラフレシア-Refresher.flac",
+      "artistName": "陈慧琳",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "陈慧琳",
+        "album": "2002.陈慧琳.Grace",
+        "track": "陳慧琳 - 05.ラフレシア-Refresher.flac",
+        "relativePath": "陈慧琳/2002.陈慧琳.Grace/陳慧琳 - 05.ラフレシア-Refresher.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "陈慧琳/2002.陈慧琳.Grace/陳慧琳 - 06.ドウシテモ。-Why.flac",
+      "artistName": "陈慧琳",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "陈慧琳",
+        "album": "2002.陈慧琳.Grace",
+        "track": "陳慧琳 - 06.ドウシテモ。-Why.flac",
+        "relativePath": "陈慧琳/2002.陈慧琳.Grace/陳慧琳 - 06.ドウシテモ。-Why.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "陈慧琳/2002.陈慧琳.Grace/陳慧琳 - 07.Transformation.flac",
+      "artistName": "陈慧琳",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "陈慧琳",
+        "album": "2002.陈慧琳.Grace",
+        "track": "陳慧琳 - 07.Transformation.flac",
+        "relativePath": "陈慧琳/2002.陈慧琳.Grace/陳慧琳 - 07.Transformation.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "陈慧琳/2002.陈慧琳.Grace/陳慧琳 - 08.Cool Down.flac",
+      "artistName": "陈慧琳",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "陈慧琳",
+        "album": "2002.陈慧琳.Grace",
+        "track": "陳慧琳 - 08.Cool Down.flac",
+        "relativePath": "陈慧琳/2002.陈慧琳.Grace/陳慧琳 - 08.Cool Down.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "陈慧琳/2002.陈慧琳.Grace/陳慧琳 - 09.Silent Screamer.flac",
+      "artistName": "陈慧琳",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "陈慧琳",
+        "album": "2002.陈慧琳.Grace",
+        "track": "陳慧琳 - 09.Silent Screamer.flac",
+        "relativePath": "陈慧琳/2002.陈慧琳.Grace/陳慧琳 - 09.Silent Screamer.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "陈慧琳/2002.陈慧琳.Grace/陳慧琳 - 10.風のParade.flac",
+      "artistName": "陈慧琳",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "陈慧琳",
+        "album": "2002.陈慧琳.Grace",
+        "track": "陳慧琳 - 10.風のParade.flac",
+        "relativePath": "陈慧琳/2002.陈慧琳.Grace/陳慧琳 - 10.風のParade.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "陈慧琳/2002.陈慧琳.闪亮每一天 新歌+精选 2CD/陈慧琳.闪亮每一天 新歌+精选CD1/陳慧琳 - 01.三秒鐘.flac",
+      "artistName": "陈慧琳",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "陈慧琳",
+        "album": "2002.陈慧琳.闪亮每一天 新歌+精选 2CD / 陈慧琳.闪亮每一天 新歌+精选CD1",
+        "track": "陳慧琳 - 01.三秒鐘.flac",
+        "relativePath": "陈慧琳/2002.陈慧琳.闪亮每一天 新歌+精选 2CD/陈慧琳.闪亮每一天 新歌+精选CD1/陳慧琳 - 01.三秒鐘.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "陈慧琳/2002.陈慧琳.闪亮每一天 新歌+精选 2CD/陈慧琳.闪亮每一天 新歌+精选CD1/陳慧琳 - 02.制造浪漫.flac",
+      "artistName": "陈慧琳",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "陈慧琳",
+        "album": "2002.陈慧琳.闪亮每一天 新歌+精选 2CD / 陈慧琳.闪亮每一天 新歌+精选CD1",
+        "track": "陳慧琳 - 02.制造浪漫.flac",
+        "relativePath": "陈慧琳/2002.陈慧琳.闪亮每一天 新歌+精选 2CD/陈慧琳.闪亮每一天 新歌+精选CD1/陳慧琳 - 02.制造浪漫.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "陈慧琳/2002.陈慧琳.闪亮每一天 新歌+精选 2CD/陈慧琳.闪亮每一天 新歌+精选CD1/陳慧琳 - 03.記事本.flac",
+      "artistName": "陈慧琳",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "陈慧琳",
+        "album": "2002.陈慧琳.闪亮每一天 新歌+精选 2CD / 陈慧琳.闪亮每一天 新歌+精选CD1",
+        "track": "陳慧琳 - 03.記事本.flac",
+        "relativePath": "陈慧琳/2002.陈慧琳.闪亮每一天 新歌+精选 2CD/陈慧琳.闪亮每一天 新歌+精选CD1/陳慧琳 - 03.記事本.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "陈慧琳/2002.陈慧琳.闪亮每一天 新歌+精选 2CD/陈慧琳.闪亮每一天 新歌+精选CD1/陳慧琳 - 04.愛不愛我.flac",
+      "artistName": "陈慧琳",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "陈慧琳",
+        "album": "2002.陈慧琳.闪亮每一天 新歌+精选 2CD / 陈慧琳.闪亮每一天 新歌+精选CD1",
+        "track": "陳慧琳 - 04.愛不愛我.flac",
+        "relativePath": "陈慧琳/2002.陈慧琳.闪亮每一天 新歌+精选 2CD/陈慧琳.闪亮每一天 新歌+精选CD1/陳慧琳 - 04.愛不愛我.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "陈慧琳/2002.陈慧琳.闪亮每一天 新歌+精选 2CD/陈慧琳.闪亮每一天 新歌+精选CD1/陳慧琳 - 05.你不一樣.flac",
+      "artistName": "陈慧琳",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "陈慧琳",
+        "album": "2002.陈慧琳.闪亮每一天 新歌+精选 2CD / 陈慧琳.闪亮每一天 新歌+精选CD1",
+        "track": "陳慧琳 - 05.你不一樣.flac",
+        "relativePath": "陈慧琳/2002.陈慧琳.闪亮每一天 新歌+精选 2CD/陈慧琳.闪亮每一天 新歌+精选CD1/陳慧琳 - 05.你不一樣.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "陈慧琳/2002.陈慧琳.闪亮每一天 新歌+精选 2CD/陈慧琳.闪亮每一天 新歌+精选CD1/陳慧琳 - 06.體會.flac",
+      "artistName": "陈慧琳",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "陈慧琳",
+        "album": "2002.陈慧琳.闪亮每一天 新歌+精选 2CD / 陈慧琳.闪亮每一天 新歌+精选CD1",
+        "track": "陳慧琳 - 06.體會.flac",
+        "relativePath": "陈慧琳/2002.陈慧琳.闪亮每一天 新歌+精选 2CD/陈慧琳.闪亮每一天 新歌+精选CD1/陳慧琳 - 06.體會.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "陈慧琳/2002.陈慧琳.闪亮每一天 新歌+精选 2CD/陈慧琳.闪亮每一天 新歌+精选CD1/陳慧琳 - 07.心不設防.flac",
+      "artistName": "陈慧琳",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "陈慧琳",
+        "album": "2002.陈慧琳.闪亮每一天 新歌+精选 2CD / 陈慧琳.闪亮每一天 新歌+精选CD1",
+        "track": "陳慧琳 - 07.心不設防.flac",
+        "relativePath": "陈慧琳/2002.陈慧琳.闪亮每一天 新歌+精选 2CD/陈慧琳.闪亮每一天 新歌+精选CD1/陳慧琳 - 07.心不設防.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "陈慧琳/2002.陈慧琳.闪亮每一天 新歌+精选 2CD/陈慧琳.闪亮每一天 新歌+精选CD1/陳慧琳 - 08.Say You Love Me.flac",
+      "artistName": "陈慧琳",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "陈慧琳",
+        "album": "2002.陈慧琳.闪亮每一天 新歌+精选 2CD / 陈慧琳.闪亮每一天 新歌+精选CD1",
+        "track": "陳慧琳 - 08.Say You Love Me.flac",
+        "relativePath": "陈慧琳/2002.陈慧琳.闪亮每一天 新歌+精选 2CD/陈慧琳.闪亮每一天 新歌+精选CD1/陳慧琳 - 08.Say You Love Me.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "陈慧琳/2002.陈慧琳.闪亮每一天 新歌+精选 2CD/陈慧琳.闪亮每一天 新歌+精选CD1/陳慧琳 - 09.北極雪.flac",
+      "artistName": "陈慧琳",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "陈慧琳",
+        "album": "2002.陈慧琳.闪亮每一天 新歌+精选 2CD / 陈慧琳.闪亮每一天 新歌+精选CD1",
+        "track": "陳慧琳 - 09.北極雪.flac",
+        "relativePath": "陈慧琳/2002.陈慧琳.闪亮每一天 新歌+精选 2CD/陈慧琳.闪亮每一天 新歌+精选CD1/陳慧琳 - 09.北極雪.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "陈慧琳/2002.陈慧琳.闪亮每一天 新歌+精选 2CD/陈慧琳.闪亮每一天 新歌+精选CD1/陳慧琳 - 10.我是你的誰.flac",
+      "artistName": "陈慧琳",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "陈慧琳",
+        "album": "2002.陈慧琳.闪亮每一天 新歌+精选 2CD / 陈慧琳.闪亮每一天 新歌+精选CD1",
+        "track": "陳慧琳 - 10.我是你的誰.flac",
+        "relativePath": "陈慧琳/2002.陈慧琳.闪亮每一天 新歌+精选 2CD/陈慧琳.闪亮每一天 新歌+精选CD1/陳慧琳 - 10.我是你的誰.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "陈慧琳/2002.陈慧琳.闪亮每一天 新歌+精选 2CD/陈慧琳.闪亮每一天 新歌+精选CD1/陳慧琳 - 11.兩個人.flac",
+      "artistName": "陈慧琳",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "陈慧琳",
+        "album": "2002.陈慧琳.闪亮每一天 新歌+精选 2CD / 陈慧琳.闪亮每一天 新歌+精选CD1",
+        "track": "陳慧琳 - 11.兩個人.flac",
+        "relativePath": "陈慧琳/2002.陈慧琳.闪亮每一天 新歌+精选 2CD/陈慧琳.闪亮每一天 新歌+精选CD1/陳慧琳 - 11.兩個人.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "陈慧琳/2002.陈慧琳.闪亮每一天 新歌+精选 2CD/陈慧琳.闪亮每一天 新歌+精选CD1/陳慧琳 - 12.不愿為你.flac",
+      "artistName": "陈慧琳",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "陈慧琳",
+        "album": "2002.陈慧琳.闪亮每一天 新歌+精选 2CD / 陈慧琳.闪亮每一天 新歌+精选CD1",
+        "track": "陳慧琳 - 12.不愿為你.flac",
+        "relativePath": "陈慧琳/2002.陈慧琳.闪亮每一天 新歌+精选 2CD/陈慧琳.闪亮每一天 新歌+精选CD1/陳慧琳 - 12.不愿為你.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "陈慧琳/2002.陈慧琳.闪亮每一天 新歌+精选 2CD/陈慧琳.闪亮每一天 新歌+精选CD1/陳慧琳 - 13.我不以為.flac",
+      "artistName": "陈慧琳",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "陈慧琳",
+        "album": "2002.陈慧琳.闪亮每一天 新歌+精选 2CD / 陈慧琳.闪亮每一天 新歌+精选CD1",
+        "track": "陳慧琳 - 13.我不以為.flac",
+        "relativePath": "陈慧琳/2002.陈慧琳.闪亮每一天 新歌+精选 2CD/陈慧琳.闪亮每一天 新歌+精选CD1/陳慧琳 - 13.我不以為.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "陈慧琳/2002.陈慧琳.闪亮每一天 新歌+精选 2CD/陈慧琳.闪亮每一天 新歌+精选CD1/陳慧琳 - 14.春天.flac",
+      "artistName": "陈慧琳",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "陈慧琳",
+        "album": "2002.陈慧琳.闪亮每一天 新歌+精选 2CD / 陈慧琳.闪亮每一天 新歌+精选CD1",
+        "track": "陳慧琳 - 14.春天.flac",
+        "relativePath": "陈慧琳/2002.陈慧琳.闪亮每一天 新歌+精选 2CD/陈慧琳.闪亮每一天 新歌+精选CD1/陳慧琳 - 14.春天.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "陈慧琳/2002.陈慧琳.闪亮每一天 新歌+精选 2CD/陈慧琳.闪亮每一天 新歌+精选CD1/陳慧琳 - 15.一切很美 只因有你.flac",
+      "artistName": "陈慧琳",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "陈慧琳",
+        "album": "2002.陈慧琳.闪亮每一天 新歌+精选 2CD / 陈慧琳.闪亮每一天 新歌+精选CD1",
+        "track": "陳慧琳 - 15.一切很美 只因有你.flac",
+        "relativePath": "陈慧琳/2002.陈慧琳.闪亮每一天 新歌+精选 2CD/陈慧琳.闪亮每一天 新歌+精选CD1/陳慧琳 - 15.一切很美 只因有你.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "陈慧琳/2002.陈慧琳.闪亮每一天 新歌+精选 2CD/陈慧琳.闪亮每一天 新歌+精选CD2/陳慧琳 - 01.閃亮每一天.flac",
+      "artistName": "陈慧琳",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "陈慧琳",
+        "album": "2002.陈慧琳.闪亮每一天 新歌+精选 2CD / 陈慧琳.闪亮每一天 新歌+精选CD2",
+        "track": "陳慧琳 - 01.閃亮每一天.flac",
+        "relativePath": "陈慧琳/2002.陈慧琳.闪亮每一天 新歌+精选 2CD/陈慧琳.闪亮每一天 新歌+精选CD2/陳慧琳 - 01.閃亮每一天.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "陈慧琳/2002.陈慧琳.闪亮每一天 新歌+精选 2CD/陈慧琳.闪亮每一天 新歌+精选CD2/陳慧琳 - 02.說你不愛我.flac",
+      "artistName": "陈慧琳",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "陈慧琳",
+        "album": "2002.陈慧琳.闪亮每一天 新歌+精选 2CD / 陈慧琳.闪亮每一天 新歌+精选CD2",
+        "track": "陳慧琳 - 02.說你不愛我.flac",
+        "relativePath": "陈慧琳/2002.陈慧琳.闪亮每一天 新歌+精选 2CD/陈慧琳.闪亮每一天 新歌+精选CD2/陳慧琳 - 02.說你不愛我.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "陈慧琳/2002.陈慧琳.闪亮每一天 新歌+精选 2CD/陈慧琳.闪亮每一天 新歌+精选CD2/陳慧琳 - 03.愛你愛的.flac",
+      "artistName": "陈慧琳",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "陈慧琳",
+        "album": "2002.陈慧琳.闪亮每一天 新歌+精选 2CD / 陈慧琳.闪亮每一天 新歌+精选CD2",
+        "track": "陳慧琳 - 03.愛你愛的.flac",
+        "relativePath": "陈慧琳/2002.陈慧琳.闪亮每一天 新歌+精选 2CD/陈慧琳.闪亮每一天 新歌+精选CD2/陳慧琳 - 03.愛你愛的.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "陈慧琳/2002.陈慧琳.闪亮每一天 新歌+精选 2CD/陈慧琳.闪亮每一天 新歌+精选CD2/陳慧琳 - 04.不得了.flac",
+      "artistName": "陈慧琳",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "陈慧琳",
+        "album": "2002.陈慧琳.闪亮每一天 新歌+精选 2CD / 陈慧琳.闪亮每一天 新歌+精选CD2",
+        "track": "陳慧琳 - 04.不得了.flac",
+        "relativePath": "陈慧琳/2002.陈慧琳.闪亮每一天 新歌+精选 2CD/陈慧琳.闪亮每一天 新歌+精选CD2/陳慧琳 - 04.不得了.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "陈慧琳/2002.陈慧琳.闪亮每一天 新歌+精选 2CD/陈慧琳.闪亮每一天 新歌+精选CD2/陳慧琳 - 05.飛吧.flac",
+      "artistName": "陈慧琳",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "陈慧琳",
+        "album": "2002.陈慧琳.闪亮每一天 新歌+精选 2CD / 陈慧琳.闪亮每一天 新歌+精选CD2",
+        "track": "陳慧琳 - 05.飛吧.flac",
+        "relativePath": "陈慧琳/2002.陈慧琳.闪亮每一天 新歌+精选 2CD/陈慧琳.闪亮每一天 新歌+精选CD2/陳慧琳 - 05.飛吧.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "陈慧琳/2002.陈慧琳.闪亮每一天 新歌+精选 2CD/陈慧琳.闪亮每一天 新歌+精选CD2/陳慧琳 - 06.對你太在乎.flac",
+      "artistName": "陈慧琳",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "陈慧琳",
+        "album": "2002.陈慧琳.闪亮每一天 新歌+精选 2CD / 陈慧琳.闪亮每一天 新歌+精选CD2",
+        "track": "陳慧琳 - 06.對你太在乎.flac",
+        "relativePath": "陈慧琳/2002.陈慧琳.闪亮每一天 新歌+精选 2CD/陈慧琳.闪亮每一天 新歌+精选CD2/陳慧琳 - 06.對你太在乎.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "陈慧琳/2002.陈慧琳.闪亮每一天 新歌+精选 2CD/陈慧琳.闪亮每一天 新歌+精选CD2/陳慧琳 - 07.數到三就不哭.flac",
+      "artistName": "陈慧琳",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "陈慧琳",
+        "album": "2002.陈慧琳.闪亮每一天 新歌+精选 2CD / 陈慧琳.闪亮每一天 新歌+精选CD2",
+        "track": "陳慧琳 - 07.數到三就不哭.flac",
+        "relativePath": "陈慧琳/2002.陈慧琳.闪亮每一天 新歌+精选 2CD/陈慧琳.闪亮每一天 新歌+精选CD2/陳慧琳 - 07.數到三就不哭.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "陈慧琳/2002.陈慧琳.闪亮每一天 新歌+精选 2CD/陈慧琳.闪亮每一天 新歌+精选CD2/陳慧琳 - 08.不如跳舞.flac",
+      "artistName": "陈慧琳",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "陈慧琳",
+        "album": "2002.陈慧琳.闪亮每一天 新歌+精选 2CD / 陈慧琳.闪亮每一天 新歌+精选CD2",
+        "track": "陳慧琳 - 08.不如跳舞.flac",
+        "relativePath": "陈慧琳/2002.陈慧琳.闪亮每一天 新歌+精选 2CD/陈慧琳.闪亮每一天 新歌+精选CD2/陳慧琳 - 08.不如跳舞.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "陈慧琳/2002.陈慧琳.闪亮每一天 新歌+精选 2CD/陈慧琳.闪亮每一天 新歌+精选CD2/陳慧琳 - 09.愛上一個人.flac",
+      "artistName": "陈慧琳",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "陈慧琳",
+        "album": "2002.陈慧琳.闪亮每一天 新歌+精选 2CD / 陈慧琳.闪亮每一天 新歌+精选CD2",
+        "track": "陳慧琳 - 09.愛上一個人.flac",
+        "relativePath": "陈慧琳/2002.陈慧琳.闪亮每一天 新歌+精选 2CD/陈慧琳.闪亮每一天 新歌+精选CD2/陳慧琳 - 09.愛上一個人.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "陈慧琳/2002.陈慧琳.闪亮每一天 新歌+精选 2CD/陈慧琳.闪亮每一天 新歌+精选CD2/陳慧琳 - 10.愛情來了.flac",
+      "artistName": "陈慧琳",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "陈慧琳",
+        "album": "2002.陈慧琳.闪亮每一天 新歌+精选 2CD / 陈慧琳.闪亮每一天 新歌+精选CD2",
+        "track": "陳慧琳 - 10.愛情來了.flac",
+        "relativePath": "陈慧琳/2002.陈慧琳.闪亮每一天 新歌+精选 2CD/陈慧琳.闪亮每一天 新歌+精选CD2/陳慧琳 - 10.愛情來了.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "陈慧琳/2002.陈慧琳.闪亮每一天 新歌+精选 2CD/陈慧琳.闪亮每一天 新歌+精选CD2/陳慧琳 - 11.觸不到的戀人.flac",
+      "artistName": "陈慧琳",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "陈慧琳",
+        "album": "2002.陈慧琳.闪亮每一天 新歌+精选 2CD / 陈慧琳.闪亮每一天 新歌+精选CD2",
+        "track": "陳慧琳 - 11.觸不到的戀人.flac",
+        "relativePath": "陈慧琳/2002.陈慧琳.闪亮每一天 新歌+精选 2CD/陈慧琳.闪亮每一天 新歌+精选CD2/陳慧琳 - 11.觸不到的戀人.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "陈慧琳/2002.陈慧琳.闪亮每一天 新歌+精选 2CD/陈慧琳.闪亮每一天 新歌+精选CD2/陳慧琳 - 12.零距離.flac",
+      "artistName": "陈慧琳",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "陈慧琳",
+        "album": "2002.陈慧琳.闪亮每一天 新歌+精选 2CD / 陈慧琳.闪亮每一天 新歌+精选CD2",
+        "track": "陳慧琳 - 12.零距離.flac",
+        "relativePath": "陈慧琳/2002.陈慧琳.闪亮每一天 新歌+精选 2CD/陈慧琳.闪亮每一天 新歌+精选CD2/陳慧琳 - 12.零距離.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "陈慧琳/2002.陈慧琳.闪亮每一天 新歌+精选 2CD/陈慧琳.闪亮每一天 新歌+精选CD2/陳慧琳 - 13.我要的是你.flac",
+      "artistName": "陈慧琳",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "陈慧琳",
+        "album": "2002.陈慧琳.闪亮每一天 新歌+精选 2CD / 陈慧琳.闪亮每一天 新歌+精选CD2",
+        "track": "陳慧琳 - 13.我要的是你.flac",
+        "relativePath": "陈慧琳/2002.陈慧琳.闪亮每一天 新歌+精选 2CD/陈慧琳.闪亮每一天 新歌+精选CD2/陳慧琳 - 13.我要的是你.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "陈慧琳/2002.陈慧琳.闪亮每一天 新歌+精选 2CD/陈慧琳.闪亮每一天 新歌+精选CD2/陳慧琳 - 14.薰衣草.flac",
+      "artistName": "陈慧琳",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "陈慧琳",
+        "album": "2002.陈慧琳.闪亮每一天 新歌+精选 2CD / 陈慧琳.闪亮每一天 新歌+精选CD2",
+        "track": "陳慧琳 - 14.薰衣草.flac",
+        "relativePath": "陈慧琳/2002.陈慧琳.闪亮每一天 新歌+精选 2CD/陈慧琳.闪亮每一天 新歌+精选CD2/陳慧琳 - 14.薰衣草.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "陈慧琳/2002.陈慧琳.闪亮每一天 新歌+精选 2CD/陈慧琳.闪亮每一天 新歌+精选CD2/陳慧琳 - 15.花花宇宙.flac",
+      "artistName": "陈慧琳",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "陈慧琳",
+        "album": "2002.陈慧琳.闪亮每一天 新歌+精选 2CD / 陈慧琳.闪亮每一天 新歌+精选CD2",
+        "track": "陳慧琳 - 15.花花宇宙.flac",
+        "relativePath": "陈慧琳/2002.陈慧琳.闪亮每一天 新歌+精选 2CD/陈慧琳.闪亮每一天 新歌+精选CD2/陳慧琳 - 15.花花宇宙.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "陈慧琳/2002.陈慧琳.闪亮每一天 新歌+精选 2CD/陈慧琳.闪亮每一天 新歌+精选CD2/陳慧琳 - 16.失憶周末.flac",
+      "artistName": "陈慧琳",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "陈慧琳",
+        "album": "2002.陈慧琳.闪亮每一天 新歌+精选 2CD / 陈慧琳.闪亮每一天 新歌+精选CD2",
+        "track": "陳慧琳 - 16.失憶周末.flac",
+        "relativePath": "陈慧琳/2002.陈慧琳.闪亮每一天 新歌+精选 2CD/陈慧琳.闪亮每一天 新歌+精选CD2/陳慧琳 - 16.失憶周末.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "陈慧琳/2002.陈慧琳.闪亮每一天 新歌+精选 2CD/陈慧琳.闪亮每一天 新歌+精选CD2/陳慧琳 - 17.戀愛神經.flac",
+      "artistName": "陈慧琳",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "陈慧琳",
+        "album": "2002.陈慧琳.闪亮每一天 新歌+精选 2CD / 陈慧琳.闪亮每一天 新歌+精选CD2",
+        "track": "陳慧琳 - 17.戀愛神經.flac",
+        "relativePath": "陈慧琳/2002.陈慧琳.闪亮每一天 新歌+精选 2CD/陈慧琳.闪亮每一天 新歌+精选CD2/陳慧琳 - 17.戀愛神經.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "陈慧琳/2002.陈慧琳.陈慧琳de主题曲/陳慧琳 - 01.飛天舞會-飛天舞會演唱會2002主題曲.flac",
+      "artistName": "陈慧琳",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "陈慧琳",
+        "album": "2002.陈慧琳.陈慧琳de主题曲",
+        "track": "陳慧琳 - 01.飛天舞會-飛天舞會演唱會2002主題曲.flac",
+        "relativePath": "陈慧琳/2002.陈慧琳.陈慧琳de主题曲/陳慧琳 - 01.飛天舞會-飛天舞會演唱會2002主題曲.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "陈慧琳/2002.陈慧琳.陈慧琳de主题曲/陳慧琳 - 02.愛情來了-富士菲林2002廣告國語版主題曲.flac",
+      "artistName": "陈慧琳",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "陈慧琳",
+        "album": "2002.陈慧琳.陈慧琳de主题曲",
+        "track": "陳慧琳 - 02.愛情來了-富士菲林2002廣告國語版主題曲.flac",
+        "relativePath": "陈慧琳/2002.陈慧琳.陈慧琳de主题曲/陳慧琳 - 02.愛情來了-富士菲林2002廣告國語版主題曲.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "陈慧琳/2002.陈慧琳.陈慧琳de主题曲/陳慧琳 - 03.我們都是這樣初戀的-電影[初戀嗱喳面]主題曲.flac",
+      "artistName": "陈慧琳",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "陈慧琳",
+        "album": "2002.陈慧琳.陈慧琳de主题曲",
+        "track": "陳慧琳 - 03.我們都是這樣初戀的-電影[初戀嗱喳面]主題曲.flac",
+        "relativePath": "陈慧琳/2002.陈慧琳.陈慧琳de主题曲/陳慧琳 - 03.我們都是這樣初戀的-電影[初戀嗱喳面]主題曲.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "陈慧琳/2002.陈慧琳.陈慧琳de主题曲/陳慧琳 - 04.再生花-TVB電視劇[再生緣]主題曲.flac",
+      "artistName": "陈慧琳",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "陈慧琳",
+        "album": "2002.陈慧琳.陈慧琳de主题曲",
+        "track": "陳慧琳 - 04.再生花-TVB電視劇[再生緣]主題曲.flac",
+        "relativePath": "陈慧琳/2002.陈慧琳.陈慧琳de主题曲/陳慧琳 - 04.再生花-TVB電視劇[再生緣]主題曲.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "陈慧琳/2002.陈慧琳.陈慧琳de主题曲/陳慧琳 - 05.戀愛情色-EPSON2000廣告曲.flac",
+      "artistName": "陈慧琳",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "陈慧琳",
+        "album": "2002.陈慧琳.陈慧琳de主题曲",
+        "track": "陳慧琳 - 05.戀愛情色-EPSON2000廣告曲.flac",
+        "relativePath": "陈慧琳/2002.陈慧琳.陈慧琳de主题曲/陳慧琳 - 05.戀愛情色-EPSON2000廣告曲.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "陈慧琳/2002.陈慧琳.陈慧琳de主题曲/陳慧琳 - 06.薰衣草-電影[薰衣草]主題曲.flac",
+      "artistName": "陈慧琳",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "陈慧琳",
+        "album": "2002.陈慧琳.陈慧琳de主题曲",
+        "track": "陳慧琳 - 06.薰衣草-電影[薰衣草]主題曲.flac",
+        "relativePath": "陈慧琳/2002.陈慧琳.陈慧琳de主题曲/陳慧琳 - 06.薰衣草-電影[薰衣草]主題曲.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "陈慧琳/2002.陈慧琳.陈慧琳de主题曲/陳慧琳 - 07.LOVER S CONCERTO-電影[安娜瑪德蓮娜]插曲.flac",
+      "artistName": "陈慧琳",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "陈慧琳",
+        "album": "2002.陈慧琳.陈慧琳de主题曲",
+        "track": "陳慧琳 - 07.LOVER S CONCERTO-電影[安娜瑪德蓮娜]插曲.flac",
+        "relativePath": "陈慧琳/2002.陈慧琳.陈慧琳de主题曲/陳慧琳 - 07.LOVER S CONCERTO-電影[安娜瑪德蓮娜]插曲.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "陈慧琳/2002.陈慧琳.陈慧琳de主题曲/陳慧琳 - 08.一切很美只因有你-電影[仙樂飄飄]主題曲.flac",
+      "artistName": "陈慧琳",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "陈慧琳",
+        "album": "2002.陈慧琳.陈慧琳de主题曲",
+        "track": "陳慧琳 - 08.一切很美只因有你-電影[仙樂飄飄]主題曲.flac",
+        "relativePath": "陈慧琳/2002.陈慧琳.陈慧琳de主题曲/陳慧琳 - 08.一切很美只因有你-電影[仙樂飄飄]主題曲.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "陈慧琳/2002.陈慧琳.陈慧琳de主题曲/陳慧琳 - 09.多啦A夢-TVB卡通片[哆啦A夢]主題曲.flac",
+      "artistName": "陈慧琳",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "陈慧琳",
+        "album": "2002.陈慧琳.陈慧琳de主题曲",
+        "track": "陳慧琳 - 09.多啦A夢-TVB卡通片[哆啦A夢]主題曲.flac",
+        "relativePath": "陈慧琳/2002.陈慧琳.陈慧琳de主题曲/陳慧琳 - 09.多啦A夢-TVB卡通片[哆啦A夢]主題曲.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "陈慧琳/2002.陈慧琳.陈慧琳de主题曲/陳慧琳 - 10.真感情-EPSON1999廣告歌曲.flac",
+      "artistName": "陈慧琳",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "陈慧琳",
+        "album": "2002.陈慧琳.陈慧琳de主题曲",
+        "track": "陳慧琳 - 10.真感情-EPSON1999廣告歌曲.flac",
+        "relativePath": "陈慧琳/2002.陈慧琳.陈慧琳de主题曲/陳慧琳 - 10.真感情-EPSON1999廣告歌曲.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "陈慧琳/2002.陈慧琳.陈慧琳de主题曲/陳慧琳 - 11.花花宇宙-百事可樂全力贊助歌曲.flac",
+      "artistName": "陈慧琳",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "陈慧琳",
+        "album": "2002.陈慧琳.陈慧琳de主题曲",
+        "track": "陳慧琳 - 11.花花宇宙-百事可樂全力贊助歌曲.flac",
+        "relativePath": "陈慧琳/2002.陈慧琳.陈慧琳de主题曲/陳慧琳 - 11.花花宇宙-百事可樂全力贊助歌曲.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "陈慧琳/2002.陈慧琳.陈慧琳de主题曲/陳慧琳 - 12.只有要夢想-TVB卡通片[哆啦A夢]插曲.flac",
+      "artistName": "陈慧琳",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "陈慧琳",
+        "album": "2002.陈慧琳.陈慧琳de主题曲",
+        "track": "陳慧琳 - 12.只有要夢想-TVB卡通片[哆啦A夢]插曲.flac",
+        "relativePath": "陈慧琳/2002.陈慧琳.陈慧琳de主题曲/陳慧琳 - 12.只有要夢想-TVB卡通片[哆啦A夢]插曲.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "陈慧琳/2002.陈慧琳.陈慧琳de主题曲/陳慧琳.許志安 - 13.光年-音樂劇[行雷閃電]歌曲.flac",
+      "artistName": "陈慧琳",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "陈慧琳",
+        "album": "2002.陈慧琳.陈慧琳de主题曲",
+        "track": "陳慧琳.許志安 - 13.光年-音樂劇[行雷閃電]歌曲.flac",
+        "relativePath": "陈慧琳/2002.陈慧琳.陈慧琳de主题曲/陳慧琳.許志安 - 13.光年-音樂劇[行雷閃電]歌曲.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "陈慧琳/2002.陈慧琳.飞天舞会/陳慧琳 - 01.飛天舞會.flac",
+      "artistName": "陈慧琳",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "陈慧琳",
+        "album": "2002.陈慧琳.飞天舞会",
+        "track": "陳慧琳 - 01.飛天舞會.flac",
+        "relativePath": "陈慧琳/2002.陈慧琳.飞天舞会/陳慧琳 - 01.飛天舞會.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "陈慧琳/2002.陈慧琳.飞天舞会/陳慧琳 - 02.冰室.flac",
+      "artistName": "陈慧琳",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "陈慧琳",
+        "album": "2002.陈慧琳.飞天舞会",
+        "track": "陳慧琳 - 02.冰室.flac",
+        "relativePath": "陈慧琳/2002.陈慧琳.飞天舞会/陳慧琳 - 02.冰室.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "陈慧琳/2002.陈慧琳.飞天舞会/陳慧琳 - 03.夏天的緋聞.flac",
+      "artistName": "陈慧琳",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "陈慧琳",
+        "album": "2002.陈慧琳.飞天舞会",
+        "track": "陳慧琳 - 03.夏天的緋聞.flac",
+        "relativePath": "陈慧琳/2002.陈慧琳.飞天舞会/陳慧琳 - 03.夏天的緋聞.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "陈慧琳/2002.陈慧琳.飞天舞会/陳慧琳 - 04.無賴.flac",
+      "artistName": "陈慧琳",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "陈慧琳",
+        "album": "2002.陈慧琳.飞天舞会",
+        "track": "陳慧琳 - 04.無賴.flac",
+        "relativePath": "陈慧琳/2002.陈慧琳.飞天舞会/陳慧琳 - 04.無賴.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "陈慧琳/2002.陈慧琳.飞天舞会/陳慧琳 - 05.想再見到你.flac",
+      "artistName": "陈慧琳",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "陈慧琳",
+        "album": "2002.陈慧琳.飞天舞会",
+        "track": "陳慧琳 - 05.想再見到你.flac",
+        "relativePath": "陈慧琳/2002.陈慧琳.飞天舞会/陳慧琳 - 05.想再見到你.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "陈慧琳/2002.陈慧琳.飞天舞会/陳慧琳 - 06.戀愛神經.flac",
+      "artistName": "陈慧琳",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "陈慧琳",
+        "album": "2002.陈慧琳.飞天舞会",
+        "track": "陳慧琳 - 06.戀愛神經.flac",
+        "relativePath": "陈慧琳/2002.陈慧琳.飞天舞会/陳慧琳 - 06.戀愛神經.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "陈慧琳/2002.陈慧琳.飞天舞会/陳慧琳 - 07.金像獎.flac",
+      "artistName": "陈慧琳",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "陈慧琳",
+        "album": "2002.陈慧琳.飞天舞会",
+        "track": "陳慧琳 - 07.金像獎.flac",
+        "relativePath": "陈慧琳/2002.陈慧琳.飞天舞会/陳慧琳 - 07.金像獎.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "陈慧琳/2002.陈慧琳.飞天舞会/陳慧琳 - 08.紅眼睛.flac",
+      "artistName": "陈慧琳",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "陈慧琳",
+        "album": "2002.陈慧琳.飞天舞会",
+        "track": "陳慧琳 - 08.紅眼睛.flac",
+        "relativePath": "陈慧琳/2002.陈慧琳.飞天舞会/陳慧琳 - 08.紅眼睛.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "陈慧琳/2002.陈慧琳.飞天舞会/陳慧琳 - 09.最近想起很多.flac",
+      "artistName": "陈慧琳",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "陈慧琳",
+        "album": "2002.陈慧琳.飞天舞会",
+        "track": "陳慧琳 - 09.最近想起很多.flac",
+        "relativePath": "陈慧琳/2002.陈慧琳.飞天舞会/陳慧琳 - 09.最近想起很多.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "陈慧琳/2002.陈慧琳.飞天舞会/陳慧琳 - 10.好時光.flac",
+      "artistName": "陈慧琳",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "陈慧琳",
+        "album": "2002.陈慧琳.飞天舞会",
+        "track": "陳慧琳 - 10.好時光.flac",
+        "relativePath": "陈慧琳/2002.陈慧琳.飞天舞会/陳慧琳 - 10.好時光.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "陈慧琳/2003.陈慧琳.Red 新曲＋精选 3CD/陈慧琳.Red 新曲＋精选 CD1/陳慧琳 - 01.伶仃.flac",
+      "artistName": "陈慧琳",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "陈慧琳",
+        "album": "2003.陈慧琳.Red 新曲＋精选 3CD / 陈慧琳.Red 新曲＋精选 CD1",
+        "track": "陳慧琳 - 01.伶仃.flac",
+        "relativePath": "陈慧琳/2003.陈慧琳.Red 新曲＋精选 3CD/陈慧琳.Red 新曲＋精选 CD1/陳慧琳 - 01.伶仃.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "陈慧琳/2003.陈慧琳.Red 新曲＋精选 3CD/陈慧琳.Red 新曲＋精选 CD1/陳慧琳 - 02.嫁妝.flac",
+      "artistName": "陈慧琳",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "陈慧琳",
+        "album": "2003.陈慧琳.Red 新曲＋精选 3CD / 陈慧琳.Red 新曲＋精选 CD1",
+        "track": "陳慧琳 - 02.嫁妝.flac",
+        "relativePath": "陈慧琳/2003.陈慧琳.Red 新曲＋精选 3CD/陈慧琳.Red 新曲＋精选 CD1/陳慧琳 - 02.嫁妝.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "陈慧琳/2003.陈慧琳.Red 新曲＋精选 3CD/陈慧琳.Red 新曲＋精选 CD1/陳慧琳 - 03.安份守己.flac",
+      "artistName": "陈慧琳",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "陈慧琳",
+        "album": "2003.陈慧琳.Red 新曲＋精选 3CD / 陈慧琳.Red 新曲＋精选 CD1",
+        "track": "陳慧琳 - 03.安份守己.flac",
+        "relativePath": "陈慧琳/2003.陈慧琳.Red 新曲＋精选 3CD/陈慧琳.Red 新曲＋精选 CD1/陳慧琳 - 03.安份守己.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "陈慧琳/2003.陈慧琳.Red 新曲＋精选 3CD/陈慧琳.Red 新曲＋精选 CD1/陳慧琳 - 04.風花雪.flac",
+      "artistName": "陈慧琳",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "陈慧琳",
+        "album": "2003.陈慧琳.Red 新曲＋精选 3CD / 陈慧琳.Red 新曲＋精选 CD1",
+        "track": "陳慧琳 - 04.風花雪.flac",
+        "relativePath": "陈慧琳/2003.陈慧琳.Red 新曲＋精选 3CD/陈慧琳.Red 新曲＋精选 CD1/陳慧琳 - 04.風花雪.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "陈慧琳/2003.陈慧琳.Red 新曲＋精选 3CD/陈慧琳.Red 新曲＋精选 CD1/陳慧琳 - 05.星夢情真.flac",
+      "artistName": "陈慧琳",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "陈慧琳",
+        "album": "2003.陈慧琳.Red 新曲＋精选 3CD / 陈慧琳.Red 新曲＋精选 CD1",
+        "track": "陳慧琳 - 05.星夢情真.flac",
+        "relativePath": "陈慧琳/2003.陈慧琳.Red 新曲＋精选 3CD/陈慧琳.Red 新曲＋精选 CD1/陳慧琳 - 05.星夢情真.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "陈慧琳/2003.陈慧琳.Red 新曲＋精选 3CD/陈慧琳.Red 新曲＋精选 CD1/陳慧琳 - 06.一切很美好只因有你.flac",
+      "artistName": "陈慧琳",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "陈慧琳",
+        "album": "2003.陈慧琳.Red 新曲＋精选 3CD / 陈慧琳.Red 新曲＋精选 CD1",
+        "track": "陳慧琳 - 06.一切很美好只因有你.flac",
+        "relativePath": "陈慧琳/2003.陈慧琳.Red 新曲＋精选 3CD/陈慧琳.Red 新曲＋精选 CD1/陳慧琳 - 06.一切很美好只因有你.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "陈慧琳/2003.陈慧琳.Red 新曲＋精选 3CD/陈慧琳.Red 新曲＋精选 CD1/陳慧琳 - 07.誰愿放手.flac",
+      "artistName": "陈慧琳",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "陈慧琳",
+        "album": "2003.陈慧琳.Red 新曲＋精选 3CD / 陈慧琳.Red 新曲＋精选 CD1",
+        "track": "陳慧琳 - 07.誰愿放手.flac",
+        "relativePath": "陈慧琳/2003.陈慧琳.Red 新曲＋精选 3CD/陈慧琳.Red 新曲＋精选 CD1/陳慧琳 - 07.誰愿放手.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "陈慧琳/2003.陈慧琳.Red 新曲＋精选 3CD/陈慧琳.Red 新曲＋精选 CD1/陳慧琳 - 08.對你太在乎.flac",
+      "artistName": "陈慧琳",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "陈慧琳",
+        "album": "2003.陈慧琳.Red 新曲＋精选 3CD / 陈慧琳.Red 新曲＋精选 CD1",
+        "track": "陳慧琳 - 08.對你太在乎.flac",
+        "relativePath": "陈慧琳/2003.陈慧琳.Red 新曲＋精选 3CD/陈慧琳.Red 新曲＋精选 CD1/陳慧琳 - 08.對你太在乎.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "陈慧琳/2003.陈慧琳.Red 新曲＋精选 3CD/陈慧琳.Red 新曲＋精选 CD1/陳慧琳 - 10.最愛演唱會.flac",
+      "artistName": "陈慧琳",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "陈慧琳",
+        "album": "2003.陈慧琳.Red 新曲＋精选 3CD / 陈慧琳.Red 新曲＋精选 CD1",
+        "track": "陳慧琳 - 10.最愛演唱會.flac",
+        "relativePath": "陈慧琳/2003.陈慧琳.Red 新曲＋精选 3CD/陈慧琳.Red 新曲＋精选 CD1/陳慧琳 - 10.最愛演唱會.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "陈慧琳/2003.陈慧琳.Red 新曲＋精选 3CD/陈慧琳.Red 新曲＋精选 CD1/陳慧琳 - 11.有褔氣.flac",
+      "artistName": "陈慧琳",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "陈慧琳",
+        "album": "2003.陈慧琳.Red 新曲＋精选 3CD / 陈慧琳.Red 新曲＋精选 CD1",
+        "track": "陳慧琳 - 11.有褔氣.flac",
+        "relativePath": "陈慧琳/2003.陈慧琳.Red 新曲＋精选 3CD/陈慧琳.Red 新曲＋精选 CD1/陳慧琳 - 11.有褔氣.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "陈慧琳/2003.陈慧琳.Red 新曲＋精选 3CD/陈慧琳.Red 新曲＋精选 CD1/陳慧琳 - 12.假天真.flac",
+      "artistName": "陈慧琳",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "陈慧琳",
+        "album": "2003.陈慧琳.Red 新曲＋精选 3CD / 陈慧琳.Red 新曲＋精选 CD1",
+        "track": "陳慧琳 - 12.假天真.flac",
+        "relativePath": "陈慧琳/2003.陈慧琳.Red 新曲＋精选 3CD/陈慧琳.Red 新曲＋精选 CD1/陳慧琳 - 12.假天真.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "陈慧琳/2003.陈慧琳.Red 新曲＋精选 3CD/陈慧琳.Red 新曲＋精选 CD1/陳慧琳 - 13.Lover's Concerto.flac",
+      "artistName": "陈慧琳",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "陈慧琳",
+        "album": "2003.陈慧琳.Red 新曲＋精选 3CD / 陈慧琳.Red 新曲＋精选 CD1",
+        "track": "陳慧琳 - 13.Lover's Concerto.flac",
+        "relativePath": "陈慧琳/2003.陈慧琳.Red 新曲＋精选 3CD/陈慧琳.Red 新曲＋精选 CD1/陳慧琳 - 13.Lover's Concerto.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "陈慧琳/2003.陈慧琳.Red 新曲＋精选 3CD/陈慧琳.Red 新曲＋精选 CD1/陳慧琳 - 14.今夜很寧靜.flac",
+      "artistName": "陈慧琳",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "陈慧琳",
+        "album": "2003.陈慧琳.Red 新曲＋精选 3CD / 陈慧琳.Red 新曲＋精选 CD1",
+        "track": "陳慧琳 - 14.今夜很寧靜.flac",
+        "relativePath": "陈慧琳/2003.陈慧琳.Red 新曲＋精选 3CD/陈慧琳.Red 新曲＋精选 CD1/陳慧琳 - 14.今夜很寧靜.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "陈慧琳/2003.陈慧琳.Red 新曲＋精选 3CD/陈慧琳.Red 新曲＋精选 CD1/陳慧琳 - 15.她一定很愛你.flac",
+      "artistName": "陈慧琳",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "陈慧琳",
+        "album": "2003.陈慧琳.Red 新曲＋精选 3CD / 陈慧琳.Red 新曲＋精选 CD1",
+        "track": "陳慧琳 - 15.她一定很愛你.flac",
+        "relativePath": "陈慧琳/2003.陈慧琳.Red 新曲＋精选 3CD/陈慧琳.Red 新曲＋精选 CD1/陳慧琳 - 15.她一定很愛你.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "陈慧琳/2003.陈慧琳.Red 新曲＋精选 3CD/陈慧琳.Red 新曲＋精选 CD1/陳慧琳.李克勤 - 09.愛一個人.flac",
+      "artistName": "陈慧琳",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "陈慧琳",
+        "album": "2003.陈慧琳.Red 新曲＋精选 3CD / 陈慧琳.Red 新曲＋精选 CD1",
+        "track": "陳慧琳.李克勤 - 09.愛一個人.flac",
+        "relativePath": "陈慧琳/2003.陈慧琳.Red 新曲＋精选 3CD/陈慧琳.Red 新曲＋精选 CD1/陳慧琳.李克勤 - 09.愛一個人.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "陈慧琳/2003.陈慧琳.Red 新曲＋精选 3CD/陈慧琳.Red 新曲＋精选 CD2/陳慧琳 - 01.ASK.flac",
+      "artistName": "陈慧琳",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "陈慧琳",
+        "album": "2003.陈慧琳.Red 新曲＋精选 3CD / 陈慧琳.Red 新曲＋精选 CD2",
+        "track": "陳慧琳 - 01.ASK.flac",
+        "relativePath": "陈慧琳/2003.陈慧琳.Red 新曲＋精选 3CD/陈慧琳.Red 新曲＋精选 CD2/陳慧琳 - 01.ASK.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "陈慧琳/2003.陈慧琳.Red 新曲＋精选 3CD/陈慧琳.Red 新曲＋精选 CD2/陳慧琳 - 02.她比我丑.flac",
+      "artistName": "陈慧琳",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "陈慧琳",
+        "album": "2003.陈慧琳.Red 新曲＋精选 3CD / 陈慧琳.Red 新曲＋精选 CD2",
+        "track": "陳慧琳 - 02.她比我丑.flac",
+        "relativePath": "陈慧琳/2003.陈慧琳.Red 新曲＋精选 3CD/陈慧琳.Red 新曲＋精选 CD2/陳慧琳 - 02.她比我丑.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "陈慧琳/2003.陈慧琳.Red 新曲＋精选 3CD/陈慧琳.Red 新曲＋精选 CD2/陳慧琳 - 03.最佳位置.flac",
+      "artistName": "陈慧琳",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "陈慧琳",
+        "album": "2003.陈慧琳.Red 新曲＋精选 3CD / 陈慧琳.Red 新曲＋精选 CD2",
+        "track": "陳慧琳 - 03.最佳位置.flac",
+        "relativePath": "陈慧琳/2003.陈慧琳.Red 新曲＋精选 3CD/陈慧琳.Red 新曲＋精选 CD2/陳慧琳 - 03.最佳位置.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "陈慧琳/2003.陈慧琳.Red 新曲＋精选 3CD/陈慧琳.Red 新曲＋精选 CD2/陳慧琳 - 04.醉迷情人.flac",
+      "artistName": "陈慧琳",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "陈慧琳",
+        "album": "2003.陈慧琳.Red 新曲＋精选 3CD / 陈慧琳.Red 新曲＋精选 CD2",
+        "track": "陳慧琳 - 04.醉迷情人.flac",
+        "relativePath": "陈慧琳/2003.陈慧琳.Red 新曲＋精选 3CD/陈慧琳.Red 新曲＋精选 CD2/陳慧琳 - 04.醉迷情人.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "陈慧琳/2003.陈慧琳.Red 新曲＋精选 3CD/陈慧琳.Red 新曲＋精选 CD2/陳慧琳 - 05.如果我們在戀愛.flac",
+      "artistName": "陈慧琳",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "陈慧琳",
+        "album": "2003.陈慧琳.Red 新曲＋精选 3CD / 陈慧琳.Red 新曲＋精选 CD2",
+        "track": "陳慧琳 - 05.如果我們在戀愛.flac",
+        "relativePath": "陈慧琳/2003.陈慧琳.Red 新曲＋精选 3CD/陈慧琳.Red 新曲＋精选 CD2/陳慧琳 - 05.如果我們在戀愛.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "陈慧琳/2003.陈慧琳.Red 新曲＋精选 3CD/陈慧琳.Red 新曲＋精选 CD2/陳慧琳 - 06.冰室.flac",
+      "artistName": "陈慧琳",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "陈慧琳",
+        "album": "2003.陈慧琳.Red 新曲＋精选 3CD / 陈慧琳.Red 新曲＋精选 CD2",
+        "track": "陳慧琳 - 06.冰室.flac",
+        "relativePath": "陈慧琳/2003.陈慧琳.Red 新曲＋精选 3CD/陈慧琳.Red 新曲＋精选 CD2/陳慧琳 - 06.冰室.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "陈慧琳/2003.陈慧琳.Red 新曲＋精选 3CD/陈慧琳.Red 新曲＋精选 CD2/陳慧琳 - 07.我會掛念你.flac",
+      "artistName": "陈慧琳",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "陈慧琳",
+        "album": "2003.陈慧琳.Red 新曲＋精选 3CD / 陈慧琳.Red 新曲＋精选 CD2",
+        "track": "陳慧琳 - 07.我會掛念你.flac",
+        "relativePath": "陈慧琳/2003.陈慧琳.Red 新曲＋精选 3CD/陈慧琳.Red 新曲＋精选 CD2/陳慧琳 - 07.我會掛念你.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "陈慧琳/2003.陈慧琳.Red 新曲＋精选 3CD/陈慧琳.Red 新曲＋精选 CD2/陳慧琳 - 08.心服口服.flac",
+      "artistName": "陈慧琳",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "陈慧琳",
+        "album": "2003.陈慧琳.Red 新曲＋精选 3CD / 陈慧琳.Red 新曲＋精选 CD2",
+        "track": "陳慧琳 - 08.心服口服.flac",
+        "relativePath": "陈慧琳/2003.陈慧琳.Red 新曲＋精选 3CD/陈慧琳.Red 新曲＋精选 CD2/陳慧琳 - 08.心服口服.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "陈慧琳/2003.陈慧琳.Red 新曲＋精选 3CD/陈慧琳.Red 新曲＋精选 CD2/陳慧琳 - 09.都是你的錯.flac",
+      "artistName": "陈慧琳",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "陈慧琳",
+        "album": "2003.陈慧琳.Red 新曲＋精选 3CD / 陈慧琳.Red 新曲＋精选 CD2",
+        "track": "陳慧琳 - 09.都是你的錯.flac",
+        "relativePath": "陈慧琳/2003.陈慧琳.Red 新曲＋精选 3CD/陈慧琳.Red 新曲＋精选 CD2/陳慧琳 - 09.都是你的錯.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "陈慧琳/2003.陈慧琳.Red 新曲＋精选 3CD/陈慧琳.Red 新曲＋精选 CD2/陳慧琳 - 10.薰衣草.flac",
+      "artistName": "陈慧琳",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "陈慧琳",
+        "album": "2003.陈慧琳.Red 新曲＋精选 3CD / 陈慧琳.Red 新曲＋精选 CD2",
+        "track": "陳慧琳 - 10.薰衣草.flac",
+        "relativePath": "陈慧琳/2003.陈慧琳.Red 新曲＋精选 3CD/陈慧琳.Red 新曲＋精选 CD2/陳慧琳 - 10.薰衣草.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "陈慧琳/2003.陈慧琳.Red 新曲＋精选 3CD/陈慧琳.Red 新曲＋精选 CD2/陳慧琳 - 11.嚴重.flac",
+      "artistName": "陈慧琳",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "陈慧琳",
+        "album": "2003.陈慧琳.Red 新曲＋精选 3CD / 陈慧琳.Red 新曲＋精选 CD2",
+        "track": "陳慧琳 - 11.嚴重.flac",
+        "relativePath": "陈慧琳/2003.陈慧琳.Red 新曲＋精选 3CD/陈慧琳.Red 新曲＋精选 CD2/陳慧琳 - 11.嚴重.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "陈慧琳/2003.陈慧琳.Red 新曲＋精选 3CD/陈慧琳.Red 新曲＋精选 CD2/陳慧琳 - 12.情人說.flac",
+      "artistName": "陈慧琳",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "陈慧琳",
+        "album": "2003.陈慧琳.Red 新曲＋精选 3CD / 陈慧琳.Red 新曲＋精选 CD2",
+        "track": "陳慧琳 - 12.情人說.flac",
+        "relativePath": "陈慧琳/2003.陈慧琳.Red 新曲＋精选 3CD/陈慧琳.Red 新曲＋精选 CD2/陳慧琳 - 12.情人說.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "陈慧琳/2003.陈慧琳.Red 新曲＋精选 3CD/陈慧琳.Red 新曲＋精选 CD2/陳慧琳 - 13.愛.flac",
+      "artistName": "陈慧琳",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "陈慧琳",
+        "album": "2003.陈慧琳.Red 新曲＋精选 3CD / 陈慧琳.Red 新曲＋精选 CD2",
+        "track": "陳慧琳 - 13.愛.flac",
+        "relativePath": "陈慧琳/2003.陈慧琳.Red 新曲＋精选 3CD/陈慧琳.Red 新曲＋精选 CD2/陳慧琳 - 13.愛.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "陈慧琳/2003.陈慧琳.Red 新曲＋精选 3CD/陈慧琳.Red 新曲＋精选 CD2/陳慧琳 - 14.DA DE DUM(我失戀).flac",
+      "artistName": "陈慧琳",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "陈慧琳",
+        "album": "2003.陈慧琳.Red 新曲＋精选 3CD / 陈慧琳.Red 新曲＋精选 CD2",
+        "track": "陳慧琳 - 14.DA DE DUM(我失戀).flac",
+        "relativePath": "陈慧琳/2003.陈慧琳.Red 新曲＋精选 3CD/陈慧琳.Red 新曲＋精选 CD2/陳慧琳 - 14.DA DE DUM(我失戀).flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "陈慧琳/2003.陈慧琳.Red 新曲＋精选 3CD/陈慧琳.Red 新曲＋精选 CD2/陳慧琳 - 15.我敢去愛.flac",
+      "artistName": "陈慧琳",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "陈慧琳",
+        "album": "2003.陈慧琳.Red 新曲＋精选 3CD / 陈慧琳.Red 新曲＋精选 CD2",
+        "track": "陳慧琳 - 15.我敢去愛.flac",
+        "relativePath": "陈慧琳/2003.陈慧琳.Red 新曲＋精选 3CD/陈慧琳.Red 新曲＋精选 CD2/陳慧琳 - 15.我敢去愛.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "陈慧琳/2003.陈慧琳.Red 新曲＋精选 3CD/陈慧琳.Red 新曲＋精选 CD3/陳慧琳 - 01.SHAKE SHAKE.flac",
+      "artistName": "陈慧琳",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "陈慧琳",
+        "album": "2003.陈慧琳.Red 新曲＋精选 3CD / 陈慧琳.Red 新曲＋精选 CD3",
+        "track": "陳慧琳 - 01.SHAKE SHAKE.flac",
+        "relativePath": "陈慧琳/2003.陈慧琳.Red 新曲＋精选 3CD/陈慧琳.Red 新曲＋精选 CD3/陳慧琳 - 01.SHAKE SHAKE.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "陈慧琳/2003.陈慧琳.Red 新曲＋精选 3CD/陈慧琳.Red 新曲＋精选 CD3/陳慧琳 - 02.戀愛神經.flac",
+      "artistName": "陈慧琳",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "陈慧琳",
+        "album": "2003.陈慧琳.Red 新曲＋精选 3CD / 陈慧琳.Red 新曲＋精选 CD3",
+        "track": "陳慧琳 - 02.戀愛神經.flac",
+        "relativePath": "陈慧琳/2003.陈慧琳.Red 新曲＋精选 3CD/陈慧琳.Red 新曲＋精选 CD3/陳慧琳 - 02.戀愛神經.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "陈慧琳/2003.陈慧琳.Red 新曲＋精选 3CD/陈慧琳.Red 新曲＋精选 CD3/陳慧琳 - 03.失憶周末.flac",
+      "artistName": "陈慧琳",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "陈慧琳",
+        "album": "2003.陈慧琳.Red 新曲＋精选 3CD / 陈慧琳.Red 新曲＋精选 CD3",
+        "track": "陳慧琳 - 03.失憶周末.flac",
+        "relativePath": "陈慧琳/2003.陈慧琳.Red 新曲＋精选 3CD/陈慧琳.Red 新曲＋精选 CD3/陳慧琳 - 03.失憶周末.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    }
+  ]
+}

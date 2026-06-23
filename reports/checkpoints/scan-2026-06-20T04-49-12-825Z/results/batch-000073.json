@@ -1,0 +1,5765 @@
+{
+  "batchId": 73,
+  "completedAt": "2026-06-20T06:14:00.764Z",
+  "count": 100,
+  "results": [
+    {
+      "rel": "蔡健雅/2021-DEPART/蔡健雅 - 05.那些小事情.flac",
+      "artistName": "蔡健雅",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "蔡健雅",
+        "album": "2021-DEPART",
+        "track": "蔡健雅 - 05.那些小事情.flac",
+        "relativePath": "蔡健雅/2021-DEPART/蔡健雅 - 05.那些小事情.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "蔡健雅/2021-DEPART/蔡健雅 - 06.旧情歌.flac",
+      "artistName": "蔡健雅",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "蔡健雅",
+        "album": "2021-DEPART",
+        "track": "蔡健雅 - 06.旧情歌.flac",
+        "relativePath": "蔡健雅/2021-DEPART/蔡健雅 - 06.旧情歌.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "蔡健雅/2021-DEPART/蔡健雅 - 07.全部的所有.flac",
+      "artistName": "蔡健雅",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "蔡健雅",
+        "album": "2021-DEPART",
+        "track": "蔡健雅 - 07.全部的所有.flac",
+        "relativePath": "蔡健雅/2021-DEPART/蔡健雅 - 07.全部的所有.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "蔡健雅/2021-DEPART/蔡健雅 - 08.Photographs.flac",
+      "artistName": "蔡健雅",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "蔡健雅",
+        "album": "2021-DEPART",
+        "track": "蔡健雅 - 08.Photographs.flac",
+        "relativePath": "蔡健雅/2021-DEPART/蔡健雅 - 08.Photographs.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "蔡健雅/2021-DEPART/蔡健雅 - 09.让浪漫作主.flac",
+      "artistName": "蔡健雅",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "蔡健雅",
+        "album": "2021-DEPART",
+        "track": "蔡健雅 - 09.让浪漫作主.flac",
+        "relativePath": "蔡健雅/2021-DEPART/蔡健雅 - 09.让浪漫作主.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "蔡健雅/2021-DEPART/蔡健雅 - 10.Om Tara.flac",
+      "artistName": "蔡健雅",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "蔡健雅",
+        "album": "2021-DEPART",
+        "track": "蔡健雅 - 10.Om Tara.flac",
+        "relativePath": "蔡健雅/2021-DEPART/蔡健雅 - 10.Om Tara.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "蔡旻佑/2006-蔡旻佑首张创作专辑 19[flac]/蔡旻佑 - 8 Bit.flac",
+      "artistName": "蔡旻佑",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  蔡旻佑/2006-蔡旻佑首张创作专辑 19[flac]/蔡旻佑 - 8 Bit.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 10387608 samples (235.55s, 100.0% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "蔡旻佑",
+        "album": "2006-蔡旻佑首张创作专辑 19[flac]",
+        "track": "蔡旻佑 - 8 Bit.flac",
+        "relativePath": "蔡旻佑/2006-蔡旻佑首张创作专辑 19[flac]/蔡旻佑 - 8 Bit.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "蔡旻佑/2006-蔡旻佑首张创作专辑 19[flac]/蔡旻佑 - Can You Hear Me.flac",
+      "artistName": "蔡旻佑",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  蔡旻佑/2006-蔡旻佑首张创作专辑 19[flac]/蔡旻佑 - Can You Hear Me.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 9856644 samples (223.51s, 100.0% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "蔡旻佑",
+        "album": "2006-蔡旻佑首张创作专辑 19[flac]",
+        "track": "蔡旻佑 - Can You Hear Me.flac",
+        "relativePath": "蔡旻佑/2006-蔡旻佑首张创作专辑 19[flac]/蔡旻佑 - Can You Hear Me.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "蔡旻佑/2006-蔡旻佑首张创作专辑 19[flac]/蔡旻佑 - Intro.flac",
+      "artistName": "蔡旻佑",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  蔡旻佑/2006-蔡旻佑首张创作专辑 19[flac]/蔡旻佑 - Intro.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 2066820 samples (46.87s, 100.0% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "蔡旻佑",
+        "album": "2006-蔡旻佑首张创作专辑 19[flac]",
+        "track": "蔡旻佑 - Intro.flac",
+        "relativePath": "蔡旻佑/2006-蔡旻佑首张创作专辑 19[flac]/蔡旻佑 - Intro.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "蔡旻佑/2006-蔡旻佑首张创作专辑 19[flac]/蔡旻佑 - 城外.flac",
+      "artistName": "蔡旻佑",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  蔡旻佑/2006-蔡旻佑首张创作专辑 19[flac]/蔡旻佑 - 城外.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 9914268 samples (224.81s, 100.0% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "蔡旻佑",
+        "album": "2006-蔡旻佑首张创作专辑 19[flac]",
+        "track": "蔡旻佑 - 城外.flac",
+        "relativePath": "蔡旻佑/2006-蔡旻佑首张创作专辑 19[flac]/蔡旻佑 - 城外.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "蔡旻佑/2006-蔡旻佑首张创作专辑 19[flac]/蔡旻佑 - 我可以.flac",
+      "artistName": "蔡旻佑",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  蔡旻佑/2006-蔡旻佑首张创作专辑 19[flac]/蔡旻佑 - 我可以.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 11774112 samples (266.99s, 100.0% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "蔡旻佑",
+        "album": "2006-蔡旻佑首张创作专辑 19[flac]",
+        "track": "蔡旻佑 - 我可以.flac",
+        "relativePath": "蔡旻佑/2006-蔡旻佑首张创作专辑 19[flac]/蔡旻佑 - 我可以.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "蔡旻佑/2006-蔡旻佑首张创作专辑 19[flac]/蔡旻佑 - 我想要说.flac",
+      "artistName": "蔡旻佑",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  蔡旻佑/2006-蔡旻佑首张创作专辑 19[flac]/蔡旻佑 - 我想要说.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 10138884 samples (229.91s, 100.0% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "蔡旻佑",
+        "album": "2006-蔡旻佑首张创作专辑 19[flac]",
+        "track": "蔡旻佑 - 我想要说.flac",
+        "relativePath": "蔡旻佑/2006-蔡旻佑首张创作专辑 19[flac]/蔡旻佑 - 我想要说.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "蔡旻佑/2006-蔡旻佑首张创作专辑 19[flac]/蔡旻佑 - 旋转门.flac",
+      "artistName": "蔡旻佑",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  蔡旻佑/2006-蔡旻佑首张创作专辑 19[flac]/蔡旻佑 - 旋转门.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 10730412 samples (243.32s, 100.0% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "蔡旻佑",
+        "album": "2006-蔡旻佑首张创作专辑 19[flac]",
+        "track": "蔡旻佑 - 旋转门.flac",
+        "relativePath": "蔡旻佑/2006-蔡旻佑首张创作专辑 19[flac]/蔡旻佑 - 旋转门.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "蔡旻佑/2006-蔡旻佑首张创作专辑 19[flac]/蔡旻佑 - 梦不落帝国.flac",
+      "artistName": "蔡旻佑",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  蔡旻佑/2006-蔡旻佑首张创作专辑 19[flac]/蔡旻佑 - 梦不落帝国.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 8346072 samples (189.25s, 100.0% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "蔡旻佑",
+        "album": "2006-蔡旻佑首张创作专辑 19[flac]",
+        "track": "蔡旻佑 - 梦不落帝国.flac",
+        "relativePath": "蔡旻佑/2006-蔡旻佑首张创作专辑 19[flac]/蔡旻佑 - 梦不落帝国.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "蔡旻佑/2006-蔡旻佑首张创作专辑 19[flac]/蔡旻佑 - 热气球.flac",
+      "artistName": "蔡旻佑",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  蔡旻佑/2006-蔡旻佑首张创作专辑 19[flac]/蔡旻佑 - 热气球.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 12419148 samples (281.61s, 100.0% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "蔡旻佑",
+        "album": "2006-蔡旻佑首张创作专辑 19[flac]",
+        "track": "蔡旻佑 - 热气球.flac",
+        "relativePath": "蔡旻佑/2006-蔡旻佑首张创作专辑 19[flac]/蔡旻佑 - 热气球.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "蔡旻佑/2006-蔡旻佑首张创作专辑 19[flac]/蔡旻佑 - 简单.flac",
+      "artistName": "蔡旻佑",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  蔡旻佑/2006-蔡旻佑首张创作专辑 19[flac]/蔡旻佑 - 简单.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 9116352 samples (206.72s, 100.0% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "蔡旻佑",
+        "album": "2006-蔡旻佑首张创作专辑 19[flac]",
+        "track": "蔡旻佑 - 简单.flac",
+        "relativePath": "蔡旻佑/2006-蔡旻佑首张创作专辑 19[flac]/蔡旻佑 - 简单.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "蔡旻佑/2006-蔡旻佑首张创作专辑 19[flac]/蔡旻佑 - 翻不完的夏天.flac",
+      "artistName": "蔡旻佑",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  蔡旻佑/2006-蔡旻佑首张创作专辑 19[flac]/蔡旻佑 - 翻不完的夏天.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 9852528 samples (223.41s, 100.0% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "蔡旻佑",
+        "album": "2006-蔡旻佑首张创作专辑 19[flac]",
+        "track": "蔡旻佑 - 翻不完的夏天.flac",
+        "relativePath": "蔡旻佑/2006-蔡旻佑首张创作专辑 19[flac]/蔡旻佑 - 翻不完的夏天.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "蔡旻佑/2006-蔡旻佑首张创作专辑 19[flac]/蔡旻佑 - 超人不在家.flac",
+      "artistName": "蔡旻佑",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  蔡旻佑/2006-蔡旻佑首张创作专辑 19[flac]/蔡旻佑 - 超人不在家.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 10055388 samples (228.01s, 100.0% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "蔡旻佑",
+        "album": "2006-蔡旻佑首张创作专辑 19[flac]",
+        "track": "蔡旻佑 - 超人不在家.flac",
+        "relativePath": "蔡旻佑/2006-蔡旻佑首张创作专辑 19[flac]/蔡旻佑 - 超人不在家.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "蔡旻佑/2008-搜寻蔡旻佑[flac]/蔡旻佑-2人.flac",
+      "artistName": "蔡旻佑",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "蔡旻佑",
+        "album": "2008-搜寻蔡旻佑[flac]",
+        "track": "蔡旻佑-2人.flac",
+        "relativePath": "蔡旻佑/2008-搜寻蔡旻佑[flac]/蔡旻佑-2人.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "蔡旻佑/2008-搜寻蔡旻佑[flac]/蔡旻佑-Stay with Me.flac",
+      "artistName": "蔡旻佑",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "蔡旻佑",
+        "album": "2008-搜寻蔡旻佑[flac]",
+        "track": "蔡旻佑-Stay with Me.flac",
+        "relativePath": "蔡旻佑/2008-搜寻蔡旻佑[flac]/蔡旻佑-Stay with Me.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "蔡旻佑/2008-搜寻蔡旻佑[flac]/蔡旻佑-The Love I Know.flac",
+      "artistName": "蔡旻佑",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "蔡旻佑",
+        "album": "2008-搜寻蔡旻佑[flac]",
+        "track": "蔡旻佑-The Love I Know.flac",
+        "relativePath": "蔡旻佑/2008-搜寻蔡旻佑[flac]/蔡旻佑-The Love I Know.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "蔡旻佑/2008-搜寻蔡旻佑[flac]/蔡旻佑-台北21℃.flac",
+      "artistName": "蔡旻佑",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "蔡旻佑",
+        "album": "2008-搜寻蔡旻佑[flac]",
+        "track": "蔡旻佑-台北21℃.flac",
+        "relativePath": "蔡旻佑/2008-搜寻蔡旻佑[flac]/蔡旻佑-台北21℃.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "蔡旻佑/2008-搜寻蔡旻佑[flac]/蔡旻佑-希区考克 作品152.flac",
+      "artistName": "蔡旻佑",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "蔡旻佑",
+        "album": "2008-搜寻蔡旻佑[flac]",
+        "track": "蔡旻佑-希区考克 作品152.flac",
+        "relativePath": "蔡旻佑/2008-搜寻蔡旻佑[flac]/蔡旻佑-希区考克 作品152.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "蔡旻佑/2008-搜寻蔡旻佑[flac]/蔡旻佑-我回来了.flac",
+      "artistName": "蔡旻佑",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "蔡旻佑",
+        "album": "2008-搜寻蔡旻佑[flac]",
+        "track": "蔡旻佑-我回来了.flac",
+        "relativePath": "蔡旻佑/2008-搜寻蔡旻佑[flac]/蔡旻佑-我回来了.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "蔡旻佑/2008-搜寻蔡旻佑[flac]/蔡旻佑-我用一首Demo跟你告白XD.flac",
+      "artistName": "蔡旻佑",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "蔡旻佑",
+        "album": "2008-搜寻蔡旻佑[flac]",
+        "track": "蔡旻佑-我用一首Demo跟你告白XD.flac",
+        "relativePath": "蔡旻佑/2008-搜寻蔡旻佑[flac]/蔡旻佑-我用一首Demo跟你告白XD.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "蔡旻佑/2008-搜寻蔡旻佑[flac]/蔡旻佑-没有人要的孩子.flac",
+      "artistName": "蔡旻佑",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "蔡旻佑",
+        "album": "2008-搜寻蔡旻佑[flac]",
+        "track": "蔡旻佑-没有人要的孩子.flac",
+        "relativePath": "蔡旻佑/2008-搜寻蔡旻佑[flac]/蔡旻佑-没有人要的孩子.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "蔡旻佑/2008-搜寻蔡旻佑[flac]/蔡旻佑-爱？.flac",
+      "artistName": "蔡旻佑",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "蔡旻佑",
+        "album": "2008-搜寻蔡旻佑[flac]",
+        "track": "蔡旻佑-爱？.flac",
+        "relativePath": "蔡旻佑/2008-搜寻蔡旻佑[flac]/蔡旻佑-爱？.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "蔡旻佑/2008-搜寻蔡旻佑[flac]/蔡旻佑-老地方.flac",
+      "artistName": "蔡旻佑",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "蔡旻佑",
+        "album": "2008-搜寻蔡旻佑[flac]",
+        "track": "蔡旻佑-老地方.flac",
+        "relativePath": "蔡旻佑/2008-搜寻蔡旻佑[flac]/蔡旻佑-老地方.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "蔡旻佑/2008-搜寻蔡旻佑[flac]/蔡旻佑-阿姆斯壮.flac",
+      "artistName": "蔡旻佑",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "蔡旻佑",
+        "album": "2008-搜寻蔡旻佑[flac]",
+        "track": "蔡旻佑-阿姆斯壮.flac",
+        "relativePath": "蔡旻佑/2008-搜寻蔡旻佑[flac]/蔡旻佑-阿姆斯壮.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "蔡旻佑/2009-寂寞，好了[flac]/蔡旻佑-Hey !.flac",
+      "artistName": "蔡旻佑",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "蔡旻佑",
+        "album": "2009-寂寞，好了[flac]",
+        "track": "蔡旻佑-Hey !.flac",
+        "relativePath": "蔡旻佑/2009-寂寞，好了[flac]/蔡旻佑-Hey !.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "蔡旻佑/2009-寂寞，好了[flac]/蔡旻佑-你看不到的天空.flac",
+      "artistName": "蔡旻佑",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "蔡旻佑",
+        "album": "2009-寂寞，好了[flac]",
+        "track": "蔡旻佑-你看不到的天空.flac",
+        "relativePath": "蔡旻佑/2009-寂寞，好了[flac]/蔡旻佑-你看不到的天空.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "蔡旻佑/2009-寂寞，好了[flac]/蔡旻佑-发光的简讯.flac",
+      "artistName": "蔡旻佑",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "蔡旻佑",
+        "album": "2009-寂寞，好了[flac]",
+        "track": "蔡旻佑-发光的简讯.flac",
+        "relativePath": "蔡旻佑/2009-寂寞，好了[flac]/蔡旻佑-发光的简讯.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "蔡旻佑/2009-寂寞，好了[flac]/蔡旻佑-寂寞，好了.flac",
+      "artistName": "蔡旻佑",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "蔡旻佑",
+        "album": "2009-寂寞，好了[flac]",
+        "track": "蔡旻佑-寂寞，好了.flac",
+        "relativePath": "蔡旻佑/2009-寂寞，好了[flac]/蔡旻佑-寂寞，好了.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "蔡旻佑/2009-寂寞，好了[flac]/蔡旻佑-小乖乖.flac",
+      "artistName": "蔡旻佑",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "蔡旻佑",
+        "album": "2009-寂寞，好了[flac]",
+        "track": "蔡旻佑-小乖乖.flac",
+        "relativePath": "蔡旻佑/2009-寂寞，好了[flac]/蔡旻佑-小乖乖.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "蔡旻佑/2009-寂寞，好了[flac]/蔡旻佑-我的宝贝.flac",
+      "artistName": "蔡旻佑",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "蔡旻佑",
+        "album": "2009-寂寞，好了[flac]",
+        "track": "蔡旻佑-我的宝贝.flac",
+        "relativePath": "蔡旻佑/2009-寂寞，好了[flac]/蔡旻佑-我的宝贝.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "蔡旻佑/2009-寂寞，好了[flac]/蔡旻佑-打不倒男孩.flac",
+      "artistName": "蔡旻佑",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "蔡旻佑",
+        "album": "2009-寂寞，好了[flac]",
+        "track": "蔡旻佑-打不倒男孩.flac",
+        "relativePath": "蔡旻佑/2009-寂寞，好了[flac]/蔡旻佑-打不倒男孩.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "蔡旻佑/2009-寂寞，好了[flac]/蔡旻佑-日蚀.flac",
+      "artistName": "蔡旻佑",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "蔡旻佑",
+        "album": "2009-寂寞，好了[flac]",
+        "track": "蔡旻佑-日蚀.flac",
+        "relativePath": "蔡旻佑/2009-寂寞，好了[flac]/蔡旻佑-日蚀.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "蔡旻佑/2009-寂寞，好了[flac]/蔡旻佑-爱是对的.flac",
+      "artistName": "蔡旻佑",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "蔡旻佑",
+        "album": "2009-寂寞，好了[flac]",
+        "track": "蔡旻佑-爱是对的.flac",
+        "relativePath": "蔡旻佑/2009-寂寞，好了[flac]/蔡旻佑-爱是对的.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "蔡旻佑/2009-寂寞，好了[flac]/蔡旻佑-走.flac",
+      "artistName": "蔡旻佑",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "蔡旻佑",
+        "album": "2009-寂寞，好了[flac]",
+        "track": "蔡旻佑-走.flac",
+        "relativePath": "蔡旻佑/2009-寂寞，好了[flac]/蔡旻佑-走.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "蔡旻佑/2012-超级右脑[flac]/蔡旻佑 - 光.flac",
+      "artistName": "蔡旻佑",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  蔡旻佑/2012-超级右脑[flac]/蔡旻佑 - 光.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 7987980 samples (181.13s, 100.0% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "蔡旻佑",
+        "album": "2012-超级右脑[flac]",
+        "track": "蔡旻佑 - 光.flac",
+        "relativePath": "蔡旻佑/2012-超级右脑[flac]/蔡旻佑 - 光.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "蔡旻佑/2012-超级右脑[flac]/蔡旻佑 - 强心脏.flac",
+      "artistName": "蔡旻佑",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  蔡旻佑/2012-超级右脑[flac]/蔡旻佑 - 强心脏.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 8077356 samples (183.16s, 100.0% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "蔡旻佑",
+        "album": "2012-超级右脑[flac]",
+        "track": "蔡旻佑 - 强心脏.flac",
+        "relativePath": "蔡旻佑/2012-超级右脑[flac]/蔡旻佑 - 强心脏.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "蔡旻佑/2012-超级右脑[flac]/蔡旻佑 - 怎么爱你都不够.flac",
+      "artistName": "蔡旻佑",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  蔡旻佑/2012-超级右脑[flac]/蔡旻佑 - 怎么爱你都不够.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 12834276 samples (291.03s, 100.0% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "蔡旻佑",
+        "album": "2012-超级右脑[flac]",
+        "track": "蔡旻佑 - 怎么爱你都不够.flac",
+        "relativePath": "蔡旻佑/2012-超级右脑[flac]/蔡旻佑 - 怎么爱你都不够.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "蔡旻佑/2012-超级右脑[flac]/蔡旻佑 - 情瓜.flac",
+      "artistName": "蔡旻佑",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  蔡旻佑/2012-超级右脑[flac]/蔡旻佑 - 情瓜.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 7740432 samples (175.52s, 100.0% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "蔡旻佑",
+        "album": "2012-超级右脑[flac]",
+        "track": "蔡旻佑 - 情瓜.flac",
+        "relativePath": "蔡旻佑/2012-超级右脑[flac]/蔡旻佑 - 情瓜.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "蔡旻佑/2012-超级右脑[flac]/蔡旻佑 - 想.flac",
+      "artistName": "蔡旻佑",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  蔡旻佑/2012-超级右脑[flac]/蔡旻佑 - 想.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 11632992 samples (263.79s, 100.0% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "蔡旻佑",
+        "album": "2012-超级右脑[flac]",
+        "track": "蔡旻佑 - 想.flac",
+        "relativePath": "蔡旻佑/2012-超级右脑[flac]/蔡旻佑 - 想.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "蔡旻佑/2012-超级右脑[flac]/蔡旻佑 - 暖身幸福.flac",
+      "artistName": "蔡旻佑",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  蔡旻佑/2012-超级右脑[flac]/蔡旻佑 - 暖身幸福.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 6816684 samples (154.57s, 100.0% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "蔡旻佑",
+        "album": "2012-超级右脑[flac]",
+        "track": "蔡旻佑 - 暖身幸福.flac",
+        "relativePath": "蔡旻佑/2012-超级右脑[flac]/蔡旻佑 - 暖身幸福.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "蔡旻佑/2012-超级右脑[flac]/蔡旻佑 - 爱的自由式.flac",
+      "artistName": "蔡旻佑",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  蔡旻佑/2012-超级右脑[flac]/蔡旻佑 - 爱的自由式.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 9254532 samples (209.85s, 100.0% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "蔡旻佑",
+        "album": "2012-超级右脑[flac]",
+        "track": "蔡旻佑 - 爱的自由式.flac",
+        "relativePath": "蔡旻佑/2012-超级右脑[flac]/蔡旻佑 - 爱的自由式.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "蔡旻佑/2012-超级右脑[flac]/蔡旻佑 - 谁知道.flac",
+      "artistName": "蔡旻佑",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  蔡旻佑/2012-超级右脑[flac]/蔡旻佑 - 谁知道.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 12354468 samples (280.15s, 100.0% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "蔡旻佑",
+        "album": "2012-超级右脑[flac]",
+        "track": "蔡旻佑 - 谁知道.flac",
+        "relativePath": "蔡旻佑/2012-超级右脑[flac]/蔡旻佑 - 谁知道.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "蔡旻佑/2012-超级右脑[flac]/蔡旻佑 - 超级右脑.flac",
+      "artistName": "蔡旻佑",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  蔡旻佑/2012-超级右脑[flac]/蔡旻佑 - 超级右脑.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 8784720 samples (199.20s, 100.0% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "蔡旻佑",
+        "album": "2012-超级右脑[flac]",
+        "track": "蔡旻佑 - 超级右脑.flac",
+        "relativePath": "蔡旻佑/2012-超级右脑[flac]/蔡旻佑 - 超级右脑.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "蔡旻佑/2012-超级右脑[flac]/蔡旻佑 _ 天心 - 女大田力小.flac",
+      "artistName": "蔡旻佑",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  蔡旻佑/2012-超级右脑[flac]/蔡旻佑 _ 天心 - 女大田力小.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 8708280 samples (197.47s, 100.0% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "蔡旻佑",
+        "album": "2012-超级右脑[flac]",
+        "track": "蔡旻佑 _ 天心 - 女大田力小.flac",
+        "relativePath": "蔡旻佑/2012-超级右脑[flac]/蔡旻佑 _ 天心 - 女大田力小.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "蔡旻佑/2015-我和我的布拉姆斯[flac]/蔡旻佑-Dare to Be.flac",
+      "artistName": "蔡旻佑",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "蔡旻佑",
+        "album": "2015-我和我的布拉姆斯[flac]",
+        "track": "蔡旻佑-Dare to Be.flac",
+        "relativePath": "蔡旻佑/2015-我和我的布拉姆斯[flac]/蔡旻佑-Dare to Be.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "蔡旻佑/2015-我和我的布拉姆斯[flac]/蔡旻佑-不如.flac",
+      "artistName": "蔡旻佑",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "蔡旻佑",
+        "album": "2015-我和我的布拉姆斯[flac]",
+        "track": "蔡旻佑-不如.flac",
+        "relativePath": "蔡旻佑/2015-我和我的布拉姆斯[flac]/蔡旻佑-不如.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "蔡旻佑/2015-我和我的布拉姆斯[flac]/蔡旻佑-假男友.flac",
+      "artistName": "蔡旻佑",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "蔡旻佑",
+        "album": "2015-我和我的布拉姆斯[flac]",
+        "track": "蔡旻佑-假男友.flac",
+        "relativePath": "蔡旻佑/2015-我和我的布拉姆斯[flac]/蔡旻佑-假男友.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "蔡旻佑/2015-我和我的布拉姆斯[flac]/蔡旻佑-快乐地想你.flac",
+      "artistName": "蔡旻佑",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "蔡旻佑",
+        "album": "2015-我和我的布拉姆斯[flac]",
+        "track": "蔡旻佑-快乐地想你.flac",
+        "relativePath": "蔡旻佑/2015-我和我的布拉姆斯[flac]/蔡旻佑-快乐地想你.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "蔡旻佑/2015-我和我的布拉姆斯[flac]/蔡旻佑-我和我的布拉姆斯.flac",
+      "artistName": "蔡旻佑",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  蔡旻佑/2015-我和我的布拉姆斯[flac]/蔡旻佑-我和我的布拉姆斯.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 11008512 samples (249.63s, 99.8% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "蔡旻佑",
+        "album": "2015-我和我的布拉姆斯[flac]",
+        "track": "蔡旻佑-我和我的布拉姆斯.flac",
+        "relativePath": "蔡旻佑/2015-我和我的布拉姆斯[flac]/蔡旻佑-我和我的布拉姆斯.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "蔡旻佑/2015-我和我的布拉姆斯[flac]/蔡旻佑-我想我可以.flac",
+      "artistName": "蔡旻佑",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "蔡旻佑",
+        "album": "2015-我和我的布拉姆斯[flac]",
+        "track": "蔡旻佑-我想我可以.flac",
+        "relativePath": "蔡旻佑/2015-我和我的布拉姆斯[flac]/蔡旻佑-我想我可以.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "蔡旻佑/2015-我和我的布拉姆斯[flac]/蔡旻佑-最帅的人.flac",
+      "artistName": "蔡旻佑",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "蔡旻佑",
+        "album": "2015-我和我的布拉姆斯[flac]",
+        "track": "蔡旻佑-最帅的人.flac",
+        "relativePath": "蔡旻佑/2015-我和我的布拉姆斯[flac]/蔡旻佑-最帅的人.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "蔡旻佑/2015-我和我的布拉姆斯[flac]/蔡旻佑-最烂的我们.flac",
+      "artistName": "蔡旻佑",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "蔡旻佑",
+        "album": "2015-我和我的布拉姆斯[flac]",
+        "track": "蔡旻佑-最烂的我们.flac",
+        "relativePath": "蔡旻佑/2015-我和我的布拉姆斯[flac]/蔡旻佑-最烂的我们.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "蔡旻佑/2015-我和我的布拉姆斯[flac]/蔡旻佑-最烂的我们（灿烂版）.flac",
+      "artistName": "蔡旻佑",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "蔡旻佑",
+        "album": "2015-我和我的布拉姆斯[flac]",
+        "track": "蔡旻佑-最烂的我们（灿烂版）.flac",
+        "relativePath": "蔡旻佑/2015-我和我的布拉姆斯[flac]/蔡旻佑-最烂的我们（灿烂版）.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "蔡旻佑/2015-我和我的布拉姆斯[flac]/蔡旻佑-爱在八点档.flac",
+      "artistName": "蔡旻佑",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  蔡旻佑/2015-我和我的布拉姆斯[flac]/蔡旻佑-爱在八点档.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 8515223 samples (193.09s, 100.0% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "蔡旻佑",
+        "album": "2015-我和我的布拉姆斯[flac]",
+        "track": "蔡旻佑-爱在八点档.flac",
+        "relativePath": "蔡旻佑/2015-我和我的布拉姆斯[flac]/蔡旻佑-爱在八点档.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "蔡旻佑/2015-我和我的布拉姆斯[flac]/蔡旻佑-绝非意外.flac",
+      "artistName": "蔡旻佑",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  蔡旻佑/2015-我和我的布拉姆斯[flac]/蔡旻佑-绝非意外.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 8133071 samples (184.42s, 100.0% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "蔡旻佑",
+        "album": "2015-我和我的布拉姆斯[flac]",
+        "track": "蔡旻佑-绝非意外.flac",
+        "relativePath": "蔡旻佑/2015-我和我的布拉姆斯[flac]/蔡旻佑-绝非意外.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "蔡旻佑/2015-我和我的布拉姆斯[flac]/蔡旻佑-自己.flac",
+      "artistName": "蔡旻佑",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "蔡旻佑",
+        "album": "2015-我和我的布拉姆斯[flac]",
+        "track": "蔡旻佑-自己.flac",
+        "relativePath": "蔡旻佑/2015-我和我的布拉姆斯[flac]/蔡旻佑-自己.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "蔡旻佑/2015-我和我的布拉姆斯[flac]/蔡旻佑-还没往下想.flac",
+      "artistName": "蔡旻佑",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  蔡旻佑/2015-我和我的布拉姆斯[flac]/蔡旻佑-还没往下想.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 9356658 samples (212.17s, 100.0% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "蔡旻佑",
+        "album": "2015-我和我的布拉姆斯[flac]",
+        "track": "蔡旻佑-还没往下想.flac",
+        "relativePath": "蔡旻佑/2015-我和我的布拉姆斯[flac]/蔡旻佑-还没往下想.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "蔡旻佑/2019-不该拥有的事情-电影「傻傻爱你，傻傻爱我」主题曲[flac]/蔡旻佑-不该拥有的事情-孤单版.flac",
+      "artistName": "蔡旻佑",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  蔡旻佑/2019-不该拥有的事情-电影「傻傻爱你，傻傻爱我」主题曲[flac]/蔡旻佑-不该拥有的事情-孤单版.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 15462618 samples (322.14s, 100.0% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "蔡旻佑",
+        "album": "2019-不该拥有的事情-电影「傻傻爱你，傻傻爱我」主题曲[flac]",
+        "track": "蔡旻佑-不该拥有的事情-孤单版.flac",
+        "relativePath": "蔡旻佑/2019-不该拥有的事情-电影「傻傻爱你，傻傻爱我」主题曲[flac]/蔡旻佑-不该拥有的事情-孤单版.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "蔡旻佑/2019-不该拥有的事情-电影「傻傻爱你，傻傻爱我」主题曲[flac]/蔡旻佑_张牧乔-不该拥有的事情-男女对唱版.flac",
+      "artistName": "蔡旻佑",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "蔡旻佑",
+        "album": "2019-不该拥有的事情-电影「傻傻爱你，傻傻爱我」主题曲[flac]",
+        "track": "蔡旻佑_张牧乔-不该拥有的事情-男女对唱版.flac",
+        "relativePath": "蔡旻佑/2019-不该拥有的事情-电影「傻傻爱你，傻傻爱我」主题曲[flac]/蔡旻佑_张牧乔-不该拥有的事情-男女对唱版.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "蔡旻佑/2019-变心记[flac]/蔡旻佑 - Never Look Back.flac",
+      "artistName": "蔡旻佑",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  蔡旻佑/2019-变心记[flac]/蔡旻佑 - Never Look Back.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 13690368 samples (285.22s, 100.0% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "蔡旻佑",
+        "album": "2019-变心记[flac]",
+        "track": "蔡旻佑 - Never Look Back.flac",
+        "relativePath": "蔡旻佑/2019-变心记[flac]/蔡旻佑 - Never Look Back.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "蔡旻佑/2019-变心记[flac]/蔡旻佑 - 伞 Un-Brella.flac",
+      "artistName": "蔡旻佑",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  蔡旻佑/2019-变心记[flac]/蔡旻佑 - 伞 Un-Brella.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 9870336 samples (205.63s, 99.8% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "蔡旻佑",
+        "album": "2019-变心记[flac]",
+        "track": "蔡旻佑 - 伞 Un-Brella.flac",
+        "relativePath": "蔡旻佑/2019-变心记[flac]/蔡旻佑 - 伞 Un-Brella.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "蔡旻佑/2019-变心记[flac]/蔡旻佑 - 变心记 Metamorphosis.flac",
+      "artistName": "蔡旻佑",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  蔡旻佑/2019-变心记[flac]/蔡旻佑 - 变心记 Metamorphosis.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 10681344 samples (222.53s, 99.9% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "蔡旻佑",
+        "album": "2019-变心记[flac]",
+        "track": "蔡旻佑 - 变心记 Metamorphosis.flac",
+        "relativePath": "蔡旻佑/2019-变心记[flac]/蔡旻佑 - 变心记 Metamorphosis.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "蔡旻佑/2019-变心记[flac]/蔡旻佑 - 同一片风景 Sisyphus.flac",
+      "artistName": "蔡旻佑",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  蔡旻佑/2019-变心记[flac]/蔡旻佑 - 同一片风景 Sisyphus.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 10727424 samples (223.49s, 99.9% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "蔡旻佑",
+        "album": "2019-变心记[flac]",
+        "track": "蔡旻佑 - 同一片风景 Sisyphus.flac",
+        "relativePath": "蔡旻佑/2019-变心记[flac]/蔡旻佑 - 同一片风景 Sisyphus.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "蔡旻佑/2019-变心记[flac]/蔡旻佑 - 天真的蝎 Fatal Elegance.flac",
+      "artistName": "蔡旻佑",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  蔡旻佑/2019-变心记[flac]/蔡旻佑 - 天真的蝎 Fatal Elegance.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 9916416 samples (206.59s, 99.9% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "蔡旻佑",
+        "album": "2019-变心记[flac]",
+        "track": "蔡旻佑 - 天真的蝎 Fatal Elegance.flac",
+        "relativePath": "蔡旻佑/2019-变心记[flac]/蔡旻佑 - 天真的蝎 Fatal Elegance.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "蔡旻佑/2019-变心记[flac]/蔡旻佑 - 独占 Ex-Clusive.flac",
+      "artistName": "蔡旻佑",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  蔡旻佑/2019-变心记[flac]/蔡旻佑 - 独占 Ex-Clusive.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 13367808 samples (278.50s, 99.9% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "蔡旻佑",
+        "album": "2019-变心记[flac]",
+        "track": "蔡旻佑 - 独占 Ex-Clusive.flac",
+        "relativePath": "蔡旻佑/2019-变心记[flac]/蔡旻佑 - 独占 Ex-Clusive.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "蔡旻佑/2019-变心记[flac]/蔡旻佑 - 装 Camouflage.flac",
+      "artistName": "蔡旻佑",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  蔡旻佑/2019-变心记[flac]/蔡旻佑 - 装 Camouflage.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 16593408 samples (345.70s, 100.0% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "蔡旻佑",
+        "album": "2019-变心记[flac]",
+        "track": "蔡旻佑 - 装 Camouflage.flac",
+        "relativePath": "蔡旻佑/2019-变心记[flac]/蔡旻佑 - 装 Camouflage.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "蔡旻佑/2019-变心记[flac]/蔡旻佑 - 装＜intro＞.flac",
+      "artistName": "蔡旻佑",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  蔡旻佑/2019-变心记[flac]/蔡旻佑 - 装＜intro＞.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 5073408 samples (105.70s, 99.9% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "蔡旻佑",
+        "album": "2019-变心记[flac]",
+        "track": "蔡旻佑 - 装＜intro＞.flac",
+        "relativePath": "蔡旻佑/2019-变心记[flac]/蔡旻佑 - 装＜intro＞.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "蔡旻佑/2019-变心记[flac]/蔡旻佑 - 谁不想太多 Jealousy Syndrome.flac",
+      "artistName": "蔡旻佑",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  蔡旻佑/2019-变心记[flac]/蔡旻佑 - 谁不想太多 Jealousy Syndrome.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 13690368 samples (285.22s, 99.9% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "蔡旻佑",
+        "album": "2019-变心记[flac]",
+        "track": "蔡旻佑 - 谁不想太多 Jealousy Syndrome.flac",
+        "relativePath": "蔡旻佑/2019-变心记[flac]/蔡旻佑 - 谁不想太多 Jealousy Syndrome.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "蔡旻佑/2019-变心记[flac]/蔡旻佑 - 过站不停 Wandering Wonderer.flac",
+      "artistName": "蔡旻佑",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  蔡旻佑/2019-变心记[flac]/蔡旻佑 - 过站不停 Wandering Wonderer.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 10584576 samples (220.51s, 100.0% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "蔡旻佑",
+        "album": "2019-变心记[flac]",
+        "track": "蔡旻佑 - 过站不停 Wandering Wonderer.flac",
+        "relativePath": "蔡旻佑/2019-变心记[flac]/蔡旻佑 - 过站不停 Wandering Wonderer.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "蔡旻佑/2019-变心记[flac]/蔡旻佑,艾怡良 - 伎俩 Veneer.flac",
+      "artistName": "蔡旻佑",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  蔡旻佑/2019-变心记[flac]/蔡旻佑,艾怡良 - 伎俩 Veneer.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 11953152 samples (249.02s, 99.9% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "蔡旻佑",
+        "album": "2019-变心记[flac]",
+        "track": "蔡旻佑,艾怡良 - 伎俩 Veneer.flac",
+        "relativePath": "蔡旻佑/2019-变心记[flac]/蔡旻佑,艾怡良 - 伎俩 Veneer.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "蔡旻佑/2019-问问爱情[flac]/蔡旻佑-问问爱情.flac",
+      "artistName": "蔡旻佑",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "蔡旻佑",
+        "album": "2019-问问爱情[flac]",
+        "track": "蔡旻佑-问问爱情.flac",
+        "relativePath": "蔡旻佑/2019-问问爱情[flac]/蔡旻佑-问问爱情.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "蔡旻佑/2020-Second Try[flac]/蔡旻佑-Second Try.flac",
+      "artistName": "蔡旻佑",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  蔡旻佑/2020-Second Try[flac]/蔡旻佑-Second Try.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 10974664 samples (228.64s, 100.0% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "蔡旻佑",
+        "album": "2020-Second Try[flac]",
+        "track": "蔡旻佑-Second Try.flac",
+        "relativePath": "蔡旻佑/2020-Second Try[flac]/蔡旻佑-Second Try.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "蔡琴/蔡琴 - 蔡琴 (國語精選)/01 蔡琴 - 恰似你的溫柔.flac",
+      "artistName": "蔡琴",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  蔡琴/蔡琴 - 蔡琴 (國語精選)/01 蔡琴 - 恰似你的溫柔.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "蔡琴",
+        "album": "蔡琴 - 蔡琴 (國語精選)",
+        "track": "01 蔡琴 - 恰似你的溫柔.flac",
+        "relativePath": "蔡琴/蔡琴 - 蔡琴 (國語精選)/01 蔡琴 - 恰似你的溫柔.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "蔡琴/蔡琴 - 蔡琴 (國語精選)/02 蔡琴 - 抉擇.flac",
+      "artistName": "蔡琴",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  蔡琴/蔡琴 - 蔡琴 (國語精選)/02 蔡琴 - 抉擇.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "蔡琴",
+        "album": "蔡琴 - 蔡琴 (國語精選)",
+        "track": "02 蔡琴 - 抉擇.flac",
+        "relativePath": "蔡琴/蔡琴 - 蔡琴 (國語精選)/02 蔡琴 - 抉擇.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "蔡琴/蔡琴 - 蔡琴 (國語精選)/03 蔡琴 - 出塞曲.flac",
+      "artistName": "蔡琴",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  蔡琴/蔡琴 - 蔡琴 (國語精選)/03 蔡琴 - 出塞曲.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "蔡琴",
+        "album": "蔡琴 - 蔡琴 (國語精選)",
+        "track": "03 蔡琴 - 出塞曲.flac",
+        "relativePath": "蔡琴/蔡琴 - 蔡琴 (國語精選)/03 蔡琴 - 出塞曲.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "蔡琴/蔡琴 - 蔡琴 (國語精選)/04 蔡琴 - 我的思念.flac",
+      "artistName": "蔡琴",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  蔡琴/蔡琴 - 蔡琴 (國語精選)/04 蔡琴 - 我的思念.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "蔡琴",
+        "album": "蔡琴 - 蔡琴 (國語精選)",
+        "track": "04 蔡琴 - 我的思念.flac",
+        "relativePath": "蔡琴/蔡琴 - 蔡琴 (國語精選)/04 蔡琴 - 我的思念.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "蔡琴/蔡琴 - 蔡琴 (國語精選)/05 蔡琴 - 盼與寄.flac",
+      "artistName": "蔡琴",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  蔡琴/蔡琴 - 蔡琴 (國語精選)/05 蔡琴 - 盼與寄.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "蔡琴",
+        "album": "蔡琴 - 蔡琴 (國語精選)",
+        "track": "05 蔡琴 - 盼與寄.flac",
+        "relativePath": "蔡琴/蔡琴 - 蔡琴 (國語精選)/05 蔡琴 - 盼與寄.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "蔡琴/蔡琴 - 蔡琴 (國語精選)/06 蔡琴 - 船.flac",
+      "artistName": "蔡琴",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  蔡琴/蔡琴 - 蔡琴 (國語精選)/06 蔡琴 - 船.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "蔡琴",
+        "album": "蔡琴 - 蔡琴 (國語精選)",
+        "track": "06 蔡琴 - 船.flac",
+        "relativePath": "蔡琴/蔡琴 - 蔡琴 (國語精選)/06 蔡琴 - 船.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "蔡琴/蔡琴 - 蔡琴 (國語精選)/07 蔡琴 - 想你的時候.flac",
+      "artistName": "蔡琴",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  蔡琴/蔡琴 - 蔡琴 (國語精選)/07 蔡琴 - 想你的時候.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "蔡琴",
+        "album": "蔡琴 - 蔡琴 (國語精選)",
+        "track": "07 蔡琴 - 想你的時候.flac",
+        "relativePath": "蔡琴/蔡琴 - 蔡琴 (國語精選)/07 蔡琴 - 想你的時候.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "蔡琴/蔡琴 - 蔡琴 (國語精選)/08 蔡琴 - 被遺忘的時光.flac",
+      "artistName": "蔡琴",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  蔡琴/蔡琴 - 蔡琴 (國語精選)/08 蔡琴 - 被遺忘的時光.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "蔡琴",
+        "album": "蔡琴 - 蔡琴 (國語精選)",
+        "track": "08 蔡琴 - 被遺忘的時光.flac",
+        "relativePath": "蔡琴/蔡琴 - 蔡琴 (國語精選)/08 蔡琴 - 被遺忘的時光.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "蔡琴/蔡琴 - 蔡琴 (國語精選)/09 蔡琴 - 再愛我一次.flac",
+      "artistName": "蔡琴",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  蔡琴/蔡琴 - 蔡琴 (國語精選)/09 蔡琴 - 再愛我一次.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "蔡琴",
+        "album": "蔡琴 - 蔡琴 (國語精選)",
+        "track": "09 蔡琴 - 再愛我一次.flac",
+        "relativePath": "蔡琴/蔡琴 - 蔡琴 (國語精選)/09 蔡琴 - 再愛我一次.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "蔡琴/蔡琴 - 蔡琴 (國語精選)/10 蔡琴 - 昨夜之燈.flac",
+      "artistName": "蔡琴",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  蔡琴/蔡琴 - 蔡琴 (國語精選)/10 蔡琴 - 昨夜之燈.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "蔡琴",
+        "album": "蔡琴 - 蔡琴 (國語精選)",
+        "track": "10 蔡琴 - 昨夜之燈.flac",
+        "relativePath": "蔡琴/蔡琴 - 蔡琴 (國語精選)/10 蔡琴 - 昨夜之燈.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "蔡琴/蔡琴 - 蔡琴 (國語精選)/11 蔡琴 - 菜根譚.flac",
+      "artistName": "蔡琴",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  蔡琴/蔡琴 - 蔡琴 (國語精選)/11 蔡琴 - 菜根譚.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "蔡琴",
+        "album": "蔡琴 - 蔡琴 (國語精選)",
+        "track": "11 蔡琴 - 菜根譚.flac",
+        "relativePath": "蔡琴/蔡琴 - 蔡琴 (國語精選)/11 蔡琴 - 菜根譚.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "蔡琴/蔡琴 - 蔡琴 (國語精選)/12 蔡琴 - 怎麼能.flac",
+      "artistName": "蔡琴",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  蔡琴/蔡琴 - 蔡琴 (國語精選)/12 蔡琴 - 怎麼能.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "蔡琴",
+        "album": "蔡琴 - 蔡琴 (國語精選)",
+        "track": "12 蔡琴 - 怎麼能.flac",
+        "relativePath": "蔡琴/蔡琴 - 蔡琴 (國語精選)/12 蔡琴 - 怎麼能.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "蔡琴/蔡琴 - 蔡琴 (國語精選)/13 蔡琴 - 遠颺的夢舟.flac",
+      "artistName": "蔡琴",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  蔡琴/蔡琴 - 蔡琴 (國語精選)/13 蔡琴 - 遠颺的夢舟.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "蔡琴",
+        "album": "蔡琴 - 蔡琴 (國語精選)",
+        "track": "13 蔡琴 - 遠颺的夢舟.flac",
+        "relativePath": "蔡琴/蔡琴 - 蔡琴 (國語精選)/13 蔡琴 - 遠颺的夢舟.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "蔡琴/蔡琴 - 蔡琴 (國語精選)/14 蔡琴 - 小白菜.flac",
+      "artistName": "蔡琴",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  蔡琴/蔡琴 - 蔡琴 (國語精選)/14 蔡琴 - 小白菜.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "蔡琴",
+        "album": "蔡琴 - 蔡琴 (國語精選)",
+        "track": "14 蔡琴 - 小白菜.flac",
+        "relativePath": "蔡琴/蔡琴 - 蔡琴 (國語精選)/14 蔡琴 - 小白菜.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "蔡琴/蔡琴 - 蔡琴 (國語精選)/15 蔡琴 - 希望還能遇見你.flac",
+      "artistName": "蔡琴",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  蔡琴/蔡琴 - 蔡琴 (國語精選)/15 蔡琴 - 希望還能遇見你.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "蔡琴",
+        "album": "蔡琴 - 蔡琴 (國語精選)",
+        "track": "15 蔡琴 - 希望還能遇見你.flac",
+        "relativePath": "蔡琴/蔡琴 - 蔡琴 (國語精選)/15 蔡琴 - 希望還能遇見你.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "蔡琴/蔡琴 - 蔡琴 (國語精選)/16 蔡琴 - 情是什麼.flac",
+      "artistName": "蔡琴",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  蔡琴/蔡琴 - 蔡琴 (國語精選)/16 蔡琴 - 情是什麼.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "蔡琴",
+        "album": "蔡琴 - 蔡琴 (國語精選)",
+        "track": "16 蔡琴 - 情是什麼.flac",
+        "relativePath": "蔡琴/蔡琴 - 蔡琴 (國語精選)/16 蔡琴 - 情是什麼.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "蔡琴/蔡琴 - 蔡琴 (國語精選)/17 蔡琴 - 扇子歌.flac",
+      "artistName": "蔡琴",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  蔡琴/蔡琴 - 蔡琴 (國語精選)/17 蔡琴 - 扇子歌.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "蔡琴",
+        "album": "蔡琴 - 蔡琴 (國語精選)",
+        "track": "17 蔡琴 - 扇子歌.flac",
+        "relativePath": "蔡琴/蔡琴 - 蔡琴 (國語精選)/17 蔡琴 - 扇子歌.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "蔡琴/蔡琴 - 蔡琴 (國語精選)/18 蔡琴 - 秋瑾.flac",
+      "artistName": "蔡琴",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  蔡琴/蔡琴 - 蔡琴 (國語精選)/18 蔡琴 - 秋瑾.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "蔡琴",
+        "album": "蔡琴 - 蔡琴 (國語精選)",
+        "track": "18 蔡琴 - 秋瑾.flac",
+        "relativePath": "蔡琴/蔡琴 - 蔡琴 (國語精選)/18 蔡琴 - 秋瑾.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "蔡琴/蔡琴 - 蔡琴 (國語精選)/19 蔡琴 - 屈原.flac",
+      "artistName": "蔡琴",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  蔡琴/蔡琴 - 蔡琴 (國語精選)/19 蔡琴 - 屈原.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "蔡琴",
+        "album": "蔡琴 - 蔡琴 (國語精選)",
+        "track": "19 蔡琴 - 屈原.flac",
+        "relativePath": "蔡琴/蔡琴 - 蔡琴 (國語精選)/19 蔡琴 - 屈原.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "蔡琴/蔡琴 - 蔡琴 (國語精選)/20 蔡琴 - 塵緣.flac",
+      "artistName": "蔡琴",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  蔡琴/蔡琴 - 蔡琴 (國語精選)/20 蔡琴 - 塵緣.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "蔡琴",
+        "album": "蔡琴 - 蔡琴 (國語精選)",
+        "track": "20 蔡琴 - 塵緣.flac",
+        "relativePath": "蔡琴/蔡琴 - 蔡琴 (國語精選)/20 蔡琴 - 塵緣.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "蔡琴/蔡琴 - 蔡琴 (國語精選)/21 蔡琴 - 新娘.flac",
+      "artistName": "蔡琴",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  蔡琴/蔡琴 - 蔡琴 (國語精選)/21 蔡琴 - 新娘.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "蔡琴",
+        "album": "蔡琴 - 蔡琴 (國語精選)",
+        "track": "21 蔡琴 - 新娘.flac",
+        "relativePath": "蔡琴/蔡琴 - 蔡琴 (國語精選)/21 蔡琴 - 新娘.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "蔡琴/蔡琴 - 蔡琴 (國語精選)/22 蔡琴 - 遠方.flac",
+      "artistName": "蔡琴",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  蔡琴/蔡琴 - 蔡琴 (國語精選)/22 蔡琴 - 遠方.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "蔡琴",
+        "album": "蔡琴 - 蔡琴 (國語精選)",
+        "track": "22 蔡琴 - 遠方.flac",
+        "relativePath": "蔡琴/蔡琴 - 蔡琴 (國語精選)/22 蔡琴 - 遠方.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "蔡琴/蔡琴 - 蔡琴 (國語精選)/23 蔡琴 - 零點十七分.flac",
+      "artistName": "蔡琴",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  蔡琴/蔡琴 - 蔡琴 (國語精選)/23 蔡琴 - 零點十七分.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "蔡琴",
+        "album": "蔡琴 - 蔡琴 (國語精選)",
+        "track": "23 蔡琴 - 零點十七分.flac",
+        "relativePath": "蔡琴/蔡琴 - 蔡琴 (國語精選)/23 蔡琴 - 零點十七分.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    }
+  ]
+}

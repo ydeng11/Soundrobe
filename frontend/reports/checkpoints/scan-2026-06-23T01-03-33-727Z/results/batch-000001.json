@@ -1,0 +1,73 @@
+{
+  "batchId": 1,
+  "completedAt": "2026-06-23T01:03:33.960Z",
+  "count": 1,
+  "results": [
+    {
+      "rel": "Artist One/Album A/stale-padding-gap.flac",
+      "artistName": "Artist One",
+      "statusLines": [
+        "  MINOR_METADATA_GAP    Artist One/Album A/stale-padding-gap.flac  (65540 zero bytes between metadata and audio)",
+        "  MINOR_BROKEN_CHAIN      Artist One/Album A/stale-padding-gap.flac  (metadata block is marked last before later metadata blocks)"
+      ],
+      "error": null,
+      "bucket": "minor",
+      "diagnosis": {
+        "artist": "Artist One",
+        "album": "Album A",
+        "track": "stale-padding-gap.flac",
+        "relativePath": "Artist One/Album A/stale-padding-gap.flac",
+        "bucket": "minor",
+        "issues": [
+          "metadata-audio-gap",
+          "broken-metadata-chain"
+        ],
+        "knownRepairs": [
+          "fix-metadata-audio-gap",
+          "fix-broken-metadata-chain"
+        ],
+        "action": "would_fix",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "metadataGap": 1,
+        "brokenChain": 1
+      },
+      "severity": {
+        "level": "MINOR",
+        "reasons": [
+          "metadata audio gap",
+          "broken metadata chain"
+        ]
+      }
+    }
+  ]
+}

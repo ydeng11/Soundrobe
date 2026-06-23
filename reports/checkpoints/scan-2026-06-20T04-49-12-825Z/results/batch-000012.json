@@ -1,0 +1,5360 @@
+{
+  "batchId": 12,
+  "completedAt": "2026-06-20T05:08:55.161Z",
+  "count": 100,
+  "results": [
+    {
+      "rel": "久保田利伸/Toshinobu Kubota - The Baddest II/04 Toshinobu Kubota - Love Reborn.flac",
+      "artistName": "久保田利伸",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  久保田利伸/Toshinobu Kubota - The Baddest II/04 Toshinobu Kubota - Love Reborn.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "久保田利伸",
+        "album": "Toshinobu Kubota - The Baddest II",
+        "track": "04 Toshinobu Kubota - Love Reborn.flac",
+        "relativePath": "久保田利伸/Toshinobu Kubota - The Baddest II/04 Toshinobu Kubota - Love Reborn.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "久保田利伸/Toshinobu Kubota - The Baddest II/05 Toshinobu Kubota - 雨音.flac",
+      "artistName": "久保田利伸",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  久保田利伸/Toshinobu Kubota - The Baddest II/05 Toshinobu Kubota - 雨音.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "久保田利伸",
+        "album": "Toshinobu Kubota - The Baddest II",
+        "track": "05 Toshinobu Kubota - 雨音.flac",
+        "relativePath": "久保田利伸/Toshinobu Kubota - The Baddest II/05 Toshinobu Kubota - 雨音.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "久保田利伸/Toshinobu Kubota - The Baddest II/06 Toshinobu Kubota - Be Wanabee.flac",
+      "artistName": "久保田利伸",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  久保田利伸/Toshinobu Kubota - The Baddest II/06 Toshinobu Kubota - Be Wanabee.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "久保田利伸",
+        "album": "Toshinobu Kubota - The Baddest II",
+        "track": "06 Toshinobu Kubota - Be Wanabee.flac",
+        "relativePath": "久保田利伸/Toshinobu Kubota - The Baddest II/06 Toshinobu Kubota - Be Wanabee.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "久保田利伸/Toshinobu Kubota - The Baddest II/07 Toshinobu Kubota - High Roller.flac",
+      "artistName": "久保田利伸",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  久保田利伸/Toshinobu Kubota - The Baddest II/07 Toshinobu Kubota - High Roller.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "久保田利伸",
+        "album": "Toshinobu Kubota - The Baddest II",
+        "track": "07 Toshinobu Kubota - High Roller.flac",
+        "relativePath": "久保田利伸/Toshinobu Kubota - The Baddest II/07 Toshinobu Kubota - High Roller.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "久保田利伸/Toshinobu Kubota - The Baddest II/08 Toshinobu Kubota - 君に会いたい.flac",
+      "artistName": "久保田利伸",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  久保田利伸/Toshinobu Kubota - The Baddest II/08 Toshinobu Kubota - 君に会いたい.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "久保田利伸",
+        "album": "Toshinobu Kubota - The Baddest II",
+        "track": "08 Toshinobu Kubota - 君に会いたい.flac",
+        "relativePath": "久保田利伸/Toshinobu Kubota - The Baddest II/08 Toshinobu Kubota - 君に会いたい.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "久保田利伸/Toshinobu Kubota - The Baddest II/09 Toshinobu Kubota - Indigo Waltz '93 (Dedicate to Michael C. Hoffman).flac",
+      "artistName": "久保田利伸",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  久保田利伸/Toshinobu Kubota - The Baddest II/09 Toshinobu Kubota - Indigo Waltz '93 (Dedicate to Michael C. Hoffman).flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "久保田利伸",
+        "album": "Toshinobu Kubota - The Baddest II",
+        "track": "09 Toshinobu Kubota - Indigo Waltz '93 (Dedicate to Michael C. Hoffman).flac",
+        "relativePath": "久保田利伸/Toshinobu Kubota - The Baddest II/09 Toshinobu Kubota - Indigo Waltz '93 (Dedicate to Michael C. Hoffman).flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "久保田利伸/Toshinobu Kubota - The Baddest II/10 Toshinobu Kubota - Mama Udongo - Mabutano Nakani.flac",
+      "artistName": "久保田利伸",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  久保田利伸/Toshinobu Kubota - The Baddest II/10 Toshinobu Kubota - Mama Udongo - Mabutano Nakani.flac  (Playable but strict decode reported a warning)\n                         testing, 98% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bWARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "久保田利伸",
+        "album": "Toshinobu Kubota - The Baddest II",
+        "track": "10 Toshinobu Kubota - Mama Udongo - Mabutano Nakani.flac",
+        "relativePath": "久保田利伸/Toshinobu Kubota - The Baddest II/10 Toshinobu Kubota - Mama Udongo - Mabutano Nakani.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "testing, 98% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bWARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "久保田利伸/Toshinobu Kubota - The Baddest II/11 Toshinobu Kubota - Keep On Jammin'.flac",
+      "artistName": "久保田利伸",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  久保田利伸/Toshinobu Kubota - The Baddest II/11 Toshinobu Kubota - Keep On Jammin'.flac  (Playable but strict decode reported a warning)\n                         testing, 93% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bWARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "久保田利伸",
+        "album": "Toshinobu Kubota - The Baddest II",
+        "track": "11 Toshinobu Kubota - Keep On Jammin'.flac",
+        "relativePath": "久保田利伸/Toshinobu Kubota - The Baddest II/11 Toshinobu Kubota - Keep On Jammin'.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "testing, 93% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bWARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "久保田利伸/Toshinobu Kubota - The Baddest II/12 Toshinobu Kubota - Futarino Orukesuta.flac",
+      "artistName": "久保田利伸",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  久保田利伸/Toshinobu Kubota - The Baddest II/12 Toshinobu Kubota - Futarino Orukesuta.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "久保田利伸",
+        "album": "Toshinobu Kubota - The Baddest II",
+        "track": "12 Toshinobu Kubota - Futarino Orukesuta.flac",
+        "relativePath": "久保田利伸/Toshinobu Kubota - The Baddest II/12 Toshinobu Kubota - Futarino Orukesuta.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "久保田利伸/Toshinobu Kubota - The Baddest II/13 Toshinobu Kubota - 夢 with You.flac",
+      "artistName": "久保田利伸",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  久保田利伸/Toshinobu Kubota - The Baddest II/13 Toshinobu Kubota - 夢 with You.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "久保田利伸",
+        "album": "Toshinobu Kubota - The Baddest II",
+        "track": "13 Toshinobu Kubota - 夢 with You.flac",
+        "relativePath": "久保田利伸/Toshinobu Kubota - The Baddest II/13 Toshinobu Kubota - 夢 with You.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "久保田利伸/Toshinobu Kubota - The Baddest II/14 Toshinobu Kubota - Moving Target.flac",
+      "artistName": "久保田利伸",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  久保田利伸/Toshinobu Kubota - The Baddest II/14 Toshinobu Kubota - Moving Target.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "久保田利伸",
+        "album": "Toshinobu Kubota - The Baddest II",
+        "track": "14 Toshinobu Kubota - Moving Target.flac",
+        "relativePath": "久保田利伸/Toshinobu Kubota - The Baddest II/14 Toshinobu Kubota - Moving Target.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "久保田利伸/Toshinobu Kubota - The Baddest II/15 Toshinobu Kubota - Forever Yours.flac",
+      "artistName": "久保田利伸",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  久保田利伸/Toshinobu Kubota - The Baddest II/15 Toshinobu Kubota - Forever Yours.flac  (Playable but strict decode reported a warning)\n                         testing, 96% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bWARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "久保田利伸",
+        "album": "Toshinobu Kubota - The Baddest II",
+        "track": "15 Toshinobu Kubota - Forever Yours.flac",
+        "relativePath": "久保田利伸/Toshinobu Kubota - The Baddest II/15 Toshinobu Kubota - Forever Yours.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "testing, 96% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bWARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "久石让/A Scene at the Sea (Takeshi Kitano's Original Motion Picture Soundtrack)/久石让-Bus Stop.flac",
+      "artistName": "久石让",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "久石让",
+        "album": "A Scene at the Sea (Takeshi Kitano's Original Motion Picture Soundtrack)",
+        "track": "久石让-Bus Stop.flac",
+        "relativePath": "久石让/A Scene at the Sea (Takeshi Kitano's Original Motion Picture Soundtrack)/久石让-Bus Stop.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "久石让/A Scene at the Sea (Takeshi Kitano's Original Motion Picture Soundtrack)/久石让-Clifside Waltz， Pt. 1.flac",
+      "artistName": "久石让",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "久石让",
+        "album": "A Scene at the Sea (Takeshi Kitano's Original Motion Picture Soundtrack)",
+        "track": "久石让-Clifside Waltz， Pt. 1.flac",
+        "relativePath": "久石让/A Scene at the Sea (Takeshi Kitano's Original Motion Picture Soundtrack)/久石让-Clifside Waltz， Pt. 1.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "久石让/A Scene at the Sea (Takeshi Kitano's Original Motion Picture Soundtrack)/久石让-Clifside Waltz， Pt. 2.flac",
+      "artistName": "久石让",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "久石让",
+        "album": "A Scene at the Sea (Takeshi Kitano's Original Motion Picture Soundtrack)",
+        "track": "久石让-Clifside Waltz， Pt. 2.flac",
+        "relativePath": "久石让/A Scene at the Sea (Takeshi Kitano's Original Motion Picture Soundtrack)/久石让-Clifside Waltz， Pt. 2.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "久石让/A Scene at the Sea (Takeshi Kitano's Original Motion Picture Soundtrack)/久石让-Clifside Waltz， Pt. 3.flac",
+      "artistName": "久石让",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "久石让",
+        "album": "A Scene at the Sea (Takeshi Kitano's Original Motion Picture Soundtrack)",
+        "track": "久石让-Clifside Waltz， Pt. 3.flac",
+        "relativePath": "久石让/A Scene at the Sea (Takeshi Kitano's Original Motion Picture Soundtrack)/久石让-Clifside Waltz， Pt. 3.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "久石让/A Scene at the Sea (Takeshi Kitano's Original Motion Picture Soundtrack)/久石让-Next Is My Turn.flac",
+      "artistName": "久石让",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "久石让",
+        "album": "A Scene at the Sea (Takeshi Kitano's Original Motion Picture Soundtrack)",
+        "track": "久石让-Next Is My Turn.flac",
+        "relativePath": "久石让/A Scene at the Sea (Takeshi Kitano's Original Motion Picture Soundtrack)/久石让-Next Is My Turn.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "久石让/A Scene at the Sea (Takeshi Kitano's Original Motion Picture Soundtrack)/久石让-Silent Love(Main Theme).flac",
+      "artistName": "久石让",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "久石让",
+        "album": "A Scene at the Sea (Takeshi Kitano's Original Motion Picture Soundtrack)",
+        "track": "久石让-Silent Love(Main Theme).flac",
+        "relativePath": "久石让/A Scene at the Sea (Takeshi Kitano's Original Motion Picture Soundtrack)/久石让-Silent Love(Main Theme).flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "久石让/A Scene at the Sea (Takeshi Kitano's Original Motion Picture Soundtrack)/久石让-Solitude.flac",
+      "artistName": "久石让",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "久石让",
+        "album": "A Scene at the Sea (Takeshi Kitano's Original Motion Picture Soundtrack)",
+        "track": "久石让-Solitude.flac",
+        "relativePath": "久石让/A Scene at the Sea (Takeshi Kitano's Original Motion Picture Soundtrack)/久石让-Solitude.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "久石让/A Scene at the Sea (Takeshi Kitano's Original Motion Picture Soundtrack)/久石让-While at Work.flac",
+      "artistName": "久石让",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "久石让",
+        "album": "A Scene at the Sea (Takeshi Kitano's Original Motion Picture Soundtrack)",
+        "track": "久石让-While at Work.flac",
+        "relativePath": "久石让/A Scene at the Sea (Takeshi Kitano's Original Motion Picture Soundtrack)/久石让-While at Work.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "久石让/Another Piano Stories~The End Of The World~/久石让-I Will Be(Bonus Tracks).flac",
+      "artistName": "久石让",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "久石让",
+        "album": "Another Piano Stories~The End Of The World~",
+        "track": "久石让-I Will Be(Bonus Tracks).flac",
+        "relativePath": "久石让/Another Piano Stories~The End Of The World~/久石让-I Will Be(Bonus Tracks).flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "久石让/Another Piano Stories~The End Of The World~/久石让-Les Aventuriers.flac",
+      "artistName": "久石让",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "久石让",
+        "album": "Another Piano Stories~The End Of The World~",
+        "track": "久石让-Les Aventuriers.flac",
+        "relativePath": "久石让/Another Piano Stories~The End Of The World~/久石让-Les Aventuriers.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "久石让/Another Piano Stories~The End Of The World~/久石让-The End Of The World：：I.Collapse.flac",
+      "artistName": "久石让",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "久石让",
+        "album": "Another Piano Stories~The End Of The World~",
+        "track": "久石让-The End Of The World：：I.Collapse.flac",
+        "relativePath": "久石让/Another Piano Stories~The End Of The World~/久石让-The End Of The World：：I.Collapse.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "久石让/Another Piano Stories~The End Of The World~/久石让-The End Of The World：：II.Grace Of The St.Paul.flac",
+      "artistName": "久石让",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "久石让",
+        "album": "Another Piano Stories~The End Of The World~",
+        "track": "久石让-The End Of The World：：II.Grace Of The St.Paul.flac",
+        "relativePath": "久石让/Another Piano Stories~The End Of The World~/久石让-The End Of The World：：II.Grace Of The St.Paul.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "久石让/Another Piano Stories~The End Of The World~/久石让-The End Of The World：：III.Beyond The World.flac",
+      "artistName": "久石让",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "久石让",
+        "album": "Another Piano Stories~The End Of The World~",
+        "track": "久石让-The End Of The World：：III.Beyond The World.flac",
+        "relativePath": "久石让/Another Piano Stories~The End Of The World~/久石让-The End Of The World：：III.Beyond The World.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "久石让/Another Piano Stories~The End Of The World~/久石让-The End Of The World：：IV.The End Of The World.flac",
+      "artistName": "久石让",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "久石让",
+        "album": "Another Piano Stories~The End Of The World~",
+        "track": "久石让-The End Of The World：：IV.The End Of The World.flac",
+        "relativePath": "久石让/Another Piano Stories~The End Of The World~/久石让-The End Of The World：：IV.The End Of The World.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "久石让/Another Piano Stories~The End Of The World~/久石让-Woman.flac",
+      "artistName": "久石让",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "久石让",
+        "album": "Another Piano Stories~The End Of The World~",
+        "track": "久石让-Woman.flac",
+        "relativePath": "久石让/Another Piano Stories~The End Of The World~/久石让-Woman.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "久石让/Another Piano Stories~The End Of The World~/久石让-おくりびと：：Prayer.flac",
+      "artistName": "久石让",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "久石让",
+        "album": "Another Piano Stories~The End Of The World~",
+        "track": "久石让-おくりびと：：Prayer.flac",
+        "relativePath": "久石让/Another Piano Stories~The End Of The World~/久石让-おくりびと：：Prayer.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "久石让/Another Piano Stories~The End Of The World~/久石让-おくりびと：：Prologue~Theme.flac",
+      "artistName": "久石让",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "久石让",
+        "album": "Another Piano Stories~The End Of The World~",
+        "track": "久石让-おくりびと：：Prologue~Theme.flac",
+        "relativePath": "久石让/Another Piano Stories~The End Of The World~/久石让-おくりびと：：Prologue~Theme.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "久石让/Another Piano Stories~The End Of The World~/久石让-おくりびと：：Theme Of Departures.flac",
+      "artistName": "久石让",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "久石让",
+        "album": "Another Piano Stories~The End Of The World~",
+        "track": "久石让-おくりびと：：Theme Of Departures.flac",
+        "relativePath": "久石让/Another Piano Stories~The End Of The World~/久石让-おくりびと：：Theme Of Departures.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "久石让/Another Piano Stories~The End Of The World~/久石让-トゥーランドット：：Destiny Of Us(From Musical Turandot).flac",
+      "artistName": "久石让",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "久石让",
+        "album": "Another Piano Stories~The End Of The World~",
+        "track": "久石让-トゥーランドット：：Destiny Of Us(From Musical Turandot).flac",
+        "relativePath": "久石让/Another Piano Stories~The End Of The World~/久石让-トゥーランドット：：Destiny Of Us(From Musical Turandot).flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "久石让/Another Piano Stories~The End Of The World~/久石让-太王四神記：：Love Theme Of Taewangsashingi.flac",
+      "artistName": "久石让",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "久石让",
+        "album": "Another Piano Stories~The End Of The World~",
+        "track": "久石让-太王四神記：：Love Theme Of Taewangsashingi.flac",
+        "relativePath": "久石让/Another Piano Stories~The End Of The World~/久石让-太王四神記：：Love Theme Of Taewangsashingi.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "久石让/Another Piano Stories~The End Of The World~/久石让-崖の上のポニョ：：Ponyo On The Cliff By The Sea.flac",
+      "artistName": "久石让",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "久石让",
+        "album": "Another Piano Stories~The End Of The World~",
+        "track": "久石让-崖の上のポニョ：：Ponyo On The Cliff By The Sea.flac",
+        "relativePath": "久石让/Another Piano Stories~The End Of The World~/久石让-崖の上のポニョ：：Ponyo On The Cliff By The Sea.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "久石让/Another Piano Stories~The End Of The World~/久石让-私は貝になりたい：：I’d Rather Be A Shellfish(Bonus Tracks).flac",
+      "artistName": "久石让",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "久石让",
+        "album": "Another Piano Stories~The End Of The World~",
+        "track": "久石让-私は貝になりたい：：I’d Rather Be A Shellfish(Bonus Tracks).flac",
+        "relativePath": "久石让/Another Piano Stories~The End Of The World~/久石让-私は貝になりたい：：I’d Rather Be A Shellfish(Bonus Tracks).flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "久石让/Brother (Original Motion Picture Soundtrack)/New Japan Philharmonic_久石让-Beyond the Control.flac",
+      "artistName": "久石让",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "久石让",
+        "album": "Brother (Original Motion Picture Soundtrack)",
+        "track": "New Japan Philharmonic_久石让-Beyond the Control.flac",
+        "relativePath": "久石让/Brother (Original Motion Picture Soundtrack)/New Japan Philharmonic_久石让-Beyond the Control.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "久石让/Brother (Original Motion Picture Soundtrack)/New Japan Philharmonic_久石让-Blood Brother.flac",
+      "artistName": "久石让",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "久石让",
+        "album": "Brother (Original Motion Picture Soundtrack)",
+        "track": "New Japan Philharmonic_久石让-Blood Brother.flac",
+        "relativePath": "久石让/Brother (Original Motion Picture Soundtrack)/New Japan Philharmonic_久石让-Blood Brother.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "久石让/Brother (Original Motion Picture Soundtrack)/New Japan Philharmonic_久石让-Brother(Remix Version).flac",
+      "artistName": "久石让",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "久石让",
+        "album": "Brother (Original Motion Picture Soundtrack)",
+        "track": "New Japan Philharmonic_久石让-Brother(Remix Version).flac",
+        "relativePath": "久石让/Brother (Original Motion Picture Soundtrack)/New Japan Philharmonic_久石让-Brother(Remix Version).flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "久石让/Brother (Original Motion Picture Soundtrack)/New Japan Philharmonic_久石让-Brother.flac",
+      "artistName": "久石让",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "久石让",
+        "album": "Brother (Original Motion Picture Soundtrack)",
+        "track": "New Japan Philharmonic_久石让-Brother.flac",
+        "relativePath": "久石让/Brother (Original Motion Picture Soundtrack)/New Japan Philharmonic_久石让-Brother.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "久石让/Brother (Original Motion Picture Soundtrack)/New Japan Philharmonic_久石让-Death Spiral.flac",
+      "artistName": "久石让",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "久石让",
+        "album": "Brother (Original Motion Picture Soundtrack)",
+        "track": "New Japan Philharmonic_久石让-Death Spiral.flac",
+        "relativePath": "久石让/Brother (Original Motion Picture Soundtrack)/New Japan Philharmonic_久石让-Death Spiral.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "久石让/Brother (Original Motion Picture Soundtrack)/New Japan Philharmonic_久石让-Drifter.. in Lax.flac",
+      "artistName": "久石让",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "久石让",
+        "album": "Brother (Original Motion Picture Soundtrack)",
+        "track": "New Japan Philharmonic_久石让-Drifter.. in Lax.flac",
+        "relativePath": "久石让/Brother (Original Motion Picture Soundtrack)/New Japan Philharmonic_久石让-Drifter.. in Lax.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "久石让/Brother (Original Motion Picture Soundtrack)/New Japan Philharmonic_久石让-I Love You... Aniki.flac",
+      "artistName": "久石让",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "久石让",
+        "album": "Brother (Original Motion Picture Soundtrack)",
+        "track": "New Japan Philharmonic_久石让-I Love You... Aniki.flac",
+        "relativePath": "久石让/Brother (Original Motion Picture Soundtrack)/New Japan Philharmonic_久石让-I Love You... Aniki.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "久石让/Brother (Original Motion Picture Soundtrack)/New Japan Philharmonic_久石让-Liberation from the Death.flac",
+      "artistName": "久石让",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "久石让",
+        "album": "Brother (Original Motion Picture Soundtrack)",
+        "track": "New Japan Philharmonic_久石让-Liberation from the Death.flac",
+        "relativePath": "久石让/Brother (Original Motion Picture Soundtrack)/New Japan Philharmonic_久石让-Liberation from the Death.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "久石让/Brother (Original Motion Picture Soundtrack)/New Japan Philharmonic_久石让-On the Shore.flac",
+      "artistName": "久石让",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "久石让",
+        "album": "Brother (Original Motion Picture Soundtrack)",
+        "track": "New Japan Philharmonic_久石让-On the Shore.flac",
+        "relativePath": "久石让/Brother (Original Motion Picture Soundtrack)/New Japan Philharmonic_久石让-On the Shore.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "久石让/Brother (Original Motion Picture Soundtrack)/New Japan Philharmonic_久石让-Party(One Year Later).flac",
+      "artistName": "久石让",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "久石让",
+        "album": "Brother (Original Motion Picture Soundtrack)",
+        "track": "New Japan Philharmonic_久石让-Party(One Year Later).flac",
+        "relativePath": "久石让/Brother (Original Motion Picture Soundtrack)/New Japan Philharmonic_久石让-Party(One Year Later).flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "久石让/Brother (Original Motion Picture Soundtrack)/New Japan Philharmonic_久石让-Raging Men.flac",
+      "artistName": "久石让",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "久石让",
+        "album": "Brother (Original Motion Picture Soundtrack)",
+        "track": "New Japan Philharmonic_久石让-Raging Men.flac",
+        "relativePath": "久石让/Brother (Original Motion Picture Soundtrack)/New Japan Philharmonic_久石让-Raging Men.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "久石让/Brother (Original Motion Picture Soundtrack)/New Japan Philharmonic_久石让-Solitude.flac",
+      "artistName": "久石让",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "久石让",
+        "album": "Brother (Original Motion Picture Soundtrack)",
+        "track": "New Japan Philharmonic_久石让-Solitude.flac",
+        "relativePath": "久石让/Brother (Original Motion Picture Soundtrack)/New Japan Philharmonic_久石让-Solitude.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "久石让/Brother (Original Motion Picture Soundtrack)/New Japan Philharmonic_久石让-Wipe Out.flac",
+      "artistName": "久石让",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "久石让",
+        "album": "Brother (Original Motion Picture Soundtrack)",
+        "track": "New Japan Philharmonic_久石让-Wipe Out.flac",
+        "relativePath": "久石让/Brother (Original Motion Picture Soundtrack)/New Japan Philharmonic_久石让-Wipe Out.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "久石让/Brother サウンドトラック/久石让-BROTHER(remix version).flac",
+      "artistName": "久石让",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "久石让",
+        "album": "Brother サウンドトラック",
+        "track": "久石让-BROTHER(remix version).flac",
+        "relativePath": "久石让/Brother サウンドトラック/久石让-BROTHER(remix version).flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "久石让/Brother サウンドトラック/久石让-Ballade.flac",
+      "artistName": "久石让",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "久石让",
+        "album": "Brother サウンドトラック",
+        "track": "久石让-Ballade.flac",
+        "relativePath": "久石让/Brother サウンドトラック/久石让-Ballade.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "久石让/Brother サウンドトラック/久石让-Beyond the control.flac",
+      "artistName": "久石让",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "久石让",
+        "album": "Brother サウンドトラック",
+        "track": "久石让-Beyond the control.flac",
+        "relativePath": "久石让/Brother サウンドトラック/久石让-Beyond the control.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "久石让/Brother サウンドトラック/久石让-Death Spiral.flac",
+      "artistName": "久石让",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "久石让",
+        "album": "Brother サウンドトラック",
+        "track": "久石让-Death Spiral.flac",
+        "relativePath": "久石让/Brother サウンドトラック/久石让-Death Spiral.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "久石让/Brother サウンドトラック/久石让-I love you…Aniki.flac",
+      "artistName": "久石让",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "久石让",
+        "album": "Brother サウンドトラック",
+        "track": "久石让-I love you…Aniki.flac",
+        "relativePath": "久石让/Brother サウンドトラック/久石让-I love you…Aniki.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "久石让/Brother サウンドトラック/久石让-Party~one year later~.flac",
+      "artistName": "久石让",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "久石让",
+        "album": "Brother サウンドトラック",
+        "track": "久石让-Party~one year later~.flac",
+        "relativePath": "久石让/Brother サウンドトラック/久石让-Party~one year later~.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "久石让/Brother サウンドトラック/久石让-Raging men.flac",
+      "artistName": "久石让",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "久石让",
+        "album": "Brother サウンドトラック",
+        "track": "久石让-Raging men.flac",
+        "relativePath": "久石让/Brother サウンドトラック/久石让-Raging men.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "久石让/Brother サウンドトラック/久石让-Solitude.flac",
+      "artistName": "久石让",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "久石让",
+        "album": "Brother サウンドトラック",
+        "track": "久石让-Solitude.flac",
+        "relativePath": "久石让/Brother サウンドトラック/久石让-Solitude.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "久石让/Brother サウンドトラック/久石让-Tattoo.flac",
+      "artistName": "久石让",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "久石让",
+        "album": "Brother サウンドトラック",
+        "track": "久石让-Tattoo.flac",
+        "relativePath": "久石让/Brother サウンドトラック/久石让-Tattoo.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "久石让/Brother サウンドトラック/久石让-Wipe out.flac",
+      "artistName": "久石让",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "久石让",
+        "album": "Brother サウンドトラック",
+        "track": "久石让-Wipe out.flac",
+        "relativePath": "久石让/Brother サウンドトラック/久石让-Wipe out.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "久石让/Dolls (Takeshi Kitano's Original Motion Picture Soundtrack)/久石让-Dolls.flac",
+      "artistName": "久石让",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "久石让",
+        "album": "Dolls (Takeshi Kitano's Original Motion Picture Soundtrack)",
+        "track": "久石让-Dolls.flac",
+        "relativePath": "久石让/Dolls (Takeshi Kitano's Original Motion Picture Soundtrack)/久石让-Dolls.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "久石让/Dolls (Takeshi Kitano's Original Motion Picture Soundtrack)/久石让-Feel.flac",
+      "artistName": "久石让",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "久石让",
+        "album": "Dolls (Takeshi Kitano's Original Motion Picture Soundtrack)",
+        "track": "久石让-Feel.flac",
+        "relativePath": "久石让/Dolls (Takeshi Kitano's Original Motion Picture Soundtrack)/久石让-Feel.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "久石让/Dolls (Takeshi Kitano's Original Motion Picture Soundtrack)/久石让-Mad.flac",
+      "artistName": "久石让",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "久石让",
+        "album": "Dolls (Takeshi Kitano's Original Motion Picture Soundtrack)",
+        "track": "久石让-Mad.flac",
+        "relativePath": "久石让/Dolls (Takeshi Kitano's Original Motion Picture Soundtrack)/久石让-Mad.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "久石让/Dolls (Takeshi Kitano's Original Motion Picture Soundtrack)/久石让-Pure White.flac",
+      "artistName": "久石让",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "久石让",
+        "album": "Dolls (Takeshi Kitano's Original Motion Picture Soundtrack)",
+        "track": "久石让-Pure White.flac",
+        "relativePath": "久石让/Dolls (Takeshi Kitano's Original Motion Picture Soundtrack)/久石让-Pure White.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "久石让/Dolls (Takeshi Kitano's Original Motion Picture Soundtrack)/久石让-Sakura.flac",
+      "artistName": "久石让",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "久石让",
+        "album": "Dolls (Takeshi Kitano's Original Motion Picture Soundtrack)",
+        "track": "久石让-Sakura.flac",
+        "relativePath": "久石让/Dolls (Takeshi Kitano's Original Motion Picture Soundtrack)/久石让-Sakura.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "久石让/Dolls ~ドールズ~ オリジナル・サウンドトラック Soundtrack/久石让-人形 - Dolls -.flac",
+      "artistName": "久石让",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "久石让",
+        "album": "Dolls ~ドールズ~ オリジナル・サウンドトラック Soundtrack",
+        "track": "久石让-人形 - Dolls -.flac",
+        "relativePath": "久石让/Dolls ~ドールズ~ オリジナル・サウンドトラック Soundtrack/久石让-人形 - Dolls -.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "久石让/Dolls ~ドールズ~ オリジナル・サウンドトラック Soundtrack/久石让-捩 - MAD -.flac",
+      "artistName": "久石让",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "久石让",
+        "album": "Dolls ~ドールズ~ オリジナル・サウンドトラック Soundtrack",
+        "track": "久石让-捩 - MAD -.flac",
+        "relativePath": "久石让/Dolls ~ドールズ~ オリジナル・サウンドトラック Soundtrack/久石让-捩 - MAD -.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "久石让/Dolls ~ドールズ~ オリジナル・サウンドトラック Soundtrack/久石让-桜 - SAKURA -.flac",
+      "artistName": "久石让",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "久石让",
+        "album": "Dolls ~ドールズ~ オリジナル・サウンドトラック Soundtrack",
+        "track": "久石让-桜 - SAKURA -.flac",
+        "relativePath": "久石让/Dolls ~ドールズ~ オリジナル・サウンドトラック Soundtrack/久石让-桜 - SAKURA -.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "久石让/Dolls ~ドールズ~ オリジナル・サウンドトラック Soundtrack/久石让-白 - PURE WHITE -.flac",
+      "artistName": "久石让",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "久石让",
+        "album": "Dolls ~ドールズ~ オリジナル・サウンドトラック Soundtrack",
+        "track": "久石让-白 - PURE WHITE -.flac",
+        "relativePath": "久石让/Dolls ~ドールズ~ オリジナル・サウンドトラック Soundtrack/久石让-白 - PURE WHITE -.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "久石让/ENCORE/久石让-Ashitaka And San.flac",
+      "artistName": "久石让",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "久石让",
+        "album": "ENCORE",
+        "track": "久石让-Ashitaka And San.flac",
+        "relativePath": "久石让/ENCORE/久石让-Ashitaka And San.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "久石让/ENCORE/久石让-Hatsukoi.flac",
+      "artistName": "久石让",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "久石让",
+        "album": "ENCORE",
+        "track": "久石让-Hatsukoi.flac",
+        "relativePath": "久石让/ENCORE/久石让-Hatsukoi.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "久石让/ENCORE/久石让-One Summer's Day.flac",
+      "artistName": "久石让",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  久石让/ENCORE/久石让-One Summer's Day.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 12004020 samples (272.20s, 100.0% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "久石让",
+        "album": "ENCORE",
+        "track": "久石让-One Summer's Day.flac",
+        "relativePath": "久石让/ENCORE/久石让-One Summer's Day.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "久石让/ENCORE/久石让-Summer(PIANO VER.).flac",
+      "artistName": "久石让",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "久石让",
+        "album": "ENCORE",
+        "track": "久石让-Summer(PIANO VER.).flac",
+        "relativePath": "久石让/ENCORE/久石让-Summer(PIANO VER.).flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "久石让/ENCORE/久石让-The Sixth Station.flac",
+      "artistName": "久石让",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "久石让",
+        "album": "ENCORE",
+        "track": "久石让-The Sixth Station.flac",
+        "relativePath": "久石让/ENCORE/久石让-The Sixth Station.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "久石让/Freedom Piano Stories 4/久石让-Birthday.flac",
+      "artistName": "久石让",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "久石让",
+        "album": "Freedom Piano Stories 4",
+        "track": "久石让-Birthday.flac",
+        "relativePath": "久石让/Freedom Piano Stories 4/久石让-Birthday.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "久石让/Freedom Piano Stories 4/久石让-Constriction.flac",
+      "artistName": "久石让",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "久石让",
+        "album": "Freedom Piano Stories 4",
+        "track": "久石让-Constriction.flac",
+        "relativePath": "久石让/Freedom Piano Stories 4/久石让-Constriction.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "久石让/Freedom Piano Stories 4/久石让-Fragile Dream.flac",
+      "artistName": "久石让",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "久石让",
+        "album": "Freedom Piano Stories 4",
+        "track": "久石让-Fragile Dream.flac",
+        "relativePath": "久石让/Freedom Piano Stories 4/久石让-Fragile Dream.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "久石让/Freedom Piano Stories 4/久石让-Ikaros.flac",
+      "artistName": "久石让",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "久石让",
+        "album": "Freedom Piano Stories 4",
+        "track": "久石让-Ikaros.flac",
+        "relativePath": "久石让/Freedom Piano Stories 4/久石让-Ikaros.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "久石让/Freedom Piano Stories 4/久石让-Legend.flac",
+      "artistName": "久石让",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "久石让",
+        "album": "Freedom Piano Stories 4",
+        "track": "久石让-Legend.flac",
+        "relativePath": "久石让/Freedom Piano Stories 4/久石让-Legend.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "久石让/Freedom Piano Stories 4/久石让-Lost Sheep On The Bed.flac",
+      "artistName": "久石让",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "久石让",
+        "album": "Freedom Piano Stories 4",
+        "track": "久石让-Lost Sheep On The Bed.flac",
+        "relativePath": "久石让/Freedom Piano Stories 4/久石让-Lost Sheep On The Bed.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "久石让/Freedom Piano Stories 4/久石让-Oriental Wind.flac",
+      "artistName": "久石让",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "久石让",
+        "album": "Freedom Piano Stories 4",
+        "track": "久石让-Oriental Wind.flac",
+        "relativePath": "久石让/Freedom Piano Stories 4/久石让-Oriental Wind.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "久石让/Freedom Piano Stories 4/久石让-Spring.flac",
+      "artistName": "久石让",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "久石让",
+        "album": "Freedom Piano Stories 4",
+        "track": "久石让-Spring.flac",
+        "relativePath": "久石让/Freedom Piano Stories 4/久石让-Spring.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "久石让/Freedom Piano Stories 4/久石让-人生的回转木马.flac",
+      "artistName": "久石让",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "久石让",
+        "album": "Freedom Piano Stories 4",
+        "track": "久石让-人生的回转木马.flac",
+        "relativePath": "久石让/Freedom Piano Stories 4/久石让-人生的回转木马.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "久石让/Gene(遺伝子)(1) Soundtrack/久石让-A Gift From Parents.flac",
+      "artistName": "久石让",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  久石让/Gene(遺伝子)(1) Soundtrack/久石让-A Gift From Parents.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 12017566 samples (272.51s, 100.0% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "久石让",
+        "album": "Gene(遺伝子)(1) Soundtrack",
+        "track": "久石让-A Gift From Parents.flac",
+        "relativePath": "久石让/Gene(遺伝子)(1) Soundtrack/久石让-A Gift From Parents.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "久石让/Gene(遺伝子)(1) Soundtrack/久石让-Cell Division.flac",
+      "artistName": "久石让",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "久石让",
+        "album": "Gene(遺伝子)(1) Soundtrack",
+        "track": "久石让-Cell Division.flac",
+        "relativePath": "久石让/Gene(遺伝子)(1) Soundtrack/久石让-Cell Division.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "久石让/Gene(遺伝子)(1) Soundtrack/久石让-Children's Whisper.flac",
+      "artistName": "久石让",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "久石让",
+        "album": "Gene(遺伝子)(1) Soundtrack",
+        "track": "久石让-Children's Whisper.flac",
+        "relativePath": "久石让/Gene(遺伝子)(1) Soundtrack/久石让-Children's Whisper.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "久石让/Gene(遺伝子)(1) Soundtrack/久石让-Mysterious Operation.flac",
+      "artistName": "久石让",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "久石让",
+        "album": "Gene(遺伝子)(1) Soundtrack",
+        "track": "久石让-Mysterious Operation.flac",
+        "relativePath": "久石让/Gene(遺伝子)(1) Soundtrack/久石让-Mysterious Operation.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "久石让/Gene(遺伝子)(1) Soundtrack/久石让-Wonderful Life.flac",
+      "artistName": "久石让",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "久石让",
+        "album": "Gene(遺伝子)(1) Soundtrack",
+        "track": "久石让-Wonderful Life.flac",
+        "relativePath": "久石让/Gene(遺伝子)(1) Soundtrack/久石让-Wonderful Life.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "久石让/Gene(遺伝子)(1) Soundtrack/久石让-遥かなる時を超えて.flac",
+      "artistName": "久石让",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "久石让",
+        "album": "Gene(遺伝子)(1) Soundtrack",
+        "track": "久石让-遥かなる時を超えて.flac",
+        "relativePath": "久石让/Gene(遺伝子)(1) Soundtrack/久石让-遥かなる時を超えて.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "久石让/HANA-BI (オリジナル・サウンドトラック)/久石让-...and Alone(映画「HANA-BI」より).flac",
+      "artistName": "久石让",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  久石让/HANA-BI (オリジナル・サウンドトラック)/久石让-...and Alone(映画「HANA-BI」より).flac  (Playable by ffmpeg; strict FLAC decode reported an error after 6691352 samples (151.73s, 100.0% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "久石让",
+        "album": "HANA-BI (オリジナル・サウンドトラック)",
+        "track": "久石让-...and Alone(映画「HANA-BI」より).flac",
+        "relativePath": "久石让/HANA-BI (オリジナル・サウンドトラック)/久石让-...and Alone(映画「HANA-BI」より).flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "久石让/HANA-BI (オリジナル・サウンドトラック)/久石让-Angel(映画「HANA-BI」より).flac",
+      "artistName": "久石让",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "久石让",
+        "album": "HANA-BI (オリジナル・サウンドトラック)",
+        "track": "久石让-Angel(映画「HANA-BI」より).flac",
+        "relativePath": "久石让/HANA-BI (オリジナル・サウンドトラック)/久石让-Angel(映画「HANA-BI」より).flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "久石让/HANA-BI (オリジナル・サウンドトラック)/久石让-Ever Love(映画「HANA-BI」より).flac",
+      "artistName": "久石让",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "久石让",
+        "album": "HANA-BI (オリジナル・サウンドトラック)",
+        "track": "久石让-Ever Love(映画「HANA-BI」より).flac",
+        "relativePath": "久石让/HANA-BI (オリジナル・サウンドトラック)/久石让-Ever Love(映画「HANA-BI」より).flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "久石让/HANA-BI (オリジナル・サウンドトラック)/久石让-HANA-BI(Reprise).flac",
+      "artistName": "久石让",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "久石让",
+        "album": "HANA-BI (オリジナル・サウンドトラック)",
+        "track": "久石让-HANA-BI(Reprise).flac",
+        "relativePath": "久石让/HANA-BI (オリジナル・サウンドトラック)/久石让-HANA-BI(Reprise).flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "久石让/HANA-BI (オリジナル・サウンドトラック)/久石让-HANA-BI(映画「HANA-BI」より).flac",
+      "artistName": "久石让",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  久石让/HANA-BI (オリジナル・サウンドトラック)/久石让-HANA-BI(映画「HANA-BI」より).flac  (Playable by ffmpeg; strict FLAC decode reported an error after 9890240 samples (224.27s, 100.0% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "久石让",
+        "album": "HANA-BI (オリジナル・サウンドトラック)",
+        "track": "久石让-HANA-BI(映画「HANA-BI」より).flac",
+        "relativePath": "久石让/HANA-BI (オリジナル・サウンドトラック)/久石让-HANA-BI(映画「HANA-BI」より).flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "久石让/HANA-BI (オリジナル・サウンドトラック)/久石让-Heaven's Gate(映画「HANA-BI」より).flac",
+      "artistName": "久石让",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  久石让/HANA-BI (オリジナル・サウンドトラック)/久石让-Heaven's Gate(映画「HANA-BI」より).flac  (Playable by ffmpeg; strict FLAC decode reported an error after 13288752 samples (301.33s, 100.0% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "久石让",
+        "album": "HANA-BI (オリジナル・サウンドトラック)",
+        "track": "久石让-Heaven's Gate(映画「HANA-BI」より).flac",
+        "relativePath": "久石让/HANA-BI (オリジナル・サウンドトラック)/久石让-Heaven's Gate(映画「HANA-BI」より).flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "久石让/HANA-BI (オリジナル・サウンドトラック)/久石让-Painters(映画「HANA-BI」より).flac",
+      "artistName": "久石让",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "久石让",
+        "album": "HANA-BI (オリジナル・サウンドトラック)",
+        "track": "久石让-Painters(映画「HANA-BI」より).flac",
+        "relativePath": "久石让/HANA-BI (オリジナル・サウンドトラック)/久石让-Painters(映画「HANA-BI」より).flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "久石让/HANA-BI (オリジナル・サウンドトラック)/久石让-Sea of Blue(映画「HANA-BI」より).flac",
+      "artistName": "久石让",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "久石让",
+        "album": "HANA-BI (オリジナル・サウンドトラック)",
+        "track": "久石让-Sea of Blue(映画「HANA-BI」より).flac",
+        "relativePath": "久石让/HANA-BI (オリジナル・サウンドトラック)/久石让-Sea of Blue(映画「HANA-BI」より).flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "久石让/HANA-BI (オリジナル・サウンドトラック)/久石让-Smile and Smile(映画「HANA-BI」より).flac",
+      "artistName": "久石让",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "久石让",
+        "album": "HANA-BI (オリジナル・サウンドトラック)",
+        "track": "久石让-Smile and Smile(映画「HANA-BI」より).flac",
+        "relativePath": "久石让/HANA-BI (オリジナル・サウンドトラック)/久石让-Smile and Smile(映画「HANA-BI」より).flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "久石让/HANA-BI (オリジナル・サウンドトラック)/久石让-Tenderness(映画「HANA-BI」より).flac",
+      "artistName": "久石让",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "久石让",
+        "album": "HANA-BI (オリジナル・サウンドトラック)",
+        "track": "久石让-Tenderness(映画「HANA-BI」より).flac",
+        "relativePath": "久石让/HANA-BI (オリジナル・サウンドトラック)/久石让-Tenderness(映画「HANA-BI」より).flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "久石让/HANA-BI (オリジナル・サウンドトラック)/久石让-Thank You，...for Everything(映画「HANA-BI」より).flac",
+      "artistName": "久石让",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "久石让",
+        "album": "HANA-BI (オリジナル・サウンドトラック)",
+        "track": "久石让-Thank You，...for Everything(映画「HANA-BI」より).flac",
+        "relativePath": "久石让/HANA-BI (オリジナル・サウンドトラック)/久石让-Thank You，...for Everything(映画「HANA-BI」より).flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "久石让/HOPE/久石让-アヴェ・マリア.flac",
+      "artistName": "久石让",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "久石让",
+        "album": "HOPE",
+        "track": "久石让-アヴェ・マリア.flac",
+        "relativePath": "久石让/HOPE/久石让-アヴェ・マリア.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "久石让/HOPE/久石让-プリミティヴ.flac",
+      "artistName": "久石让",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "久石让",
+        "album": "HOPE",
+        "track": "久石让-プリミティヴ.flac",
+        "relativePath": "久石让/HOPE/久石让-プリミティヴ.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "久石让/HOPE/久石让-ボレロ.flac",
+      "artistName": "久石让",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "久石让",
+        "album": "HOPE",
+        "track": "久石让-ボレロ.flac",
+        "relativePath": "久石让/HOPE/久石让-ボレロ.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    }
+  ]
+}

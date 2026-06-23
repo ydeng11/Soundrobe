@@ -1,0 +1,6062 @@
+{
+  "batchId": 10,
+  "completedAt": "2026-06-20T05:08:40.432Z",
+  "count": 100,
+  "results": [
+    {
+      "rel": "Tank/2021-有声查理[flac]/Tank - 为红颜.flac",
+      "artistName": "Tank",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "Tank",
+        "album": "2021-有声查理[flac]",
+        "track": "Tank - 为红颜.flac",
+        "relativePath": "Tank/2021-有声查理[flac]/Tank - 为红颜.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "Tank/2021-有声查理[flac]/Tank - 所谓幸福.flac",
+      "artistName": "Tank",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "Tank",
+        "album": "2021-有声查理[flac]",
+        "track": "Tank - 所谓幸福.flac",
+        "relativePath": "Tank/2021-有声查理[flac]/Tank - 所谓幸福.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "Tank/2021-有声查理[flac]/Tank - 有声查理.flac",
+      "artistName": "Tank",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "Tank",
+        "album": "2021-有声查理[flac]",
+        "track": "Tank - 有声查理.flac",
+        "relativePath": "Tank/2021-有声查理[flac]/Tank - 有声查理.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "Tank/2021-有声查理[flac]/Tank - 爱要怎么继续.flac",
+      "artistName": "Tank",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "Tank",
+        "album": "2021-有声查理[flac]",
+        "track": "Tank - 爱要怎么继续.flac",
+        "relativePath": "Tank/2021-有声查理[flac]/Tank - 爱要怎么继续.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "Tank/2021-有声查理[flac]/Tank - 默默.flac",
+      "artistName": "Tank",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "Tank",
+        "album": "2021-有声查理[flac]",
+        "track": "Tank - 默默.flac",
+        "relativePath": "Tank/2021-有声查理[flac]/Tank - 默默.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "Tank/2021-电电的/Tank - 电电的.flac",
+      "artistName": "Tank",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  Tank/2021-电电的/Tank - 电电的.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 9096320 samples (189.51s, 100.0% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Tank",
+        "album": "2021-电电的",
+        "track": "Tank - 电电的.flac",
+        "relativePath": "Tank/2021-电电的/Tank - 电电的.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "Westlife/Greatest Hits/01 Seasons in the Sun.flac",
+      "artistName": "Westlife",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  Westlife/Greatest Hits/01 Seasons in the Sun.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Westlife",
+        "album": "Greatest Hits",
+        "track": "01 Seasons in the Sun.flac",
+        "relativePath": "Westlife/Greatest Hits/01 Seasons in the Sun.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "Westlife/Greatest Hits/01 Swear It Again.1.flac",
+      "artistName": "Westlife",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  Westlife/Greatest Hits/01 Swear It Again.1.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Westlife",
+        "album": "Greatest Hits",
+        "track": "01 Swear It Again.1.flac",
+        "relativePath": "Westlife/Greatest Hits/01 Swear It Again.1.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "Westlife/Greatest Hits/01 Swear It Again.flac",
+      "artistName": "Westlife",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  Westlife/Greatest Hits/01 Swear It Again.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Westlife",
+        "album": "Greatest Hits",
+        "track": "01 Swear It Again.flac",
+        "relativePath": "Westlife/Greatest Hits/01 Swear It Again.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "Westlife/Greatest Hits/02 Fool Again (remix).flac",
+      "artistName": "Westlife",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  Westlife/Greatest Hits/02 Fool Again (remix).flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Westlife",
+        "album": "Greatest Hits",
+        "track": "02 Fool Again (remix).flac",
+        "relativePath": "Westlife/Greatest Hits/02 Fool Again (remix).flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "Westlife/Greatest Hits/02 If I Let You Go (radio edit).flac",
+      "artistName": "Westlife",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  Westlife/Greatest Hits/02 If I Let You Go (radio edit).flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Westlife",
+        "album": "Greatest Hits",
+        "track": "02 If I Let You Go (radio edit).flac",
+        "relativePath": "Westlife/Greatest Hits/02 If I Let You Go (radio edit).flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "Westlife/Greatest Hits/02 If I Let You Go.flac",
+      "artistName": "Westlife",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  Westlife/Greatest Hits/02 If I Let You Go.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Westlife",
+        "album": "Greatest Hits",
+        "track": "02 If I Let You Go.flac",
+        "relativePath": "Westlife/Greatest Hits/02 If I Let You Go.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "Westlife/Greatest Hits/03 Flying Without Wings.1.flac",
+      "artistName": "Westlife",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  Westlife/Greatest Hits/03 Flying Without Wings.1.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Westlife",
+        "album": "Greatest Hits",
+        "track": "03 Flying Without Wings.1.flac",
+        "relativePath": "Westlife/Greatest Hits/03 Flying Without Wings.1.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "Westlife/Greatest Hits/03 Flying Without Wings.flac",
+      "artistName": "Westlife",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  Westlife/Greatest Hits/03 Flying Without Wings.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Westlife",
+        "album": "Greatest Hits",
+        "track": "03 Flying Without Wings.flac",
+        "relativePath": "Westlife/Greatest Hits/03 Flying Without Wings.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "Westlife/Greatest Hits/03 What Makes a Man (single remix).flac",
+      "artistName": "Westlife",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  Westlife/Greatest Hits/03 What Makes a Man (single remix).flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Westlife",
+        "album": "Greatest Hits",
+        "track": "03 What Makes a Man (single remix).flac",
+        "relativePath": "Westlife/Greatest Hits/03 What Makes a Man (single remix).flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "Westlife/Greatest Hits/04 I Have a Dream (remix).1.flac",
+      "artistName": "Westlife",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  Westlife/Greatest Hits/04 I Have a Dream (remix).1.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Westlife",
+        "album": "Greatest Hits",
+        "track": "04 I Have a Dream (remix).1.flac",
+        "relativePath": "Westlife/Greatest Hits/04 I Have a Dream (remix).1.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "Westlife/Greatest Hits/04 I Have a Dream (remix).flac",
+      "artistName": "Westlife",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  Westlife/Greatest Hits/04 I Have a Dream (remix).flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Westlife",
+        "album": "Greatest Hits",
+        "track": "04 I Have a Dream (remix).flac",
+        "relativePath": "Westlife/Greatest Hits/04 I Have a Dream (remix).flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "Westlife/Greatest Hits/04 When You're Looking Like That (single mix).flac",
+      "artistName": "Westlife",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  Westlife/Greatest Hits/04 When You're Looking Like That (single mix).flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Westlife",
+        "album": "Greatest Hits",
+        "track": "04 When You're Looking Like That (single mix).flac",
+        "relativePath": "Westlife/Greatest Hits/04 When You're Looking Like That (single mix).flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "Westlife/Greatest Hits/05 Against All Odds (Take a Look at Me Now).flac",
+      "artistName": "Westlife",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  Westlife/Greatest Hits/05 Against All Odds (Take a Look at Me Now).flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Westlife",
+        "album": "Greatest Hits",
+        "track": "05 Against All Odds (Take a Look at Me Now).flac",
+        "relativePath": "Westlife/Greatest Hits/05 Against All Odds (Take a Look at Me Now).flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "Westlife/Greatest Hits/05 Bop Bop Baby (single remix).flac",
+      "artistName": "Westlife",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  Westlife/Greatest Hits/05 Bop Bop Baby (single remix).flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Westlife",
+        "album": "Greatest Hits",
+        "track": "05 Bop Bop Baby (single remix).flac",
+        "relativePath": "Westlife/Greatest Hits/05 Bop Bop Baby (single remix).flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "Westlife/Greatest Hits/05 Seasons in the Sun.flac",
+      "artistName": "Westlife",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  Westlife/Greatest Hits/05 Seasons in the Sun.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Westlife",
+        "album": "Greatest Hits",
+        "track": "05 Seasons in the Sun.flac",
+        "relativePath": "Westlife/Greatest Hits/05 Seasons in the Sun.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "Westlife/Greatest Hits/06 Fool Again.flac",
+      "artistName": "Westlife",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  Westlife/Greatest Hits/06 Fool Again.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Westlife",
+        "album": "Greatest Hits",
+        "track": "06 Fool Again.flac",
+        "relativePath": "Westlife/Greatest Hits/06 Fool Again.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "Westlife/Greatest Hits/06 My Love (radio edit).flac",
+      "artistName": "Westlife",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  Westlife/Greatest Hits/06 My Love (radio edit).flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Westlife",
+        "album": "Greatest Hits",
+        "track": "06 My Love (radio edit).flac",
+        "relativePath": "Westlife/Greatest Hits/06 My Love (radio edit).flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "Westlife/Greatest Hits/06 Unbreakable.flac",
+      "artistName": "Westlife",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  Westlife/Greatest Hits/06 Unbreakable.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Westlife",
+        "album": "Greatest Hits",
+        "track": "06 Unbreakable.flac",
+        "relativePath": "Westlife/Greatest Hits/06 Unbreakable.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "Westlife/Greatest Hits/07 Against All Odds (Take a Look at Me Now).flac",
+      "artistName": "Westlife",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  Westlife/Greatest Hits/07 Against All Odds (Take a Look at Me Now).flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Westlife",
+        "album": "Greatest Hits",
+        "track": "07 Against All Odds (Take a Look at Me Now).flac",
+        "relativePath": "Westlife/Greatest Hits/07 Against All Odds (Take a Look at Me Now).flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "Westlife/Greatest Hits/07 Hey Whatever.flac",
+      "artistName": "Westlife",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  Westlife/Greatest Hits/07 Hey Whatever.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Westlife",
+        "album": "Greatest Hits",
+        "track": "07 Hey Whatever.flac",
+        "relativePath": "Westlife/Greatest Hits/07 Hey Whatever.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "Westlife/Greatest Hits/07 Uptown Girl.flac",
+      "artistName": "Westlife",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  Westlife/Greatest Hits/07 Uptown Girl.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Westlife",
+        "album": "Greatest Hits",
+        "track": "07 Uptown Girl.flac",
+        "relativePath": "Westlife/Greatest Hits/07 Uptown Girl.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "Westlife/Greatest Hits/08 Obvious (single mix).flac",
+      "artistName": "Westlife",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  Westlife/Greatest Hits/08 Obvious (single mix).flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Westlife",
+        "album": "Greatest Hits",
+        "track": "08 Obvious (single mix).flac",
+        "relativePath": "Westlife/Greatest Hits/08 Obvious (single mix).flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "Westlife/Greatest Hits/08 Queen of My Heart (radio edit).flac",
+      "artistName": "Westlife",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  Westlife/Greatest Hits/08 Queen of My Heart (radio edit).flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Westlife",
+        "album": "Greatest Hits",
+        "track": "08 Queen of My Heart (radio edit).flac",
+        "relativePath": "Westlife/Greatest Hits/08 Queen of My Heart (radio edit).flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "Westlife/Greatest Hits/09 When You Tell Me That You Love Me (single mix).flac",
+      "artistName": "Westlife",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  Westlife/Greatest Hits/09 When You Tell Me That You Love Me (single mix).flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Westlife",
+        "album": "Greatest Hits",
+        "track": "09 When You Tell Me That You Love Me (single mix).flac",
+        "relativePath": "Westlife/Greatest Hits/09 When You Tell Me That You Love Me (single mix).flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "Westlife/Greatest Hits/09 World of Our Own.flac",
+      "artistName": "Westlife",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  Westlife/Greatest Hits/09 World of Our Own.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Westlife",
+        "album": "Greatest Hits",
+        "track": "09 World of Our Own.flac",
+        "relativePath": "Westlife/Greatest Hits/09 World of Our Own.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "Westlife/Greatest Hits/10 Amazing (single mix).flac",
+      "artistName": "Westlife",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  Westlife/Greatest Hits/10 Amazing (single mix).flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Westlife",
+        "album": "Greatest Hits",
+        "track": "10 Amazing (single mix).flac",
+        "relativePath": "Westlife/Greatest Hits/10 Amazing (single mix).flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "Westlife/Greatest Hits/10 Mandy.flac",
+      "artistName": "Westlife",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  Westlife/Greatest Hits/10 Mandy.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Westlife",
+        "album": "Greatest Hits",
+        "track": "10 Mandy.flac",
+        "relativePath": "Westlife/Greatest Hits/10 Mandy.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "Westlife/Greatest Hits/11 The Rose.flac",
+      "artistName": "Westlife",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  Westlife/Greatest Hits/11 The Rose.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Westlife",
+        "album": "Greatest Hits",
+        "track": "11 The Rose.flac",
+        "relativePath": "Westlife/Greatest Hits/11 The Rose.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "Westlife/Greatest Hits/11 You Raise Me Up.flac",
+      "artistName": "Westlife",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  Westlife/Greatest Hits/11 You Raise Me Up.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Westlife",
+        "album": "Greatest Hits",
+        "track": "11 You Raise Me Up.flac",
+        "relativePath": "Westlife/Greatest Hits/11 You Raise Me Up.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "Westlife/Greatest Hits/12 Home.flac",
+      "artistName": "Westlife",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  Westlife/Greatest Hits/12 Home.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Westlife",
+        "album": "Greatest Hits",
+        "track": "12 Home.flac",
+        "relativePath": "Westlife/Greatest Hits/12 Home.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "Westlife/Greatest Hits/12 Us Against the World.flac",
+      "artistName": "Westlife",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  Westlife/Greatest Hits/12 Us Against the World.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Westlife",
+        "album": "Greatest Hits",
+        "track": "12 Us Against the World.flac",
+        "relativePath": "Westlife/Greatest Hits/12 Us Against the World.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "Westlife/Greatest Hits/13 What About Now (live From the O2).flac",
+      "artistName": "Westlife",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  Westlife/Greatest Hits/13 What About Now (live From the O2).flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Westlife",
+        "album": "Greatest Hits",
+        "track": "13 What About Now (live From the O2).flac",
+        "relativePath": "Westlife/Greatest Hits/13 What About Now (live From the O2).flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "Westlife/Greatest Hits/13 What About Now.flac",
+      "artistName": "Westlife",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  Westlife/Greatest Hits/13 What About Now.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Westlife",
+        "album": "Greatest Hits",
+        "track": "13 What About Now.flac",
+        "relativePath": "Westlife/Greatest Hits/13 What About Now.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "Westlife/Greatest Hits/14 Safe (single mix).flac",
+      "artistName": "Westlife",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  Westlife/Greatest Hits/14 Safe (single mix).flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Westlife",
+        "album": "Greatest Hits",
+        "track": "14 Safe (single mix).flac",
+        "relativePath": "Westlife/Greatest Hits/14 Safe (single mix).flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "Westlife/Greatest Hits/14 Uptown Girl.flac",
+      "artistName": "Westlife",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  Westlife/Greatest Hits/14 Uptown Girl.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Westlife",
+        "album": "Greatest Hits",
+        "track": "14 Uptown Girl.flac",
+        "relativePath": "Westlife/Greatest Hits/14 Uptown Girl.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "Westlife/Greatest Hits/15 Lighthouse.flac",
+      "artistName": "Westlife",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  Westlife/Greatest Hits/15 Lighthouse.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Westlife",
+        "album": "Greatest Hits",
+        "track": "15 Lighthouse.flac",
+        "relativePath": "Westlife/Greatest Hits/15 Lighthouse.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "Westlife/Greatest Hits/15 Mandy (live at the O2).flac",
+      "artistName": "Westlife",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  Westlife/Greatest Hits/15 Mandy (live at the O2).flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Westlife",
+        "album": "Greatest Hits",
+        "track": "15 Mandy (live at the O2).flac",
+        "relativePath": "Westlife/Greatest Hits/15 Mandy (live at the O2).flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "Westlife/Greatest Hits/16 Beautiful World.flac",
+      "artistName": "Westlife",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  Westlife/Greatest Hits/16 Beautiful World.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Westlife",
+        "album": "Greatest Hits",
+        "track": "16 Beautiful World.flac",
+        "relativePath": "Westlife/Greatest Hits/16 Beautiful World.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "Westlife/Greatest Hits/16 Home (live From the O2).flac",
+      "artistName": "Westlife",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  Westlife/Greatest Hits/16 Home (live From the O2).flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Westlife",
+        "album": "Greatest Hits",
+        "track": "16 Home (live From the O2).flac",
+        "relativePath": "Westlife/Greatest Hits/16 Home (live From the O2).flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "Westlife/Greatest Hits/17 Flying Without Wings (live at Proms in the Park 2011).flac",
+      "artistName": "Westlife",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  Westlife/Greatest Hits/17 Flying Without Wings (live at Proms in the Park 2011).flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Westlife",
+        "album": "Greatest Hits",
+        "track": "17 Flying Without Wings (live at Proms in the Park 2011).flac",
+        "relativePath": "Westlife/Greatest Hits/17 Flying Without Wings (live at Proms in the Park 2011).flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "Westlife/Greatest Hits/17 Wide Open.flac",
+      "artistName": "Westlife",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  Westlife/Greatest Hits/17 Wide Open.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Westlife",
+        "album": "Greatest Hits",
+        "track": "17 Wide Open.flac",
+        "relativePath": "Westlife/Greatest Hits/17 Wide Open.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "Westlife/Greatest Hits/18 Last Mile of the Way.flac",
+      "artistName": "Westlife",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  Westlife/Greatest Hits/18 Last Mile of the Way.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Westlife",
+        "album": "Greatest Hits",
+        "track": "18 Last Mile of the Way.flac",
+        "relativePath": "Westlife/Greatest Hits/18 Last Mile of the Way.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "Westlife/Greatest Hits/18 You Raise Me Up (live at Proms in the Park 2011).flac",
+      "artistName": "Westlife",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  Westlife/Greatest Hits/18 You Raise Me Up (live at Proms in the Park 2011).flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Westlife",
+        "album": "Greatest Hits",
+        "track": "18 You Raise Me Up (live at Proms in the Park 2011).flac",
+        "relativePath": "Westlife/Greatest Hits/18 You Raise Me Up (live at Proms in the Park 2011).flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "XG/XG 1st WORLD TOUR “The first HOWL” Live/01 X-GENE (HESONOO) (XG 1st WORLD TOUR “The first HOWL” Live).flac",
+      "artistName": "XG",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  XG/XG 1st WORLD TOUR “The first HOWL” Live/01 X-GENE (HESONOO) (XG 1st WORLD TOUR “The first HOWL” Live).flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "XG",
+        "album": "XG 1st WORLD TOUR “The first HOWL” Live",
+        "track": "01 X-GENE (HESONOO) (XG 1st WORLD TOUR “The first HOWL” Live).flac",
+        "relativePath": "XG/XG 1st WORLD TOUR “The first HOWL” Live/01 X-GENE (HESONOO) (XG 1st WORLD TOUR “The first HOWL” Live).flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "XG/XG 1st WORLD TOUR “The first HOWL” Live/02 HOWLING & GRL GVNG (XG 1st WORLD TOUR “The first HOWL” Live).flac",
+      "artistName": "XG",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  XG/XG 1st WORLD TOUR “The first HOWL” Live/02 HOWLING & GRL GVNG (XG 1st WORLD TOUR “The first HOWL” Live).flac  (Playable but strict decode reported a warning)\n                          | testing, 85% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bWARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "XG",
+        "album": "XG 1st WORLD TOUR “The first HOWL” Live",
+        "track": "02 HOWLING & GRL GVNG (XG 1st WORLD TOUR “The first HOWL” Live).flac",
+        "relativePath": "XG/XG 1st WORLD TOUR “The first HOWL” Live/02 HOWLING & GRL GVNG (XG 1st WORLD TOUR “The first HOWL” Live).flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": " | testing, 85% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bWARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "XG/XG 1st WORLD TOUR “The first HOWL” Live/03 UNDEFEATED (XG 1st WORLD TOUR “The first HOWL” Live).flac",
+      "artistName": "XG",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  XG/XG 1st WORLD TOUR “The first HOWL” Live/03 UNDEFEATED (XG 1st WORLD TOUR “The first HOWL” Live).flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "XG",
+        "album": "XG 1st WORLD TOUR “The first HOWL” Live",
+        "track": "03 UNDEFEATED (XG 1st WORLD TOUR “The first HOWL” Live).flac",
+        "relativePath": "XG/XG 1st WORLD TOUR “The first HOWL” Live/03 UNDEFEATED (XG 1st WORLD TOUR “The first HOWL” Live).flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "XG/XG 1st WORLD TOUR “The first HOWL” Live/04 TGIF & IYKYK (XG 1st WORLD TOUR “The first HOWL” Live).flac",
+      "artistName": "XG",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  XG/XG 1st WORLD TOUR “The first HOWL” Live/04 TGIF & IYKYK (XG 1st WORLD TOUR “The first HOWL” Live).flac  (Playable but strict decode reported a warning)\n                          | testing, 72% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bWARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "XG",
+        "album": "XG 1st WORLD TOUR “The first HOWL” Live",
+        "track": "04 TGIF & IYKYK (XG 1st WORLD TOUR “The first HOWL” Live).flac",
+        "relativePath": "XG/XG 1st WORLD TOUR “The first HOWL” Live/04 TGIF & IYKYK (XG 1st WORLD TOUR “The first HOWL” Live).flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": " | testing, 72% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bWARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "XG/XG 1st WORLD TOUR “The first HOWL” Live/05 Tippy Toes & SOMETHING AIN’T RIGHT & IN THE RAIN (XG 1st WORLD TOUR “The first HOWL” Live).flac",
+      "artistName": "XG",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  XG/XG 1st WORLD TOUR “The first HOWL” Live/05 Tippy Toes & SOMETHING AIN’T RIGHT & IN THE RAIN (XG 1st WORLD TOUR “The first HOWL” Live).flac  (Playable but strict decode reported a warning)\n                         testing, 54% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bWARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "XG",
+        "album": "XG 1st WORLD TOUR “The first HOWL” Live",
+        "track": "05 Tippy Toes & SOMETHING AIN’T RIGHT & IN THE RAIN (XG 1st WORLD TOUR “The first HOWL” Live).flac",
+        "relativePath": "XG/XG 1st WORLD TOUR “The first HOWL” Live/05 Tippy Toes & SOMETHING AIN’T RIGHT & IN THE RAIN (XG 1st WORLD TOUR “The first HOWL” Live).flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "testing, 54% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bWARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "XG/XG 1st WORLD TOUR “The first HOWL” Live/06 SHOOTING STAR (XG 1st WORLD TOUR “The first HOWL” Live).flac",
+      "artistName": "XG",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  XG/XG 1st WORLD TOUR “The first HOWL” Live/06 SHOOTING STAR (XG 1st WORLD TOUR “The first HOWL” Live).flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "XG",
+        "album": "XG 1st WORLD TOUR “The first HOWL” Live",
+        "track": "06 SHOOTING STAR (XG 1st WORLD TOUR “The first HOWL” Live).flac",
+        "relativePath": "XG/XG 1st WORLD TOUR “The first HOWL” Live/06 SHOOTING STAR (XG 1st WORLD TOUR “The first HOWL” Live).flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "XG/XG 1st WORLD TOUR “The first HOWL” Live/07 WOKE UP (XG 1st WORLD TOUR “The first HOWL” Live).flac",
+      "artistName": "XG",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  XG/XG 1st WORLD TOUR “The first HOWL” Live/07 WOKE UP (XG 1st WORLD TOUR “The first HOWL” Live).flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "XG",
+        "album": "XG 1st WORLD TOUR “The first HOWL” Live",
+        "track": "07 WOKE UP (XG 1st WORLD TOUR “The first HOWL” Live).flac",
+        "relativePath": "XG/XG 1st WORLD TOUR “The first HOWL” Live/07 WOKE UP (XG 1st WORLD TOUR “The first HOWL” Live).flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "XG/XG 1st WORLD TOUR “The first HOWL” Live/08 PUPPET SHOW (XG 1st WORLD TOUR “The first HOWL” Live).flac",
+      "artistName": "XG",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  XG/XG 1st WORLD TOUR “The first HOWL” Live/08 PUPPET SHOW (XG 1st WORLD TOUR “The first HOWL” Live).flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "XG",
+        "album": "XG 1st WORLD TOUR “The first HOWL” Live",
+        "track": "08 PUPPET SHOW (XG 1st WORLD TOUR “The first HOWL” Live).flac",
+        "relativePath": "XG/XG 1st WORLD TOUR “The first HOWL” Live/08 PUPPET SHOW (XG 1st WORLD TOUR “The first HOWL” Live).flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "XG/XG 1st WORLD TOUR “The first HOWL” Live/09 IS THIS LOVE (XG 1st WORLD TOUR “The first HOWL” Live).flac",
+      "artistName": "XG",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  XG/XG 1st WORLD TOUR “The first HOWL” Live/09 IS THIS LOVE (XG 1st WORLD TOUR “The first HOWL” Live).flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "XG",
+        "album": "XG 1st WORLD TOUR “The first HOWL” Live",
+        "track": "09 IS THIS LOVE (XG 1st WORLD TOUR “The first HOWL” Live).flac",
+        "relativePath": "XG/XG 1st WORLD TOUR “The first HOWL” Live/09 IS THIS LOVE (XG 1st WORLD TOUR “The first HOWL” Live).flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "XG/XG 1st WORLD TOUR “The first HOWL” Live/10 NEW DANCE (XG 1st WORLD TOUR “The first HOWL” Live).flac",
+      "artistName": "XG",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  XG/XG 1st WORLD TOUR “The first HOWL” Live/10 NEW DANCE (XG 1st WORLD TOUR “The first HOWL” Live).flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "XG",
+        "album": "XG 1st WORLD TOUR “The first HOWL” Live",
+        "track": "10 NEW DANCE (XG 1st WORLD TOUR “The first HOWL” Live).flac",
+        "relativePath": "XG/XG 1st WORLD TOUR “The first HOWL” Live/10 NEW DANCE (XG 1st WORLD TOUR “The first HOWL” Live).flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "XG/XG 1st WORLD TOUR “The first HOWL” Live/11 MILLION PLACES (XG 1st WORLD TOUR “The first HOWL” Live).flac",
+      "artistName": "XG",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  XG/XG 1st WORLD TOUR “The first HOWL” Live/11 MILLION PLACES (XG 1st WORLD TOUR “The first HOWL” Live).flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "XG",
+        "album": "XG 1st WORLD TOUR “The first HOWL” Live",
+        "track": "11 MILLION PLACES (XG 1st WORLD TOUR “The first HOWL” Live).flac",
+        "relativePath": "XG/XG 1st WORLD TOUR “The first HOWL” Live/11 MILLION PLACES (XG 1st WORLD TOUR “The first HOWL” Live).flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "XG/XG 1st WORLD TOUR “The first HOWL” Live/12 WINTER WITHOUT YOU & MASCARA (XG 1st WORLD TOUR “The first HOWL” Live).flac",
+      "artistName": "XG",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  XG/XG 1st WORLD TOUR “The first HOWL” Live/12 WINTER WITHOUT YOU & MASCARA (XG 1st WORLD TOUR “The first HOWL” Live).flac  (Playable but strict decode reported a warning)\n                         testing, 86% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bWARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "XG",
+        "album": "XG 1st WORLD TOUR “The first HOWL” Live",
+        "track": "12 WINTER WITHOUT YOU & MASCARA (XG 1st WORLD TOUR “The first HOWL” Live).flac",
+        "relativePath": "XG/XG 1st WORLD TOUR “The first HOWL” Live/12 WINTER WITHOUT YOU & MASCARA (XG 1st WORLD TOUR “The first HOWL” Live).flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "testing, 86% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bWARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "XG/XG 1st WORLD TOUR “The first HOWL” Live/13 LEFT RIGHT (XG 1st WORLD TOUR “The first HOWL” Live).flac",
+      "artistName": "XG",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  XG/XG 1st WORLD TOUR “The first HOWL” Live/13 LEFT RIGHT (XG 1st WORLD TOUR “The first HOWL” Live).flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "XG",
+        "album": "XG 1st WORLD TOUR “The first HOWL” Live",
+        "track": "13 LEFT RIGHT (XG 1st WORLD TOUR “The first HOWL” Live).flac",
+        "relativePath": "XG/XG 1st WORLD TOUR “The first HOWL” Live/13 LEFT RIGHT (XG 1st WORLD TOUR “The first HOWL” Live).flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "Yanni/Devotion_ The Best of Yanni/01 Once Upon a Time.flac",
+      "artistName": "Yanni",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  Yanni/Devotion_ The Best of Yanni/01 Once Upon a Time.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Yanni",
+        "album": "Devotion_ The Best of Yanni",
+        "track": "01 Once Upon a Time.flac",
+        "relativePath": "Yanni/Devotion_ The Best of Yanni/01 Once Upon a Time.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "Yanni/Devotion_ The Best of Yanni/02 Within Attraction.flac",
+      "artistName": "Yanni",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  Yanni/Devotion_ The Best of Yanni/02 Within Attraction.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Yanni",
+        "album": "Devotion_ The Best of Yanni",
+        "track": "02 Within Attraction.flac",
+        "relativePath": "Yanni/Devotion_ The Best of Yanni/02 Within Attraction.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "Yanni/Devotion_ The Best of Yanni/03 Song for Antarctica.flac",
+      "artistName": "Yanni",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  Yanni/Devotion_ The Best of Yanni/03 Song for Antarctica.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Yanni",
+        "album": "Devotion_ The Best of Yanni",
+        "track": "03 Song for Antarctica.flac",
+        "relativePath": "Yanni/Devotion_ The Best of Yanni/03 Song for Antarctica.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "Yanni/Devotion_ The Best of Yanni/04 Aria.flac",
+      "artistName": "Yanni",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  Yanni/Devotion_ The Best of Yanni/04 Aria.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Yanni",
+        "album": "Devotion_ The Best of Yanni",
+        "track": "04 Aria.flac",
+        "relativePath": "Yanni/Devotion_ The Best of Yanni/04 Aria.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "Yanni/Devotion_ The Best of Yanni/05 A Love for Life.flac",
+      "artistName": "Yanni",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  Yanni/Devotion_ The Best of Yanni/05 A Love for Life.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Yanni",
+        "album": "Devotion_ The Best of Yanni",
+        "track": "05 A Love for Life.flac",
+        "relativePath": "Yanni/Devotion_ The Best of Yanni/05 A Love for Life.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "Yanni/Devotion_ The Best of Yanni/06 Reflections of Passion.flac",
+      "artistName": "Yanni",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  Yanni/Devotion_ The Best of Yanni/06 Reflections of Passion.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Yanni",
+        "album": "Devotion_ The Best of Yanni",
+        "track": "06 Reflections of Passion.flac",
+        "relativePath": "Yanni/Devotion_ The Best of Yanni/06 Reflections of Passion.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "Yanni/Devotion_ The Best of Yanni/07 To Take...To Hold.flac",
+      "artistName": "Yanni",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  Yanni/Devotion_ The Best of Yanni/07 To Take...To Hold.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Yanni",
+        "album": "Devotion_ The Best of Yanni",
+        "track": "07 To Take...To Hold.flac",
+        "relativePath": "Yanni/Devotion_ The Best of Yanni/07 To Take...To Hold.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "Yanni/Devotion_ The Best of Yanni/08 Only a Memory.flac",
+      "artistName": "Yanni",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  Yanni/Devotion_ The Best of Yanni/08 Only a Memory.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Yanni",
+        "album": "Devotion_ The Best of Yanni",
+        "track": "08 Only a Memory.flac",
+        "relativePath": "Yanni/Devotion_ The Best of Yanni/08 Only a Memory.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "Yanni/Devotion_ The Best of Yanni/09 Flight of Fantasy.flac",
+      "artistName": "Yanni",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  Yanni/Devotion_ The Best of Yanni/09 Flight of Fantasy.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Yanni",
+        "album": "Devotion_ The Best of Yanni",
+        "track": "09 Flight of Fantasy.flac",
+        "relativePath": "Yanni/Devotion_ The Best of Yanni/09 Flight of Fantasy.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "Yanni/Devotion_ The Best of Yanni/10 To the One Who Knows.flac",
+      "artistName": "Yanni",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  Yanni/Devotion_ The Best of Yanni/10 To the One Who Knows.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Yanni",
+        "album": "Devotion_ The Best of Yanni",
+        "track": "10 To the One Who Knows.flac",
+        "relativePath": "Yanni/Devotion_ The Best of Yanni/10 To the One Who Knows.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "Yanni/Devotion_ The Best of Yanni/11 The End of August.flac",
+      "artistName": "Yanni",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  Yanni/Devotion_ The Best of Yanni/11 The End of August.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Yanni",
+        "album": "Devotion_ The Best of Yanni",
+        "track": "11 The End of August.flac",
+        "relativePath": "Yanni/Devotion_ The Best of Yanni/11 The End of August.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "Yanni/Devotion_ The Best of Yanni/12 Marching Season.flac",
+      "artistName": "Yanni",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  Yanni/Devotion_ The Best of Yanni/12 Marching Season.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Yanni",
+        "album": "Devotion_ The Best of Yanni",
+        "track": "12 Marching Season.flac",
+        "relativePath": "Yanni/Devotion_ The Best of Yanni/12 Marching Season.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "Yanni/Devotion_ The Best of Yanni/13 Santorini.flac",
+      "artistName": "Yanni",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  Yanni/Devotion_ The Best of Yanni/13 Santorini.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Yanni",
+        "album": "Devotion_ The Best of Yanni",
+        "track": "13 Santorini.flac",
+        "relativePath": "Yanni/Devotion_ The Best of Yanni/13 Santorini.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "Yanni/Devotion_ The Best of Yanni/14 Nice to Meet You (special radio edit).flac",
+      "artistName": "Yanni",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  Yanni/Devotion_ The Best of Yanni/14 Nice to Meet You (special radio edit).flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Yanni",
+        "album": "Devotion_ The Best of Yanni",
+        "track": "14 Nice to Meet You (special radio edit).flac",
+        "relativePath": "Yanni/Devotion_ The Best of Yanni/14 Nice to Meet You (special radio edit).flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "Yanni/Devotion_ The Best of Yanni/15 A Night to Remember.flac",
+      "artistName": "Yanni",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  Yanni/Devotion_ The Best of Yanni/15 A Night to Remember.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Yanni",
+        "album": "Devotion_ The Best of Yanni",
+        "track": "15 A Night to Remember.flac",
+        "relativePath": "Yanni/Devotion_ The Best of Yanni/15 A Night to Remember.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "Yanni/The Very Best of Yanni/01 Aria.flac",
+      "artistName": "Yanni",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  Yanni/The Very Best of Yanni/01 Aria.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Yanni",
+        "album": "The Very Best of Yanni",
+        "track": "01 Aria.flac",
+        "relativePath": "Yanni/The Very Best of Yanni/01 Aria.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "Yanni/The Very Best of Yanni/02 Looking Glass.flac",
+      "artistName": "Yanni",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  Yanni/The Very Best of Yanni/02 Looking Glass.flac  (Playable but strict decode reported a warning)\n                         testing, 92% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bWARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Yanni",
+        "album": "The Very Best of Yanni",
+        "track": "02 Looking Glass.flac",
+        "relativePath": "Yanni/The Very Best of Yanni/02 Looking Glass.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "testing, 92% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bWARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "Yanni/The Very Best of Yanni/03 In the Morning Light.flac",
+      "artistName": "Yanni",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  Yanni/The Very Best of Yanni/03 In the Morning Light.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Yanni",
+        "album": "The Very Best of Yanni",
+        "track": "03 In the Morning Light.flac",
+        "relativePath": "Yanni/The Very Best of Yanni/03 In the Morning Light.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "Yanni/The Very Best of Yanni/04 Marching Season.flac",
+      "artistName": "Yanni",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  Yanni/The Very Best of Yanni/04 Marching Season.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Yanni",
+        "album": "The Very Best of Yanni",
+        "track": "04 Marching Season.flac",
+        "relativePath": "Yanni/The Very Best of Yanni/04 Marching Season.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "Yanni/The Very Best of Yanni/05 Swept Away.flac",
+      "artistName": "Yanni",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  Yanni/The Very Best of Yanni/05 Swept Away.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Yanni",
+        "album": "The Very Best of Yanni",
+        "track": "05 Swept Away.flac",
+        "relativePath": "Yanni/The Very Best of Yanni/05 Swept Away.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "Yanni/The Very Best of Yanni/06 One Man's Dream.flac",
+      "artistName": "Yanni",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  Yanni/The Very Best of Yanni/06 One Man's Dream.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Yanni",
+        "album": "The Very Best of Yanni",
+        "track": "06 One Man's Dream.flac",
+        "relativePath": "Yanni/The Very Best of Yanni/06 One Man's Dream.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "Yanni/The Very Best of Yanni/07 The Mermaid.flac",
+      "artistName": "Yanni",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  Yanni/The Very Best of Yanni/07 The Mermaid.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Yanni",
+        "album": "The Very Best of Yanni",
+        "track": "07 The Mermaid.flac",
+        "relativePath": "Yanni/The Very Best of Yanni/07 The Mermaid.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "Yanni/The Very Best of Yanni/08 To the One Who Knows.flac",
+      "artistName": "Yanni",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  Yanni/The Very Best of Yanni/08 To the One Who Knows.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Yanni",
+        "album": "The Very Best of Yanni",
+        "track": "08 To the One Who Knows.flac",
+        "relativePath": "Yanni/The Very Best of Yanni/08 To the One Who Knows.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "Yanni/The Very Best of Yanni/09 Santorini.flac",
+      "artistName": "Yanni",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  Yanni/The Very Best of Yanni/09 Santorini.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Yanni",
+        "album": "The Very Best of Yanni",
+        "track": "09 Santorini.flac",
+        "relativePath": "Yanni/The Very Best of Yanni/09 Santorini.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "Yanni/The Very Best of Yanni/10 Acroyali.flac",
+      "artistName": "Yanni",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  Yanni/The Very Best of Yanni/10 Acroyali.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Yanni",
+        "album": "The Very Best of Yanni",
+        "track": "10 Acroyali.flac",
+        "relativePath": "Yanni/The Very Best of Yanni/10 Acroyali.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "Yanni/The Very Best of Yanni/11 In the Mirror.flac",
+      "artistName": "Yanni",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  Yanni/The Very Best of Yanni/11 In the Mirror.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Yanni",
+        "album": "The Very Best of Yanni",
+        "track": "11 In the Mirror.flac",
+        "relativePath": "Yanni/The Very Best of Yanni/11 In the Mirror.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "Yanni/The Very Best of Yanni/12 Someday.flac",
+      "artistName": "Yanni",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  Yanni/The Very Best of Yanni/12 Someday.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Yanni",
+        "album": "The Very Best of Yanni",
+        "track": "12 Someday.flac",
+        "relativePath": "Yanni/The Very Best of Yanni/12 Someday.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "Yanni/The Very Best of Yanni/13 Flight of Fantasy.flac",
+      "artistName": "Yanni",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  Yanni/The Very Best of Yanni/13 Flight of Fantasy.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Yanni",
+        "album": "The Very Best of Yanni",
+        "track": "13 Flight of Fantasy.flac",
+        "relativePath": "Yanni/The Very Best of Yanni/13 Flight of Fantasy.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "Yanni/The Very Best of Yanni/14 The End of August.flac",
+      "artistName": "Yanni",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  Yanni/The Very Best of Yanni/14 The End of August.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Yanni",
+        "album": "The Very Best of Yanni",
+        "track": "14 The End of August.flac",
+        "relativePath": "Yanni/The Very Best of Yanni/14 The End of August.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "Yanni/The Very Best of Yanni/15 The Rain Must Fall.flac",
+      "artistName": "Yanni",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  Yanni/The Very Best of Yanni/15 The Rain Must Fall.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Yanni",
+        "album": "The Very Best of Yanni",
+        "track": "15 The Rain Must Fall.flac",
+        "relativePath": "Yanni/The Very Best of Yanni/15 The Rain Must Fall.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "Yanni/The Very Best of Yanni/16 Face in the Photograph.flac",
+      "artistName": "Yanni",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  Yanni/The Very Best of Yanni/16 Face in the Photograph.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Yanni",
+        "album": "The Very Best of Yanni",
+        "track": "16 Face in the Photograph.flac",
+        "relativePath": "Yanni/The Very Best of Yanni/16 Face in the Photograph.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "一棵小葱/Loose/壁上观.flac",
+      "artistName": "一棵小葱",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  一棵小葱/Loose/壁上观.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "一棵小葱",
+        "album": "Loose",
+        "track": "壁上观.flac",
+        "relativePath": "一棵小葱/Loose/壁上观.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "万能青年旅店/万能青年旅店/01 万能青年旅店 - 狗尿馆.flac",
+      "artistName": "万能青年旅店",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  万能青年旅店/万能青年旅店/01 万能青年旅店 - 狗尿馆.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "万能青年旅店",
+        "album": "万能青年旅店",
+        "track": "01 万能青年旅店 - 狗尿馆.flac",
+        "relativePath": "万能青年旅店/万能青年旅店/01 万能青年旅店 - 狗尿馆.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "万能青年旅店/万能青年旅店/02 万能青年旅店 - 不万能的喜剧.flac",
+      "artistName": "万能青年旅店",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  万能青年旅店/万能青年旅店/02 万能青年旅店 - 不万能的喜剧.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "万能青年旅店",
+        "album": "万能青年旅店",
+        "track": "02 万能青年旅店 - 不万能的喜剧.flac",
+        "relativePath": "万能青年旅店/万能青年旅店/02 万能青年旅店 - 不万能的喜剧.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "万能青年旅店/万能青年旅店/03 万能青年旅店 - 揪心的玩笑与漫长的白日梦.flac",
+      "artistName": "万能青年旅店",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  万能青年旅店/万能青年旅店/03 万能青年旅店 - 揪心的玩笑与漫长的白日梦.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "万能青年旅店",
+        "album": "万能青年旅店",
+        "track": "03 万能青年旅店 - 揪心的玩笑与漫长的白日梦.flac",
+        "relativePath": "万能青年旅店/万能青年旅店/03 万能青年旅店 - 揪心的玩笑与漫长的白日梦.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "万能青年旅店/万能青年旅店/04 万能青年旅店 - 大石碎胸口.flac",
+      "artistName": "万能青年旅店",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  万能青年旅店/万能青年旅店/04 万能青年旅店 - 大石碎胸口.flac  (Playable but strict decode reported a warning)\n                         testing, 93% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bWARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "万能青年旅店",
+        "album": "万能青年旅店",
+        "track": "04 万能青年旅店 - 大石碎胸口.flac",
+        "relativePath": "万能青年旅店/万能青年旅店/04 万能青年旅店 - 大石碎胸口.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "testing, 93% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bWARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "万能青年旅店/万能青年旅店/05 万能青年旅店 - 洋鸟消夏录.flac",
+      "artistName": "万能青年旅店",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  万能青年旅店/万能青年旅店/05 万能青年旅店 - 洋鸟消夏录.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "万能青年旅店",
+        "album": "万能青年旅店",
+        "track": "05 万能青年旅店 - 洋鸟消夏录.flac",
+        "relativePath": "万能青年旅店/万能青年旅店/05 万能青年旅店 - 洋鸟消夏录.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "万能青年旅店/万能青年旅店/06 万能青年旅店 - 秦皇岛.flac",
+      "artistName": "万能青年旅店",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  万能青年旅店/万能青年旅店/06 万能青年旅店 - 秦皇岛.flac  (Playable but strict decode reported a warning)\n                         testing, 82% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bWARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "万能青年旅店",
+        "album": "万能青年旅店",
+        "track": "06 万能青年旅店 - 秦皇岛.flac",
+        "relativePath": "万能青年旅店/万能青年旅店/06 万能青年旅店 - 秦皇岛.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "testing, 82% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bWARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    }
+  ]
+}

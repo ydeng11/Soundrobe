@@ -1,0 +1,6062 @@
+{
+  "batchId": 90,
+  "completedAt": "2026-06-20T06:32:45.904Z",
+  "count": 100,
+  "results": [
+    {
+      "rel": "陈奕迅/2007-认了吧/陈奕迅 - 04.红玫瑰.flac",
+      "artistName": "陈奕迅",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  陈奕迅/2007-认了吧/陈奕迅 - 04.红玫瑰.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "陈奕迅",
+        "album": "2007-认了吧",
+        "track": "陈奕迅 - 04.红玫瑰.flac",
+        "relativePath": "陈奕迅/2007-认了吧/陈奕迅 - 04.红玫瑰.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "陈奕迅/2007-认了吧/陈奕迅 - 05.月黑风高.flac",
+      "artistName": "陈奕迅",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  陈奕迅/2007-认了吧/陈奕迅 - 05.月黑风高.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "陈奕迅",
+        "album": "2007-认了吧",
+        "track": "陈奕迅 - 05.月黑风高.flac",
+        "relativePath": "陈奕迅/2007-认了吧/陈奕迅 - 05.月黑风高.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "陈奕迅/2007-认了吧/陈奕迅 - 06.爱情转移.flac",
+      "artistName": "陈奕迅",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "陈奕迅",
+        "album": "2007-认了吧",
+        "track": "陈奕迅 - 06.爱情转移.flac",
+        "relativePath": "陈奕迅/2007-认了吧/陈奕迅 - 06.爱情转移.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "陈奕迅/2007-认了吧/陈奕迅 - 07.好久不见.flac",
+      "artistName": "陈奕迅",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  陈奕迅/2007-认了吧/陈奕迅 - 07.好久不见.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "陈奕迅",
+        "album": "2007-认了吧",
+        "track": "陈奕迅 - 07.好久不见.flac",
+        "relativePath": "陈奕迅/2007-认了吧/陈奕迅 - 07.好久不见.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "陈奕迅/2007-认了吧/陈奕迅 - 08.爱是一本书.flac",
+      "artistName": "陈奕迅",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  陈奕迅/2007-认了吧/陈奕迅 - 08.爱是一本书.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "陈奕迅",
+        "album": "2007-认了吧",
+        "track": "陈奕迅 - 08.爱是一本书.flac",
+        "relativePath": "陈奕迅/2007-认了吧/陈奕迅 - 08.爱是一本书.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "陈奕迅/2007-认了吧/陈奕迅 - 09.第一个雅皮士.flac",
+      "artistName": "陈奕迅",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  陈奕迅/2007-认了吧/陈奕迅 - 09.第一个雅皮士.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "陈奕迅",
+        "album": "2007-认了吧",
+        "track": "陈奕迅 - 09.第一个雅皮士.flac",
+        "relativePath": "陈奕迅/2007-认了吧/陈奕迅 - 09.第一个雅皮士.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "陈奕迅/2007-认了吧/陈奕迅 - 10.白色球鞋.flac",
+      "artistName": "陈奕迅",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  陈奕迅/2007-认了吧/陈奕迅 - 10.白色球鞋.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "陈奕迅",
+        "album": "2007-认了吧",
+        "track": "陈奕迅 - 10.白色球鞋.flac",
+        "relativePath": "陈奕迅/2007-认了吧/陈奕迅 - 10.白色球鞋.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "陈奕迅/2007-认了吧/陈奕迅 - 11.月球上的人.flac",
+      "artistName": "陈奕迅",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  陈奕迅/2007-认了吧/陈奕迅 - 11.月球上的人.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "陈奕迅",
+        "album": "2007-认了吧",
+        "track": "陈奕迅 - 11.月球上的人.flac",
+        "relativePath": "陈奕迅/2007-认了吧/陈奕迅 - 11.月球上的人.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "陈奕迅/2008-不想放手/陈奕迅 - 01.27 Seconds.flac",
+      "artistName": "陈奕迅",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  陈奕迅/2008-不想放手/陈奕迅 - 01.27 Seconds.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "陈奕迅",
+        "album": "2008-不想放手",
+        "track": "陈奕迅 - 01.27 Seconds.flac",
+        "relativePath": "陈奕迅/2008-不想放手/陈奕迅 - 01.27 Seconds.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "陈奕迅/2008-不想放手/陈奕迅 - 02.倒带人生.flac",
+      "artistName": "陈奕迅",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  陈奕迅/2008-不想放手/陈奕迅 - 02.倒带人生.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "陈奕迅",
+        "album": "2008-不想放手",
+        "track": "陈奕迅 - 02.倒带人生.flac",
+        "relativePath": "陈奕迅/2008-不想放手/陈奕迅 - 02.倒带人生.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "陈奕迅/2008-不想放手/陈奕迅 - 03.Aren't You Glad.flac",
+      "artistName": "陈奕迅",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  陈奕迅/2008-不想放手/陈奕迅 - 03.Aren't You Glad.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "陈奕迅",
+        "album": "2008-不想放手",
+        "track": "陈奕迅 - 03.Aren't You Glad.flac",
+        "relativePath": "陈奕迅/2008-不想放手/陈奕迅 - 03.Aren't You Glad.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "陈奕迅/2008-不想放手/陈奕迅 - 04.不要说话.flac",
+      "artistName": "陈奕迅",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  陈奕迅/2008-不想放手/陈奕迅 - 04.不要说话.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "陈奕迅",
+        "album": "2008-不想放手",
+        "track": "陈奕迅 - 04.不要说话.flac",
+        "relativePath": "陈奕迅/2008-不想放手/陈奕迅 - 04.不要说话.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "陈奕迅/2008-不想放手/陈奕迅 - 05.漂亮小姐.flac",
+      "artistName": "陈奕迅",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  陈奕迅/2008-不想放手/陈奕迅 - 05.漂亮小姐.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "陈奕迅",
+        "album": "2008-不想放手",
+        "track": "陈奕迅 - 05.漂亮小姐.flac",
+        "relativePath": "陈奕迅/2008-不想放手/陈奕迅 - 05.漂亮小姐.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "陈奕迅/2008-不想放手/陈奕迅 - 06.土星环.flac",
+      "artistName": "陈奕迅",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  陈奕迅/2008-不想放手/陈奕迅 - 06.土星环.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "陈奕迅",
+        "album": "2008-不想放手",
+        "track": "陈奕迅 - 06.土星环.flac",
+        "relativePath": "陈奕迅/2008-不想放手/陈奕迅 - 06.土星环.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "陈奕迅/2008-不想放手/陈奕迅 - 07.然后怎样.flac",
+      "artistName": "陈奕迅",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  陈奕迅/2008-不想放手/陈奕迅 - 07.然后怎样.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "陈奕迅",
+        "album": "2008-不想放手",
+        "track": "陈奕迅 - 07.然后怎样.flac",
+        "relativePath": "陈奕迅/2008-不想放手/陈奕迅 - 07.然后怎样.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "陈奕迅/2008-不想放手/陈奕迅 - 08.7.flac",
+      "artistName": "陈奕迅",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  陈奕迅/2008-不想放手/陈奕迅 - 08.7.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "陈奕迅",
+        "album": "2008-不想放手",
+        "track": "陈奕迅 - 08.7.flac",
+        "relativePath": "陈奕迅/2008-不想放手/陈奕迅 - 08.7.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "陈奕迅/2008-不想放手/陈奕迅 - 09.臭美.flac",
+      "artistName": "陈奕迅",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  陈奕迅/2008-不想放手/陈奕迅 - 09.臭美.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "陈奕迅",
+        "album": "2008-不想放手",
+        "track": "陈奕迅 - 09.臭美.flac",
+        "relativePath": "陈奕迅/2008-不想放手/陈奕迅 - 09.臭美.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "陈奕迅/2008-不想放手/陈奕迅 - 10.独居动物.flac",
+      "artistName": "陈奕迅",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  陈奕迅/2008-不想放手/陈奕迅 - 10.独居动物.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "陈奕迅",
+        "album": "2008-不想放手",
+        "track": "陈奕迅 - 10.独居动物.flac",
+        "relativePath": "陈奕迅/2008-不想放手/陈奕迅 - 10.独居动物.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "陈奕迅/2008-不想放手/陈奕迅 - 11.路...一直都在.flac",
+      "artistName": "陈奕迅",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  陈奕迅/2008-不想放手/陈奕迅 - 11.路...一直都在.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "陈奕迅",
+        "album": "2008-不想放手",
+        "track": "陈奕迅 - 11.路...一直都在.flac",
+        "relativePath": "陈奕迅/2008-不想放手/陈奕迅 - 11.路...一直都在.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "陈奕迅/2009-H3M/陈奕迅 - 01.Allegro Opus 3.3am.flac",
+      "artistName": "陈奕迅",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  陈奕迅/2009-H3M/陈奕迅 - 01.Allegro Opus 3.3am.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "陈奕迅",
+        "album": "2009-H3M",
+        "track": "陈奕迅 - 01.Allegro Opus 3.3am.flac",
+        "relativePath": "陈奕迅/2009-H3M/陈奕迅 - 01.Allegro Opus 3.3am.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "陈奕迅/2009-H3M/陈奕迅 - 02.还有什么可以送给你.flac",
+      "artistName": "陈奕迅",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  陈奕迅/2009-H3M/陈奕迅 - 02.还有什么可以送给你.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "陈奕迅",
+        "album": "2009-H3M",
+        "track": "陈奕迅 - 02.还有什么可以送给你.flac",
+        "relativePath": "陈奕迅/2009-H3M/陈奕迅 - 02.还有什么可以送给你.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "陈奕迅/2009-H3M/陈奕迅 - 03.于心有愧.flac",
+      "artistName": "陈奕迅",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  陈奕迅/2009-H3M/陈奕迅 - 03.于心有愧.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "陈奕迅",
+        "album": "2009-H3M",
+        "track": "陈奕迅 - 03.于心有愧.flac",
+        "relativePath": "陈奕迅/2009-H3M/陈奕迅 - 03.于心有愧.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "陈奕迅/2009-H3M/陈奕迅 - 04.今天只做一件事.flac",
+      "artistName": "陈奕迅",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  陈奕迅/2009-H3M/陈奕迅 - 04.今天只做一件事.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "陈奕迅",
+        "album": "2009-H3M",
+        "track": "陈奕迅 - 04.今天只做一件事.flac",
+        "relativePath": "陈奕迅/2009-H3M/陈奕迅 - 04.今天只做一件事.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "陈奕迅/2009-H3M/陈奕迅 - 05.一个旅人.flac",
+      "artistName": "陈奕迅",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  陈奕迅/2009-H3M/陈奕迅 - 05.一个旅人.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "陈奕迅",
+        "album": "2009-H3M",
+        "track": "陈奕迅 - 05.一个旅人.flac",
+        "relativePath": "陈奕迅/2009-H3M/陈奕迅 - 05.一个旅人.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "陈奕迅/2009-H3M/陈奕迅 - 06.七百年后.flac",
+      "artistName": "陈奕迅",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "陈奕迅",
+        "album": "2009-H3M",
+        "track": "陈奕迅 - 06.七百年后.flac",
+        "relativePath": "陈奕迅/2009-H3M/陈奕迅 - 06.七百年后.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "陈奕迅/2009-H3M/陈奕迅 - 07.Life Goes On.flac",
+      "artistName": "陈奕迅",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  陈奕迅/2009-H3M/陈奕迅 - 07.Life Goes On.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "陈奕迅",
+        "album": "2009-H3M",
+        "track": "陈奕迅 - 07.Life Goes On.flac",
+        "relativePath": "陈奕迅/2009-H3M/陈奕迅 - 07.Life Goes On.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "陈奕迅/2009-H3M/陈奕迅 - 08.太阳照常升起.flac",
+      "artistName": "陈奕迅",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  陈奕迅/2009-H3M/陈奕迅 - 08.太阳照常升起.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "陈奕迅",
+        "album": "2009-H3M",
+        "track": "陈奕迅 - 08.太阳照常升起.flac",
+        "relativePath": "陈奕迅/2009-H3M/陈奕迅 - 08.太阳照常升起.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "陈奕迅/2009-H3M/陈奕迅 - 09.不来也不去.flac",
+      "artistName": "陈奕迅",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  陈奕迅/2009-H3M/陈奕迅 - 09.不来也不去.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "陈奕迅",
+        "album": "2009-H3M",
+        "track": "陈奕迅 - 09.不来也不去.flac",
+        "relativePath": "陈奕迅/2009-H3M/陈奕迅 - 09.不来也不去.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "陈奕迅/2009-H3M/陈奕迅 - 10.沙龙.flac",
+      "artistName": "陈奕迅",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  陈奕迅/2009-H3M/陈奕迅 - 10.沙龙.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "陈奕迅",
+        "album": "2009-H3M",
+        "track": "陈奕迅 - 10.沙龙.flac",
+        "relativePath": "陈奕迅/2009-H3M/陈奕迅 - 10.沙龙.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "陈奕迅/2009-上五楼的快活/陈奕迅 - 01.在你身边.flac",
+      "artistName": "陈奕迅",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "陈奕迅",
+        "album": "2009-上五楼的快活",
+        "track": "陈奕迅 - 01.在你身边.flac",
+        "relativePath": "陈奕迅/2009-上五楼的快活/陈奕迅 - 01.在你身边.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "陈奕迅/2009-上五楼的快活/陈奕迅 - 02.这样的一个麻烦.flac",
+      "artistName": "陈奕迅",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "陈奕迅",
+        "album": "2009-上五楼的快活",
+        "track": "陈奕迅 - 02.这样的一个麻烦.flac",
+        "relativePath": "陈奕迅/2009-上五楼的快活/陈奕迅 - 02.这样的一个麻烦.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "陈奕迅/2009-上五楼的快活/陈奕迅 - 03.多少.flac",
+      "artistName": "陈奕迅",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  陈奕迅/2009-上五楼的快活/陈奕迅 - 03.多少.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "陈奕迅",
+        "album": "2009-上五楼的快活",
+        "track": "陈奕迅 - 03.多少.flac",
+        "relativePath": "陈奕迅/2009-上五楼的快活/陈奕迅 - 03.多少.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "陈奕迅/2009-上五楼的快活/陈奕迅 - 04.Nothing Ever Happened.flac",
+      "artistName": "陈奕迅",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  陈奕迅/2009-上五楼的快活/陈奕迅 - 04.Nothing Ever Happened.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "陈奕迅",
+        "album": "2009-上五楼的快活",
+        "track": "陈奕迅 - 04.Nothing Ever Happened.flac",
+        "relativePath": "陈奕迅/2009-上五楼的快活/陈奕迅 - 04.Nothing Ever Happened.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "陈奕迅/2009-上五楼的快活/陈奕迅 - 05.你为什么哭了呢.flac",
+      "artistName": "陈奕迅",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  陈奕迅/2009-上五楼的快活/陈奕迅 - 05.你为什么哭了呢.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "陈奕迅",
+        "album": "2009-上五楼的快活",
+        "track": "陈奕迅 - 05.你为什么哭了呢.flac",
+        "relativePath": "陈奕迅/2009-上五楼的快活/陈奕迅 - 05.你为什么哭了呢.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "陈奕迅/2009-上五楼的快活/陈奕迅 - 06.谋情害命.flac",
+      "artistName": "陈奕迅",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  陈奕迅/2009-上五楼的快活/陈奕迅 - 06.谋情害命.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "陈奕迅",
+        "album": "2009-上五楼的快活",
+        "track": "陈奕迅 - 06.谋情害命.flac",
+        "relativePath": "陈奕迅/2009-上五楼的快活/陈奕迅 - 06.谋情害命.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "陈奕迅/2009-上五楼的快活/陈奕迅 - 07.我甲你.flac",
+      "artistName": "陈奕迅",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  陈奕迅/2009-上五楼的快活/陈奕迅 - 07.我甲你.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "陈奕迅",
+        "album": "2009-上五楼的快活",
+        "track": "陈奕迅 - 07.我甲你.flac",
+        "relativePath": "陈奕迅/2009-上五楼的快活/陈奕迅 - 07.我甲你.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "陈奕迅/2009-上五楼的快活/陈奕迅 - 08.心的距离.flac",
+      "artistName": "陈奕迅",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  陈奕迅/2009-上五楼的快活/陈奕迅 - 08.心的距离.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "陈奕迅",
+        "album": "2009-上五楼的快活",
+        "track": "陈奕迅 - 08.心的距离.flac",
+        "relativePath": "陈奕迅/2009-上五楼的快活/陈奕迅 - 08.心的距离.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "陈奕迅/2009-上五楼的快活/陈奕迅 - 09.床头灯.flac",
+      "artistName": "陈奕迅",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  陈奕迅/2009-上五楼的快活/陈奕迅 - 09.床头灯.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "陈奕迅",
+        "album": "2009-上五楼的快活",
+        "track": "陈奕迅 - 09.床头灯.flac",
+        "relativePath": "陈奕迅/2009-上五楼的快活/陈奕迅 - 09.床头灯.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "陈奕迅/2009-上五楼的快活/陈奕迅 - 10.给你.flac",
+      "artistName": "陈奕迅",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  陈奕迅/2009-上五楼的快活/陈奕迅 - 10.给你.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "陈奕迅",
+        "album": "2009-上五楼的快活",
+        "track": "陈奕迅 - 10.给你.flac",
+        "relativePath": "陈奕迅/2009-上五楼的快活/陈奕迅 - 10.给你.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "陈奕迅/2009-上五楼的快活/陈奕迅 - 11.从何说起.flac",
+      "artistName": "陈奕迅",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  陈奕迅/2009-上五楼的快活/陈奕迅 - 11.从何说起.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "陈奕迅",
+        "album": "2009-上五楼的快活",
+        "track": "陈奕迅 - 11.从何说起.flac",
+        "relativePath": "陈奕迅/2009-上五楼的快活/陈奕迅 - 11.从何说起.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "陈奕迅/2010-Taste The Atmosphere/陈奕迅 - 01.Welcome To The Future.flac",
+      "artistName": "陈奕迅",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  陈奕迅/2010-Taste The Atmosphere/陈奕迅 - 01.Welcome To The Future.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "陈奕迅",
+        "album": "2010-Taste The Atmosphere",
+        "track": "陈奕迅 - 01.Welcome To The Future.flac",
+        "relativePath": "陈奕迅/2010-Taste The Atmosphere/陈奕迅 - 01.Welcome To The Future.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "陈奕迅/2010-Taste The Atmosphere/陈奕迅 - 02.讲男讲女.flac",
+      "artistName": "陈奕迅",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  陈奕迅/2010-Taste The Atmosphere/陈奕迅 - 02.讲男讲女.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "陈奕迅",
+        "album": "2010-Taste The Atmosphere",
+        "track": "陈奕迅 - 02.讲男讲女.flac",
+        "relativePath": "陈奕迅/2010-Taste The Atmosphere/陈奕迅 - 02.讲男讲女.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "陈奕迅/2010-Taste The Atmosphere/陈奕迅 - 03.叶问风中转.flac",
+      "artistName": "陈奕迅",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  陈奕迅/2010-Taste The Atmosphere/陈奕迅 - 03.叶问风中转.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "陈奕迅",
+        "album": "2010-Taste The Atmosphere",
+        "track": "陈奕迅 - 03.叶问风中转.flac",
+        "relativePath": "陈奕迅/2010-Taste The Atmosphere/陈奕迅 - 03.叶问风中转.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "陈奕迅/2010-Taste The Atmosphere/陈奕迅 - 04.花花世界.flac",
+      "artistName": "陈奕迅",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  陈奕迅/2010-Taste The Atmosphere/陈奕迅 - 04.花花世界.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "陈奕迅",
+        "album": "2010-Taste The Atmosphere",
+        "track": "陈奕迅 - 04.花花世界.flac",
+        "relativePath": "陈奕迅/2010-Taste The Atmosphere/陈奕迅 - 04.花花世界.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "陈奕迅/2010-Taste The Atmosphere/陈奕迅 - 05.我杯茶.flac",
+      "artistName": "陈奕迅",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  陈奕迅/2010-Taste The Atmosphere/陈奕迅 - 05.我杯茶.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "陈奕迅",
+        "album": "2010-Taste The Atmosphere",
+        "track": "陈奕迅 - 05.我杯茶.flac",
+        "relativePath": "陈奕迅/2010-Taste The Atmosphere/陈奕迅 - 05.我杯茶.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "陈奕迅/2010-Taste The Atmosphere/陈奕迅 - 06.超错.flac",
+      "artistName": "陈奕迅",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  陈奕迅/2010-Taste The Atmosphere/陈奕迅 - 06.超错.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "陈奕迅",
+        "album": "2010-Taste The Atmosphere",
+        "track": "陈奕迅 - 06.超错.flac",
+        "relativePath": "陈奕迅/2010-Taste The Atmosphere/陈奕迅 - 06.超错.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "陈奕迅/2010-Taste The Atmosphere/陈奕迅 - 07.叶问风中转 (Demo Version).flac",
+      "artistName": "陈奕迅",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  陈奕迅/2010-Taste The Atmosphere/陈奕迅 - 07.叶问风中转 (Demo Version).flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "陈奕迅",
+        "album": "2010-Taste The Atmosphere",
+        "track": "陈奕迅 - 07.叶问风中转 (Demo Version).flac",
+        "relativePath": "陈奕迅/2010-Taste The Atmosphere/陈奕迅 - 07.叶问风中转 (Demo Version).flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "陈奕迅/2010-Taste The Atmosphere/陈奕迅 - 08.讲男讲女 (NG take).flac",
+      "artistName": "陈奕迅",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  陈奕迅/2010-Taste The Atmosphere/陈奕迅 - 08.讲男讲女 (NG take).flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "陈奕迅",
+        "album": "2010-Taste The Atmosphere",
+        "track": "陈奕迅 - 08.讲男讲女 (NG take).flac",
+        "relativePath": "陈奕迅/2010-Taste The Atmosphere/陈奕迅 - 08.讲男讲女 (NG take).flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "陈奕迅/2010-Time Flies/陈奕迅 - 01.无人之境.flac",
+      "artistName": "陈奕迅",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  陈奕迅/2010-Time Flies/陈奕迅 - 01.无人之境.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "陈奕迅",
+        "album": "2010-Time Flies",
+        "track": "陈奕迅 - 01.无人之境.flac",
+        "relativePath": "陈奕迅/2010-Time Flies/陈奕迅 - 01.无人之境.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "陈奕迅/2010-Time Flies/陈奕迅 - 02.大人.flac",
+      "artistName": "陈奕迅",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  陈奕迅/2010-Time Flies/陈奕迅 - 02.大人.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "陈奕迅",
+        "album": "2010-Time Flies",
+        "track": "陈奕迅 - 02.大人.flac",
+        "relativePath": "陈奕迅/2010-Time Flies/陈奕迅 - 02.大人.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "陈奕迅/2010-Time Flies/陈奕迅 - 03.一丝不挂.flac",
+      "artistName": "陈奕迅",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  陈奕迅/2010-Time Flies/陈奕迅 - 03.一丝不挂.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "陈奕迅",
+        "album": "2010-Time Flies",
+        "track": "陈奕迅 - 03.一丝不挂.flac",
+        "relativePath": "陈奕迅/2010-Time Flies/陈奕迅 - 03.一丝不挂.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "陈奕迅/2010-Time Flies/陈奕迅 - 04.陀飞轮.flac",
+      "artistName": "陈奕迅",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  陈奕迅/2010-Time Flies/陈奕迅 - 04.陀飞轮.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "陈奕迅",
+        "album": "2010-Time Flies",
+        "track": "陈奕迅 - 04.陀飞轮.flac",
+        "relativePath": "陈奕迅/2010-Time Flies/陈奕迅 - 04.陀飞轮.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "陈奕迅/2010-Time Flies/陈奕迅 - 05.心腹.flac",
+      "artistName": "陈奕迅",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  陈奕迅/2010-Time Flies/陈奕迅 - 05.心腹.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "陈奕迅",
+        "album": "2010-Time Flies",
+        "track": "陈奕迅 - 05.心腹.flac",
+        "relativePath": "陈奕迅/2010-Time Flies/陈奕迅 - 05.心腹.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "陈奕迅/2010-Time Flies/陈奕迅 - 06.味之素.flac",
+      "artistName": "陈奕迅",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  陈奕迅/2010-Time Flies/陈奕迅 - 06.味之素.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "陈奕迅",
+        "album": "2010-Time Flies",
+        "track": "陈奕迅 - 06.味之素.flac",
+        "relativePath": "陈奕迅/2010-Time Flies/陈奕迅 - 06.味之素.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "陈奕迅/2011-Stranger Under My Skin/陈奕迅 - 01.Stranger Under My Skin.flac",
+      "artistName": "陈奕迅",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  陈奕迅/2011-Stranger Under My Skin/陈奕迅 - 01.Stranger Under My Skin.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "陈奕迅",
+        "album": "2011-Stranger Under My Skin",
+        "track": "陈奕迅 - 01.Stranger Under My Skin.flac",
+        "relativePath": "陈奕迅/2011-Stranger Under My Skin/陈奕迅 - 01.Stranger Under My Skin.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "陈奕迅/2011-Stranger Under My Skin/陈奕迅 - 02.最后派对.flac",
+      "artistName": "陈奕迅",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  陈奕迅/2011-Stranger Under My Skin/陈奕迅 - 02.最后派对.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "陈奕迅",
+        "album": "2011-Stranger Under My Skin",
+        "track": "陈奕迅 - 02.最后派对.flac",
+        "relativePath": "陈奕迅/2011-Stranger Under My Skin/陈奕迅 - 02.最后派对.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "陈奕迅/2011-Stranger Under My Skin/陈奕迅 - 03.苦瓜.flac",
+      "artistName": "陈奕迅",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  陈奕迅/2011-Stranger Under My Skin/陈奕迅 - 03.苦瓜.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "陈奕迅",
+        "album": "2011-Stranger Under My Skin",
+        "track": "陈奕迅 - 03.苦瓜.flac",
+        "relativePath": "陈奕迅/2011-Stranger Under My Skin/陈奕迅 - 03.苦瓜.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "陈奕迅/2011-Stranger Under My Skin/陈奕迅 - 04.沼气.flac",
+      "artistName": "陈奕迅",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  陈奕迅/2011-Stranger Under My Skin/陈奕迅 - 04.沼气.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "陈奕迅",
+        "album": "2011-Stranger Under My Skin",
+        "track": "陈奕迅 - 04.沼气.flac",
+        "relativePath": "陈奕迅/2011-Stranger Under My Skin/陈奕迅 - 04.沼气.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "陈奕迅/2011-Stranger Under My Skin/陈奕迅 - 05.My Private Christmas Song.flac",
+      "artistName": "陈奕迅",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  陈奕迅/2011-Stranger Under My Skin/陈奕迅 - 05.My Private Christmas Song.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 96% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "陈奕迅",
+        "album": "2011-Stranger Under My Skin",
+        "track": "陈奕迅 - 05.My Private Christmas Song.flac",
+        "relativePath": "陈奕迅/2011-Stranger Under My Skin/陈奕迅 - 05.My Private Christmas Song.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 96% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "陈奕迅/2011-Stranger Under My Skin/陈奕迅 - 06.乐园.flac",
+      "artistName": "陈奕迅",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  陈奕迅/2011-Stranger Under My Skin/陈奕迅 - 06.乐园.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "陈奕迅",
+        "album": "2011-Stranger Under My Skin",
+        "track": "陈奕迅 - 06.乐园.flac",
+        "relativePath": "陈奕迅/2011-Stranger Under My Skin/陈奕迅 - 06.乐园.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "陈奕迅/2011-Stranger Under My Skin/陈奕迅 - 07.等你爱我.flac",
+      "artistName": "陈奕迅",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  陈奕迅/2011-Stranger Under My Skin/陈奕迅 - 07.等你爱我.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "陈奕迅",
+        "album": "2011-Stranger Under My Skin",
+        "track": "陈奕迅 - 07.等你爱我.flac",
+        "relativePath": "陈奕迅/2011-Stranger Under My Skin/陈奕迅 - 07.等你爱我.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "陈奕迅/2011-Stranger Under My Skin/陈奕迅 - 08.因为爱情.flac",
+      "artistName": "陈奕迅",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  陈奕迅/2011-Stranger Under My Skin/陈奕迅 - 08.因为爱情.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "陈奕迅",
+        "album": "2011-Stranger Under My Skin",
+        "track": "陈奕迅 - 08.因为爱情.flac",
+        "relativePath": "陈奕迅/2011-Stranger Under My Skin/陈奕迅 - 08.因为爱情.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "陈奕迅/2011-Stranger Under My Skin/陈奕迅 - 09.六月飛霜.flac",
+      "artistName": "陈奕迅",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  陈奕迅/2011-Stranger Under My Skin/陈奕迅 - 09.六月飛霜.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "陈奕迅",
+        "album": "2011-Stranger Under My Skin",
+        "track": "陈奕迅 - 09.六月飛霜.flac",
+        "relativePath": "陈奕迅/2011-Stranger Under My Skin/陈奕迅 - 09.六月飛霜.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "陈奕迅/2011-？/陈奕迅 - 01.孤独患者.flac",
+      "artistName": "陈奕迅",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  陈奕迅/2011-？/陈奕迅 - 01.孤独患者.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "陈奕迅",
+        "album": "2011-？",
+        "track": "陈奕迅 - 01.孤独患者.flac",
+        "relativePath": "陈奕迅/2011-？/陈奕迅 - 01.孤独患者.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "陈奕迅/2011-？/陈奕迅 - 02.哎呀咿呀.flac",
+      "artistName": "陈奕迅",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  陈奕迅/2011-？/陈奕迅 - 02.哎呀咿呀.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "陈奕迅",
+        "album": "2011-？",
+        "track": "陈奕迅 - 02.哎呀咿呀.flac",
+        "relativePath": "陈奕迅/2011-？/陈奕迅 - 02.哎呀咿呀.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "陈奕迅/2011-？/陈奕迅 - 03.看穿.flac",
+      "artistName": "陈奕迅",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  陈奕迅/2011-？/陈奕迅 - 03.看穿.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "陈奕迅",
+        "album": "2011-？",
+        "track": "陈奕迅 - 03.看穿.flac",
+        "relativePath": "陈奕迅/2011-？/陈奕迅 - 03.看穿.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "陈奕迅/2011-？/陈奕迅 - 04.吟游诗人.flac",
+      "artistName": "陈奕迅",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  陈奕迅/2011-？/陈奕迅 - 04.吟游诗人.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "陈奕迅",
+        "album": "2011-？",
+        "track": "陈奕迅 - 04.吟游诗人.flac",
+        "relativePath": "陈奕迅/2011-？/陈奕迅 - 04.吟游诗人.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "陈奕迅/2011-？/陈奕迅 - 05.张氏情歌.flac",
+      "artistName": "陈奕迅",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  陈奕迅/2011-？/陈奕迅 - 05.张氏情歌.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "陈奕迅",
+        "album": "2011-？",
+        "track": "陈奕迅 - 05.张氏情歌.flac",
+        "relativePath": "陈奕迅/2011-？/陈奕迅 - 05.张氏情歌.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "陈奕迅/2011-？/陈奕迅 - 06.Baby Song.flac",
+      "artistName": "陈奕迅",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  陈奕迅/2011-？/陈奕迅 - 06.Baby Song.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "陈奕迅",
+        "album": "2011-？",
+        "track": "陈奕迅 - 06.Baby Song.flac",
+        "relativePath": "陈奕迅/2011-？/陈奕迅 - 06.Baby Song.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "陈奕迅/2011-？/陈奕迅 - 07.听一千遍后.flac",
+      "artistName": "陈奕迅",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  陈奕迅/2011-？/陈奕迅 - 07.听一千遍后.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "陈奕迅",
+        "album": "2011-？",
+        "track": "陈奕迅 - 07.听一千遍后.flac",
+        "relativePath": "陈奕迅/2011-？/陈奕迅 - 07.听一千遍后.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "陈奕迅/2011-？/陈奕迅 - 08.内疚.flac",
+      "artistName": "陈奕迅",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  陈奕迅/2011-？/陈奕迅 - 08.内疚.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "陈奕迅",
+        "album": "2011-？",
+        "track": "陈奕迅 - 08.内疚.flac",
+        "relativePath": "陈奕迅/2011-？/陈奕迅 - 08.内疚.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "陈奕迅/2011-？/陈奕迅 - 09.还要不要走.flac",
+      "artistName": "陈奕迅",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  陈奕迅/2011-？/陈奕迅 - 09.还要不要走.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "陈奕迅",
+        "album": "2011-？",
+        "track": "陈奕迅 - 09.还要不要走.flac",
+        "relativePath": "陈奕迅/2011-？/陈奕迅 - 09.还要不要走.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "陈奕迅/2011-？/陈奕迅 - 10.积木.flac",
+      "artistName": "陈奕迅",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  陈奕迅/2011-？/陈奕迅 - 10.积木.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "陈奕迅",
+        "album": "2011-？",
+        "track": "陈奕迅 - 10.积木.flac",
+        "relativePath": "陈奕迅/2011-？/陈奕迅 - 10.积木.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "陈奕迅/2011-？/陈奕迅 - 11.神奇化妆师.flac",
+      "artistName": "陈奕迅",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  陈奕迅/2011-？/陈奕迅 - 11.神奇化妆师.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "陈奕迅",
+        "album": "2011-？",
+        "track": "陈奕迅 - 11.神奇化妆师.flac",
+        "relativePath": "陈奕迅/2011-？/陈奕迅 - 11.神奇化妆师.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "陈奕迅/2011-？/陈奕迅 - 12.Muffin Man.flac",
+      "artistName": "陈奕迅",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  陈奕迅/2011-？/陈奕迅 - 12.Muffin Man.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "陈奕迅",
+        "album": "2011-？",
+        "track": "陈奕迅 - 12.Muffin Man.flac",
+        "relativePath": "陈奕迅/2011-？/陈奕迅 - 12.Muffin Man.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "陈奕迅/2011-？/陈奕迅 - 13.那些让你死去活来的女孩.flac",
+      "artistName": "陈奕迅",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "陈奕迅",
+        "album": "2011-？",
+        "track": "陈奕迅 - 13.那些让你死去活来的女孩.flac",
+        "relativePath": "陈奕迅/2011-？/陈奕迅 - 13.那些让你死去活来的女孩.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "陈奕迅/2012-...3mm/陈奕迅 - 01.重口味.flac",
+      "artistName": "陈奕迅",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  陈奕迅/2012-...3mm/陈奕迅 - 01.重口味.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "陈奕迅",
+        "album": "2012-...3mm",
+        "track": "陈奕迅 - 01.重口味.flac",
+        "relativePath": "陈奕迅/2012-...3mm/陈奕迅 - 01.重口味.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "陈奕迅/2012-...3mm/陈奕迅 - 02.非礼.flac",
+      "artistName": "陈奕迅",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  陈奕迅/2012-...3mm/陈奕迅 - 02.非礼.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "陈奕迅",
+        "album": "2012-...3mm",
+        "track": "陈奕迅 - 02.非礼.flac",
+        "relativePath": "陈奕迅/2012-...3mm/陈奕迅 - 02.非礼.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "陈奕迅/2012-...3mm/陈奕迅 - 03.Class.flac",
+      "artistName": "陈奕迅",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  陈奕迅/2012-...3mm/陈奕迅 - 03.Class.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "陈奕迅",
+        "album": "2012-...3mm",
+        "track": "陈奕迅 - 03.Class.flac",
+        "relativePath": "陈奕迅/2012-...3mm/陈奕迅 - 03.Class.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "陈奕迅/2012-...3mm/陈奕迅 - 04.碌卡.flac",
+      "artistName": "陈奕迅",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  陈奕迅/2012-...3mm/陈奕迅 - 04.碌卡.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "陈奕迅",
+        "album": "2012-...3mm",
+        "track": "陈奕迅 - 04.碌卡.flac",
+        "relativePath": "陈奕迅/2012-...3mm/陈奕迅 - 04.碌卡.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "陈奕迅/2012-...3mm/陈奕迅 - 05.笑死朕.flac",
+      "artistName": "陈奕迅",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  陈奕迅/2012-...3mm/陈奕迅 - 05.笑死朕.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "陈奕迅",
+        "album": "2012-...3mm",
+        "track": "陈奕迅 - 05.笑死朕.flac",
+        "relativePath": "陈奕迅/2012-...3mm/陈奕迅 - 05.笑死朕.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "陈奕迅/2012-...3mm/陈奕迅 - 06.蚊.flac",
+      "artistName": "陈奕迅",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  陈奕迅/2012-...3mm/陈奕迅 - 06.蚊.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 9922500 samples (225.00s, 99.0% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "陈奕迅",
+        "album": "2012-...3mm",
+        "track": "陈奕迅 - 06.蚊.flac",
+        "relativePath": "陈奕迅/2012-...3mm/陈奕迅 - 06.蚊.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "陈奕迅/2012-...3mm/陈奕迅 - 07.Let It Out.flac",
+      "artistName": "陈奕迅",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  陈奕迅/2012-...3mm/陈奕迅 - 07.Let It Out.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "陈奕迅",
+        "album": "2012-...3mm",
+        "track": "陈奕迅 - 07.Let It Out.flac",
+        "relativePath": "陈奕迅/2012-...3mm/陈奕迅 - 07.Let It Out.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "陈奕迅/2012-...3mm/陈奕迅 - 08.习惯说.flac",
+      "artistName": "陈奕迅",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  陈奕迅/2012-...3mm/陈奕迅 - 08.习惯说.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "陈奕迅",
+        "album": "2012-...3mm",
+        "track": "陈奕迅 - 08.习惯说.flac",
+        "relativePath": "陈奕迅/2012-...3mm/陈奕迅 - 08.习惯说.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "陈奕迅/2012-...3mm/陈奕迅 - 09.信任.flac",
+      "artistName": "陈奕迅",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  陈奕迅/2012-...3mm/陈奕迅 - 09.信任.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "陈奕迅",
+        "album": "2012-...3mm",
+        "track": "陈奕迅 - 09.信任.flac",
+        "relativePath": "陈奕迅/2012-...3mm/陈奕迅 - 09.信任.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "陈奕迅/2012-...3mm/陈奕迅 - 10.完.flac",
+      "artistName": "陈奕迅",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  陈奕迅/2012-...3mm/陈奕迅 - 10.完.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "陈奕迅",
+        "album": "2012-...3mm",
+        "track": "陈奕迅 - 10.完.flac",
+        "relativePath": "陈奕迅/2012-...3mm/陈奕迅 - 10.完.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "陈奕迅/2013-The Key/陈奕迅 - 01.主旋律.flac",
+      "artistName": "陈奕迅",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  陈奕迅/2013-The Key/陈奕迅 - 01.主旋律.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "陈奕迅",
+        "album": "2013-The Key",
+        "track": "陈奕迅 - 01.主旋律.flac",
+        "relativePath": "陈奕迅/2013-The Key/陈奕迅 - 01.主旋律.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "陈奕迅/2013-The Key/陈奕迅 - 02.告别娑婆.flac",
+      "artistName": "陈奕迅",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  陈奕迅/2013-The Key/陈奕迅 - 02.告别娑婆.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "陈奕迅",
+        "album": "2013-The Key",
+        "track": "陈奕迅 - 02.告别娑婆.flac",
+        "relativePath": "陈奕迅/2013-The Key/陈奕迅 - 02.告别娑婆.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "陈奕迅/2013-The Key/陈奕迅 - 03.斯德哥尔摩情人.flac",
+      "artistName": "陈奕迅",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  陈奕迅/2013-The Key/陈奕迅 - 03.斯德哥尔摩情人.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "陈奕迅",
+        "album": "2013-The Key",
+        "track": "陈奕迅 - 03.斯德哥尔摩情人.flac",
+        "relativePath": "陈奕迅/2013-The Key/陈奕迅 - 03.斯德哥尔摩情人.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "陈奕迅/2013-The Key/陈奕迅 - 04.任我行.flac",
+      "artistName": "陈奕迅",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  陈奕迅/2013-The Key/陈奕迅 - 04.任我行.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "陈奕迅",
+        "album": "2013-The Key",
+        "track": "陈奕迅 - 04.任我行.flac",
+        "relativePath": "陈奕迅/2013-The Key/陈奕迅 - 04.任我行.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "陈奕迅/2013-The Key/陈奕迅 - 05.远在咫尺.flac",
+      "artistName": "陈奕迅",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  陈奕迅/2013-The Key/陈奕迅 - 05.远在咫尺.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "陈奕迅",
+        "album": "2013-The Key",
+        "track": "陈奕迅 - 05.远在咫尺.flac",
+        "relativePath": "陈奕迅/2013-The Key/陈奕迅 - 05.远在咫尺.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "陈奕迅/2013-The Key/陈奕迅 - 06.失忆蝴蝶.flac",
+      "artistName": "陈奕迅",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  陈奕迅/2013-The Key/陈奕迅 - 06.失忆蝴蝶.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "陈奕迅",
+        "album": "2013-The Key",
+        "track": "陈奕迅 - 06.失忆蝴蝶.flac",
+        "relativePath": "陈奕迅/2013-The Key/陈奕迅 - 06.失忆蝴蝶.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "陈奕迅/2013-The Key/陈奕迅 - 07.床头床尾.flac",
+      "artistName": "陈奕迅",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  陈奕迅/2013-The Key/陈奕迅 - 07.床头床尾.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "陈奕迅",
+        "album": "2013-The Key",
+        "track": "陈奕迅 - 07.床头床尾.flac",
+        "relativePath": "陈奕迅/2013-The Key/陈奕迅 - 07.床头床尾.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "陈奕迅/2013-The Key/陈奕迅 - 08.阿猫阿狗.flac",
+      "artistName": "陈奕迅",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  陈奕迅/2013-The Key/陈奕迅 - 08.阿猫阿狗.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "陈奕迅",
+        "album": "2013-The Key",
+        "track": "陈奕迅 - 08.阿猫阿狗.flac",
+        "relativePath": "陈奕迅/2013-The Key/陈奕迅 - 08.阿猫阿狗.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "陈奕迅/2013-The Key/陈奕迅 - 09.同舟之情.flac",
+      "artistName": "陈奕迅",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  陈奕迅/2013-The Key/陈奕迅 - 09.同舟之情.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "陈奕迅",
+        "album": "2013-The Key",
+        "track": "陈奕迅 - 09.同舟之情.flac",
+        "relativePath": "陈奕迅/2013-The Key/陈奕迅 - 09.同舟之情.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "陈奕迅/2014-Rice & Shine/陈奕迅 - 01.娱乐天空.flac",
+      "artistName": "陈奕迅",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  陈奕迅/2014-Rice & Shine/陈奕迅 - 01.娱乐天空.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "陈奕迅",
+        "album": "2014-Rice & Shine",
+        "track": "陈奕迅 - 01.娱乐天空.flac",
+        "relativePath": "陈奕迅/2014-Rice & Shine/陈奕迅 - 01.娱乐天空.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "陈奕迅/2014-Rice & Shine/陈奕迅 - 02.四季圈.flac",
+      "artistName": "陈奕迅",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  陈奕迅/2014-Rice & Shine/陈奕迅 - 02.四季圈.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "陈奕迅",
+        "album": "2014-Rice & Shine",
+        "track": "陈奕迅 - 02.四季圈.flac",
+        "relativePath": "陈奕迅/2014-Rice & Shine/陈奕迅 - 02.四季圈.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "陈奕迅/2014-Rice & Shine/陈奕迅 - 03.愚人快乐.flac",
+      "artistName": "陈奕迅",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  陈奕迅/2014-Rice & Shine/陈奕迅 - 03.愚人快乐.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "陈奕迅",
+        "album": "2014-Rice & Shine",
+        "track": "陈奕迅 - 03.愚人快乐.flac",
+        "relativePath": "陈奕迅/2014-Rice & Shine/陈奕迅 - 03.愚人快乐.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "陈奕迅/2014-Rice & Shine/陈奕迅 - 04.不如承诺来的简单.flac",
+      "artistName": "陈奕迅",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  陈奕迅/2014-Rice & Shine/陈奕迅 - 04.不如承诺来的简单.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "陈奕迅",
+        "album": "2014-Rice & Shine",
+        "track": "陈奕迅 - 04.不如承诺来的简单.flac",
+        "relativePath": "陈奕迅/2014-Rice & Shine/陈奕迅 - 04.不如承诺来的简单.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "陈奕迅/2014-Rice & Shine/陈奕迅 - 05.对面.flac",
+      "artistName": "陈奕迅",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  陈奕迅/2014-Rice & Shine/陈奕迅 - 05.对面.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 95% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "陈奕迅",
+        "album": "2014-Rice & Shine",
+        "track": "陈奕迅 - 05.对面.flac",
+        "relativePath": "陈奕迅/2014-Rice & Shine/陈奕迅 - 05.对面.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 95% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    }
+  ]
+}

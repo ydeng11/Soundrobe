@@ -1,0 +1,6107 @@
+{
+  "batchId": 38,
+  "completedAt": "2026-06-20T05:39:07.153Z",
+  "count": 100,
+  "results": [
+    {
+      "rel": "張信哲/從開始到現在 (2002情歌大全集)/12 到處留情.flac",
+      "artistName": "張信哲",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  張信哲/從開始到現在 (2002情歌大全集)/12 到處留情.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "張信哲",
+        "album": "從開始到現在 (2002情歌大全集)",
+        "track": "12 到處留情.flac",
+        "relativePath": "張信哲/從開始到現在 (2002情歌大全集)/12 到處留情.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "張信哲/從開始到現在 (2002情歌大全集)/13 從開始到現在 (電視劇《冬季戀歌》正宗主題曲中文版).flac",
+      "artistName": "張信哲",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  張信哲/從開始到現在 (2002情歌大全集)/13 從開始到現在 (電視劇《冬季戀歌》正宗主題曲中文版).flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "張信哲",
+        "album": "從開始到現在 (2002情歌大全集)",
+        "track": "13 從開始到現在 (電視劇《冬季戀歌》正宗主題曲中文版).flac",
+        "relativePath": "張信哲/從開始到現在 (2002情歌大全集)/13 從開始到現在 (電視劇《冬季戀歌》正宗主題曲中文版).flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "張信哲/從開始到現在 (2002情歌大全集)/14 My Memory (電視劇《冬季戀歌》正宗插曲中文版).flac",
+      "artistName": "張信哲",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  張信哲/從開始到現在 (2002情歌大全集)/14 My Memory (電視劇《冬季戀歌》正宗插曲中文版).flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "張信哲",
+        "album": "從開始到現在 (2002情歌大全集)",
+        "track": "14 My Memory (電視劇《冬季戀歌》正宗插曲中文版).flac",
+        "relativePath": "張信哲/從開始到現在 (2002情歌大全集)/14 My Memory (電視劇《冬季戀歌》正宗插曲中文版).flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "張信哲/從開始到現在 (2002情歌大全集)/15 過火.flac",
+      "artistName": "張信哲",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  張信哲/從開始到現在 (2002情歌大全集)/15 過火.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "張信哲",
+        "album": "從開始到現在 (2002情歌大全集)",
+        "track": "15 過火.flac",
+        "relativePath": "張信哲/從開始到現在 (2002情歌大全集)/15 過火.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "張信哲/從開始到現在 (2002情歌大全集)/16 太想愛你.flac",
+      "artistName": "張信哲",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  張信哲/從開始到現在 (2002情歌大全集)/16 太想愛你.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "張信哲",
+        "album": "從開始到現在 (2002情歌大全集)",
+        "track": "16 太想愛你.flac",
+        "relativePath": "張信哲/從開始到現在 (2002情歌大全集)/16 太想愛你.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "張信哲/從開始到現在 (2002情歌大全集)/17 用情.flac",
+      "artistName": "張信哲",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  張信哲/從開始到現在 (2002情歌大全集)/17 用情.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "張信哲",
+        "album": "從開始到現在 (2002情歌大全集)",
+        "track": "17 用情.flac",
+        "relativePath": "張信哲/從開始到現在 (2002情歌大全集)/17 用情.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "張信哲/從開始到現在 (2002情歌大全集)/18 下雪邊界.flac",
+      "artistName": "張信哲",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  張信哲/從開始到現在 (2002情歌大全集)/18 下雪邊界.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "張信哲",
+        "album": "從開始到現在 (2002情歌大全集)",
+        "track": "18 下雪邊界.flac",
+        "relativePath": "張信哲/從開始到現在 (2002情歌大全集)/18 下雪邊界.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "張信哲/從開始到現在 (2002情歌大全集)/19 多心.flac",
+      "artistName": "張信哲",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  張信哲/從開始到現在 (2002情歌大全集)/19 多心.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "張信哲",
+        "album": "從開始到現在 (2002情歌大全集)",
+        "track": "19 多心.flac",
+        "relativePath": "張信哲/從開始到現在 (2002情歌大全集)/19 多心.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "張信哲/從開始到現在 (2002情歌大全集)/20 愛情餘味.flac",
+      "artistName": "張信哲",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  張信哲/從開始到現在 (2002情歌大全集)/20 愛情餘味.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "張信哲",
+        "album": "從開始到現在 (2002情歌大全集)",
+        "track": "20 愛情餘味.flac",
+        "relativePath": "張信哲/從開始到現在 (2002情歌大全集)/20 愛情餘味.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "張信哲/從開始到現在 (2002情歌大全集)/21 受罪.flac",
+      "artistName": "張信哲",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  張信哲/從開始到現在 (2002情歌大全集)/21 受罪.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "張信哲",
+        "album": "從開始到現在 (2002情歌大全集)",
+        "track": "21 受罪.flac",
+        "relativePath": "張信哲/從開始到現在 (2002情歌大全集)/21 受罪.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "張信哲/從開始到現在 (2002情歌大全集)/22 心情卡片.flac",
+      "artistName": "張信哲",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  張信哲/從開始到現在 (2002情歌大全集)/22 心情卡片.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "張信哲",
+        "album": "從開始到現在 (2002情歌大全集)",
+        "track": "22 心情卡片.flac",
+        "relativePath": "張信哲/從開始到現在 (2002情歌大全集)/22 心情卡片.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "張信哲/從開始到現在 (2002情歌大全集)/23 愛不留.flac",
+      "artistName": "張信哲",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  張信哲/從開始到現在 (2002情歌大全集)/23 愛不留.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "張信哲",
+        "album": "從開始到現在 (2002情歌大全集)",
+        "track": "23 愛不留.flac",
+        "relativePath": "張信哲/從開始到現在 (2002情歌大全集)/23 愛不留.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "張信哲/我好想/01 愛情餘味.flac",
+      "artistName": "張信哲",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  張信哲/我好想/01 愛情餘味.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "張信哲",
+        "album": "我好想",
+        "track": "01 愛情餘味.flac",
+        "relativePath": "張信哲/我好想/01 愛情餘味.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "張信哲/我好想/02 我好想.flac",
+      "artistName": "張信哲",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  張信哲/我好想/02 我好想.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "張信哲",
+        "album": "我好想",
+        "track": "02 我好想.flac",
+        "relativePath": "張信哲/我好想/02 我好想.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "張信哲/我好想/03 捨不得對不起.flac",
+      "artistName": "張信哲",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  張信哲/我好想/03 捨不得對不起.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "張信哲",
+        "album": "我好想",
+        "track": "03 捨不得對不起.flac",
+        "relativePath": "張信哲/我好想/03 捨不得對不起.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "張信哲/我好想/04 等風的旗.flac",
+      "artistName": "張信哲",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  張信哲/我好想/04 等風的旗.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "張信哲",
+        "album": "我好想",
+        "track": "04 等風的旗.flac",
+        "relativePath": "張信哲/我好想/04 等風的旗.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "張信哲/我好想/05 Goodbye Yesterday.flac",
+      "artistName": "張信哲",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  張信哲/我好想/05 Goodbye Yesterday.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "張信哲",
+        "album": "我好想",
+        "track": "05 Goodbye Yesterday.flac",
+        "relativePath": "張信哲/我好想/05 Goodbye Yesterday.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "張信哲/我好想/06 霧中機場.flac",
+      "artistName": "張信哲",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  張信哲/我好想/06 霧中機場.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "張信哲",
+        "album": "我好想",
+        "track": "06 霧中機場.flac",
+        "relativePath": "張信哲/我好想/06 霧中機場.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "張信哲/我好想/07 愛就一個字.flac",
+      "artistName": "張信哲",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  張信哲/我好想/07 愛就一個字.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "張信哲",
+        "album": "我好想",
+        "track": "07 愛就一個字.flac",
+        "relativePath": "張信哲/我好想/07 愛就一個字.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "張信哲/我好想/08 某某某.flac",
+      "artistName": "張信哲",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  張信哲/我好想/08 某某某.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "張信哲",
+        "album": "我好想",
+        "track": "08 某某某.flac",
+        "relativePath": "張信哲/我好想/08 某某某.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "張信哲/我好想/09 如果你願意.flac",
+      "artistName": "張信哲",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  張信哲/我好想/09 如果你願意.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "張信哲",
+        "album": "我好想",
+        "track": "09 如果你願意.flac",
+        "relativePath": "張信哲/我好想/09 如果你願意.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "張信哲/我好想/10 有個人想我就好.flac",
+      "artistName": "張信哲",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  張信哲/我好想/10 有個人想我就好.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "張信哲",
+        "album": "我好想",
+        "track": "10 有個人想我就好.flac",
+        "relativePath": "張信哲/我好想/10 有個人想我就好.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "張信哲/摯愛/01 用情.flac",
+      "artistName": "張信哲",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  張信哲/摯愛/01 用情.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "張信哲",
+        "album": "摯愛",
+        "track": "01 用情.flac",
+        "relativePath": "張信哲/摯愛/01 用情.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "張信哲/摯愛/02 背叛.flac",
+      "artistName": "張信哲",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  張信哲/摯愛/02 背叛.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "張信哲",
+        "album": "摯愛",
+        "track": "02 背叛.flac",
+        "relativePath": "張信哲/摯愛/02 背叛.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "張信哲/摯愛/03 多想.flac",
+      "artistName": "張信哲",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  張信哲/摯愛/03 多想.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "張信哲",
+        "album": "摯愛",
+        "track": "03 多想.flac",
+        "relativePath": "張信哲/摯愛/03 多想.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "張信哲/摯愛/04 Good Love.flac",
+      "artistName": "張信哲",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  張信哲/摯愛/04 Good Love.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "張信哲",
+        "album": "摯愛",
+        "track": "04 Good Love.flac",
+        "relativePath": "張信哲/摯愛/04 Good Love.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "張信哲/摯愛/05 放手.flac",
+      "artistName": "張信哲",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  張信哲/摯愛/05 放手.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "張信哲",
+        "album": "摯愛",
+        "track": "05 放手.flac",
+        "relativePath": "張信哲/摯愛/05 放手.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "張信哲/摯愛/06 受罪.flac",
+      "artistName": "張信哲",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  張信哲/摯愛/06 受罪.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "張信哲",
+        "album": "摯愛",
+        "track": "06 受罪.flac",
+        "relativePath": "張信哲/摯愛/06 受罪.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "張信哲/摯愛/07 改變.flac",
+      "artistName": "張信哲",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  張信哲/摯愛/07 改變.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "張信哲",
+        "album": "摯愛",
+        "track": "07 改變.flac",
+        "relativePath": "張信哲/摯愛/07 改變.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "張信哲/摯愛/08 等你.flac",
+      "artistName": "張信哲",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  張信哲/摯愛/08 等你.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "張信哲",
+        "album": "摯愛",
+        "track": "08 等你.flac",
+        "relativePath": "張信哲/摯愛/08 等你.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "張信哲/摯愛/09 快樂.flac",
+      "artistName": "張信哲",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  張信哲/摯愛/09 快樂.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "張信哲",
+        "album": "摯愛",
+        "track": "09 快樂.flac",
+        "relativePath": "張信哲/摯愛/09 快樂.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "張信哲/摯愛/10 遊戲.flac",
+      "artistName": "張信哲",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  張信哲/摯愛/10 遊戲.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "張信哲",
+        "album": "摯愛",
+        "track": "10 遊戲.flac",
+        "relativePath": "張信哲/摯愛/10 遊戲.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "張信哲/直覺/01 信.flac",
+      "artistName": "張信哲",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  張信哲/直覺/01 信.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "張信哲",
+        "album": "直覺",
+        "track": "01 信.flac",
+        "relativePath": "張信哲/直覺/01 信.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "張信哲/直覺/02 我相信.flac",
+      "artistName": "張信哲",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  張信哲/直覺/02 我相信.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "張信哲",
+        "album": "直覺",
+        "track": "02 我相信.flac",
+        "relativePath": "張信哲/直覺/02 我相信.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "張信哲/直覺/03 愛的證據.flac",
+      "artistName": "張信哲",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  張信哲/直覺/03 愛的證據.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "張信哲",
+        "album": "直覺",
+        "track": "03 愛的證據.flac",
+        "relativePath": "張信哲/直覺/03 愛的證據.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "張信哲/直覺/04 很快.flac",
+      "artistName": "張信哲",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  張信哲/直覺/04 很快.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "張信哲",
+        "album": "直覺",
+        "track": "04 很快.flac",
+        "relativePath": "張信哲/直覺/04 很快.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "張信哲/直覺/05 絕不再失去你.flac",
+      "artistName": "張信哲",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  張信哲/直覺/05 絕不再失去你.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "張信哲",
+        "album": "直覺",
+        "track": "05 絕不再失去你.flac",
+        "relativePath": "張信哲/直覺/05 絕不再失去你.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "張信哲/直覺/06 直覺.flac",
+      "artistName": "張信哲",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  張信哲/直覺/06 直覺.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "張信哲",
+        "album": "直覺",
+        "track": "06 直覺.flac",
+        "relativePath": "張信哲/直覺/06 直覺.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "張信哲/直覺/07 雨後.flac",
+      "artistName": "張信哲",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  張信哲/直覺/07 雨後.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "張信哲",
+        "album": "直覺",
+        "track": "07 雨後.flac",
+        "relativePath": "張信哲/直覺/07 雨後.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "張信哲/直覺/08 男人說法.flac",
+      "artistName": "張信哲",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  張信哲/直覺/08 男人說法.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "張信哲",
+        "album": "直覺",
+        "track": "08 男人說法.flac",
+        "relativePath": "張信哲/直覺/08 男人說法.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "張信哲/直覺/09 兩個小孩子.flac",
+      "artistName": "張信哲",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  張信哲/直覺/09 兩個小孩子.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "張信哲",
+        "album": "直覺",
+        "track": "09 兩個小孩子.flac",
+        "relativePath": "張信哲/直覺/09 兩個小孩子.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "張信哲/直覺/10 心情卡片.flac",
+      "artistName": "張信哲",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  張信哲/直覺/10 心情卡片.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "張信哲",
+        "album": "直覺",
+        "track": "10 心情卡片.flac",
+        "relativePath": "張信哲/直覺/10 心情卡片.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "張信哲/空出來的時間/01 空出來的時間剛好拿來寂寞.flac",
+      "artistName": "張信哲",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  張信哲/空出來的時間/01 空出來的時間剛好拿來寂寞.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "張信哲",
+        "album": "空出來的時間",
+        "track": "01 空出來的時間剛好拿來寂寞.flac",
+        "relativePath": "張信哲/空出來的時間/01 空出來的時間剛好拿來寂寞.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "張信哲/空出來的時間/02 順風車.flac",
+      "artistName": "張信哲",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  張信哲/空出來的時間/02 順風車.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "張信哲",
+        "album": "空出來的時間",
+        "track": "02 順風車.flac",
+        "relativePath": "張信哲/空出來的時間/02 順風車.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "張信哲/空出來的時間/03 換房間.flac",
+      "artistName": "張信哲",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  張信哲/空出來的時間/03 換房間.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "張信哲",
+        "album": "空出來的時間",
+        "track": "03 換房間.flac",
+        "relativePath": "張信哲/空出來的時間/03 換房間.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "張信哲/空出來的時間/04 三十好幾.flac",
+      "artistName": "張信哲",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  張信哲/空出來的時間/04 三十好幾.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "張信哲",
+        "album": "空出來的時間",
+        "track": "04 三十好幾.flac",
+        "relativePath": "張信哲/空出來的時間/04 三十好幾.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "張信哲/空出來的時間/05 別用眼淚綁架我的決定.flac",
+      "artistName": "張信哲",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  張信哲/空出來的時間/05 別用眼淚綁架我的決定.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "張信哲",
+        "album": "空出來的時間",
+        "track": "05 別用眼淚綁架我的決定.flac",
+        "relativePath": "張信哲/空出來的時間/05 別用眼淚綁架我的決定.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "張信哲/空出來的時間/06 人海.flac",
+      "artistName": "張信哲",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  張信哲/空出來的時間/06 人海.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "張信哲",
+        "album": "空出來的時間",
+        "track": "06 人海.flac",
+        "relativePath": "張信哲/空出來的時間/06 人海.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "張信哲/空出來的時間/07 你會為我犯錯嗎.flac",
+      "artistName": "張信哲",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  張信哲/空出來的時間/07 你會為我犯錯嗎.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "張信哲",
+        "album": "空出來的時間",
+        "track": "07 你會為我犯錯嗎.flac",
+        "relativePath": "張信哲/空出來的時間/07 你會為我犯錯嗎.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "張信哲/空出來的時間/08 Mr. No.flac",
+      "artistName": "張信哲",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  張信哲/空出來的時間/08 Mr. No.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "張信哲",
+        "album": "空出來的時間",
+        "track": "08 Mr. No.flac",
+        "relativePath": "張信哲/空出來的時間/08 Mr. No.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "張信哲/空出來的時間/09 眼中的念舊.flac",
+      "artistName": "張信哲",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  張信哲/空出來的時間/09 眼中的念舊.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "張信哲",
+        "album": "空出來的時間",
+        "track": "09 眼中的念舊.flac",
+        "relativePath": "張信哲/空出來的時間/09 眼中的念舊.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "張信哲/空出來的時間/10 拾慌.flac",
+      "artistName": "張信哲",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  張信哲/空出來的時間/10 拾慌.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "張信哲",
+        "album": "空出來的時間",
+        "track": "10 拾慌.flac",
+        "relativePath": "張信哲/空出來的時間/10 拾慌.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "張信哲/逃生/01 殘念.flac",
+      "artistName": "張信哲",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  張信哲/逃生/01 殘念.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "張信哲",
+        "album": "逃生",
+        "track": "01 殘念.flac",
+        "relativePath": "張信哲/逃生/01 殘念.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "張信哲/逃生/02 逃生.flac",
+      "artistName": "張信哲",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  張信哲/逃生/02 逃生.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "張信哲",
+        "album": "逃生",
+        "track": "02 逃生.flac",
+        "relativePath": "張信哲/逃生/02 逃生.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "張信哲/逃生/03 牡丹憂.flac",
+      "artistName": "張信哲",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  張信哲/逃生/03 牡丹憂.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "張信哲",
+        "album": "逃生",
+        "track": "03 牡丹憂.flac",
+        "relativePath": "張信哲/逃生/03 牡丹憂.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "張信哲/逃生/04 可愛美眉.flac",
+      "artistName": "張信哲",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  張信哲/逃生/04 可愛美眉.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "張信哲",
+        "album": "逃生",
+        "track": "04 可愛美眉.flac",
+        "relativePath": "張信哲/逃生/04 可愛美眉.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "張信哲/逃生/05 小木馬.flac",
+      "artistName": "張信哲",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  張信哲/逃生/05 小木馬.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "張信哲",
+        "album": "逃生",
+        "track": "05 小木馬.flac",
+        "relativePath": "張信哲/逃生/05 小木馬.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "張信哲/逃生/06 最好的時光.flac",
+      "artistName": "張信哲",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  張信哲/逃生/06 最好的時光.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "張信哲",
+        "album": "逃生",
+        "track": "06 最好的時光.flac",
+        "relativePath": "張信哲/逃生/06 最好的時光.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "張信哲/逃生/07 牧羊人.flac",
+      "artistName": "張信哲",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  張信哲/逃生/07 牧羊人.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "張信哲",
+        "album": "逃生",
+        "track": "07 牧羊人.flac",
+        "relativePath": "張信哲/逃生/07 牧羊人.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "張信哲/逃生/08 單車與跑車 (feat. MC HotDog).flac",
+      "artistName": "張信哲",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  張信哲/逃生/08 單車與跑車 (feat. MC HotDog).flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "張信哲",
+        "album": "逃生",
+        "track": "08 單車與跑車 (feat. MC HotDog).flac",
+        "relativePath": "張信哲/逃生/08 單車與跑車 (feat. MC HotDog).flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "張信哲/逃生/09 長途旅行.flac",
+      "artistName": "張信哲",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  張信哲/逃生/09 長途旅行.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "張信哲",
+        "album": "逃生",
+        "track": "09 長途旅行.flac",
+        "relativePath": "張信哲/逃生/09 長途旅行.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "張信哲/逃生/10 天使的眼淚.flac",
+      "artistName": "張信哲",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  張信哲/逃生/10 天使的眼淚.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "張信哲",
+        "album": "逃生",
+        "track": "10 天使的眼淚.flac",
+        "relativePath": "張信哲/逃生/10 天使的眼淚.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "張信哲/選哲/01 太想愛你.flac",
+      "artistName": "張信哲",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  張信哲/選哲/01 太想愛你.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "張信哲",
+        "album": "選哲",
+        "track": "01 太想愛你.flac",
+        "relativePath": "張信哲/選哲/01 太想愛你.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "張信哲/選哲/02 改變.flac",
+      "artistName": "張信哲",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  張信哲/選哲/02 改變.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "張信哲",
+        "album": "選哲",
+        "track": "02 改變.flac",
+        "relativePath": "張信哲/選哲/02 改變.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "張信哲/選哲/03 過火.flac",
+      "artistName": "張信哲",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  張信哲/選哲/03 過火.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "張信哲",
+        "album": "選哲",
+        "track": "03 過火.flac",
+        "relativePath": "張信哲/選哲/03 過火.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "張信哲/選哲/04 已經結束了嗎.flac",
+      "artistName": "張信哲",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  張信哲/選哲/04 已經結束了嗎.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "張信哲",
+        "album": "選哲",
+        "track": "04 已經結束了嗎.flac",
+        "relativePath": "張信哲/選哲/04 已經結束了嗎.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "張信哲/選哲/05 受罪.flac",
+      "artistName": "張信哲",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  張信哲/選哲/05 受罪.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "張信哲",
+        "album": "選哲",
+        "track": "05 受罪.flac",
+        "relativePath": "張信哲/選哲/05 受罪.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "張信哲/選哲/06 真愛一生.flac",
+      "artistName": "張信哲",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  張信哲/選哲/06 真愛一生.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "張信哲",
+        "album": "選哲",
+        "track": "06 真愛一生.flac",
+        "relativePath": "張信哲/選哲/06 真愛一生.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "張信哲/選哲/07 Missing.flac",
+      "artistName": "張信哲",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  張信哲/選哲/07 Missing.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "張信哲",
+        "album": "選哲",
+        "track": "07 Missing.flac",
+        "relativePath": "張信哲/選哲/07 Missing.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "張信哲/選哲/08 不要對他說.flac",
+      "artistName": "張信哲",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  張信哲/選哲/08 不要對他說.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "張信哲",
+        "album": "選哲",
+        "track": "08 不要對他說.flac",
+        "relativePath": "張信哲/選哲/08 不要對他說.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "張信哲/選哲/09 且行且珍惜.flac",
+      "artistName": "張信哲",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  張信哲/選哲/09 且行且珍惜.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "張信哲",
+        "album": "選哲",
+        "track": "09 且行且珍惜.flac",
+        "relativePath": "張信哲/選哲/09 且行且珍惜.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "張信哲/選哲/10 用情.flac",
+      "artistName": "張信哲",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  張信哲/選哲/10 用情.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "張信哲",
+        "album": "選哲",
+        "track": "10 用情.flac",
+        "relativePath": "張信哲/選哲/10 用情.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "張信哲/選哲/11 我是真的.flac",
+      "artistName": "張信哲",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  張信哲/選哲/11 我是真的.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "張信哲",
+        "album": "選哲",
+        "track": "11 我是真的.flac",
+        "relativePath": "張信哲/選哲/11 我是真的.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "張信哲/選哲/12 背叛.flac",
+      "artistName": "張信哲",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  張信哲/選哲/12 背叛.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "張信哲",
+        "album": "選哲",
+        "track": "12 背叛.flac",
+        "relativePath": "張信哲/選哲/12 背叛.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "張信哲/選哲/13 逃.flac",
+      "artistName": "張信哲",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  張信哲/選哲/13 逃.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "張信哲",
+        "album": "選哲",
+        "track": "13 逃.flac",
+        "relativePath": "張信哲/選哲/13 逃.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "張信哲/選哲/14 Stars.flac",
+      "artistName": "張信哲",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  張信哲/選哲/14 Stars.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "張信哲",
+        "album": "選哲",
+        "track": "14 Stars.flac",
+        "relativePath": "張信哲/選哲/14 Stars.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "張信哲/還愛/01 愛你的宿命.flac",
+      "artistName": "張信哲",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  張信哲/還愛/01 愛你的宿命.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "張信哲",
+        "album": "還愛",
+        "track": "01 愛你的宿命.flac",
+        "relativePath": "張信哲/還愛/01 愛你的宿命.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "張信哲/還愛/02 還愛還愛.flac",
+      "artistName": "張信哲",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  張信哲/還愛/02 還愛還愛.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "張信哲",
+        "album": "還愛",
+        "track": "02 還愛還愛.flac",
+        "relativePath": "張信哲/還愛/02 還愛還愛.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "張信哲/還愛/03 柔軟.flac",
+      "artistName": "張信哲",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  張信哲/還愛/03 柔軟.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "張信哲",
+        "album": "還愛",
+        "track": "03 柔軟.flac",
+        "relativePath": "張信哲/還愛/03 柔軟.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "張信哲/還愛/04 狂歡.flac",
+      "artistName": "張信哲",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  張信哲/還愛/04 狂歡.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "張信哲",
+        "album": "還愛",
+        "track": "04 狂歡.flac",
+        "relativePath": "張信哲/還愛/04 狂歡.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "張信哲/還愛/05 嘆息書.flac",
+      "artistName": "張信哲",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  張信哲/還愛/05 嘆息書.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "張信哲",
+        "album": "還愛",
+        "track": "05 嘆息書.flac",
+        "relativePath": "張信哲/還愛/05 嘆息書.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "張信哲/還愛/06 Mdada.flac",
+      "artistName": "張信哲",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  張信哲/還愛/06 Mdada.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "張信哲",
+        "album": "還愛",
+        "track": "06 Mdada.flac",
+        "relativePath": "張信哲/還愛/06 Mdada.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "張信哲/還愛/07 決定.flac",
+      "artistName": "張信哲",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  張信哲/還愛/07 決定.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "張信哲",
+        "album": "還愛",
+        "track": "07 決定.flac",
+        "relativePath": "張信哲/還愛/07 決定.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "張信哲/還愛/08 不懂.flac",
+      "artistName": "張信哲",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  張信哲/還愛/08 不懂.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "張信哲",
+        "album": "還愛",
+        "track": "08 不懂.flac",
+        "relativePath": "張信哲/還愛/08 不懂.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "張信哲/還愛/09 第三者.flac",
+      "artistName": "張信哲",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  張信哲/還愛/09 第三者.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "張信哲",
+        "album": "還愛",
+        "track": "09 第三者.flac",
+        "relativePath": "張信哲/還愛/09 第三者.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "張信哲/還愛/10 焚情.flac",
+      "artistName": "張信哲",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  張信哲/還愛/10 焚情.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "張信哲",
+        "album": "還愛",
+        "track": "10 焚情.flac",
+        "relativePath": "張信哲/還愛/10 焚情.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "張信哲/還愛/11 愛你沒錯.flac",
+      "artistName": "張信哲",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  張信哲/還愛/11 愛你沒錯.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "張信哲",
+        "album": "還愛",
+        "track": "11 愛你沒錯.flac",
+        "relativePath": "張信哲/還愛/11 愛你沒錯.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "張學友/25週年 SMILE/01 輕撫妳的臉 (Album Version).flac",
+      "artistName": "張學友",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  張學友/25週年 SMILE/01 輕撫妳的臉 (Album Version).flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "張學友",
+        "album": "25週年 SMILE",
+        "track": "01 輕撫妳的臉 (Album Version).flac",
+        "relativePath": "張學友/25週年 SMILE/01 輕撫妳的臉 (Album Version).flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "張學友/25週年 SMILE/02 愛的卡幫 (Album Version).flac",
+      "artistName": "張學友",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  張學友/25週年 SMILE/02 愛的卡幫 (Album Version).flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "張學友",
+        "album": "25週年 SMILE",
+        "track": "02 愛的卡幫 (Album Version).flac",
+        "relativePath": "張學友/25週年 SMILE/02 愛的卡幫 (Album Version).flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "張學友/25週年 SMILE/03 絲絲記憶 (Album Version).flac",
+      "artistName": "張學友",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  張學友/25週年 SMILE/03 絲絲記憶 (Album Version).flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "張學友",
+        "album": "25週年 SMILE",
+        "track": "03 絲絲記憶 (Album Version).flac",
+        "relativePath": "張學友/25週年 SMILE/03 絲絲記憶 (Album Version).flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "張學友/25週年 SMILE/04 局外人 (Album Version).flac",
+      "artistName": "張學友",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  張學友/25週年 SMILE/04 局外人 (Album Version).flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "張學友",
+        "album": "25週年 SMILE",
+        "track": "04 局外人 (Album Version).flac",
+        "relativePath": "張學友/25週年 SMILE/04 局外人 (Album Version).flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "張學友/25週年 SMILE/05 懷抱的您 (Album Version).flac",
+      "artistName": "張學友",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  張學友/25週年 SMILE/05 懷抱的您 (Album Version).flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "張學友",
+        "album": "25週年 SMILE",
+        "track": "05 懷抱的您 (Album Version).flac",
+        "relativePath": "張學友/25週年 SMILE/05 懷抱的您 (Album Version).flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "張學友/25週年 SMILE/06 甜夢 (Album Version).flac",
+      "artistName": "張學友",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  張學友/25週年 SMILE/06 甜夢 (Album Version).flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "張學友",
+        "album": "25週年 SMILE",
+        "track": "06 甜夢 (Album Version).flac",
+        "relativePath": "張學友/25週年 SMILE/06 甜夢 (Album Version).flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "張學友/25週年 SMILE/07 情已逝 (Album Version).flac",
+      "artistName": "張學友",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  張學友/25週年 SMILE/07 情已逝 (Album Version).flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "張學友",
+        "album": "25週年 SMILE",
+        "track": "07 情已逝 (Album Version).flac",
+        "relativePath": "張學友/25週年 SMILE/07 情已逝 (Album Version).flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "張學友/25週年 SMILE/08 造夢者 (Album Version).flac",
+      "artistName": "張學友",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  張學友/25週年 SMILE/08 造夢者 (Album Version).flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "張學友",
+        "album": "25週年 SMILE",
+        "track": "08 造夢者 (Album Version).flac",
+        "relativePath": "張學友/25週年 SMILE/08 造夢者 (Album Version).flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "張學友/25週年 SMILE/09 溫柔 (Album Version).flac",
+      "artistName": "張學友",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  張學友/25週年 SMILE/09 溫柔 (Album Version).flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "張學友",
+        "album": "25週年 SMILE",
+        "track": "09 溫柔 (Album Version).flac",
+        "relativePath": "張學友/25週年 SMILE/09 溫柔 (Album Version).flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "張學友/25週年 SMILE/10 交叉算了 (Album Version).flac",
+      "artistName": "張學友",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  張學友/25週年 SMILE/10 交叉算了 (Album Version).flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "張學友",
+        "album": "25週年 SMILE",
+        "track": "10 交叉算了 (Album Version).flac",
+        "relativePath": "張學友/25週年 SMILE/10 交叉算了 (Album Version).flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "張學友/25週年 SMILE/11 SMILE AGAIN 瑪莉亞 (Album Version).flac",
+      "artistName": "張學友",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  張學友/25週年 SMILE/11 SMILE AGAIN 瑪莉亞 (Album Version).flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "張學友",
+        "album": "25週年 SMILE",
+        "track": "11 SMILE AGAIN 瑪莉亞 (Album Version).flac",
+        "relativePath": "張學友/25週年 SMILE/11 SMILE AGAIN 瑪莉亞 (Album Version).flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "張學友/Black & White/01 黑白畫映 (Album Version).flac",
+      "artistName": "張學友",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  張學友/Black & White/01 黑白畫映 (Album Version).flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "張學友",
+        "album": "Black & White",
+        "track": "01 黑白畫映 (Album Version).flac",
+        "relativePath": "張學友/Black & White/01 黑白畫映 (Album Version).flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "張學友/Black & White/02 我不明白 (Album Version).flac",
+      "artistName": "張學友",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  張學友/Black & White/02 我不明白 (Album Version).flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "張學友",
+        "album": "Black & White",
+        "track": "02 我不明白 (Album Version).flac",
+        "relativePath": "張學友/Black & White/02 我不明白 (Album Version).flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    }
+  ]
+}

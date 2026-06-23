@@ -1,0 +1,71 @@
+{
+  "batchId": 1,
+  "completedAt": "2026-06-23T01:03:34.694Z",
+  "count": 1,
+  "results": [
+    {
+      "rel": "Artist One/Album A/chain-plus-probe-failure.flac",
+      "artistName": "Artist One",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  Artist One/Album A/chain-plus-probe-failure.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | ffprobe probe: [mjpeg @ 0x123] No JPEG data found in image"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "Artist One",
+        "album": "Album A",
+        "track": "chain-plus-probe-failure.flac",
+        "relativePath": "Artist One/Album A/chain-plus-probe-failure.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[mjpeg @ 0x123] No JPEG data found in image"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[mjpeg @ 0x123] No JPEG data found in image"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    }
+  ]
+}

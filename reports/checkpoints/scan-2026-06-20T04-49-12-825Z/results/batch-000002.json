@@ -1,0 +1,5798 @@
+{
+  "batchId": 2,
+  "completedAt": "2026-06-20T05:05:58.699Z",
+  "count": 100,
+  "results": [
+    {
+      "rel": "A-Lin/2014-Everlasting... Best and More/A-Lin - 21.不是不满足.flac",
+      "artistName": "A-Lin",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  A-Lin/2014-Everlasting... Best and More/A-Lin - 21.不是不满足.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0x7e9804380] invalid sync code | [flac @ 0x7e9804380] invalid frame header | [flac @ 0x7e9804380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "A-Lin",
+        "album": "2014-Everlasting... Best and More",
+        "track": "A-Lin - 21.不是不满足.flac",
+        "relativePath": "A-Lin/2014-Everlasting... Best and More/A-Lin - 21.不是不满足.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x7e9804380] invalid sync code | [flac @ 0x7e9804380] invalid frame header | [flac @ 0x7e9804380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x7e9804380] invalid sync code | [flac @ 0x7e9804380] invalid frame header | [flac @ 0x7e9804380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "A-Lin/2014-Everlasting... Best and More/A-Lin - 22.温柔累了.flac",
+      "artistName": "A-Lin",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  A-Lin/2014-Everlasting... Best and More/A-Lin - 22.温柔累了.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0x75d804380] invalid sync code | [flac @ 0x75d804380] invalid frame header | [flac @ 0x75d804380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "A-Lin",
+        "album": "2014-Everlasting... Best and More",
+        "track": "A-Lin - 22.温柔累了.flac",
+        "relativePath": "A-Lin/2014-Everlasting... Best and More/A-Lin - 22.温柔累了.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x75d804380] invalid sync code | [flac @ 0x75d804380] invalid frame header | [flac @ 0x75d804380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x75d804380] invalid sync code | [flac @ 0x75d804380] invalid frame header | [flac @ 0x75d804380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "A-Lin/2014-Everlasting... Best and More/A-Lin - 23.920.flac",
+      "artistName": "A-Lin",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  A-Lin/2014-Everlasting... Best and More/A-Lin - 23.920.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0xc90c48380] invalid sync code | [flac @ 0xc90c48380] invalid frame header | [flac @ 0xc90c48380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "A-Lin",
+        "album": "2014-Everlasting... Best and More",
+        "track": "A-Lin - 23.920.flac",
+        "relativePath": "A-Lin/2014-Everlasting... Best and More/A-Lin - 23.920.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xc90c48380] invalid sync code | [flac @ 0xc90c48380] invalid frame header | [flac @ 0xc90c48380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xc90c48380] invalid sync code | [flac @ 0xc90c48380] invalid frame header | [flac @ 0xc90c48380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "A-Lin/2014-Everlasting... Best and More/A-Lin - 24.我很忙.flac",
+      "artistName": "A-Lin",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  A-Lin/2014-Everlasting... Best and More/A-Lin - 24.我很忙.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0xbfb01c380] invalid sync code | [flac @ 0xbfb01c380] invalid frame header | [flac @ 0xbfb01c380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "A-Lin",
+        "album": "2014-Everlasting... Best and More",
+        "track": "A-Lin - 24.我很忙.flac",
+        "relativePath": "A-Lin/2014-Everlasting... Best and More/A-Lin - 24.我很忙.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xbfb01c380] invalid sync code | [flac @ 0xbfb01c380] invalid frame header | [flac @ 0xbfb01c380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xbfb01c380] invalid sync code | [flac @ 0xbfb01c380] invalid frame header | [flac @ 0xbfb01c380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "A-Lin/2014-Everlasting... Best and More/A-Lin - 25.我能体谅.flac",
+      "artistName": "A-Lin",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  A-Lin/2014-Everlasting... Best and More/A-Lin - 25.我能体谅.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0x9ac820380] invalid sync code | [flac @ 0x9ac820380] invalid frame header | [flac @ 0x9ac820380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "A-Lin",
+        "album": "2014-Everlasting... Best and More",
+        "track": "A-Lin - 25.我能体谅.flac",
+        "relativePath": "A-Lin/2014-Everlasting... Best and More/A-Lin - 25.我能体谅.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x9ac820380] invalid sync code | [flac @ 0x9ac820380] invalid frame header | [flac @ 0x9ac820380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x9ac820380] invalid sync code | [flac @ 0x9ac820380] invalid frame header | [flac @ 0x9ac820380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "A-Lin/2014-Everlasting... Best and More/A-Lin - 26.围城.flac",
+      "artistName": "A-Lin",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  A-Lin/2014-Everlasting... Best and More/A-Lin - 26.围城.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0x9e8c44380] invalid sync code | [flac @ 0x9e8c44380] invalid frame header | [flac @ 0x9e8c44380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "A-Lin",
+        "album": "2014-Everlasting... Best and More",
+        "track": "A-Lin - 26.围城.flac",
+        "relativePath": "A-Lin/2014-Everlasting... Best and More/A-Lin - 26.围城.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x9e8c44380] invalid sync code | [flac @ 0x9e8c44380] invalid frame header | [flac @ 0x9e8c44380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x9e8c44380] invalid sync code | [flac @ 0x9e8c44380] invalid frame header | [flac @ 0x9e8c44380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "A-Lin/2014-Everlasting... Best and More/A-Lin - 27.好朋友的祝福.flac",
+      "artistName": "A-Lin",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  A-Lin/2014-Everlasting... Best and More/A-Lin - 27.好朋友的祝福.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0x893804380] invalid sync code | [flac @ 0x893804380] invalid frame header | [flac @ 0x893804380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "A-Lin",
+        "album": "2014-Everlasting... Best and More",
+        "track": "A-Lin - 27.好朋友的祝福.flac",
+        "relativePath": "A-Lin/2014-Everlasting... Best and More/A-Lin - 27.好朋友的祝福.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x893804380] invalid sync code | [flac @ 0x893804380] invalid frame header | [flac @ 0x893804380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x893804380] invalid sync code | [flac @ 0x893804380] invalid frame header | [flac @ 0x893804380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "A-Lin/2014-Everlasting... Best and More/A-Lin - 28.Purple Rain.flac",
+      "artistName": "A-Lin",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  A-Lin/2014-Everlasting... Best and More/A-Lin - 28.Purple Rain.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0xbc901c380] invalid sync code | [flac @ 0xbc901c380] invalid frame header | [flac @ 0xbc901c380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "A-Lin",
+        "album": "2014-Everlasting... Best and More",
+        "track": "A-Lin - 28.Purple Rain.flac",
+        "relativePath": "A-Lin/2014-Everlasting... Best and More/A-Lin - 28.Purple Rain.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xbc901c380] invalid sync code | [flac @ 0xbc901c380] invalid frame header | [flac @ 0xbc901c380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xbc901c380] invalid sync code | [flac @ 0xbc901c380] invalid frame header | [flac @ 0xbc901c380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "A-Lin/2014-Everlasting... Best and More/A-Lin - 29.一瞬之光.flac",
+      "artistName": "A-Lin",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  A-Lin/2014-Everlasting... Best and More/A-Lin - 29.一瞬之光.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0xc8cc44380] invalid sync code | [flac @ 0xc8cc44380] invalid frame header | [flac @ 0xc8cc44380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "A-Lin",
+        "album": "2014-Everlasting... Best and More",
+        "track": "A-Lin - 29.一瞬之光.flac",
+        "relativePath": "A-Lin/2014-Everlasting... Best and More/A-Lin - 29.一瞬之光.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xc8cc44380] invalid sync code | [flac @ 0xc8cc44380] invalid frame header | [flac @ 0xc8cc44380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xc8cc44380] invalid sync code | [flac @ 0xc8cc44380] invalid frame header | [flac @ 0xc8cc44380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "A-Lin/2014-Everlasting... Best and More/A-Lin - 30.等你.flac",
+      "artistName": "A-Lin",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  A-Lin/2014-Everlasting... Best and More/A-Lin - 30.等你.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0xaaac44380] invalid sync code | [flac @ 0xaaac44380] invalid frame header | [flac @ 0xaaac44380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "A-Lin",
+        "album": "2014-Everlasting... Best and More",
+        "track": "A-Lin - 30.等你.flac",
+        "relativePath": "A-Lin/2014-Everlasting... Best and More/A-Lin - 30.等你.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xaaac44380] invalid sync code | [flac @ 0xaaac44380] invalid frame header | [flac @ 0xaaac44380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xaaac44380] invalid sync code | [flac @ 0xaaac44380] invalid frame header | [flac @ 0xaaac44380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "A-Lin/2014-罪恶感/A-Lin - 01.我值得.flac",
+      "artistName": "A-Lin",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  A-Lin/2014-罪恶感/A-Lin - 01.我值得.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0xc0a820380] invalid sync code | [flac @ 0xc0a820380] invalid frame header | [flac @ 0xc0a820380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "A-Lin",
+        "album": "2014-罪恶感",
+        "track": "A-Lin - 01.我值得.flac",
+        "relativePath": "A-Lin/2014-罪恶感/A-Lin - 01.我值得.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xc0a820380] invalid sync code | [flac @ 0xc0a820380] invalid frame header | [flac @ 0xc0a820380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xc0a820380] invalid sync code | [flac @ 0xc0a820380] invalid frame header | [flac @ 0xc0a820380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "A-Lin/2014-罪恶感/A-Lin - 02.我笑到都哭了.flac",
+      "artistName": "A-Lin",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  A-Lin/2014-罪恶感/A-Lin - 02.我笑到都哭了.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0xa18c64380] invalid sync code | [flac @ 0xa18c64380] invalid frame header | [flac @ 0xa18c64380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "A-Lin",
+        "album": "2014-罪恶感",
+        "track": "A-Lin - 02.我笑到都哭了.flac",
+        "relativePath": "A-Lin/2014-罪恶感/A-Lin - 02.我笑到都哭了.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xa18c64380] invalid sync code | [flac @ 0xa18c64380] invalid frame header | [flac @ 0xa18c64380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xa18c64380] invalid sync code | [flac @ 0xa18c64380] invalid frame header | [flac @ 0xa18c64380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "A-Lin/2014-罪恶感/A-Lin - 03.罪恶感.flac",
+      "artistName": "A-Lin",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  A-Lin/2014-罪恶感/A-Lin - 03.罪恶感.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0xbda824380] invalid sync code | [flac @ 0xbda824380] invalid frame header | [flac @ 0xbda824380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "A-Lin",
+        "album": "2014-罪恶感",
+        "track": "A-Lin - 03.罪恶感.flac",
+        "relativePath": "A-Lin/2014-罪恶感/A-Lin - 03.罪恶感.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xbda824380] invalid sync code | [flac @ 0xbda824380] invalid frame header | [flac @ 0xbda824380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xbda824380] invalid sync code | [flac @ 0xbda824380] invalid frame header | [flac @ 0xbda824380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "A-Lin/2014-罪恶感/A-Lin - 04.难得孤寂.flac",
+      "artistName": "A-Lin",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  A-Lin/2014-罪恶感/A-Lin - 04.难得孤寂.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0x7b1804380] invalid sync code | [flac @ 0x7b1804380] invalid frame header | [flac @ 0x7b1804380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "A-Lin",
+        "album": "2014-罪恶感",
+        "track": "A-Lin - 04.难得孤寂.flac",
+        "relativePath": "A-Lin/2014-罪恶感/A-Lin - 04.难得孤寂.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x7b1804380] invalid sync code | [flac @ 0x7b1804380] invalid frame header | [flac @ 0x7b1804380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x7b1804380] invalid sync code | [flac @ 0x7b1804380] invalid frame header | [flac @ 0x7b1804380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "A-Lin/2014-罪恶感/A-Lin - 05.All In.flac",
+      "artistName": "A-Lin",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  A-Lin/2014-罪恶感/A-Lin - 05.All In.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0xa84c24380] invalid sync code | [flac @ 0xa84c24380] invalid frame header | [flac @ 0xa84c24380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "A-Lin",
+        "album": "2014-罪恶感",
+        "track": "A-Lin - 05.All In.flac",
+        "relativePath": "A-Lin/2014-罪恶感/A-Lin - 05.All In.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xa84c24380] invalid sync code | [flac @ 0xa84c24380] invalid frame header | [flac @ 0xa84c24380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xa84c24380] invalid sync code | [flac @ 0xa84c24380] invalid frame header | [flac @ 0xa84c24380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "A-Lin/2014-罪恶感/A-Lin - 06.平衡感.flac",
+      "artistName": "A-Lin",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  A-Lin/2014-罪恶感/A-Lin - 06.平衡感.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0xa11804380] invalid sync code | [flac @ 0xa11804380] invalid frame header | [flac @ 0xa11804380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "A-Lin",
+        "album": "2014-罪恶感",
+        "track": "A-Lin - 06.平衡感.flac",
+        "relativePath": "A-Lin/2014-罪恶感/A-Lin - 06.平衡感.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xa11804380] invalid sync code | [flac @ 0xa11804380] invalid frame header | [flac @ 0xa11804380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xa11804380] invalid sync code | [flac @ 0xa11804380] invalid frame header | [flac @ 0xa11804380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "A-Lin/2014-罪恶感/A-Lin - 07.我心已打烊.flac",
+      "artistName": "A-Lin",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  A-Lin/2014-罪恶感/A-Lin - 07.我心已打烊.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0x71cc44380] invalid sync code | [flac @ 0x71cc44380] invalid frame header | [flac @ 0x71cc44380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "A-Lin",
+        "album": "2014-罪恶感",
+        "track": "A-Lin - 07.我心已打烊.flac",
+        "relativePath": "A-Lin/2014-罪恶感/A-Lin - 07.我心已打烊.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x71cc44380] invalid sync code | [flac @ 0x71cc44380] invalid frame header | [flac @ 0x71cc44380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x71cc44380] invalid sync code | [flac @ 0x71cc44380] invalid frame header | [flac @ 0x71cc44380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "A-Lin/2014-罪恶感/A-Lin - 08.Gentlewoman.flac",
+      "artistName": "A-Lin",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  A-Lin/2014-罪恶感/A-Lin - 08.Gentlewoman.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0x74ac64380] invalid sync code | [flac @ 0x74ac64380] invalid frame header | [flac @ 0x74ac64380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "A-Lin",
+        "album": "2014-罪恶感",
+        "track": "A-Lin - 08.Gentlewoman.flac",
+        "relativePath": "A-Lin/2014-罪恶感/A-Lin - 08.Gentlewoman.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x74ac64380] invalid sync code | [flac @ 0x74ac64380] invalid frame header | [flac @ 0x74ac64380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x74ac64380] invalid sync code | [flac @ 0x74ac64380] invalid frame header | [flac @ 0x74ac64380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "A-Lin/2014-罪恶感/A-Lin - 09.拿走了什么.flac",
+      "artistName": "A-Lin",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  A-Lin/2014-罪恶感/A-Lin - 09.拿走了什么.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0xb42c44380] invalid sync code | [flac @ 0xb42c44380] invalid frame header | [flac @ 0xb42c44380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "A-Lin",
+        "album": "2014-罪恶感",
+        "track": "A-Lin - 09.拿走了什么.flac",
+        "relativePath": "A-Lin/2014-罪恶感/A-Lin - 09.拿走了什么.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xb42c44380] invalid sync code | [flac @ 0xb42c44380] invalid frame header | [flac @ 0xb42c44380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xb42c44380] invalid sync code | [flac @ 0xb42c44380] invalid frame header | [flac @ 0xb42c44380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "A-Lin/2014-罪恶感/A-Lin - 10.最后的晚餐.flac",
+      "artistName": "A-Lin",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  A-Lin/2014-罪恶感/A-Lin - 10.最后的晚餐.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0x8ef01c380] invalid sync code | [flac @ 0x8ef01c380] invalid frame header | [flac @ 0x8ef01c380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "A-Lin",
+        "album": "2014-罪恶感",
+        "track": "A-Lin - 10.最后的晚餐.flac",
+        "relativePath": "A-Lin/2014-罪恶感/A-Lin - 10.最后的晚餐.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x8ef01c380] invalid sync code | [flac @ 0x8ef01c380] invalid frame header | [flac @ 0x8ef01c380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x8ef01c380] invalid sync code | [flac @ 0x8ef01c380] invalid frame header | [flac @ 0x8ef01c380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "A-Lin/2017-A-LIN同名专辑/A-Lin - 01.未单身.flac",
+      "artistName": "A-Lin",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  A-Lin/2017-A-LIN同名专辑/A-Lin - 01.未单身.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 9391104 samples (212.95s, 99.4% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "A-Lin",
+        "album": "2017-A-LIN同名专辑",
+        "track": "A-Lin - 01.未单身.flac",
+        "relativePath": "A-Lin/2017-A-LIN同名专辑/A-Lin - 01.未单身.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "A-Lin/2017-A-LIN同名专辑/A-Lin - 02.无人知晓的我.flac",
+      "artistName": "A-Lin",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  A-Lin/2017-A-LIN同名专辑/A-Lin - 02.无人知晓的我.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 9354240 samples (212.11s, 99.5% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "A-Lin",
+        "album": "2017-A-LIN同名专辑",
+        "track": "A-Lin - 02.无人知晓的我.flac",
+        "relativePath": "A-Lin/2017-A-LIN同名专辑/A-Lin - 02.无人知晓的我.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "A-Lin/2017-A-LIN同名专辑/A-Lin - 03.你点的歌救了我.flac",
+      "artistName": "A-Lin",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  A-Lin/2017-A-LIN同名专辑/A-Lin - 03.你点的歌救了我.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 9142272 samples (207.31s, 99.7% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "A-Lin",
+        "album": "2017-A-LIN同名专辑",
+        "track": "A-Lin - 03.你点的歌救了我.flac",
+        "relativePath": "A-Lin/2017-A-LIN同名专辑/A-Lin - 03.你点的歌救了我.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "A-Lin/2017-A-LIN同名专辑/A-Lin - 04.随心所遇.flac",
+      "artistName": "A-Lin",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  A-Lin/2017-A-LIN同名专辑/A-Lin - 04.随心所遇.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 10911744 samples (247.43s, 99.5% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "A-Lin",
+        "album": "2017-A-LIN同名专辑",
+        "track": "A-Lin - 04.随心所遇.flac",
+        "relativePath": "A-Lin/2017-A-LIN同名专辑/A-Lin - 04.随心所遇.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "A-Lin/2017-A-LIN同名专辑/A-Lin - 05.好, 不好？.flac",
+      "artistName": "A-Lin",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  A-Lin/2017-A-LIN同名专辑/A-Lin - 05.好, 不好？.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 10501632 samples (238.13s, 99.1% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "A-Lin",
+        "album": "2017-A-LIN同名专辑",
+        "track": "A-Lin - 05.好, 不好？.flac",
+        "relativePath": "A-Lin/2017-A-LIN同名专辑/A-Lin - 05.好, 不好？.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "A-Lin/2017-A-LIN同名专辑/A-Lin - 06.光之海.flac",
+      "artistName": "A-Lin",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  A-Lin/2017-A-LIN同名专辑/A-Lin - 06.光之海.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 14206464 samples (322.14s, 99.1% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "A-Lin",
+        "album": "2017-A-LIN同名专辑",
+        "track": "A-Lin - 06.光之海.flac",
+        "relativePath": "A-Lin/2017-A-LIN同名专辑/A-Lin - 06.光之海.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "A-Lin/2017-A-LIN同名专辑/A-Lin - 07.太太太耐斯.flac",
+      "artistName": "A-Lin",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  A-Lin/2017-A-LIN同名专辑/A-Lin - 07.太太太耐斯.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 9838080 samples (223.09s, 99.1% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "A-Lin",
+        "album": "2017-A-LIN同名专辑",
+        "track": "A-Lin - 07.太太太耐斯.flac",
+        "relativePath": "A-Lin/2017-A-LIN同名专辑/A-Lin - 07.太太太耐斯.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "A-Lin/2017-A-LIN同名专辑/A-Lin - 08.最佳男主角.flac",
+      "artistName": "A-Lin",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  A-Lin/2017-A-LIN同名专辑/A-Lin - 08.最佳男主角.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 15197184 samples (344.61s, 99.6% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "A-Lin",
+        "album": "2017-A-LIN同名专辑",
+        "track": "A-Lin - 08.最佳男主角.flac",
+        "relativePath": "A-Lin/2017-A-LIN同名专辑/A-Lin - 08.最佳男主角.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "A-Lin/2017-A-LIN同名专辑/A-Lin - 09.＃爱.flac",
+      "artistName": "A-Lin",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  A-Lin/2017-A-LIN同名专辑/A-Lin - 09.＃爱.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 11538432 samples (261.64s, 99.3% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "A-Lin",
+        "album": "2017-A-LIN同名专辑",
+        "track": "A-Lin - 09.＃爱.flac",
+        "relativePath": "A-Lin/2017-A-LIN同名专辑/A-Lin - 09.＃爱.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "A-Lin/2017-A-LIN同名专辑/A-Lin - 10.不要不要的.flac",
+      "artistName": "A-Lin",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  A-Lin/2017-A-LIN同名专辑/A-Lin - 10.不要不要的.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 10063872 samples (228.21s, 99.6% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "A-Lin",
+        "album": "2017-A-LIN同名专辑",
+        "track": "A-Lin - 10.不要不要的.flac",
+        "relativePath": "A-Lin/2017-A-LIN同名专辑/A-Lin - 10.不要不要的.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "A-Lin/2017-A-LIN同名专辑/A-Lin - 11.一直走.flac",
+      "artistName": "A-Lin",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  A-Lin/2017-A-LIN同名专辑/A-Lin - 11.一直走.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 8755200 samples (198.53s, 99.7% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "A-Lin",
+        "album": "2017-A-LIN同名专辑",
+        "track": "A-Lin - 11.一直走.flac",
+        "relativePath": "A-Lin/2017-A-LIN同名专辑/A-Lin - 11.一直走.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "A-Lin/2022-LINK/A-Lin - 01.Sololen Kako Ina.flac",
+      "artistName": "A-Lin",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  A-Lin/2022-LINK/A-Lin - 01.Sololen Kako Ina.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0xbb6c64380] invalid sync code | [flac @ 0xbb6c64380] invalid frame header | [flac @ 0xbb6c64380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "A-Lin",
+        "album": "2022-LINK",
+        "track": "A-Lin - 01.Sololen Kako Ina.flac",
+        "relativePath": "A-Lin/2022-LINK/A-Lin - 01.Sololen Kako Ina.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xbb6c64380] invalid sync code | [flac @ 0xbb6c64380] invalid frame header | [flac @ 0xbb6c64380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xbb6c64380] invalid sync code | [flac @ 0xbb6c64380] invalid frame header | [flac @ 0xbb6c64380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "A-Lin/2022-LINK/A-Lin - 02.ROMADIW.flac",
+      "artistName": "A-Lin",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  A-Lin/2022-LINK/A-Lin - 02.ROMADIW.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0x9b1804380] invalid sync code | [flac @ 0x9b1804380] invalid frame header | [flac @ 0x9b1804380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "A-Lin",
+        "album": "2022-LINK",
+        "track": "A-Lin - 02.ROMADIW.flac",
+        "relativePath": "A-Lin/2022-LINK/A-Lin - 02.ROMADIW.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x9b1804380] invalid sync code | [flac @ 0x9b1804380] invalid frame header | [flac @ 0x9b1804380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x9b1804380] invalid sync code | [flac @ 0x9b1804380] invalid frame header | [flac @ 0x9b1804380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "A-Lin/2022-LINK/A-Lin - 03.姊妹旅行.flac",
+      "artistName": "A-Lin",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  A-Lin/2022-LINK/A-Lin - 03.姊妹旅行.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0x7df804380] invalid sync code | [flac @ 0x7df804380] invalid frame header | [flac @ 0x7df804380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "A-Lin",
+        "album": "2022-LINK",
+        "track": "A-Lin - 03.姊妹旅行.flac",
+        "relativePath": "A-Lin/2022-LINK/A-Lin - 03.姊妹旅行.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x7df804380] invalid sync code | [flac @ 0x7df804380] invalid frame header | [flac @ 0x7df804380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x7df804380] invalid sync code | [flac @ 0x7df804380] invalid frame header | [flac @ 0x7df804380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "A-Lin/2022-LINK/A-Lin - 04.自信与美丽.flac",
+      "artistName": "A-Lin",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  A-Lin/2022-LINK/A-Lin - 04.自信与美丽.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0x860820380] invalid sync code | [flac @ 0x860820380] invalid frame header | [flac @ 0x860820380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "A-Lin",
+        "album": "2022-LINK",
+        "track": "A-Lin - 04.自信与美丽.flac",
+        "relativePath": "A-Lin/2022-LINK/A-Lin - 04.自信与美丽.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x860820380] invalid sync code | [flac @ 0x860820380] invalid frame header | [flac @ 0x860820380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x860820380] invalid sync code | [flac @ 0x860820380] invalid frame header | [flac @ 0x860820380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "A-Lin/2022-LINK/A-Lin - 05.38一朵花.flac",
+      "artistName": "A-Lin",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  A-Lin/2022-LINK/A-Lin - 05.38一朵花.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0xa0a844380] invalid sync code | [flac @ 0xa0a844380] invalid frame header | [flac @ 0xa0a844380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "A-Lin",
+        "album": "2022-LINK",
+        "track": "A-Lin - 05.38一朵花.flac",
+        "relativePath": "A-Lin/2022-LINK/A-Lin - 05.38一朵花.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xa0a844380] invalid sync code | [flac @ 0xa0a844380] invalid frame header | [flac @ 0xa0a844380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xa0a844380] invalid sync code | [flac @ 0xa0a844380] invalid frame header | [flac @ 0xa0a844380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "A-Lin/2022-LINK/A-Lin - 06.午夜巴黎.flac",
+      "artistName": "A-Lin",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  A-Lin/2022-LINK/A-Lin - 06.午夜巴黎.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0xa64c44380] invalid sync code | [flac @ 0xa64c44380] invalid frame header | [flac @ 0xa64c44380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "A-Lin",
+        "album": "2022-LINK",
+        "track": "A-Lin - 06.午夜巴黎.flac",
+        "relativePath": "A-Lin/2022-LINK/A-Lin - 06.午夜巴黎.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xa64c44380] invalid sync code | [flac @ 0xa64c44380] invalid frame header | [flac @ 0xa64c44380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xa64c44380] invalid sync code | [flac @ 0xa64c44380] invalid frame header | [flac @ 0xa64c44380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "A-Lin/2022-LINK/A-Lin - 07.聊聊天.flac",
+      "artistName": "A-Lin",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  A-Lin/2022-LINK/A-Lin - 07.聊聊天.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0xbc8c44380] invalid sync code | [flac @ 0xbc8c44380] invalid frame header | [flac @ 0xbc8c44380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "A-Lin",
+        "album": "2022-LINK",
+        "track": "A-Lin - 07.聊聊天.flac",
+        "relativePath": "A-Lin/2022-LINK/A-Lin - 07.聊聊天.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xbc8c44380] invalid sync code | [flac @ 0xbc8c44380] invalid frame header | [flac @ 0xbc8c44380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xbc8c44380] invalid sync code | [flac @ 0xbc8c44380] invalid frame header | [flac @ 0xbc8c44380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "A-Lin/2022-LINK/A-Lin - 08.Link电台.flac",
+      "artistName": "A-Lin",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  A-Lin/2022-LINK/A-Lin - 08.Link电台.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0xcaec44380] invalid sync code | [flac @ 0xcaec44380] invalid frame header | [flac @ 0xcaec44380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "A-Lin",
+        "album": "2022-LINK",
+        "track": "A-Lin - 08.Link电台.flac",
+        "relativePath": "A-Lin/2022-LINK/A-Lin - 08.Link电台.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xcaec44380] invalid sync code | [flac @ 0xcaec44380] invalid frame header | [flac @ 0xcaec44380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xcaec44380] invalid sync code | [flac @ 0xcaec44380] invalid frame header | [flac @ 0xcaec44380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "A-Lin/2022-LINK/A-Lin - 09.挚友.flac",
+      "artistName": "A-Lin",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  A-Lin/2022-LINK/A-Lin - 09.挚友.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0x99ac40380] invalid sync code | [flac @ 0x99ac40380] invalid frame header | [flac @ 0x99ac40380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "A-Lin",
+        "album": "2022-LINK",
+        "track": "A-Lin - 09.挚友.flac",
+        "relativePath": "A-Lin/2022-LINK/A-Lin - 09.挚友.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x99ac40380] invalid sync code | [flac @ 0x99ac40380] invalid frame header | [flac @ 0x99ac40380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x99ac40380] invalid sync code | [flac @ 0x99ac40380] invalid frame header | [flac @ 0x99ac40380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "A-Lin/2022-LINK/A-Lin - 10.爱，超乎逻辑.flac",
+      "artistName": "A-Lin",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  A-Lin/2022-LINK/A-Lin - 10.爱，超乎逻辑.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0x84a844380] invalid sync code | [flac @ 0x84a844380] invalid frame header | [flac @ 0x84a844380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "A-Lin",
+        "album": "2022-LINK",
+        "track": "A-Lin - 10.爱，超乎逻辑.flac",
+        "relativePath": "A-Lin/2022-LINK/A-Lin - 10.爱，超乎逻辑.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x84a844380] invalid sync code | [flac @ 0x84a844380] invalid frame header | [flac @ 0x84a844380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x84a844380] invalid sync code | [flac @ 0x84a844380] invalid frame header | [flac @ 0x84a844380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "A-Lin/2022-LINK/A-Lin - 11.麦搁贡.flac",
+      "artistName": "A-Lin",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  A-Lin/2022-LINK/A-Lin - 11.麦搁贡.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0x765804380] invalid sync code | [flac @ 0x765804380] invalid frame header | [flac @ 0x765804380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "A-Lin",
+        "album": "2022-LINK",
+        "track": "A-Lin - 11.麦搁贡.flac",
+        "relativePath": "A-Lin/2022-LINK/A-Lin - 11.麦搁贡.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x765804380] invalid sync code | [flac @ 0x765804380] invalid frame header | [flac @ 0x765804380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x765804380] invalid sync code | [flac @ 0x765804380] invalid frame header | [flac @ 0x765804380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "A-Lin/2022-LINK/A-Lin - 12.自言自语.flac",
+      "artistName": "A-Lin",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  A-Lin/2022-LINK/A-Lin - 12.自言自语.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0x8b6820380] invalid sync code | [flac @ 0x8b6820380] invalid frame header | [flac @ 0x8b6820380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "A-Lin",
+        "album": "2022-LINK",
+        "track": "A-Lin - 12.自言自语.flac",
+        "relativePath": "A-Lin/2022-LINK/A-Lin - 12.自言自语.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x8b6820380] invalid sync code | [flac @ 0x8b6820380] invalid frame header | [flac @ 0x8b6820380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x8b6820380] invalid sync code | [flac @ 0x8b6820380] invalid frame header | [flac @ 0x8b6820380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "A-Lin/2022-LINK/A-Lin - 13.我怨.flac",
+      "artistName": "A-Lin",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  A-Lin/2022-LINK/A-Lin - 13.我怨.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0x73a824380] invalid sync code | [flac @ 0x73a824380] invalid frame header | [flac @ 0x73a824380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "A-Lin",
+        "album": "2022-LINK",
+        "track": "A-Lin - 13.我怨.flac",
+        "relativePath": "A-Lin/2022-LINK/A-Lin - 13.我怨.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x73a824380] invalid sync code | [flac @ 0x73a824380] invalid frame header | [flac @ 0x73a824380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x73a824380] invalid sync code | [flac @ 0x73a824380] invalid frame header | [flac @ 0x73a824380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "A-Lin/2022-LINK/A-Lin - 14.尽情旋转.flac",
+      "artistName": "A-Lin",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  A-Lin/2022-LINK/A-Lin - 14.尽情旋转.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0xc93804380] invalid sync code | [flac @ 0xc93804380] invalid frame header | [flac @ 0xc93804380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "A-Lin",
+        "album": "2022-LINK",
+        "track": "A-Lin - 14.尽情旋转.flac",
+        "relativePath": "A-Lin/2022-LINK/A-Lin - 14.尽情旋转.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xc93804380] invalid sync code | [flac @ 0xc93804380] invalid frame header | [flac @ 0xc93804380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xc93804380] invalid sync code | [flac @ 0xc93804380] invalid frame header | [flac @ 0xc93804380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "A-Lin/2022-LINK/A-Lin - 15.给未来.flac",
+      "artistName": "A-Lin",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  A-Lin/2022-LINK/A-Lin - 15.给未来.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0x936c64380] invalid sync code | [flac @ 0x936c64380] invalid frame header | [flac @ 0x936c64380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "A-Lin",
+        "album": "2022-LINK",
+        "track": "A-Lin - 15.给未来.flac",
+        "relativePath": "A-Lin/2022-LINK/A-Lin - 15.给未来.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x936c64380] invalid sync code | [flac @ 0x936c64380] invalid frame header | [flac @ 0x936c64380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x936c64380] invalid sync code | [flac @ 0x936c64380] invalid frame header | [flac @ 0x936c64380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "Adele/Adele - 19 (2008) [LP] [flac] [24Bit-96kHz]/A1. Daydreamer.flac",
+      "artistName": "Adele",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "Adele",
+        "album": "Adele - 19 (2008) [LP] [flac] [24Bit-96kHz]",
+        "track": "A1. Daydreamer.flac",
+        "relativePath": "Adele/Adele - 19 (2008) [LP] [flac] [24Bit-96kHz]/A1. Daydreamer.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "Adele/Adele - 19 (2008) [LP] [flac] [24Bit-96kHz]/A2. Best For Last.flac",
+      "artistName": "Adele",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "Adele",
+        "album": "Adele - 19 (2008) [LP] [flac] [24Bit-96kHz]",
+        "track": "A2. Best For Last.flac",
+        "relativePath": "Adele/Adele - 19 (2008) [LP] [flac] [24Bit-96kHz]/A2. Best For Last.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "Adele/Adele - 19 (2008) [LP] [flac] [24Bit-96kHz]/A3. Chasing Pavements.flac",
+      "artistName": "Adele",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "Adele",
+        "album": "Adele - 19 (2008) [LP] [flac] [24Bit-96kHz]",
+        "track": "A3. Chasing Pavements.flac",
+        "relativePath": "Adele/Adele - 19 (2008) [LP] [flac] [24Bit-96kHz]/A3. Chasing Pavements.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "Adele/Adele - 19 (2008) [LP] [flac] [24Bit-96kHz]/A4. Cold Shoulder.flac",
+      "artistName": "Adele",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "Adele",
+        "album": "Adele - 19 (2008) [LP] [flac] [24Bit-96kHz]",
+        "track": "A4. Cold Shoulder.flac",
+        "relativePath": "Adele/Adele - 19 (2008) [LP] [flac] [24Bit-96kHz]/A4. Cold Shoulder.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "Adele/Adele - 19 (2008) [LP] [flac] [24Bit-96kHz]/A5. Crazy For You.flac",
+      "artistName": "Adele",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "Adele",
+        "album": "Adele - 19 (2008) [LP] [flac] [24Bit-96kHz]",
+        "track": "A5. Crazy For You.flac",
+        "relativePath": "Adele/Adele - 19 (2008) [LP] [flac] [24Bit-96kHz]/A5. Crazy For You.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "Adele/Adele - 19 (2008) [LP] [flac] [24Bit-96kHz]/A6. Melt My Heart To Stone.flac",
+      "artistName": "Adele",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "Adele",
+        "album": "Adele - 19 (2008) [LP] [flac] [24Bit-96kHz]",
+        "track": "A6. Melt My Heart To Stone.flac",
+        "relativePath": "Adele/Adele - 19 (2008) [LP] [flac] [24Bit-96kHz]/A6. Melt My Heart To Stone.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "Adele/Adele - 19 (2008) [LP] [flac] [24Bit-96kHz]/B1. First Love.flac",
+      "artistName": "Adele",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "Adele",
+        "album": "Adele - 19 (2008) [LP] [flac] [24Bit-96kHz]",
+        "track": "B1. First Love.flac",
+        "relativePath": "Adele/Adele - 19 (2008) [LP] [flac] [24Bit-96kHz]/B1. First Love.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "Adele/Adele - 19 (2008) [LP] [flac] [24Bit-96kHz]/B2. Right As Rain.flac",
+      "artistName": "Adele",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "Adele",
+        "album": "Adele - 19 (2008) [LP] [flac] [24Bit-96kHz]",
+        "track": "B2. Right As Rain.flac",
+        "relativePath": "Adele/Adele - 19 (2008) [LP] [flac] [24Bit-96kHz]/B2. Right As Rain.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "Adele/Adele - 19 (2008) [LP] [flac] [24Bit-96kHz]/B3. Make You Feel My Love.flac",
+      "artistName": "Adele",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "Adele",
+        "album": "Adele - 19 (2008) [LP] [flac] [24Bit-96kHz]",
+        "track": "B3. Make You Feel My Love.flac",
+        "relativePath": "Adele/Adele - 19 (2008) [LP] [flac] [24Bit-96kHz]/B3. Make You Feel My Love.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "Adele/Adele - 19 (2008) [LP] [flac] [24Bit-96kHz]/B4. My Same.flac",
+      "artistName": "Adele",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "Adele",
+        "album": "Adele - 19 (2008) [LP] [flac] [24Bit-96kHz]",
+        "track": "B4. My Same.flac",
+        "relativePath": "Adele/Adele - 19 (2008) [LP] [flac] [24Bit-96kHz]/B4. My Same.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "Adele/Adele - 19 (2008) [LP] [flac] [24Bit-96kHz]/B5. Tired.flac",
+      "artistName": "Adele",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "Adele",
+        "album": "Adele - 19 (2008) [LP] [flac] [24Bit-96kHz]",
+        "track": "B5. Tired.flac",
+        "relativePath": "Adele/Adele - 19 (2008) [LP] [flac] [24Bit-96kHz]/B5. Tired.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "Adele/Adele - 19 (2008) [LP] [flac] [24Bit-96kHz]/B6. Hometown Glory.flac",
+      "artistName": "Adele",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "Adele",
+        "album": "Adele - 19 (2008) [LP] [flac] [24Bit-96kHz]",
+        "track": "B6. Hometown Glory.flac",
+        "relativePath": "Adele/Adele - 19 (2008) [LP] [flac] [24Bit-96kHz]/B6. Hometown Glory.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "Adele/Adele - 21 (2011) [LP] [flac] [24Bit-96kHz]/A1. Rolling In The Deep.flac",
+      "artistName": "Adele",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "Adele",
+        "album": "Adele - 21 (2011) [LP] [flac] [24Bit-96kHz]",
+        "track": "A1. Rolling In The Deep.flac",
+        "relativePath": "Adele/Adele - 21 (2011) [LP] [flac] [24Bit-96kHz]/A1. Rolling In The Deep.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "Adele/Adele - 21 (2011) [LP] [flac] [24Bit-96kHz]/A2. Rumour Has It.flac",
+      "artistName": "Adele",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "Adele",
+        "album": "Adele - 21 (2011) [LP] [flac] [24Bit-96kHz]",
+        "track": "A2. Rumour Has It.flac",
+        "relativePath": "Adele/Adele - 21 (2011) [LP] [flac] [24Bit-96kHz]/A2. Rumour Has It.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "Adele/Adele - 21 (2011) [LP] [flac] [24Bit-96kHz]/A3. Turning Tables.flac",
+      "artistName": "Adele",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "Adele",
+        "album": "Adele - 21 (2011) [LP] [flac] [24Bit-96kHz]",
+        "track": "A3. Turning Tables.flac",
+        "relativePath": "Adele/Adele - 21 (2011) [LP] [flac] [24Bit-96kHz]/A3. Turning Tables.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "Adele/Adele - 21 (2011) [LP] [flac] [24Bit-96kHz]/A4. Don't You Remember.flac",
+      "artistName": "Adele",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "Adele",
+        "album": "Adele - 21 (2011) [LP] [flac] [24Bit-96kHz]",
+        "track": "A4. Don't You Remember.flac",
+        "relativePath": "Adele/Adele - 21 (2011) [LP] [flac] [24Bit-96kHz]/A4. Don't You Remember.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "Adele/Adele - 21 (2011) [LP] [flac] [24Bit-96kHz]/A5. Set Fire To The Rain.flac",
+      "artistName": "Adele",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "Adele",
+        "album": "Adele - 21 (2011) [LP] [flac] [24Bit-96kHz]",
+        "track": "A5. Set Fire To The Rain.flac",
+        "relativePath": "Adele/Adele - 21 (2011) [LP] [flac] [24Bit-96kHz]/A5. Set Fire To The Rain.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "Adele/Adele - 21 (2011) [LP] [flac] [24Bit-96kHz]/A6. He Won't Go.flac",
+      "artistName": "Adele",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "Adele",
+        "album": "Adele - 21 (2011) [LP] [flac] [24Bit-96kHz]",
+        "track": "A6. He Won't Go.flac",
+        "relativePath": "Adele/Adele - 21 (2011) [LP] [flac] [24Bit-96kHz]/A6. He Won't Go.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "Adele/Adele - 21 (2011) [LP] [flac] [24Bit-96kHz]/B1. Take It All.flac",
+      "artistName": "Adele",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "Adele",
+        "album": "Adele - 21 (2011) [LP] [flac] [24Bit-96kHz]",
+        "track": "B1. Take It All.flac",
+        "relativePath": "Adele/Adele - 21 (2011) [LP] [flac] [24Bit-96kHz]/B1. Take It All.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "Adele/Adele - 21 (2011) [LP] [flac] [24Bit-96kHz]/B2. I'll Be Waiting.flac",
+      "artistName": "Adele",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "Adele",
+        "album": "Adele - 21 (2011) [LP] [flac] [24Bit-96kHz]",
+        "track": "B2. I'll Be Waiting.flac",
+        "relativePath": "Adele/Adele - 21 (2011) [LP] [flac] [24Bit-96kHz]/B2. I'll Be Waiting.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "Adele/Adele - 21 (2011) [LP] [flac] [24Bit-96kHz]/B3. One And Only.flac",
+      "artistName": "Adele",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "Adele",
+        "album": "Adele - 21 (2011) [LP] [flac] [24Bit-96kHz]",
+        "track": "B3. One And Only.flac",
+        "relativePath": "Adele/Adele - 21 (2011) [LP] [flac] [24Bit-96kHz]/B3. One And Only.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "Adele/Adele - 21 (2011) [LP] [flac] [24Bit-96kHz]/B4. Lovesong.flac",
+      "artistName": "Adele",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "Adele",
+        "album": "Adele - 21 (2011) [LP] [flac] [24Bit-96kHz]",
+        "track": "B4. Lovesong.flac",
+        "relativePath": "Adele/Adele - 21 (2011) [LP] [flac] [24Bit-96kHz]/B4. Lovesong.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "Adele/Adele - 21 (2011) [LP] [flac] [24Bit-96kHz]/B5. Someone Like You.flac",
+      "artistName": "Adele",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "Adele",
+        "album": "Adele - 21 (2011) [LP] [flac] [24Bit-96kHz]",
+        "track": "B5. Someone Like You.flac",
+        "relativePath": "Adele/Adele - 21 (2011) [LP] [flac] [24Bit-96kHz]/B5. Someone Like You.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "Adele/Adele - 25 (2015) [LP] [flac] [24Bit-96kHz]/01. Hello.flac",
+      "artistName": "Adele",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "Adele",
+        "album": "Adele - 25 (2015) [LP] [flac] [24Bit-96kHz]",
+        "track": "01. Hello.flac",
+        "relativePath": "Adele/Adele - 25 (2015) [LP] [flac] [24Bit-96kHz]/01. Hello.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "Adele/Adele - 25 (2015) [LP] [flac] [24Bit-96kHz]/02. Send My Love (To Your New Lover).flac",
+      "artistName": "Adele",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "Adele",
+        "album": "Adele - 25 (2015) [LP] [flac] [24Bit-96kHz]",
+        "track": "02. Send My Love (To Your New Lover).flac",
+        "relativePath": "Adele/Adele - 25 (2015) [LP] [flac] [24Bit-96kHz]/02. Send My Love (To Your New Lover).flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "Adele/Adele - 25 (2015) [LP] [flac] [24Bit-96kHz]/03. I Miss You.flac",
+      "artistName": "Adele",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "Adele",
+        "album": "Adele - 25 (2015) [LP] [flac] [24Bit-96kHz]",
+        "track": "03. I Miss You.flac",
+        "relativePath": "Adele/Adele - 25 (2015) [LP] [flac] [24Bit-96kHz]/03. I Miss You.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "Adele/Adele - 25 (2015) [LP] [flac] [24Bit-96kHz]/04. When We Were Young.flac",
+      "artistName": "Adele",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "Adele",
+        "album": "Adele - 25 (2015) [LP] [flac] [24Bit-96kHz]",
+        "track": "04. When We Were Young.flac",
+        "relativePath": "Adele/Adele - 25 (2015) [LP] [flac] [24Bit-96kHz]/04. When We Were Young.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "Adele/Adele - 25 (2015) [LP] [flac] [24Bit-96kHz]/05. Remedy.flac",
+      "artistName": "Adele",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "Adele",
+        "album": "Adele - 25 (2015) [LP] [flac] [24Bit-96kHz]",
+        "track": "05. Remedy.flac",
+        "relativePath": "Adele/Adele - 25 (2015) [LP] [flac] [24Bit-96kHz]/05. Remedy.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "Adele/Adele - 25 (2015) [LP] [flac] [24Bit-96kHz]/06. Water Under The Bridge.flac",
+      "artistName": "Adele",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "Adele",
+        "album": "Adele - 25 (2015) [LP] [flac] [24Bit-96kHz]",
+        "track": "06. Water Under The Bridge.flac",
+        "relativePath": "Adele/Adele - 25 (2015) [LP] [flac] [24Bit-96kHz]/06. Water Under The Bridge.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "Adele/Adele - 25 (2015) [LP] [flac] [24Bit-96kHz]/07. River Lea.flac",
+      "artistName": "Adele",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "Adele",
+        "album": "Adele - 25 (2015) [LP] [flac] [24Bit-96kHz]",
+        "track": "07. River Lea.flac",
+        "relativePath": "Adele/Adele - 25 (2015) [LP] [flac] [24Bit-96kHz]/07. River Lea.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "Adele/Adele - 25 (2015) [LP] [flac] [24Bit-96kHz]/08. Love In The Dark.flac",
+      "artistName": "Adele",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "Adele",
+        "album": "Adele - 25 (2015) [LP] [flac] [24Bit-96kHz]",
+        "track": "08. Love In The Dark.flac",
+        "relativePath": "Adele/Adele - 25 (2015) [LP] [flac] [24Bit-96kHz]/08. Love In The Dark.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "Adele/Adele - 25 (2015) [LP] [flac] [24Bit-96kHz]/09. Million Years Ago.flac",
+      "artistName": "Adele",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "Adele",
+        "album": "Adele - 25 (2015) [LP] [flac] [24Bit-96kHz]",
+        "track": "09. Million Years Ago.flac",
+        "relativePath": "Adele/Adele - 25 (2015) [LP] [flac] [24Bit-96kHz]/09. Million Years Ago.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "Adele/Adele - 25 (2015) [LP] [flac] [24Bit-96kHz]/10. All I Ask.flac",
+      "artistName": "Adele",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "Adele",
+        "album": "Adele - 25 (2015) [LP] [flac] [24Bit-96kHz]",
+        "track": "10. All I Ask.flac",
+        "relativePath": "Adele/Adele - 25 (2015) [LP] [flac] [24Bit-96kHz]/10. All I Ask.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "Adele/Adele - 25 (2015) [LP] [flac] [24Bit-96kHz]/11. Sweetest Devotion.flac",
+      "artistName": "Adele",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "Adele",
+        "album": "Adele - 25 (2015) [LP] [flac] [24Bit-96kHz]",
+        "track": "11. Sweetest Devotion.flac",
+        "relativePath": "Adele/Adele - 25 (2015) [LP] [flac] [24Bit-96kHz]/11. Sweetest Devotion.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "Adele/Adele - 30 (2021) [LP] [flac] [24Bit-44.1kHz]/01 Adele - Strangers By Nature.mqa.flac",
+      "artistName": "Adele",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "Adele",
+        "album": "Adele - 30 (2021) [LP] [flac] [24Bit-44.1kHz]",
+        "track": "01 Adele - Strangers By Nature.mqa.flac",
+        "relativePath": "Adele/Adele - 30 (2021) [LP] [flac] [24Bit-44.1kHz]/01 Adele - Strangers By Nature.mqa.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "Adele/Adele - 30 (2021) [LP] [flac] [24Bit-44.1kHz]/02 Adele - Easy On Me.mqa.flac",
+      "artistName": "Adele",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "Adele",
+        "album": "Adele - 30 (2021) [LP] [flac] [24Bit-44.1kHz]",
+        "track": "02 Adele - Easy On Me.mqa.flac",
+        "relativePath": "Adele/Adele - 30 (2021) [LP] [flac] [24Bit-44.1kHz]/02 Adele - Easy On Me.mqa.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "Adele/Adele - 30 (2021) [LP] [flac] [24Bit-44.1kHz]/03 Adele - My Little Love.mqa.flac",
+      "artistName": "Adele",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "Adele",
+        "album": "Adele - 30 (2021) [LP] [flac] [24Bit-44.1kHz]",
+        "track": "03 Adele - My Little Love.mqa.flac",
+        "relativePath": "Adele/Adele - 30 (2021) [LP] [flac] [24Bit-44.1kHz]/03 Adele - My Little Love.mqa.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "Adele/Adele - 30 (2021) [LP] [flac] [24Bit-44.1kHz]/04 Adele - Cry Your Heart Out.mqa.flac",
+      "artistName": "Adele",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "Adele",
+        "album": "Adele - 30 (2021) [LP] [flac] [24Bit-44.1kHz]",
+        "track": "04 Adele - Cry Your Heart Out.mqa.flac",
+        "relativePath": "Adele/Adele - 30 (2021) [LP] [flac] [24Bit-44.1kHz]/04 Adele - Cry Your Heart Out.mqa.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "Adele/Adele - 30 (2021) [LP] [flac] [24Bit-44.1kHz]/05 Adele - Oh My God.mqa.flac",
+      "artistName": "Adele",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "Adele",
+        "album": "Adele - 30 (2021) [LP] [flac] [24Bit-44.1kHz]",
+        "track": "05 Adele - Oh My God.mqa.flac",
+        "relativePath": "Adele/Adele - 30 (2021) [LP] [flac] [24Bit-44.1kHz]/05 Adele - Oh My God.mqa.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "Adele/Adele - 30 (2021) [LP] [flac] [24Bit-44.1kHz]/06 Adele - Can I Get It.mqa.flac",
+      "artistName": "Adele",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "Adele",
+        "album": "Adele - 30 (2021) [LP] [flac] [24Bit-44.1kHz]",
+        "track": "06 Adele - Can I Get It.mqa.flac",
+        "relativePath": "Adele/Adele - 30 (2021) [LP] [flac] [24Bit-44.1kHz]/06 Adele - Can I Get It.mqa.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "Adele/Adele - 30 (2021) [LP] [flac] [24Bit-44.1kHz]/07 Adele - I Drink Wine.mqa.flac",
+      "artistName": "Adele",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "Adele",
+        "album": "Adele - 30 (2021) [LP] [flac] [24Bit-44.1kHz]",
+        "track": "07 Adele - I Drink Wine.mqa.flac",
+        "relativePath": "Adele/Adele - 30 (2021) [LP] [flac] [24Bit-44.1kHz]/07 Adele - I Drink Wine.mqa.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "Adele/Adele - 30 (2021) [LP] [flac] [24Bit-44.1kHz]/08 Adele - All Night Parking (with Erroll Garner) Interlude.mqa.flac",
+      "artistName": "Adele",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "Adele",
+        "album": "Adele - 30 (2021) [LP] [flac] [24Bit-44.1kHz]",
+        "track": "08 Adele - All Night Parking (with Erroll Garner) Interlude.mqa.flac",
+        "relativePath": "Adele/Adele - 30 (2021) [LP] [flac] [24Bit-44.1kHz]/08 Adele - All Night Parking (with Erroll Garner) Interlude.mqa.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "Adele/Adele - 30 (2021) [LP] [flac] [24Bit-44.1kHz]/09 Adele - Woman Like Me.mqa.flac",
+      "artistName": "Adele",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "Adele",
+        "album": "Adele - 30 (2021) [LP] [flac] [24Bit-44.1kHz]",
+        "track": "09 Adele - Woman Like Me.mqa.flac",
+        "relativePath": "Adele/Adele - 30 (2021) [LP] [flac] [24Bit-44.1kHz]/09 Adele - Woman Like Me.mqa.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "Adele/Adele - 30 (2021) [LP] [flac] [24Bit-44.1kHz]/10 Adele - Hold On.mqa.flac",
+      "artistName": "Adele",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "Adele",
+        "album": "Adele - 30 (2021) [LP] [flac] [24Bit-44.1kHz]",
+        "track": "10 Adele - Hold On.mqa.flac",
+        "relativePath": "Adele/Adele - 30 (2021) [LP] [flac] [24Bit-44.1kHz]/10 Adele - Hold On.mqa.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "Adele/Adele - 30 (2021) [LP] [flac] [24Bit-44.1kHz]/11 Adele - To Be Loved.mqa.flac",
+      "artistName": "Adele",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "Adele",
+        "album": "Adele - 30 (2021) [LP] [flac] [24Bit-44.1kHz]",
+        "track": "11 Adele - To Be Loved.mqa.flac",
+        "relativePath": "Adele/Adele - 30 (2021) [LP] [flac] [24Bit-44.1kHz]/11 Adele - To Be Loved.mqa.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "Adele/Adele - 30 (2021) [LP] [flac] [24Bit-44.1kHz]/12 Adele - Love Is A Game.mqa.flac",
+      "artistName": "Adele",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "Adele",
+        "album": "Adele - 30 (2021) [LP] [flac] [24Bit-44.1kHz]",
+        "track": "12 Adele - Love Is A Game.mqa.flac",
+        "relativePath": "Adele/Adele - 30 (2021) [LP] [flac] [24Bit-44.1kHz]/12 Adele - Love Is A Game.mqa.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "Anne-Sophie Mutter/East Meets West - 2026-03-27/01 - Likoo, for Violin Solo.flac",
+      "artistName": "Anne-Sophie Mutter",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  Anne-Sophie Mutter/East Meets West - 2026-03-27/01 - Likoo, for Violin Solo.flac  (Playable but strict decode reported a warning)\n                         testing, 46% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bWARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Anne-Sophie Mutter",
+        "album": "East Meets West - 2026-03-27",
+        "track": "01 - Likoo, for Violin Solo.flac",
+        "relativePath": "Anne-Sophie Mutter/East Meets West - 2026-03-27/01 - Likoo, for Violin Solo.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "testing, 46% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bWARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "Anne-Sophie Mutter/East Meets West - 2026-03-27/02 - Gran Cadenza, for Two Violins.flac",
+      "artistName": "Anne-Sophie Mutter",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  Anne-Sophie Mutter/East Meets West - 2026-03-27/02 - Gran Cadenza, for Two Violins.flac  (Playable but strict decode reported a warning)\n                         testing, 34% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\btesting, 76% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bWARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Anne-Sophie Mutter",
+        "album": "East Meets West - 2026-03-27",
+        "track": "02 - Gran Cadenza, for Two Violins.flac",
+        "relativePath": "Anne-Sophie Mutter/East Meets West - 2026-03-27/02 - Gran Cadenza, for Two Violins.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "testing, 34% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\btesting, 76% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bWARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "Anne-Sophie Mutter/East Meets West - 2026-03-27/03 - Studie über Beethoven (String Quartet No. 6)_ I. Maestoso - Largo subito.flac",
+      "artistName": "Anne-Sophie Mutter",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  Anne-Sophie Mutter/East Meets West - 2026-03-27/03 - Studie über Beethoven (String Quartet No. 6)_ I. Maestoso - Largo subito.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Anne-Sophie Mutter",
+        "album": "East Meets West - 2026-03-27",
+        "track": "03 - Studie über Beethoven (String Quartet No. 6)_ I. Maestoso - Largo subito.flac",
+        "relativePath": "Anne-Sophie Mutter/East Meets West - 2026-03-27/03 - Studie über Beethoven (String Quartet No. 6)_ I. Maestoso - Largo subito.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "Anne-Sophie Mutter/East Meets West - 2026-03-27/04 - Studie über Beethoven (String Quartet No. 6)_ II. Poco più tranquillo.flac",
+      "artistName": "Anne-Sophie Mutter",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  Anne-Sophie Mutter/East Meets West - 2026-03-27/04 - Studie über Beethoven (String Quartet No. 6)_ II. Poco più tranquillo.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Anne-Sophie Mutter",
+        "album": "East Meets West - 2026-03-27",
+        "track": "04 - Studie über Beethoven (String Quartet No. 6)_ II. Poco più tranquillo.flac",
+        "relativePath": "Anne-Sophie Mutter/East Meets West - 2026-03-27/04 - Studie über Beethoven (String Quartet No. 6)_ II. Poco più tranquillo.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "Anne-Sophie Mutter/East Meets West - 2026-03-27/05 - Studie über Beethoven (String Quartet No. 6)_ III. Poco accelerando.flac",
+      "artistName": "Anne-Sophie Mutter",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  Anne-Sophie Mutter/East Meets West - 2026-03-27/05 - Studie über Beethoven (String Quartet No. 6)_ III. Poco accelerando.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Anne-Sophie Mutter",
+        "album": "East Meets West - 2026-03-27",
+        "track": "05 - Studie über Beethoven (String Quartet No. 6)_ III. Poco accelerando.flac",
+        "relativePath": "Anne-Sophie Mutter/East Meets West - 2026-03-27/05 - Studie über Beethoven (String Quartet No. 6)_ III. Poco accelerando.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "Anne-Sophie Mutter/East Meets West - 2026-03-27/06 - Studie über Beethoven (String Quartet No. 6)_ IV. Poco più mosso (ma calmo!).flac",
+      "artistName": "Anne-Sophie Mutter",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  Anne-Sophie Mutter/East Meets West - 2026-03-27/06 - Studie über Beethoven (String Quartet No. 6)_ IV. Poco più mosso (ma calmo!).flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Anne-Sophie Mutter",
+        "album": "East Meets West - 2026-03-27",
+        "track": "06 - Studie über Beethoven (String Quartet No. 6)_ IV. Poco più mosso (ma calmo!).flac",
+        "relativePath": "Anne-Sophie Mutter/East Meets West - 2026-03-27/06 - Studie über Beethoven (String Quartet No. 6)_ IV. Poco più mosso (ma calmo!).flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "Anne-Sophie Mutter/East Meets West - 2026-03-27/07 - Studie über Beethoven (String Quartet No. 6)_ V. Pesante subito - Presto vivace subito.flac",
+      "artistName": "Anne-Sophie Mutter",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  Anne-Sophie Mutter/East Meets West - 2026-03-27/07 - Studie über Beethoven (String Quartet No. 6)_ V. Pesante subito - Presto vivace subito.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Anne-Sophie Mutter",
+        "album": "East Meets West - 2026-03-27",
+        "track": "07 - Studie über Beethoven (String Quartet No. 6)_ V. Pesante subito - Presto vivace subito.flac",
+        "relativePath": "Anne-Sophie Mutter/East Meets West - 2026-03-27/07 - Studie über Beethoven (String Quartet No. 6)_ V. Pesante subito - Presto vivace subito.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "Anne-Sophie Mutter/East Meets West - 2026-03-27/08 - Studie über Beethoven (String Quartet No. 6)_ VI. Più pesante.flac",
+      "artistName": "Anne-Sophie Mutter",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  Anne-Sophie Mutter/East Meets West - 2026-03-27/08 - Studie über Beethoven (String Quartet No. 6)_ VI. Più pesante.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Anne-Sophie Mutter",
+        "album": "East Meets West - 2026-03-27",
+        "track": "08 - Studie über Beethoven (String Quartet No. 6)_ VI. Più pesante.flac",
+        "relativePath": "Anne-Sophie Mutter/East Meets West - 2026-03-27/08 - Studie über Beethoven (String Quartet No. 6)_ VI. Più pesante.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    }
+  ]
+}

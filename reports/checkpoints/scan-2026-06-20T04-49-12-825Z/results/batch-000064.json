@@ -1,0 +1,5879 @@
+{
+  "batchId": 64,
+  "completedAt": "2026-06-20T06:05:47.817Z",
+  "count": 100,
+  "results": [
+    {
+      "rel": "艾怡良/2014-我不知道爱是什么[flac]/艾怡良-我不知道爱是什么-《16个夏天》电视剧插曲.flac",
+      "artistName": "艾怡良",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "艾怡良",
+        "album": "2014-我不知道爱是什么[flac]",
+        "track": "艾怡良-我不知道爱是什么-《16个夏天》电视剧插曲.flac",
+        "relativePath": "艾怡良/2014-我不知道爱是什么[flac]/艾怡良-我不知道爱是什么-《16个夏天》电视剧插曲.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "艾怡良/2015-如烟[flac]/艾怡良-如烟.flac",
+      "artistName": "艾怡良",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "艾怡良",
+        "album": "2015-如烟[flac]",
+        "track": "艾怡良-如烟.flac",
+        "relativePath": "艾怡良/2015-如烟[flac]/艾怡良-如烟.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "艾怡良/2016-说 [24bit 48kHz] [flac]/Then You Come Along.flac",
+      "artistName": "艾怡良",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "艾怡良",
+        "album": "2016-说 [24bit 48kHz] [flac]",
+        "track": "Then You Come Along.flac",
+        "relativePath": "艾怡良/2016-说 [24bit 48kHz] [flac]/Then You Come Along.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "艾怡良/2016-说 [24bit 48kHz] [flac]/依赖.flac",
+      "artistName": "艾怡良",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "艾怡良",
+        "album": "2016-说 [24bit 48kHz] [flac]",
+        "track": "依赖.flac",
+        "relativePath": "艾怡良/2016-说 [24bit 48kHz] [flac]/依赖.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "艾怡良/2016-说 [24bit 48kHz] [flac]/寂寞无害.flac",
+      "artistName": "艾怡良",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "艾怡良",
+        "album": "2016-说 [24bit 48kHz] [flac]",
+        "track": "寂寞无害.flac",
+        "relativePath": "艾怡良/2016-说 [24bit 48kHz] [flac]/寂寞无害.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "艾怡良/2016-说 [24bit 48kHz] [flac]/带我去一个阳光普照的岛屿.flac",
+      "artistName": "艾怡良",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "艾怡良",
+        "album": "2016-说 [24bit 48kHz] [flac]",
+        "track": "带我去一个阳光普照的岛屿.flac",
+        "relativePath": "艾怡良/2016-说 [24bit 48kHz] [flac]/带我去一个阳光普照的岛屿.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "艾怡良/2016-说 [24bit 48kHz] [flac]/我们的总和.flac",
+      "artistName": "艾怡良",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "艾怡良",
+        "album": "2016-说 [24bit 48kHz] [flac]",
+        "track": "我们的总和.flac",
+        "relativePath": "艾怡良/2016-说 [24bit 48kHz] [flac]/我们的总和.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "艾怡良/2016-说 [24bit 48kHz] [flac]/拼图.flac",
+      "artistName": "艾怡良",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "艾怡良",
+        "album": "2016-说 [24bit 48kHz] [flac]",
+        "track": "拼图.flac",
+        "relativePath": "艾怡良/2016-说 [24bit 48kHz] [flac]/拼图.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "艾怡良/2016-说 [24bit 48kHz] [flac]/爱是这样.flac",
+      "artistName": "艾怡良",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "艾怡良",
+        "album": "2016-说 [24bit 48kHz] [flac]",
+        "track": "爱是这样.flac",
+        "relativePath": "艾怡良/2016-说 [24bit 48kHz] [flac]/爱是这样.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "艾怡良/2016-说 [24bit 48kHz] [flac]/空头支票.flac",
+      "artistName": "艾怡良",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "艾怡良",
+        "album": "2016-说 [24bit 48kHz] [flac]",
+        "track": "空头支票.flac",
+        "relativePath": "艾怡良/2016-说 [24bit 48kHz] [flac]/空头支票.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "艾怡良/2016-说 [24bit 48kHz] [flac]/说.flac",
+      "artistName": "艾怡良",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "艾怡良",
+        "album": "2016-说 [24bit 48kHz] [flac]",
+        "track": "说.flac",
+        "relativePath": "艾怡良/2016-说 [24bit 48kHz] [flac]/说.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "艾怡良/2016-说 [24bit 48kHz] [flac]/逃生计画.flac",
+      "artistName": "艾怡良",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "艾怡良",
+        "album": "2016-说 [24bit 48kHz] [flac]",
+        "track": "逃生计画.flac",
+        "relativePath": "艾怡良/2016-说 [24bit 48kHz] [flac]/逃生计画.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "艾怡良/2017-Waterfall[flac]/艾怡良-Waterfall.flac",
+      "artistName": "艾怡良",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "艾怡良",
+        "album": "2017-Waterfall[flac]",
+        "track": "艾怡良-Waterfall.flac",
+        "relativePath": "艾怡良/2017-Waterfall[flac]/艾怡良-Waterfall.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "艾怡良/2017-我想我挺好的[flac]/艾怡良-我想我挺好的.flac",
+      "artistName": "艾怡良",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "艾怡良",
+        "album": "2017-我想我挺好的[flac]",
+        "track": "艾怡良-我想我挺好的.flac",
+        "relativePath": "艾怡良/2017-我想我挺好的[flac]/艾怡良-我想我挺好的.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "艾怡良/2017-爱sharing 2017特别版[flac]/葛仲珊 _ 艾怡良 - 爱sharing 2017特别版.flac",
+      "artistName": "艾怡良",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  艾怡良/2017-爱sharing 2017特别版[flac]/葛仲珊 _ 艾怡良 - 爱sharing 2017特别版.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 10904725 samples (247.27s, 100.0% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "艾怡良",
+        "album": "2017-爱sharing 2017特别版[flac]",
+        "track": "葛仲珊 _ 艾怡良 - 爱sharing 2017特别版.flac",
+        "relativePath": "艾怡良/2017-爱sharing 2017特别版[flac]/葛仲珊 _ 艾怡良 - 爱sharing 2017特别版.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "艾怡良/2018-垂直活着，水平留恋着[flac]/01 玻璃心.flac",
+      "artistName": "艾怡良",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "艾怡良",
+        "album": "2018-垂直活着，水平留恋着[flac]",
+        "track": "01 玻璃心.flac",
+        "relativePath": "艾怡良/2018-垂直活着，水平留恋着[flac]/01 玻璃心.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "艾怡良/2018-垂直活着，水平留恋着[flac]/02 滅了我.flac",
+      "artistName": "艾怡良",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "艾怡良",
+        "album": "2018-垂直活着，水平留恋着[flac]",
+        "track": "02 滅了我.flac",
+        "relativePath": "艾怡良/2018-垂直活着，水平留恋着[flac]/02 滅了我.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "艾怡良/2018-垂直活着，水平留恋着[flac]/03 一整夜.flac",
+      "artistName": "艾怡良",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "艾怡良",
+        "album": "2018-垂直活着，水平留恋着[flac]",
+        "track": "03 一整夜.flac",
+        "relativePath": "艾怡良/2018-垂直活着，水平留恋着[flac]/03 一整夜.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "艾怡良/2018-垂直活着，水平留恋着[flac]/04 給朱利安.flac",
+      "artistName": "艾怡良",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "艾怡良",
+        "album": "2018-垂直活着，水平留恋着[flac]",
+        "track": "04 給朱利安.flac",
+        "relativePath": "艾怡良/2018-垂直活着，水平留恋着[flac]/04 給朱利安.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "艾怡良/2018-垂直活着，水平留恋着[flac]/05 十四號登機門.flac",
+      "artistName": "艾怡良",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "艾怡良",
+        "album": "2018-垂直活着，水平留恋着[flac]",
+        "track": "05 十四號登機門.flac",
+        "relativePath": "艾怡良/2018-垂直活着，水平留恋着[flac]/05 十四號登機門.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "艾怡良/2018-垂直活着，水平留恋着[flac]/06 討厭的艾瑞斯.flac",
+      "artistName": "艾怡良",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "艾怡良",
+        "album": "2018-垂直活着，水平留恋着[flac]",
+        "track": "06 討厭的艾瑞斯.flac",
+        "relativePath": "艾怡良/2018-垂直活着，水平留恋着[flac]/06 討厭的艾瑞斯.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "艾怡良/2018-垂直活着，水平留恋着[flac]/07 萊特兄弟有罪.flac",
+      "artistName": "艾怡良",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "艾怡良",
+        "album": "2018-垂直活着，水平留恋着[flac]",
+        "track": "07 萊特兄弟有罪.flac",
+        "relativePath": "艾怡良/2018-垂直活着，水平留恋着[flac]/07 萊特兄弟有罪.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "艾怡良/2018-垂直活着，水平留恋着[flac]/08 美術課.flac",
+      "artistName": "艾怡良",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "艾怡良",
+        "album": "2018-垂直活着，水平留恋着[flac]",
+        "track": "08 美術課.flac",
+        "relativePath": "艾怡良/2018-垂直活着，水平留恋着[flac]/08 美術課.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "艾怡良/2018-垂直活着，水平留恋着[flac]/09 夜晚出生的孩子.flac",
+      "artistName": "艾怡良",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "艾怡良",
+        "album": "2018-垂直活着，水平留恋着[flac]",
+        "track": "09 夜晚出生的孩子.flac",
+        "relativePath": "艾怡良/2018-垂直活着，水平留恋着[flac]/09 夜晚出生的孩子.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "艾怡良/2018-垂直活着，水平留恋着[flac]/10 Forever Young.flac",
+      "artistName": "艾怡良",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "艾怡良",
+        "album": "2018-垂直活着，水平留恋着[flac]",
+        "track": "10 Forever Young.flac",
+        "relativePath": "艾怡良/2018-垂直活着，水平留恋着[flac]/10 Forever Young.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "艾怡良/2018-无数个我[flac]/艾怡良-无数个我.flac",
+      "artistName": "艾怡良",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "艾怡良",
+        "album": "2018-无数个我[flac]",
+        "track": "艾怡良-无数个我.flac",
+        "relativePath": "艾怡良/2018-无数个我[flac]/艾怡良-无数个我.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "艾怡良/2020-飘洋过海来看你[flac]/飘洋过海来看你-梁静茹_艾怡良.flac",
+      "artistName": "艾怡良",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "艾怡良",
+        "album": "2020-飘洋过海来看你[flac]",
+        "track": "飘洋过海来看你-梁静茹_艾怡良.flac",
+        "relativePath": "艾怡良/2020-飘洋过海来看你[flac]/飘洋过海来看你-梁静茹_艾怡良.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "花儿乐队/1999-幸福的旁边[flac]/花儿乐队 - 别骗我.flac",
+      "artistName": "花儿乐队",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  花儿乐队/1999-幸福的旁边[flac]/花儿乐队 - 别骗我.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0xabb01c380] invalid sync code | [flac @ 0xabb01c380] invalid frame header | [flac @ 0xabb01c380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "花儿乐队",
+        "album": "1999-幸福的旁边[flac]",
+        "track": "花儿乐队 - 别骗我.flac",
+        "relativePath": "花儿乐队/1999-幸福的旁边[flac]/花儿乐队 - 别骗我.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xabb01c380] invalid sync code | [flac @ 0xabb01c380] invalid frame header | [flac @ 0xabb01c380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xabb01c380] invalid sync code | [flac @ 0xabb01c380] invalid frame header | [flac @ 0xabb01c380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "花儿乐队/1999-幸福的旁边[flac]/花儿乐队 - 十万个为什么.flac",
+      "artistName": "花儿乐队",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  花儿乐队/1999-幸福的旁边[flac]/花儿乐队 - 十万个为什么.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0x8d4c64380] invalid sync code | [flac @ 0x8d4c64380] invalid frame header | [flac @ 0x8d4c64380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "花儿乐队",
+        "album": "1999-幸福的旁边[flac]",
+        "track": "花儿乐队 - 十万个为什么.flac",
+        "relativePath": "花儿乐队/1999-幸福的旁边[flac]/花儿乐队 - 十万个为什么.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x8d4c64380] invalid sync code | [flac @ 0x8d4c64380] invalid frame header | [flac @ 0x8d4c64380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x8d4c64380] invalid sync code | [flac @ 0x8d4c64380] invalid frame header | [flac @ 0x8d4c64380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "花儿乐队/1999-幸福的旁边[flac]/花儿乐队 - 向我开炮.flac",
+      "artistName": "花儿乐队",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  花儿乐队/1999-幸福的旁边[flac]/花儿乐队 - 向我开炮.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0xa34824380] invalid sync code | [flac @ 0xa34824380] invalid frame header | [flac @ 0xa34824380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "花儿乐队",
+        "album": "1999-幸福的旁边[flac]",
+        "track": "花儿乐队 - 向我开炮.flac",
+        "relativePath": "花儿乐队/1999-幸福的旁边[flac]/花儿乐队 - 向我开炮.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xa34824380] invalid sync code | [flac @ 0xa34824380] invalid frame header | [flac @ 0xa34824380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xa34824380] invalid sync code | [flac @ 0xa34824380] invalid frame header | [flac @ 0xa34824380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "花儿乐队/1999-幸福的旁边[flac]/花儿乐队 - 四季歌(新蜂版).flac",
+      "artistName": "花儿乐队",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  花儿乐队/1999-幸福的旁边[flac]/花儿乐队 - 四季歌(新蜂版).flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0x7e4c24380] invalid sync code | [flac @ 0x7e4c24380] invalid frame header | [flac @ 0x7e4c24380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "花儿乐队",
+        "album": "1999-幸福的旁边[flac]",
+        "track": "花儿乐队 - 四季歌(新蜂版).flac",
+        "relativePath": "花儿乐队/1999-幸福的旁边[flac]/花儿乐队 - 四季歌(新蜂版).flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x7e4c24380] invalid sync code | [flac @ 0x7e4c24380] invalid frame header | [flac @ 0x7e4c24380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x7e4c24380] invalid sync code | [flac @ 0x7e4c24380] invalid frame header | [flac @ 0x7e4c24380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "花儿乐队/1999-幸福的旁边[flac]/花儿乐队 - 尘埃.flac",
+      "artistName": "花儿乐队",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  花儿乐队/1999-幸福的旁边[flac]/花儿乐队 - 尘埃.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0x850844380] invalid sync code | [flac @ 0x850844380] invalid frame header | [flac @ 0x850844380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "花儿乐队",
+        "album": "1999-幸福的旁边[flac]",
+        "track": "花儿乐队 - 尘埃.flac",
+        "relativePath": "花儿乐队/1999-幸福的旁边[flac]/花儿乐队 - 尘埃.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x850844380] invalid sync code | [flac @ 0x850844380] invalid frame header | [flac @ 0x850844380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x850844380] invalid sync code | [flac @ 0x850844380] invalid frame header | [flac @ 0x850844380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "花儿乐队/1999-幸福的旁边[flac]/花儿乐队 - 幸福的旁边.flac",
+      "artistName": "花儿乐队",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  花儿乐队/1999-幸福的旁边[flac]/花儿乐队 - 幸福的旁边.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0xa61804380] invalid sync code | [flac @ 0xa61804380] invalid frame header | [flac @ 0xa61804380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "花儿乐队",
+        "album": "1999-幸福的旁边[flac]",
+        "track": "花儿乐队 - 幸福的旁边.flac",
+        "relativePath": "花儿乐队/1999-幸福的旁边[flac]/花儿乐队 - 幸福的旁边.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xa61804380] invalid sync code | [flac @ 0xa61804380] invalid frame header | [flac @ 0xa61804380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xa61804380] invalid sync code | [flac @ 0xa61804380] invalid frame header | [flac @ 0xa61804380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "花儿乐队/1999-幸福的旁边[flac]/花儿乐队 - 我相信谁(同期录音).flac",
+      "artistName": "花儿乐队",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  花儿乐队/1999-幸福的旁边[flac]/花儿乐队 - 我相信谁(同期录音).flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0xa0d018380] invalid sync code | [flac @ 0xa0d018380] invalid frame header | [flac @ 0xa0d018380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "花儿乐队",
+        "album": "1999-幸福的旁边[flac]",
+        "track": "花儿乐队 - 我相信谁(同期录音).flac",
+        "relativePath": "花儿乐队/1999-幸福的旁边[flac]/花儿乐队 - 我相信谁(同期录音).flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xa0d018380] invalid sync code | [flac @ 0xa0d018380] invalid frame header | [flac @ 0xa0d018380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xa0d018380] invalid sync code | [flac @ 0xa0d018380] invalid frame header | [flac @ 0xa0d018380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "花儿乐队/1999-幸福的旁边[flac]/花儿乐队 - 放学了(舞曲版).flac",
+      "artistName": "花儿乐队",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  花儿乐队/1999-幸福的旁边[flac]/花儿乐队 - 放学了(舞曲版).flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0x817804380] invalid sync code | [flac @ 0x817804380] invalid frame header | [flac @ 0x817804380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "花儿乐队",
+        "album": "1999-幸福的旁边[flac]",
+        "track": "花儿乐队 - 放学了(舞曲版).flac",
+        "relativePath": "花儿乐队/1999-幸福的旁边[flac]/花儿乐队 - 放学了(舞曲版).flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x817804380] invalid sync code | [flac @ 0x817804380] invalid frame header | [flac @ 0x817804380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x817804380] invalid sync code | [flac @ 0x817804380] invalid frame header | [flac @ 0x817804380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "花儿乐队/1999-幸福的旁边[flac]/花儿乐队 - 放学啦(新蜂版).flac",
+      "artistName": "花儿乐队",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  花儿乐队/1999-幸福的旁边[flac]/花儿乐队 - 放学啦(新蜂版).flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0x7bec44380] invalid sync code | [flac @ 0x7bec44380] invalid frame header | [flac @ 0x7bec44380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "花儿乐队",
+        "album": "1999-幸福的旁边[flac]",
+        "track": "花儿乐队 - 放学啦(新蜂版).flac",
+        "relativePath": "花儿乐队/1999-幸福的旁边[flac]/花儿乐队 - 放学啦(新蜂版).flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x7bec44380] invalid sync code | [flac @ 0x7bec44380] invalid frame header | [flac @ 0x7bec44380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x7bec44380] invalid sync code | [flac @ 0x7bec44380] invalid frame header | [flac @ 0x7bec44380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "花儿乐队/1999-幸福的旁边[flac]/花儿乐队 - 欲望.flac",
+      "artistName": "花儿乐队",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  花儿乐队/1999-幸福的旁边[flac]/花儿乐队 - 欲望.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0x9d7804380] invalid sync code | [flac @ 0x9d7804380] invalid frame header | [flac @ 0x9d7804380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "花儿乐队",
+        "album": "1999-幸福的旁边[flac]",
+        "track": "花儿乐队 - 欲望.flac",
+        "relativePath": "花儿乐队/1999-幸福的旁边[flac]/花儿乐队 - 欲望.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x9d7804380] invalid sync code | [flac @ 0x9d7804380] invalid frame header | [flac @ 0x9d7804380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x9d7804380] invalid sync code | [flac @ 0x9d7804380] invalid frame header | [flac @ 0x9d7804380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "花儿乐队/1999-幸福的旁边[flac]/花儿乐队 - 歌唱(CD版附送曲).flac",
+      "artistName": "花儿乐队",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  花儿乐队/1999-幸福的旁边[flac]/花儿乐队 - 歌唱(CD版附送曲).flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0xbf7018380] invalid sync code | [flac @ 0xbf7018380] invalid frame header | [flac @ 0xbf7018380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "花儿乐队",
+        "album": "1999-幸福的旁边[flac]",
+        "track": "花儿乐队 - 歌唱(CD版附送曲).flac",
+        "relativePath": "花儿乐队/1999-幸福的旁边[flac]/花儿乐队 - 歌唱(CD版附送曲).flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xbf7018380] invalid sync code | [flac @ 0xbf7018380] invalid frame header | [flac @ 0xbf7018380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xbf7018380] invalid sync code | [flac @ 0xbf7018380] invalid frame header | [flac @ 0xbf7018380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "花儿乐队/1999-幸福的旁边[flac]/花儿乐队 - 没辙.flac",
+      "artistName": "花儿乐队",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  花儿乐队/1999-幸福的旁边[flac]/花儿乐队 - 没辙.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0xa38820380] invalid sync code | [flac @ 0xa38820380] invalid frame header | [flac @ 0xa38820380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "花儿乐队",
+        "album": "1999-幸福的旁边[flac]",
+        "track": "花儿乐队 - 没辙.flac",
+        "relativePath": "花儿乐队/1999-幸福的旁边[flac]/花儿乐队 - 没辙.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xa38820380] invalid sync code | [flac @ 0xa38820380] invalid frame header | [flac @ 0xa38820380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xa38820380] invalid sync code | [flac @ 0xa38820380] invalid frame header | [flac @ 0xa38820380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "花儿乐队/1999-幸福的旁边[flac]/花儿乐队 - 破灭.flac",
+      "artistName": "花儿乐队",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  花儿乐队/1999-幸福的旁边[flac]/花儿乐队 - 破灭.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0x82ac48380] invalid sync code | [flac @ 0x82ac48380] invalid frame header | [flac @ 0x82ac48380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "花儿乐队",
+        "album": "1999-幸福的旁边[flac]",
+        "track": "花儿乐队 - 破灭.flac",
+        "relativePath": "花儿乐队/1999-幸福的旁边[flac]/花儿乐队 - 破灭.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x82ac48380] invalid sync code | [flac @ 0x82ac48380] invalid frame header | [flac @ 0x82ac48380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x82ac48380] invalid sync code | [flac @ 0x82ac48380] invalid frame header | [flac @ 0x82ac48380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "花儿乐队/1999-幸福的旁边[flac]/花儿乐队 - 稻草上的火鸡(舞曲版).flac",
+      "artistName": "花儿乐队",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  花儿乐队/1999-幸福的旁边[flac]/花儿乐队 - 稻草上的火鸡(舞曲版).flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0xbb4c64380] invalid sync code | [flac @ 0xbb4c64380] invalid frame header | [flac @ 0xbb4c64380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "花儿乐队",
+        "album": "1999-幸福的旁边[flac]",
+        "track": "花儿乐队 - 稻草上的火鸡(舞曲版).flac",
+        "relativePath": "花儿乐队/1999-幸福的旁边[flac]/花儿乐队 - 稻草上的火鸡(舞曲版).flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xbb4c64380] invalid sync code | [flac @ 0xbb4c64380] invalid frame header | [flac @ 0xbb4c64380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xbb4c64380] invalid sync code | [flac @ 0xbb4c64380] invalid frame header | [flac @ 0xbb4c64380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "花儿乐队/1999-幸福的旁边[flac]/花儿乐队 - 稻草上的火鸡.flac",
+      "artistName": "花儿乐队",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  花儿乐队/1999-幸福的旁边[flac]/花儿乐队 - 稻草上的火鸡.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0x778844380] invalid sync code | [flac @ 0x778844380] invalid frame header | [flac @ 0x778844380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "花儿乐队",
+        "album": "1999-幸福的旁边[flac]",
+        "track": "花儿乐队 - 稻草上的火鸡.flac",
+        "relativePath": "花儿乐队/1999-幸福的旁边[flac]/花儿乐队 - 稻草上的火鸡.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x778844380] invalid sync code | [flac @ 0x778844380] invalid frame header | [flac @ 0x778844380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x778844380] invalid sync code | [flac @ 0x778844380] invalid frame header | [flac @ 0x778844380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "花儿乐队/1999-幸福的旁边[flac]/花儿乐队 - 结果.flac",
+      "artistName": "花儿乐队",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  花儿乐队/1999-幸福的旁边[flac]/花儿乐队 - 结果.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0x7b7804380] invalid sync code | [flac @ 0x7b7804380] invalid frame header | [flac @ 0x7b7804380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "花儿乐队",
+        "album": "1999-幸福的旁边[flac]",
+        "track": "花儿乐队 - 结果.flac",
+        "relativePath": "花儿乐队/1999-幸福的旁边[flac]/花儿乐队 - 结果.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x7b7804380] invalid sync code | [flac @ 0x7b7804380] invalid frame header | [flac @ 0x7b7804380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x7b7804380] invalid sync code | [flac @ 0x7b7804380] invalid frame header | [flac @ 0x7b7804380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "花儿乐队/1999-幸福的旁边[flac]/花儿乐队 - 花(伴奏).flac",
+      "artistName": "花儿乐队",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  花儿乐队/1999-幸福的旁边[flac]/花儿乐队 - 花(伴奏).flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0x726c64380] invalid sync code | [flac @ 0x726c64380] invalid frame header | [flac @ 0x726c64380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "花儿乐队",
+        "album": "1999-幸福的旁边[flac]",
+        "track": "花儿乐队 - 花(伴奏).flac",
+        "relativePath": "花儿乐队/1999-幸福的旁边[flac]/花儿乐队 - 花(伴奏).flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x726c64380] invalid sync code | [flac @ 0x726c64380] invalid frame header | [flac @ 0x726c64380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x726c64380] invalid sync code | [flac @ 0x726c64380] invalid frame header | [flac @ 0x726c64380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "花儿乐队/1999-幸福的旁边[flac]/花儿乐队 - 花(木吉它版).flac",
+      "artistName": "花儿乐队",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  花儿乐队/1999-幸福的旁边[flac]/花儿乐队 - 花(木吉它版).flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0x8f4824380] invalid sync code | [flac @ 0x8f4824380] invalid frame header | [flac @ 0x8f4824380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "花儿乐队",
+        "album": "1999-幸福的旁边[flac]",
+        "track": "花儿乐队 - 花(木吉它版).flac",
+        "relativePath": "花儿乐队/1999-幸福的旁边[flac]/花儿乐队 - 花(木吉它版).flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x8f4824380] invalid sync code | [flac @ 0x8f4824380] invalid frame header | [flac @ 0x8f4824380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x8f4824380] invalid sync code | [flac @ 0x8f4824380] invalid frame header | [flac @ 0x8f4824380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "花儿乐队/1999-幸福的旁边[flac]/花儿乐队 - 花.flac",
+      "artistName": "花儿乐队",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  花儿乐队/1999-幸福的旁边[flac]/花儿乐队 - 花.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0xb10820380] invalid sync code | [flac @ 0xb10820380] invalid frame header | [flac @ 0xb10820380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "花儿乐队",
+        "album": "1999-幸福的旁边[flac]",
+        "track": "花儿乐队 - 花.flac",
+        "relativePath": "花儿乐队/1999-幸福的旁边[flac]/花儿乐队 - 花.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xb10820380] invalid sync code | [flac @ 0xb10820380] invalid frame header | [flac @ 0xb10820380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xb10820380] invalid sync code | [flac @ 0xb10820380] invalid frame header | [flac @ 0xb10820380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "花儿乐队/1999-幸福的旁边[flac]/花儿乐队 - 融化.flac",
+      "artistName": "花儿乐队",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  花儿乐队/1999-幸福的旁边[flac]/花儿乐队 - 融化.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0x8f6c64380] invalid sync code | [flac @ 0x8f6c64380] invalid frame header | [flac @ 0x8f6c64380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "花儿乐队",
+        "album": "1999-幸福的旁边[flac]",
+        "track": "花儿乐队 - 融化.flac",
+        "relativePath": "花儿乐队/1999-幸福的旁边[flac]/花儿乐队 - 融化.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x8f6c64380] invalid sync code | [flac @ 0x8f6c64380] invalid frame header | [flac @ 0x8f6c64380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x8f6c64380] invalid sync code | [flac @ 0x8f6c64380] invalid frame header | [flac @ 0x8f6c64380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "花儿乐队/1999-幸福的旁边[flac]/花儿乐队 - 起飞.flac",
+      "artistName": "花儿乐队",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  花儿乐队/1999-幸福的旁边[flac]/花儿乐队 - 起飞.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0x8cf01c380] invalid sync code | [flac @ 0x8cf01c380] invalid frame header | [flac @ 0x8cf01c380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "花儿乐队",
+        "album": "1999-幸福的旁边[flac]",
+        "track": "花儿乐队 - 起飞.flac",
+        "relativePath": "花儿乐队/1999-幸福的旁边[flac]/花儿乐队 - 起飞.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x8cf01c380] invalid sync code | [flac @ 0x8cf01c380] invalid frame header | [flac @ 0x8cf01c380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x8cf01c380] invalid sync code | [flac @ 0x8cf01c380] invalid frame header | [flac @ 0x8cf01c380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "花儿乐队/1999-幸福的旁边[flac]/花儿乐队 - 轰隆隆.flac",
+      "artistName": "花儿乐队",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  花儿乐队/1999-幸福的旁边[flac]/花儿乐队 - 轰隆隆.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0x82a844380] invalid sync code | [flac @ 0x82a844380] invalid frame header | [flac @ 0x82a844380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "花儿乐队",
+        "album": "1999-幸福的旁边[flac]",
+        "track": "花儿乐队 - 轰隆隆.flac",
+        "relativePath": "花儿乐队/1999-幸福的旁边[flac]/花儿乐队 - 轰隆隆.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x82a844380] invalid sync code | [flac @ 0x82a844380] invalid frame header | [flac @ 0x82a844380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x82a844380] invalid sync code | [flac @ 0x82a844380] invalid frame header | [flac @ 0x82a844380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "花儿乐队/1999-幸福的旁边[flac]/花儿乐队 - 静止(伴奏).flac",
+      "artistName": "花儿乐队",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  花儿乐队/1999-幸福的旁边[flac]/花儿乐队 - 静止(伴奏).flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0x9fcc64380] invalid sync code | [flac @ 0x9fcc64380] invalid frame header | [flac @ 0x9fcc64380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "花儿乐队",
+        "album": "1999-幸福的旁边[flac]",
+        "track": "花儿乐队 - 静止(伴奏).flac",
+        "relativePath": "花儿乐队/1999-幸福的旁边[flac]/花儿乐队 - 静止(伴奏).flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x9fcc64380] invalid sync code | [flac @ 0x9fcc64380] invalid frame header | [flac @ 0x9fcc64380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x9fcc64380] invalid sync code | [flac @ 0x9fcc64380] invalid frame header | [flac @ 0x9fcc64380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "花儿乐队/1999-幸福的旁边[flac]/花儿乐队 - 静止.flac",
+      "artistName": "花儿乐队",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  花儿乐队/1999-幸福的旁边[flac]/花儿乐队 - 静止.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0x89cc44380] invalid sync code | [flac @ 0x89cc44380] invalid frame header | [flac @ 0x89cc44380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "花儿乐队",
+        "album": "1999-幸福的旁边[flac]",
+        "track": "花儿乐队 - 静止.flac",
+        "relativePath": "花儿乐队/1999-幸福的旁边[flac]/花儿乐队 - 静止.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x89cc44380] invalid sync code | [flac @ 0x89cc44380] invalid frame header | [flac @ 0x89cc44380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x89cc44380] invalid sync code | [flac @ 0x89cc44380] invalid frame header | [flac @ 0x89cc44380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "花儿乐队/1999-放学啦[flac]/花儿乐队 - 向我开炮.flac",
+      "artistName": "花儿乐队",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  花儿乐队/1999-放学啦[flac]/花儿乐队 - 向我开炮.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0xb91804380] invalid sync code | [flac @ 0xb91804380] invalid frame header | [flac @ 0xb91804380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "花儿乐队",
+        "album": "1999-放学啦[flac]",
+        "track": "花儿乐队 - 向我开炮.flac",
+        "relativePath": "花儿乐队/1999-放学啦[flac]/花儿乐队 - 向我开炮.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xb91804380] invalid sync code | [flac @ 0xb91804380] invalid frame header | [flac @ 0xb91804380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xb91804380] invalid sync code | [flac @ 0xb91804380] invalid frame header | [flac @ 0xb91804380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "花儿乐队/1999-放学啦[flac]/花儿乐队 - 放学啦.flac",
+      "artistName": "花儿乐队",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  花儿乐队/1999-放学啦[flac]/花儿乐队 - 放学啦.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0xb2701c380] invalid sync code | [flac @ 0xb2701c380] invalid frame header | [flac @ 0xb2701c380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "花儿乐队",
+        "album": "1999-放学啦[flac]",
+        "track": "花儿乐队 - 放学啦.flac",
+        "relativePath": "花儿乐队/1999-放学啦[flac]/花儿乐队 - 放学啦.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xb2701c380] invalid sync code | [flac @ 0xb2701c380] invalid frame header | [flac @ 0xb2701c380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xb2701c380] invalid sync code | [flac @ 0xb2701c380] invalid frame header | [flac @ 0xb2701c380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "花儿乐队/1999-放学啦[flac]/花儿乐队 - 没辙.flac",
+      "artistName": "花儿乐队",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  花儿乐队/1999-放学啦[flac]/花儿乐队 - 没辙.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0x8f2c44380] invalid sync code | [flac @ 0x8f2c44380] invalid frame header | [flac @ 0x8f2c44380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "花儿乐队",
+        "album": "1999-放学啦[flac]",
+        "track": "花儿乐队 - 没辙.flac",
+        "relativePath": "花儿乐队/1999-放学啦[flac]/花儿乐队 - 没辙.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x8f2c44380] invalid sync code | [flac @ 0x8f2c44380] invalid frame header | [flac @ 0x8f2c44380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x8f2c44380] invalid sync code | [flac @ 0x8f2c44380] invalid frame header | [flac @ 0x8f2c44380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "花儿乐队/1999-放学啦[flac]/花儿乐队 - 消灭.flac",
+      "artistName": "花儿乐队",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  花儿乐队/1999-放学啦[flac]/花儿乐队 - 消灭.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0x91f804380] invalid sync code | [flac @ 0x91f804380] invalid frame header | [flac @ 0x91f804380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "花儿乐队",
+        "album": "1999-放学啦[flac]",
+        "track": "花儿乐队 - 消灭.flac",
+        "relativePath": "花儿乐队/1999-放学啦[flac]/花儿乐队 - 消灭.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x91f804380] invalid sync code | [flac @ 0x91f804380] invalid frame header | [flac @ 0x91f804380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x91f804380] invalid sync code | [flac @ 0x91f804380] invalid frame header | [flac @ 0x91f804380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "花儿乐队/1999-放学啦[flac]/花儿乐队 - 稻草上的火鸡.flac",
+      "artistName": "花儿乐队",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  花儿乐队/1999-放学啦[flac]/花儿乐队 - 稻草上的火鸡.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0x7a2c44380] invalid sync code | [flac @ 0x7a2c44380] invalid frame header | [flac @ 0x7a2c44380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "花儿乐队",
+        "album": "1999-放学啦[flac]",
+        "track": "花儿乐队 - 稻草上的火鸡.flac",
+        "relativePath": "花儿乐队/1999-放学啦[flac]/花儿乐队 - 稻草上的火鸡.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x7a2c44380] invalid sync code | [flac @ 0x7a2c44380] invalid frame header | [flac @ 0x7a2c44380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x7a2c44380] invalid sync code | [flac @ 0x7a2c44380] invalid frame header | [flac @ 0x7a2c44380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "花儿乐队/1999-放学啦[flac]/花儿乐队 - 结果.flac",
+      "artistName": "花儿乐队",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  花儿乐队/1999-放学啦[flac]/花儿乐队 - 结果.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0xbf6844380] invalid sync code | [flac @ 0xbf6844380] invalid frame header | [flac @ 0xbf6844380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "花儿乐队",
+        "album": "1999-放学啦[flac]",
+        "track": "花儿乐队 - 结果.flac",
+        "relativePath": "花儿乐队/1999-放学啦[flac]/花儿乐队 - 结果.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xbf6844380] invalid sync code | [flac @ 0xbf6844380] invalid frame header | [flac @ 0xbf6844380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xbf6844380] invalid sync code | [flac @ 0xbf6844380] invalid frame header | [flac @ 0xbf6844380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "花儿乐队/1999-放学啦[flac]/花儿乐队 - 花(木吉他版).flac",
+      "artistName": "花儿乐队",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  花儿乐队/1999-放学啦[flac]/花儿乐队 - 花(木吉他版).flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0xc71804380] invalid sync code | [flac @ 0xc71804380] invalid frame header | [flac @ 0xc71804380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "花儿乐队",
+        "album": "1999-放学啦[flac]",
+        "track": "花儿乐队 - 花(木吉他版).flac",
+        "relativePath": "花儿乐队/1999-放学啦[flac]/花儿乐队 - 花(木吉他版).flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xc71804380] invalid sync code | [flac @ 0xc71804380] invalid frame header | [flac @ 0xc71804380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xc71804380] invalid sync code | [flac @ 0xc71804380] invalid frame header | [flac @ 0xc71804380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "花儿乐队/1999-放学啦[flac]/花儿乐队 - 花.flac",
+      "artistName": "花儿乐队",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  花儿乐队/1999-放学啦[flac]/花儿乐队 - 花.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0x94101c380] invalid sync code | [flac @ 0x94101c380] invalid frame header | [flac @ 0x94101c380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "花儿乐队",
+        "album": "1999-放学啦[flac]",
+        "track": "花儿乐队 - 花.flac",
+        "relativePath": "花儿乐队/1999-放学啦[flac]/花儿乐队 - 花.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x94101c380] invalid sync code | [flac @ 0x94101c380] invalid frame header | [flac @ 0x94101c380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x94101c380] invalid sync code | [flac @ 0x94101c380] invalid frame header | [flac @ 0x94101c380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "花儿乐队/1999-放学啦[flac]/花儿乐队 - 融化.flac",
+      "artistName": "花儿乐队",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  花儿乐队/1999-放学啦[flac]/花儿乐队 - 融化.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0x95501c380] invalid sync code | [flac @ 0x95501c380] invalid frame header | [flac @ 0x95501c380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "花儿乐队",
+        "album": "1999-放学啦[flac]",
+        "track": "花儿乐队 - 融化.flac",
+        "relativePath": "花儿乐队/1999-放学啦[flac]/花儿乐队 - 融化.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x95501c380] invalid sync code | [flac @ 0x95501c380] invalid frame header | [flac @ 0x95501c380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x95501c380] invalid sync code | [flac @ 0x95501c380] invalid frame header | [flac @ 0x95501c380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "花儿乐队/1999-放学啦[flac]/花儿乐队 - 轰隆隆.flac",
+      "artistName": "花儿乐队",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  花儿乐队/1999-放学啦[flac]/花儿乐队 - 轰隆隆.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0x73ec44380] invalid sync code | [flac @ 0x73ec44380] invalid frame header | [flac @ 0x73ec44380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "花儿乐队",
+        "album": "1999-放学啦[flac]",
+        "track": "花儿乐队 - 轰隆隆.flac",
+        "relativePath": "花儿乐队/1999-放学啦[flac]/花儿乐队 - 轰隆隆.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x73ec44380] invalid sync code | [flac @ 0x73ec44380] invalid frame header | [flac @ 0x73ec44380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x73ec44380] invalid sync code | [flac @ 0x73ec44380] invalid frame header | [flac @ 0x73ec44380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "花儿乐队/1999-放学啦[flac]/花儿乐队 - 静止.flac",
+      "artistName": "花儿乐队",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  花儿乐队/1999-放学啦[flac]/花儿乐队 - 静止.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0x7c8c64380] invalid sync code | [flac @ 0x7c8c64380] invalid frame header | [flac @ 0x7c8c64380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "花儿乐队",
+        "album": "1999-放学啦[flac]",
+        "track": "花儿乐队 - 静止.flac",
+        "relativePath": "花儿乐队/1999-放学啦[flac]/花儿乐队 - 静止.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x7c8c64380] invalid sync code | [flac @ 0x7c8c64380] invalid frame header | [flac @ 0x7c8c64380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x7c8c64380] invalid sync code | [flac @ 0x7c8c64380] invalid frame header | [flac @ 0x7c8c64380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "花儿乐队/2000-平安夜[flac]/花儿乐队 - 01.新年贺词.flac",
+      "artistName": "花儿乐队",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "花儿乐队",
+        "album": "2000-平安夜[flac]",
+        "track": "花儿乐队 - 01.新年贺词.flac",
+        "relativePath": "花儿乐队/2000-平安夜[flac]/花儿乐队 - 01.新年贺词.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "花儿乐队/2000-平安夜[flac]/花儿乐队 - 02.平安夜.flac",
+      "artistName": "花儿乐队",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "花儿乐队",
+        "album": "2000-平安夜[flac]",
+        "track": "花儿乐队 - 02.平安夜.flac",
+        "relativePath": "花儿乐队/2000-平安夜[flac]/花儿乐队 - 02.平安夜.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "花儿乐队/2000-平安夜[flac]/花儿乐队 - 03.平安夜[伴奏].flac",
+      "artistName": "花儿乐队",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "花儿乐队",
+        "album": "2000-平安夜[flac]",
+        "track": "花儿乐队 - 03.平安夜[伴奏].flac",
+        "relativePath": "花儿乐队/2000-平安夜[flac]/花儿乐队 - 03.平安夜[伴奏].flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "花儿乐队/2000-平安夜[flac]/花儿乐队 - 04.花儿为什么这样红.flac",
+      "artistName": "花儿乐队",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "花儿乐队",
+        "album": "2000-平安夜[flac]",
+        "track": "花儿乐队 - 04.花儿为什么这样红.flac",
+        "relativePath": "花儿乐队/2000-平安夜[flac]/花儿乐队 - 04.花儿为什么这样红.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "花儿乐队/2001-草莓声明[flac]/花儿乐队 - Party Song.flac",
+      "artistName": "花儿乐队",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  花儿乐队/2001-草莓声明[flac]/花儿乐队 - Party Song.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0xa7ec64380] invalid sync code | [flac @ 0xa7ec64380] invalid frame header | [flac @ 0xa7ec64380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "花儿乐队",
+        "album": "2001-草莓声明[flac]",
+        "track": "花儿乐队 - Party Song.flac",
+        "relativePath": "花儿乐队/2001-草莓声明[flac]/花儿乐队 - Party Song.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xa7ec64380] invalid sync code | [flac @ 0xa7ec64380] invalid frame header | [flac @ 0xa7ec64380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xa7ec64380] invalid sync code | [flac @ 0xa7ec64380] invalid frame header | [flac @ 0xa7ec64380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "花儿乐队/2001-草莓声明[flac]/花儿乐队 - Punk Boy.flac",
+      "artistName": "花儿乐队",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  花儿乐队/2001-草莓声明[flac]/花儿乐队 - Punk Boy.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0xb72c44380] invalid sync code | [flac @ 0xb72c44380] invalid frame header | [flac @ 0xb72c44380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "花儿乐队",
+        "album": "2001-草莓声明[flac]",
+        "track": "花儿乐队 - Punk Boy.flac",
+        "relativePath": "花儿乐队/2001-草莓声明[flac]/花儿乐队 - Punk Boy.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xb72c44380] invalid sync code | [flac @ 0xb72c44380] invalid frame header | [flac @ 0xb72c44380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xb72c44380] invalid sync code | [flac @ 0xb72c44380] invalid frame header | [flac @ 0xb72c44380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "花儿乐队/2001-草莓声明[flac]/花儿乐队 - 做梦.flac",
+      "artistName": "花儿乐队",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  花儿乐队/2001-草莓声明[flac]/花儿乐队 - 做梦.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0xc96c28380] invalid sync code | [flac @ 0xc96c28380] invalid frame header | [flac @ 0xc96c28380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "花儿乐队",
+        "album": "2001-草莓声明[flac]",
+        "track": "花儿乐队 - 做梦.flac",
+        "relativePath": "花儿乐队/2001-草莓声明[flac]/花儿乐队 - 做梦.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xc96c28380] invalid sync code | [flac @ 0xc96c28380] invalid frame header | [flac @ 0xc96c28380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xc96c28380] invalid sync code | [flac @ 0xc96c28380] invalid frame header | [flac @ 0xc96c28380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "花儿乐队/2001-草莓声明[flac]/花儿乐队 - 八月最后一天.flac",
+      "artistName": "花儿乐队",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  花儿乐队/2001-草莓声明[flac]/花儿乐队 - 八月最后一天.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0xc5b804380] invalid sync code | [flac @ 0xc5b804380] invalid frame header | [flac @ 0xc5b804380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "花儿乐队",
+        "album": "2001-草莓声明[flac]",
+        "track": "花儿乐队 - 八月最后一天.flac",
+        "relativePath": "花儿乐队/2001-草莓声明[flac]/花儿乐队 - 八月最后一天.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xc5b804380] invalid sync code | [flac @ 0xc5b804380] invalid frame header | [flac @ 0xc5b804380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xc5b804380] invalid sync code | [flac @ 0xc5b804380] invalid frame header | [flac @ 0xc5b804380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "花儿乐队/2001-草莓声明[flac]/花儿乐队 - 别针.flac",
+      "artistName": "花儿乐队",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  花儿乐队/2001-草莓声明[flac]/花儿乐队 - 别针.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0xbd9804380] invalid sync code | [flac @ 0xbd9804380] invalid frame header | [flac @ 0xbd9804380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "花儿乐队",
+        "album": "2001-草莓声明[flac]",
+        "track": "花儿乐队 - 别针.flac",
+        "relativePath": "花儿乐队/2001-草莓声明[flac]/花儿乐队 - 别针.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xbd9804380] invalid sync code | [flac @ 0xbd9804380] invalid frame header | [flac @ 0xbd9804380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xbd9804380] invalid sync code | [flac @ 0xbd9804380] invalid frame header | [flac @ 0xbd9804380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "花儿乐队/2001-草莓声明[flac]/花儿乐队 - 我是破坏王.flac",
+      "artistName": "花儿乐队",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  花儿乐队/2001-草莓声明[flac]/花儿乐队 - 我是破坏王.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0x736824380] invalid sync code | [flac @ 0x736824380] invalid frame header | [flac @ 0x736824380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "花儿乐队",
+        "album": "2001-草莓声明[flac]",
+        "track": "花儿乐队 - 我是破坏王.flac",
+        "relativePath": "花儿乐队/2001-草莓声明[flac]/花儿乐队 - 我是破坏王.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x736824380] invalid sync code | [flac @ 0x736824380] invalid frame header | [flac @ 0x736824380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x736824380] invalid sync code | [flac @ 0x736824380] invalid frame header | [flac @ 0x736824380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "花儿乐队/2001-草莓声明[flac]/花儿乐队 - 时间.flac",
+      "artistName": "花儿乐队",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  花儿乐队/2001-草莓声明[flac]/花儿乐队 - 时间.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0x7c4c64380] invalid sync code | [flac @ 0x7c4c64380] invalid frame header | [flac @ 0x7c4c64380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "花儿乐队",
+        "album": "2001-草莓声明[flac]",
+        "track": "花儿乐队 - 时间.flac",
+        "relativePath": "花儿乐队/2001-草莓声明[flac]/花儿乐队 - 时间.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x7c4c64380] invalid sync code | [flac @ 0x7c4c64380] invalid frame header | [flac @ 0x7c4c64380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x7c4c64380] invalid sync code | [flac @ 0x7c4c64380] invalid frame header | [flac @ 0x7c4c64380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "花儿乐队/2001-草莓声明[flac]/花儿乐队 - 有颗炸弹送给你.flac",
+      "artistName": "花儿乐队",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  花儿乐队/2001-草莓声明[flac]/花儿乐队 - 有颗炸弹送给你.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0x8d0844380] invalid sync code | [flac @ 0x8d0844380] invalid frame header | [flac @ 0x8d0844380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "花儿乐队",
+        "album": "2001-草莓声明[flac]",
+        "track": "花儿乐队 - 有颗炸弹送给你.flac",
+        "relativePath": "花儿乐队/2001-草莓声明[flac]/花儿乐队 - 有颗炸弹送给你.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x8d0844380] invalid sync code | [flac @ 0x8d0844380] invalid frame header | [flac @ 0x8d0844380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x8d0844380] invalid sync code | [flac @ 0x8d0844380] invalid frame header | [flac @ 0x8d0844380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "花儿乐队/2001-草莓声明[flac]/花儿乐队 - 泡沫.flac",
+      "artistName": "花儿乐队",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  花儿乐队/2001-草莓声明[flac]/花儿乐队 - 泡沫.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0xc76c44380] invalid sync code | [flac @ 0xc76c44380] invalid frame header | [flac @ 0xc76c44380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "花儿乐队",
+        "album": "2001-草莓声明[flac]",
+        "track": "花儿乐队 - 泡沫.flac",
+        "relativePath": "花儿乐队/2001-草莓声明[flac]/花儿乐队 - 泡沫.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xc76c44380] invalid sync code | [flac @ 0xc76c44380] invalid frame header | [flac @ 0xc76c44380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xc76c44380] invalid sync code | [flac @ 0xc76c44380] invalid frame header | [flac @ 0xc76c44380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "花儿乐队/2001-草莓声明[flac]/花儿乐队 - 火星果冻.flac",
+      "artistName": "花儿乐队",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  花儿乐队/2001-草莓声明[flac]/花儿乐队 - 火星果冻.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0xb3101c380] invalid sync code | [flac @ 0xb3101c380] invalid frame header | [flac @ 0xb3101c380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "花儿乐队",
+        "album": "2001-草莓声明[flac]",
+        "track": "花儿乐队 - 火星果冻.flac",
+        "relativePath": "花儿乐队/2001-草莓声明[flac]/花儿乐队 - 火星果冻.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xb3101c380] invalid sync code | [flac @ 0xb3101c380] invalid frame header | [flac @ 0xb3101c380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xb3101c380] invalid sync code | [flac @ 0xb3101c380] invalid frame header | [flac @ 0xb3101c380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "花儿乐队/2001-草莓声明[flac]/花儿乐队 - 管不着.flac",
+      "artistName": "花儿乐队",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  花儿乐队/2001-草莓声明[flac]/花儿乐队 - 管不着.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0xbba824380] invalid sync code | [flac @ 0xbba824380] invalid frame header | [flac @ 0xbba824380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "花儿乐队",
+        "album": "2001-草莓声明[flac]",
+        "track": "花儿乐队 - 管不着.flac",
+        "relativePath": "花儿乐队/2001-草莓声明[flac]/花儿乐队 - 管不着.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xbba824380] invalid sync code | [flac @ 0xbba824380] invalid frame header | [flac @ 0xbba824380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xbba824380] invalid sync code | [flac @ 0xbba824380] invalid frame header | [flac @ 0xbba824380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "花儿乐队/2001-草莓声明[flac]/花儿乐队 - 糖.flac",
+      "artistName": "花儿乐队",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  花儿乐队/2001-草莓声明[flac]/花儿乐队 - 糖.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0xa1d01c380] invalid sync code | [flac @ 0xa1d01c380] invalid frame header | [flac @ 0xa1d01c380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "花儿乐队",
+        "album": "2001-草莓声明[flac]",
+        "track": "花儿乐队 - 糖.flac",
+        "relativePath": "花儿乐队/2001-草莓声明[flac]/花儿乐队 - 糖.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xa1d01c380] invalid sync code | [flac @ 0xa1d01c380] invalid frame header | [flac @ 0xa1d01c380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xa1d01c380] invalid sync code | [flac @ 0xa1d01c380] invalid frame header | [flac @ 0xa1d01c380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "花儿乐队/2001-草莓声明[flac]/花儿乐队 - 草莓声明.flac",
+      "artistName": "花儿乐队",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  花儿乐队/2001-草莓声明[flac]/花儿乐队 - 草莓声明.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0x9f901c380] invalid sync code | [flac @ 0x9f901c380] invalid frame header | [flac @ 0x9f901c380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "花儿乐队",
+        "album": "2001-草莓声明[flac]",
+        "track": "花儿乐队 - 草莓声明.flac",
+        "relativePath": "花儿乐队/2001-草莓声明[flac]/花儿乐队 - 草莓声明.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x9f901c380] invalid sync code | [flac @ 0x9f901c380] invalid frame header | [flac @ 0x9f901c380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x9f901c380] invalid sync code | [flac @ 0x9f901c380] invalid frame header | [flac @ 0x9f901c380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "花儿乐队/2001-草莓声明[flac]/花儿乐队 - 钢蹦儿聚集地.flac",
+      "artistName": "花儿乐队",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  花儿乐队/2001-草莓声明[flac]/花儿乐队 - 钢蹦儿聚集地.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0x738844380] invalid sync code | [flac @ 0x738844380] invalid frame header | [flac @ 0x738844380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "花儿乐队",
+        "album": "2001-草莓声明[flac]",
+        "track": "花儿乐队 - 钢蹦儿聚集地.flac",
+        "relativePath": "花儿乐队/2001-草莓声明[flac]/花儿乐队 - 钢蹦儿聚集地.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x738844380] invalid sync code | [flac @ 0x738844380] invalid frame header | [flac @ 0x738844380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x738844380] invalid sync code | [flac @ 0x738844380] invalid frame header | [flac @ 0x738844380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "花儿乐队/2001-草莓声明[flac]/花儿乐队 - 青少年俱乐部.flac",
+      "artistName": "花儿乐队",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  花儿乐队/2001-草莓声明[flac]/花儿乐队 - 青少年俱乐部.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0x8e9018380] invalid sync code | [flac @ 0x8e9018380] invalid frame header | [flac @ 0x8e9018380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "花儿乐队",
+        "album": "2001-草莓声明[flac]",
+        "track": "花儿乐队 - 青少年俱乐部.flac",
+        "relativePath": "花儿乐队/2001-草莓声明[flac]/花儿乐队 - 青少年俱乐部.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x8e9018380] invalid sync code | [flac @ 0x8e9018380] invalid frame header | [flac @ 0x8e9018380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x8e9018380] invalid sync code | [flac @ 0x8e9018380] invalid frame header | [flac @ 0x8e9018380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "花儿乐队/2004-我是你的罗密欧[flac]/花儿乐队 - 01.刚刚好.flac",
+      "artistName": "花儿乐队",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "花儿乐队",
+        "album": "2004-我是你的罗密欧[flac]",
+        "track": "花儿乐队 - 01.刚刚好.flac",
+        "relativePath": "花儿乐队/2004-我是你的罗密欧[flac]/花儿乐队 - 01.刚刚好.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "花儿乐队/2004-我是你的罗密欧[flac]/花儿乐队 - 02.该.flac",
+      "artistName": "花儿乐队",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "花儿乐队",
+        "album": "2004-我是你的罗密欧[flac]",
+        "track": "花儿乐队 - 02.该.flac",
+        "relativePath": "花儿乐队/2004-我是你的罗密欧[flac]/花儿乐队 - 02.该.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "花儿乐队/2004-我是你的罗密欧[flac]/花儿乐队 - 03.Miss You.flac",
+      "artistName": "花儿乐队",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "花儿乐队",
+        "album": "2004-我是你的罗密欧[flac]",
+        "track": "花儿乐队 - 03.Miss You.flac",
+        "relativePath": "花儿乐队/2004-我是你的罗密欧[flac]/花儿乐队 - 03.Miss You.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "花儿乐队/2004-我是你的罗密欧[flac]/花儿乐队 - 04.Flower Show.flac",
+      "artistName": "花儿乐队",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "花儿乐队",
+        "album": "2004-我是你的罗密欧[flac]",
+        "track": "花儿乐队 - 04.Flower Show.flac",
+        "relativePath": "花儿乐队/2004-我是你的罗密欧[flac]/花儿乐队 - 04.Flower Show.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "花儿乐队/2004-我是你的罗密欧[flac]/花儿乐队 - 05.加减乘除.flac",
+      "artistName": "花儿乐队",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "花儿乐队",
+        "album": "2004-我是你的罗密欧[flac]",
+        "track": "花儿乐队 - 05.加减乘除.flac",
+        "relativePath": "花儿乐队/2004-我是你的罗密欧[flac]/花儿乐队 - 05.加减乘除.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "花儿乐队/2004-我是你的罗密欧[flac]/花儿乐队 - 06.陪你去….flac",
+      "artistName": "花儿乐队",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "花儿乐队",
+        "album": "2004-我是你的罗密欧[flac]",
+        "track": "花儿乐队 - 06.陪你去….flac",
+        "relativePath": "花儿乐队/2004-我是你的罗密欧[flac]/花儿乐队 - 06.陪你去….flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "花儿乐队/2004-我是你的罗密欧[flac]/花儿乐队 - 07.我是你的罗密欧.flac",
+      "artistName": "花儿乐队",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "花儿乐队",
+        "album": "2004-我是你的罗密欧[flac]",
+        "track": "花儿乐队 - 07.我是你的罗密欧.flac",
+        "relativePath": "花儿乐队/2004-我是你的罗密欧[flac]/花儿乐队 - 07.我是你的罗密欧.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "花儿乐队/2004-我是你的罗密欧[flac]/花儿乐队 - 08.爱你是错.flac",
+      "artistName": "花儿乐队",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "花儿乐队",
+        "album": "2004-我是你的罗密欧[flac]",
+        "track": "花儿乐队 - 08.爱你是错.flac",
+        "relativePath": "花儿乐队/2004-我是你的罗密欧[flac]/花儿乐队 - 08.爱你是错.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "花儿乐队/2004-我是你的罗密欧[flac]/花儿乐队 - 09.梦进记.flac",
+      "artistName": "花儿乐队",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "花儿乐队",
+        "album": "2004-我是你的罗密欧[flac]",
+        "track": "花儿乐队 - 09.梦进记.flac",
+        "relativePath": "花儿乐队/2004-我是你的罗密欧[flac]/花儿乐队 - 09.梦进记.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "花儿乐队/2004-我是你的罗密欧[flac]/花儿乐队 - 10.爱情残酷物语.flac",
+      "artistName": "花儿乐队",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "花儿乐队",
+        "album": "2004-我是你的罗密欧[flac]",
+        "track": "花儿乐队 - 10.爱情残酷物语.flac",
+        "relativePath": "花儿乐队/2004-我是你的罗密欧[flac]/花儿乐队 - 10.爱情残酷物语.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "花儿乐队/2004-我是你的罗密欧[flac]/花儿乐队 - 11.懒.flac",
+      "artistName": "花儿乐队",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "花儿乐队",
+        "album": "2004-我是你的罗密欧[flac]",
+        "track": "花儿乐队 - 11.懒.flac",
+        "relativePath": "花儿乐队/2004-我是你的罗密欧[flac]/花儿乐队 - 11.懒.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "花儿乐队/2004-我是你的罗密欧[flac]/花儿乐队 - 12.已到花朵盛开时.flac",
+      "artistName": "花儿乐队",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "花儿乐队",
+        "album": "2004-我是你的罗密欧[flac]",
+        "track": "花儿乐队 - 12.已到花朵盛开时.flac",
+        "relativePath": "花儿乐队/2004-我是你的罗密欧[flac]/花儿乐队 - 12.已到花朵盛开时.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "花儿乐队/2005-花季王朝[flac]/花儿乐队 - GO GO!大暴走.flac",
+      "artistName": "花儿乐队",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  花儿乐队/2005-花季王朝[flac]/花儿乐队 - GO GO!大暴走.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 9059328 samples (205.43s, 99.5% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "花儿乐队",
+        "album": "2005-花季王朝[flac]",
+        "track": "花儿乐队 - GO GO!大暴走.flac",
+        "relativePath": "花儿乐队/2005-花季王朝[flac]/花儿乐队 - GO GO!大暴走.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "花儿乐队/2005-花季王朝[flac]/花儿乐队 - 你愿意做我女友吗？.flac",
+      "artistName": "花儿乐队",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  花儿乐队/2005-花季王朝[flac]/花儿乐队 - 你愿意做我女友吗？.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 8262144 samples (187.35s, 99.1% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "花儿乐队",
+        "album": "2005-花季王朝[flac]",
+        "track": "花儿乐队 - 你愿意做我女友吗？.flac",
+        "relativePath": "花儿乐队/2005-花季王朝[flac]/花儿乐队 - 你愿意做我女友吗？.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "花儿乐队/2005-花季王朝[flac]/花儿乐队 - 化蝶飞.flac",
+      "artistName": "花儿乐队",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  花儿乐队/2005-花季王朝[flac]/花儿乐队 - 化蝶飞.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 9607680 samples (217.86s, 99.6% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "花儿乐队",
+        "album": "2005-花季王朝[flac]",
+        "track": "花儿乐队 - 化蝶飞.flac",
+        "relativePath": "花儿乐队/2005-花季王朝[flac]/花儿乐队 - 化蝶飞.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "花儿乐队/2005-花季王朝[flac]/花儿乐队 - 吻痕.flac",
+      "artistName": "花儿乐队",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  花儿乐队/2005-花季王朝[flac]/花儿乐队 - 吻痕.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 9321984 samples (211.38s, 99.3% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "花儿乐队",
+        "album": "2005-花季王朝[flac]",
+        "track": "花儿乐队 - 吻痕.flac",
+        "relativePath": "花儿乐队/2005-花季王朝[flac]/花儿乐队 - 吻痕.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "花儿乐队/2005-花季王朝[flac]/花儿乐队 - 嘻唰唰.flac",
+      "artistName": "花儿乐队",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  花儿乐队/2005-花季王朝[flac]/花儿乐队 - 嘻唰唰.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 9464832 samples (214.62s, 98.8% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "花儿乐队",
+        "album": "2005-花季王朝[flac]",
+        "track": "花儿乐队 - 嘻唰唰.flac",
+        "relativePath": "花儿乐队/2005-花季王朝[flac]/花儿乐队 - 嘻唰唰.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "花儿乐队/2005-花季王朝[flac]/花儿乐队 - 天子第一宠.flac",
+      "artistName": "花儿乐队",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  花儿乐队/2005-花季王朝[flac]/花儿乐队 - 天子第一宠.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 8612352 samples (195.29s, 99.9% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "花儿乐队",
+        "album": "2005-花季王朝[flac]",
+        "track": "花儿乐队 - 天子第一宠.flac",
+        "relativePath": "花儿乐队/2005-花季王朝[flac]/花儿乐队 - 天子第一宠.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "花儿乐队/2005-花季王朝[flac]/花儿乐队 - 好开始.flac",
+      "artistName": "花儿乐队",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  花儿乐队/2005-花季王朝[flac]/花儿乐队 - 好开始.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 7174656 samples (162.69s, 98.4% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "花儿乐队",
+        "album": "2005-花季王朝[flac]",
+        "track": "花儿乐队 - 好开始.flac",
+        "relativePath": "花儿乐队/2005-花季王朝[flac]/花儿乐队 - 好开始.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    }
+  ]
+}

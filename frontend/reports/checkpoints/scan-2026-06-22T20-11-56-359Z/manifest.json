@@ -1,0 +1,8 @@
+{
+  "topDir": "/var/folders/8f/l3kr58x50cqbm9k1qrtznjl40000gn/T/fix-flac-metadata-6Bjjxw",
+  "mode": "dry-run",
+  "startedAt": "2026-06-22T20:11:56.362Z",
+  "totalFiles": 1,
+  "concurrency": 4,
+  "batchSize": 200
+}

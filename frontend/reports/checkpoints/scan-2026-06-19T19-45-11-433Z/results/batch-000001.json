@@ -1,0 +1,65 @@
+{
+  "batchId": 1,
+  "completedAt": "2026-06-19T19:45:11.831Z",
+  "count": 1,
+  "results": [
+    {
+      "rel": "Artist One/Album A/reencode-me.flac",
+      "artistName": "Artist One",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  Artist One/Album A/reencode-me.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data",
+        "                   ! playable strict decode failure is medium; no safe repair is known"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Artist One",
+        "album": "Album A",
+        "track": "reencode-me.flac",
+        "relativePath": "Artist One/Album A/reencode-me.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,6020 @@
+{
+  "batchId": 8,
+  "completedAt": "2026-06-20T05:10:38.800Z",
+  "count": 100,
+  "results": [
+    {
+      "rel": "Queen/[2018] Bohemian Rhapsody (The Original Soundtrack)/The Show Must Go On - Queen.flac",
+      "artistName": "Queen",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "Queen",
+        "album": "[2018] Bohemian Rhapsody (The Original Soundtrack)",
+        "track": "The Show Must Go On - Queen.flac",
+        "relativePath": "Queen/[2018] Bohemian Rhapsody (The Original Soundtrack)/The Show Must Go On - Queen.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "Queen/[2022] The Miracle (Collector's Edition)/Face It Alone - Queen.flac",
+      "artistName": "Queen",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "Queen",
+        "album": "[2022] The Miracle (Collector's Edition)",
+        "track": "Face It Alone - Queen.flac",
+        "relativePath": "Queen/[2022] The Miracle (Collector's Edition)/Face It Alone - Queen.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "Queen/[2024] The Night Comes Down (2024 Mix)/The Night Comes Down - 2024 Mix - Queen.flac",
+      "artistName": "Queen",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "Queen",
+        "album": "[2024] The Night Comes Down (2024 Mix)",
+        "track": "The Night Comes Down - 2024 Mix - Queen.flac",
+        "relativePath": "Queen/[2024] The Night Comes Down (2024 Mix)/The Night Comes Down - 2024 Mix - Queen.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "Queen/[2025] Who Wants To Live Forever (Stranger Things Remix)/Who Wants To Live Forever - Stranger Things Remix - Queen.flac",
+      "artistName": "Queen",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "Queen",
+        "album": "[2025] Who Wants To Live Forever (Stranger Things Remix)",
+        "track": "Who Wants To Live Forever - Stranger Things Remix - Queen.flac",
+        "relativePath": "Queen/[2025] Who Wants To Live Forever (Stranger Things Remix)/Who Wants To Live Forever - Stranger Things Remix - Queen.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "S.H.E/Forever 新歌 + 精選/01 觸電.flac",
+      "artistName": "S.H.E",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  S.H.E/Forever 新歌 + 精選/01 觸電.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "S.H.E",
+        "album": "Forever 新歌 + 精選",
+        "track": "01 觸電.flac",
+        "relativePath": "S.H.E/Forever 新歌 + 精選/01 觸電.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "S.H.E/Forever 新歌 + 精選/02 Ring Ring Ring.flac",
+      "artistName": "S.H.E",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  S.H.E/Forever 新歌 + 精選/02 Ring Ring Ring.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "S.H.E",
+        "album": "Forever 新歌 + 精選",
+        "track": "02 Ring Ring Ring.flac",
+        "relativePath": "S.H.E/Forever 新歌 + 精選/02 Ring Ring Ring.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "S.H.E/Forever 新歌 + 精選/03 我們怎麽了.flac",
+      "artistName": "S.H.E",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  S.H.E/Forever 新歌 + 精選/03 我們怎麽了.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "S.H.E",
+        "album": "Forever 新歌 + 精選",
+        "track": "03 我們怎麽了.flac",
+        "relativePath": "S.H.E/Forever 新歌 + 精選/03 我們怎麽了.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "S.H.E/Forever 新歌 + 精選/04 紫藤花.flac",
+      "artistName": "S.H.E",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  S.H.E/Forever 新歌 + 精選/04 紫藤花.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "S.H.E",
+        "album": "Forever 新歌 + 精選",
+        "track": "04 紫藤花.flac",
+        "relativePath": "S.H.E/Forever 新歌 + 精選/04 紫藤花.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "S.H.E/Forever 新歌 + 精選/05 Goodbye My Love.flac",
+      "artistName": "S.H.E",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  S.H.E/Forever 新歌 + 精選/05 Goodbye My Love.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "S.H.E",
+        "album": "Forever 新歌 + 精選",
+        "track": "05 Goodbye My Love.flac",
+        "relativePath": "S.H.E/Forever 新歌 + 精選/05 Goodbye My Love.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "S.H.E/Forever 新歌 + 精選/06 Super Star.flac",
+      "artistName": "S.H.E",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  S.H.E/Forever 新歌 + 精選/06 Super Star.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "S.H.E",
+        "album": "Forever 新歌 + 精選",
+        "track": "06 Super Star.flac",
+        "relativePath": "S.H.E/Forever 新歌 + 精選/06 Super Star.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "S.H.E/Forever 新歌 + 精選/07 天灰.flac",
+      "artistName": "S.H.E",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  S.H.E/Forever 新歌 + 精選/07 天灰.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "S.H.E",
+        "album": "Forever 新歌 + 精選",
+        "track": "07 天灰.flac",
+        "relativePath": "S.H.E/Forever 新歌 + 精選/07 天灰.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "S.H.E/Forever 新歌 + 精選/08 獨唱情歌.flac",
+      "artistName": "S.H.E",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  S.H.E/Forever 新歌 + 精選/08 獨唱情歌.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "S.H.E",
+        "album": "Forever 新歌 + 精選",
+        "track": "08 獨唱情歌.flac",
+        "relativePath": "S.H.E/Forever 新歌 + 精選/08 獨唱情歌.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "S.H.E/Forever 新歌 + 精選/09 花都開好了.flac",
+      "artistName": "S.H.E",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  S.H.E/Forever 新歌 + 精選/09 花都開好了.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "S.H.E",
+        "album": "Forever 新歌 + 精選",
+        "track": "09 花都開好了.flac",
+        "relativePath": "S.H.E/Forever 新歌 + 精選/09 花都開好了.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "S.H.E/Forever 新歌 + 精選/10 I.O.I.O.flac",
+      "artistName": "S.H.E",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  S.H.E/Forever 新歌 + 精選/10 I.O.I.O.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "S.H.E",
+        "album": "Forever 新歌 + 精選",
+        "track": "10 I.O.I.O.flac",
+        "relativePath": "S.H.E/Forever 新歌 + 精選/10 I.O.I.O.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "S.H.E/Forever 新歌 + 精選/11 候鳥.flac",
+      "artistName": "S.H.E",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  S.H.E/Forever 新歌 + 精選/11 候鳥.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "S.H.E",
+        "album": "Forever 新歌 + 精選",
+        "track": "11 候鳥.flac",
+        "relativePath": "S.H.E/Forever 新歌 + 精選/11 候鳥.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "S.H.E/Forever 新歌 + 精選/12 不想長大.flac",
+      "artistName": "S.H.E",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  S.H.E/Forever 新歌 + 精選/12 不想長大.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "S.H.E",
+        "album": "Forever 新歌 + 精選",
+        "track": "12 不想長大.flac",
+        "relativePath": "S.H.E/Forever 新歌 + 精選/12 不想長大.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "S.H.E/Forever 新歌 + 精選/13 波斯貓.flac",
+      "artistName": "S.H.E",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  S.H.E/Forever 新歌 + 精選/13 波斯貓.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "S.H.E",
+        "album": "Forever 新歌 + 精選",
+        "track": "13 波斯貓.flac",
+        "relativePath": "S.H.E/Forever 新歌 + 精選/13 波斯貓.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "S.H.E/Forever 新歌 + 精選/14 他還是不懂.flac",
+      "artistName": "S.H.E",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  S.H.E/Forever 新歌 + 精選/14 他還是不懂.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "S.H.E",
+        "album": "Forever 新歌 + 精選",
+        "track": "14 他還是不懂.flac",
+        "relativePath": "S.H.E/Forever 新歌 + 精選/14 他還是不懂.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "S.H.E/Forever 新歌 + 精選/15 星光.flac",
+      "artistName": "S.H.E",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  S.H.E/Forever 新歌 + 精選/15 星光.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "S.H.E",
+        "album": "Forever 新歌 + 精選",
+        "track": "15 星光.flac",
+        "relativePath": "S.H.E/Forever 新歌 + 精選/15 星光.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "S.H.E/Forever 新歌 + 精選/16 月桂女神.flac",
+      "artistName": "S.H.E",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  S.H.E/Forever 新歌 + 精選/16 月桂女神.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "S.H.E",
+        "album": "Forever 新歌 + 精選",
+        "track": "16 月桂女神.flac",
+        "relativePath": "S.H.E/Forever 新歌 + 精選/16 月桂女神.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "S.H.E/Forever 新歌 + 精選/17 痛快.flac",
+      "artistName": "S.H.E",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  S.H.E/Forever 新歌 + 精選/17 痛快.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "S.H.E",
+        "album": "Forever 新歌 + 精選",
+        "track": "17 痛快.flac",
+        "relativePath": "S.H.E/Forever 新歌 + 精選/17 痛快.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "S.H.E/Together 新歌+精選/01 Always on My Mind.flac",
+      "artistName": "S.H.E",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  S.H.E/Together 新歌+精選/01 Always on My Mind.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "S.H.E",
+        "album": "Together 新歌+精選",
+        "track": "01 Always on My Mind.flac",
+        "relativePath": "S.H.E/Together 新歌+精選/01 Always on My Mind.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "S.H.E/Together 新歌+精選/02 白色戀歌.flac",
+      "artistName": "S.H.E",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  S.H.E/Together 新歌+精選/02 白色戀歌.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "S.H.E",
+        "album": "Together 新歌+精選",
+        "track": "02 白色戀歌.flac",
+        "relativePath": "S.H.E/Together 新歌+精選/02 白色戀歌.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "S.H.E/Together 新歌+精選/03 天使在唱歌.flac",
+      "artistName": "S.H.E",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  S.H.E/Together 新歌+精選/03 天使在唱歌.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "S.H.E",
+        "album": "Together 新歌+精選",
+        "track": "03 天使在唱歌.flac",
+        "relativePath": "S.H.E/Together 新歌+精選/03 天使在唱歌.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "S.H.E/Together 新歌+精選/04 我和幸福有約定.flac",
+      "artistName": "S.H.E",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  S.H.E/Together 新歌+精選/04 我和幸福有約定.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "S.H.E",
+        "album": "Together 新歌+精選",
+        "track": "04 我和幸福有約定.flac",
+        "relativePath": "S.H.E/Together 新歌+精選/04 我和幸福有約定.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "S.H.E/Together 新歌+精選/05 Beauty up My Life.flac",
+      "artistName": "S.H.E",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  S.H.E/Together 新歌+精選/05 Beauty up My Life.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "S.H.E",
+        "album": "Together 新歌+精選",
+        "track": "05 Beauty up My Life.flac",
+        "relativePath": "S.H.E/Together 新歌+精選/05 Beauty up My Life.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "S.H.E/Together 新歌+精選/06 戀人未滿.flac",
+      "artistName": "S.H.E",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  S.H.E/Together 新歌+精選/06 戀人未滿.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "S.H.E",
+        "album": "Together 新歌+精選",
+        "track": "06 戀人未滿.flac",
+        "relativePath": "S.H.E/Together 新歌+精選/06 戀人未滿.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "S.H.E/Together 新歌+精選/07 美麗新世界.flac",
+      "artistName": "S.H.E",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  S.H.E/Together 新歌+精選/07 美麗新世界.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "S.H.E",
+        "album": "Together 新歌+精選",
+        "track": "07 美麗新世界.flac",
+        "relativePath": "S.H.E/Together 新歌+精選/07 美麗新世界.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "S.H.E/Together 新歌+精選/08 熱帶雨林.flac",
+      "artistName": "S.H.E",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  S.H.E/Together 新歌+精選/08 熱帶雨林.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "S.H.E",
+        "album": "Together 新歌+精選",
+        "track": "08 熱帶雨林.flac",
+        "relativePath": "S.H.E/Together 新歌+精選/08 熱帶雨林.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "S.H.E/Together 新歌+精選/09 Remember.flac",
+      "artistName": "S.H.E",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  S.H.E/Together 新歌+精選/09 Remember.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "S.H.E",
+        "album": "Together 新歌+精選",
+        "track": "09 Remember.flac",
+        "relativePath": "S.H.E/Together 新歌+精選/09 Remember.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "S.H.E/Together 新歌+精選/10 Belief.flac",
+      "artistName": "S.H.E",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  S.H.E/Together 新歌+精選/10 Belief.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "S.H.E",
+        "album": "Together 新歌+精選",
+        "track": "10 Belief.flac",
+        "relativePath": "S.H.E/Together 新歌+精選/10 Belief.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "S.H.E/Together 新歌+精選/11 Watch Me Shine.flac",
+      "artistName": "S.H.E",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  S.H.E/Together 新歌+精選/11 Watch Me Shine.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "S.H.E",
+        "album": "Together 新歌+精選",
+        "track": "11 Watch Me Shine.flac",
+        "relativePath": "S.H.E/Together 新歌+精選/11 Watch Me Shine.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "S.H.E/Together 新歌+精選/12 冰箱.flac",
+      "artistName": "S.H.E",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  S.H.E/Together 新歌+精選/12 冰箱.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "S.H.E",
+        "album": "Together 新歌+精選",
+        "track": "12 冰箱.flac",
+        "relativePath": "S.H.E/Together 新歌+精選/12 冰箱.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "S.H.E/Together 新歌+精選/13 你還好不好.flac",
+      "artistName": "S.H.E",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  S.H.E/Together 新歌+精選/13 你還好不好.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "S.H.E",
+        "album": "Together 新歌+精選",
+        "track": "13 你還好不好.flac",
+        "relativePath": "S.H.E/Together 新歌+精選/13 你還好不好.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "S.H.E/Together 新歌+精選/14 愛情的海洋.flac",
+      "artistName": "S.H.E",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  S.H.E/Together 新歌+精選/14 愛情的海洋.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "S.H.E",
+        "album": "Together 新歌+精選",
+        "track": "14 愛情的海洋.flac",
+        "relativePath": "S.H.E/Together 新歌+精選/14 愛情的海洋.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "S.H.E/Together 新歌+精選/15 愛我的資格.flac",
+      "artistName": "S.H.E",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  S.H.E/Together 新歌+精選/15 愛我的資格.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "S.H.E",
+        "album": "Together 新歌+精選",
+        "track": "15 愛我的資格.flac",
+        "relativePath": "S.H.E/Together 新歌+精選/15 愛我的資格.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "Sibelius/Sibelius_ Symphony No.2 & 5, Valse triste/01 - 1. Allegretto _Symphony No.2 in D major, Op.43_.flac",
+      "artistName": "Sibelius",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "Sibelius",
+        "album": "Sibelius_ Symphony No.2 & 5, Valse triste",
+        "track": "01 - 1. Allegretto _Symphony No.2 in D major, Op.43_.flac",
+        "relativePath": "Sibelius/Sibelius_ Symphony No.2 & 5, Valse triste/01 - 1. Allegretto _Symphony No.2 in D major, Op.43_.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "Sibelius/Sibelius_ Symphony No.2 & 5, Valse triste/02 - 2. Tempo andante, ma rubato _Symphony No.2 in D major, Op.43_.flac",
+      "artistName": "Sibelius",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "Sibelius",
+        "album": "Sibelius_ Symphony No.2 & 5, Valse triste",
+        "track": "02 - 2. Tempo andante, ma rubato _Symphony No.2 in D major, Op.43_.flac",
+        "relativePath": "Sibelius/Sibelius_ Symphony No.2 & 5, Valse triste/02 - 2. Tempo andante, ma rubato _Symphony No.2 in D major, Op.43_.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "Sibelius/Sibelius_ Symphony No.2 & 5, Valse triste/03 - 3. Vivacissimo - Lento e suave _Symphony No.2 in D major, Op.43_.flac",
+      "artistName": "Sibelius",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "Sibelius",
+        "album": "Sibelius_ Symphony No.2 & 5, Valse triste",
+        "track": "03 - 3. Vivacissimo - Lento e suave _Symphony No.2 in D major, Op.43_.flac",
+        "relativePath": "Sibelius/Sibelius_ Symphony No.2 & 5, Valse triste/03 - 3. Vivacissimo - Lento e suave _Symphony No.2 in D major, Op.43_.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "Sibelius/Sibelius_ Symphony No.2 & 5, Valse triste/04 - 4. Finale. Allegro moderato _Symphony No.2 in D major, Op.43_.flac",
+      "artistName": "Sibelius",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "Sibelius",
+        "album": "Sibelius_ Symphony No.2 & 5, Valse triste",
+        "track": "04 - 4. Finale. Allegro moderato _Symphony No.2 in D major, Op.43_.flac",
+        "relativePath": "Sibelius/Sibelius_ Symphony No.2 & 5, Valse triste/04 - 4. Finale. Allegro moderato _Symphony No.2 in D major, Op.43_.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "Sibelius/Sibelius_ Symphony No.2 & 5, Valse triste/05 - 1. Tempo molto moderato - Allegro moderato _Symphony No.5 in E flat major, Op.82_.flac",
+      "artistName": "Sibelius",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "Sibelius",
+        "album": "Sibelius_ Symphony No.2 & 5, Valse triste",
+        "track": "05 - 1. Tempo molto moderato - Allegro moderato _Symphony No.5 in E flat major, Op.82_.flac",
+        "relativePath": "Sibelius/Sibelius_ Symphony No.2 & 5, Valse triste/05 - 1. Tempo molto moderato - Allegro moderato _Symphony No.5 in E flat major, Op.82_.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "Sibelius/Sibelius_ Symphony No.2 & 5, Valse triste/06 - 2. Andante mosso, quasi allegretto _Symphony No.5 in E flat major, Op.82_.flac",
+      "artistName": "Sibelius",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "Sibelius",
+        "album": "Sibelius_ Symphony No.2 & 5, Valse triste",
+        "track": "06 - 2. Andante mosso, quasi allegretto _Symphony No.5 in E flat major, Op.82_.flac",
+        "relativePath": "Sibelius/Sibelius_ Symphony No.2 & 5, Valse triste/06 - 2. Andante mosso, quasi allegretto _Symphony No.5 in E flat major, Op.82_.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "Sibelius/Sibelius_ Symphony No.2 & 5, Valse triste/07 - 3. Allegro molto _Symphony No.5 in E flat major, Op.82_.flac",
+      "artistName": "Sibelius",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "Sibelius",
+        "album": "Sibelius_ Symphony No.2 & 5, Valse triste",
+        "track": "07 - 3. Allegro molto _Symphony No.5 in E flat major, Op.82_.flac",
+        "relativePath": "Sibelius/Sibelius_ Symphony No.2 & 5, Valse triste/07 - 3. Allegro molto _Symphony No.5 in E flat major, Op.82_.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "Sibelius/Sibelius_ Symphony No.2 & 5, Valse triste/08 - Valse triste, Op.44 No.1.flac",
+      "artistName": "Sibelius",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "Sibelius",
+        "album": "Sibelius_ Symphony No.2 & 5, Valse triste",
+        "track": "08 - Valse triste, Op.44 No.1.flac",
+        "relativePath": "Sibelius/Sibelius_ Symphony No.2 & 5, Valse triste/08 - Valse triste, Op.44 No.1.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "Soft Lipa/2009-Winter Sweet[flac]/蛋堡 - Soft Lintro.flac",
+      "artistName": "Soft Lipa",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  Soft Lipa/2009-Winter Sweet[flac]/蛋堡 - Soft Lintro.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 3874816 samples (87.86s, 99.1% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Soft Lipa",
+        "album": "2009-Winter Sweet[flac]",
+        "track": "蛋堡 - Soft Lintro.flac",
+        "relativePath": "Soft Lipa/2009-Winter Sweet[flac]/蛋堡 - Soft Lintro.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "Soft Lipa/2009-Winter Sweet[flac]/蛋堡 - Winter Morning Sounds.flac",
+      "artistName": "Soft Lipa",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  Soft Lipa/2009-Winter Sweet[flac]/蛋堡 - Winter Morning Sounds.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0x750c64380] invalid sync code | [flac @ 0x750c64380] invalid frame header | [flac @ 0x750c64380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "Soft Lipa",
+        "album": "2009-Winter Sweet[flac]",
+        "track": "蛋堡 - Winter Morning Sounds.flac",
+        "relativePath": "Soft Lipa/2009-Winter Sweet[flac]/蛋堡 - Winter Morning Sounds.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x750c64380] invalid sync code | [flac @ 0x750c64380] invalid frame header | [flac @ 0x750c64380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x750c64380] invalid sync code | [flac @ 0x750c64380] invalid frame header | [flac @ 0x750c64380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "Soft Lipa/2009-Winter Sweet[flac]/蛋堡 - Winter Sweet.flac",
+      "artistName": "Soft Lipa",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  Soft Lipa/2009-Winter Sweet[flac]/蛋堡 - Winter Sweet.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0xc16820380] invalid sync code | [flac @ 0xc16820380] invalid frame header | [flac @ 0xc16820380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "Soft Lipa",
+        "album": "2009-Winter Sweet[flac]",
+        "track": "蛋堡 - Winter Sweet.flac",
+        "relativePath": "Soft Lipa/2009-Winter Sweet[flac]/蛋堡 - Winter Sweet.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xc16820380] invalid sync code | [flac @ 0xc16820380] invalid frame header | [flac @ 0xc16820380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xc16820380] invalid sync code | [flac @ 0xc16820380] invalid frame header | [flac @ 0xc16820380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "Soft Lipa/2009-Winter Sweet[flac]/蛋堡 - 你还记得吗？.flac",
+      "artistName": "Soft Lipa",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  Soft Lipa/2009-Winter Sweet[flac]/蛋堡 - 你还记得吗？.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 6295552 samples (142.76s, 99.6% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Soft Lipa",
+        "album": "2009-Winter Sweet[flac]",
+        "track": "蛋堡 - 你还记得吗？.flac",
+        "relativePath": "Soft Lipa/2009-Winter Sweet[flac]/蛋堡 - 你还记得吗？.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "Soft Lipa/2009-Winter Sweet[flac]/蛋堡 - 偷偷.flac",
+      "artistName": "Soft Lipa",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  Soft Lipa/2009-Winter Sweet[flac]/蛋堡 - 偷偷.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0xc13804380] invalid sync code | [flac @ 0xc13804380] invalid frame header | [flac @ 0xc13804380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "Soft Lipa",
+        "album": "2009-Winter Sweet[flac]",
+        "track": "蛋堡 - 偷偷.flac",
+        "relativePath": "Soft Lipa/2009-Winter Sweet[flac]/蛋堡 - 偷偷.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xc13804380] invalid sync code | [flac @ 0xc13804380] invalid frame header | [flac @ 0xc13804380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xc13804380] invalid sync code | [flac @ 0xc13804380] invalid frame header | [flac @ 0xc13804380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "Soft Lipa/2009-Winter Sweet[flac]/蛋堡 - 再做一次好梦.flac",
+      "artistName": "Soft Lipa",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  Soft Lipa/2009-Winter Sweet[flac]/蛋堡 - 再做一次好梦.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 8740864 samples (198.21s, 99.9% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Soft Lipa",
+        "album": "2009-Winter Sweet[flac]",
+        "track": "蛋堡 - 再做一次好梦.flac",
+        "relativePath": "Soft Lipa/2009-Winter Sweet[flac]/蛋堡 - 再做一次好梦.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "Soft Lipa/2009-Winter Sweet[flac]/蛋堡 - 后来的切片 之一.flac",
+      "artistName": "Soft Lipa",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  Soft Lipa/2009-Winter Sweet[flac]/蛋堡 - 后来的切片 之一.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 5353472 samples (121.39s, 99.6% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Soft Lipa",
+        "album": "2009-Winter Sweet[flac]",
+        "track": "蛋堡 - 后来的切片 之一.flac",
+        "relativePath": "Soft Lipa/2009-Winter Sweet[flac]/蛋堡 - 后来的切片 之一.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "Soft Lipa/2009-Winter Sweet[flac]/蛋堡 - 后来的切片 之三.flac",
+      "artistName": "Soft Lipa",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  Soft Lipa/2009-Winter Sweet[flac]/蛋堡 - 后来的切片 之三.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 6733824 samples (152.69s, 99.8% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Soft Lipa",
+        "album": "2009-Winter Sweet[flac]",
+        "track": "蛋堡 - 后来的切片 之三.flac",
+        "relativePath": "Soft Lipa/2009-Winter Sweet[flac]/蛋堡 - 后来的切片 之三.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "Soft Lipa/2009-Winter Sweet[flac]/蛋堡 - 后来的切片 之二.flac",
+      "artistName": "Soft Lipa",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  Soft Lipa/2009-Winter Sweet[flac]/蛋堡 - 后来的切片 之二.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0x84e844380] invalid sync code | [flac @ 0x84e844380] invalid frame header | [flac @ 0x84e844380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "Soft Lipa",
+        "album": "2009-Winter Sweet[flac]",
+        "track": "蛋堡 - 后来的切片 之二.flac",
+        "relativePath": "Soft Lipa/2009-Winter Sweet[flac]/蛋堡 - 后来的切片 之二.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x84e844380] invalid sync code | [flac @ 0x84e844380] invalid frame header | [flac @ 0x84e844380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x84e844380] invalid sync code | [flac @ 0x84e844380] invalid frame header | [flac @ 0x84e844380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "Soft Lipa/2009-Winter Sweet[flac]/蛋堡 - 夜聊 (你说, 我说).flac",
+      "artistName": "Soft Lipa",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  Soft Lipa/2009-Winter Sweet[flac]/蛋堡 - 夜聊 (你说, 我说).flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0x8a8c44380] invalid sync code | [flac @ 0x8a8c44380] invalid frame header | [flac @ 0x8a8c44380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "Soft Lipa",
+        "album": "2009-Winter Sweet[flac]",
+        "track": "蛋堡 - 夜聊 (你说, 我说).flac",
+        "relativePath": "Soft Lipa/2009-Winter Sweet[flac]/蛋堡 - 夜聊 (你说, 我说).flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x8a8c44380] invalid sync code | [flac @ 0x8a8c44380] invalid frame header | [flac @ 0x8a8c44380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x8a8c44380] invalid sync code | [flac @ 0x8a8c44380] invalid frame header | [flac @ 0x8a8c44380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "Soft Lipa/2009-Winter Sweet[flac]/蛋堡 - 慢慢来.flac",
+      "artistName": "Soft Lipa",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  Soft Lipa/2009-Winter Sweet[flac]/蛋堡 - 慢慢来.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 7307264 samples (165.70s, 99.9% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Soft Lipa",
+        "album": "2009-Winter Sweet[flac]",
+        "track": "蛋堡 - 慢慢来.flac",
+        "relativePath": "Soft Lipa/2009-Winter Sweet[flac]/蛋堡 - 慢慢来.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "Soft Lipa/2009-Winter Sweet[flac]/蛋堡 - 新生活.flac",
+      "artistName": "Soft Lipa",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  Soft Lipa/2009-Winter Sweet[flac]/蛋堡 - 新生活.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 4124672 samples (93.53s, 99.4% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Soft Lipa",
+        "album": "2009-Winter Sweet[flac]",
+        "track": "蛋堡 - 新生活.flac",
+        "relativePath": "Soft Lipa/2009-Winter Sweet[flac]/蛋堡 - 新生活.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "Soft Lipa/2009-Winter Sweet[flac]/蛋堡 - 旅途愉快.flac",
+      "artistName": "Soft Lipa",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  Soft Lipa/2009-Winter Sweet[flac]/蛋堡 - 旅途愉快.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 8859648 samples (200.90s, 99.7% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_FRAME_CRC_MISMATCH | FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Soft Lipa",
+        "album": "2009-Winter Sweet[flac]",
+        "track": "蛋堡 - 旅途愉快.flac",
+        "relativePath": "Soft Lipa/2009-Winter Sweet[flac]/蛋堡 - 旅途愉快.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_FRAME_CRC_MISMATCH | FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "Soft Lipa/2009-Winter Sweet[flac]/蛋堡 - 白天自由，夜晚寂寞.flac",
+      "artistName": "Soft Lipa",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  Soft Lipa/2009-Winter Sweet[flac]/蛋堡 - 白天自由，夜晚寂寞.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 8069120 samples (182.97s, 99.7% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Soft Lipa",
+        "album": "2009-Winter Sweet[flac]",
+        "track": "蛋堡 - 白天自由，夜晚寂寞.flac",
+        "relativePath": "Soft Lipa/2009-Winter Sweet[flac]/蛋堡 - 白天自由，夜晚寂寞.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "Soft Lipa/2009-收敛水[flac]/蛋堡 - Bamboo Holla.flac",
+      "artistName": "Soft Lipa",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  Soft Lipa/2009-收敛水[flac]/蛋堡 - Bamboo Holla.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 8876032 samples (201.27s, 99.7% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_FRAME_CRC_MISMATCH | FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Soft Lipa",
+        "album": "2009-收敛水[flac]",
+        "track": "蛋堡 - Bamboo Holla.flac",
+        "relativePath": "Soft Lipa/2009-收敛水[flac]/蛋堡 - Bamboo Holla.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_FRAME_CRC_MISMATCH | FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "Soft Lipa/2009-收敛水[flac]/蛋堡 - Hit the Rhyme.flac",
+      "artistName": "Soft Lipa",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  Soft Lipa/2009-收敛水[flac]/蛋堡 - Hit the Rhyme.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 13238272 samples (300.19s, 99.8% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Soft Lipa",
+        "album": "2009-收敛水[flac]",
+        "track": "蛋堡 - Hit the Rhyme.flac",
+        "relativePath": "Soft Lipa/2009-收敛水[flac]/蛋堡 - Hit the Rhyme.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "Soft Lipa/2009-收敛水[flac]/蛋堡 - SL Beat-137(Outro).flac",
+      "artistName": "Soft Lipa",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  Soft Lipa/2009-收敛水[flac]/蛋堡 - SL Beat-137(Outro).flac  (Playable by ffmpeg; strict FLAC decode reported an error after 3706880 samples (84.06s, 99.2% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Soft Lipa",
+        "album": "2009-收敛水[flac]",
+        "track": "蛋堡 - SL Beat-137(Outro).flac",
+        "relativePath": "Soft Lipa/2009-收敛水[flac]/蛋堡 - SL Beat-137(Outro).flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "Soft Lipa/2009-收敛水[flac]/蛋堡 - Start it Underground.flac",
+      "artistName": "Soft Lipa",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  Soft Lipa/2009-收敛水[flac]/蛋堡 - Start it Underground.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 12333056 samples (279.66s, 99.9% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Soft Lipa",
+        "album": "2009-收敛水[flac]",
+        "track": "蛋堡 - Start it Underground.flac",
+        "relativePath": "Soft Lipa/2009-收敛水[flac]/蛋堡 - Start it Underground.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "Soft Lipa/2009-收敛水[flac]/蛋堡 - 乡愁.flac",
+      "artistName": "Soft Lipa",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  Soft Lipa/2009-收敛水[flac]/蛋堡 - 乡愁.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 11968512 samples (271.39s, 99.7% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_UNPARSEABLE_STREAM | FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | The FLAC stream may have been created by a more advanced encoder.  Try"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Soft Lipa",
+        "album": "2009-收敛水[flac]",
+        "track": "蛋堡 - 乡愁.flac",
+        "relativePath": "Soft Lipa/2009-收敛水[flac]/蛋堡 - 乡愁.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_UNPARSEABLE_STREAM | FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | The FLAC stream may have been created by a more advanced encoder.  Try"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "Soft Lipa/2009-收敛水[flac]/蛋堡 - 关于小熊 (1).flac",
+      "artistName": "Soft Lipa",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  Soft Lipa/2009-收敛水[flac]/蛋堡 - 关于小熊 (1).flac  (Playable by ffmpeg; strict FLAC decode reported an error after 13942784 samples (316.16s, 99.8% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_UNPARSEABLE_STREAM | FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | The FLAC stream may have been created by a more advanced encoder.  Try"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Soft Lipa",
+        "album": "2009-收敛水[flac]",
+        "track": "蛋堡 - 关于小熊 (1).flac",
+        "relativePath": "Soft Lipa/2009-收敛水[flac]/蛋堡 - 关于小熊 (1).flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_UNPARSEABLE_STREAM | FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | The FLAC stream may have been created by a more advanced encoder.  Try"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "Soft Lipa/2009-收敛水[flac]/蛋堡 - 关键字：Intro.flac",
+      "artistName": "Soft Lipa",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  Soft Lipa/2009-收敛水[flac]/蛋堡 - 关键字：Intro.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 5017600 samples (113.78s, 99.8% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Soft Lipa",
+        "album": "2009-收敛水[flac]",
+        "track": "蛋堡 - 关键字：Intro.flac",
+        "relativePath": "Soft Lipa/2009-收敛水[flac]/蛋堡 - 关键字：Intro.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "Soft Lipa/2009-收敛水[flac]/蛋堡 - 收敛水.flac",
+      "artistName": "Soft Lipa",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  Soft Lipa/2009-收敛水[flac]/蛋堡 - 收敛水.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 10440704 samples (236.75s, 99.8% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Soft Lipa",
+        "album": "2009-收敛水[flac]",
+        "track": "蛋堡 - 收敛水.flac",
+        "relativePath": "Soft Lipa/2009-收敛水[flac]/蛋堡 - 收敛水.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "Soft Lipa/2009-收敛水[flac]/蛋堡 - 烟雾弥漫 (1).flac",
+      "artistName": "Soft Lipa",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  Soft Lipa/2009-收敛水[flac]/蛋堡 - 烟雾弥漫 (1).flac  (Playable by ffmpeg; strict FLAC decode reported an error after 10579968 samples (239.91s, 99.8% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Soft Lipa",
+        "album": "2009-收敛水[flac]",
+        "track": "蛋堡 - 烟雾弥漫 (1).flac",
+        "relativePath": "Soft Lipa/2009-收敛水[flac]/蛋堡 - 烟雾弥漫 (1).flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "Soft Lipa/2009-收敛水[flac]/蛋堡 - 烟雾弥漫.flac",
+      "artistName": "Soft Lipa",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  Soft Lipa/2009-收敛水[flac]/蛋堡 - 烟雾弥漫.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 10760192 samples (244.00s, 99.9% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_FRAME_CRC_MISMATCH | FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Soft Lipa",
+        "album": "2009-收敛水[flac]",
+        "track": "蛋堡 - 烟雾弥漫.flac",
+        "relativePath": "Soft Lipa/2009-收敛水[flac]/蛋堡 - 烟雾弥漫.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_FRAME_CRC_MISMATCH | FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "Soft Lipa/2009-收敛水[flac]/蛋堡 - 热水澡.flac",
+      "artistName": "Soft Lipa",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  Soft Lipa/2009-收敛水[flac]/蛋堡 - 热水澡.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 7991296 samples (181.21s, 99.8% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Soft Lipa",
+        "album": "2009-收敛水[flac]",
+        "track": "蛋堡 - 热水澡.flac",
+        "relativePath": "Soft Lipa/2009-收敛水[flac]/蛋堡 - 热水澡.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "Soft Lipa/2009-收敛水[flac]/蛋堡 - 给你一个吻.flac",
+      "artistName": "Soft Lipa",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  Soft Lipa/2009-收敛水[flac]/蛋堡 - 给你一个吻.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 4354048 samples (98.73s, 99.7% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Soft Lipa",
+        "album": "2009-收敛水[flac]",
+        "track": "蛋堡 - 给你一个吻.flac",
+        "relativePath": "Soft Lipa/2009-收敛水[flac]/蛋堡 - 给你一个吻.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "Soft Lipa/2009-收敛水[flac]/蛋堡 - 遇见.flac",
+      "artistName": "Soft Lipa",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  Soft Lipa/2009-收敛水[flac]/蛋堡 - 遇见.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 10264576 samples (232.76s, 99.9% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Soft Lipa",
+        "album": "2009-收敛水[flac]",
+        "track": "蛋堡 - 遇见.flac",
+        "relativePath": "Soft Lipa/2009-收敛水[flac]/蛋堡 - 遇见.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "Soft Lipa/2010-月光[flac]/蛋堡 - I Want You.flac",
+      "artistName": "Soft Lipa",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  Soft Lipa/2010-月光[flac]/蛋堡 - I Want You.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 10764288 samples (244.09s, 99.1% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Soft Lipa",
+        "album": "2010-月光[flac]",
+        "track": "蛋堡 - I Want You.flac",
+        "relativePath": "Soft Lipa/2010-月光[flac]/蛋堡 - I Want You.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "Soft Lipa/2010-月光[flac]/蛋堡 - We Got Jazz.flac",
+      "artistName": "Soft Lipa",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  Soft Lipa/2010-月光[flac]/蛋堡 - We Got Jazz.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 5685248 samples (128.92s, 51.2% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_FRAME_CRC_MISMATCH | FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Soft Lipa",
+        "album": "2010-月光[flac]",
+        "track": "蛋堡 - We Got Jazz.flac",
+        "relativePath": "Soft Lipa/2010-月光[flac]/蛋堡 - We Got Jazz.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_FRAME_CRC_MISMATCH | FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "Soft Lipa/2010-月光[flac]/蛋堡 - 夜间漫游.flac",
+      "artistName": "Soft Lipa",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  Soft Lipa/2010-月光[flac]/蛋堡 - 夜间漫游.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 11337728 samples (257.09s, 98.4% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Soft Lipa",
+        "album": "2010-月光[flac]",
+        "track": "蛋堡 - 夜间漫游.flac",
+        "relativePath": "Soft Lipa/2010-月光[flac]/蛋堡 - 夜间漫游.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "Soft Lipa/2010-月光[flac]/蛋堡 - 她和时间跳华尔兹.flac",
+      "artistName": "Soft Lipa",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  Soft Lipa/2010-月光[flac]/蛋堡 - 她和时间跳华尔兹.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 16748544 samples (379.79s, 99.5% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_FRAME_CRC_MISMATCH | FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Soft Lipa",
+        "album": "2010-月光[flac]",
+        "track": "蛋堡 - 她和时间跳华尔兹.flac",
+        "relativePath": "Soft Lipa/2010-月光[flac]/蛋堡 - 她和时间跳华尔兹.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_FRAME_CRC_MISMATCH | FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "Soft Lipa/2010-月光[flac]/蛋堡 - 月光下.flac",
+      "artistName": "Soft Lipa",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  Soft Lipa/2010-月光[flac]/蛋堡 - 月光下.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 11472896 samples (260.16s, 99.1% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Soft Lipa",
+        "album": "2010-月光[flac]",
+        "track": "蛋堡 - 月光下.flac",
+        "relativePath": "Soft Lipa/2010-月光[flac]/蛋堡 - 月光下.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "Soft Lipa/2010-月光[flac]/蛋堡 - 经典! (1).flac",
+      "artistName": "Soft Lipa",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  Soft Lipa/2010-月光[flac]/蛋堡 - 经典! (1).flac  (Playable by ffmpeg; strict FLAC decode reported an error after 10489856 samples (237.87s, 98.7% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Soft Lipa",
+        "album": "2010-月光[flac]",
+        "track": "蛋堡 - 经典! (1).flac",
+        "relativePath": "Soft Lipa/2010-月光[flac]/蛋堡 - 经典! (1).flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "Soft Lipa/2010-月光[flac]/蛋堡 - 经典!.flac",
+      "artistName": "Soft Lipa",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  Soft Lipa/2010-月光[flac]/蛋堡 - 经典!.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 10293248 samples (233.41s, 99.0% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Soft Lipa",
+        "album": "2010-月光[flac]",
+        "track": "蛋堡 - 经典!.flac",
+        "relativePath": "Soft Lipa/2010-月光[flac]/蛋堡 - 经典!.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "Soft Lipa/2010-月光[flac]/蛋堡 - 过程 (1).flac",
+      "artistName": "Soft Lipa",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  Soft Lipa/2010-月光[flac]/蛋堡 - 过程 (1).flac  (Playable by ffmpeg; strict FLAC decode reported an error after 12611584 samples (285.98s, 99.2% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Soft Lipa",
+        "album": "2010-月光[flac]",
+        "track": "蛋堡 - 过程 (1).flac",
+        "relativePath": "Soft Lipa/2010-月光[flac]/蛋堡 - 过程 (1).flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "Soft Lipa/2010-月光[flac]/蛋堡 - 过程 (2).flac",
+      "artistName": "Soft Lipa",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  Soft Lipa/2010-月光[flac]/蛋堡 - 过程 (2).flac  (Playable by ffmpeg; strict FLAC decode reported an error after 11714560 samples (265.64s, 98.8% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Soft Lipa",
+        "album": "2010-月光[flac]",
+        "track": "蛋堡 - 过程 (2).flac",
+        "relativePath": "Soft Lipa/2010-月光[flac]/蛋堡 - 过程 (2).flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "Soft Lipa/2010-月光[flac]/蛋堡 - 过程.flac",
+      "artistName": "Soft Lipa",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  Soft Lipa/2010-月光[flac]/蛋堡 - 过程.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 6488064 samples (147.12s, 51.6% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_FRAME_CRC_MISMATCH | FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Soft Lipa",
+        "album": "2010-月光[flac]",
+        "track": "蛋堡 - 过程.flac",
+        "relativePath": "Soft Lipa/2010-月光[flac]/蛋堡 - 过程.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_FRAME_CRC_MISMATCH | FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "Soft Lipa/2010-月光[flac]/蛋堡 - 钻牙者.flac",
+      "artistName": "Soft Lipa",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  Soft Lipa/2010-月光[flac]/蛋堡 - 钻牙者.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 5644288 samples (127.99s, 56.2% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_FRAME_CRC_MISMATCH | FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Soft Lipa",
+        "album": "2010-月光[flac]",
+        "track": "蛋堡 - 钻牙者.flac",
+        "relativePath": "Soft Lipa/2010-月光[flac]/蛋堡 - 钻牙者.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_FRAME_CRC_MISMATCH | FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "Soft Lipa/2011-踩.腳.踏.車[flac]/蛋堡 - Day by Day.flac",
+      "artistName": "Soft Lipa",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  Soft Lipa/2011-踩.腳.踏.車[flac]/蛋堡 - Day by Day.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 5550080 samples (125.85s, 97.5% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Soft Lipa",
+        "album": "2011-踩.腳.踏.車[flac]",
+        "track": "蛋堡 - Day by Day.flac",
+        "relativePath": "Soft Lipa/2011-踩.腳.踏.車[flac]/蛋堡 - Day by Day.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "Soft Lipa/2011-踩.腳.踏.車[flac]/蛋堡 - MPC, Turntables and Mic.flac",
+      "artistName": "Soft Lipa",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  Soft Lipa/2011-踩.腳.踏.車[flac]/蛋堡 - MPC, Turntables and Mic.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 4440064 samples (100.68s, 97.4% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Soft Lipa",
+        "album": "2011-踩.腳.踏.車[flac]",
+        "track": "蛋堡 - MPC, Turntables and Mic.flac",
+        "relativePath": "Soft Lipa/2011-踩.腳.踏.車[flac]/蛋堡 - MPC, Turntables and Mic.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "Soft Lipa/2011-踩.腳.踏.車[flac]/蛋堡 - Music is Magic.flac",
+      "artistName": "Soft Lipa",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  Soft Lipa/2011-踩.腳.踏.車[flac]/蛋堡 - Music is Magic.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 10805248 samples (245.02s, 99.6% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Soft Lipa",
+        "album": "2011-踩.腳.踏.車[flac]",
+        "track": "蛋堡 - Music is Magic.flac",
+        "relativePath": "Soft Lipa/2011-踩.腳.踏.車[flac]/蛋堡 - Music is Magic.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "Soft Lipa/2011-踩.腳.踏.車[flac]/蛋堡 - ShinLip.flac",
+      "artistName": "Soft Lipa",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  Soft Lipa/2011-踩.腳.踏.車[flac]/蛋堡 - ShinLip.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 4366336 samples (99.01s, 96.9% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Soft Lipa",
+        "album": "2011-踩.腳.踏.車[flac]",
+        "track": "蛋堡 - ShinLip.flac",
+        "relativePath": "Soft Lipa/2011-踩.腳.踏.車[flac]/蛋堡 - ShinLip.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "Soft Lipa/2011-踩.腳.踏.車[flac]/蛋堡 - 听一首歌.flac",
+      "artistName": "Soft Lipa",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  Soft Lipa/2011-踩.腳.踏.車[flac]/蛋堡 - 听一首歌.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 6299648 samples (142.85s, 35.4% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_FRAME_CRC_MISMATCH | FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Soft Lipa",
+        "album": "2011-踩.腳.踏.車[flac]",
+        "track": "蛋堡 - 听一首歌.flac",
+        "relativePath": "Soft Lipa/2011-踩.腳.踏.車[flac]/蛋堡 - 听一首歌.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_FRAME_CRC_MISMATCH | FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "Soft Lipa/2011-踩.腳.踏.車[flac]/蛋堡 - 嘘…….flac",
+      "artistName": "Soft Lipa",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  Soft Lipa/2011-踩.腳.踏.車[flac]/蛋堡 - 嘘…….flac  (Playable by ffmpeg; strict FLAC decode reported an error after 13475840 samples (305.57s, 98.9% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Soft Lipa",
+        "album": "2011-踩.腳.踏.車[flac]",
+        "track": "蛋堡 - 嘘…….flac",
+        "relativePath": "Soft Lipa/2011-踩.腳.踏.車[flac]/蛋堡 - 嘘…….flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "Soft Lipa/2011-踩.腳.踏.車[flac]/蛋堡 - 找王A.flac",
+      "artistName": "Soft Lipa",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  Soft Lipa/2011-踩.腳.踏.車[flac]/蛋堡 - 找王A.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 10932224 samples (247.90s, 98.1% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Soft Lipa",
+        "album": "2011-踩.腳.踏.車[flac]",
+        "track": "蛋堡 - 找王A.flac",
+        "relativePath": "Soft Lipa/2011-踩.腳.踏.車[flac]/蛋堡 - 找王A.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "Soft Lipa/2011-踩.腳.踏.車[flac]/蛋堡 - 未完待续.flac",
+      "artistName": "Soft Lipa",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  Soft Lipa/2011-踩.腳.踏.車[flac]/蛋堡 - 未完待续.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 2482176 samples (56.29s, 93.6% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Soft Lipa",
+        "album": "2011-踩.腳.踏.車[flac]",
+        "track": "蛋堡 - 未完待续.flac",
+        "relativePath": "Soft Lipa/2011-踩.腳.踏.車[flac]/蛋堡 - 未完待续.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "Soft Lipa/2011-踩.腳.踏.車[flac]/蛋堡 - 踩脚踏车.flac",
+      "artistName": "Soft Lipa",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  Soft Lipa/2011-踩.腳.踏.車[flac]/蛋堡 - 踩脚踏车.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 10665984 samples (241.86s, 98.5% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Soft Lipa",
+        "album": "2011-踩.腳.踏.車[flac]",
+        "track": "蛋堡 - 踩脚踏车.flac",
+        "relativePath": "Soft Lipa/2011-踩.腳.踏.車[flac]/蛋堡 - 踩脚踏车.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "Soft Lipa/2011-踩.腳.踏.車[flac]/蛋堡 - 黄昏滨海.flac",
+      "artistName": "Soft Lipa",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  Soft Lipa/2011-踩.腳.踏.車[flac]/蛋堡 - 黄昏滨海.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 2646016 samples (60.00s, 95.8% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Soft Lipa",
+        "album": "2011-踩.腳.踏.車[flac]",
+        "track": "蛋堡 - 黄昏滨海.flac",
+        "relativePath": "Soft Lipa/2011-踩.腳.踏.車[flac]/蛋堡 - 黄昏滨海.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "Soft Lipa/2012-放个假/黄玠,蛋堡 - 少年维持着烦恼(Acoustic版).flac",
+      "artistName": "Soft Lipa",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  Soft Lipa/2012-放个假/黄玠,蛋堡 - 少年维持着烦恼(Acoustic版).flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0xa08820380] invalid sync code | [flac @ 0xa08820380] invalid frame header | [flac @ 0xa08820380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "Soft Lipa",
+        "album": "2012-放个假",
+        "track": "黄玠,蛋堡 - 少年维持着烦恼(Acoustic版).flac",
+        "relativePath": "Soft Lipa/2012-放个假/黄玠,蛋堡 - 少年维持着烦恼(Acoustic版).flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xa08820380] invalid sync code | [flac @ 0xa08820380] invalid frame header | [flac @ 0xa08820380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xa08820380] invalid sync code | [flac @ 0xa08820380] invalid frame header | [flac @ 0xa08820380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "Soft Lipa/2012-放个假/黄玠,蛋堡 - 放个假.flac",
+      "artistName": "Soft Lipa",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  Soft Lipa/2012-放个假/黄玠,蛋堡 - 放个假.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0xba3804380] invalid sync code | [flac @ 0xba3804380] invalid frame header | [flac @ 0xba3804380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "Soft Lipa",
+        "album": "2012-放个假",
+        "track": "黄玠,蛋堡 - 放个假.flac",
+        "relativePath": "Soft Lipa/2012-放个假/黄玠,蛋堡 - 放个假.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xba3804380] invalid sync code | [flac @ 0xba3804380] invalid frame header | [flac @ 0xba3804380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xba3804380] invalid sync code | [flac @ 0xba3804380] invalid frame header | [flac @ 0xba3804380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "Soft Lipa/2013-Walk This Way[flac]/MC HotDog - Walk This Way.flac",
+      "artistName": "Soft Lipa",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  Soft Lipa/2013-Walk This Way[flac]/MC HotDog - Walk This Way.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 3526656 samples (79.97s, 42.4% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_FRAME_CRC_MISMATCH | FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Soft Lipa",
+        "album": "2013-Walk This Way[flac]",
+        "track": "MC HotDog - Walk This Way.flac",
+        "relativePath": "Soft Lipa/2013-Walk This Way[flac]/MC HotDog - Walk This Way.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_FRAME_CRC_MISMATCH | FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "Soft Lipa/2013-你所不知道的杜振熙之内部整修[flac]/蛋堡 - 7楼的钢琴老师.flac",
+      "artistName": "Soft Lipa",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  Soft Lipa/2013-你所不知道的杜振熙之内部整修[flac]/蛋堡 - 7楼的钢琴老师.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 1527808 samples (34.64s, 99.9% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_UNPARSEABLE_STREAM | FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM | The FLAC stream may have been created by a more advanced encoder.  Try"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Soft Lipa",
+        "album": "2013-你所不知道的杜振熙之内部整修[flac]",
+        "track": "蛋堡 - 7楼的钢琴老师.flac",
+        "relativePath": "Soft Lipa/2013-你所不知道的杜振熙之内部整修[flac]/蛋堡 - 7楼的钢琴老师.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_UNPARSEABLE_STREAM | FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | FLAC__STREAM_DECODER_ERROR_STATUS_BAD_HEADER | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM | The FLAC stream may have been created by a more advanced encoder.  Try"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "Soft Lipa/2013-你所不知道的杜振熙之内部整修[flac]/蛋堡 - Ahh Yeah.flac",
+      "artistName": "Soft Lipa",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  Soft Lipa/2013-你所不知道的杜振熙之内部整修[flac]/蛋堡 - Ahh Yeah.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 3948544 samples (89.54s, 28.8% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_FRAME_CRC_MISMATCH | FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Soft Lipa",
+        "album": "2013-你所不知道的杜振熙之内部整修[flac]",
+        "track": "蛋堡 - Ahh Yeah.flac",
+        "relativePath": "Soft Lipa/2013-你所不知道的杜振熙之内部整修[flac]/蛋堡 - Ahh Yeah.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_FRAME_CRC_MISMATCH | FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "Soft Lipa/2013-你所不知道的杜振熙之内部整修[flac]/蛋堡 - Deep Sleep.flac",
+      "artistName": "Soft Lipa",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  Soft Lipa/2013-你所不知道的杜振熙之内部整修[flac]/蛋堡 - Deep Sleep.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 3854336 samples (87.40s, 29.6% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_FRAME_CRC_MISMATCH | FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Soft Lipa",
+        "album": "2013-你所不知道的杜振熙之内部整修[flac]",
+        "track": "蛋堡 - Deep Sleep.flac",
+        "relativePath": "Soft Lipa/2013-你所不知道的杜振熙之内部整修[flac]/蛋堡 - Deep Sleep.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_FRAME_CRC_MISMATCH | FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "Soft Lipa/2013-你所不知道的杜振熙之内部整修[flac]/蛋堡 - Rewind.flac",
+      "artistName": "Soft Lipa",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  Soft Lipa/2013-你所不知道的杜振熙之内部整修[flac]/蛋堡 - Rewind.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 7061504 samples (160.12s, 65.1% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_FRAME_CRC_MISMATCH | FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Soft Lipa",
+        "album": "2013-你所不知道的杜振熙之内部整修[flac]",
+        "track": "蛋堡 - Rewind.flac",
+        "relativePath": "Soft Lipa/2013-你所不知道的杜振熙之内部整修[flac]/蛋堡 - Rewind.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_FRAME_CRC_MISMATCH | FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "Soft Lipa/2013-你所不知道的杜振熙之内部整修[flac]/蛋堡 - _王.flac",
+      "artistName": "Soft Lipa",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  Soft Lipa/2013-你所不知道的杜振熙之内部整修[flac]/蛋堡 - _王.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 6336512 samples (143.69s, 67.0% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_FRAME_CRC_MISMATCH | FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "Soft Lipa",
+        "album": "2013-你所不知道的杜振熙之内部整修[flac]",
+        "track": "蛋堡 - _王.flac",
+        "relativePath": "Soft Lipa/2013-你所不知道的杜振熙之内部整修[flac]/蛋堡 - _王.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_FRAME_CRC_MISMATCH | FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    }
+  ]
+}

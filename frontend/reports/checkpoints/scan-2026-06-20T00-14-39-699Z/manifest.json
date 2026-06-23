@@ -1,0 +1,8 @@
+{
+  "topDir": "/var/folders/8f/l3kr58x50cqbm9k1qrtznjl40000gn/T/fix-flac-metadata-vKBaeP/Artist One/Album A",
+  "mode": "doctor",
+  "startedAt": "2026-06-20T00:14:39.702Z",
+  "totalFiles": 1,
+  "concurrency": 4,
+  "batchSize": 200
+}

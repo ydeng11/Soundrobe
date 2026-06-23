@@ -1,0 +1,8 @@
+{
+  "topDir": "/Volumes/downloads/老狼",
+  "mode": "doctor",
+  "startedAt": "2026-06-23T05:10:51.381Z",
+  "totalFiles": 25,
+  "concurrency": 4,
+  "batchSize": 200
+}

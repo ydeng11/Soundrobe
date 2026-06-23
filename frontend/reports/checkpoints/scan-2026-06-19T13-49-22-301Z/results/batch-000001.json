@@ -1,0 +1,39 @@
+{
+  "batchId": 1,
+  "completedAt": "2026-06-19T13:49:22.542Z",
+  "count": 1,
+  "results": [
+    {
+      "rel": "Artist One/Album A/reencode-me.flac",
+      "artistName": "Artist One",
+      "statusLines": [
+        "  ALERT_STRICT_DECODE_FAIL  Artist One/Album A/reencode-me.flac  (Strict decode failed)\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data",
+        "                   ✗ strict decode cannot be auto-repaired; restore or re-rip the audio"
+      ],
+      "error": "strict decode failed",
+      "counters": {
+        "ok": 0,
+        "errors": 1,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "ALERT",
+        "reasons": [
+          "strict decode failed"
+        ]
+      }
+    }
+  ]
+}

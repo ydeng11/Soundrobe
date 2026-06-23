@@ -1,0 +1,5810 @@
+{
+  "batchId": 109,
+  "completedAt": "2026-06-20T06:45:34.397Z",
+  "count": 100,
+  "results": [
+    {
+      "rel": "风火海/1995-欢乐世界[香港首版][WAV]/05. 每秒都只爱你.flac",
+      "artistName": "风火海",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "风火海",
+        "album": "1995-欢乐世界[香港首版][WAV]",
+        "track": "05. 每秒都只爱你.flac",
+        "relativePath": "风火海/1995-欢乐世界[香港首版][WAV]/05. 每秒都只爱你.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "风火海/1995-欢乐世界[香港首版][WAV]/06. 偷.flac",
+      "artistName": "风火海",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "风火海",
+        "album": "1995-欢乐世界[香港首版][WAV]",
+        "track": "06. 偷.flac",
+        "relativePath": "风火海/1995-欢乐世界[香港首版][WAV]/06. 偷.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "风火海/1995-欢乐世界[香港首版][WAV]/07. Day Day 小鸟.flac",
+      "artistName": "风火海",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "风火海",
+        "album": "1995-欢乐世界[香港首版][WAV]",
+        "track": "07. Day Day 小鸟.flac",
+        "relativePath": "风火海/1995-欢乐世界[香港首版][WAV]/07. Day Day 小鸟.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "风火海/1995-欢乐世界[香港首版][WAV]/08. 霹雳啪啦踢踢踢.flac",
+      "artistName": "风火海",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "风火海",
+        "album": "1995-欢乐世界[香港首版][WAV]",
+        "track": "08. 霹雳啪啦踢踢踢.flac",
+        "relativePath": "风火海/1995-欢乐世界[香港首版][WAV]/08. 霹雳啪啦踢踢踢.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "风火海/1995-欢乐世界[香港首版][WAV]/09. 仍然.flac",
+      "artistName": "风火海",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "风火海",
+        "album": "1995-欢乐世界[香港首版][WAV]",
+        "track": "09. 仍然.flac",
+        "relativePath": "风火海/1995-欢乐世界[香港首版][WAV]/09. 仍然.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "风火海/1995-欢乐世界[香港首版][WAV]/10. 一丝不掛.flac",
+      "artistName": "风火海",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "风火海",
+        "album": "1995-欢乐世界[香港首版][WAV]",
+        "track": "10. 一丝不掛.flac",
+        "relativePath": "风火海/1995-欢乐世界[香港首版][WAV]/10. 一丝不掛.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "风火海/1995-欢乐世界[香港首版][WAV]/11. 今日男人态度？.flac",
+      "artistName": "风火海",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "风火海",
+        "album": "1995-欢乐世界[香港首版][WAV]",
+        "track": "11. 今日男人态度？.flac",
+        "relativePath": "风火海/1995-欢乐世界[香港首版][WAV]/11. 今日男人态度？.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "黄宣/BEANSTALK/YELLOW黄宣-Beanstalk.flac",
+      "artistName": "黄宣",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  黄宣/BEANSTALK/YELLOW黄宣-Beanstalk.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0xa4c844380] invalid sync code | [flac @ 0xa4c844380] invalid frame header | [flac @ 0xa4c844380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "黄宣",
+        "album": "BEANSTALK",
+        "track": "YELLOW黄宣-Beanstalk.flac",
+        "relativePath": "黄宣/BEANSTALK/YELLOW黄宣-Beanstalk.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xa4c844380] invalid sync code | [flac @ 0xa4c844380] invalid frame header | [flac @ 0xa4c844380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xa4c844380] invalid sync code | [flac @ 0xa4c844380] invalid frame header | [flac @ 0xa4c844380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "黄宣/BEANSTALK/YELLOW黄宣-PARADIGM.flac",
+      "artistName": "黄宣",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  黄宣/BEANSTALK/YELLOW黄宣-PARADIGM.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0xb62c44380] invalid sync code | [flac @ 0xb62c44380] invalid frame header | [flac @ 0xb62c44380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "黄宣",
+        "album": "BEANSTALK",
+        "track": "YELLOW黄宣-PARADIGM.flac",
+        "relativePath": "黄宣/BEANSTALK/YELLOW黄宣-PARADIGM.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xb62c44380] invalid sync code | [flac @ 0xb62c44380] invalid frame header | [flac @ 0xb62c44380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xb62c44380] invalid sync code | [flac @ 0xb62c44380] invalid frame header | [flac @ 0xb62c44380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "黄宣/BEANSTALK/YELLOW黄宣-Pimpstalk.flac",
+      "artistName": "黄宣",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  黄宣/BEANSTALK/YELLOW黄宣-Pimpstalk.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0xaaf804380] invalid sync code | [flac @ 0xaaf804380] invalid frame header | [flac @ 0xaaf804380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "黄宣",
+        "album": "BEANSTALK",
+        "track": "YELLOW黄宣-Pimpstalk.flac",
+        "relativePath": "黄宣/BEANSTALK/YELLOW黄宣-Pimpstalk.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xaaf804380] invalid sync code | [flac @ 0xaaf804380] invalid frame header | [flac @ 0xaaf804380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xaaf804380] invalid sync code | [flac @ 0xaaf804380] invalid frame header | [flac @ 0xaaf804380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "黄宣/BEANSTALK/YELLOW黄宣-Strawberry Green.flac",
+      "artistName": "黄宣",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  黄宣/BEANSTALK/YELLOW黄宣-Strawberry Green.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0xc84844380] invalid sync code | [flac @ 0xc84844380] invalid frame header | [flac @ 0xc84844380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "黄宣",
+        "album": "BEANSTALK",
+        "track": "YELLOW黄宣-Strawberry Green.flac",
+        "relativePath": "黄宣/BEANSTALK/YELLOW黄宣-Strawberry Green.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xc84844380] invalid sync code | [flac @ 0xc84844380] invalid frame header | [flac @ 0xc84844380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xc84844380] invalid sync code | [flac @ 0xc84844380] invalid frame header | [flac @ 0xc84844380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "黄宣/BEANSTALK/YELLOW黄宣-don't flinch.flac",
+      "artistName": "黄宣",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  黄宣/BEANSTALK/YELLOW黄宣-don't flinch.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0xa2901c380] invalid sync code | [flac @ 0xa2901c380] invalid frame header | [flac @ 0xa2901c380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "黄宣",
+        "album": "BEANSTALK",
+        "track": "YELLOW黄宣-don't flinch.flac",
+        "relativePath": "黄宣/BEANSTALK/YELLOW黄宣-don't flinch.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xa2901c380] invalid sync code | [flac @ 0xa2901c380] invalid frame header | [flac @ 0xa2901c380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xa2901c380] invalid sync code | [flac @ 0xa2901c380] invalid frame header | [flac @ 0xa2901c380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "黄宣/BEANSTALK/YELLOW黄宣-mirare.flac",
+      "artistName": "黄宣",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  黄宣/BEANSTALK/YELLOW黄宣-mirare.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0x896c48380] invalid sync code | [flac @ 0x896c48380] invalid frame header | [flac @ 0x896c48380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "黄宣",
+        "album": "BEANSTALK",
+        "track": "YELLOW黄宣-mirare.flac",
+        "relativePath": "黄宣/BEANSTALK/YELLOW黄宣-mirare.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x896c48380] invalid sync code | [flac @ 0x896c48380] invalid frame header | [flac @ 0x896c48380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x896c48380] invalid sync code | [flac @ 0x896c48380] invalid frame header | [flac @ 0x896c48380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "黄宣/BEANSTALK/YELLOW黄宣-远行.flac",
+      "artistName": "黄宣",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  黄宣/BEANSTALK/YELLOW黄宣-远行.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0x71901c380] invalid sync code | [flac @ 0x71901c380] invalid frame header | [flac @ 0x71901c380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "黄宣",
+        "album": "BEANSTALK",
+        "track": "YELLOW黄宣-远行.flac",
+        "relativePath": "黄宣/BEANSTALK/YELLOW黄宣-远行.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x71901c380] invalid sync code | [flac @ 0x71901c380] invalid frame header | [flac @ 0x71901c380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x71901c380] invalid sync code | [flac @ 0x71901c380] invalid frame header | [flac @ 0x71901c380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "黄宣/BEANSTALK/YELLOW黄宣-道.flac",
+      "artistName": "黄宣",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  黄宣/BEANSTALK/YELLOW黄宣-道.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0x98a824380] invalid sync code | [flac @ 0x98a824380] invalid frame header | [flac @ 0x98a824380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "黄宣",
+        "album": "BEANSTALK",
+        "track": "YELLOW黄宣-道.flac",
+        "relativePath": "黄宣/BEANSTALK/YELLOW黄宣-道.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x98a824380] invalid sync code | [flac @ 0x98a824380] invalid frame header | [flac @ 0x98a824380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x98a824380] invalid sync code | [flac @ 0x98a824380] invalid frame header | [flac @ 0x98a824380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "黄宣/Paradigm (feat. 徐若瑄)/YELLOW黄宣_徐若瑄-Paradigm (feat. 徐若瑄).flac",
+      "artistName": "黄宣",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  黄宣/Paradigm (feat. 徐若瑄)/YELLOW黄宣_徐若瑄-Paradigm (feat. 徐若瑄).flac  (Playable by ffmpeg; strict FLAC decode reported an error after 7860480 samples (163.76s, 100.0% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "黄宣",
+        "album": "Paradigm (feat. 徐若瑄)",
+        "track": "YELLOW黄宣_徐若瑄-Paradigm (feat. 徐若瑄).flac",
+        "relativePath": "黄宣/Paradigm (feat. 徐若瑄)/YELLOW黄宣_徐若瑄-Paradigm (feat. 徐若瑄).flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "黄宣/一天/YELLOW黄宣-一天.flac",
+      "artistName": "黄宣",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "黄宣",
+        "album": "一天",
+        "track": "YELLOW黄宣-一天.flac",
+        "relativePath": "黄宣/一天/YELLOW黄宣-一天.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "黄宣/后现代独白/YELLOW黄宣-后现代独白.flac",
+      "artistName": "黄宣",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  黄宣/后现代独白/YELLOW黄宣-后现代独白.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 10300160 samples (214.59s, 100.0% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "黄宣",
+        "album": "后现代独白",
+        "track": "YELLOW黄宣-后现代独白.flac",
+        "relativePath": "黄宣/后现代独白/YELLOW黄宣-后现代独白.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "黄宣/怪天气/YELLOW黄宣_9m88-怪天气.flac",
+      "artistName": "黄宣",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  黄宣/怪天气/YELLOW黄宣_9m88-怪天气.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 12450561 samples (259.39s, 100.0% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "黄宣",
+        "album": "怪天气",
+        "track": "YELLOW黄宣_9m88-怪天气.flac",
+        "relativePath": "黄宣/怪天气/YELLOW黄宣_9m88-怪天气.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "黄宣/浮世击/YELLOW黄宣-.MERCY Rule.flac",
+      "artistName": "黄宣",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  黄宣/浮世击/YELLOW黄宣-.MERCY Rule.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0x744c64380] invalid sync code | [flac @ 0x744c64380] invalid frame header | [flac @ 0x744c64380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "黄宣",
+        "album": "浮世击",
+        "track": "YELLOW黄宣-.MERCY Rule.flac",
+        "relativePath": "黄宣/浮世击/YELLOW黄宣-.MERCY Rule.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x744c64380] invalid sync code | [flac @ 0x744c64380] invalid frame header | [flac @ 0x744c64380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x744c64380] invalid sync code | [flac @ 0x744c64380] invalid frame header | [flac @ 0x744c64380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "黄宣/浮世击/YELLOW黄宣-DAZZLE.flac",
+      "artistName": "黄宣",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  黄宣/浮世击/YELLOW黄宣-DAZZLE.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 9329920 samples (194.37s, 100.0% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "黄宣",
+        "album": "浮世击",
+        "track": "YELLOW黄宣-DAZZLE.flac",
+        "relativePath": "黄宣/浮世击/YELLOW黄宣-DAZZLE.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "黄宣/浮世击/YELLOW黄宣-ROSE WAYNE.flac",
+      "artistName": "黄宣",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  黄宣/浮世击/YELLOW黄宣-ROSE WAYNE.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 10229381 samples (213.11s, 100.0% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "黄宣",
+        "album": "浮世击",
+        "track": "YELLOW黄宣-ROSE WAYNE.flac",
+        "relativePath": "黄宣/浮世击/YELLOW黄宣-ROSE WAYNE.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "黄宣/浮世击/YELLOW黄宣-羊皮先生.flac",
+      "artistName": "黄宣",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  黄宣/浮世击/YELLOW黄宣-羊皮先生.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 10209920 samples (212.71s, 100.0% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "黄宣",
+        "album": "浮世击",
+        "track": "YELLOW黄宣-羊皮先生.flac",
+        "relativePath": "黄宣/浮世击/YELLOW黄宣-羊皮先生.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "黄宣/浮世击/YELLOW黄宣_范晓萱-独上C楼.flac",
+      "artistName": "黄宣",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  黄宣/浮世击/YELLOW黄宣_范晓萱-独上C楼.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 11792001 samples (245.67s, 100.0% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "黄宣",
+        "album": "浮世击",
+        "track": "YELLOW黄宣_范晓萱-独上C楼.flac",
+        "relativePath": "黄宣/浮世击/YELLOW黄宣_范晓萱-独上C楼.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "黄宣/都市病/YELLOW黄宣-MENIERE'S BUZZING.flac",
+      "artistName": "黄宣",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  黄宣/都市病/YELLOW黄宣-MENIERE'S BUZZING.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0x90501c380] invalid sync code | [flac @ 0x90501c380] invalid frame header | [flac @ 0x90501c380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "黄宣",
+        "album": "都市病",
+        "track": "YELLOW黄宣-MENIERE'S BUZZING.flac",
+        "relativePath": "黄宣/都市病/YELLOW黄宣-MENIERE'S BUZZING.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x90501c380] invalid sync code | [flac @ 0x90501c380] invalid frame header | [flac @ 0x90501c380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x90501c380] invalid sync code | [flac @ 0x90501c380] invalid frame header | [flac @ 0x90501c380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "黄宣/都市病/YELLOW黄宣-不开灯俱乐部.flac",
+      "artistName": "黄宣",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  黄宣/都市病/YELLOW黄宣-不开灯俱乐部.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0xb09018380] invalid sync code | [flac @ 0xb09018380] invalid frame header | [flac @ 0xb09018380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "黄宣",
+        "album": "都市病",
+        "track": "YELLOW黄宣-不开灯俱乐部.flac",
+        "relativePath": "黄宣/都市病/YELLOW黄宣-不开灯俱乐部.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xb09018380] invalid sync code | [flac @ 0xb09018380] invalid frame header | [flac @ 0xb09018380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xb09018380] invalid sync code | [flac @ 0xb09018380] invalid frame header | [flac @ 0xb09018380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "黄宣/都市病/YELLOW黄宣-羊皮先生.flac",
+      "artistName": "黄宣",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  黄宣/都市病/YELLOW黄宣-羊皮先生.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0xb7101c380] invalid sync code | [flac @ 0xb7101c380] invalid frame header | [flac @ 0xb7101c380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "黄宣",
+        "album": "都市病",
+        "track": "YELLOW黄宣-羊皮先生.flac",
+        "relativePath": "黄宣/都市病/YELLOW黄宣-羊皮先生.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xb7101c380] invalid sync code | [flac @ 0xb7101c380] invalid frame header | [flac @ 0xb7101c380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xb7101c380] invalid sync code | [flac @ 0xb7101c380] invalid frame header | [flac @ 0xb7101c380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "黄宣/都是你害的/法兰Fran_YELLOW黄宣-都是你害的.flac",
+      "artistName": "黄宣",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  黄宣/都是你害的/法兰Fran_YELLOW黄宣-都是你害的.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0x7c101c380] invalid sync code | [flac @ 0x7c101c380] invalid frame header | [flac @ 0x7c101c380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "黄宣",
+        "album": "都是你害的",
+        "track": "法兰Fran_YELLOW黄宣-都是你害的.flac",
+        "relativePath": "黄宣/都是你害的/法兰Fran_YELLOW黄宣-都是你害的.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x7c101c380] invalid sync code | [flac @ 0x7c101c380] invalid frame header | [flac @ 0x7c101c380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x7c101c380] invalid sync code | [flac @ 0x7c101c380] invalid frame header | [flac @ 0x7c101c380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "黄宣/马戏团/YELLOW黄宣-DAZZLE.flac",
+      "artistName": "黄宣",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  黄宣/马戏团/YELLOW黄宣-DAZZLE.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 9329920 samples (194.37s, 100.0% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "黄宣",
+        "album": "马戏团",
+        "track": "YELLOW黄宣-DAZZLE.flac",
+        "relativePath": "黄宣/马戏团/YELLOW黄宣-DAZZLE.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "黄宣/马戏团/YELLOW黄宣-ROSE WAYNE.flac",
+      "artistName": "黄宣",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  黄宣/马戏团/YELLOW黄宣-ROSE WAYNE.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 10229381 samples (213.11s, 100.0% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "黄宣",
+        "album": "马戏团",
+        "track": "YELLOW黄宣-ROSE WAYNE.flac",
+        "relativePath": "黄宣/马戏团/YELLOW黄宣-ROSE WAYNE.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "黄宣/马戏团/YELLOW黄宣_范晓萱-独上C楼.flac",
+      "artistName": "黄宣",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  黄宣/马戏团/YELLOW黄宣_范晓萱-独上C楼.flac  (Playable by ffmpeg; strict FLAC decode reported an error after 11792001 samples (245.67s, 100.0% of declared samples))\n                              FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "黄宣",
+        "album": "马戏团",
+        "track": "YELLOW黄宣_范晓萱-独上C楼.flac",
+        "relativePath": "黄宣/马戏团/YELLOW黄宣_范晓萱-独上C楼.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR during decoding | state = FLAC__STREAM_DECODER_END_OF_STREAM"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "黄绮珊/流行与摇滚  黄绮珊  小霞2.0/01.另外三件往事 Part 1.flac",
+      "artistName": "黄绮珊",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  黄绮珊/流行与摇滚  黄绮珊  小霞2.0/01.另外三件往事 Part 1.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0xbca824380] invalid sync code | [flac @ 0xbca824380] invalid frame header | [flac @ 0xbca824380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "黄绮珊",
+        "album": "流行与摇滚  黄绮珊  小霞2.0",
+        "track": "01.另外三件往事 Part 1.flac",
+        "relativePath": "黄绮珊/流行与摇滚  黄绮珊  小霞2.0/01.另外三件往事 Part 1.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xbca824380] invalid sync code | [flac @ 0xbca824380] invalid frame header | [flac @ 0xbca824380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xbca824380] invalid sync code | [flac @ 0xbca824380] invalid frame header | [flac @ 0xbca824380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "黄绮珊/流行与摇滚  黄绮珊  小霞2.0/02.无聊的.flac",
+      "artistName": "黄绮珊",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "黄绮珊",
+        "album": "流行与摇滚  黄绮珊  小霞2.0",
+        "track": "02.无聊的.flac",
+        "relativePath": "黄绮珊/流行与摇滚  黄绮珊  小霞2.0/02.无聊的.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "黄绮珊/流行与摇滚  黄绮珊  小霞2.0/03.思念一种爱.flac",
+      "artistName": "黄绮珊",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  黄绮珊/流行与摇滚  黄绮珊  小霞2.0/03.思念一种爱.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0xbf0c44380] invalid sync code | [flac @ 0xbf0c44380] invalid frame header | [flac @ 0xbf0c44380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "黄绮珊",
+        "album": "流行与摇滚  黄绮珊  小霞2.0",
+        "track": "03.思念一种爱.flac",
+        "relativePath": "黄绮珊/流行与摇滚  黄绮珊  小霞2.0/03.思念一种爱.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xbf0c44380] invalid sync code | [flac @ 0xbf0c44380] invalid frame header | [flac @ 0xbf0c44380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xbf0c44380] invalid sync code | [flac @ 0xbf0c44380] invalid frame header | [flac @ 0xbf0c44380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "黄绮珊/流行与摇滚  黄绮珊  小霞2.0/04.尤物 II.flac",
+      "artistName": "黄绮珊",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "黄绮珊",
+        "album": "流行与摇滚  黄绮珊  小霞2.0",
+        "track": "04.尤物 II.flac",
+        "relativePath": "黄绮珊/流行与摇滚  黄绮珊  小霞2.0/04.尤物 II.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "黄绮珊/流行与摇滚  黄绮珊  小霞2.0/05.我的美丽.flac",
+      "artistName": "黄绮珊",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "黄绮珊",
+        "album": "流行与摇滚  黄绮珊  小霞2.0",
+        "track": "05.我的美丽.flac",
+        "relativePath": "黄绮珊/流行与摇滚  黄绮珊  小霞2.0/05.我的美丽.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "黄绮珊/流行与摇滚  黄绮珊  小霞2.0/06.另外三件往事 Part 2.flac",
+      "artistName": "黄绮珊",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  黄绮珊/流行与摇滚  黄绮珊  小霞2.0/06.另外三件往事 Part 2.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0x7ab804380] invalid sync code | [flac @ 0x7ab804380] invalid frame header | [flac @ 0x7ab804380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "黄绮珊",
+        "album": "流行与摇滚  黄绮珊  小霞2.0",
+        "track": "06.另外三件往事 Part 2.flac",
+        "relativePath": "黄绮珊/流行与摇滚  黄绮珊  小霞2.0/06.另外三件往事 Part 2.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x7ab804380] invalid sync code | [flac @ 0x7ab804380] invalid frame header | [flac @ 0x7ab804380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x7ab804380] invalid sync code | [flac @ 0x7ab804380] invalid frame header | [flac @ 0x7ab804380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "黄绮珊/流行与摇滚  黄绮珊  小霞2.0/07.雨停了.flac",
+      "artistName": "黄绮珊",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  黄绮珊/流行与摇滚  黄绮珊  小霞2.0/07.雨停了.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0xc28c44380] invalid sync code | [flac @ 0xc28c44380] invalid frame header | [flac @ 0xc28c44380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "黄绮珊",
+        "album": "流行与摇滚  黄绮珊  小霞2.0",
+        "track": "07.雨停了.flac",
+        "relativePath": "黄绮珊/流行与摇滚  黄绮珊  小霞2.0/07.雨停了.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xc28c44380] invalid sync code | [flac @ 0xc28c44380] invalid frame header | [flac @ 0xc28c44380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xc28c44380] invalid sync code | [flac @ 0xc28c44380] invalid frame header | [flac @ 0xc28c44380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "黄绮珊/流行与摇滚  黄绮珊  小霞2.0/08.蠢货.flac",
+      "artistName": "黄绮珊",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "黄绮珊",
+        "album": "流行与摇滚  黄绮珊  小霞2.0",
+        "track": "08.蠢货.flac",
+        "relativePath": "黄绮珊/流行与摇滚  黄绮珊  小霞2.0/08.蠢货.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "黄绮珊/流行与摇滚  黄绮珊  小霞2.0/09.怀疑女士.flac",
+      "artistName": "黄绮珊",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "黄绮珊",
+        "album": "流行与摇滚  黄绮珊  小霞2.0",
+        "track": "09.怀疑女士.flac",
+        "relativePath": "黄绮珊/流行与摇滚  黄绮珊  小霞2.0/09.怀疑女士.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "黄绮珊/流行与摇滚  黄绮珊  小霞2.0/10.那时错，这时对.flac",
+      "artistName": "黄绮珊",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "黄绮珊",
+        "album": "流行与摇滚  黄绮珊  小霞2.0",
+        "track": "10.那时错，这时对.flac",
+        "relativePath": "黄绮珊/流行与摇滚  黄绮珊  小霞2.0/10.那时错，这时对.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "黄绮珊/流行与摇滚  黄绮珊  小霞2.0/11.另外三件往事 Part 3.flac",
+      "artistName": "黄绮珊",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  黄绮珊/流行与摇滚  黄绮珊  小霞2.0/11.另外三件往事 Part 3.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0x878c44380] invalid sync code | [flac @ 0x878c44380] invalid frame header | [flac @ 0x878c44380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "黄绮珊",
+        "album": "流行与摇滚  黄绮珊  小霞2.0",
+        "track": "11.另外三件往事 Part 3.flac",
+        "relativePath": "黄绮珊/流行与摇滚  黄绮珊  小霞2.0/11.另外三件往事 Part 3.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x878c44380] invalid sync code | [flac @ 0x878c44380] invalid frame header | [flac @ 0x878c44380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x878c44380] invalid sync code | [flac @ 0x878c44380] invalid frame header | [flac @ 0x878c44380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "黄绮珊/流行与摇滚  黄绮珊  小霞2.0/12.梦.flac",
+      "artistName": "黄绮珊",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "黄绮珊",
+        "album": "流行与摇滚  黄绮珊  小霞2.0",
+        "track": "12.梦.flac",
+        "relativePath": "黄绮珊/流行与摇滚  黄绮珊  小霞2.0/12.梦.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "黄绮珊/流行与摇滚  黄绮珊  小霞2.0/13.礼貌.flac",
+      "artistName": "黄绮珊",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "黄绮珊",
+        "album": "流行与摇滚  黄绮珊  小霞2.0",
+        "track": "13.礼貌.flac",
+        "relativePath": "黄绮珊/流行与摇滚  黄绮珊  小霞2.0/13.礼貌.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "黄绮珊/流行与摇滚  黄绮珊  小霞3.0/01. 最后三件往事 Part 1.flac",
+      "artistName": "黄绮珊",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  黄绮珊/流行与摇滚  黄绮珊  小霞3.0/01. 最后三件往事 Part 1.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "黄绮珊",
+        "album": "流行与摇滚  黄绮珊  小霞3.0",
+        "track": "01. 最后三件往事 Part 1.flac",
+        "relativePath": "黄绮珊/流行与摇滚  黄绮珊  小霞3.0/01. 最后三件往事 Part 1.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "黄绮珊/流行与摇滚  黄绮珊  小霞3.0/02. 小霞.flac",
+      "artistName": "黄绮珊",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  黄绮珊/流行与摇滚  黄绮珊  小霞3.0/02. 小霞.flac  (Playable but strict decode reported a warning)\n                         testing, 73% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bWARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "黄绮珊",
+        "album": "流行与摇滚  黄绮珊  小霞3.0",
+        "track": "02. 小霞.flac",
+        "relativePath": "黄绮珊/流行与摇滚  黄绮珊  小霞3.0/02. 小霞.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "testing, 73% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bWARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "黄绮珊/流行与摇滚  黄绮珊  小霞3.0/03. 清白的.flac",
+      "artistName": "黄绮珊",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  黄绮珊/流行与摇滚  黄绮珊  小霞3.0/03. 清白的.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "黄绮珊",
+        "album": "流行与摇滚  黄绮珊  小霞3.0",
+        "track": "03. 清白的.flac",
+        "relativePath": "黄绮珊/流行与摇滚  黄绮珊  小霞3.0/03. 清白的.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "黄绮珊/流行与摇滚  黄绮珊  小霞3.0/04. 号外.flac",
+      "artistName": "黄绮珊",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  黄绮珊/流行与摇滚  黄绮珊  小霞3.0/04. 号外.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "黄绮珊",
+        "album": "流行与摇滚  黄绮珊  小霞3.0",
+        "track": "04. 号外.flac",
+        "relativePath": "黄绮珊/流行与摇滚  黄绮珊  小霞3.0/04. 号外.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "黄绮珊/流行与摇滚  黄绮珊  小霞3.0/05. 秘密 II.flac",
+      "artistName": "黄绮珊",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  黄绮珊/流行与摇滚  黄绮珊  小霞3.0/05. 秘密 II.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "黄绮珊",
+        "album": "流行与摇滚  黄绮珊  小霞3.0",
+        "track": "05. 秘密 II.flac",
+        "relativePath": "黄绮珊/流行与摇滚  黄绮珊  小霞3.0/05. 秘密 II.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "黄绮珊/流行与摇滚  黄绮珊  小霞3.0/06. 最后三件往事 Part 2.flac",
+      "artistName": "黄绮珊",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  黄绮珊/流行与摇滚  黄绮珊  小霞3.0/06. 最后三件往事 Part 2.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "黄绮珊",
+        "album": "流行与摇滚  黄绮珊  小霞3.0",
+        "track": "06. 最后三件往事 Part 2.flac",
+        "relativePath": "黄绮珊/流行与摇滚  黄绮珊  小霞3.0/06. 最后三件往事 Part 2.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "黄绮珊/流行与摇滚  黄绮珊  小霞3.0/07. 早晚.flac",
+      "artistName": "黄绮珊",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  黄绮珊/流行与摇滚  黄绮珊  小霞3.0/07. 早晚.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "黄绮珊",
+        "album": "流行与摇滚  黄绮珊  小霞3.0",
+        "track": "07. 早晚.flac",
+        "relativePath": "黄绮珊/流行与摇滚  黄绮珊  小霞3.0/07. 早晚.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "黄绮珊/流行与摇滚  黄绮珊  小霞3.0/08. 喷涌.flac",
+      "artistName": "黄绮珊",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  黄绮珊/流行与摇滚  黄绮珊  小霞3.0/08. 喷涌.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "黄绮珊",
+        "album": "流行与摇滚  黄绮珊  小霞3.0",
+        "track": "08. 喷涌.flac",
+        "relativePath": "黄绮珊/流行与摇滚  黄绮珊  小霞3.0/08. 喷涌.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "黄绮珊/流行与摇滚  黄绮珊  小霞3.0/09. 娱乐先生.flac",
+      "artistName": "黄绮珊",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  黄绮珊/流行与摇滚  黄绮珊  小霞3.0/09. 娱乐先生.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "黄绮珊",
+        "album": "流行与摇滚  黄绮珊  小霞3.0",
+        "track": "09. 娱乐先生.flac",
+        "relativePath": "黄绮珊/流行与摇滚  黄绮珊  小霞3.0/09. 娱乐先生.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "黄绮珊/流行与摇滚  黄绮珊  小霞3.0/10. 喜欢你.flac",
+      "artistName": "黄绮珊",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  黄绮珊/流行与摇滚  黄绮珊  小霞3.0/10. 喜欢你.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "黄绮珊",
+        "album": "流行与摇滚  黄绮珊  小霞3.0",
+        "track": "10. 喜欢你.flac",
+        "relativePath": "黄绮珊/流行与摇滚  黄绮珊  小霞3.0/10. 喜欢你.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "黄绮珊/流行与摇滚  黄绮珊  小霞3.0/11. 最后三件往事 Part 3.flac",
+      "artistName": "黄绮珊",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  黄绮珊/流行与摇滚  黄绮珊  小霞3.0/11. 最后三件往事 Part 3.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "黄绮珊",
+        "album": "流行与摇滚  黄绮珊  小霞3.0",
+        "track": "11. 最后三件往事 Part 3.flac",
+        "relativePath": "黄绮珊/流行与摇滚  黄绮珊  小霞3.0/11. 最后三件往事 Part 3.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "黄绮珊/流行与摇滚  黄绮珊  小霞3.0/12. 细雨轻声.flac",
+      "artistName": "黄绮珊",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  黄绮珊/流行与摇滚  黄绮珊  小霞3.0/12. 细雨轻声.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "黄绮珊",
+        "album": "流行与摇滚  黄绮珊  小霞3.0",
+        "track": "12. 细雨轻声.flac",
+        "relativePath": "黄绮珊/流行与摇滚  黄绮珊  小霞3.0/12. 细雨轻声.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "黄绮珊/流行与摇滚  黄绮珊  小霞3.0/13. 旷世之交.flac",
+      "artistName": "黄绮珊",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE  黄绮珊/流行与摇滚  黄绮珊  小霞3.0/13. 旷世之交.flac  (Playable but strict decode reported a warning)\n                         testing, 95% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bWARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "黄绮珊",
+        "album": "流行与摇滚  黄绮珊  小霞3.0",
+        "track": "13. 旷世之交.flac",
+        "relativePath": "黄绮珊/流行与摇滚  黄绮珊  小霞3.0/13. 旷世之交.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-warning"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w",
+          "message": "testing, 95% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bWARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok",
+          "warning": true
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode warning"
+        ]
+      }
+    },
+    {
+      "rel": "黄绮珊/黄绮珊.2019 - 出走【FLAC】/01 - 梗冞扂.flac",
+      "artistName": "黄绮珊",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "黄绮珊",
+        "album": "黄绮珊.2019 - 出走【FLAC】",
+        "track": "01 - 梗冞扂.flac",
+        "relativePath": "黄绮珊/黄绮珊.2019 - 出走【FLAC】/01 - 梗冞扂.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "黄绮珊/黄绮珊.2019 - 出走【FLAC】/02 - 苤嗩獲.flac",
+      "artistName": "黄绮珊",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "黄绮珊",
+        "album": "黄绮珊.2019 - 出走【FLAC】",
+        "track": "02 - 苤嗩獲.flac",
+        "relativePath": "黄绮珊/黄绮珊.2019 - 出走【FLAC】/02 - 苤嗩獲.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "黄绮珊/黄绮珊.2019 - 出走【FLAC】/03 - 綻蟷藘.flac",
+      "artistName": "黄绮珊",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "黄绮珊",
+        "album": "黄绮珊.2019 - 出走【FLAC】",
+        "track": "03 - 綻蟷藘.flac",
+        "relativePath": "黄绮珊/黄绮珊.2019 - 出走【FLAC】/03 - 綻蟷藘.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "黄绮珊/黄绮珊.2019 - 出走【FLAC】/04 - 堎圉俔.flac",
+      "artistName": "黄绮珊",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "黄绮珊",
+        "album": "黄绮珊.2019 - 出走【FLAC】",
+        "track": "04 - 堎圉俔.flac",
+        "relativePath": "黄绮珊/黄绮珊.2019 - 出走【FLAC】/04 - 堎圉俔.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "黄绮珊/黄绮珊.2019 - 出走【FLAC】/05 - 郔乾.flac",
+      "artistName": "黄绮珊",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "黄绮珊",
+        "album": "黄绮珊.2019 - 出走【FLAC】",
+        "track": "05 - 郔乾.flac",
+        "relativePath": "黄绮珊/黄绮珊.2019 - 出走【FLAC】/05 - 郔乾.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "黄绮珊/黄绮珊《亚洲第一女声 HQCD》[WAV+CUE]/01. 特别的爱给特别的你.flac",
+      "artistName": "黄绮珊",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "黄绮珊",
+        "album": "黄绮珊《亚洲第一女声 HQCD》[WAV+CUE]",
+        "track": "01. 特别的爱给特别的你.flac",
+        "relativePath": "黄绮珊/黄绮珊《亚洲第一女声 HQCD》[WAV+CUE]/01. 特别的爱给特别的你.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "黄绮珊/黄绮珊《亚洲第一女声 HQCD》[WAV+CUE]/02. 梨花又开放.flac",
+      "artistName": "黄绮珊",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "黄绮珊",
+        "album": "黄绮珊《亚洲第一女声 HQCD》[WAV+CUE]",
+        "track": "02. 梨花又开放.flac",
+        "relativePath": "黄绮珊/黄绮珊《亚洲第一女声 HQCD》[WAV+CUE]/02. 梨花又开放.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "黄绮珊/黄绮珊《亚洲第一女声 HQCD》[WAV+CUE]/03. 亚洲的骄傲.flac",
+      "artistName": "黄绮珊",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "黄绮珊",
+        "album": "黄绮珊《亚洲第一女声 HQCD》[WAV+CUE]",
+        "track": "03. 亚洲的骄傲.flac",
+        "relativePath": "黄绮珊/黄绮珊《亚洲第一女声 HQCD》[WAV+CUE]/03. 亚洲的骄傲.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "黄绮珊/黄绮珊《亚洲第一女声 HQCD》[WAV+CUE]/04. 再回到从前.flac",
+      "artistName": "黄绮珊",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "黄绮珊",
+        "album": "黄绮珊《亚洲第一女声 HQCD》[WAV+CUE]",
+        "track": "04. 再回到从前.flac",
+        "relativePath": "黄绮珊/黄绮珊《亚洲第一女声 HQCD》[WAV+CUE]/04. 再回到从前.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "黄绮珊/黄绮珊《亚洲第一女声 HQCD》[WAV+CUE]/05. 心痛的感觉.flac",
+      "artistName": "黄绮珊",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "黄绮珊",
+        "album": "黄绮珊《亚洲第一女声 HQCD》[WAV+CUE]",
+        "track": "05. 心痛的感觉.flac",
+        "relativePath": "黄绮珊/黄绮珊《亚洲第一女声 HQCD》[WAV+CUE]/05. 心痛的感觉.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "黄绮珊/黄绮珊《亚洲第一女声 HQCD》[WAV+CUE]/06. 月光下的海(原创).flac",
+      "artistName": "黄绮珊",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "黄绮珊",
+        "album": "黄绮珊《亚洲第一女声 HQCD》[WAV+CUE]",
+        "track": "06. 月光下的海(原创).flac",
+        "relativePath": "黄绮珊/黄绮珊《亚洲第一女声 HQCD》[WAV+CUE]/06. 月光下的海(原创).flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "黄绮珊/黄绮珊《亚洲第一女声 HQCD》[WAV+CUE]/07. 彩虹.flac",
+      "artistName": "黄绮珊",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "黄绮珊",
+        "album": "黄绮珊《亚洲第一女声 HQCD》[WAV+CUE]",
+        "track": "07. 彩虹.flac",
+        "relativePath": "黄绮珊/黄绮珊《亚洲第一女声 HQCD》[WAV+CUE]/07. 彩虹.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "黄绮珊/黄绮珊《亚洲第一女声 HQCD》[WAV+CUE]/08. 大海.flac",
+      "artistName": "黄绮珊",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "黄绮珊",
+        "album": "黄绮珊《亚洲第一女声 HQCD》[WAV+CUE]",
+        "track": "08. 大海.flac",
+        "relativePath": "黄绮珊/黄绮珊《亚洲第一女声 HQCD》[WAV+CUE]/08. 大海.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "黄绮珊/黄绮珊《亚洲第一女声 HQCD》[WAV+CUE]/09. 离歌.flac",
+      "artistName": "黄绮珊",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "黄绮珊",
+        "album": "黄绮珊《亚洲第一女声 HQCD》[WAV+CUE]",
+        "track": "09. 离歌.flac",
+        "relativePath": "黄绮珊/黄绮珊《亚洲第一女声 HQCD》[WAV+CUE]/09. 离歌.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "黄绮珊/黄绮珊《亚洲第一女声 HQCD》[WAV+CUE]/10. 你把我灌醉.flac",
+      "artistName": "黄绮珊",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "黄绮珊",
+        "album": "黄绮珊《亚洲第一女声 HQCD》[WAV+CUE]",
+        "track": "10. 你把我灌醉.flac",
+        "relativePath": "黄绮珊/黄绮珊《亚洲第一女声 HQCD》[WAV+CUE]/10. 你把我灌醉.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "黄绮珊/黄绮珊《亚洲第一女声 HQCD》[WAV+CUE]/11. 我是一只小小鸟.flac",
+      "artistName": "黄绮珊",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "黄绮珊",
+        "album": "黄绮珊《亚洲第一女声 HQCD》[WAV+CUE]",
+        "track": "11. 我是一只小小鸟.flac",
+        "relativePath": "黄绮珊/黄绮珊《亚洲第一女声 HQCD》[WAV+CUE]/11. 我是一只小小鸟.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "黄绮珊/黄绮珊《亚洲第一女声 HQCD》[WAV+CUE]/12. 我和你.flac",
+      "artistName": "黄绮珊",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "黄绮珊",
+        "album": "黄绮珊《亚洲第一女声 HQCD》[WAV+CUE]",
+        "track": "12. 我和你.flac",
+        "relativePath": "黄绮珊/黄绮珊《亚洲第一女声 HQCD》[WAV+CUE]/12. 我和你.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "黄绮珊/黄绮珊《只有你》[WAV+CUE]/01. 我是一只小小鸟.flac",
+      "artistName": "黄绮珊",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  黄绮珊/黄绮珊《只有你》[WAV+CUE]/01. 我是一只小小鸟.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0xbd8c64380] invalid sync code | [flac @ 0xbd8c64380] invalid frame header | [flac @ 0xbd8c64380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "黄绮珊",
+        "album": "黄绮珊《只有你》[WAV+CUE]",
+        "track": "01. 我是一只小小鸟.flac",
+        "relativePath": "黄绮珊/黄绮珊《只有你》[WAV+CUE]/01. 我是一只小小鸟.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xbd8c64380] invalid sync code | [flac @ 0xbd8c64380] invalid frame header | [flac @ 0xbd8c64380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xbd8c64380] invalid sync code | [flac @ 0xbd8c64380] invalid frame header | [flac @ 0xbd8c64380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "黄绮珊/黄绮珊《只有你》[WAV+CUE]/02. 只有你.flac",
+      "artistName": "黄绮珊",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  黄绮珊/黄绮珊《只有你》[WAV+CUE]/02. 只有你.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0x7d2c44380] invalid sync code | [flac @ 0x7d2c44380] invalid frame header | [flac @ 0x7d2c44380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "黄绮珊",
+        "album": "黄绮珊《只有你》[WAV+CUE]",
+        "track": "02. 只有你.flac",
+        "relativePath": "黄绮珊/黄绮珊《只有你》[WAV+CUE]/02. 只有你.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x7d2c44380] invalid sync code | [flac @ 0x7d2c44380] invalid frame header | [flac @ 0x7d2c44380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x7d2c44380] invalid sync code | [flac @ 0x7d2c44380] invalid frame header | [flac @ 0x7d2c44380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "黄绮珊/黄绮珊《只有你》[WAV+CUE]/03. 大海.flac",
+      "artistName": "黄绮珊",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  黄绮珊/黄绮珊《只有你》[WAV+CUE]/03. 大海.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0xb3b804380] invalid sync code | [flac @ 0xb3b804380] invalid frame header | [flac @ 0xb3b804380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "黄绮珊",
+        "album": "黄绮珊《只有你》[WAV+CUE]",
+        "track": "03. 大海.flac",
+        "relativePath": "黄绮珊/黄绮珊《只有你》[WAV+CUE]/03. 大海.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xb3b804380] invalid sync code | [flac @ 0xb3b804380] invalid frame header | [flac @ 0xb3b804380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xb3b804380] invalid sync code | [flac @ 0xb3b804380] invalid frame header | [flac @ 0xb3b804380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "黄绮珊/黄绮珊《只有你》[WAV+CUE]/04. 我和你.flac",
+      "artistName": "黄绮珊",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  黄绮珊/黄绮珊《只有你》[WAV+CUE]/04. 我和你.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0xb52c44380] invalid sync code | [flac @ 0xb52c44380] invalid frame header | [flac @ 0xb52c44380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "黄绮珊",
+        "album": "黄绮珊《只有你》[WAV+CUE]",
+        "track": "04. 我和你.flac",
+        "relativePath": "黄绮珊/黄绮珊《只有你》[WAV+CUE]/04. 我和你.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xb52c44380] invalid sync code | [flac @ 0xb52c44380] invalid frame header | [flac @ 0xb52c44380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xb52c44380] invalid sync code | [flac @ 0xb52c44380] invalid frame header | [flac @ 0xb52c44380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "黄绮珊/黄绮珊《只有你》[WAV+CUE]/05. 珊珊来迟.flac",
+      "artistName": "黄绮珊",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  黄绮珊/黄绮珊《只有你》[WAV+CUE]/05. 珊珊来迟.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0xc02c64380] invalid sync code | [flac @ 0xc02c64380] invalid frame header | [flac @ 0xc02c64380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "黄绮珊",
+        "album": "黄绮珊《只有你》[WAV+CUE]",
+        "track": "05. 珊珊来迟.flac",
+        "relativePath": "黄绮珊/黄绮珊《只有你》[WAV+CUE]/05. 珊珊来迟.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xc02c64380] invalid sync code | [flac @ 0xc02c64380] invalid frame header | [flac @ 0xc02c64380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xc02c64380] invalid sync code | [flac @ 0xc02c64380] invalid frame header | [flac @ 0xc02c64380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "黄绮珊/黄绮珊《只有你》[WAV+CUE]/06. 彩虹.flac",
+      "artistName": "黄绮珊",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  黄绮珊/黄绮珊《只有你》[WAV+CUE]/06. 彩虹.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0xbab01c380] invalid sync code | [flac @ 0xbab01c380] invalid frame header | [flac @ 0xbab01c380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "黄绮珊",
+        "album": "黄绮珊《只有你》[WAV+CUE]",
+        "track": "06. 彩虹.flac",
+        "relativePath": "黄绮珊/黄绮珊《只有你》[WAV+CUE]/06. 彩虹.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xbab01c380] invalid sync code | [flac @ 0xbab01c380] invalid frame header | [flac @ 0xbab01c380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xbab01c380] invalid sync code | [flac @ 0xbab01c380] invalid frame header | [flac @ 0xbab01c380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "黄绮珊/黄绮珊《只有你》[WAV+CUE]/07. 一起歌唱.flac",
+      "artistName": "黄绮珊",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  黄绮珊/黄绮珊《只有你》[WAV+CUE]/07. 一起歌唱.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0xa72c48380] invalid sync code | [flac @ 0xa72c48380] invalid frame header | [flac @ 0xa72c48380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "黄绮珊",
+        "album": "黄绮珊《只有你》[WAV+CUE]",
+        "track": "07. 一起歌唱.flac",
+        "relativePath": "黄绮珊/黄绮珊《只有你》[WAV+CUE]/07. 一起歌唱.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xa72c48380] invalid sync code | [flac @ 0xa72c48380] invalid frame header | [flac @ 0xa72c48380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xa72c48380] invalid sync code | [flac @ 0xa72c48380] invalid frame header | [flac @ 0xa72c48380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "黄绮珊/黄绮珊《只有你》[WAV+CUE]/08. 我真想回到你身边.flac",
+      "artistName": "黄绮珊",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  黄绮珊/黄绮珊《只有你》[WAV+CUE]/08. 我真想回到你身边.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0xc04c40380] invalid sync code | [flac @ 0xc04c40380] invalid frame header | [flac @ 0xc04c40380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "黄绮珊",
+        "album": "黄绮珊《只有你》[WAV+CUE]",
+        "track": "08. 我真想回到你身边.flac",
+        "relativePath": "黄绮珊/黄绮珊《只有你》[WAV+CUE]/08. 我真想回到你身边.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xc04c40380] invalid sync code | [flac @ 0xc04c40380] invalid frame header | [flac @ 0xc04c40380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xc04c40380] invalid sync code | [flac @ 0xc04c40380] invalid frame header | [flac @ 0xc04c40380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "黄绮珊/黄绮珊《只有你》[WAV+CUE]/09. 大爱.flac",
+      "artistName": "黄绮珊",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  黄绮珊/黄绮珊《只有你》[WAV+CUE]/09. 大爱.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0x7f2c48380] invalid sync code | [flac @ 0x7f2c48380] invalid frame header | [flac @ 0x7f2c48380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "黄绮珊",
+        "album": "黄绮珊《只有你》[WAV+CUE]",
+        "track": "09. 大爱.flac",
+        "relativePath": "黄绮珊/黄绮珊《只有你》[WAV+CUE]/09. 大爱.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x7f2c48380] invalid sync code | [flac @ 0x7f2c48380] invalid frame header | [flac @ 0x7f2c48380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x7f2c48380] invalid sync code | [flac @ 0x7f2c48380] invalid frame header | [flac @ 0x7f2c48380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "黄绮珊/黄绮珊《只有你》[WAV+CUE]/10. Come On.flac",
+      "artistName": "黄绮珊",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  黄绮珊/黄绮珊《只有你》[WAV+CUE]/10. Come On.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0x8fec64380] invalid sync code | [flac @ 0x8fec64380] invalid frame header | [flac @ 0x8fec64380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "黄绮珊",
+        "album": "黄绮珊《只有你》[WAV+CUE]",
+        "track": "10. Come On.flac",
+        "relativePath": "黄绮珊/黄绮珊《只有你》[WAV+CUE]/10. Come On.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x8fec64380] invalid sync code | [flac @ 0x8fec64380] invalid frame header | [flac @ 0x8fec64380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x8fec64380] invalid sync code | [flac @ 0x8fec64380] invalid frame header | [flac @ 0x8fec64380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "黄绮珊/黄绮珊《只有你》[WAV+CUE]/11. 擦肩而过.flac",
+      "artistName": "黄绮珊",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  黄绮珊/黄绮珊《只有你》[WAV+CUE]/11. 擦肩而过.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0xbc8c48380] invalid sync code | [flac @ 0xbc8c48380] invalid frame header | [flac @ 0xbc8c48380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "黄绮珊",
+        "album": "黄绮珊《只有你》[WAV+CUE]",
+        "track": "11. 擦肩而过.flac",
+        "relativePath": "黄绮珊/黄绮珊《只有你》[WAV+CUE]/11. 擦肩而过.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xbc8c48380] invalid sync code | [flac @ 0xbc8c48380] invalid frame header | [flac @ 0xbc8c48380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xbc8c48380] invalid sync code | [flac @ 0xbc8c48380] invalid frame header | [flac @ 0xbc8c48380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "黄绮珊/黄绮珊《只有你》[WAV+CUE]/12. 似水流年.flac",
+      "artistName": "黄绮珊",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  黄绮珊/黄绮珊《只有你》[WAV+CUE]/12. 似水流年.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0xadd01c380] invalid sync code | [flac @ 0xadd01c380] invalid frame header | [flac @ 0xadd01c380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "黄绮珊",
+        "album": "黄绮珊《只有你》[WAV+CUE]",
+        "track": "12. 似水流年.flac",
+        "relativePath": "黄绮珊/黄绮珊《只有你》[WAV+CUE]/12. 似水流年.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xadd01c380] invalid sync code | [flac @ 0xadd01c380] invalid frame header | [flac @ 0xadd01c380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0xadd01c380] invalid sync code | [flac @ 0xadd01c380] invalid frame header | [flac @ 0xadd01c380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "黄绮珊/黄绮珊《只有你》[WAV+CUE]/13. 让爱随风.flac",
+      "artistName": "黄绮珊",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  黄绮珊/黄绮珊《只有你》[WAV+CUE]/13. 让爱随风.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0x96e820380] invalid sync code | [flac @ 0x96e820380] invalid frame header | [flac @ 0x96e820380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "黄绮珊",
+        "album": "黄绮珊《只有你》[WAV+CUE]",
+        "track": "13. 让爱随风.flac",
+        "relativePath": "黄绮珊/黄绮珊《只有你》[WAV+CUE]/13. 让爱随风.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x96e820380] invalid sync code | [flac @ 0x96e820380] invalid frame header | [flac @ 0x96e820380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x96e820380] invalid sync code | [flac @ 0x96e820380] invalid frame header | [flac @ 0x96e820380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "黄绮珊/黄绮珊《只有你》[WAV+CUE]/14. 爱吧.flac",
+      "artistName": "黄绮珊",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  黄绮珊/黄绮珊《只有你》[WAV+CUE]/14. 爱吧.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0x778c44380] invalid sync code | [flac @ 0x778c44380] invalid frame header | [flac @ 0x778c44380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "黄绮珊",
+        "album": "黄绮珊《只有你》[WAV+CUE]",
+        "track": "14. 爱吧.flac",
+        "relativePath": "黄绮珊/黄绮珊《只有你》[WAV+CUE]/14. 爱吧.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x778c44380] invalid sync code | [flac @ 0x778c44380] invalid frame header | [flac @ 0x778c44380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x778c44380] invalid sync code | [flac @ 0x778c44380] invalid frame header | [flac @ 0x778c44380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "黄绮珊/黄绮珊《只有你》[WAV+CUE]/15. 亚洲的骄傲.flac",
+      "artistName": "黄绮珊",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  黄绮珊/黄绮珊《只有你》[WAV+CUE]/15. 亚洲的骄傲.flac  (Strict decode failed after 0 samples (0.00s, 0.0% of declared samples))\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED | ffprobe probe: [flac @ 0x7c301c380] invalid sync code | [flac @ 0x7c301c380] invalid frame header | [flac @ 0x7c301c380] decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "黄绮珊",
+        "album": "黄绮珊《只有你》[WAV+CUE]",
+        "track": "15. 亚洲的骄傲.flac",
+        "relativePath": "黄绮珊/黄绮珊《只有你》[WAV+CUE]/15. 亚洲的骄傲.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x7c301c380] invalid sync code | [flac @ 0x7c301c380] invalid frame header | [flac @ 0x7c301c380] decode_frame() failed"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "[flac @ 0x7c301c380] invalid sync code | [flac @ 0x7c301c380] invalid frame header | [flac @ 0x7c301c380] decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | state = FLAC__STREAM_DECODER_ABORTED"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    },
+    {
+      "rel": "黎明/Leon Now/黎明-Dawn.flac",
+      "artistName": "黎明",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "黎明",
+        "album": "Leon Now",
+        "track": "黎明-Dawn.flac",
+        "relativePath": "黎明/Leon Now/黎明-Dawn.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "黎明/Leon Now/黎明-Ellie.flac",
+      "artistName": "黎明",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "黎明",
+        "album": "Leon Now",
+        "track": "黎明-Ellie.flac",
+        "relativePath": "黎明/Leon Now/黎明-Ellie.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "黎明/Leon Now/黎明-Prima Donna.flac",
+      "artistName": "黎明",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "黎明",
+        "album": "Leon Now",
+        "track": "黎明-Prima Donna.flac",
+        "relativePath": "黎明/Leon Now/黎明-Prima Donna.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "黎明/Leon Now/黎明-从今开始.flac",
+      "artistName": "黎明",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "黎明",
+        "album": "Leon Now",
+        "track": "黎明-从今开始.flac",
+        "relativePath": "黎明/Leon Now/黎明-从今开始.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "黎明/The Red Shoes/黎明-看上她.flac",
+      "artistName": "黎明",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "黎明",
+        "album": "The Red Shoes",
+        "track": "黎明-看上她.flac",
+        "relativePath": "黎明/The Red Shoes/黎明-看上她.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "黎明/今夜你会不会来/黎明-It's All Set.flac",
+      "artistName": "黎明",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "黎明",
+        "album": "今夜你会不会来",
+        "track": "黎明-It's All Set.flac",
+        "relativePath": "黎明/今夜你会不会来/黎明-It's All Set.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "黎明/今夜你会不会来/黎明-今夜你会不会来.flac",
+      "artistName": "黎明",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "黎明",
+        "album": "今夜你会不会来",
+        "track": "黎明-今夜你会不会来.flac",
+        "relativePath": "黎明/今夜你会不会来/黎明-今夜你会不会来.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "黎明/今夜你会不会来/黎明-朋友好久不见.flac",
+      "artistName": "黎明",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "黎明",
+        "album": "今夜你会不会来",
+        "track": "黎明-朋友好久不见.flac",
+        "relativePath": "黎明/今夜你会不会来/黎明-朋友好久不见.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "黎明/今夜你会不会来/黎明-梦无尽.flac",
+      "artistName": "黎明",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "黎明",
+        "album": "今夜你会不会来",
+        "track": "黎明-梦无尽.flac",
+        "relativePath": "黎明/今夜你会不会来/黎明-梦无尽.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "黎明/今夜你会不会来/黎明-爱还是不要说的好.flac",
+      "artistName": "黎明",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "黎明",
+        "album": "今夜你会不会来",
+        "track": "黎明-爱还是不要说的好.flac",
+        "relativePath": "黎明/今夜你会不会来/黎明-爱还是不要说的好.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "黎明/今夜你会不会来/黎明-风云尘烟.flac",
+      "artistName": "黎明",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "黎明",
+        "album": "今夜你会不会来",
+        "track": "黎明-风云尘烟.flac",
+        "relativePath": "黎明/今夜你会不会来/黎明-风云尘烟.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    }
+  ]
+}

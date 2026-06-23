@@ -1,0 +1,70 @@
+{
+  "batchId": 1,
+  "completedAt": "2026-06-19T19:53:12.176Z",
+  "count": 1,
+  "results": [
+    {
+      "rel": "Artist One/Album A/ffprobe-error.flac",
+      "artistName": "Artist One",
+      "statusLines": [
+        "  BROKEN_STRICT_DECODE_FAIL  Artist One/Album A/ffprobe-error.flac  (Strict decode failed)\n                     FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data | ffprobe probe: invalid sync code | decode_frame() failed"
+      ],
+      "error": null,
+      "bucket": "broken",
+      "diagnosis": {
+        "artist": "Artist One",
+        "album": "Album A",
+        "track": "ffprobe-error.flac",
+        "relativePath": "Artist One/Album A/ffprobe-error.flac",
+        "bucket": "broken",
+        "issues": [
+          "strict-decode-failed",
+          "ffprobe-audio-probe-failed"
+        ],
+        "knownRepairs": [],
+        "action": "redownload",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": false,
+          "tool": "ffprobe",
+          "message": "invalid sync code | decode_frame() failed"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "FLAC__STREAM_DECODER_ERROR_STATUS_LOST_SYNC | ERROR while decoding data"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 1,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeFailed": 1
+      },
+      "severity": {
+        "level": "BROKEN",
+        "reasons": [
+          "strict decode failed",
+          "ffprobe audio probe failed"
+        ]
+      }
+    }
+  ]
+}

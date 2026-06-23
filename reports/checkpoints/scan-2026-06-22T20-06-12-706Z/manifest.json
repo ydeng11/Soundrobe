@@ -1,0 +1,8 @@
+{
+  "topDir": "/private/tmp/auto-tagger-guo-repro/1990-对你爱不完-1",
+  "mode": "doctor",
+  "startedAt": "2026-06-22T20:06:12.716Z",
+  "totalFiles": 10,
+  "concurrency": 1,
+  "batchSize": 20
+}

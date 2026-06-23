@@ -1,0 +1,8 @@
+{
+  "topDir": "/Volumes/downloads/music",
+  "mode": "doctor",
+  "startedAt": "2026-06-20T04:49:56.138Z",
+  "totalFiles": 10934,
+  "concurrency": 8,
+  "batchSize": 100
+}

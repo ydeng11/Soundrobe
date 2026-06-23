@@ -1,0 +1,8 @@
+{
+  "topDir": "/var/folders/8f/l3kr58x50cqbm9k1qrtznjl40000gn/T/fix-flac-metadata-EjS8v6",
+  "mode": "doctor",
+  "startedAt": "2026-06-19T19:52:33.384Z",
+  "totalFiles": 2,
+  "concurrency": 4,
+  "batchSize": 200
+}

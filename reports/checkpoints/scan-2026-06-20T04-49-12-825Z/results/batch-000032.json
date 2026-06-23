@@ -1,0 +1,5810 @@
+{
+  "batchId": 32,
+  "completedAt": "2026-06-20T05:35:55.828Z",
+  "count": 100,
+  "results": [
+    {
+      "rel": "孙燕姿/2002-Start世界巡回演唱会/CD2/孙燕姿 - 爱情字典Love Dictionary.flac",
+      "artistName": "孙燕姿",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  孙燕姿/2002-Start世界巡回演唱会/CD2/孙燕姿 - 爱情字典Love Dictionary.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "孙燕姿",
+        "album": "2002-Start世界巡回演唱会 / CD2",
+        "track": "孙燕姿 - 爱情字典Love Dictionary.flac",
+        "relativePath": "孙燕姿/2002-Start世界巡回演唱会/CD2/孙燕姿 - 爱情字典Love Dictionary.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "孙燕姿/2002-Start世界巡回演唱会/CD2/孙燕姿 - 真的Really.flac",
+      "artistName": "孙燕姿",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  孙燕姿/2002-Start世界巡回演唱会/CD2/孙燕姿 - 真的Really.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "孙燕姿",
+        "album": "2002-Start世界巡回演唱会 / CD2",
+        "track": "孙燕姿 - 真的Really.flac",
+        "relativePath": "孙燕姿/2002-Start世界巡回演唱会/CD2/孙燕姿 - 真的Really.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "孙燕姿/2002-Start世界巡回演唱会/CD2/孙燕姿 - 绿光Green light.flac",
+      "artistName": "孙燕姿",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  孙燕姿/2002-Start世界巡回演唱会/CD2/孙燕姿 - 绿光Green light.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "孙燕姿",
+        "album": "2002-Start世界巡回演唱会 / CD2",
+        "track": "孙燕姿 - 绿光Green light.flac",
+        "relativePath": "孙燕姿/2002-Start世界巡回演唱会/CD2/孙燕姿 - 绿光Green light.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "孙燕姿/2002-Start世界巡回演唱会/CD2/孙燕姿 - 难得一见Only chance.flac",
+      "artistName": "孙燕姿",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  孙燕姿/2002-Start世界巡回演唱会/CD2/孙燕姿 - 难得一见Only chance.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "孙燕姿",
+        "album": "2002-Start世界巡回演唱会 / CD2",
+        "track": "孙燕姿 - 难得一见Only chance.flac",
+        "relativePath": "孙燕姿/2002-Start世界巡回演唱会/CD2/孙燕姿 - 难得一见Only chance.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "孙燕姿/2002-Start世界巡回演唱会/CD2/孙燕姿 - 零缺点Perfect.flac",
+      "artistName": "孙燕姿",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  孙燕姿/2002-Start世界巡回演唱会/CD2/孙燕姿 - 零缺点Perfect.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "孙燕姿",
+        "album": "2002-Start世界巡回演唱会 / CD2",
+        "track": "孙燕姿 - 零缺点Perfect.flac",
+        "relativePath": "孙燕姿/2002-Start世界巡回演唱会/CD2/孙燕姿 - 零缺点Perfect.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "孙燕姿/2002-离开/孙燕姿 - Leave.flac",
+      "artistName": "孙燕姿",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "孙燕姿",
+        "album": "2002-离开",
+        "track": "孙燕姿 - Leave.flac",
+        "relativePath": "孙燕姿/2002-离开/孙燕姿 - Leave.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "孙燕姿/2002-离开/孙燕姿 - We Will Get There (Sing Singapore 2002 Theme Song).flac",
+      "artistName": "孙燕姿",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "孙燕姿",
+        "album": "2002-离开",
+        "track": "孙燕姿 - We Will Get There (Sing Singapore 2002 Theme Song).flac",
+        "relativePath": "孙燕姿/2002-离开/孙燕姿 - We Will Get There (Sing Singapore 2002 Theme Song).flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "孙燕姿/2002-离开/孙燕姿 - 一样的夏天.flac",
+      "artistName": "孙燕姿",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "孙燕姿",
+        "album": "2002-离开",
+        "track": "孙燕姿 - 一样的夏天.flac",
+        "relativePath": "孙燕姿/2002-离开/孙燕姿 - 一样的夏天.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "孙燕姿/2002-离开/孙燕姿 - 一起走过.flac",
+      "artistName": "孙燕姿",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "孙燕姿",
+        "album": "2002-离开",
+        "track": "孙燕姿 - 一起走过.flac",
+        "relativePath": "孙燕姿/2002-离开/孙燕姿 - 一起走过.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "孙燕姿/2002-离开/孙燕姿 - 不同.flac",
+      "artistName": "孙燕姿",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "孙燕姿",
+        "album": "2002-离开",
+        "track": "孙燕姿 - 不同.flac",
+        "relativePath": "孙燕姿/2002-离开/孙燕姿 - 不同.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "孙燕姿/2002-离开/孙燕姿 - 作战.flac",
+      "artistName": "孙燕姿",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "孙燕姿",
+        "album": "2002-离开",
+        "track": "孙燕姿 - 作战.flac",
+        "relativePath": "孙燕姿/2002-离开/孙燕姿 - 作战.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "孙燕姿/2002-离开/孙燕姿 - 懂事.flac",
+      "artistName": "孙燕姿",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "孙燕姿",
+        "album": "2002-离开",
+        "track": "孙燕姿 - 懂事.flac",
+        "relativePath": "孙燕姿/2002-离开/孙燕姿 - 懂事.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "孙燕姿/2002-离开/孙燕姿 - 我不爱.flac",
+      "artistName": "孙燕姿",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "孙燕姿",
+        "album": "2002-离开",
+        "track": "孙燕姿 - 我不爱.flac",
+        "relativePath": "孙燕姿/2002-离开/孙燕姿 - 我不爱.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "孙燕姿/2002-离开/孙燕姿 - 我想.flac",
+      "artistName": "孙燕姿",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "孙燕姿",
+        "album": "2002-离开",
+        "track": "孙燕姿 - 我想.flac",
+        "relativePath": "孙燕姿/2002-离开/孙燕姿 - 我想.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "孙燕姿/2002-离开/孙燕姿 - 爱从零开始.flac",
+      "artistName": "孙燕姿",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "孙燕姿",
+        "album": "2002-离开",
+        "track": "孙燕姿 - 爱从零开始.flac",
+        "relativePath": "孙燕姿/2002-离开/孙燕姿 - 爱从零开始.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "孙燕姿/2002-离开/孙燕姿 - 直来直往.flac",
+      "artistName": "孙燕姿",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "孙燕姿",
+        "album": "2002-离开",
+        "track": "孙燕姿 - 直来直往.flac",
+        "relativePath": "孙燕姿/2002-离开/孙燕姿 - 直来直往.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "孙燕姿/2002-离开/孙燕姿 - 眼神.flac",
+      "artistName": "孙燕姿",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "孙燕姿",
+        "album": "2002-离开",
+        "track": "孙燕姿 - 眼神.flac",
+        "relativePath": "孙燕姿/2002-离开/孙燕姿 - 眼神.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "孙燕姿/2003-The Moment CD1/孙燕姿 - The Moment.flac",
+      "artistName": "孙燕姿",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  孙燕姿/2003-The Moment CD1/孙燕姿 - The Moment.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "孙燕姿",
+        "album": "2003-The Moment CD1",
+        "track": "孙燕姿 - The Moment.flac",
+        "relativePath": "孙燕姿/2003-The Moment CD1/孙燕姿 - The Moment.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "孙燕姿/2003-The Moment CD1/孙燕姿 - 不能和你一起.flac",
+      "artistName": "孙燕姿",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  孙燕姿/2003-The Moment CD1/孙燕姿 - 不能和你一起.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "孙燕姿",
+        "album": "2003-The Moment CD1",
+        "track": "孙燕姿 - 不能和你一起.flac",
+        "relativePath": "孙燕姿/2003-The Moment CD1/孙燕姿 - 不能和你一起.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "孙燕姿/2003-The Moment CD1/孙燕姿 - 太阳底下.flac",
+      "artistName": "孙燕姿",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  孙燕姿/2003-The Moment CD1/孙燕姿 - 太阳底下.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "孙燕姿",
+        "album": "2003-The Moment CD1",
+        "track": "孙燕姿 - 太阳底下.flac",
+        "relativePath": "孙燕姿/2003-The Moment CD1/孙燕姿 - 太阳底下.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "孙燕姿/2003-The Moment CD1/孙燕姿 - 懒得去管.flac",
+      "artistName": "孙燕姿",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  孙燕姿/2003-The Moment CD1/孙燕姿 - 懒得去管.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "孙燕姿",
+        "album": "2003-The Moment CD1",
+        "track": "孙燕姿 - 懒得去管.flac",
+        "relativePath": "孙燕姿/2003-The Moment CD1/孙燕姿 - 懒得去管.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "孙燕姿/2003-The Moment CD1/孙燕姿 - 遇见.flac",
+      "artistName": "孙燕姿",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  孙燕姿/2003-The Moment CD1/孙燕姿 - 遇见.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "孙燕姿",
+        "album": "2003-The Moment CD1",
+        "track": "孙燕姿 - 遇见.flac",
+        "relativePath": "孙燕姿/2003-The Moment CD1/孙燕姿 - 遇见.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "孙燕姿/2003-The Moment CD2/孙燕姿 - Someone.flac",
+      "artistName": "孙燕姿",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  孙燕姿/2003-The Moment CD2/孙燕姿 - Someone.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "孙燕姿",
+        "album": "2003-The Moment CD2",
+        "track": "孙燕姿 - Someone.flac",
+        "relativePath": "孙燕姿/2003-The Moment CD2/孙燕姿 - Someone.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "孙燕姿/2003-The Moment CD2/孙燕姿 - Tonight, I Feel Close To You.flac",
+      "artistName": "孙燕姿",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  孙燕姿/2003-The Moment CD2/孙燕姿 - Tonight, I Feel Close To You.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "孙燕姿",
+        "album": "2003-The Moment CD2",
+        "track": "孙燕姿 - Tonight, I Feel Close To You.flac",
+        "relativePath": "孙燕姿/2003-The Moment CD2/孙燕姿 - Tonight, I Feel Close To You.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "孙燕姿/2003-The Moment CD2/孙燕姿 - 任性.flac",
+      "artistName": "孙燕姿",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  孙燕姿/2003-The Moment CD2/孙燕姿 - 任性.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "孙燕姿",
+        "album": "2003-The Moment CD2",
+        "track": "孙燕姿 - 任性.flac",
+        "relativePath": "孙燕姿/2003-The Moment CD2/孙燕姿 - 任性.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "孙燕姿/2003-The Moment CD2/孙燕姿 - 天黑黑.flac",
+      "artistName": "孙燕姿",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  孙燕姿/2003-The Moment CD2/孙燕姿 - 天黑黑.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "孙燕姿",
+        "album": "2003-The Moment CD2",
+        "track": "孙燕姿 - 天黑黑.flac",
+        "relativePath": "孙燕姿/2003-The Moment CD2/孙燕姿 - 天黑黑.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "孙燕姿/2003-The Moment CD2/孙燕姿 - 害怕.flac",
+      "artistName": "孙燕姿",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  孙燕姿/2003-The Moment CD2/孙燕姿 - 害怕.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "孙燕姿",
+        "album": "2003-The Moment CD2",
+        "track": "孙燕姿 - 害怕.flac",
+        "relativePath": "孙燕姿/2003-The Moment CD2/孙燕姿 - 害怕.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "孙燕姿/2003-The Moment CD2/孙燕姿 - 很好.flac",
+      "artistName": "孙燕姿",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  孙燕姿/2003-The Moment CD2/孙燕姿 - 很好.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "孙燕姿",
+        "album": "2003-The Moment CD2",
+        "track": "孙燕姿 - 很好.flac",
+        "relativePath": "孙燕姿/2003-The Moment CD2/孙燕姿 - 很好.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "孙燕姿/2003-The Moment CD2/孙燕姿 - 我要的幸福.flac",
+      "artistName": "孙燕姿",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  孙燕姿/2003-The Moment CD2/孙燕姿 - 我要的幸福.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "孙燕姿",
+        "album": "2003-The Moment CD2",
+        "track": "孙燕姿 - 我要的幸福.flac",
+        "relativePath": "孙燕姿/2003-The Moment CD2/孙燕姿 - 我要的幸福.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "孙燕姿/2003-The Moment CD2/孙燕姿 - 橄榄树.flac",
+      "artistName": "孙燕姿",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  孙燕姿/2003-The Moment CD2/孙燕姿 - 橄榄树.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "孙燕姿",
+        "album": "2003-The Moment CD2",
+        "track": "孙燕姿 - 橄榄树.flac",
+        "relativePath": "孙燕姿/2003-The Moment CD2/孙燕姿 - 橄榄树.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "孙燕姿/2003-The Moment CD2/孙燕姿 - 永远.flac",
+      "artistName": "孙燕姿",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  孙燕姿/2003-The Moment CD2/孙燕姿 - 永远.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "孙燕姿",
+        "album": "2003-The Moment CD2",
+        "track": "孙燕姿 - 永远.flac",
+        "relativePath": "孙燕姿/2003-The Moment CD2/孙燕姿 - 永远.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "孙燕姿/2003-The Moment CD2/孙燕姿 - 没有人的方向.flac",
+      "artistName": "孙燕姿",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  孙燕姿/2003-The Moment CD2/孙燕姿 - 没有人的方向.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "孙燕姿",
+        "album": "2003-The Moment CD2",
+        "track": "孙燕姿 - 没有人的方向.flac",
+        "relativePath": "孙燕姿/2003-The Moment CD2/孙燕姿 - 没有人的方向.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "孙燕姿/2003-The Moment CD2/孙燕姿 - 真的.flac",
+      "artistName": "孙燕姿",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  孙燕姿/2003-The Moment CD2/孙燕姿 - 真的.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "孙燕姿",
+        "album": "2003-The Moment CD2",
+        "track": "孙燕姿 - 真的.flac",
+        "relativePath": "孙燕姿/2003-The Moment CD2/孙燕姿 - 真的.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "孙燕姿/2003-The Moment CD2/孙燕姿 - 眼神.flac",
+      "artistName": "孙燕姿",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  孙燕姿/2003-The Moment CD2/孙燕姿 - 眼神.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "孙燕姿",
+        "album": "2003-The Moment CD2",
+        "track": "孙燕姿 - 眼神.flac",
+        "relativePath": "孙燕姿/2003-The Moment CD2/孙燕姿 - 眼神.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "孙燕姿/2003-The Moment CD2/孙燕姿 - 超快感.flac",
+      "artistName": "孙燕姿",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  孙燕姿/2003-The Moment CD2/孙燕姿 - 超快感.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "孙燕姿",
+        "album": "2003-The Moment CD2",
+        "track": "孙燕姿 - 超快感.flac",
+        "relativePath": "孙燕姿/2003-The Moment CD2/孙燕姿 - 超快感.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "孙燕姿/2003-The Moment CD2/孙燕姿 - 逃亡.flac",
+      "artistName": "孙燕姿",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  孙燕姿/2003-The Moment CD2/孙燕姿 - 逃亡.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "孙燕姿",
+        "album": "2003-The Moment CD2",
+        "track": "孙燕姿 - 逃亡.flac",
+        "relativePath": "孙燕姿/2003-The Moment CD2/孙燕姿 - 逃亡.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "孙燕姿/2003-The Moment CD2/孙燕姿 - 风筝.flac",
+      "artistName": "孙燕姿",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  孙燕姿/2003-The Moment CD2/孙燕姿 - 风筝.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "孙燕姿",
+        "album": "2003-The Moment CD2",
+        "track": "孙燕姿 - 风筝.flac",
+        "relativePath": "孙燕姿/2003-The Moment CD2/孙燕姿 - 风筝.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "孙燕姿/2003-未完成/01-神奇(孙燕姿).flac",
+      "artistName": "孙燕姿",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "孙燕姿",
+        "album": "2003-未完成",
+        "track": "01-神奇(孙燕姿).flac",
+        "relativePath": "孙燕姿/2003-未完成/01-神奇(孙燕姿).flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "孙燕姿/2003-未完成/02-我不难过(孙燕姿).flac",
+      "artistName": "孙燕姿",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "孙燕姿",
+        "album": "2003-未完成",
+        "track": "02-我不难过(孙燕姿).flac",
+        "relativePath": "孙燕姿/2003-未完成/02-我不难过(孙燕姿).flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "孙燕姿/2003-未完成/03-永远(孙燕姿).flac",
+      "artistName": "孙燕姿",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "孙燕姿",
+        "album": "2003-未完成",
+        "track": "03-永远(孙燕姿).flac",
+        "relativePath": "孙燕姿/2003-未完成/03-永远(孙燕姿).flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "孙燕姿/2003-未完成/04-未完成(孙燕姿).flac",
+      "artistName": "孙燕姿",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "孙燕姿",
+        "album": "2003-未完成",
+        "track": "04-未完成(孙燕姿).flac",
+        "relativePath": "孙燕姿/2003-未完成/04-未完成(孙燕姿).flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "孙燕姿/2003-未完成/05-接下来(孙燕姿).flac",
+      "artistName": "孙燕姿",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "孙燕姿",
+        "album": "2003-未完成",
+        "track": "05-接下来(孙燕姿).flac",
+        "relativePath": "孙燕姿/2003-未完成/05-接下来(孙燕姿).flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "孙燕姿/2003-未完成/06-学会(孙燕姿).flac",
+      "artistName": "孙燕姿",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "孙燕姿",
+        "album": "2003-未完成",
+        "track": "06-学会(孙燕姿).flac",
+        "relativePath": "孙燕姿/2003-未完成/06-学会(孙燕姿).flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "孙燕姿/2003-未完成/07-年轻无极限(孙燕姿).flac",
+      "artistName": "孙燕姿",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "孙燕姿",
+        "album": "2003-未完成",
+        "track": "07-年轻无极限(孙燕姿).flac",
+        "relativePath": "孙燕姿/2003-未完成/07-年轻无极限(孙燕姿).flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "孙燕姿/2003-未完成/08-了解(孙燕姿).flac",
+      "artistName": "孙燕姿",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "孙燕姿",
+        "album": "2003-未完成",
+        "track": "08-了解(孙燕姿).flac",
+        "relativePath": "孙燕姿/2003-未完成/08-了解(孙燕姿).flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "孙燕姿/2003-未完成/09-休止符(孙燕姿).flac",
+      "artistName": "孙燕姿",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "孙燕姿",
+        "album": "2003-未完成",
+        "track": "09-休止符(孙燕姿).flac",
+        "relativePath": "孙燕姿/2003-未完成/09-休止符(孙燕姿).flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "孙燕姿/2003-未完成/10-没有人的方向+India ending(孙燕姿).flac",
+      "artistName": "孙燕姿",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "孙燕姿",
+        "album": "2003-未完成",
+        "track": "10-没有人的方向+India ending(孙燕姿).flac",
+        "relativePath": "孙燕姿/2003-未完成/10-没有人的方向+India ending(孙燕姿).flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "孙燕姿/2003-未完成/11-My story,your song(孙燕姿).flac",
+      "artistName": "孙燕姿",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "孙燕姿",
+        "album": "2003-未完成",
+        "track": "11-My story,your song(孙燕姿).flac",
+        "relativePath": "孙燕姿/2003-未完成/11-My story,your song(孙燕姿).flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "孙燕姿/2004-Stefanie/孙燕姿 - Bonus Track - Let's Vino.flac",
+      "artistName": "孙燕姿",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  孙燕姿/2004-Stefanie/孙燕姿 - Bonus Track - Let's Vino.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "孙燕姿",
+        "album": "2004-Stefanie",
+        "track": "孙燕姿 - Bonus Track - Let's Vino.flac",
+        "relativePath": "孙燕姿/2004-Stefanie/孙燕姿 - Bonus Track - Let's Vino.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "孙燕姿/2004-Stefanie/孙燕姿 - Bonus Track - 未知的精彩.flac",
+      "artistName": "孙燕姿",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  孙燕姿/2004-Stefanie/孙燕姿 - Bonus Track - 未知的精彩.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "孙燕姿",
+        "album": "2004-Stefanie",
+        "track": "孙燕姿 - Bonus Track - 未知的精彩.flac",
+        "relativePath": "孙燕姿/2004-Stefanie/孙燕姿 - Bonus Track - 未知的精彩.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "孙燕姿/2004-Stefanie/孙燕姿 - Stefanie.flac",
+      "artistName": "孙燕姿",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  孙燕姿/2004-Stefanie/孙燕姿 - Stefanie.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "孙燕姿",
+        "album": "2004-Stefanie",
+        "track": "孙燕姿 - Stefanie.flac",
+        "relativePath": "孙燕姿/2004-Stefanie/孙燕姿 - Stefanie.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "孙燕姿/2004-Stefanie/孙燕姿 - 反过来走走.flac",
+      "artistName": "孙燕姿",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  孙燕姿/2004-Stefanie/孙燕姿 - 反过来走走.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "孙燕姿",
+        "album": "2004-Stefanie",
+        "track": "孙燕姿 - 反过来走走.flac",
+        "relativePath": "孙燕姿/2004-Stefanie/孙燕姿 - 反过来走走.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "孙燕姿/2004-Stefanie/孙燕姿 - 同类.flac",
+      "artistName": "孙燕姿",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  孙燕姿/2004-Stefanie/孙燕姿 - 同类.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "孙燕姿",
+        "album": "2004-Stefanie",
+        "track": "孙燕姿 - 同类.flac",
+        "relativePath": "孙燕姿/2004-Stefanie/孙燕姿 - 同类.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "孙燕姿/2004-Stefanie/孙燕姿 - 听见.flac",
+      "artistName": "孙燕姿",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  孙燕姿/2004-Stefanie/孙燕姿 - 听见.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "孙燕姿",
+        "album": "2004-Stefanie",
+        "track": "孙燕姿 - 听见.flac",
+        "relativePath": "孙燕姿/2004-Stefanie/孙燕姿 - 听见.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "孙燕姿/2004-Stefanie/孙燕姿 - 奔.flac",
+      "artistName": "孙燕姿",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  孙燕姿/2004-Stefanie/孙燕姿 - 奔.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "孙燕姿",
+        "album": "2004-Stefanie",
+        "track": "孙燕姿 - 奔.flac",
+        "relativePath": "孙燕姿/2004-Stefanie/孙燕姿 - 奔.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "孙燕姿/2004-Stefanie/孙燕姿 - 慢慢来.flac",
+      "artistName": "孙燕姿",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  孙燕姿/2004-Stefanie/孙燕姿 - 慢慢来.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "孙燕姿",
+        "album": "2004-Stefanie",
+        "track": "孙燕姿 - 慢慢来.flac",
+        "relativePath": "孙燕姿/2004-Stefanie/孙燕姿 - 慢慢来.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "孙燕姿/2004-Stefanie/孙燕姿 - 我也很想他.flac",
+      "artistName": "孙燕姿",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  孙燕姿/2004-Stefanie/孙燕姿 - 我也很想他.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "孙燕姿",
+        "album": "2004-Stefanie",
+        "track": "孙燕姿 - 我也很想他.flac",
+        "relativePath": "孙燕姿/2004-Stefanie/孙燕姿 - 我也很想他.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "孙燕姿/2004-Stefanie/孙燕姿 - 我的爱.flac",
+      "artistName": "孙燕姿",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  孙燕姿/2004-Stefanie/孙燕姿 - 我的爱.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "孙燕姿",
+        "album": "2004-Stefanie",
+        "track": "孙燕姿 - 我的爱.flac",
+        "relativePath": "孙燕姿/2004-Stefanie/孙燕姿 - 我的爱.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "孙燕姿/2004-Stefanie/孙燕姿 - 祝你开心.flac",
+      "artistName": "孙燕姿",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  孙燕姿/2004-Stefanie/孙燕姿 - 祝你开心.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "孙燕姿",
+        "album": "2004-Stefanie",
+        "track": "孙燕姿 - 祝你开心.flac",
+        "relativePath": "孙燕姿/2004-Stefanie/孙燕姿 - 祝你开心.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "孙燕姿/2004-Stefanie/孙燕姿 - 种.flac",
+      "artistName": "孙燕姿",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  孙燕姿/2004-Stefanie/孙燕姿 - 种.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "孙燕姿",
+        "album": "2004-Stefanie",
+        "track": "孙燕姿 - 种.flac",
+        "relativePath": "孙燕姿/2004-Stefanie/孙燕姿 - 种.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "孙燕姿/2005-完美的一天/孫燕姿 - Honey Honey.flac",
+      "artistName": "孙燕姿",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "孙燕姿",
+        "album": "2005-完美的一天",
+        "track": "孫燕姿 - Honey Honey.flac",
+        "relativePath": "孙燕姿/2005-完美的一天/孫燕姿 - Honey Honey.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "孙燕姿/2005-完美的一天/孫燕姿 - 另一张脸.flac",
+      "artistName": "孙燕姿",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "孙燕姿",
+        "album": "2005-完美的一天",
+        "track": "孫燕姿 - 另一张脸.flac",
+        "relativePath": "孙燕姿/2005-完美的一天/孫燕姿 - 另一张脸.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "孙燕姿/2005-完美的一天/孫燕姿 - 完美的一天.flac",
+      "artistName": "孙燕姿",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "孙燕姿",
+        "album": "2005-完美的一天",
+        "track": "孫燕姿 - 完美的一天.flac",
+        "relativePath": "孙燕姿/2005-完美的一天/孫燕姿 - 完美的一天.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "孙燕姿/2005-完美的一天/孫燕姿 - 心愿.flac",
+      "artistName": "孙燕姿",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "孙燕姿",
+        "album": "2005-完美的一天",
+        "track": "孫燕姿 - 心愿.flac",
+        "relativePath": "孙燕姿/2005-完美的一天/孫燕姿 - 心愿.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "孙燕姿/2005-完美的一天/孫燕姿 - 明天晴天.flac",
+      "artistName": "孙燕姿",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "孙燕姿",
+        "album": "2005-完美的一天",
+        "track": "孫燕姿 - 明天晴天.flac",
+        "relativePath": "孙燕姿/2005-完美的一天/孫燕姿 - 明天晴天.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "孙燕姿/2005-完美的一天/孫燕姿 - 梦不落.flac",
+      "artistName": "孙燕姿",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "孙燕姿",
+        "album": "2005-完美的一天",
+        "track": "孫燕姿 - 梦不落.flac",
+        "relativePath": "孙燕姿/2005-完美的一天/孫燕姿 - 梦不落.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "孙燕姿/2005-完美的一天/孫燕姿 - 流浪地圖.flac",
+      "artistName": "孙燕姿",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "孙燕姿",
+        "album": "2005-完美的一天",
+        "track": "孫燕姿 - 流浪地圖.flac",
+        "relativePath": "孙燕姿/2005-完美的一天/孫燕姿 - 流浪地圖.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "孙燕姿/2005-完美的一天/孫燕姿 - 眼泪成诗.flac",
+      "artistName": "孙燕姿",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "孙燕姿",
+        "album": "2005-完美的一天",
+        "track": "孫燕姿 - 眼泪成诗.flac",
+        "relativePath": "孙燕姿/2005-完美的一天/孫燕姿 - 眼泪成诗.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "孙燕姿/2005-完美的一天/孫燕姿 - 第一天.flac",
+      "artistName": "孙燕姿",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "孙燕姿",
+        "album": "2005-完美的一天",
+        "track": "孫燕姿 - 第一天.flac",
+        "relativePath": "孙燕姿/2005-完美的一天/孫燕姿 - 第一天.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "孙燕姿/2005-完美的一天/孫燕姿 - 隱形人.flac",
+      "artistName": "孙燕姿",
+      "statusLines": [],
+      "error": null,
+      "bucket": "clean",
+      "diagnosis": {
+        "artist": "孙燕姿",
+        "album": "2005-完美的一天",
+        "track": "孫燕姿 - 隱形人.flac",
+        "relativePath": "孙燕姿/2005-完美的一天/孫燕姿 - 隱形人.flac",
+        "bucket": "clean",
+        "issues": [],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": null,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": null,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": true,
+          "tool": "flac -t -w"
+        }
+      },
+      "counters": {
+        "ok": 1,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 0,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 0
+      },
+      "severity": {
+        "level": "CLEAN",
+        "reasons": []
+      }
+    },
+    {
+      "rel": "孙燕姿/2006-My_Store,_Your_Song/2006-My_Story,_Your_Song_CD1/2006-My_Story,_Your_Song_CD1/孙燕姿 - Hey Jude.flac",
+      "artistName": "孙燕姿",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  孙燕姿/2006-My_Store,_Your_Song/2006-My_Story,_Your_Song_CD1/2006-My_Story,_Your_Song_CD1/孙燕姿 - Hey Jude.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "孙燕姿",
+        "album": "2006-My_Store,_Your_Song / 2006-My_Story,_Your_Song_CD1 / 2006-My_Story,_Your_Song_CD1",
+        "track": "孙燕姿 - Hey Jude.flac",
+        "relativePath": "孙燕姿/2006-My_Store,_Your_Song/2006-My_Story,_Your_Song_CD1/2006-My_Story,_Your_Song_CD1/孙燕姿 - Hey Jude.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "孙燕姿/2006-My_Store,_Your_Song/2006-My_Story,_Your_Song_CD1/2006-My_Story,_Your_Song_CD1/孙燕姿 - Honey Honey.flac",
+      "artistName": "孙燕姿",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  孙燕姿/2006-My_Store,_Your_Song/2006-My_Story,_Your_Song_CD1/2006-My_Story,_Your_Song_CD1/孙燕姿 - Honey Honey.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "孙燕姿",
+        "album": "2006-My_Store,_Your_Song / 2006-My_Story,_Your_Song_CD1 / 2006-My_Story,_Your_Song_CD1",
+        "track": "孙燕姿 - Honey Honey.flac",
+        "relativePath": "孙燕姿/2006-My_Store,_Your_Song/2006-My_Story,_Your_Song_CD1/2006-My_Story,_Your_Song_CD1/孙燕姿 - Honey Honey.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "孙燕姿/2006-My_Store,_Your_Song/2006-My_Story,_Your_Song_CD1/2006-My_Story,_Your_Song_CD1/孙燕姿 - Stefanie.flac",
+      "artistName": "孙燕姿",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  孙燕姿/2006-My_Store,_Your_Song/2006-My_Story,_Your_Song_CD1/2006-My_Story,_Your_Song_CD1/孙燕姿 - Stefanie.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "孙燕姿",
+        "album": "2006-My_Store,_Your_Song / 2006-My_Story,_Your_Song_CD1 / 2006-My_Story,_Your_Song_CD1",
+        "track": "孙燕姿 - Stefanie.flac",
+        "relativePath": "孙燕姿/2006-My_Store,_Your_Song/2006-My_Story,_Your_Song_CD1/2006-My_Story,_Your_Song_CD1/孙燕姿 - Stefanie.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "孙燕姿/2006-My_Store,_Your_Song/2006-My_Story,_Your_Song_CD1/2006-My_Story,_Your_Song_CD1/孙燕姿 - The Moment.flac",
+      "artistName": "孙燕姿",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  孙燕姿/2006-My_Store,_Your_Song/2006-My_Story,_Your_Song_CD1/2006-My_Story,_Your_Song_CD1/孙燕姿 - The Moment.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "孙燕姿",
+        "album": "2006-My_Store,_Your_Song / 2006-My_Story,_Your_Song_CD1 / 2006-My_Story,_Your_Song_CD1",
+        "track": "孙燕姿 - The Moment.flac",
+        "relativePath": "孙燕姿/2006-My_Store,_Your_Song/2006-My_Story,_Your_Song_CD1/2006-My_Story,_Your_Song_CD1/孙燕姿 - The Moment.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "孙燕姿/2006-My_Store,_Your_Song/2006-My_Story,_Your_Song_CD1/2006-My_Story,_Your_Song_CD1/孙燕姿 - 坏天气.flac",
+      "artistName": "孙燕姿",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  孙燕姿/2006-My_Store,_Your_Song/2006-My_Story,_Your_Song_CD1/2006-My_Story,_Your_Song_CD1/孙燕姿 - 坏天气.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "孙燕姿",
+        "album": "2006-My_Store,_Your_Song / 2006-My_Story,_Your_Song_CD1 / 2006-My_Story,_Your_Song_CD1",
+        "track": "孙燕姿 - 坏天气.flac",
+        "relativePath": "孙燕姿/2006-My_Store,_Your_Song/2006-My_Story,_Your_Song_CD1/2006-My_Story,_Your_Song_CD1/孙燕姿 - 坏天气.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "孙燕姿/2006-My_Store,_Your_Song/2006-My_Story,_Your_Song_CD1/2006-My_Story,_Your_Song_CD1/孙燕姿 - 天黑黑.flac",
+      "artistName": "孙燕姿",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  孙燕姿/2006-My_Store,_Your_Song/2006-My_Story,_Your_Song_CD1/2006-My_Story,_Your_Song_CD1/孙燕姿 - 天黑黑.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "孙燕姿",
+        "album": "2006-My_Store,_Your_Song / 2006-My_Story,_Your_Song_CD1 / 2006-My_Story,_Your_Song_CD1",
+        "track": "孙燕姿 - 天黑黑.flac",
+        "relativePath": "孙燕姿/2006-My_Store,_Your_Song/2006-My_Story,_Your_Song_CD1/2006-My_Story,_Your_Song_CD1/孙燕姿 - 天黑黑.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "孙燕姿/2006-My_Store,_Your_Song/2006-My_Story,_Your_Song_CD1/2006-My_Story,_Your_Song_CD1/孙燕姿 - 很好.flac",
+      "artistName": "孙燕姿",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  孙燕姿/2006-My_Store,_Your_Song/2006-My_Story,_Your_Song_CD1/2006-My_Story,_Your_Song_CD1/孙燕姿 - 很好.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "孙燕姿",
+        "album": "2006-My_Store,_Your_Song / 2006-My_Story,_Your_Song_CD1 / 2006-My_Story,_Your_Song_CD1",
+        "track": "孙燕姿 - 很好.flac",
+        "relativePath": "孙燕姿/2006-My_Store,_Your_Song/2006-My_Story,_Your_Song_CD1/2006-My_Story,_Your_Song_CD1/孙燕姿 - 很好.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "孙燕姿/2006-My_Store,_Your_Song/2006-My_Story,_Your_Song_CD1/2006-My_Story,_Your_Song_CD1/孙燕姿 - 懂事.flac",
+      "artistName": "孙燕姿",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  孙燕姿/2006-My_Store,_Your_Song/2006-My_Story,_Your_Song_CD1/2006-My_Story,_Your_Song_CD1/孙燕姿 - 懂事.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "孙燕姿",
+        "album": "2006-My_Store,_Your_Song / 2006-My_Story,_Your_Song_CD1 / 2006-My_Story,_Your_Song_CD1",
+        "track": "孙燕姿 - 懂事.flac",
+        "relativePath": "孙燕姿/2006-My_Store,_Your_Song/2006-My_Story,_Your_Song_CD1/2006-My_Story,_Your_Song_CD1/孙燕姿 - 懂事.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "孙燕姿/2006-My_Store,_Your_Song/2006-My_Story,_Your_Song_CD1/2006-My_Story,_Your_Song_CD1/孙燕姿 - 我也很想他.flac",
+      "artistName": "孙燕姿",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  孙燕姿/2006-My_Store,_Your_Song/2006-My_Story,_Your_Song_CD1/2006-My_Story,_Your_Song_CD1/孙燕姿 - 我也很想他.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "孙燕姿",
+        "album": "2006-My_Store,_Your_Song / 2006-My_Story,_Your_Song_CD1 / 2006-My_Story,_Your_Song_CD1",
+        "track": "孙燕姿 - 我也很想他.flac",
+        "relativePath": "孙燕姿/2006-My_Store,_Your_Song/2006-My_Story,_Your_Song_CD1/2006-My_Story,_Your_Song_CD1/孙燕姿 - 我也很想他.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "孙燕姿/2006-My_Store,_Your_Song/2006-My_Story,_Your_Song_CD1/2006-My_Story,_Your_Song_CD1/孙燕姿 - 我要的幸福.flac",
+      "artistName": "孙燕姿",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  孙燕姿/2006-My_Store,_Your_Song/2006-My_Story,_Your_Song_CD1/2006-My_Story,_Your_Song_CD1/孙燕姿 - 我要的幸福.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "孙燕姿",
+        "album": "2006-My_Store,_Your_Song / 2006-My_Story,_Your_Song_CD1 / 2006-My_Story,_Your_Song_CD1",
+        "track": "孙燕姿 - 我要的幸福.flac",
+        "relativePath": "孙燕姿/2006-My_Store,_Your_Song/2006-My_Story,_Your_Song_CD1/2006-My_Story,_Your_Song_CD1/孙燕姿 - 我要的幸福.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "孙燕姿/2006-My_Store,_Your_Song/2006-My_Story,_Your_Song_CD1/2006-My_Story,_Your_Song_CD1/孙燕姿 - 爱从零开始.flac",
+      "artistName": "孙燕姿",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  孙燕姿/2006-My_Store,_Your_Song/2006-My_Story,_Your_Song_CD1/2006-My_Story,_Your_Song_CD1/孙燕姿 - 爱从零开始.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "孙燕姿",
+        "album": "2006-My_Store,_Your_Song / 2006-My_Story,_Your_Song_CD1 / 2006-My_Story,_Your_Song_CD1",
+        "track": "孙燕姿 - 爱从零开始.flac",
+        "relativePath": "孙燕姿/2006-My_Store,_Your_Song/2006-My_Story,_Your_Song_CD1/2006-My_Story,_Your_Song_CD1/孙燕姿 - 爱从零开始.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "孙燕姿/2006-My_Store,_Your_Song/2006-My_Story,_Your_Song_CD1/2006-My_Story,_Your_Song_CD1/孙燕姿 - 相信.flac",
+      "artistName": "孙燕姿",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  孙燕姿/2006-My_Store,_Your_Song/2006-My_Story,_Your_Song_CD1/2006-My_Story,_Your_Song_CD1/孙燕姿 - 相信.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "孙燕姿",
+        "album": "2006-My_Store,_Your_Song / 2006-My_Story,_Your_Song_CD1 / 2006-My_Story,_Your_Song_CD1",
+        "track": "孙燕姿 - 相信.flac",
+        "relativePath": "孙燕姿/2006-My_Store,_Your_Song/2006-My_Story,_Your_Song_CD1/2006-My_Story,_Your_Song_CD1/孙燕姿 - 相信.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "孙燕姿/2006-My_Store,_Your_Song/2006-My_Story,_Your_Song_CD1/2006-My_Story,_Your_Song_CD1/孙燕姿 - 第一天.flac",
+      "artistName": "孙燕姿",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  孙燕姿/2006-My_Store,_Your_Song/2006-My_Story,_Your_Song_CD1/2006-My_Story,_Your_Song_CD1/孙燕姿 - 第一天.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "孙燕姿",
+        "album": "2006-My_Store,_Your_Song / 2006-My_Story,_Your_Song_CD1 / 2006-My_Story,_Your_Song_CD1",
+        "track": "孙燕姿 - 第一天.flac",
+        "relativePath": "孙燕姿/2006-My_Store,_Your_Song/2006-My_Story,_Your_Song_CD1/2006-My_Story,_Your_Song_CD1/孙燕姿 - 第一天.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "孙燕姿/2006-My_Store,_Your_Song/2006-My_Story,_Your_Song_CD1/2006-My_Story,_Your_Song_CD1/孙燕姿 - 雨天.flac",
+      "artistName": "孙燕姿",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  孙燕姿/2006-My_Store,_Your_Song/2006-My_Story,_Your_Song_CD1/2006-My_Story,_Your_Song_CD1/孙燕姿 - 雨天.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "孙燕姿",
+        "album": "2006-My_Store,_Your_Song / 2006-My_Story,_Your_Song_CD1 / 2006-My_Story,_Your_Song_CD1",
+        "track": "孙燕姿 - 雨天.flac",
+        "relativePath": "孙燕姿/2006-My_Store,_Your_Song/2006-My_Story,_Your_Song_CD1/2006-My_Story,_Your_Song_CD1/孙燕姿 - 雨天.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "孙燕姿/2006-My_Store,_Your_Song/2006-My_Story,_Your_Song_CD1/2006-My_Story,_Your_Song_CD1/孙燕姿 - 风筝.flac",
+      "artistName": "孙燕姿",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  孙燕姿/2006-My_Store,_Your_Song/2006-My_Story,_Your_Song_CD1/2006-My_Story,_Your_Song_CD1/孙燕姿 - 风筝.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "孙燕姿",
+        "album": "2006-My_Store,_Your_Song / 2006-My_Story,_Your_Song_CD1 / 2006-My_Story,_Your_Song_CD1",
+        "track": "孙燕姿 - 风筝.flac",
+        "relativePath": "孙燕姿/2006-My_Store,_Your_Song/2006-My_Story,_Your_Song_CD1/2006-My_Story,_Your_Song_CD1/孙燕姿 - 风筝.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "孙燕姿/2006-My_Store,_Your_Song/2006-My_Story,_Your_Song_CD2/2006-My_Story,_Your_Song_CD2/孙燕姿 - Leave me alone.flac",
+      "artistName": "孙燕姿",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  孙燕姿/2006-My_Store,_Your_Song/2006-My_Story,_Your_Song_CD2/2006-My_Story,_Your_Song_CD2/孙燕姿 - Leave me alone.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "孙燕姿",
+        "album": "2006-My_Store,_Your_Song / 2006-My_Story,_Your_Song_CD2 / 2006-My_Story,_Your_Song_CD2",
+        "track": "孙燕姿 - Leave me alone.flac",
+        "relativePath": "孙燕姿/2006-My_Store,_Your_Song/2006-My_Story,_Your_Song_CD2/2006-My_Story,_Your_Song_CD2/孙燕姿 - Leave me alone.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "孙燕姿/2006-My_Store,_Your_Song/2006-My_Story,_Your_Song_CD2/2006-My_Story,_Your_Song_CD2/孙燕姿 - Leave.flac",
+      "artistName": "孙燕姿",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  孙燕姿/2006-My_Store,_Your_Song/2006-My_Story,_Your_Song_CD2/2006-My_Story,_Your_Song_CD2/孙燕姿 - Leave.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "孙燕姿",
+        "album": "2006-My_Store,_Your_Song / 2006-My_Story,_Your_Song_CD2 / 2006-My_Story,_Your_Song_CD2",
+        "track": "孙燕姿 - Leave.flac",
+        "relativePath": "孙燕姿/2006-My_Store,_Your_Song/2006-My_Story,_Your_Song_CD2/2006-My_Story,_Your_Song_CD2/孙燕姿 - Leave.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "孙燕姿/2006-My_Store,_Your_Song/2006-My_Story,_Your_Song_CD2/2006-My_Story,_Your_Song_CD2/孙燕姿 - Our Memory.flac",
+      "artistName": "孙燕姿",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  孙燕姿/2006-My_Store,_Your_Song/2006-My_Story,_Your_Song_CD2/2006-My_Story,_Your_Song_CD2/孙燕姿 - Our Memory.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "孙燕姿",
+        "album": "2006-My_Store,_Your_Song / 2006-My_Story,_Your_Song_CD2 / 2006-My_Story,_Your_Song_CD2",
+        "track": "孙燕姿 - Our Memory.flac",
+        "relativePath": "孙燕姿/2006-My_Store,_Your_Song/2006-My_Story,_Your_Song_CD2/2006-My_Story,_Your_Song_CD2/孙燕姿 - Our Memory.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "孙燕姿/2006-My_Store,_Your_Song/2006-My_Story,_Your_Song_CD2/2006-My_Story,_Your_Song_CD2/孙燕姿 - Silent all these years.flac",
+      "artistName": "孙燕姿",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  孙燕姿/2006-My_Store,_Your_Song/2006-My_Story,_Your_Song_CD2/2006-My_Story,_Your_Song_CD2/孙燕姿 - Silent all these years.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "孙燕姿",
+        "album": "2006-My_Store,_Your_Song / 2006-My_Story,_Your_Song_CD2 / 2006-My_Story,_Your_Song_CD2",
+        "track": "孙燕姿 - Silent all these years.flac",
+        "relativePath": "孙燕姿/2006-My_Store,_Your_Song/2006-My_Story,_Your_Song_CD2/2006-My_Story,_Your_Song_CD2/孙燕姿 - Silent all these years.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "孙燕姿/2006-My_Store,_Your_Song/2006-My_Story,_Your_Song_CD2/2006-My_Story,_Your_Song_CD2/孙燕姿 - Someone.flac",
+      "artistName": "孙燕姿",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  孙燕姿/2006-My_Store,_Your_Song/2006-My_Story,_Your_Song_CD2/2006-My_Story,_Your_Song_CD2/孙燕姿 - Someone.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "孙燕姿",
+        "album": "2006-My_Store,_Your_Song / 2006-My_Story,_Your_Song_CD2 / 2006-My_Story,_Your_Song_CD2",
+        "track": "孙燕姿 - Someone.flac",
+        "relativePath": "孙燕姿/2006-My_Store,_Your_Song/2006-My_Story,_Your_Song_CD2/2006-My_Story,_Your_Song_CD2/孙燕姿 - Someone.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "孙燕姿/2006-My_Store,_Your_Song/2006-My_Story,_Your_Song_CD2/2006-My_Story,_Your_Song_CD2/孙燕姿 - 一样的夏天.flac",
+      "artistName": "孙燕姿",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  孙燕姿/2006-My_Store,_Your_Song/2006-My_Story,_Your_Song_CD2/2006-My_Story,_Your_Song_CD2/孙燕姿 - 一样的夏天.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "孙燕姿",
+        "album": "2006-My_Store,_Your_Song / 2006-My_Story,_Your_Song_CD2 / 2006-My_Story,_Your_Song_CD2",
+        "track": "孙燕姿 - 一样的夏天.flac",
+        "relativePath": "孙燕姿/2006-My_Store,_Your_Song/2006-My_Story,_Your_Song_CD2/2006-My_Story,_Your_Song_CD2/孙燕姿 - 一样的夏天.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "孙燕姿/2006-My_Store,_Your_Song/2006-My_Story,_Your_Song_CD2/2006-My_Story,_Your_Song_CD2/孙燕姿 - 了解.flac",
+      "artistName": "孙燕姿",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  孙燕姿/2006-My_Store,_Your_Song/2006-My_Story,_Your_Song_CD2/2006-My_Story,_Your_Song_CD2/孙燕姿 - 了解.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "孙燕姿",
+        "album": "2006-My_Store,_Your_Song / 2006-My_Story,_Your_Song_CD2 / 2006-My_Story,_Your_Song_CD2",
+        "track": "孙燕姿 - 了解.flac",
+        "relativePath": "孙燕姿/2006-My_Store,_Your_Song/2006-My_Story,_Your_Song_CD2/2006-My_Story,_Your_Song_CD2/孙燕姿 - 了解.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "孙燕姿/2006-My_Store,_Your_Song/2006-My_Story,_Your_Song_CD2/2006-My_Story,_Your_Song_CD2/孙燕姿 - 任性.flac",
+      "artistName": "孙燕姿",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  孙燕姿/2006-My_Store,_Your_Song/2006-My_Story,_Your_Song_CD2/2006-My_Story,_Your_Song_CD2/孙燕姿 - 任性.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "孙燕姿",
+        "album": "2006-My_Store,_Your_Song / 2006-My_Story,_Your_Song_CD2 / 2006-My_Story,_Your_Song_CD2",
+        "track": "孙燕姿 - 任性.flac",
+        "relativePath": "孙燕姿/2006-My_Store,_Your_Song/2006-My_Story,_Your_Song_CD2/2006-My_Story,_Your_Song_CD2/孙燕姿 - 任性.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "孙燕姿/2006-My_Store,_Your_Song/2006-My_Story,_Your_Song_CD2/2006-My_Story,_Your_Song_CD2/孙燕姿 - 害怕.flac",
+      "artistName": "孙燕姿",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  孙燕姿/2006-My_Store,_Your_Song/2006-My_Story,_Your_Song_CD2/2006-My_Story,_Your_Song_CD2/孙燕姿 - 害怕.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "孙燕姿",
+        "album": "2006-My_Store,_Your_Song / 2006-My_Story,_Your_Song_CD2 / 2006-My_Story,_Your_Song_CD2",
+        "track": "孙燕姿 - 害怕.flac",
+        "relativePath": "孙燕姿/2006-My_Store,_Your_Song/2006-My_Story,_Your_Song_CD2/2006-My_Story,_Your_Song_CD2/孙燕姿 - 害怕.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "孙燕姿/2006-My_Store,_Your_Song/2006-My_Story,_Your_Song_CD2/2006-My_Story,_Your_Song_CD2/孙燕姿 - 慢慢来.flac",
+      "artistName": "孙燕姿",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  孙燕姿/2006-My_Store,_Your_Song/2006-My_Story,_Your_Song_CD2/2006-My_Story,_Your_Song_CD2/孙燕姿 - 慢慢来.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "孙燕姿",
+        "album": "2006-My_Store,_Your_Song / 2006-My_Story,_Your_Song_CD2 / 2006-My_Story,_Your_Song_CD2",
+        "track": "孙燕姿 - 慢慢来.flac",
+        "relativePath": "孙燕姿/2006-My_Store,_Your_Song/2006-My_Story,_Your_Song_CD2/2006-My_Story,_Your_Song_CD2/孙燕姿 - 慢慢来.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "孙燕姿/2006-My_Store,_Your_Song/2006-My_Story,_Your_Song_CD2/2006-My_Story,_Your_Song_CD2/孙燕姿 - 明天晴天.flac",
+      "artistName": "孙燕姿",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  孙燕姿/2006-My_Store,_Your_Song/2006-My_Story,_Your_Song_CD2/2006-My_Story,_Your_Song_CD2/孙燕姿 - 明天晴天.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "孙燕姿",
+        "album": "2006-My_Store,_Your_Song / 2006-My_Story,_Your_Song_CD2 / 2006-My_Story,_Your_Song_CD2",
+        "track": "孙燕姿 - 明天晴天.flac",
+        "relativePath": "孙燕姿/2006-My_Store,_Your_Song/2006-My_Story,_Your_Song_CD2/2006-My_Story,_Your_Song_CD2/孙燕姿 - 明天晴天.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "孙燕姿/2006-My_Store,_Your_Song/2006-My_Story,_Your_Song_CD2/2006-My_Story,_Your_Song_CD2/孙燕姿 - 梦不落.flac",
+      "artistName": "孙燕姿",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  孙燕姿/2006-My_Store,_Your_Song/2006-My_Story,_Your_Song_CD2/2006-My_Story,_Your_Song_CD2/孙燕姿 - 梦不落.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "孙燕姿",
+        "album": "2006-My_Store,_Your_Song / 2006-My_Story,_Your_Song_CD2 / 2006-My_Story,_Your_Song_CD2",
+        "track": "孙燕姿 - 梦不落.flac",
+        "relativePath": "孙燕姿/2006-My_Store,_Your_Song/2006-My_Story,_Your_Song_CD2/2006-My_Story,_Your_Song_CD2/孙燕姿 - 梦不落.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "孙燕姿/2006-My_Store,_Your_Song/2006-My_Story,_Your_Song_CD2/2006-My_Story,_Your_Song_CD2/孙燕姿 - 浓眉毛.flac",
+      "artistName": "孙燕姿",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  孙燕姿/2006-My_Store,_Your_Song/2006-My_Story,_Your_Song_CD2/2006-My_Story,_Your_Song_CD2/孙燕姿 - 浓眉毛.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "孙燕姿",
+        "album": "2006-My_Store,_Your_Song / 2006-My_Story,_Your_Song_CD2 / 2006-My_Story,_Your_Song_CD2",
+        "track": "孙燕姿 - 浓眉毛.flac",
+        "relativePath": "孙燕姿/2006-My_Store,_Your_Song/2006-My_Story,_Your_Song_CD2/2006-My_Story,_Your_Song_CD2/孙燕姿 - 浓眉毛.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "孙燕姿/2006-My_Store,_Your_Song/2006-My_Story,_Your_Song_CD2/2006-My_Story,_Your_Song_CD2/孙燕姿 - 神奇.flac",
+      "artistName": "孙燕姿",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  孙燕姿/2006-My_Store,_Your_Song/2006-My_Story,_Your_Song_CD2/2006-My_Story,_Your_Song_CD2/孙燕姿 - 神奇.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "孙燕姿",
+        "album": "2006-My_Store,_Your_Song / 2006-My_Story,_Your_Song_CD2 / 2006-My_Story,_Your_Song_CD2",
+        "track": "孙燕姿 - 神奇.flac",
+        "relativePath": "孙燕姿/2006-My_Store,_Your_Song/2006-My_Story,_Your_Song_CD2/2006-My_Story,_Your_Song_CD2/孙燕姿 - 神奇.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    },
+    {
+      "rel": "孙燕姿/2006-My_Store,_Your_Song/2006-My_Story,_Your_Song_CD2/2006-My_Story,_Your_Song_CD2/孙燕姿 - 第六感.flac",
+      "artistName": "孙燕姿",
+      "statusLines": [
+        "  MEDIUM_STRICT_DECODE_PLAYABLE  孙燕姿/2006-My_Store,_Your_Song/2006-My_Story,_Your_Song_CD2/2006-My_Story,_Your_Song_CD2/孙燕姿 - 第六感.flac  (Playable by ffmpeg; strict FLAC decode reported an error)\n                              testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+      ],
+      "error": null,
+      "bucket": "medium",
+      "diagnosis": {
+        "artist": "孙燕姿",
+        "album": "2006-My_Store,_Your_Song / 2006-My_Story,_Your_Song_CD2 / 2006-My_Story,_Your_Song_CD2",
+        "track": "孙燕姿 - 第六感.flac",
+        "relativePath": "孙燕姿/2006-My_Store,_Your_Song/2006-My_Story,_Your_Song_CD2/2006-My_Story,_Your_Song_CD2/孙燕姿 - 第六感.flac",
+        "bucket": "medium",
+        "issues": [
+          "strict-decode-invalid-playable"
+        ],
+        "knownRepairs": [],
+        "action": "none",
+        "playback": {
+          "ok": true,
+          "tool": "ffmpeg"
+        },
+        "probe": {
+          "ok": true,
+          "tool": "ffprobe"
+        },
+        "strict": {
+          "ok": false,
+          "tool": "flac -t -w",
+          "message": "testing, 99% complete\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\bERROR, decoded number of samples is smaller than the total number of samples set in the STREAMINFO"
+        }
+      },
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixed": 0,
+        "fixFailed": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 1
+      },
+      "severity": {
+        "level": "MEDIUM",
+        "reasons": [
+          "strict decode invalid playable"
+        ]
+      }
+    }
+  ]
+}

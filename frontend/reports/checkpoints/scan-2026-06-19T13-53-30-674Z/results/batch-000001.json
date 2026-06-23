@@ -1,0 +1,40 @@
+{
+  "batchId": 1,
+  "completedAt": "2026-06-19T13:53:30.894Z",
+  "count": 1,
+  "results": [
+    {
+      "rel": "Artist One/Album A/playable-warning.flac",
+      "artistName": "Artist One",
+      "statusLines": [
+        "  WARNING_STRICT_DECODE  Artist One/Album A/playable-warning.flac  (Playable but strict decode reported a warning)\n                         WARNING, cannot check MD5 signature since it was unset in the STREAMINFO | ok"
+      ],
+      "error": null,
+      "counters": {
+        "ok": 0,
+        "errors": 0,
+        "vorbisMismatch": 0,
+        "audioCorrupted": 0,
+        "strictDecodeFailed": 0,
+        "strictDecodeWarnings": 1,
+        "playableStrictDecodeFailures": 0,
+        "strictDecodeUnchecked": 0,
+        "fixedVorbis": 0,
+        "fixedAudio": 0,
+        "fixedChain": 0,
+        "fixedStrictDecode": 0
+      },
+      "artistDelta": {
+        "totalFiles": 1,
+        "filesWithIssues": 1,
+        "strictDecodeWarnings": 1
+      },
+      "severity": {
+        "level": "WARNING",
+        "reasons": [
+          "playable strict decode warning"
+        ]
+      }
+    }
+  ]
+}
