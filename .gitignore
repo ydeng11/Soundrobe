@@ -54,6 +54,7 @@ dmypy.json
 *.log
 .cache/
 *.db
+reports/
 
 # Test data
 tests/fixtures/data/coverage.json
