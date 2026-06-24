@@ -109,10 +109,6 @@ const METADATA_EDITOR_KEYS = new Set([
   // Embedded artwork — not shown as extra tags
   "METADATA_BLOCK_PICTURE",
   "APIC",
-  // Standard ID3v2 Comment frame — managed via sidebar editor, not extra tags
-  "COMM",
-  // Standard Vorbis Comment tag (FLAC/OGG/OPUS) — managed via sidebar editor
-  "COMMENT",
 ]);
 
 export function isAudioFile(filePath: string): boolean {
