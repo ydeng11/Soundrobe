@@ -75,6 +75,8 @@ export class DiscogsClient {
   private maxCandidates: number;
   private timeoutMs: number;
   private releaseCache: ReleaseCache | null;
+  private inFlightReleasePages: Map<string, Promise<ReleaseMeta[]>> | null;
+  private inFlightReleaseDetails: Map<string, Promise<AlbumCandidate | null>> | null;
 
   constructor(options?: {
     token?: string | null;
@@ -82,6 +84,8 @@ export class DiscogsClient {
     maxCandidates?: number;
     timeoutSeconds?: number;
     releaseCache?: ReleaseCache | null;
+    inFlightReleasePages?: Map<string, Promise<ReleaseMeta[]>>;
+    inFlightReleaseDetails?: Map<string, Promise<AlbumCandidate | null>>;
   }) {
     this.baseUrl = DISCOGS_BASE;
     this.token = options?.token ?? null;
@@ -89,6 +93,8 @@ export class DiscogsClient {
     this.maxCandidates = options?.maxCandidates ?? 3;
     this.timeoutMs = (options?.timeoutSeconds ?? 20) * 1000;
     this.releaseCache = options?.releaseCache ?? null;
+    this.inFlightReleasePages = options?.inFlightReleasePages ?? null;
+    this.inFlightReleaseDetails = options?.inFlightReleaseDetails ?? null;
     // Update shared rate limiter when token is present
     updateDiscogsRateLimit(!!this.token);
   }
@@ -272,6 +278,22 @@ export class DiscogsClient {
     const cached = this.releaseCache?.getReleaseDetail("discogs", releaseId);
     if (cached) return cached;
 
+    const key = `discogs:release:${releaseId}`;
+    const inFlight = this.inFlightReleaseDetails?.get(key);
+    if (inFlight) return inFlight;
+
+    const promise = this.fetchReleaseById(releaseId).then((candidate) => {
+      if (!candidate) this.inFlightReleaseDetails?.delete(key);
+      return candidate;
+    }, (err) => {
+      this.inFlightReleaseDetails?.delete(key);
+      throw err;
+    });
+    this.inFlightReleaseDetails?.set(key, promise);
+    return promise;
+  }
+
+  private async fetchReleaseById(releaseId: string): Promise<AlbumCandidate | null> {
     await sharedDiscogsRateLimiter.wait();
     const url = `${this.baseUrl}/releases/${releaseId}`;
 
@@ -362,6 +384,26 @@ export class DiscogsClient {
     const cached = this.releaseCache?.getArtistReleaseList("discogs", artistId, page);
     if (cached) return cached;
 
+    const key = `discogs:artist:${artistId}:page:${page}:perPage:${perPage}`;
+    const inFlight = this.inFlightReleasePages?.get(key);
+    if (inFlight) return inFlight;
+
+    const promise = this.fetchArtistReleasePage(artistId, page, perPage).then((releases) => {
+      if (releases.length === 0) this.inFlightReleasePages?.delete(key);
+      return releases;
+    }, (err) => {
+      this.inFlightReleasePages?.delete(key);
+      throw err;
+    });
+    this.inFlightReleasePages?.set(key, promise);
+    return promise;
+  }
+
+  private async fetchArtistReleasePage(
+    artistId: string,
+    page: number,
+    perPage: number,
+  ): Promise<ReleaseMeta[]> {
     await sharedDiscogsRateLimiter.wait();
     const url = `${this.baseUrl}/artists/${artistId}/releases?per_page=${perPage}&page=${page}&sort=year&sort_order=desc`;
 

@@ -37,14 +37,25 @@ async function musicBrainzRateLimit(): Promise<void> {
 export class MusicBrainzClient {
   private baseUrl: string;
   private releaseCache: ReleaseCache | null;
+  private inFlightReleasePages: Map<string, Promise<ReleaseMeta[]>> | null;
+  private inFlightReleaseDetails: Map<string, Promise<AlbumCandidate | null>> | null;
 
-  constructor(options?: string | { baseUrl?: string; releaseCache?: ReleaseCache | null }) {
+  constructor(options?: string | {
+    baseUrl?: string;
+    releaseCache?: ReleaseCache | null;
+    inFlightReleasePages?: Map<string, Promise<ReleaseMeta[]>>;
+    inFlightReleaseDetails?: Map<string, Promise<AlbumCandidate | null>>;
+  }) {
     if (typeof options === "string") {
       this.baseUrl = options;
       this.releaseCache = null;
+      this.inFlightReleasePages = null;
+      this.inFlightReleaseDetails = null;
     } else {
       this.baseUrl = options?.baseUrl ?? MUSICBRAINZ_BASE;
       this.releaseCache = options?.releaseCache ?? null;
+      this.inFlightReleasePages = options?.inFlightReleasePages ?? null;
+      this.inFlightReleaseDetails = options?.inFlightReleaseDetails ?? null;
     }
   }
 
@@ -131,6 +142,22 @@ export class MusicBrainzClient {
     const cached = this.releaseCache?.getReleaseDetail("musicbrainz", releaseId);
     if (cached) return cached;
 
+    const key = `musicbrainz:release:${releaseId}`;
+    const inFlight = this.inFlightReleaseDetails?.get(key);
+    if (inFlight) return inFlight;
+
+    const promise = this.fetchReleaseById(releaseId).then((candidate) => {
+      if (!candidate) this.inFlightReleaseDetails?.delete(key);
+      return candidate;
+    }, (err) => {
+      this.inFlightReleaseDetails?.delete(key);
+      throw err;
+    });
+    this.inFlightReleaseDetails?.set(key, promise);
+    return promise;
+  }
+
+  private async fetchReleaseById(releaseId: string): Promise<AlbumCandidate | null> {
     await musicBrainzRateLimit();
 
     const url = `${this.baseUrl}/release/${releaseId}?fmt=json&inc=recordings+artist-credits`;
@@ -222,6 +249,26 @@ export class MusicBrainzClient {
     const cached = this.releaseCache?.getArtistReleaseList("musicbrainz", artistId, page);
     if (cached) return cached;
 
+    const key = `musicbrainz:artist:${artistId}:page:${page}:limit:${limit}`;
+    const inFlight = this.inFlightReleasePages?.get(key);
+    if (inFlight) return inFlight;
+
+    const promise = this.fetchArtistReleasePage(artistId, page, limit).then((releases) => {
+      if (releases.length === 0) this.inFlightReleasePages?.delete(key);
+      return releases;
+    }, (err) => {
+      this.inFlightReleasePages?.delete(key);
+      throw err;
+    });
+    this.inFlightReleasePages?.set(key, promise);
+    return promise;
+  }
+
+  private async fetchArtistReleasePage(
+    artistId: string,
+    page: number,
+    limit: number,
+  ): Promise<ReleaseMeta[]> {
     await musicBrainzRateLimit();
     const offset = (page - 1) * limit;
     const url = `${this.baseUrl}/release?artist=${encodeURIComponent(artistId)}&limit=${limit}&offset=${offset}&fmt=json&inc=artist-credits`;

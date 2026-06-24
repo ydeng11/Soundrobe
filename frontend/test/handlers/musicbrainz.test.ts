@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, afterAll } from "vitest";
 import { MusicBrainzClient } from "../../electron/handlers/musicbrainz";
+import type { AlbumCandidate } from "../../electron/handlers/candidates";
 import type { ReleaseMeta } from "../../electron/handlers/cache";
 
 describe("MusicBrainzClient", () => {
@@ -196,6 +197,71 @@ describe("MusicBrainzClient", () => {
     expect(candidate).not.toBeNull();
     expect(vi.mocked(globalThis.fetch)).toHaveBeenCalledTimes(1);
     expect(String(vi.mocked(globalThis.fetch).mock.calls[0][0])).toContain("/release/mb-good");
+  });
+
+  it("coalesces concurrent artist release page and release detail requests", async () => {
+    const inFlightReleasePages = new Map<string, Promise<ReleaseMeta[]>>();
+    const inFlightReleaseDetails = new Map<string, Promise<AlbumCandidate | null>>();
+    globalThis.fetch = vi.fn().mockImplementation(async (url: string) => {
+      if (url.includes("/release?")) {
+        await new Promise((resolve) => setTimeout(resolve, 10));
+        return mockReleaseResponse([
+          {
+            id: "mb-good",
+            title: "看我72变",
+            date: "2003-03-07",
+            "artist-credit": [{ name: "蔡依林", artist: { id: "mb-artist-1" } }],
+          },
+        ]);
+      }
+      if (url.includes("/release/mb-good")) {
+        await new Promise((resolve) => setTimeout(resolve, 10));
+        return {
+          ok: true,
+          json: async () => ({
+            id: "mb-good",
+            title: "看我72变",
+            date: "2003-03-07",
+            "artist-credit": [{ name: "蔡依林", artist: { id: "mb-artist-1" } }],
+            media: [],
+          }),
+        };
+      }
+      return { ok: false };
+    });
+
+    const client1 = new MusicBrainzClient({
+      inFlightReleasePages,
+      inFlightReleaseDetails,
+    });
+    const client2 = new MusicBrainzClient({
+      inFlightReleasePages,
+      inFlightReleaseDetails,
+    });
+
+    const [first, second] = await Promise.all([
+      client1.lookupArtistReleaseByAlbum("mb-artist-1", "看我72变"),
+      client2.lookupArtistReleaseByAlbum("mb-artist-1", "看我72变"),
+    ]);
+
+    expect(first?.musicbrainzAlbumId).toBe("mb-good");
+    expect(second?.musicbrainzAlbumId).toBe("mb-good");
+    expect(vi.mocked(globalThis.fetch)).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not keep failed in-flight artist release page requests", async () => {
+    const inFlightReleasePages = new Map<string, Promise<ReleaseMeta[]>>();
+    globalThis.fetch = vi.fn()
+      .mockRejectedValueOnce(new Error("temporary outage"))
+      .mockResolvedValueOnce(mockReleaseResponse([]));
+
+    const client = new MusicBrainzClient({ inFlightReleasePages });
+
+    await expect(client.lookupArtistReleaseByAlbum("mb-artist-1", "Album"))
+      .resolves.toBeNull();
+    await expect(client.lookupArtistReleaseByAlbum("mb-artist-1", "Album"))
+      .resolves.toBeNull();
+    expect(vi.mocked(globalThis.fetch)).toHaveBeenCalledTimes(2);
   });
 
   it("shares rate limiter across instances (app-wide 1 req/sec)", async () => {

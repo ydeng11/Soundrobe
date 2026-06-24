@@ -52,6 +52,7 @@ import {
   refreshConfig,
   onAutoTagEvent,
   buildAliasedLookupVariants,
+  mergeAutoTagCandidateFields,
 } from "../../electron/handlers/auto-tag";
 import { setAliasFilePath, saveAlias } from "../../electron/handlers/aliases";
 import { makeAlbumCandidate, makeLookupRequest, makeTrackCandidate } from "../../electron/handlers/candidates";
@@ -143,6 +144,45 @@ describe("filterCandidatesForAutoApply", () => {
     ]);
 
     expect(filtered).toEqual([safeFolderFallback]);
+  });
+});
+
+describe("mergeAutoTagCandidateFields", () => {
+  it("prefers provider evidence over LLM and folder fallbacks", () => {
+    const provider = makeAlbumCandidate({
+      source: "musicbrainz",
+      artist: "蔡依林",
+      album: "看我72变",
+      year: "2003",
+      musicbrainzAlbumId: "mb-release",
+      musicbrainzArtistId: "mb-artist",
+      tracks: [
+        makeTrackCandidate({ title: "说爱你", trackNumber: 1 }),
+      ],
+    });
+    const llm = makeAlbumCandidate({
+      source: "llm",
+      artist: "Jolin Tsai",
+      album: "Magic",
+      genre: "Mandopop",
+      tracks: [
+        makeTrackCandidate({ title: "Say Love You", trackNumber: 1 }),
+      ],
+    });
+    const folder = makeAlbumCandidate({
+      source: "folder",
+      artist: "蔡依林",
+      album: "2003-看我72变",
+      tracks: [],
+    });
+
+    const [merged] = mergeAutoTagCandidateFields([llm, folder, provider]);
+
+    expect(merged.source).toBe("musicbrainz");
+    expect(merged.artist).toBe("蔡依林");
+    expect(merged.album).toBe("看我72变");
+    expect(merged.musicbrainzAlbumId).toBe("mb-release");
+    expect(merged.genre).toBe("Mandopop");
   });
 });
 
@@ -884,6 +924,46 @@ describe("resolveTagsViaLLM — full pipeline with mocked LLM", () => {
       const meta = await parseFile(trackPath);
       expect(meta.common.album).toBe("Album");
       expect(meta.common.artist).toBe("Artist");
+    } finally {
+      process.env = { ...originalEnv };
+      refreshConfig();
+      rmSync(tmpHome, { recursive: true, force: true });
+    }
+  });
+
+  it("does not query or emit local dataset lookup during auto-tag", async () => {
+    const originalEnv = { ...process.env };
+    const tmpHome = mkdtempSync(join(tmpdir(), "auto-tag-no-dataset-"));
+    process.env.HOME = tmpHome;
+    delete process.env.LLM_API_KEY;
+    delete process.env.LLM_MODEL;
+    process.env.AUTO_TAG_REMOTE_LOOKUP = "false";
+    process.env.AUTO_TAG_DISCOGS_ENABLED = "false";
+
+    try {
+      const albumDir = join(tmpHome, "Artist", "Album");
+      mkdirSync(albumDir, { recursive: true });
+      const trackPath = join(albumDir, "01 Track.flac");
+      const block = vorbisCommentBlock(
+        ["TITLE=Original", "ARTIST=Artist", "ALBUM=Album"],
+        { isLast: true },
+      );
+      const buf = Buffer.concat([
+        flacHeaderWithDuration(false, 200, [block]),
+        Buffer.from([0xff, 0xf8, 0x69, 0x18]),
+        Buffer.alloc(100),
+      ]);
+      writeFileSync(trackPath, buf);
+      refreshConfig();
+
+      const events: string[] = [];
+      const unsubscribe = onAutoTagEvent((event) => events.push(event.message));
+      const taskId = startAutoTag(albumDir);
+      await waitForTask(taskId);
+      unsubscribe();
+
+      expect(getProgress(taskId)?.status).toBe("completed");
+      expect(events.join("\n")).not.toMatch(/dataset/i);
     } finally {
       process.env = { ...originalEnv };
       refreshConfig();

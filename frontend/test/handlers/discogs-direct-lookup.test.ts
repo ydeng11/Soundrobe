@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { DiscogsClient } from "../../electron/handlers/discogs";
+import type { AlbumCandidate } from "../../electron/handlers/candidates";
 import type { ReleaseMeta } from "../../electron/handlers/cache";
 
 const BASE = "https://api.discogs.com";
@@ -164,6 +165,71 @@ describe("DiscogsClient — direct ID lookup", () => {
     expect(candidate).not.toBeNull();
     expect(fetchSpy).toHaveBeenCalledTimes(1);
     expect(String(fetchSpy.mock.calls[0][0])).toBe(`${BASE}/releases/6951078`);
+  });
+
+  it("coalesces concurrent artist release page and release detail requests", async () => {
+    const inFlightReleasePages = new Map<string, Promise<ReleaseMeta[]>>();
+    const inFlightReleaseDetails = new Map<string, Promise<AlbumCandidate | null>>();
+    client = new DiscogsClient({
+      token: "test-token",
+      inFlightReleasePages,
+      inFlightReleaseDetails,
+    });
+    const secondClient = new DiscogsClient({
+      token: "test-token",
+      inFlightReleasePages,
+      inFlightReleaseDetails,
+    });
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    fetchSpy.mockImplementation(async (url) => {
+      const textUrl = String(url);
+      if (textUrl.includes("/artists/1902728/releases")) {
+        await new Promise((resolve) => setTimeout(resolve, 10));
+        return new Response(JSON.stringify({
+          releases: [
+            { id: 6951078, title: "幻象波普星", artist: "Hedgehog", year: 2013 },
+          ],
+        }), { status: 200 });
+      }
+      if (textUrl.includes("/releases/6951078")) {
+        await new Promise((resolve) => setTimeout(resolve, 10));
+        return new Response(JSON.stringify({
+          id: 6951078,
+          title: "幻象波普星",
+          artists: [{ name: "Hedgehog (4)" }],
+          year: 2013,
+          tracklist: [],
+        }), { status: 200 });
+      }
+      return new Response(null, { status: 404 });
+    });
+
+    const [first, second] = await Promise.all([
+      client.lookupArtistReleaseByAlbum("1902728", "幻象波普星"),
+      secondClient.lookupArtistReleaseByAlbum("1902728", "幻象波普星"),
+    ]);
+
+    expect(first?.discogsReleaseId).toBe("6951078");
+    expect(second?.discogsReleaseId).toBe("6951078");
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not keep failed in-flight artist release page requests", async () => {
+    const inFlightReleasePages = new Map<string, Promise<ReleaseMeta[]>>();
+    client = new DiscogsClient({
+      token: "test-token",
+      inFlightReleasePages,
+    });
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    fetchSpy
+      .mockRejectedValueOnce(new Error("temporary outage"))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ releases: [] }), { status: 200 }));
+
+    await expect(client.lookupArtistReleaseByAlbum("1902728", "幻象波普星"))
+      .resolves.toBeNull();
+    await expect(client.lookupArtistReleaseByAlbum("1902728", "幻象波普星"))
+      .resolves.toBeNull();
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
   });
 
   it("lookupArtistReleaseByAlbum returns null when no album matches", async () => {

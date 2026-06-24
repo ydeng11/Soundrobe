@@ -95,6 +95,13 @@ describe("parseAlbumPath", () => {
     expect(r.yearHint).toBe("1969");
   });
 
+  it("treats dotted album folder names as directories, not file paths", () => {
+    const r = parseAlbumPath("/music/郭富城/1992-跳不完.爱不完.唱不完");
+    expect(r.artistHint).toBe("郭富城");
+    expect(r.albumHint).toBe("跳不完.爱不完.唱不完");
+    expect(r.yearHint).toBe("1992");
+  });
+
   it("parses CD subfolder", () => {
     const r = parseAlbumPath("/music/Artist/Album (2CD)/CD1");
     expect(r.artistHint).toBe("Artist");

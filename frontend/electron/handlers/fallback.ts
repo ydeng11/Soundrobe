@@ -33,6 +33,16 @@ const COMPILATION_FOLDER_SET = new Set([
   "christmas",
 ]);
 
+const AUDIO_EXTENSIONS = new Set([".mp3", ".flac", ".m4a", ".mp4", ".wav", ".ogg", ".opus"]);
+
+function isAudioFilePath(inputPath: string): boolean {
+  try {
+    return statSync(inputPath).isFile();
+  } catch {
+    return AUDIO_EXTENSIONS.has(extname(basename(inputPath)).toLowerCase());
+  }
+}
+
 /**
  * Check if a folder name indicates a compilation/sampler rather than a single artist.
  */
@@ -128,7 +138,7 @@ export function cleanAlbumFolderName(name: string): string {
  * Parse artist, album, and year hints from an Artist/Album path.
  */
 export function parseAlbumPath(filePath: string): LookupRequest {
-  const isFile = !!extname(basename(filePath));
+  const isFile = isAudioFilePath(filePath);
   const albumPath = isFile ? dirname(filePath) : filePath;
   const albumName = basename(albumPath);
   const parentName = basename(dirname(albumPath));
@@ -217,7 +227,7 @@ async function readAlbumTagsFromFirstFile(
   discogsReleaseId: string | null;
   discogsArtistId: string | null;
 }> {
-  const isFile = !!extname(basename(path));
+  const isFile = isAudioFilePath(path);
   const dirPath = isFile ? dirname(path) : path;
 
   try {
@@ -226,7 +236,7 @@ async function readAlbumTagsFromFirstFile(
       const fullPath = join(dirPath, entry);
       if (statSync(fullPath).isFile()) {
         const ext = extname(entry).toLowerCase();
-        if ([".mp3", ".flac", ".m4a", ".mp4", ".wav", ".ogg", ".opus"].includes(ext)) {
+        if (AUDIO_EXTENSIONS.has(ext)) {
           try {
             const meta = await readTrackMetadata(fullPath);
             if (meta.album || meta.artist) {
@@ -258,7 +268,7 @@ async function readAlbumTagsFromFirstFile(
  * Build track candidates from audio file metadata.
  */
 export async function trackHintsFromPath(filePath: string): Promise<TrackCandidate[]> {
-  const isFile = !!extname(basename(filePath));
+  const isFile = isAudioFilePath(filePath);
   const dirPath = isFile ? dirname(filePath) : filePath;
   const tracks: TrackCandidate[] = [];
 
@@ -273,7 +283,7 @@ export async function trackHintsFromPath(filePath: string): Promise<TrackCandida
         continue;
       }
       const ext = extname(entry).toLowerCase();
-      if (![".mp3", ".flac", ".m4a", ".mp4", ".wav", ".ogg", ".opus"].includes(ext)) continue;
+      if (!AUDIO_EXTENSIONS.has(ext)) continue;
       index++;
 
       try {
