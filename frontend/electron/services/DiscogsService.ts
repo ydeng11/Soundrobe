@@ -51,6 +51,7 @@ export interface DiscogsArtistResult {
 
 export interface DiscogsArtistDetail {
   name: string;
+  realname: string | null;
   images: Array<{ type: string; uri: string }>;
 }
 
@@ -163,6 +164,9 @@ export class DiscogsService {
 
     return {
       name: data.name,
+      realname: typeof data.realname === "string" && data.realname.trim()
+        ? data.realname.trim()
+        : null,
       images: data.images ?? [],
     };
   }

@@ -21,6 +21,7 @@ import {
   type ArtworkResult,
   type ArtworkSource,
 } from "../../electron/services/ArtworkResolverService";
+import { clearCache as clearArtistIdentityCache } from "../../electron/services/ArtistIdentityResolver";
 
 // ── Helpers ─────────────────────────────────────────────────────────
 
@@ -403,6 +404,7 @@ describe("ArtworkResolverService", () => {
     beforeEach(() => {
       service = new ArtworkResolverService();
       service.setCredentials({ discogsToken: "test-token-123" });
+      clearArtistIdentityCache();
       originalFetch = global.fetch;
       fetchCalls = [];
 
@@ -523,6 +525,129 @@ describe("ArtworkResolverService", () => {
     });
 
     describe("Acceptance rules", () => {
+      it("uses a direct Discogs artist ID for artist images before name-based identity lookup", async () => {
+        global.fetch = vi.fn().mockImplementation(
+          (url: string | Request | URL, init?: RequestInit) => {
+            fetchCalls.push({ url: url.toString(), headers: init?.headers as Record<string, string> ?? {} });
+            const textUrl = url.toString();
+            if (textUrl === "https://api.discogs.com/artists/6153069") {
+              return Promise.resolve(new Response(JSON.stringify({
+                name: "蛋堡",
+                images: [{ type: "primary", uri: "https://img.discogs.com/soft-lipa-primary.jpg" }],
+              }), { status: 200, headers: { "Content-Type": "application/json" } }));
+            }
+            if (textUrl === "https://img.discogs.com/soft-lipa-primary.jpg") {
+              return Promise.resolve(mockImageResponse(tinyJpeg));
+            }
+            return Promise.resolve(new Response(null, { status: 404 }));
+          },
+        );
+
+        const ctx: ArtworkContext = {
+          kind: "artist-image",
+          artistName: "蛋堡",
+          albumName: "你所不知道的杜振熙之内部整修",
+          musicbrainzAlbumId: null,
+          discogsArtistId: "6153069",
+          albumPath: "/music/Soft Lipa/2013-你所不知道的杜振熙之内部整修",
+        };
+
+        const result = await service.resolve(ctx);
+
+        expect(result).not.toBeNull();
+        expect(result!.source).toBe("discogs");
+        expect(result!.url).toBe("https://img.discogs.com/soft-lipa-primary.jpg");
+        expect(fetchCalls.map((c) => c.url)).toEqual([
+          "https://api.discogs.com/artists/6153069",
+          "https://img.discogs.com/soft-lipa-primary.jpg",
+        ]);
+      });
+
+      it("falls back to name-based identity lookup when a direct Discogs artist ID has no images", async () => {
+        global.fetch = vi.fn().mockImplementation(
+          (url: string | Request | URL, init?: RequestInit) => {
+            fetchCalls.push({ url: url.toString(), headers: init?.headers as Record<string, string> ?? {} });
+            const textUrl = url.toString();
+            if (textUrl === "https://api.discogs.com/artists/2510991") {
+              return Promise.resolve(new Response(JSON.stringify({
+                name: "Soft Lipa",
+                images: [],
+              }), { status: 200, headers: { "Content-Type": "application/json" } }));
+            }
+            if (textUrl === "https://api.discogs.com/database/search?type=artist&artist=%E8%9B%8B%E5%A0%A1&per_page=5") {
+              return Promise.resolve(new Response(JSON.stringify({
+                results: [{ title: "蛋堡", id: 6153069 }],
+              }), { status: 200, headers: { "Content-Type": "application/json" } }));
+            }
+            if (textUrl === "https://api.discogs.com/artists/6153069") {
+              return Promise.resolve(new Response(JSON.stringify({
+                name: "蛋堡",
+                images: [{ type: "primary", uri: "https://img.discogs.com/fallback-primary.jpg" }],
+              }), { status: 200, headers: { "Content-Type": "application/json" } }));
+            }
+            if (textUrl === "https://img.discogs.com/fallback-primary.jpg") {
+              return Promise.resolve(mockImageResponse(tinyJpeg));
+            }
+            return Promise.resolve(new Response(null, { status: 404 }));
+          },
+        );
+
+        const ctx: ArtworkContext = {
+          kind: "artist-image",
+          artistName: "蛋堡",
+          albumName: "你所不知道的杜振熙之内部整修",
+          musicbrainzAlbumId: null,
+          discogsArtistId: "2510991",
+          albumPath: "/music/Soft Lipa/2013-你所不知道的杜振熙之内部整修",
+        };
+
+        const result = await service.resolve(ctx);
+
+        expect(result).not.toBeNull();
+        expect(result!.source).toBe("discogs");
+        expect(result!.url).toBe("https://img.discogs.com/fallback-primary.jpg");
+        expect(fetchCalls.map((c) => c.url)).toEqual([
+          "https://api.discogs.com/artists/2510991",
+          "https://api.discogs.com/database/search?type=artist&artist=%E8%9B%8B%E5%A0%A1&per_page=5",
+          "https://api.discogs.com/artists/6153069",
+          "https://img.discogs.com/fallback-primary.jpg",
+        ]);
+      });
+
+      it("downloads a non-Latin artist image from the stored Discogs artist ID", async () => {
+        global.fetch = vi.fn().mockImplementation(
+          (url: string | Request | URL, init?: RequestInit) => {
+            fetchCalls.push({ url: url.toString(), headers: init?.headers as Record<string, string> ?? {} });
+            const textUrl = url.toString();
+            if (textUrl === "https://api.discogs.com/artists/6153069") {
+              return Promise.resolve(new Response(JSON.stringify({
+                name: "蛋堡",
+                images: [{ type: "primary", uri: "https://img.discogs.com/danbao-primary.jpg" }],
+              }), { status: 200, headers: { "Content-Type": "application/json" } }));
+            }
+            if (textUrl === "https://img.discogs.com/danbao-primary.jpg") {
+              return Promise.resolve(mockImageResponse(tinyJpeg));
+            }
+            return Promise.resolve(new Response(null, { status: 404 }));
+          },
+        );
+
+        const ctx: ArtworkContext = {
+          kind: "artist-image",
+          artistName: "蛋堡",
+          albumName: null,
+          musicbrainzAlbumId: null,
+          discogsArtistId: "6153069",
+          albumPath: "/music/Soft Lipa/Album",
+        };
+
+        const result = await service.resolve(ctx);
+
+        expect(result).not.toBeNull();
+        expect(result!.source).toBe("discogs");
+        expect(result!.url).toBe("https://img.discogs.com/danbao-primary.jpg");
+      });
+
       it("uses a direct Discogs release ID without requiring artist or album text", async () => {
         global.fetch = vi.fn().mockImplementation(
           (url: string | Request | URL, init?: RequestInit) => {

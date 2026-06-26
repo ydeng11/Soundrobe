@@ -61,9 +61,10 @@ describe("DiscogsService", () => {
   });
 
   describe("getArtistDetail", () => {
-    it("returns artist name and images", async () => {
+    it("returns artist name, real name, and images", async () => {
       const mockDetail = {
         name: "Hedgehog (4)",
+        realname: "刺猬",
         images: [{ type: "primary", uri: "https://example.com/img.jpg" }],
       };
       vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
@@ -72,6 +73,7 @@ describe("DiscogsService", () => {
       const result = await service.getArtistDetail(1902728);
       expect(result).not.toBeNull();
       expect(result!.name).toBe("Hedgehog (4)");
+      expect(result!.realname).toBe("刺猬");
       expect(result!.images).toHaveLength(1);
     });
   });

@@ -10,6 +10,9 @@
 import { describe, it, expect, vi, beforeEach, afterAll } from "vitest";
 import {
   extractArtworkProviderIds,
+  clearAlbumCoverSuppression,
+  isAlbumCoverSuppressed,
+  suppressAlbumCover,
   registerCoverHandlers,
   type CoverDownloadResult,
 } from "../../electron/handlers/cover";
@@ -50,6 +53,7 @@ vi.mock("music-metadata", () => ({
 }));
 
 import * as fs from "fs";
+import fsDefault from "fs";
 
 describe("extractArtworkProviderIds", () => {
   it("reads provider IDs from music-metadata common values", () => {
@@ -248,6 +252,38 @@ describe("existing cover handlers unchanged", () => {
     expect(handlers).toContain("cover:data-url");
     expect(handlers).toContain("cover:set");
     expect(handlers).toContain("cover:remove");
+  });
+});
+
+describe("album cover suppression", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("records removal so auto cover discovery can stay hidden", () => {
+    vi.mocked(fs.existsSync).mockReturnValue(true);
+
+    suppressAlbumCover("/music/Artist/Album");
+
+    expect(fsDefault.writeFileSync).toHaveBeenCalledWith(
+      "/music/Artist/Album/.auto-tagger-cover-removed",
+      "",
+      "utf-8",
+    );
+  });
+
+  it("detects and clears the removal marker", () => {
+    vi.mocked(fsDefault.existsSync).mockImplementation((p: string) =>
+      p === "/music/Artist/Album/.auto-tagger-cover-removed"
+    );
+
+    expect(isAlbumCoverSuppressed("/music/Artist/Album")).toBe(true);
+
+    clearAlbumCoverSuppression("/music/Artist/Album");
+
+    expect(fsDefault.unlinkSync).toHaveBeenCalledWith(
+      "/music/Artist/Album/.auto-tagger-cover-removed",
+    );
   });
 });
 

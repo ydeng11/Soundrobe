@@ -414,8 +414,10 @@ export default function App() {
 
   const handleRemoveCover = useCallback(async () => {
     if (!state.selectedTrack) return;
+    const albumPath = dirPath(state.selectedTrack.path);
     try {
-      await window.api.removeCover(dirPath(state.selectedTrack.path));
+      await window.api.removeCover(albumPath);
+      coverUrlCacheRef.current.set(albumPath, null);
       dispatch({ type: "SET_COVER_URL", url: null });
     } catch {
       dispatch({ type: "SET_ERROR", error: "Failed to remove cover art" });

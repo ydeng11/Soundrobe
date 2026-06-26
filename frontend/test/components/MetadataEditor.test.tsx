@@ -79,6 +79,50 @@ describe("MetadataEditor", () => {
     expect(screen.getByText(/Unsaved/i)).toBeTruthy();
   });
 
+  it("clears a stale same-value draft when the selected track refreshes in place", () => {
+    const { rerender } = render(
+      <MetadataEditor
+        {...baseProps}
+        track={makeTrack({ album: "WHO CARES" })}
+      />,
+    );
+
+    const albumInput = screen.getByDisplayValue("WHO CARES");
+    fireEvent.change(albumInput, { target: { value: "WHO CARES!" } });
+    fireEvent.change(albumInput, { target: { value: "WHO CARES" } });
+
+    rerender(
+      <MetadataEditor
+        {...baseProps}
+        track={makeTrack({ album: "Who Cares?" })}
+      />,
+    );
+
+    expect(screen.getByDisplayValue("Who Cares?")).toBeTruthy();
+    expect(screen.queryByDisplayValue("WHO CARES")).toBeNull();
+  });
+
+  it("keeps real unsaved edits when the selected track refreshes in place", () => {
+    const { rerender } = render(
+      <MetadataEditor
+        {...baseProps}
+        track={makeTrack({ album: "WHO CARES" })}
+      />,
+    );
+
+    const albumInput = screen.getByDisplayValue("WHO CARES");
+    fireEvent.change(albumInput, { target: { value: "Manual Album" } });
+
+    rerender(
+      <MetadataEditor
+        {...baseProps}
+        track={makeTrack({ album: "Who Cares?" })}
+      />,
+    );
+
+    expect(screen.getByDisplayValue("Manual Album")).toBeTruthy();
+  });
+
   it("calls onSave with changed fields when focus leaves the panel", () => {
     const onSave = vi.fn();
     render(

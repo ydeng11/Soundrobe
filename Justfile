@@ -46,7 +46,7 @@ _fe-deps-check:
         pushd frontend >/dev/null
         npm install --ignore-scripts
         echo "→ Applying better-sqlite3 patch for Electron 42..."
-        patch -p1 -N --no-backup-if-mismatch < patches/better-sqlite3+12.10.0.patch 2>/dev/null || true
+        patch -p1 -N --no-backup-if-mismatch < patches/better-sqlite3+12.11.1.patch 2>/dev/null || true
         rm -r node_modules/better-sqlite3/build 2>/dev/null || true
         popd >/dev/null
         echo "✓ Frontend deps installed"
@@ -58,7 +58,7 @@ fe-install:
     cd frontend
     npm install --ignore-scripts
     echo "→ Applying better-sqlite3 patch for Electron 42..."
-    patch -p1 -N --no-backup-if-mismatch < patches/better-sqlite3+12.10.0.patch 2>/dev/null || true
+    patch -p1 -N --no-backup-if-mismatch < patches/better-sqlite3+12.11.1.patch 2>/dev/null || true
     rm -r node_modules/better-sqlite3/build 2>/dev/null || true
     npm run ensure:electron-abi
 

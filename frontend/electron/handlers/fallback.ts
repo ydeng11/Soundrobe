@@ -33,13 +33,15 @@ const COMPILATION_FOLDER_SET = new Set([
   "christmas",
 ]);
 
-const AUDIO_EXTENSIONS = new Set([".mp3", ".flac", ".m4a", ".mp4", ".wav", ".ogg", ".opus"]);
+const AUDIO_EXTENSIONS = new Set([".mp3", ".flac", ".m4a", ".mp4", ".wav", ".ogg", ".opus", ".ape"]);
 
 function isAudioFilePath(inputPath: string): boolean {
   try {
     return statSync(inputPath).isFile();
   } catch {
-    return AUDIO_EXTENSIONS.has(extname(basename(inputPath)).toLowerCase());
+    const name = basename(inputPath);
+    if (/[《》「」【】]/.test(name)) return false;
+    return AUDIO_EXTENSIONS.has(extname(name).toLowerCase());
   }
 }
 
@@ -55,9 +57,10 @@ export function isCompilationFolder(name: string | null | undefined): boolean {
 /** Album artist used when the folder indicates a compilation. */
 const VARIOUS_ARTISTS = "Various Artists";
 
-const DATE_PREFIX_RE = /^(\d{4})[-.](?:0[1-9]|1[0-2])\s*/; // "2003-04" or "2005.08"
-const YEAR_PREFIX_RE = /^(\d{4})[.-]\s*/; // "2017-" or "2018."
+const DATE_PREFIX_RE = /^(\d{4})[-.](?:0[1-9]|1[0-2])(?:[-.](?:0[1-9]|[12]\d|3[01]))?\s*/; // "2003-04", "2007-09-28", or "2005.08"
+const YEAR_PREFIX_RE = /^(\d{4})\s*[.-]\s*/; // "2017-" or "2018."
 const YEAR_FROM_PREFIX_RE = /^(\d{4})[-.]/; // capture year from "2003-"
+const STANDALONE_YEAR_RE = /(?:^|[^\d])((?:19|20)\d{2})(?!\d)/;
 const BOOKMARKS_RE = /[《》「」【】\[\]]/g;
 const EXTRA_SUFFIX_RE = /\s*\([^)]*\)\s*$/;
 const FORMAT_SUFFIX_RE = /\[?(flac|mp3|wav|aac|ogg|m4a|wma|ape|flac\s*分轨|wav\s*分轨)\]?\s*$/i;
@@ -83,6 +86,10 @@ export function extractYearFromName(name: string): string | null {
   // 3. Parenthesized year: (2011) or [2011]
   const m3 = /[\[(（]\s*(\d{4})\s*[\])）]/.exec(name);
   if (m3) return m3[1];
+
+  // 4. Standalone year in names like "黄绮珊《时光》2018 .wav".
+  const m4 = STANDALONE_YEAR_RE.exec(name);
+  if (m4) return m4[1];
 
   return null;
 }
@@ -122,14 +129,100 @@ export function cleanFolderName(name: string): string {
  * Clean an album folder name for use as the album hint.
  * Strips the leading "Year - " prefix.
  */
-export function cleanAlbumFolderName(name: string): string {
+export function cleanAlbumFolderName(
+  name: string,
+  artistHint?: string | null,
+): string {
   let cleaned = cleanFolderName(name);
+
+  const artist = artistHint ? cleanFolderName(artistHint).trim() : "";
+  if (artist) {
+    const afterArtist = stripRepeatedArtistFromAlbumFolder(cleaned, artist);
+    if (afterArtist) return afterArtist;
+  }
+
   // Also strip leading "Year - " prefix that's not just a date prefix
   const yearDash = /^(\d{4})\s*[-—]\s*/.exec(cleaned);
   if (yearDash) {
     cleaned = cleaned.slice(yearDash[0].length);
   }
   return cleaned;
+}
+
+function normalizeArtistPrefix(name: string): string {
+  return name.toLowerCase().replace(/[\s._:：\-—–]+/g, "");
+}
+
+function cleanAlbumRemainder(name: string): string {
+  let cleaned = name.trim().replace(/^[\s._:：\-—–]+/, "");
+  cleaned = cleanFolderName(cleaned);
+  cleaned = cleaned.replace(/^[\s._:：\-—–]+/, "").trim();
+  return cleaned;
+}
+
+function stripRepeatedArtistFromAlbumFolder(
+  albumFolder: string,
+  artist: string,
+): string | null {
+  for (const prefix of repeatedArtistPrefixes(albumFolder, artist)) {
+    const afterPrefix = albumFolder.slice(prefix.length);
+    if (
+      looksLikeArtistAlbumSeparator(afterPrefix, true) ||
+      (prefix !== artist && /^\s+/.test(afterPrefix))
+    ) {
+      const cleaned = cleanAlbumRemainder(afterPrefix);
+      if (cleaned) return cleaned;
+    }
+  }
+
+  const artistIndex = albumFolder.indexOf(artist);
+  if (artistIndex <= 0) return null;
+
+  const beforeArtist = albumFolder.slice(0, artistIndex);
+  const afterArtist = albumFolder.slice(artistIndex + artist.length);
+  if (
+    looksLikeCategoryArtistSeparator(beforeArtist) &&
+    looksLikeArtistAlbumSeparator(afterArtist, false)
+  ) {
+    const cleaned = cleanAlbumRemainder(afterArtist);
+    if (cleaned) return cleaned;
+  }
+
+  return null;
+}
+
+function repeatedArtistPrefixes(
+  albumFolder: string,
+  artist: string,
+): string[] {
+  const prefixes = new Set<string>();
+  if (albumFolder.startsWith(artist)) prefixes.add(artist);
+
+  const normalizedArtist = normalizeArtistPrefix(artist);
+  if (!normalizedArtist) return [...prefixes];
+
+  const firstSpace = albumFolder.search(/\s/);
+  if (firstSpace > 0) {
+    const firstToken = albumFolder.slice(0, firstSpace);
+    if (normalizeArtistPrefix(firstToken).startsWith(normalizedArtist)) {
+      prefixes.add(firstToken);
+    }
+  }
+
+  return [...prefixes].sort((a, b) => b.length - a.length);
+}
+
+function looksLikeCategoryArtistSeparator(text: string): boolean {
+  return /(?:\s{2,}|[._:：\-—–])\s*$/.test(text);
+}
+
+function looksLikeArtistAlbumSeparator(
+  text: string,
+  allowYearAfterSingleSpace: boolean,
+): boolean {
+  if (/^\s{2,}/.test(text)) return true;
+  if (/^[._:：\-—–]+/.test(text)) return true;
+  return allowYearAfterSingleSpace && /^\s+(?:19|20)\d{2}\b/.test(text);
 }
 
 // ── Path parsing ────────────────────────────────────────────────────
@@ -144,7 +237,7 @@ export function parseAlbumPath(filePath: string): LookupRequest {
   const parentName = basename(dirname(albumPath));
 
   let artistHint: string | null = null;
-  let albumHint: string | null = cleanFolderName(albumName) || null;
+  let albumHint: string | null = null;
   let yearHint: string | null = extractYearFromName(albumName);
 
   // Detect CD subfolder pattern
@@ -152,10 +245,11 @@ export function parseAlbumPath(filePath: string): LookupRequest {
     const grandparent = basename(dirname(dirname(albumPath)));
     artistHint = grandparent ? cleanFolderName(grandparent) : null;
     const parent = basename(dirname(albumPath));
-    albumHint = parent ? cleanFolderName(parent) : albumHint;
+    albumHint = parent ? cleanAlbumFolderName(parent, artistHint) : null;
     yearHint = parent ? extractYearFromName(parent) : yearHint;
   } else {
     artistHint = parentName ? cleanFolderName(parentName) : null;
+    albumHint = cleanAlbumFolderName(albumName, artistHint) || null;
   }
 
   return {
@@ -177,9 +271,9 @@ export function parseAlbumPath(filePath: string): LookupRequest {
  */
 export async function parseAlbumWithTags(filePath: string): Promise<LookupRequest> {
   const folderRequest = parseAlbumPath(filePath);
-  const tagHints = await readAlbumTagsFromFirstFile(filePath);
+  const scanned = await scanAlbumFilesWithTags(filePath);
 
-  const tagArtist = tagHints.artist;
+  const tagArtist = scanned.artist;
   const folderArtist = folderRequest.artistHint;
 
   let artistHint: string | null;
@@ -195,30 +289,23 @@ export async function parseAlbumWithTags(filePath: string): Promise<LookupReques
     albumHint = folderRequest.albumHint;
   } else {
     artistHint = tagArtist || folderArtist;
-    albumHint = folderRequest.albumHint || tagHints.album;
+    albumHint = folderRequest.albumHint || scanned.album;
   }
-
-  const tracks = await trackHintsFromPath(filePath);
 
   return {
     path: filePath,
     artistHint,
     albumHint,
-    yearHint: folderRequest.yearHint || tagHints.year,
-    musicbrainzAlbumId: tagHints.musicbrainzAlbumId,
-    musicbrainzArtistId: tagHints.musicbrainzArtistId,
-    discogsReleaseId: tagHints.discogsReleaseId,
-    discogsArtistId: tagHints.discogsArtistId,
-    tracks,
+    yearHint: folderRequest.yearHint || scanned.year,
+    musicbrainzAlbumId: scanned.musicbrainzAlbumId,
+    musicbrainzArtistId: scanned.musicbrainzArtistId,
+    discogsReleaseId: scanned.discogsReleaseId,
+    discogsArtistId: scanned.discogsArtistId,
+    tracks: scanned.tracks,
   };
 }
 
-/**
- * Read album-level tags from the first audio file in the directory.
- */
-async function readAlbumTagsFromFirstFile(
-  path: string,
-): Promise<{
+interface AlbumFileScan {
   artist: string | null;
   album: string | null;
   year: string | null;
@@ -226,51 +313,22 @@ async function readAlbumTagsFromFirstFile(
   musicbrainzArtistId: string | null;
   discogsReleaseId: string | null;
   discogsArtistId: string | null;
-}> {
-  const isFile = isAudioFilePath(path);
-  const dirPath = isFile ? dirname(path) : path;
-
-  try {
-    const entries = readdirSync(dirPath).sort();
-    for (const entry of entries) {
-      const fullPath = join(dirPath, entry);
-      if (statSync(fullPath).isFile()) {
-        const ext = extname(entry).toLowerCase();
-        if (AUDIO_EXTENSIONS.has(ext)) {
-          try {
-            const meta = await readTrackMetadata(fullPath);
-            if (meta.album || meta.artist) {
-              return {
-                artist: meta.artist || meta.albumArtist,
-                album: meta.album,
-                year: meta.year,
-                musicbrainzAlbumId: meta.musicbrainzAlbumId,
-                musicbrainzArtistId: meta.musicbrainzArtistId,
-                discogsReleaseId: meta.discogsReleaseId,
-                discogsArtistId: meta.discogsArtistId,
-              };
-            }
-          } catch {
-            continue;
-          }
-        }
-      }
-    }
-  } catch {
-    // directory doesn't exist or can't be read
-  }
-  return { artist: null, album: null, year: null, musicbrainzAlbumId: null, musicbrainzArtistId: null, discogsReleaseId: null, discogsArtistId: null };
+  tracks: TrackCandidate[];
 }
 
-// ── Track hints ─────────────────────────────────────────────────────
-
-/**
- * Build track candidates from audio file metadata.
- */
-export async function trackHintsFromPath(filePath: string): Promise<TrackCandidate[]> {
+async function scanAlbumFilesWithTags(filePath: string): Promise<AlbumFileScan> {
   const isFile = isAudioFilePath(filePath);
   const dirPath = isFile ? dirname(filePath) : filePath;
-  const tracks: TrackCandidate[] = [];
+  const result = {
+    artist: null as string | null,
+    album: null as string | null,
+    year: null as string | null,
+    musicbrainzAlbumId: null as string | null,
+    musicbrainzArtistId: null as string | null,
+    discogsReleaseId: null as string | null,
+    discogsArtistId: null as string | null,
+    tracks: [] as TrackCandidate[],
+  } satisfies AlbumFileScan;
 
   try {
     const entries = readdirSync(dirPath).sort();
@@ -285,15 +343,23 @@ export async function trackHintsFromPath(filePath: string): Promise<TrackCandida
       const ext = extname(entry).toLowerCase();
       if (!AUDIO_EXTENSIONS.has(ext)) continue;
       index++;
+      const filenameHint = trackHintFromFilename(entry);
 
       try {
         const meta = await readTrackMetadata(fullPath);
-        tracks.push(
+        result.artist ??= meta.artist || meta.albumArtist;
+        result.album ??= meta.album;
+        result.year ??= meta.year;
+        result.musicbrainzAlbumId ??= meta.musicbrainzAlbumId;
+        result.musicbrainzArtistId ??= meta.musicbrainzArtistId;
+        result.discogsReleaseId ??= meta.discogsReleaseId;
+        result.discogsArtistId ??= meta.discogsArtistId;
+        result.tracks.push(
           makeTrackCandidate({
-            title: meta.title || entry.replace(ext, ""),
-            artist: meta.artist,
-            artists: meta.artists,
-            trackNumber: meta.trackNumber ?? index,
+            title: meta.title || filenameHint.title,
+            artist: meta.artist || filenameHint.artist,
+            artists: meta.artists.length > 0 ? meta.artists : filenameHint.artists,
+            trackNumber: filenameHint.trackNumber ?? meta.trackNumber ?? index,
             trackTotal: null, // filled after all tracks are collected
             discNumber: meta.discNumber,
             musicbrainzTrackId: meta.musicbrainzTrackId,
@@ -303,10 +369,12 @@ export async function trackHintsFromPath(filePath: string): Promise<TrackCandida
         );
       } catch {
         // Read failed — use filename as title hint
-        tracks.push(
+        result.tracks.push(
           makeTrackCandidate({
-            title: entry.replace(ext, ""),
-            trackNumber: index,
+            title: filenameHint.title,
+            artist: filenameHint.artist,
+            artists: filenameHint.artists,
+            trackNumber: filenameHint.trackNumber ?? index,
           }),
         );
       }
@@ -315,13 +383,64 @@ export async function trackHintsFromPath(filePath: string): Promise<TrackCandida
     // directory can't be read
   }
 
-  // Fill track totals
-  const total = tracks.length;
-  for (const track of tracks) {
+  const total = result.tracks.length;
+  for (const track of result.tracks) {
     track.trackTotal = total;
   }
 
-  return tracks;
+  return result;
+}
+
+// ── Track hints ─────────────────────────────────────────────────────
+
+/**
+ * Build track candidates from audio file metadata.
+ */
+export async function trackHintsFromPath(filePath: string): Promise<TrackCandidate[]> {
+  return (await scanAlbumFilesWithTags(filePath)).tracks;
+}
+
+function trackHintFromFilename(
+  filename: string,
+): { title: string; artist: string | null; artists: string[]; trackNumber: number | null } {
+  const ext = extname(filename);
+  const stem = filename.slice(0, filename.length - ext.length).trim();
+  const match = /^(\d{1,3})\s*[.\-_\s]+\s*(.+)$/.exec(stem);
+  const trackNumber = match ? Number(match[1]) : null;
+  const withoutTrackNumber = match ? match[2].trim() || stem : stem;
+  const artistTitle = splitFilenameArtistTitle(withoutTrackNumber);
+  if (artistTitle) {
+    return {
+      title: cleanFilenameTitle(artistTitle.title),
+      artist: artistTitle.artist,
+      artists: [artistTitle.artist],
+      trackNumber,
+    };
+  }
+  return {
+    title: cleanFilenameTitle(withoutTrackNumber),
+    artist: null,
+    artists: [],
+    trackNumber,
+  };
+}
+
+function splitFilenameArtistTitle(stem: string): { artist: string; title: string } | null {
+  const separator = /\s[-–—]\s/.exec(stem);
+  if (!separator || separator.index === 0) return null;
+  const artist = stem.slice(0, separator.index).trim();
+  const title = stem.slice(separator.index + separator[0].length).trim();
+  if (!artist || !title) return null;
+  return { artist, title };
+}
+
+function cleanFilenameTitle(title: string): string {
+  const original = title.trim();
+  let cleaned = original.replace(/\s*\([^)]*(?:bit|hz|khz|wav|flac|mp3|ape)[^)]*\)\s*$/i, "").trim();
+  if (cleaned !== original) {
+    cleaned = cleaned.replace(/\s*\([^)]*\)\s*$/u, "").trim();
+  }
+  return cleaned || title.trim();
 }
 
 // ── Folder fallback candidate ───────────────────────────────────────

@@ -169,6 +169,30 @@ describe("auto-tag pipeline on Chinese multi-artist track", () => {
     // The album hint is stripped by cleanFolderName — the tmp dir name won't match
     // The key assertions are the album artist values above.
   });
+
+  it("collects provider artist IDs from later tracks, not only the first file", async () => {
+    const artistRoot = path.dirname(tmpDir);
+    const albumDir = path.join(artistRoot, "小霞2.0");
+    fs.mkdirSync(albumDir, { recursive: true });
+
+    writeSyntheticFlac(albumDir, "01. 另外三件往事 Part 1.flac", [
+      "TITLE=另外三件往事 Part 1",
+      "ARTIST=Xiao Xia",
+      "ALBUM=小霞2.0",
+    ]);
+    writeSyntheticFlac(albumDir, "05. 我的美丽.flac", [
+      "TITLE=我的美丽",
+      "ARTIST=Xiao Xia",
+      "ALBUM=小霞2.0",
+      "DISCOGS_ARTIST_ID=5244238",
+      "DISCOGS_RELEASE_ID=33302142",
+    ]);
+
+    const request = await parseAlbumWithTags(albumDir);
+
+    expect(request.discogsArtistId).toBe("5244238");
+    expect(request.discogsReleaseId).toBe("33302142");
+  });
 });
 
 // ── 2013-友情岁月 3CD — multi-disc compilation (synthetic files) ────

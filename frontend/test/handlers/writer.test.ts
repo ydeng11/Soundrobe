@@ -117,6 +117,19 @@ function createMinimalFlac(
   fs.writeFileSync(filePath, Buffer.concat(parts));
 }
 
+function findFlacOffset(buf: Buffer): number {
+  return buf.indexOf(Buffer.from("fLaC", "ascii"));
+}
+
+function readPrependedId3End(buf: Buffer): number | null {
+  if (buf.subarray(0, 3).toString("ascii") !== "ID3") return null;
+  return 10 +
+    ((buf[6] & 0x7f) << 21) +
+    ((buf[7] & 0x7f) << 14) +
+    ((buf[8] & 0x7f) << 7) +
+    (buf[9] & 0x7f);
+}
+
 function riffChunk(id: string, payload: Buffer): Buffer {
   const header = Buffer.alloc(8);
   header.write(id, 0, 4, "ascii");
@@ -416,6 +429,39 @@ describe("writeTags — FLAC", () => {
     // Verify music-metadata now reads the correct Vorbis value
     const after = await parseFile(fp);
     expect(after.common.album).toBe("Who Cares?");
+  });
+
+  it("writes FLAC cover art without corrupting a prepended ID3 tag", async () => {
+    const realFile = "/Volumes/downloads/7. Lisa I Love U.flac";
+    if (!fs.existsSync(realFile)) return;
+
+    const fp = path.join(tmpDir, "prepended-id3-cover.flac");
+    fs.copyFileSync(realFile, fp);
+
+    const before = fs.readFileSync(fp);
+    const flacOffsetBefore = findFlacOffset(before);
+    expect(flacOffsetBefore).toBeGreaterThan(0);
+    expect(readPrependedId3End(before)).toBe(flacOffsetBefore);
+
+    const coverData = Buffer.from([
+      0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46,
+      0x49, 0x46, 0x00, 0x01, 0xff, 0xd9,
+    ]);
+
+    await writeTags(fp, {
+      title: "Lisa I Love U",
+      coverData,
+      coverMime: "image/jpeg",
+    });
+
+    const afterWrite = fs.readFileSync(fp);
+    const flacOffsetAfter = findFlacOffset(afterWrite);
+    expect(flacOffsetAfter).toBe(flacOffsetBefore);
+    expect(readPrependedId3End(afterWrite)).toBe(flacOffsetAfter);
+
+    const parsed = await parseFile(fp);
+    expect(parsed.format.duration).toBeGreaterThan(293);
+    expect(parsed.format.duration).toBeLessThan(294);
   });
 });
 

@@ -37,12 +37,20 @@ interface CacheEntry {
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 const memoryCache = new Map<string, CacheEntry>();
 
-function getCacheKey(artistName: string): string {
-  return artistName.toLowerCase().trim();
+function getCacheKey(
+  artistName: string,
+  options?: { skipDiscogs?: boolean; skipMusicBrainz?: boolean },
+): string {
+  const useMusicBrainz = options?.skipMusicBrainz === true ? "no-mb" : "mb";
+  const useDiscogs = options?.skipDiscogs === true ? "no-discogs" : "discogs";
+  return `${artistName.toLowerCase().trim()}|${useMusicBrainz}|${useDiscogs}`;
 }
 
-function getCached(artistName: string): ArtistIdentity | null {
-  const key = getCacheKey(artistName);
+function getCached(
+  artistName: string,
+  options?: { skipDiscogs?: boolean; skipMusicBrainz?: boolean },
+): ArtistIdentity | null {
+  const key = getCacheKey(artistName, options);
   const entry = memoryCache.get(key);
   if (!entry) return null;
   if (Date.now() - entry.timestamp > CACHE_TTL_MS) {
@@ -52,8 +60,12 @@ function getCached(artistName: string): ArtistIdentity | null {
   return entry.identity;
 }
 
-function setCache(artistName: string, identity: ArtistIdentity): void {
-  const key = getCacheKey(artistName);
+function setCache(
+  artistName: string,
+  identity: ArtistIdentity,
+  options?: { skipDiscogs?: boolean; skipMusicBrainz?: boolean },
+): void {
+  const key = getCacheKey(artistName, options);
   memoryCache.set(key, { identity, timestamp: Date.now() });
 }
 
@@ -144,7 +156,7 @@ export async function findArtistIdentity(
   const { discogsToken, skipDiscogs = false, skipMusicBrainz = false } = options ?? {};
 
   // 1. Check cache
-  const cached = getCached(artistName);
+  const cached = getCached(artistName, { skipDiscogs, skipMusicBrainz });
   if (cached) {
     return { ...cached, source: "cache" };
   }
@@ -163,7 +175,7 @@ export async function findArtistIdentity(
         englishAliases: [],
         source: "discogs-exact",
       };
-      setCache(artistName, identity);
+      setCache(artistName, identity, { skipDiscogs, skipMusicBrainz });
       return identity;
     }
   }
@@ -183,7 +195,7 @@ export async function findArtistIdentity(
               englishAliases: mbResult.englishAliases,
               source: "musicbrainz",
             };
-            setCache(artistName, identity);
+            setCache(artistName, identity, { skipDiscogs, skipMusicBrainz });
             saveAlias(artistName, alias);
             return identity;
           }
@@ -197,7 +209,7 @@ export async function findArtistIdentity(
         englishAliases: mbResult.englishAliases,
         source: "musicbrainz",
       };
-      setCache(artistName, identity);
+      setCache(artistName, identity, { skipDiscogs, skipMusicBrainz });
 
       // Save discovered aliases even without Discogs match
       for (const alias of mbResult.englishAliases) {
@@ -215,7 +227,7 @@ export async function findArtistIdentity(
     englishAliases: [],
     source: "none",
   };
-  setCache(artistName, identity);
+  setCache(artistName, identity, { skipDiscogs, skipMusicBrainz });
   return identity;
 }
 

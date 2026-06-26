@@ -22,6 +22,7 @@ const COVER_NAMES = [
 ];
 
 const COVER_EXTS = [".jpg", ".jpeg", ".png"];
+const COVER_REMOVED_MARKER = ".auto-tagger-cover-removed";
 
 /** Audio file extensions used for embedded cover scanning and metadata reading. */
 const AUDIO_EXTS = [".mp3", ".flac", ".m4a", ".mp4", ".wav", ".ogg", ".opus"];
@@ -105,6 +106,25 @@ function findExternalCover(albumPath: string): string | null {
     }
   }
   return null;
+}
+
+function coverRemovedMarkerPath(albumPath: string): string {
+  return path.join(albumPath, COVER_REMOVED_MARKER);
+}
+
+export function isAlbumCoverSuppressed(albumPath: string): boolean {
+  return fs.existsSync(coverRemovedMarkerPath(albumPath));
+}
+
+export function suppressAlbumCover(albumPath: string): void {
+  fs.writeFileSync(coverRemovedMarkerPath(albumPath), "", "utf-8");
+}
+
+export function clearAlbumCoverSuppression(albumPath: string): void {
+  const markerPath = coverRemovedMarkerPath(albumPath);
+  if (fs.existsSync(markerPath)) {
+    fs.unlinkSync(markerPath);
+  }
 }
 
 /**
@@ -213,6 +233,11 @@ export function registerCoverHandlers(): void {
       try {
         debug.debug("cover", `cover:data-url for ${albumPath}`);
 
+        if (isAlbumCoverSuppressed(albumPath)) {
+          debug.debug("cover", `cover:data-url suppressed for ${albumPath}`);
+          return null;
+        }
+
         // 1. Check for external cover file
         const externalCover = findExternalCover(albumPath);
         if (externalCover) {
@@ -290,6 +315,7 @@ export function registerCoverHandlers(): void {
           .toBuffer();
 
         fs.writeFileSync(destPath, jpeg);
+        clearAlbumCoverSuppression(albumPath);
 
         return imageToDataUrl(jpeg);
       } catch {
@@ -309,6 +335,7 @@ export function registerCoverHandlers(): void {
         if (externalCover) {
           fs.unlinkSync(externalCover);
         }
+        suppressAlbumCover(albumPath);
         return true;
       } catch {
         return false;
@@ -381,6 +408,9 @@ export function registerCoverHandlers(): void {
       : path.join(path.dirname(albumPath), "artist.jpg");
 
     fs.writeFileSync(savePath, normalized);
+    if (kind === "album-cover") {
+      clearAlbumCoverSuppression(albumPath);
+    }
     debug.info("cover", `resolveAndWriteArtwork: saved to ${savePath} (${normalized.length} bytes)`);
 
     return { bytes: normalized, source: result.source, savePath };

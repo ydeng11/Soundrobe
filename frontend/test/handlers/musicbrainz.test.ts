@@ -110,6 +110,27 @@ describe("MusicBrainzClient", () => {
     expect(await client.searchAlbum("Artist", null)).toHaveLength(0);
   });
 
+  it("looks up an artist name by MusicBrainz artist ID", async () => {
+    globalThis.fetch = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        id: "mb-artist-1",
+        name: "黄绮珊",
+        aliases: [{ name: "Susan Huang", locale: "en" }],
+      }),
+    });
+
+    const client = new MusicBrainzClient();
+    const artist = await client.lookupArtistById("mb-artist-1");
+
+    expect(artist).toEqual({
+      id: "mb-artist-1",
+      name: "黄绮珊",
+      aliases: [{ name: "Susan Huang", locale: "en" }],
+    });
+    expect(String(vi.mocked(globalThis.fetch).mock.calls[0][0])).toContain("/artist/mb-artist-1");
+  });
+
   it("handles API error gracefully", async () => {
     globalThis.fetch = vi.fn().mockRejectedValue(new Error("Network error"));
 

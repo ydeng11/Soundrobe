@@ -30,6 +30,35 @@ import {
 
 const STREAMINFO_LEN = 34;
 
+function minimalApeAudio(): Buffer {
+  const descriptor = Buffer.alloc(52);
+  descriptor.write("MAC ", 0, 4, "ascii");
+  descriptor.writeUInt32LE(2000000, 4);
+  descriptor.writeUInt32LE(52, 8);
+  descriptor.writeUInt32LE(24, 12);
+  descriptor.writeUInt32LE(0, 16);
+  descriptor.writeUInt32LE(0, 20);
+  descriptor.writeUInt32LE(4096, 24);
+  descriptor.writeUInt32LE(0, 28);
+  descriptor.writeUInt32LE(0, 32);
+
+  const header = Buffer.alloc(24);
+  header.writeUInt32LE(4608, 4);
+  header.writeUInt32LE(0, 8);
+  header.writeUInt32LE(1, 12);
+  header.writeUInt16LE(16, 16);
+  header.writeUInt16LE(2, 18);
+  header.writeUInt32LE(44100, 20);
+
+  return Buffer.concat([descriptor, header, Buffer.alloc(4096, 0x55)]);
+}
+
+function id3v1Tail(): Buffer {
+  const id3 = Buffer.alloc(128, 0);
+  id3.write("TAG", 0, 3, "ascii");
+  return id3;
+}
+
 // ── Tests ────────────────────────────────────────────────────────────
 
 describe("readTrackMetadata — corrupted FLAC", () => {
@@ -116,6 +145,41 @@ describe("readTrackMetadata — corrupted FLAC", () => {
     expect(typeof result.duration).toBe("number");
     expect(result.sizeBytes).toBe(buf.length);
     expect(result.title).toBe("Test");
+  });
+});
+
+describe("readTrackMetadata — APE", () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "track-ape-"));
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it("falls back to raw APEv2 tags when a trailing ID3v1 tag makes music-metadata fail", async () => {
+    const fp = path.join(tmpDir, "01 - 我们飞向太空.ape");
+    fs.writeFileSync(fp, minimalApeAudio());
+    await writeTags(fp, {
+      title: "我们飞向太空",
+      artist: "刺猬",
+      album: "幻象波普星",
+      trackNumber: 1,
+      genre: "Alternative Rock",
+    });
+    fs.appendFileSync(fp, id3v1Tail());
+
+    const result = await readTrackMetadata(fp);
+
+    expect(result.title).toBe("我们飞向太空");
+    expect(result.artist).toBe("刺猬");
+    expect(result.album).toBe("幻象波普星");
+    expect(result.trackNumber).toBe(1);
+    expect(result.genre).toBe("Alternative Rock");
+    expect(result.codec).toBe("Monkey's Audio");
+    expect(result.duration).toBeGreaterThan(0);
   });
 });
 

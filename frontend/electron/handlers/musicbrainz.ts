@@ -431,6 +431,40 @@ export class MusicBrainzClient {
       return null;
     }
   }
+
+  async lookupArtistById(
+    artistId: string,
+  ): Promise<{ id: string; name: string; aliases?: Array<{ name: string; locale?: string; type?: string }> } | null> {
+    await musicBrainzRateLimit();
+
+    const url = `${this.baseUrl}/artist/${encodeURIComponent(artistId)}?fmt=json&inc=aliases`;
+
+    try {
+      const response = await fetch(url, {
+        headers: {
+          "User-Agent": USER_AGENT,
+          Accept: "application/json",
+        },
+      });
+
+      if (!response.ok) return null;
+
+      const data = (await response.json()) as {
+        id?: string;
+        name?: string;
+        aliases?: Array<{ name: string; locale?: string; type?: string }>;
+      };
+
+      if (!data.id || !data.name) return null;
+      return {
+        id: data.id,
+        name: data.name,
+        aliases: data.aliases,
+      };
+    } catch {
+      return null;
+    }
+  }
 }
 
 /**

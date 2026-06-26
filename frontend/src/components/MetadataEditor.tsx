@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useId, useRef, useCallback } from "react";
+import React, { useState, useEffect, useId, useRef, useCallback, useMemo } from "react";
 import type { TrackData } from "../../electron/preload";
 import { basename } from "../utils/path";
 
@@ -16,6 +16,18 @@ interface MetadataEditorProps {
   /** Called to write changed fields to disk. Fires when focus leaves the panel. */
   onSave: (fields: Record<string, string>) => void;
 }
+
+const EDITABLE_FIELDS = [
+  "title",
+  "artist",
+  "album",
+  "albumArtist",
+  "year",
+  "track",
+  "disc",
+  "genre",
+  "composer",
+] as const;
 
 export function MetadataEditor({
   track,
@@ -35,6 +47,8 @@ export function MetadataEditor({
   const [dirty, setDirty] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
   const draftRef = useRef<Record<string, string>>({});
+  const previousTrackPathRef = useRef(track.path);
+  const previousOriginalsRef = useRef<Record<string, string> | null>(null);
 
   const orig = useCallback(
     (field: string): string => {
@@ -63,6 +77,12 @@ export function MetadataEditor({
     },
     [track],
   );
+
+  const originalValues = useMemo(() => {
+    return Object.fromEntries(
+      EDITABLE_FIELDS.map((field) => [field, orig(field)]),
+    ) as Record<string, string>;
+  }, [orig]);
 
   // Flush pending changes to disk
   const flushChanges = useCallback(() => {
@@ -97,6 +117,40 @@ export function MetadataEditor({
     draftRef.current = {};
     setDirty(false);
   }, [track.path]);
+
+  useEffect(() => {
+    const previousTrackPath = previousTrackPathRef.current;
+    const previousOriginals = previousOriginalsRef.current;
+    previousTrackPathRef.current = track.path;
+    previousOriginalsRef.current = originalValues;
+
+    if (!previousOriginals || previousTrackPath !== track.path) {
+      return;
+    }
+
+    setDraft((prev) => {
+      let changed = false;
+      const next = { ...prev };
+
+      for (const field of Object.keys(prev)) {
+        if (
+          prev[field] === previousOriginals[field] &&
+          originalValues[field] !== previousOriginals[field]
+        ) {
+          delete next[field];
+          changed = true;
+        }
+      }
+
+      if (!changed) {
+        return prev;
+      }
+
+      draftRef.current = next;
+      setDirty(Object.keys(next).some((field) => next[field] !== originalValues[field]));
+      return next;
+    });
+  }, [track.path, originalValues]);
 
   // Save when focus leaves the panel
   const handleBlur = useCallback(

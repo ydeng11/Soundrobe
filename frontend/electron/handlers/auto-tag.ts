@@ -37,7 +37,7 @@ import { DiscogsService } from "../services/DiscogsService";
 import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, statSync } from "node:fs";
 import { basename, dirname, join, extname } from "node:path";
 
-const AUDIO_EXTENSIONS = new Set([".mp3", ".flac", ".m4a", ".mp4", ".wav", ".ogg", ".opus", ".aiff"]);
+const AUDIO_EXTENSIONS = new Set([".mp3", ".flac", ".m4a", ".mp4", ".wav", ".ogg", ".opus", ".aiff", ".ape"]);
 import { homedir } from "node:os";
 import debug from "./debug";
 import { AUTO_TAG_ALBUM_CONCURRENCY, LOCAL_READ_CONCURRENCY } from "../services/concurrency";

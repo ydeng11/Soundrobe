@@ -71,6 +71,38 @@ describe("ArtistIdentityResolver", () => {
       // Fetch should not be called again (cache hit)
       expect(fetchMock).toHaveBeenCalledTimes(firstCallCount);
     });
+
+    it("does not reuse a Discogs-only cache entry when MusicBrainz is requested later", async () => {
+      const { DiscogsService } = await import("../../electron/services/DiscogsService");
+      const dgService = {
+        fetch: vi.fn().mockResolvedValue({
+          json: () =>
+            Promise.resolve({
+              results: [{ title: "F.I.R.", id: 2539109 }],
+            }),
+        }),
+      };
+      vi.mocked(DiscogsService).mockImplementation(() => dgService as any);
+
+      const discogsOnly = await findArtistIdentity("F.I.R.", { skipMusicBrainz: true });
+      expect(discogsOnly.discogsArtistId).toBe("2539109");
+      expect(discogsOnly.musicbrainzArtistId).toBeNull();
+
+      const { MusicBrainzClient } = await import("../../electron/handlers/musicbrainz");
+      const mbClient = {
+        searchArtistByName: vi.fn().mockResolvedValue({
+          id: "a8251b7f-2ea9-4661-89c1-0950b5867034",
+          name: "F.I.R.",
+          aliases: [],
+        }),
+      };
+      vi.mocked(MusicBrainzClient).mockImplementation(() => mbClient as any);
+
+      const mbOnly = await findArtistIdentity("F.I.R.", { skipDiscogs: true });
+
+      expect(mbClient.searchArtistByName).toHaveBeenCalledWith("F.I.R.");
+      expect(mbOnly.musicbrainzArtistId).toBe("a8251b7f-2ea9-4661-89c1-0950b5867034");
+    });
   });
 
   describe("Discogs exact match", () => {

@@ -334,23 +334,28 @@ async function findDiscogs(
         return null;
       }
 
-      // Use ArtistIdentityResolver for better Chinese artist matching
+      if (ctx.discogsArtistId) {
+        logger.debug("cover", `findDiscogs (artist-image): trying direct artist ID=${ctx.discogsArtistId}`);
+        const direct = await fetchDiscogsArtistImage(service, ctx.discogsArtistId, "direct");
+        if (direct) return direct;
+        logger.debug("cover", `findDiscogs (artist-image): direct artist ID=${ctx.discogsArtistId} had no image`);
+      }
+
       const identity = await findArtistIdentity(artist, { discogsToken: token });
-      
+
       if (!identity.discogsArtistId) {
         logger.debug("cover", `findDiscogs (artist-image): no Discogs ID for "${artist}"`);
         return null;
       }
 
-      const detail = await service.getArtistDetail(Number(identity.discogsArtistId));
-      if (detail && detail.images.length > 0) {
-        const image = detail.images.find((img) => img.type === "primary") ?? detail.images[0];
-        logger.info("cover", `findDiscogs (artist-image): ACCEPTED id=${identity.discogsArtistId} (source=${identity.source})`);
-        const img = await service.fetchImage(image.uri);
-        if (img) {
-          return { kind: "artist-image", source: "discogs", bytes: img.bytes, mime: img.mime, url: image.uri };
-        }
+      if (identity.discogsArtistId === ctx.discogsArtistId) {
+        logger.info("cover", `findDiscogs (artist-image): fallback ID=${identity.discogsArtistId} already tried and had no image`);
+        return null;
       }
+
+      logger.info("cover", `findDiscogs (artist-image): fallback ID=${identity.discogsArtistId} (source=${identity.source})`);
+      const fallback = await fetchDiscogsArtistImage(service, identity.discogsArtistId, identity.source);
+      if (fallback) return fallback;
 
       logger.info("cover", `findDiscogs (artist-image): no image for "${artist}"`);
       return null;
@@ -677,6 +682,22 @@ async function findGoogle(
 }
 
 // ── Discogs title parsing and candidate matching ────────────────────
+
+async function fetchDiscogsArtistImage(
+  service: DiscogsService,
+  artistId: string,
+  source: string,
+): Promise<ArtworkResult | null> {
+  const detail = await service.getArtistDetail(Number(artistId));
+  if (!detail || detail.images.length === 0) return null;
+
+  const image = detail.images.find((img) => img.type === "primary") ?? detail.images[0];
+  logger.info("cover", `findDiscogs (artist-image): ACCEPTED id=${artistId} (source=${source})`);
+  const img = await service.fetchImage(image.uri);
+  if (!img) return null;
+
+  return { kind: "artist-image", source: "discogs", bytes: img.bytes, mime: img.mime, url: image.uri };
+}
 
 const UNICODE_PUNCT_SYMBOL_RE = /[\p{P}\p{S}]+/gu;
 const WHITESPACE_RE = /\s+/g;

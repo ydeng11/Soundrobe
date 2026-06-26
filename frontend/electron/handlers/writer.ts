@@ -732,11 +732,15 @@ async function writeOggVorbisComments(filePath: string, commentBlock: Buffer): P
 }
 
 /** Parse FLAC metadata block layout from a buffer. */
-function parseFlacLayout(buf: Buffer): { blocks: FlacBlockInfo[]; audioOffset: number } {
+function findFlacMarker(buf: Buffer): number {
+  return buf.indexOf("fLaC");
+}
+
+function parseFlacLayout(buf: Buffer): { blocks: FlacBlockInfo[]; audioOffset: number; flacOffset: number } {
   const blocks: FlacBlockInfo[] = [];
   
   // Find fLaC marker (some files have ID3v2 tag prepended)
-  const flacOffset = buf.indexOf("fLaC");
+  const flacOffset = findFlacMarker(buf);
   let offset = flacOffset >= 0 ? flacOffset + 4 : 4; // skip "fLaC"
   
   while (offset + 4 <= buf.length) {
@@ -757,8 +761,8 @@ function parseFlacLayout(buf: Buffer): { blocks: FlacBlockInfo[]; audioOffset: n
   }
 
   const last = blocks[blocks.length - 1];
-  const audioOffset = last ? last.dataOffset + last.length : 4;
-  return { blocks, audioOffset };
+  const audioOffset = last ? last.dataOffset + last.length : offset;
+  return { blocks, audioOffset, flacOffset };
 }
 
 function buildFlacBlockHeader(type: number, dataLength: number, isLast: boolean): Buffer {
@@ -960,7 +964,10 @@ async function writeFlacMetadataBlock(
  * Ensure only one FLAC metadata block has isLast=true (the very last one).
  */
 function fixLastFlacBlock(buf: Buffer): void {
-  let offset = 4;
+  const flacOffset = findFlacMarker(buf);
+  if (flacOffset < 0) return;
+
+  let offset = flacOffset + 4;
   let lastMetadataBlockOffset = -1;
 
   while (offset + 4 <= buf.length) {
@@ -992,8 +999,15 @@ async function writeFlacNonVorbisBlock(
   blockType: number,
   blockData: Buffer,
 ): Promise<void> {
+  const flacOffset = findFlacMarker(buf);
+  if (flacOffset < 0) {
+    throw new Error(
+      `Cannot write FLAC metadata: file does not contain fLaC marker (${filePath})`,
+    );
+  }
+
   const header = buildFlacBlockHeader(blockType, blockData.length, false);
-  let offset = 4;
+  let offset = flacOffset + 4;
   let found = false;
 
   while (offset + 4 <= buf.length) {
@@ -1022,15 +1036,19 @@ async function writeFlacNonVorbisBlock(
   }
 
   if (!found) {
-    let insOffset = 4;
-    const streamInfoLen = (buf[5] << 16) | (buf[6] << 8) | buf[7];
-    insOffset += 4 + streamInfoLen;
+    const streamInfoHeaderOffset = flacOffset + 4;
+    const streamInfoLen =
+      (buf[streamInfoHeaderOffset + 1] << 16) |
+      (buf[streamInfoHeaderOffset + 2] << 8) |
+      buf[streamInfoHeaderOffset + 3];
+    const insOffset = streamInfoHeaderOffset + 4 + streamInfoLen;
     const before = buf.subarray(0, insOffset);
     const after = buf.subarray(insOffset);
     const newHeader = Buffer.from(header);
     newHeader[0] = blockType & 0x7f;
     const result = Buffer.concat([before, newHeader, blockData, after]);
-    result[4] &= 0x7f;
+    const resultFlacOffset = findFlacMarker(result);
+    if (resultFlacOffset >= 0) result[resultFlacOffset + 4] &= 0x7f;
     fixLastFlacBlock(result);
     await writeFile(filePath, result);
   }
@@ -1089,7 +1107,7 @@ function normalizeFlacRewriteMiddle(segment: Buffer): Buffer {
 async function writeFlacWithPaddingFallback(
   filePath: string,
   buf: Buffer,
-  layout: { blocks: FlacBlockInfo[]; audioOffset: number },
+  layout: { blocks: FlacBlockInfo[]; audioOffset: number; flacOffset: number },
   newBlockData: Buffer,
 ): Promise<void> {
   const PADDING_SIZE = 65536;
@@ -1122,7 +1140,7 @@ async function writeFlacWithPaddingFallback(
     );
   } else {
     // No existing Vorbis — insert after STREAMINFO
-    const streamInfoEnd = 4 + 4 + (layout.blocks[0]?.length ?? 0);
+    const streamInfoEnd = layout.flacOffset + 4 + 4 + (layout.blocks[0]?.length ?? 0);
     prefix = buf.subarray(0, streamInfoEnd);
     middle = buf.subarray(streamInfoEnd, layout.audioOffset);
   }
@@ -1132,7 +1150,8 @@ async function writeFlacWithPaddingFallback(
   middle = normalizeFlacRewriteMiddle(stripTrailingVorbisBlocks(middle));
 
   const result = Buffer.concat([prefix, newVorbis, middle, padding, audio]);
-  result[4] &= 0x7f; // clear isLast on STREAMINFO
+  const resultFlacOffset = findFlacMarker(result);
+  if (resultFlacOffset >= 0) result[resultFlacOffset + 4] &= 0x7f; // clear isLast on STREAMINFO
   fixLastFlacBlock(result);
   await writeFile(filePath, result);
 }

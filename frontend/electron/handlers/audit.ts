@@ -21,7 +21,7 @@ import { getDefaultWriteQueue } from "../services/TagWriteQueue";
 import { AUDIT_ALBUM_CONCURRENCY, LOCAL_READ_CONCURRENCY, mapConcurrent } from "../services/concurrency";
 import debug from "./debug";
 
-const AUDIO_EXTENSIONS = new Set([".mp3", ".flac", ".m4a", ".mp4", ".wav", ".ogg", ".opus", ".aiff"]);
+const AUDIO_EXTENSIONS = new Set([".mp3", ".flac", ".m4a", ".mp4", ".wav", ".ogg", ".opus", ".aiff", ".ape"]);
 
 // ── Event types ─────────────────────────────────────────────────────
 

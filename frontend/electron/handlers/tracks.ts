@@ -149,6 +149,10 @@ export async function readTrackMetadata(filePath: string): Promise<TrackData> {
   try {
     metadata = await parseFileWithTimeout(filePath);
   } catch (error) {
+    if (path.extname(filePath).toLowerCase() === ".ape") {
+      const fallback = await readApeMetadataFallback(filePath);
+      if (fallback) return fallback;
+    }
     const fallback = readFlacMetadataFallback(filePath);
     if (fallback) return fallback;
     throw error;
@@ -207,70 +211,117 @@ export async function readTrackMetadata(filePath: string): Promise<TrackData> {
     duration: format.duration ?? 0,
   };
 
-  // Safety net: for APE files, if common fields are blank but raw APEv2
-  // items exist (e.g. music-metadata couldn't map them), use raw items
   if (path.extname(filePath).toLowerCase() === ".ape" && !result.title) {
-    try {
-      const raw = await readFile(filePath);
-      const items = parseApeTagItems(raw);
-      if (items.length > 0) {
-        const tags = new Map<string, string[]>();
-        for (const { key, value } of items) {
-          const u = key.toUpperCase();
-          if (!tags.has(u)) tags.set(u, []);
-          tags.get(u)!.push(value);
-        }
-        const get = (k: string): string | null => {
-          const v = tags.get(k);
-          return v && v.length > 0 ? v[0] : null;
-        };
-        const parseComposite = (val: string | null): { no: number | null; of: number | null } => {
-          if (!val) return { no: null, of: null };
-          const parts = val.split("/");
-          const no = parts[0] ? parseInt(parts[0], 10) || null : null;
-          const of = parts[1] ? parseInt(parts[1], 10) || null : null;
-          return { no, of };
-        };
-        const apeTrack = parseComposite(get("TRACK"));
-        const apeDisc = parseComposite(get("DISC"));
-        return {
-          path: filePath,
-          title: result.title ?? get("TITLE"),
-          artist: result.artist ?? get("ARTIST"),
-          artists: result.artists.length > 0 ? result.artists : (tags.get("ARTIST") ?? []),
-          album: result.album ?? get("ALBUM"),
-          albumArtist: result.albumArtist ?? get("ALBUM ARTIST"),
-          albumArtists: result.albumArtist ? [result.albumArtist] : get("ALBUM ARTIST") ? [get("ALBUM ARTIST")!] : [],
-          trackNumber: result.trackNumber ?? apeTrack.no,
-          trackTotal: result.trackTotal ?? apeTrack.of,
-          discNumber: result.discNumber ?? apeDisc.no,
-          discTotal: result.discTotal ?? apeDisc.of,
-          year: result.year ?? get("DATE"),
-          genre: result.genre ?? get("GENRE"),
-          composer: result.composer ?? get("COMPOSER"),
-          comment: result.comment ?? get("COMMENT"),
-          description: result.description ?? get("DESCRIPTION"),
-          lyrics: result.lyrics ?? get("LYRICS"),
-          compilation: result.compilation,
-          musicbrainzTrackId: null,
-          musicbrainzAlbumId: null,
-          musicbrainzArtistId: null,
-          discogsArtistId: null,
-          discogsReleaseId: null,
-          hasCover: false,
-          sizeBytes: stat.size,
-          bitrate: format.bitrate ?? null,
-          sampleRate: format.sampleRate ?? null,
-          codec: format.codec ?? format.container ?? "unknown",
-          duration: format.duration ?? 0,
-        };
-      }
-    } catch {
-      // ignore fallback failures
-    }
+    const fallback = await readApeMetadataFallback(filePath, result);
+    if (fallback) return fallback;
   }
 
   return result;
+}
+
+async function readApeMetadataFallback(
+  filePath: string,
+  base?: TrackData,
+): Promise<TrackData | null> {
+  try {
+    const raw = await readFile(filePath);
+    const items = parseApeTagItems(raw);
+    if (items.length === 0) return null;
+
+    const tags = new Map<string, string[]>();
+    for (const { key, value } of items) {
+      const upper = key.toUpperCase();
+      if (!tags.has(upper)) tags.set(upper, []);
+      tags.get(upper)!.push(value);
+    }
+
+    const stat = fs.statSync(filePath);
+    const stream = readApeStreamInfo(raw);
+    const get = (key: string): string | null => {
+      const value = tags.get(key);
+      return value && value.length > 0 ? value[0] : null;
+    };
+    const getAny = (...keys: string[]): string | null => {
+      for (const key of keys) {
+        const value = get(key);
+        if (value) return value;
+      }
+      return null;
+    };
+    const parseComposite = (value: string | null): { no: number | null; of: number | null } => {
+      if (!value) return { no: null, of: null };
+      const parts = value.split("/");
+      const no = parts[0] ? parseInt(parts[0], 10) || null : null;
+      const of = parts[1] ? parseInt(parts[1], 10) || null : null;
+      return { no, of };
+    };
+    const track = parseComposite(getAny("TRACK", "TRACKNUMBER"));
+    const disc = parseComposite(getAny("DISC", "DISCNUMBER"));
+    const albumArtist = getAny("ALBUM ARTIST", "ALBUMARTIST");
+    const date = getAny("DATE", "YEAR");
+    const duration = base?.duration ?? stream.duration ?? 0;
+
+    return {
+      path: filePath,
+      title: base?.title ?? get("TITLE"),
+      artist: base?.artist ?? get("ARTIST"),
+      artists: base?.artists?.length ? base.artists : (tags.get("ARTIST") ?? []),
+      album: base?.album ?? get("ALBUM"),
+      albumArtist: base?.albumArtist ?? albumArtist,
+      albumArtists: base?.albumArtists?.length ? base.albumArtists : albumArtist ? [albumArtist] : [],
+      trackNumber: base?.trackNumber ?? track.no,
+      trackTotal: base?.trackTotal ?? track.of,
+      discNumber: base?.discNumber ?? disc.no,
+      discTotal: base?.discTotal ?? disc.of,
+      year: base?.year ?? (date ? date.slice(0, 4) : null),
+      genre: base?.genre ?? get("GENRE"),
+      composer: base?.composer ?? get("COMPOSER"),
+      comment: base?.comment ?? get("COMMENT"),
+      description: base?.description ?? get("DESCRIPTION"),
+      lyrics: base?.lyrics ?? get("LYRICS"),
+      compilation: base?.compilation ?? null,
+      musicbrainzTrackId: base?.musicbrainzTrackId ?? get("MUSICBRAINZ_TRACKID"),
+      musicbrainzAlbumId: base?.musicbrainzAlbumId ?? get("MUSICBRAINZ_ALBUMID"),
+      musicbrainzArtistId: base?.musicbrainzArtistId ?? get("MUSICBRAINZ_ARTISTID"),
+      discogsArtistId: base?.discogsArtistId ?? get("DISCOGS_ARTIST_ID"),
+      discogsReleaseId: base?.discogsReleaseId ?? get("DISCOGS_RELEASE_ID"),
+      hasCover: base?.hasCover ?? false,
+      sizeBytes: stat.size,
+      bitrate: base?.bitrate ?? (duration > 0 ? Math.round((stat.size * 8) / duration) : null),
+      sampleRate: base?.sampleRate ?? stream.sampleRate,
+      codec: base?.codec ?? "Monkey's Audio",
+      duration,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function readApeStreamInfo(data: Buffer): { sampleRate: number | null; duration: number | null } {
+  if (data.length < 76 || data.toString("ascii", 0, 4) !== "MAC ") {
+    return { sampleRate: null, duration: null };
+  }
+
+  const descriptorBytes = data.readUInt32LE(8);
+  const headerBytes = data.readUInt32LE(12);
+  const headerOffset = descriptorBytes;
+  if (descriptorBytes < 52 || headerBytes < 24 || data.length < headerOffset + 24) {
+    return { sampleRate: null, duration: null };
+  }
+
+  const blocksPerFrame = data.readUInt32LE(headerOffset + 4);
+  const finalFrameBlocks = data.readUInt32LE(headerOffset + 8);
+  const totalFrames = data.readUInt32LE(headerOffset + 12);
+  const sampleRate = data.readUInt32LE(headerOffset + 20);
+  if (!sampleRate || !totalFrames || !blocksPerFrame) {
+    return { sampleRate: sampleRate || null, duration: null };
+  }
+
+  const blocks = ((totalFrames - 1) * blocksPerFrame) + (finalFrameBlocks || blocksPerFrame);
+  return {
+    sampleRate,
+    duration: blocks > 0 ? blocks / sampleRate : null,
+  };
 }
 
 export async function readExtraTags(filePath: string): Promise<ExtraTag[]> {
@@ -278,6 +329,9 @@ export async function readExtraTags(filePath: string): Promise<ExtraTag[]> {
   try {
     metadata = await parseFile(filePath, { duration: false });
   } catch (error) {
+    if (path.extname(filePath).toLowerCase() === ".ape") {
+      return readApeExtraTagsFallback(filePath);
+    }
     // Gracefully handle corrupt/unsupported files (e.g. malformed picture tags in FLAC)
     logger.debug("extra-tags", `Failed to parse file for extra tags: ${filePath}`, {
       error: error instanceof Error ? error.message : String(error),
@@ -304,21 +358,28 @@ export async function readExtraTags(filePath: string): Promise<ExtraTag[]> {
 
   // APEv2 fallback: if native tags are empty, try raw parsing
   if (rows.length === 0 && path.extname(filePath).toLowerCase() === ".ape") {
-    try {
-      const raw = await readFile(filePath);
-      const items = parseApeTagItems(raw);
-      for (const { key, value } of items) {
-        if (!key || METADATA_EDITOR_KEYS.has(key.toUpperCase())) continue;
-        const identity = `APEv2\0${key}\0${value}`;
-        if (seen.has(identity)) continue;
-        seen.add(identity);
-        rows.push({ key, value, source: "APEv2" });
-      }
-    } catch {
-      // ignore
-    }
+    return readApeExtraTagsFallback(filePath);
   }
 
+  return rows.sort((a, b) => a.key.localeCompare(b.key));
+}
+
+async function readApeExtraTagsFallback(filePath: string): Promise<ExtraTag[]> {
+  const rows: ExtraTag[] = [];
+  const seen = new Set<string>();
+  try {
+    const raw = await readFile(filePath);
+    const items = parseApeTagItems(raw);
+    for (const { key, value } of items) {
+      if (!key || METADATA_EDITOR_KEYS.has(key.toUpperCase())) continue;
+      const identity = `APEv2\0${key}\0${value}`;
+      if (seen.has(identity)) continue;
+      seen.add(identity);
+      rows.push({ key, value, source: "APEv2" });
+    }
+  } catch {
+    // ignore
+  }
   return rows.sort((a, b) => a.key.localeCompare(b.key));
 }
 
