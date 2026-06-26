@@ -53,6 +53,8 @@ import {
   onAutoTagEvent,
   buildAliasedLookupVariants,
   mergeAutoTagCandidateFields,
+  applyCanonicalArtistName,
+  chooseProviderArtistName,
 } from "../../electron/handlers/auto-tag";
 import { setAliasFilePath, saveAlias } from "../../electron/handlers/aliases";
 import { makeAlbumCandidate, makeLookupRequest, makeTrackCandidate } from "../../electron/handlers/candidates";
@@ -184,6 +186,85 @@ describe("mergeAutoTagCandidateFields", () => {
     expect(merged.musicbrainzAlbumId).toBe("mb-release");
     expect(merged.genre).toBe("Mandopop");
   });
+
+  it("lets a fresh provider candidate clean stale cached provider track titles for the same release", () => {
+    const cached = makeAlbumCandidate({
+      source: "musicbrainz",
+      artist: "F.I.R.",
+      album: "无限",
+      musicbrainzAlbumId: "mb-infinite",
+      tracks: [
+        makeTrackCandidate({ title: "F.I.R飞儿乐团 - I Can't Go On(无限)(24bit-48Hz)", trackNumber: 1 }),
+      ],
+    });
+    const fresh = makeAlbumCandidate({
+      source: "musicbrainz",
+      artist: "F.I.R.",
+      album: "无限",
+      musicbrainzAlbumId: "mb-infinite",
+      tracks: [
+        makeTrackCandidate({ title: "I Can't Go On", trackNumber: 1 }),
+      ],
+    });
+
+    const [merged] = mergeAutoTagCandidateFields([cached, fresh]);
+
+    expect(merged.tracks[0].title).toBe("I Can't Go On");
+  });
+});
+
+describe("applyCanonicalArtistName", () => {
+  it("uses provider artist real name for album and track artist fields", () => {
+    const candidate = makeAlbumCandidate({
+      source: "discogs",
+      artist: "Xiao Xia",
+      artists: ["Xiao Xia"],
+      albumArtist: "Xiao Xia",
+      albumArtists: ["Xiao Xia"],
+      discogsArtistId: "5244238",
+      tracks: [
+        makeTrackCandidate({
+          title: "我的美丽",
+          artist: "Xiao Xia",
+          artists: ["Xiao Xia"],
+          trackNumber: 5,
+        }),
+      ],
+    });
+
+    const normalized = applyCanonicalArtistName(candidate, "黄绮珊");
+
+    expect(normalized.artist).toBe("黄绮珊");
+    expect(normalized.artists).toEqual(["黄绮珊"]);
+    expect(normalized.albumArtist).toBe("黄绮珊");
+    expect(normalized.albumArtists).toEqual(["黄绮珊"]);
+    expect(normalized.tracks[0].artist).toBe("黄绮珊");
+    expect(normalized.tracks[0].artists).toEqual(["黄绮珊"]);
+    expect(normalized.tracks[0].title).toBe("我的美丽");
+    expect(normalized.discogsArtistId).toBe("5244238");
+  });
+});
+
+describe("chooseProviderArtistName", () => {
+  it("prefers MusicBrainz name over Discogs realname with parenthesized aliases", () => {
+    expect(chooseProviderArtistName(
+      {
+        name: "F.I.R.",
+        realname: "F.I.R. (飛兒樂團, 飞儿乐团;, Fēiér Yuètuán)",
+      },
+      "F.I.R.",
+    )).toBe("F.I.R.");
+  });
+
+  it("strips Discogs parenthesized aliases when MusicBrainz has no name", () => {
+    expect(chooseProviderArtistName(
+      {
+        name: "F.I.R.",
+        realname: "F.I.R. (飛兒樂團, 飞儿乐团;, Fēiér Yuètuán)",
+      },
+      null,
+    )).toBe("F.I.R.");
+  });
 });
 
 describe("candidateFromFolder", () => {
@@ -275,6 +356,30 @@ describe("protectCandidateTrackFieldsForAutoApply", () => {
     // Full ordered match — remote track numbers may be used
     expect(protectedCandidate.tracks[0].trackNumber).toBe(1);
     expect(protectedCandidate.tracks[1].trackNumber).toBe(2);
+  });
+
+  it("lets a full ordered provider match fix suffix-polluted track titles", async () => {
+    const request = makeLookupRequest({
+      path: "/tmp/F.I.R./亚特兰提斯",
+      artistHint: "F.I.R.",
+      albumHint: "亚特兰提斯",
+      tracks: [
+        makeTrackCandidate({ title: "微光(亚特兰提斯)(24bit-48Hz)", trackNumber: 4 }),
+        makeTrackCandidate({ title: "讓我們一起微笑吧", trackNumber: 5 }),
+      ],
+    });
+    const remoteAlbum = makeAlbumCandidate({
+      source: "musicbrainz",
+      album: "亞特蘭提斯",
+      tracks: [
+        makeTrackCandidate({ title: "微光", trackNumber: 4 }),
+        makeTrackCandidate({ title: "讓我們一起微笑吧", trackNumber: 5 }),
+      ],
+    });
+
+    const [protectedCandidate] = await protectCandidateTrackFieldsForAutoApply(request, [remoteAlbum]);
+
+    expect(protectedCandidate.tracks.map((track) => track.title)).toEqual(["微光", "讓我們一起微笑吧"]);
   });
 
   it("does not overwrite non-empty local artist with remote artist", async () => {

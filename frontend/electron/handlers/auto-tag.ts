@@ -26,7 +26,10 @@ import { parseAlbumWithTags, candidateFromFolder, isCompilationFolder } from "./
 import { buildGenreFillMessages, buildTagCorrectionMessages } from "./prompts";
 import { getAllNameVariants } from "./aliases";
 import { writeTags, type WriteFields } from "./writer";
-import { matchRemoteCandidateTracks } from "../services/RemoteTrackMatcher";
+import {
+  matchRemoteCandidateTracks,
+  replacementTitleForPollutedTitle,
+} from "../services/RemoteTrackMatcher";
 import { readLocalLyrics, LyricsClient } from "./lyrics";
 import { readTrackMetadata } from "./tracks";
 import { findArtistIdentity, type ArtistIdentity } from "../services/ArtistIdentityResolver";
@@ -79,6 +82,7 @@ export async function filterCandidatesForAutoApply(
 }
 
 const REMOTE_TRACK_SOURCES = new Set<AlbumCandidate["source"]>(["dataset", "discogs", "musicbrainz"]);
+const API_TITLE_CLEANUP_SOURCES = new Set<AlbumCandidate["source"]>(["discogs", "musicbrainz"]);
 
 const PROVIDER_SOURCE_PRIORITY: Record<string, number> = {
   musicbrainz: 0,
@@ -119,7 +123,7 @@ export function mergeAutoTagCandidateFields(candidates: AlbumCandidate[]): Album
     if (merged.tracks.length === 0 && candidate.tracks.length > 0) {
       merged.tracks = candidate.tracks;
     } else if (merged.tracks.length > 0 && candidate.tracks.length > 0) {
-      fillTrackGapsByPosition(merged.tracks, candidate.tracks);
+      fillTrackGapsByPosition(merged.tracks, candidate.tracks, candidate.source);
     }
   }
 
@@ -150,14 +154,67 @@ function mergeProviderIdField(
   }
 }
 
-function fillTrackGapsByPosition(target: TrackCandidate[], source: TrackCandidate[]): void {
+function fillTrackGapsByPosition(
+  target: TrackCandidate[],
+  source: TrackCandidate[],
+  sourceName: AlbumCandidate["source"],
+): void {
   for (let i = 0; i < Math.min(target.length, source.length); i++) {
     const targetTrack = target[i];
     const sourceTrack = source[i];
+    if (API_TITLE_CLEANUP_SOURCES.has(sourceName) && targetTrack.title && sourceTrack.title) {
+      targetTrack.title = replacementTitleForPollutedTitle(
+        targetTrack.title,
+        sourceTrack.title,
+      ) ?? targetTrack.title;
+    }
     targetTrack.musicbrainzTrackId ??= sourceTrack.musicbrainzTrackId;
     targetTrack.length ??= sourceTrack.length;
     targetTrack.genre ??= sourceTrack.genre;
   }
+}
+
+export function applyCanonicalArtistName(
+  candidate: AlbumCandidate,
+  canonicalName: string | null | undefined,
+): AlbumCandidate {
+  const artistName = cleanProviderArtistName(canonicalName);
+  if (!artistName) return candidate;
+
+  return {
+    ...candidate,
+    artist: artistName,
+    artists: [artistName],
+    albumArtist: artistName,
+    albumArtists: [artistName],
+    tracks: candidate.tracks.map((track) => ({
+      ...track,
+      artist: artistName,
+      artists: [artistName],
+    })),
+  };
+}
+
+function cleanProviderArtistName(
+  name: string | null | undefined,
+): string | null {
+  const cleaned = name
+    ?.replace(/\s+\(\d+\)$/, "")
+    .replace(/\s+\([^)]*[;，,][^)]*\)\s*$/, "")
+    .trim();
+  return cleaned || null;
+}
+
+export function chooseProviderArtistName(
+  discogsName: { name: string | null; realname: string | null } | null,
+  musicbrainzName: string | null,
+): string | null {
+  return cleanProviderArtistName(
+    musicbrainzName ??
+    discogsName?.realname ??
+    discogsName?.name ??
+    null,
+  );
 }
 
 /**
@@ -907,10 +964,18 @@ class TaskManager {
             }
           }
 
+          const canonicalArtistName = await this.resolveProviderArtistName(lookupRequest, candidate);
+          const writeCandidate =
+            canonicalArtistName &&
+            !isCompilationFolder(lookupRequest.artistHint) &&
+            !isCompilationFolder(candidate.albumArtist ?? candidate.artist)
+              ? applyCanonicalArtistName(candidate, canonicalArtistName)
+              : candidate;
+
           // Conditional genre fill: only call LLM if genre is still missing
           // after Discogs and LLM tag resolution.
           update("Resolving genre...", 8);
-          const filledCandidate = await this.fillGenreIfMissing(candidate, lookupRequest, signal);
+          const filledCandidate = await this.fillGenreIfMissing(writeCandidate, lookupRequest, signal);
           debug.info("auto-tag", `Step 8/9: Genre resolved: "${filledCandidate.genre ?? "(none)"}"`);
 
           debug.info("auto-tag", "Step 9/9: Applying album tags...");
@@ -1132,6 +1197,65 @@ class TaskManager {
       request.discogsReleaseId ||
       request.discogsArtistId
     );
+  }
+
+  private async resolveProviderArtistName(
+    request: ReturnType<typeof makeLookupRequest>,
+    candidate: AlbumCandidate,
+  ): Promise<string | null> {
+    const discogsArtistId = candidate.discogsArtistId ?? request.discogsArtistId;
+    const musicbrainzArtistId = candidate.musicbrainzArtistId ?? request.musicbrainzArtistId;
+
+    const [discogsName, musicbrainzName] = await Promise.all([
+      this.resolveDiscogsArtistName(discogsArtistId),
+      this.resolveMusicBrainzArtistName(musicbrainzArtistId),
+    ]);
+
+    const cleaned = chooseProviderArtistName(discogsName, musicbrainzName);
+    if (cleaned) {
+      debug.info(
+        "auto-tag",
+        `Provider artist name resolved: "${cleaned}"` +
+          ` (discogs=${discogsArtistId ?? "-"} mb=${musicbrainzArtistId ?? "-"})`,
+      );
+    }
+    return cleaned;
+  }
+
+  private async resolveDiscogsArtistName(
+    artistId: string | null | undefined,
+  ): Promise<{ name: string | null; realname: string | null } | null> {
+    if (!artistId || this.config.discogsEnabled === false) return null;
+
+    const numericId = Number(artistId);
+    if (!Number.isFinite(numericId)) return null;
+
+    try {
+      const service = new DiscogsService({ token: this.config.discogsToken });
+      const detail = await service.getArtistDetail(numericId);
+      if (!detail) return null;
+      return {
+        name: cleanProviderArtistName(detail.name),
+        realname: cleanProviderArtistName(detail.realname),
+      };
+    } catch (err) {
+      debug.warn("auto-tag", `Discogs artist detail lookup failed for ID=${artistId}`, err);
+      return null;
+    }
+  }
+
+  private async resolveMusicBrainzArtistName(
+    artistId: string | null | undefined,
+  ): Promise<string | null> {
+    if (!artistId || this.config.remoteLookupEnabled === false) return null;
+
+    try {
+      const artist = await new MusicBrainzClient().lookupArtistById(artistId);
+      return cleanProviderArtistName(artist?.name);
+    } catch (err) {
+      debug.warn("auto-tag", `MusicBrainz artist detail lookup failed for ID=${artistId}`, err);
+      return null;
+    }
   }
 
   private withoutDatasetCandidates(candidates: AlbumCandidate[]): AlbumCandidate[] {

@@ -8,6 +8,8 @@ import {
   cleanFilenameTitle,
   normalizeDurationSeconds,
   durationsMatch,
+  shouldReplacePollutedTitleWithApiTitle,
+  replacementTitleForPollutedTitle,
   matchRemoteCandidateTracks,
 } from "../../electron/services/RemoteTrackMatcher";
 import { makeTrackCandidate } from "../../electron/handlers/candidates";
@@ -166,6 +168,45 @@ describe("durationsMatch", () => {
     expect(durationsMatch(null, 200)).toBe(false);
     expect(durationsMatch(200, null)).toBe(false);
     expect(durationsMatch(null, null)).toBe(false);
+  });
+});
+
+describe("shouldReplacePollutedTitleWithApiTitle", () => {
+  it("replaces when the API title is contained in a suffix-polluted local title", () => {
+    expect(shouldReplacePollutedTitleWithApiTitle("微光(亚特兰提斯)(24bit-48Hz)", "微光")).toBe(true);
+    expect(shouldReplacePollutedTitleWithApiTitle("Revolution(飞儿乐团)(24bit-48Hz)", "Revolution")).toBe(true);
+  });
+
+  it("replaces after a leading artist display prefix", () => {
+    expect(shouldReplacePollutedTitleWithApiTitle("F.I.R飞儿乐团 - Blue Doors Ahead(爱歌姬)(16bit-44.1Hz)", "Blue Doors Ahead")).toBe(true);
+  });
+
+  it("does not replace punctuation-only differences", () => {
+    expect(shouldReplacePollutedTitleWithApiTitle("Revolution", "Revolution")).toBe(false);
+    expect(shouldReplacePollutedTitleWithApiTitle("Revolution!", "Revolution")).toBe(false);
+  });
+
+  it("does not replace unrelated titles", () => {
+    expect(shouldReplacePollutedTitleWithApiTitle("错误标题(亚特兰提斯)(24bit-48Hz)", "微光")).toBe(false);
+  });
+
+  it("does not replace when the API title only appears in the suffix", () => {
+    expect(shouldReplacePollutedTitleWithApiTitle("Say Hello(亚特兰提斯)(24bit-48Hz)", "亚特兰提斯")).toBe(false);
+  });
+
+  it("does not replace meaningful version qualifiers", () => {
+    expect(shouldReplacePollutedTitleWithApiTitle("Song (Live)", "Song")).toBe(false);
+    expect(shouldReplacePollutedTitleWithApiTitle("Song - 伴奏", "Song")).toBe(false);
+  });
+});
+
+describe("replacementTitleForPollutedTitle", () => {
+  it("preserves local prefix casing when the API title only differs by case", () => {
+    expect(replacementTitleForPollutedTitle("I Can't Go On(无限)(24bit-48Hz)", "I can't go on")).toBe("I Can't Go On");
+  });
+
+  it("uses the API title when the match requires a Simplified/Traditional variant", () => {
+    expect(replacementTitleForPollutedTitle("让爱重生(亚特兰提斯)(24bit-48Hz)", "讓愛重生", ["让爱重生"])).toBe("讓愛重生");
   });
 });
 
@@ -454,6 +495,113 @@ describe("matchRemoteCandidateTracks", () => {
 
     expect(result.stats.matched).toBe(1);
     expect(result.tracks[0].title).toBe("不变的心");
+  });
+
+  it("uses matched MusicBrainz API title when local title contains extra suffix pollution", async () => {
+    const localTracks = [
+      makeTrackCandidate({ title: "微光(亚特兰提斯)(24bit-48Hz)", trackNumber: 4 }),
+      makeTrackCandidate({ title: "讓我們一起微笑吧", trackNumber: 5 }),
+    ];
+    const remoteTracks = [
+      makeTrackCandidate({ title: "微光", trackNumber: 4 }),
+      makeTrackCandidate({ title: "讓我們一起微笑吧", trackNumber: 5 }),
+    ];
+
+    const result = await matchRemoteCandidateTracks(
+      localTracks,
+      [],
+      remoteTracks,
+      "musicbrainz",
+    );
+
+    expect(result.isFullOrderedMatch).toBe(true);
+    expect(result.tracks[0].title).toBe("微光");
+    expect(result.tracks[1].title).toBe("讓我們一起微笑吧");
+  });
+
+  it("uses API title when polluted local title only contains a Simplified/Traditional variant", async () => {
+    const localTracks = [
+      makeTrackCandidate({ title: "让爱重生(亚特兰提斯)(24bit-48Hz)", trackNumber: 10 }),
+      makeTrackCandidate({ title: "Say Hello", trackNumber: 1 }),
+    ];
+    const remoteTracks = [
+      makeTrackCandidate({ title: "讓愛重生", trackNumber: 10 }),
+      makeTrackCandidate({ title: "Say Hello", trackNumber: 1 }),
+    ];
+
+    const result = await matchRemoteCandidateTracks(
+      localTracks,
+      [],
+      remoteTracks,
+      "musicbrainz",
+    );
+
+    expect(result.isFullOrderedMatch).toBe(true);
+    expect(result.tracks[0].title).toBe("讓愛重生");
+  });
+
+  it("uses matched Discogs API title when local title contains extra suffix pollution", async () => {
+    const localTracks = [
+      makeTrackCandidate({ title: "Revolution(飞儿乐团)(24bit-48Hz)", trackNumber: 1 }),
+      makeTrackCandidate({ title: "Fly Away", trackNumber: 2 }),
+    ];
+    const remoteTracks = [
+      makeTrackCandidate({ title: "Revolution", trackNumber: 1 }),
+      makeTrackCandidate({ title: "Fly Away", trackNumber: 2 }),
+    ];
+
+    const result = await matchRemoteCandidateTracks(
+      localTracks,
+      [],
+      remoteTracks,
+      "discogs",
+    );
+
+    expect(result.isFullOrderedMatch).toBe(true);
+    expect(result.tracks[0].title).toBe("Revolution");
+    expect(result.tracks[1].title).toBe("Fly Away");
+  });
+
+  it("preserves local title casing when the matched API title differs only by case", async () => {
+    const localTracks = [
+      makeTrackCandidate({ title: "I Can't Go On(无限)(24bit-48Hz)", trackNumber: 1 }),
+      makeTrackCandidate({ title: "Love3", trackNumber: 2 }),
+    ];
+    const remoteTracks = [
+      makeTrackCandidate({ title: "I can't go on", trackNumber: 1 }),
+      makeTrackCandidate({ title: "Love3", trackNumber: 2 }),
+    ];
+
+    const result = await matchRemoteCandidateTracks(
+      localTracks,
+      [],
+      remoteTracks,
+      "musicbrainz",
+    );
+
+    expect(result.isFullOrderedMatch).toBe(true);
+    expect(result.tracks[0].title).toBe("I Can't Go On");
+  });
+
+  it("does not use API title when position matches but title containment does not", async () => {
+    const localTracks = [
+      makeTrackCandidate({ title: "错误标题(亚特兰提斯)(24bit-48Hz)", trackNumber: 4 }),
+      makeTrackCandidate({ title: "另一首", trackNumber: 5 }),
+    ];
+    const remoteTracks = [
+      makeTrackCandidate({ title: "微光", trackNumber: 4 }),
+      makeTrackCandidate({ title: "不相干", trackNumber: 5 }),
+    ];
+
+    const result = await matchRemoteCandidateTracks(
+      localTracks,
+      [],
+      remoteTracks,
+      "musicbrainz",
+    );
+
+    expect(result.isFullOrderedMatch).toBe(true);
+    expect(result.tracks[0].title).toBe("错误标题(亚特兰提斯)(24bit-48Hz)");
   });
 });
 

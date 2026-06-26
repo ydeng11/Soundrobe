@@ -53,6 +53,24 @@ const ANNOTATION_PATTERNS = [
   ANNOTATION_TRAILING_RE,
 ];
 
+const TITLE_POLLUTION_EXTRA_MIN_CHARS = 3;
+const TITLE_POLLUTION_EXTRA_MIN_RATIO = 0.25;
+const MEANINGFUL_VERSION_QUALIFIERS = new Set([
+  "live",
+  "remix",
+  "demo",
+  "acoustic",
+  "instrumental",
+  "karaoke",
+  "edit",
+  "version",
+  "现场",
+  "現場",
+  "伴奏",
+]);
+
+const API_TITLE_CLEANUP_SOURCES = new Set(["musicbrainz", "discogs"]);
+
 // ── Filename parsing ─────────────────────────────────────────────
 
 const FILENAME_TRACK_PREFIX_RE = /^(\d+)[\s.\u2010\u2011\u2012\u2013\u2014\u2015\-]*/;
@@ -295,6 +313,109 @@ export function durationsMatch(
   return diff <= threshold;
 }
 
+/**
+ * Decide whether an API title should replace a suffix-polluted local title.
+ *
+ * This is intentionally title-only evidence: the API title must already be
+ * contained in the current title after normalization, and the current title
+ * must have enough extra text to prove real pollution rather than harmless
+ * punctuation/case differences.
+ */
+export function shouldReplacePollutedTitleWithApiTitle(
+  currentTitle: string | null | undefined,
+  apiTitle: string | null | undefined,
+  apiTitleVariants: string[] = [],
+): boolean {
+  return replacementTitleForPollutedTitle(currentTitle, apiTitle, apiTitleVariants) !== null;
+}
+
+export function replacementTitleForPollutedTitle(
+  currentTitle: string | null | undefined,
+  apiTitle: string | null | undefined,
+  apiTitleVariants: string[] = [],
+): string | null {
+  const currentCandidates = titleReplacementCurrentCandidates(currentTitle);
+  const apiCandidates = [apiTitle ?? "", ...apiTitleVariants]
+    .map((title, index) => ({
+      raw: title,
+      normalized: stripPunctuationAndSymbols(title),
+      primary: index === 0,
+    }))
+    .filter((candidate, index, candidates) =>
+      candidate.normalized.length > 0 &&
+      candidates.findIndex((other) => other.normalized === candidate.normalized) === index,
+    );
+  if (currentCandidates.length === 0 || apiCandidates.length === 0) return null;
+  const primaryApi = apiCandidates[0];
+
+  for (const current of currentCandidates) {
+    for (const api of apiCandidates) {
+      if (current.normalized === api.normalized || api.normalized.length < 2) continue;
+      if (shouldReplacePollutedNormalizedTitle(current.normalized, api.normalized)) {
+        return current.coreNormalized === primaryApi.normalized
+          ? current.core
+          : apiTitle ?? api.raw;
+      }
+    }
+  }
+
+  return null;
+}
+
+function titleReplacementCurrentCandidates(
+  currentTitle: string | null | undefined,
+): Array<{ text: string; normalized: string; core: string; coreNormalized: string }> {
+  const raw = (currentTitle ?? "").trim();
+  if (!raw) return [];
+
+  const candidates = [{ text: raw, core: raw.split(/[（(]/)[0]?.trim() ?? raw }];
+  const beforeFirstParen = candidates[0].core;
+  const coreAfterDisplayPrefix = beforeFirstParen
+    .split(/\s[-–—]\s/)
+    .at(-1)
+    ?.trim();
+  if (coreAfterDisplayPrefix && coreAfterDisplayPrefix !== beforeFirstParen) {
+    const suffix = raw.slice(beforeFirstParen.length);
+    candidates.push({
+      text: `${coreAfterDisplayPrefix}${suffix}`,
+      core: coreAfterDisplayPrefix,
+    });
+  }
+
+  return candidates
+    .map((candidate) => ({
+      ...candidate,
+      normalized: stripPunctuationAndSymbols(candidate.text),
+      coreNormalized: stripPunctuationAndSymbols(candidate.core),
+    }))
+    .filter((candidate, index, candidates) =>
+      candidate.normalized.length > 0 &&
+      candidates.findIndex((other) => other.normalized === candidate.normalized) === index,
+    );
+}
+
+function shouldReplacePollutedNormalizedTitle(current: string, api: string): boolean {
+  const apiIndex = current.indexOf(api);
+  if (apiIndex !== 0) return false;
+
+  const before = current.slice(0, apiIndex).trim();
+  const after = current.slice(apiIndex + api.length).trim();
+  const extra = `${before} ${after}`.trim();
+  if (!extra) return false;
+
+  const extraTokens = extra.split(WHITESPACE_RE).filter(Boolean);
+  if (extraTokens.some((token) => MEANINGFUL_VERSION_QUALIFIERS.has(token))) {
+    return false;
+  }
+
+  const extraChars = current.length - api.length;
+  const extraRatio = extraChars / current.length;
+  return (
+    extraChars >= TITLE_POLLUTION_EXTRA_MIN_CHARS ||
+    extraRatio >= TITLE_POLLUTION_EXTRA_MIN_RATIO
+  );
+}
+
 // ── Matcher stats ───────────────────────────────────────────────
 
 export interface MatchStats {
@@ -384,11 +505,20 @@ export async function matchRemoteCandidateTracks(
 
   // 2. Normalize remote titles and durations
   //    Strip annotations first, THEN punctuation/symbols
+  const replacementOpenCC = await getOpenCC();
   const remoteMeta = remoteTracks.map((rt, i) => {
     const annotationStripped = stripAnnotations(rt.title ?? "");
+    const titleVariants = replacementOpenCC
+      ? [
+        annotationStripped,
+        replacementOpenCC.s2t(annotationStripped),
+        replacementOpenCC.t2s(annotationStripped),
+      ]
+      : [annotationStripped];
     return {
       index: i,
       title: annotationStripped,
+      titleVariants,
       normalized: stripPunctuationAndSymbols(annotationStripped),
       duration: normalizeDurationSeconds(rt.length, source),
       track: rt,
@@ -512,6 +642,33 @@ export async function matchRemoteCandidateTracks(
       });
     }
 
+    if (!matched && API_TITLE_CLEANUP_SOURCES.has(source)) {
+      const containedTitleMatches = remoteMeta
+        .filter((rm) => !matchedRemote.has(rm.index))
+        .filter((rm) =>
+          shouldReplacePollutedTitleWithApiTitle(localTracks[i].title, rm.title, rm.titleVariants),
+        )
+        .filter((rm) => {
+          if (localDuration == null || rm.duration == null) return true;
+          return durationsMatch(localDuration, rm.duration);
+        });
+
+      if (containedTitleMatches.length === 1) {
+        const ri = containedTitleMatches[0].index;
+        matchedRemote.add(ri);
+        matchedLocal[i] = ri;
+        stats.matched++;
+        matched = true;
+      } else if (containedTitleMatches.length > 1) {
+        stats.skipped.push({
+          localIndex: i,
+          localTitle: lf.tagTitle,
+          reason: "duplicate_ambiguous",
+        });
+        matched = true;
+      }
+    }
+
     if (!matched) {
       const reason: SkipReason["reason"] =
         allForms.every((f) => !f.form)
@@ -565,7 +722,20 @@ export async function matchRemoteCandidateTracks(
     const result: TrackCandidate = { ...localTrack };
 
     // ── Title ─────────────────────────────────────────────────
-    if (anyTagFormMatched) {
+    const titleReplacement = API_TITLE_CLEANUP_SOURCES.has(source)
+      ? replacementTitleForPollutedTitle(
+        localTrack.title,
+        remoteTrack.title,
+        remoteMeta[remoteIdx].titleVariants,
+      )
+      : null;
+
+    if (
+      API_TITLE_CLEANUP_SOURCES.has(source) &&
+      titleReplacement
+    ) {
+      result.title = titleReplacement;
+    } else if (anyTagFormMatched) {
       // Local tag title matched — preserve original local title
       result.title = localTrack.title;
     } else {
