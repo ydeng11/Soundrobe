@@ -6,6 +6,17 @@ import path from "path";
 import { ArtworkResolverService } from "../services/ArtworkResolverService";
 import { loadConfig } from "./auto-tag";
 import debug from "./debug";
+import {
+  clearAlbumCoverSuppression,
+  isAlbumCoverSuppressed,
+  suppressAlbumCover,
+} from "./cover-suppression";
+
+export {
+  clearAlbumCoverSuppression,
+  isAlbumCoverSuppressed,
+  suppressAlbumCover,
+};
 
 const COVER_NAMES = [
   "cover",
@@ -22,10 +33,8 @@ const COVER_NAMES = [
 ];
 
 const COVER_EXTS = [".jpg", ".jpeg", ".png"];
-const COVER_REMOVED_MARKER = ".auto-tagger-cover-removed";
-
 /** Audio file extensions used for embedded cover scanning and metadata reading. */
-const AUDIO_EXTS = [".mp3", ".flac", ".m4a", ".mp4", ".wav", ".ogg", ".opus"];
+export const COVER_AUDIO_EXTS = [".mp3", ".flac", ".m4a", ".mp4", ".wav", ".ogg", ".opus", ".ape"];
 
 type NativeTag = { id?: string; value?: unknown; description?: string };
 type ProviderIdMetadata = {
@@ -108,25 +117,6 @@ function findExternalCover(albumPath: string): string | null {
   return null;
 }
 
-function coverRemovedMarkerPath(albumPath: string): string {
-  return path.join(albumPath, COVER_REMOVED_MARKER);
-}
-
-export function isAlbumCoverSuppressed(albumPath: string): boolean {
-  return fs.existsSync(coverRemovedMarkerPath(albumPath));
-}
-
-export function suppressAlbumCover(albumPath: string): void {
-  fs.writeFileSync(coverRemovedMarkerPath(albumPath), "", "utf-8");
-}
-
-export function clearAlbumCoverSuppression(albumPath: string): void {
-  const markerPath = coverRemovedMarkerPath(albumPath);
-  if (fs.existsSync(markerPath)) {
-    fs.unlinkSync(markerPath);
-  }
-}
-
 /**
  * Convert image bytes to a data URL (JPEG, resized to max 500px).
  */
@@ -190,7 +180,7 @@ async function readFirstTrackMetadata(albumPath: string): Promise<{
     const entries = fs.readdirSync(albumPath, { withFileTypes: true });
     for (const entry of entries) {
       if (entry.name.startsWith(".")) continue;
-      if (!AUDIO_EXTS.includes(path.extname(entry.name).toLowerCase())) continue;
+      if (!COVER_AUDIO_EXTS.includes(path.extname(entry.name).toLowerCase())) continue;
 
       const filePath = path.join(albumPath, entry.name);
       const metadata = await parseFile(filePath, { duration: false });
@@ -253,7 +243,7 @@ export function registerCoverHandlers(): void {
             (e) =>
               e.isFile() &&
               !e.name.startsWith(".") &&
-              AUDIO_EXTS.includes(
+              COVER_AUDIO_EXTS.includes(
                 path.extname(e.name).toLowerCase()
               )
           );

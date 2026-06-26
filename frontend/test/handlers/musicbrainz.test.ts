@@ -268,6 +268,8 @@ describe("MusicBrainzClient", () => {
     expect(first?.musicbrainzAlbumId).toBe("mb-good");
     expect(second?.musicbrainzAlbumId).toBe("mb-good");
     expect(vi.mocked(globalThis.fetch)).toHaveBeenCalledTimes(2);
+    expect(inFlightReleasePages.size).toBe(0);
+    expect(inFlightReleaseDetails.size).toBe(0);
   });
 
   it("does not keep failed in-flight artist release page requests", async () => {

@@ -9,6 +9,7 @@
 
 import { describe, it, expect, vi, beforeEach, afterAll } from "vitest";
 import {
+  COVER_AUDIO_EXTS,
   extractArtworkProviderIds,
   clearAlbumCoverSuppression,
   isAlbumCoverSuppressed,
@@ -284,6 +285,12 @@ describe("album cover suppression", () => {
     expect(fsDefault.unlinkSync).toHaveBeenCalledWith(
       "/music/Artist/Album/.auto-tagger-cover-removed",
     );
+  });
+});
+
+describe("cover audio extension support", () => {
+  it("treats APE files as audio for cover metadata scanning", () => {
+    expect(COVER_AUDIO_EXTS).toContain(".ape");
   });
 });
 

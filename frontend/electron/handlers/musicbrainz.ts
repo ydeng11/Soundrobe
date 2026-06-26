@@ -146,12 +146,8 @@ export class MusicBrainzClient {
     const inFlight = this.inFlightReleaseDetails?.get(key);
     if (inFlight) return inFlight;
 
-    const promise = this.fetchReleaseById(releaseId).then((candidate) => {
-      if (!candidate) this.inFlightReleaseDetails?.delete(key);
-      return candidate;
-    }, (err) => {
+    const promise = this.fetchReleaseById(releaseId).finally(() => {
       this.inFlightReleaseDetails?.delete(key);
-      throw err;
     });
     this.inFlightReleaseDetails?.set(key, promise);
     return promise;
@@ -253,12 +249,8 @@ export class MusicBrainzClient {
     const inFlight = this.inFlightReleasePages?.get(key);
     if (inFlight) return inFlight;
 
-    const promise = this.fetchArtistReleasePage(artistId, page, limit).then((releases) => {
-      if (releases.length === 0) this.inFlightReleasePages?.delete(key);
-      return releases;
-    }, (err) => {
+    const promise = this.fetchArtistReleasePage(artistId, page, limit).finally(() => {
       this.inFlightReleasePages?.delete(key);
-      throw err;
     });
     this.inFlightReleasePages?.set(key, promise);
     return promise;

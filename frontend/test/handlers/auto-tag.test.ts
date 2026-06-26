@@ -55,6 +55,7 @@ import {
   mergeAutoTagCandidateFields,
   applyCanonicalArtistName,
   chooseProviderArtistName,
+  shouldResolveAutoTagCover,
 } from "../../electron/handlers/auto-tag";
 import { setAliasFilePath, saveAlias } from "../../electron/handlers/aliases";
 import { makeAlbumCandidate, makeLookupRequest, makeTrackCandidate } from "../../electron/handlers/candidates";
@@ -146,6 +147,19 @@ describe("filterCandidatesForAutoApply", () => {
     ]);
 
     expect(filtered).toEqual([safeFolderFallback]);
+  });
+});
+
+describe("shouldResolveAutoTagCover", () => {
+  it("skips auto-tag cover resolution when the album cover was explicitly removed", () => {
+    const albumPath = mkdtempSync(join(tmpdir(), "auto-tag-cover-suppressed-"));
+    try {
+      writeFileSync(join(albumPath, ".auto-tagger-cover-removed"), "");
+
+      expect(shouldResolveAutoTagCover(albumPath)).toBe(false);
+    } finally {
+      rmSync(albumPath, { recursive: true, force: true });
+    }
   });
 });
 

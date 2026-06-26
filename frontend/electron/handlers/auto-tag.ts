@@ -36,6 +36,7 @@ import { findArtistIdentity, type ArtistIdentity } from "../services/ArtistIdent
 import { DiscogsService } from "../services/DiscogsService";
 import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, statSync } from "node:fs";
 import { basename, dirname, join, extname } from "node:path";
+import { isAlbumCoverSuppressed } from "./cover-suppression";
 
 const AUDIO_EXTENSIONS = new Set([".mp3", ".flac", ".m4a", ".mp4", ".wav", ".ogg", ".opus", ".aiff", ".ape"]);
 import { homedir } from "node:os";
@@ -66,6 +67,10 @@ function requestAlbumPath(inputPath: string): string {
       ? dirname(inputPath)
       : inputPath;
   }
+}
+
+export function shouldResolveAutoTagCover(albumPath: string): boolean {
+  return !isAlbumCoverSuppressed(albumPath);
 }
 
 export async function filterCandidatesForAutoApply(
@@ -1278,7 +1283,9 @@ class TaskManager {
     const folderName = basename(dirname(albumPath));
     const albumArtists = splitArtistNames(candidate.albumArtists.length > 0 ? candidate.albumArtists : [folderName]);
     const albumArtist = artistDisplayName(albumArtists, folderName);
-    const cover = await this.resolveVerifiedCover(albumPath, candidate);
+    const cover = shouldResolveAutoTagCover(albumPath)
+      ? await this.resolveVerifiedCover(albumPath, candidate)
+      : null;
 
     // Discover audio files in the album directory
     let audioFiles: string[] = [];

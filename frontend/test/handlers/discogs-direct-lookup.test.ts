@@ -212,6 +212,8 @@ describe("DiscogsClient — direct ID lookup", () => {
     expect(first?.discogsReleaseId).toBe("6951078");
     expect(second?.discogsReleaseId).toBe("6951078");
     expect(fetchSpy).toHaveBeenCalledTimes(2);
+    expect(inFlightReleasePages.size).toBe(0);
+    expect(inFlightReleaseDetails.size).toBe(0);
   });
 
   it("does not keep failed in-flight artist release page requests", async () => {
