@@ -60,7 +60,8 @@ function createMinimalFlac(
   filePath: string,
   title?: string,
   artist?: string,
-  album?: string
+  album?: string,
+  extraComments: string[] = [],
 ): void {
   const parts: Buffer[] = [];
   parts.push(Buffer.from("fLaC", "ascii"));
@@ -77,7 +78,7 @@ function createMinimalFlac(
   si[16] = 0x1f;
 
   const siHeader = Buffer.alloc(4);
-  const hasVorbis = !!(title || artist || album);
+  const hasVorbis = !!(title || artist || album || extraComments.length);
   siHeader[0] = hasVorbis ? 0x00 : 0x80; // isLast if sole block
   siHeader[1] = (si.length >> 16) & 0xff;
   siHeader[2] = (si.length >> 8) & 0xff;
@@ -89,6 +90,7 @@ function createMinimalFlac(
     if (title) comments.push(`TITLE=${title}`);
     if (artist) comments.push(`ARTIST=${artist}`);
     if (album) comments.push(`ALBUM=${album}`);
+    comments.push(...extraComments);
 
     const vendor = Buffer.from("libFLAC 1.3.2", "utf8");
     const vLen = Buffer.alloc(4);
@@ -371,6 +373,30 @@ describe("writeTags — FLAC", () => {
     expect(meta.common.musicbrainz_artistid).toContain("mb-artist");
     expect(meta.common.musicbrainz_recordingid).toBe("mb-track");
     expect(JSON.stringify(meta.common.lyrics)).toContain("你好");
+  });
+
+  it("keeps FLAC ALBUMARTISTS in sync when albumArtist is updated alone", async () => {
+    const fp = path.join(tmpDir, "album-artist-sync.flac");
+    createMinimalFlac(fp, undefined, undefined, undefined, [
+      "ALBUM ARTIST=Old Spaced Alias",
+      "ALBUM_ARTIST=Old Underscore Alias",
+    ]);
+    await writeTags(fp, {
+      albumArtist: "Old Singular",
+      albumArtists: ["Old Plural"],
+    });
+
+    await writeTags(fp, { albumArtist: "New Album Artist" });
+
+    const meta = await parseFile(fp, { duration: false });
+    const albumArtistAlias = meta.native.vorbis?.find((tag) => tag.id === "ALBUM ARTIST");
+    const albumArtistUnderscoreAlias = meta.native.vorbis?.find((tag) => tag.id === "ALBUM_ARTIST");
+    const albumArtistsTag = meta.native.vorbis?.find((tag) => tag.id === "ALBUMARTISTS");
+    expect(meta.common.albumartist).toBe("New Album Artist");
+    expect(meta.common.albumartists).toContain("New Album Artist");
+    expect(albumArtistsTag?.value).toBe("New Album Artist");
+    expect(albumArtistAlias).toBeUndefined();
+    expect(albumArtistUnderscoreAlias).toBeUndefined();
   });
 
   it("writes FLAC when no existing Vorbis comment block exists", async () => {

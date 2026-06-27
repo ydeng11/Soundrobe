@@ -339,7 +339,15 @@ async function writeVorbis(
   setVorbisList(updated, "ARTISTS", fields.artists);
   setVorbisField(updated, "ALBUM", fields.album);
   setVorbisField(updated, "ALBUMARTIST", fields.albumArtist);
-  setVorbisList(updated, "ALBUMARTISTS", fields.albumArtists);
+  setVorbisList(
+    updated,
+    "ALBUMARTISTS",
+    fields.albumArtists !== undefined ? fields.albumArtists : fields.albumArtist,
+  );
+  if (fields.albumArtist !== undefined || fields.albumArtists !== undefined) {
+    delete updated["ALBUM ARTIST"];
+    delete updated.ALBUM_ARTIST;
+  }
   setVorbisField(updated, "DATE", fields.year);
   setVorbisField(updated, "GENRE", fields.genre);
   setVorbisField(updated, "COMPOSER", fields.composer);
