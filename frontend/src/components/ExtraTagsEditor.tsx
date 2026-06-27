@@ -2,9 +2,8 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import type { ExtraTag, TrackData } from "../../electron/preload";
 import { basename } from "../utils/path";
 
-/** Common tag keys users may want to add (not in the main editor). */
-const SUGGESTED_TAG_KEYS = [
-  // Vorbis / general
+// Tag keys that are shared across Vorbis and ID3v2 formats
+const COMMON_EXTRA_TAGS = [
   "COMMENT",
   "DESCRIPTION",
   "LYRICIST",
@@ -25,6 +24,13 @@ const SUGGESTED_TAG_KEYS = [
   "SUBTITLE",
   "TOTALDISCS",
   "TOTALTRACKS",
+  "ARTISTS",
+  "ALBUMARTISTS",
+  "COMPILATION",
+];
+
+// Vorbis-style uppercase tags (FLAC, OGG, OPUS, APE)
+const VORBIS_SPECIFIC_TAGS = [
   // MusicBrainz
   "MUSICBRAINZ_ALBUMID",
   "MUSICBRAINZ_ARTISTID",
@@ -44,7 +50,21 @@ const SUGGESTED_TAG_KEYS = [
   "DISCOGS_RELEASED",
   "DISCOGS_STYLE",
   "DISCOGS_VOTES",
-  // ID3v2 (native keys)
+];
+
+// ID3v2 TXXX descriptions used by auto-tag (MP3, WAV)
+const ID3V2_TXXX_TAGS = [
+  // MusicBrainz (space-separated descriptions)
+  "MusicBrainz Track Id",
+  "MusicBrainz Album Id",
+  "MusicBrainz Artist Id",
+  // Discogs
+  "Discogs Artist Id",
+  "Discogs Release Id",
+];
+
+// ID3v2 native frame IDs
+const ID3V2_FRAME_TAGS = [
   "TCOM",
   "TIT3",
   "TSRC",
@@ -58,6 +78,15 @@ const SUGGESTED_TAG_KEYS = [
   "TSOP",
   "TSOT",
 ];
+
+const ID3V2_SUGGESTED_KEYS = [...COMMON_EXTRA_TAGS, ...ID3V2_TXXX_TAGS, ...ID3V2_FRAME_TAGS];
+const VORBIS_SUGGESTED_KEYS = [...COMMON_EXTRA_TAGS, ...VORBIS_SPECIFIC_TAGS];
+
+/** Return file-type-specific suggested tag keys. */
+function getSuggestedTagKeys(filePath: string): string[] {
+  const ext = filePath.split(".").pop()?.toLowerCase() ?? "";
+  return ext === "mp3" || ext === "wav" ? ID3V2_SUGGESTED_KEYS : VORBIS_SUGGESTED_KEYS;
+}
 
 interface ExtraTagsEditorProps {
   track: TrackData;
@@ -144,10 +173,11 @@ export function ExtraTagsEditor({
     if (!row) return [];
     const usedKeys = new Set(rows.map((r) => r.key.toUpperCase()));
     const q = keyFilter.trim().toUpperCase();
-    return SUGGESTED_TAG_KEYS.filter(
-      (k) => !usedKeys.has(k) && (!q || k.includes(q)),
-    ).slice(0, 8); // limit dropdown height
-  }, [activeKeyId, rows, keyFilter]);
+    const suggestedKeys = getSuggestedTagKeys(track.path);
+    return suggestedKeys.filter(
+      (k) => !usedKeys.has(k.toUpperCase()) && (!q || k.toUpperCase().includes(q)),
+    ).slice(0, 8);
+  }, [activeKeyId, rows, keyFilter, track.path]);
 
   // Close suggestions on outside click
   useEffect(() => {
