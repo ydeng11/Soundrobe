@@ -76,6 +76,10 @@ export interface AuditTrackResult {
   message: string;
   suggestion?: string | null;
   corrected?: CorrectedTrack | null;
+  source?: "deterministic" | "llm";
+  confidence?: number;
+  autoFixEligible?: boolean;
+  autoFixed?: boolean;
 }
 
 export interface CorrectedTrack {
@@ -84,8 +88,13 @@ export interface CorrectedTrack {
   artists?: string[] | null;
   album?: string | null;
   albumArtist?: string | null;
+  albumArtists?: string[] | null;
   year?: string | null;
   genre?: string | null;
+  trackNumber?: number | null;
+  trackTotal?: number | null;
+  discNumber?: number | null;
+  discTotal?: number | null;
 }
 
 export interface AuditResponse {

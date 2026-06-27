@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { appReducer, initialAppState } from "../../src/state/AppState";
+import { appReducer, getVisibleAuditResult, initialAppState } from "../../src/state/AppState";
 import type { TrackData } from "../../electron/preload";
 import { UndoManager } from "../../src/state/UndoManager";
 
@@ -196,6 +196,70 @@ describe("appReducer", () => {
       const state = { ...initialAppState, coverDataUrl: "data:..." };
       const next = appReducer(state, { type: "SET_COVER_URL", url: null });
       expect(next.coverDataUrl).toBeNull();
+    });
+  });
+
+  describe("ADD_AUDIT_RESULTS", () => {
+    const auditResult = {
+      trackIndex: 0,
+      field: "title",
+      status: "error" as const,
+      message: "Title mismatch",
+      suggestion: "Song",
+      source: "deterministic" as const,
+      confidence: 0.98,
+      autoFixEligible: true,
+      autoFixed: true,
+    };
+
+    it("stores enriched audit metadata without dropping legacy result fields", () => {
+      const next = appReducer(initialAppState, {
+        type: "ADD_AUDIT_RESULTS",
+        albumPath: "/music/Artist/Album",
+        results: [auditResult],
+      });
+
+      expect(next.auditResults["/music/Artist/Album"]).toEqual([
+        expect.objectContaining({
+          trackIndex: 0,
+          field: "title",
+          status: "error",
+          message: "Title mismatch",
+          suggestion: "Song",
+          source: "deterministic",
+          confidence: 0.98,
+          autoFixEligible: true,
+          autoFixed: true,
+        }),
+      ]);
+    });
+
+    it("shows a single audited album even when no active album is selected", () => {
+      expect(getVisibleAuditResult({
+        "/music/Artist/Album": [auditResult],
+      }, null)).toEqual({
+        albumPath: "/music/Artist/Album",
+        results: [auditResult],
+      });
+    });
+
+    it("does not choose an arbitrary audit panel for multi-album audits without an active album", () => {
+      expect(getVisibleAuditResult({
+        "/music/Artist/Album": [auditResult],
+        "/music/Artist/Other": [{ ...auditResult, field: "genre" }],
+      }, null)).toBeNull();
+    });
+
+    it("prefers the active album audit results when available", () => {
+      const otherResult = { ...auditResult, field: "genre" };
+
+      expect(getVisibleAuditResult({
+        "/music/Artist/Album": [auditResult],
+        "/music/Artist/Other": [otherResult],
+      }, "/music/Artist/Other")).toEqual({
+        albumPath: "/music/Artist/Other",
+        results: [otherResult],
+      });
     });
   });
 

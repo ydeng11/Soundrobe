@@ -1,5 +1,5 @@
 import React, { useReducer, useCallback, useEffect, useMemo, useRef } from "react";
-import { appReducer, initialAppState } from "./state/AppState";
+import { appReducer, getVisibleAuditResult, initialAppState } from "./state/AppState";
 import type { TrackSnapshot } from "./state/UndoManager";
 import { TitleBar } from "./components/TitleBar";
 import { dirname as dirPath, basename } from "./utils/path";
@@ -24,13 +24,37 @@ import {
   getConvertSourceValue,
   type ConvertTrackData,
 } from "../electron/services/ConvertService";
-import type { ExtraTagUndoSnapshot, TrackData, AlbumInfo, AlbumDetail } from "../electron/preload";
+import type { ExtraTagUndoSnapshot, TrackData, AlbumInfo, AlbumDetail, AuditRunSummary } from "../electron/preload";
 import {
   computeNumberedTracks,
   type OrderingRule,
 } from "../electron/services/TrackNumberingService";
 
 const EXTRA_TAG_UNDO_FIELD = "__assistantExtraTags";
+
+function mapAuditResultForState(r: {
+  index: number;
+  field: string;
+  status: "correct" | "warning" | "error";
+  message?: string | null;
+  suggestion?: string | null;
+  source?: "deterministic" | "llm";
+  confidence?: number;
+  autoFixEligible?: boolean;
+  autoFixed?: boolean;
+}) {
+  return {
+    trackIndex: r.index,
+    field: r.field,
+    status: r.status,
+    message: r.message ?? null,
+    suggestion: r.suggestion ?? null,
+    source: r.source,
+    confidence: r.confidence,
+    autoFixEligible: r.autoFixEligible,
+    autoFixed: r.autoFixed,
+  };
+}
 
 export default function App() {
   const [state, dispatch] = useReducer(appReducer, initialAppState);
@@ -699,13 +723,7 @@ export default function App() {
               dispatch({
                 type: "ADD_AUDIT_RESULTS",
                 albumPath: event.albumPath,
-                results: event.results.map((r) => ({
-                  trackIndex: r.index,
-                  field: r.field,
-                  status: r.status as "correct" | "warning" | "error",
-                  message: r.message ?? null,
-                  suggestion: r.suggestion ?? null,
-                })),
+                results: event.results.map(mapAuditResultForState),
               });
             }
             break;
@@ -731,12 +749,21 @@ export default function App() {
       });
 
       // Determine scope: selected tracks → active album → entire library
+      let auditResult: AuditRunSummary;
       if (state.selectedTrackPaths.length > 0) {
-        await window.api.runAuditOnTracks(state.selectedTrackPaths);
+        auditResult = await window.api.runAuditOnTracks(state.selectedTrackPaths);
       } else if (state.activeAlbumPath) {
-        await window.api.runAuditOnAlbums([state.activeAlbumPath]);
+        auditResult = await window.api.runAuditOnAlbums([state.activeAlbumPath]);
       } else {
-        await window.api.runAudit(state.libraryPath);
+        auditResult = await window.api.runAudit(state.libraryPath);
+      }
+
+      for (const albumResult of auditResult.albumResults ?? []) {
+        dispatch({
+          type: "ADD_AUDIT_RESULTS",
+          albumPath: albumResult.albumPath,
+          results: albumResult.results.map(mapAuditResultForState),
+        });
       }
 
       // Scoped refresh: only re-read tracks for audited albums
@@ -1238,20 +1265,21 @@ export default function App() {
               dispatch({
                 type: "ADD_AUDIT_RESULTS",
                 albumPath: event.albumPath,
-                results: event.results.map((r) => ({
-                  trackIndex: r.index,
-                  field: r.field,
-                  status: r.status as "correct" | "warning" | "error",
-                  message: r.message ?? null,
-                  suggestion: r.suggestion ?? null,
-                })),
+                results: event.results.map(mapAuditResultForState),
               });
             } else if (event.type === "failed") {
               dispatch({ type: "SET_ERROR", error: event.message ?? "Audit failed" });
             }
           });
 
-          await window.api.runAuditOnTracks(trackPaths);
+          const auditResult = await window.api.runAuditOnTracks(trackPaths);
+          for (const albumResult of auditResult.albumResults ?? []) {
+            dispatch({
+              type: "ADD_AUDIT_RESULTS",
+              albumPath: albumResult.albumPath,
+              results: albumResult.results.map(mapAuditResultForState),
+            });
+          }
           await handleAssistantRefresh();
         } catch (err: unknown) {
           const message = err instanceof Error ? err.message : "Audit failed";
@@ -1418,6 +1446,11 @@ export default function App() {
     return state.tracks.filter((t) => pathSet.has(t.path));
   }, [state.selectedTrackPaths, state.tracks]);
 
+  const visibleAuditResult = useMemo(
+    () => getVisibleAuditResult(state.auditResults, state.activeAlbumPath),
+    [state.auditResults, state.activeAlbumPath],
+  );
+
   // Handle batch field save from BatchEditor — single IPC call
   const handleBatchSave = useCallback(
     async (fields: Record<string, string>) => {
@@ -1580,10 +1613,10 @@ export default function App() {
               onDownloadCover={handleDownloadCover}
               onDownloadArtistArt={handleDownloadArtistArt}
             />
-          ) : state.activeAlbumPath && state.auditResults[state.activeAlbumPath] ? (
+          ) : visibleAuditResult ? (
             <AuditPanel
-              results={state.auditResults[state.activeAlbumPath]}
-              albumName={basename(state.activeAlbumPath) ?? ""}
+              results={visibleAuditResult.results}
+              albumName={basename(visibleAuditResult.albumPath) ?? ""}
             />
           ) : (
             <div className="flex items-center justify-center h-full">

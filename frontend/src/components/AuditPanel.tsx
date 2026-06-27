@@ -6,6 +6,10 @@ interface AuditTrackResult {
   status: "correct" | "warning" | "error";
   message: string | null;
   suggestion: string | null;
+  source?: "deterministic" | "llm";
+  confidence?: number;
+  autoFixEligible?: boolean;
+  autoFixed?: boolean;
 }
 
 interface AuditPanelProps {
@@ -50,6 +54,17 @@ export function AuditPanel({ results, albumName }: AuditPanelProps) {
                 {r.trackIndex !== undefined && (
                   <span className="text-[11px] text-text-muted">
                     Track {r.trackIndex + 1}
+                  </span>
+                )}
+                {r.autoFixed && (
+                  <span className="text-[10.5px] text-text-muted">
+                    Fixed
+                  </span>
+                )}
+                {r.source && (
+                  <span className="text-[10.5px] text-text-muted">
+                    {r.source}
+                    {typeof r.confidence === "number" ? ` ${Math.round(r.confidence * 100)}%` : ""}
                   </span>
                 )}
               </div>

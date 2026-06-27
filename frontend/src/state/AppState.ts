@@ -1,12 +1,31 @@
 import type { TrackData, AlbumInfo } from "../../electron/preload";
 import { UndoManager, type TrackSnapshot } from "./UndoManager";
 
-interface AuditResultEntry {
+export interface AuditResultEntry {
   trackIndex: number;
   field: string;
   status: "correct" | "warning" | "error";
   message: string | null;
   suggestion: string | null;
+  source?: "deterministic" | "llm";
+  confidence?: number;
+  autoFixEligible?: boolean;
+  autoFixed?: boolean;
+}
+
+export function getVisibleAuditResult(
+  auditResults: Record<string, AuditResultEntry[]>,
+  activeAlbumPath: string | null,
+): { albumPath: string; results: AuditResultEntry[] } | null {
+  if (activeAlbumPath && auditResults[activeAlbumPath]) {
+    return { albumPath: activeAlbumPath, results: auditResults[activeAlbumPath] };
+  }
+
+  const entries = Object.entries(auditResults);
+  if (entries.length !== 1) return null;
+
+  const [albumPath, results] = entries[0];
+  return { albumPath, results };
 }
 
 export interface AppState {

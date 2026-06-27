@@ -16,6 +16,13 @@ import { loadConfig } from "./auto-tag";
 import { saveAlias, isChineseName } from "./aliases";
 import { DiscogsService } from "../services/DiscogsService";
 import { findArtistIdentity } from "../services/ArtistIdentityResolver";
+import {
+  buildDeterministicAuditFindings,
+  buildLlmReviewTargets,
+  mergeAuditFindings,
+  normalizeLlmAuditResults,
+} from "../services/AuditRuleEngine";
+import type { AuditReviewTarget } from "../services/AuditRuleEngine";
 import type { WriteFields } from "./writer";
 import { getDefaultWriteQueue } from "../services/TagWriteQueue";
 import { AUDIT_ALBUM_CONCURRENCY, LOCAL_READ_CONCURRENCY, mapConcurrent } from "../services/concurrency";
@@ -48,6 +55,19 @@ export interface AuditTrackResult {
   message: string;
   suggestion?: string | null;
   corrected?: CorrectedTrack | null;
+  source?: "deterministic" | "llm";
+  confidence?: number;
+  autoFixEligible?: boolean;
+  autoFixed?: boolean;
+}
+
+export interface AuditRunSummary {
+  albums: number;
+  issues: number;
+  albumResults?: Array<{
+    albumPath: string;
+    results: AuditTrackResult[];
+  }>;
 }
 
 export interface CorrectedTrack {
@@ -56,8 +76,13 @@ export interface CorrectedTrack {
   artists?: string[] | null;
   album?: string | null;
   albumArtist?: string | null;
+  albumArtists?: string[] | null;
   year?: string | null;
   genre?: string | null;
+  trackNumber?: number | null;
+  trackTotal?: number | null;
+  discNumber?: number | null;
+  discTotal?: number | null;
 }
 
 export interface TrackMeta {
@@ -66,12 +91,42 @@ export interface TrackMeta {
   artists: string[];
   album: string | null;
   albumArtist: string | null;
+  albumArtists: string[];
   year: string | null;
   genre: string | null;
   trackNumber: number | null;
   trackTotal: number | null;
   discNumber: number | null;
   discTotal: number | null;
+}
+
+function discFolderHint(folderName: string): string | null {
+  return /^(?:cd|disc|disk)\s*\d{1,2}$/i.test(folderName.trim()) ? folderName : null;
+}
+
+function auditTargetKey(index: number, field: string): string {
+  return `${index}:${field}`;
+}
+
+function unresolvedReviewTargetFindings(
+  reviewTargets: AuditReviewTarget[],
+  deterministicFindings: AuditTrackResult[],
+): AuditTrackResult[] {
+  const existingKeys = new Set(deterministicFindings.map((finding) => auditTargetKey(finding.index, finding.field)));
+  return reviewTargets
+    .filter((target) => !existingKeys.has(auditTargetKey(target.index, target.field)))
+    .map((target) => ({
+      index: target.index,
+      field: target.field,
+      status: "warning" as const,
+      message: target.evidence,
+      suggestion: target.expected ?? null,
+      corrected: null,
+      source: "deterministic" as const,
+      confidence: 0.5,
+      autoFixEligible: false,
+      autoFixed: false,
+    }));
 }
 
 const AUDIT_SCHEMA = {
@@ -87,6 +142,7 @@ const AUDIT_SCHEMA = {
           status: { type: "string", enum: ["correct", "warning", "error"] },
           message: { type: "string" },
           suggestion: { type: "string" },
+          confidence: { type: "number", minimum: 0, maximum: 1 },
           corrected: {
             type: "object",
             properties: {
@@ -95,12 +151,17 @@ const AUDIT_SCHEMA = {
               artists: { type: "array", items: { type: "string" } },
               album: { type: "string" },
               albumArtist: { type: "string" },
+              albumArtists: { type: "array", items: { type: "string" } },
               year: { type: "string" },
               genre: { type: "string" },
+              trackNumber: { type: "integer", minimum: 0 },
+              trackTotal: { type: "integer", minimum: 0 },
+              discNumber: { type: "integer", minimum: 0 },
+              discTotal: { type: "integer", minimum: 0 },
             },
           },
         },
-        required: ["index", "field", "status", "message"],
+        required: ["index", "field", "status", "message", "confidence"],
       },
     },
   },
@@ -241,6 +302,7 @@ async function readTrackMetadata(filePath: string): Promise<TrackMeta | null> {
       artists: common.artists ?? [],
       album: common.album ?? null,
       albumArtist: (common as any).albumArtist ?? (common as any).albumartist ?? null,
+      albumArtists: (common as any).albumartists ?? ((common as any).albumartist ? [(common as any).albumartist] : []),
       year: common.year ? String(common.year) : null,
       genre: common.genre?.length ? common.genre[0] : null,
       trackNumber: common.track?.no ?? null,
@@ -317,37 +379,64 @@ function buildAuditWriteFields(result: AuditTrackResult): WriteFields | null {
     if (corrected.album !== undefined) fields.album = corrected.album;
     const albumArtist = corrected.albumArtist ?? corrected.album_artist;
     if (albumArtist !== undefined) fields.albumArtist = albumArtist;
+    if (corrected.albumArtists !== undefined) fields.albumArtists = corrected.albumArtists;
     if (corrected.year !== undefined) fields.year = corrected.year;
     if (corrected.genre !== undefined) fields.genre = corrected.genre;
+    if (corrected.trackNumber !== undefined) fields.trackNumber = corrected.trackNumber;
+    if (corrected.trackTotal !== undefined) fields.trackTotal = corrected.trackTotal;
+    if (corrected.discNumber !== undefined) fields.discNumber = corrected.discNumber;
+    if (corrected.discTotal !== undefined) fields.discTotal = corrected.discTotal;
   } else if (result.suggestion) {
     if (result.field === "title") fields.title = result.suggestion;
     else if (result.field === "artist") fields.artist = result.suggestion;
     else if (result.field === "artists") fields.artists = [result.suggestion];
     else if (result.field === "album") fields.album = result.suggestion;
     else if (result.field === "album_artist" || result.field === "albumArtist") fields.albumArtist = result.suggestion;
+    else if (result.field === "albumArtists") fields.albumArtists = [result.suggestion];
     else if (result.field === "year") fields.year = result.suggestion;
     else if (result.field === "genre") fields.genre = result.suggestion;
+    else if (result.field === "trackNumber") fields.trackNumber = Number(result.suggestion);
+    else if (result.field === "trackTotal") fields.trackTotal = Number(result.suggestion);
+    else if (result.field === "discNumber") fields.discNumber = Number(result.suggestion);
+    else if (result.field === "discTotal") fields.discTotal = Number(result.suggestion);
   }
 
   return Object.keys(fields).length > 0 ? fields : null;
 }
 
-async function applyAuditFixes(audioFiles: string[], results: AuditTrackResult[]): Promise<number> {
-  const jobs: Array<{ filePath: string; fields: WriteFields }> = [];
+export async function applyAuditFixes(audioFiles: string[], results: AuditTrackResult[]): Promise<number> {
+  const jobsByPath = new Map<string, { filePath: string; fields: WriteFields; results: AuditTrackResult[] }>();
   for (const result of results) {
+    result.autoFixed = false;
+    if (!result.autoFixEligible) continue;
     if (result.field === "path") continue;
     const filePath = audioFiles[result.index];
     if (!filePath) continue;
     const fields = buildAuditWriteFields(result);
     if (!fields) continue;
-    jobs.push({ filePath, fields });
+    const existing = jobsByPath.get(filePath);
+    if (existing) {
+      existing.fields = { ...existing.fields, ...fields };
+      existing.results.push(result);
+    } else {
+      jobsByPath.set(filePath, { filePath, fields, results: [result] });
+    }
   }
 
+  const jobs = Array.from(jobsByPath.values());
   if (jobs.length === 0) return 0;
 
   // Submit through the concurrent write queue
-  const writeResults = await getDefaultWriteQueue().submit(jobs);
+  const writeResults = await getDefaultWriteQueue().submit(
+    jobs.map(({ filePath, fields }) => ({ filePath, fields })),
+  );
   const fixedCount = writeResults.filter((r) => r.success).length;
+
+  writeResults.forEach((writeResult, index) => {
+    for (const result of jobs[index].results) {
+      result.autoFixed = writeResult.success;
+    }
+  });
 
   for (const r of writeResults) {
     if (r.success) {
@@ -363,8 +452,8 @@ async function applyAuditFixes(audioFiles: string[], results: AuditTrackResult[]
 /**
  * Audit a single album: read all track metadata, build LLM prompt, call OpenRouter.
  */
-async function auditAlbum(
-  client: OpenRouterClient,
+export async function auditAlbum(
+  client: OpenRouterClient | null,
   albumPath: string,
   signal?: AbortSignal,
 ): Promise<AuditTrackResult[]> {
@@ -394,8 +483,10 @@ async function auditAlbum(
   );
   const tracksMeta = readResults;
 
-  const artistHint = basename(dirname(albumPath));
-  const albumHint = basename(albumPath);
+  const discHint = discFolderHint(basename(albumPath));
+  const metadataAlbumPath = discHint ? dirname(albumPath) : albumPath;
+  const artistHint = basename(dirname(metadataAlbumPath));
+  const albumHint = basename(metadataAlbumPath);
   debug.debug("audit", `  artist_hint="${artistHint}" album_hint="${albumHint}"`);
 
   const hasData = tracksMeta.some((m) => m && (m.title || m.artist));
@@ -408,11 +499,19 @@ async function auditAlbum(
 
   const defaultMeta: TrackMeta = {
     title: null, artist: null, artists: [], album: null,
-    albumArtist: null, year: null, genre: null,
+    albumArtist: null, albumArtists: [], year: null, genre: null,
     trackNumber: null, trackTotal: null, discNumber: null, discTotal: null,
   };
 
   const validTracks = tracksMeta.map((m) => m ?? defaultMeta);
+  const deterministicFindings = buildDeterministicAuditFindings(
+    artistHint,
+    albumHint,
+    validTracks,
+    filenames,
+    { discFolderHint: discHint },
+  ) as AuditTrackResult[];
+  const reviewTargets = buildLlmReviewTargets(validTracks, filenames, deterministicFindings);
 
   // ── Discogs alias preflight ──────────────────────────────────
   // Before calling the LLM for corrections, check if the artist name
@@ -443,7 +542,7 @@ async function auditAlbum(
       }
     } else {
       debug.debug("audit", `${albumName}: artist not found on Discogs, asking LLM for aliases`);
-      const suggested = await suggestDiscogsAliases(artistHint, client);
+      const suggested = client ? await suggestDiscogsAliases(artistHint, client) : [];
 
       for (const suggestedAlias of suggested) {
         const confirmed = await resolveDiscogsArtistAlias(suggestedAlias, discogsToken);
@@ -463,12 +562,22 @@ async function auditAlbum(
     }
   }
 
-  debug.info("audit", `auditAlbum: calling LLM for ${albumName} (${validTracks.length} track(s))`);
-  const messages = buildAuditMessages(artistHint, albumHint, validTracks, filenames, { discogsAlias });
+  let llmFindings: AuditTrackResult[] = [];
+  if (reviewTargets.length > 0 && client) {
+    debug.info("audit", `auditAlbum: calling LLM for ${albumName} (${reviewTargets.length} targeted field(s))`);
+    const messages = buildAuditMessages(artistHint, albumHint, validTracks, filenames, { discogsAlias, reviewTargets });
 
-  const response = await client.completeJson(messages, "AuditResponse", AUDIT_SCHEMA);
-  const auditData = response.data as { tracks: AuditTrackResult[] };
-  const rawTracks = (auditData.tracks ?? []).filter((t) => t.status !== "correct");
+    const response = await client.completeJson(messages, "AuditResponse", AUDIT_SCHEMA);
+    const auditData = response.data as { tracks: AuditTrackResult[] };
+    llmFindings = normalizeLlmAuditResults(auditData.tracks ?? [], reviewTargets) as AuditTrackResult[];
+  } else if (reviewTargets.length > 0) {
+    debug.info("audit", `auditAlbum: skipped LLM for ${albumName} (${reviewTargets.length} targeted field(s), no LLM client)`);
+    llmFindings = unresolvedReviewTargetFindings(reviewTargets, deterministicFindings);
+  } else {
+    debug.info("audit", `auditAlbum: skipped LLM for ${albumName} (no targeted review fields)`);
+  }
+
+  const rawTracks = mergeAuditFindings(deterministicFindings, llmFindings) as AuditTrackResult[];
   const fixedCount = await applyAuditFixes(audioFiles, rawTracks);
 
   // ── Write discogsArtistId if Discogs alias was found ──────
@@ -497,14 +606,15 @@ async function auditAlbum(
  * Audit a specific list of album directories, emitting progress events.
  * Albums are processed concurrently up to AUDIT_ALBUM_CONCURRENCY.
  */
-async function auditSpecificAlbums(
-  client: OpenRouterClient,
+export async function auditSpecificAlbums(
+  client: OpenRouterClient | null,
   albumPaths: string[],
   signal?: AbortSignal,
-): Promise<{ albums: number; issues: number }> {
+): Promise<AuditRunSummary> {
   const total = albumPaths.length;
   let albumsAudited = 0;
   let totalIssues = 0;
+  const albumResults: AuditRunSummary["albumResults"] = [];
 
   debug.info("audit", `auditSpecificAlbums: auditing ${total} album(s) with concurrency ${AUDIT_ALBUM_CONCURRENCY}`);
   auditEvents.emit("event", { type: "progress", current: 0, total });
@@ -534,6 +644,7 @@ async function auditSpecificAlbums(
       try {
         const results = await auditAlbum(client, albumPath, signal);
         totalIssues += results.length;
+        albumResults.push({ albumPath, results });
 
         debug.info("audit", `auditSpecificAlbums: ${albumName} — ${results.length} issue(s) (running total: ${totalIssues})`);
 
@@ -569,7 +680,7 @@ async function auditSpecificAlbums(
   await Promise.all(pool.map(() => worker()));
 
   debug.info("audit", `auditSpecificAlbums: complete — ${albumsAudited} album(s), ${totalIssues} issue(s)`);
-  return { albums: albumsAudited, issues: totalIssues };
+  return { albums: albumsAudited, issues: totalIssues, albumResults };
 }
 
 /**
@@ -577,10 +688,10 @@ async function auditSpecificAlbums(
  * Discovers all album directories and audits each one.
  */
 async function runLibraryAudit(
-  client: OpenRouterClient,
+  client: OpenRouterClient | null,
   libraryPath: string,
   signal?: AbortSignal,
-): Promise<{ albums: number; issues: number }> {
+): Promise<AuditRunSummary> {
   debug.info("audit", `runLibraryAudit: scanning ${libraryPath}`);
 
   const albumDirs = discoverAlbumDirs(libraryPath);
@@ -591,11 +702,11 @@ async function runLibraryAudit(
 
 // ── Helpers ─────────────────────────────────────────────────────────
 
-/** Create an audit OpenRouterClient. Throws if API key is missing. */
-function createAuditClient(): OpenRouterClient {
+/** Create an audit OpenRouterClient when LLM audit support is configured. */
+function createAuditClient(): OpenRouterClient | null {
   const config = loadConfig();
   if (!config.llmApiKey) {
-    throw new Error("LLM API key is required for audit. Configure it in settings.");
+    return null;
   }
   return new OpenRouterClient({
     apiKey: config.llmApiKey,
