@@ -23,6 +23,42 @@ const STATUS_COLORS: Record<string, { bg: string; text: string; dot: string; lab
   correct: { bg: "bg-green-500/10", text: "text-green-600", dot: "bg-green-500", label: "OK" },
 };
 
+export function SelectedTrackAuditFindings({ results }: { results: AuditTrackResult[] }) {
+  if (results.length === 0) return null;
+
+  return (
+    <div className="border-b border-border bg-[#ff9f0a]/5 px-4 py-3">
+      <div className="text-[12px] font-medium text-text-primary">
+        Audit Findings
+      </div>
+      <div className="mt-2 flex flex-col gap-2">
+        {results.map((result, index) => {
+          const colors = STATUS_COLORS[result.autoFixed ? "correct" : result.status] ?? STATUS_COLORS.warning;
+          return (
+            <div key={`${result.field}-${index}`} className="rounded border border-border/60 bg-white/70 px-2.5 py-2">
+              <div className="flex items-center gap-2">
+                <span className={`w-2 h-2 rounded-full shrink-0 ${colors.dot}`} />
+                <span className={`text-[10.5px] font-medium ${colors.text}`}>
+                  {result.autoFixed ? "Fixed" : colors.label}
+                </span>
+                <span className="text-[10.5px] text-text-muted">{result.field}</span>
+              </div>
+              <div className="mt-1 text-[11px] leading-relaxed text-text-primary">
+                {result.message ?? `"${result.field}" field issue`}
+              </div>
+              {result.suggestion && (
+                <div className="mt-0.5 text-[10.5px] italic leading-relaxed text-text-muted">
+                  Suggestion: {result.suggestion}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export function AuditPanel({ results, albumName }: AuditPanelProps) {
   if (results.length === 0) return null;
 

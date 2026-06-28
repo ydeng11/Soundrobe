@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { appReducer, getVisibleAuditResult, initialAppState } from "../../src/state/AppState";
+import {
+  appReducer,
+  buildAuditByTrackPath,
+  getVisibleAuditResult,
+  initialAppState,
+} from "../../src/state/AppState";
 import type { TrackData } from "../../electron/preload";
 import { UndoManager } from "../../src/state/UndoManager";
 
@@ -260,6 +265,52 @@ describe("appReducer", () => {
         albumPath: "/music/Artist/Other",
         results: [otherResult],
       });
+    });
+
+    it("maps audit results to track paths and keeps only unresolved findings attention-grabbing", () => {
+      const byPath = buildAuditByTrackPath({
+        auditResults: {
+          "/music/Artist/Album": [
+            { ...auditResult, trackIndex: 0, status: "error", autoFixed: true },
+            { ...auditResult, trackIndex: 1, status: "warning", autoFixed: false },
+            { ...auditResult, trackIndex: 99, status: "error", autoFixed: false },
+          ],
+        },
+        tracks: [
+          { path: "/music/Artist/Album/01.flac" },
+          { path: "/music/Artist/Album/02.flac" },
+        ],
+      });
+
+      expect(byPath["/music/Artist/Album/01.flac"]).toEqual(expect.objectContaining({
+        count: 1,
+        highestStatus: "correct",
+        autoFixedCount: 1,
+        hasManualReview: false,
+      }));
+      expect(byPath["/music/Artist/Album/02.flac"]).toEqual(expect.objectContaining({
+        count: 1,
+        highestStatus: "warning",
+        autoFixedCount: 0,
+        hasManualReview: true,
+      }));
+      expect(Object.keys(byPath)).not.toContain("/music/Artist/Album/99.flac");
+    });
+
+    it("maps multi-album audit results without mixing same-index tracks", () => {
+      const byPath = buildAuditByTrackPath({
+        auditResults: {
+          "/music/Artist/Album": [{ ...auditResult, trackIndex: 0, field: "title" }],
+          "/music/Artist/Other": [{ ...auditResult, trackIndex: 0, field: "genre" }],
+        },
+        tracks: [
+          { path: "/music/Artist/Album/01.flac" },
+          { path: "/music/Artist/Other/01.flac" },
+        ],
+      });
+
+      expect(byPath["/music/Artist/Album/01.flac"].results[0].field).toBe("title");
+      expect(byPath["/music/Artist/Other/01.flac"].results[0].field).toBe("genre");
     });
   });
 

@@ -1,5 +1,5 @@
 import React, { useReducer, useCallback, useEffect, useMemo, useRef } from "react";
-import { appReducer, getVisibleAuditResult, initialAppState } from "./state/AppState";
+import { appReducer, buildAuditByTrackPath, getVisibleAuditResult, initialAppState } from "./state/AppState";
 import type { TrackSnapshot } from "./state/UndoManager";
 import { TitleBar } from "./components/TitleBar";
 import { dirname as dirPath, basename } from "./utils/path";
@@ -11,7 +11,7 @@ import { MetadataEditor } from "./components/MetadataEditor";
 import { BatchEditor } from "./components/BatchEditor";
 import { ScanProgressBar } from "./components/ScanProgressBar";
 import { AuditBanner } from "./components/AuditBanner";
-import { AuditPanel } from "./components/AuditPanel";
+import { AuditPanel, SelectedTrackAuditFindings } from "./components/AuditPanel";
 import { SettingsModal } from "./components/SettingsModal";
 import { ConvertDialog } from "./components/ConvertDialog";
 import { ExtraTagsEditor } from "./components/ExtraTagsEditor";
@@ -1451,6 +1451,18 @@ export default function App() {
     [state.auditResults, state.activeAlbumPath],
   );
 
+  const auditByTrackPath = useMemo(
+    () => buildAuditByTrackPath({
+      auditResults: state.auditResults,
+      tracks: state.tracks,
+    }),
+    [state.auditResults, state.tracks],
+  );
+
+  const selectedTrackAudit = state.selectedTrackPath
+    ? auditByTrackPath[state.selectedTrackPath]
+    : undefined;
+
   // Handle batch field save from BatchEditor — single IPC call
   const handleBatchSave = useCallback(
     async (fields: Record<string, string>) => {
@@ -1586,6 +1598,7 @@ export default function App() {
             selectedTrackPath={state.selectedTrackPath}
             selectedTrackPaths={state.selectedTrackPaths}
             filterText={state.filterText}
+            auditByTrackPath={auditByTrackPath}
             onSelectTrack={handleSelectTrack}
             onMultiSelect={handleMultiSelect}
             onEditExtraTags={handleEditExtraTagsFromSelection}
@@ -1602,17 +1615,22 @@ export default function App() {
               onSave={handleBatchSave}
             />
           ) : state.selectedTrack ? (
-            <MetadataEditor
-              track={state.selectedTrack}
-              dirPath={dirPath(state.selectedTrack.path)}
-              coverDataUrl={state.coverDataUrl}
-              saving={state.saving}
-              onSave={handleSaveMetadata}
-              onChangeCover={handleChangeCover}
-              onRemoveCover={handleRemoveCover}
-              onDownloadCover={handleDownloadCover}
-              onDownloadArtistArt={handleDownloadArtistArt}
-            />
+            <>
+              {selectedTrackAudit && (
+                <SelectedTrackAuditFindings results={selectedTrackAudit.results} />
+              )}
+              <MetadataEditor
+                track={state.selectedTrack}
+                dirPath={dirPath(state.selectedTrack.path)}
+                coverDataUrl={state.coverDataUrl}
+                saving={state.saving}
+                onSave={handleSaveMetadata}
+                onChangeCover={handleChangeCover}
+                onRemoveCover={handleRemoveCover}
+                onDownloadCover={handleDownloadCover}
+                onDownloadArtistArt={handleDownloadArtistArt}
+              />
+            </>
           ) : visibleAuditResult ? (
             <AuditPanel
               results={visibleAuditResult.results}

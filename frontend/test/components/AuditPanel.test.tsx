@@ -2,7 +2,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import React from "react";
 import { cleanup, render, screen } from "@testing-library/react";
-import { AuditPanel } from "../../src/components/AuditPanel";
+import { AuditPanel, SelectedTrackAuditFindings } from "../../src/components/AuditPanel";
 
 afterEach(() => cleanup());
 
@@ -50,5 +50,26 @@ describe("AuditPanel", () => {
     const { container } = render(<AuditPanel albumName="Album" results={[]} />);
 
     expect(container.firstChild).toBeNull();
+  });
+
+  it("renders compact selected-track audit details without replacing metadata editing", () => {
+    render(
+      <SelectedTrackAuditFindings
+        results={[
+          {
+            trackIndex: 0,
+            field: "albumArtist",
+            status: "warning",
+            message: "Album artist needs review.",
+            suggestion: "Artist",
+            autoFixed: false,
+          },
+        ]}
+      />,
+    );
+
+    expect(screen.getByText("Audit Findings")).toBeTruthy();
+    expect(screen.getByText("albumArtist")).toBeTruthy();
+    expect(screen.getByText("Album artist needs review.")).toBeTruthy();
   });
 });

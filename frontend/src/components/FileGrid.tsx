@@ -1,5 +1,6 @@
 import React, { useMemo, useState, useRef, useCallback, useEffect, useLayoutEffect, memo } from "react";
 import type { TrackData } from "../../electron/preload";
+import type { TrackAuditSummary } from "../state/AppState";
 import { shortPath } from "../utils/path";
 
 type SortKey =
@@ -64,6 +65,7 @@ interface FileGridProps {
   onMultiSelect?: (paths: string[]) => void;
   onEditExtraTags?: (track: TrackData, selectedPaths: string[]) => void;
   onDeleteFiles?: (paths: string[]) => void;
+  auditByTrackPath?: Record<string, TrackAuditSummary>;
 }
 
 export function FileGrid({
@@ -76,6 +78,7 @@ export function FileGrid({
   onMultiSelect,
   onEditExtraTags,
   onDeleteFiles,
+  auditByTrackPath = {},
 }: FileGridProps) {
   const [sortKey, setSortKey] = useState<SortKey>("track");
   const [sortAsc, setSortAsc] = useState(true);
@@ -554,6 +557,7 @@ export function FileGrid({
               isAltRow={i % 2 === 0}
               isPrimary={track.path === selectedTrackPath}
               isMulti={multiSelected.has(track.path)}
+              auditSummary={auditByTrackPath[track.path]}
               columns={COLUMNS}
               columnWidths={columnWidths}
               onRowClick={handleRowClick}
@@ -634,6 +638,7 @@ interface FileGridRowProps {
   isAltRow: boolean;
   isPrimary: boolean;
   isMulti: boolean;
+  auditSummary?: TrackAuditSummary;
   columns: Column[];
   columnWidths: Record<string, number> | null;
   onRowClick: (track: TrackData, index: number, event: React.MouseEvent) => void;
@@ -646,11 +651,20 @@ const FileGridRow = memo(function FileGridRow({
   isAltRow,
   isPrimary,
   isMulti,
+  auditSummary,
   columns,
   columnWidths,
   onRowClick,
   onRowContextMenu,
 }: FileGridRowProps) {
+  const auditClass = auditSummary?.hasManualReview
+    ? auditSummary.highestStatus === "error"
+      ? "bg-red-500/10 shadow-[inset_2px_0_0_0_rgba(239,68,68,0.55)]"
+      : "bg-[#ff9f0a]/10 shadow-[inset_2px_0_0_0_rgba(255,159,10,0.55)]"
+    : auditSummary && auditSummary.autoFixedCount > 0
+      ? "bg-green-500/5 shadow-[inset_2px_0_0_0_rgba(34,197,94,0.35)]"
+      : null;
+
   const rowClass = [
     "flex items-center px-3 py-1 text-[12.5px] cursor-pointer select-none border-b border-border/30",
     "transition-colors duration-75",
@@ -658,6 +672,8 @@ const FileGridRow = memo(function FileGridRow({
       ? "bg-table-selected border-table-selectedBorder shadow-[inset_2px_0_0_0_rgba(0,122,255,0.5)]"
       : isMulti
         ? "bg-table-selected/60"
+        : auditClass
+          ? auditClass
         : isAltRow
           ? "bg-table-alt"
           : "bg-table-row",
@@ -666,6 +682,7 @@ const FileGridRow = memo(function FileGridRow({
 
   return (
     <div
+      data-testid={`file-row-${track.path}`}
       onClick={(e) => onRowClick(track, index, e)}
       onContextMenu={(e) => onRowContextMenu(e, track)}
       className={rowClass}
@@ -693,6 +710,9 @@ const FileGridRow = memo(function FileGridRow({
                   <circle cx="18" cy="16" r="3" />
                 </svg>
                 <span>{getCellValue(track, col.key)}</span>
+                {auditSummary && (
+                  <AuditMarker summary={auditSummary} />
+                )}
               </span>
             ) : (
               getCellValue(track, col.key)
@@ -706,6 +726,26 @@ const FileGridRow = memo(function FileGridRow({
     </div>
   );
 });
+
+function AuditMarker({ summary }: { summary: TrackAuditSummary }) {
+  const label = summary.hasManualReview
+    ? `${summary.count} audit issue${summary.count === 1 ? "" : "s"}`
+    : `${summary.autoFixedCount} fixed`;
+  const className = summary.hasManualReview
+    ? summary.highestStatus === "error"
+      ? "border-red-500/30 bg-red-500/10 text-red-600"
+      : "border-[#ff9f0a]/30 bg-[#ff9f0a]/10 text-[#b36200]"
+    : "border-green-500/25 bg-green-500/10 text-green-700";
+
+  return (
+    <span
+      className={`shrink-0 rounded border px-1.5 py-0.5 text-[10px] font-medium leading-none ${className}`}
+      title={summary.hasManualReview ? "Audit findings need attention" : "Audit fixes were applied"}
+    >
+      {label}
+    </span>
+  );
+}
 
 function formatDuration(sec: number): string {
   const m = Math.floor(sec / 60);

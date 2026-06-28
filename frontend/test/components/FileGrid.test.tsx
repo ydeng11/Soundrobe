@@ -598,4 +598,72 @@ describe("FileGrid", () => {
     expect(window.api.showTrackContextMenu).not.toHaveBeenCalled();
     expect(onDeleteFiles).not.toHaveBeenCalled();
   });
+
+  it("marks rows with unresolved audit findings as needing attention", () => {
+    const onSelect = vi.fn();
+    render(
+      <FileGrid
+        tracks={tracks}
+        selectedTrackPath={null}
+        filterText=""
+        onSelectTrack={onSelect}
+        auditByTrackPath={{
+          "/music/song1.mp3": {
+            count: 2,
+            highestStatus: "warning",
+            hasManualReview: true,
+            autoFixedCount: 0,
+            results: [
+              {
+                trackIndex: 0,
+                field: "genre",
+                status: "warning",
+                message: "Genre needs review",
+                suggestion: "Rock",
+              },
+            ],
+          },
+        }}
+      />,
+    );
+
+    const row = screen.getByTestId("file-row-/music/song1.mp3");
+    expect(row.className).toContain("bg-[#ff9f0a]/10");
+    expect(screen.getByText("2 audit issues")).toBeTruthy();
+  });
+
+  it("shows auto-fixed audit rows without warning styling", () => {
+    const onSelect = vi.fn();
+    render(
+      <FileGrid
+        tracks={tracks}
+        selectedTrackPath={null}
+        filterText=""
+        onSelectTrack={onSelect}
+        auditByTrackPath={{
+          "/music/song2.mp3": {
+            count: 1,
+            highestStatus: "correct",
+            hasManualReview: false,
+            autoFixedCount: 1,
+            results: [
+              {
+                trackIndex: 1,
+                field: "title",
+                status: "error",
+                message: "Title fixed",
+                suggestion: "Song Two",
+                autoFixed: true,
+              },
+            ],
+          },
+        }}
+      />,
+    );
+
+    const row = screen.getByTestId("file-row-/music/song2.mp3");
+    expect(row.className).not.toContain("bg-[#ff9f0a]/10");
+    expect(row.className).toContain("bg-green-500/5");
+    expect(screen.getByText("1 fixed")).toBeTruthy();
+  });
 });
