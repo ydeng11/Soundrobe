@@ -70,6 +70,14 @@ export interface AuditRunSummary {
   }>;
 }
 
+export interface AuditApplyFixesSummary {
+  fixed: number;
+  albumResults: Array<{
+    albumPath: string;
+    results: AuditTrackResult[];
+  }>;
+}
+
 export interface CorrectedTrack {
   title?: string | null;
   artist?: string | null;
@@ -449,6 +457,21 @@ export async function applyAuditFixes(audioFiles: string[], results: AuditTrackR
   return fixedCount;
 }
 
+export async function applyAuditFixesForAlbumResults(
+  albumResults: AuditRunSummary["albumResults"] = [],
+): Promise<AuditApplyFixesSummary> {
+  let fixed = 0;
+  const updatedAlbumResults: AuditApplyFixesSummary["albumResults"] = [];
+
+  for (const albumResult of albumResults) {
+    const audioFiles = collectAudioFilesForAudit(albumResult.albumPath);
+    fixed += await applyAuditFixes(audioFiles, albumResult.results);
+    updatedAlbumResults.push(albumResult);
+  }
+
+  return { fixed, albumResults: updatedAlbumResults };
+}
+
 /**
  * Audit a single album: read all track metadata, build LLM prompt, call OpenRouter.
  */
@@ -522,7 +545,7 @@ export async function auditAlbum(
 
   const config = loadConfig();
   const discogsToken = config.discogsToken;
-  // Track discogsArtistId for writing to file tags after audit fix
+  // Track Discogs identity for alias context and debug logs during audit.
   let discogsArtistId: string | null = null;
 
   if (discogsToken && artistHint && isChineseName(artistHint)) {
@@ -578,21 +601,12 @@ export async function auditAlbum(
   }
 
   const rawTracks = mergeAuditFindings(deterministicFindings, llmFindings) as AuditTrackResult[];
-  const fixedCount = await applyAuditFixes(audioFiles, rawTracks);
 
-  // ── Write discogsArtistId if Discogs alias was found ──────
-  // Persist the Discogs artist ID to file tags so the auto-tag
-  // pipeline can reuse it for direct ID lookups on future scans.
-  if (discogsArtistId && audioFiles.length > 0) {
-    const discogsIdJobs = audioFiles.map((filePath) => ({
-      filePath,
-      fields: { discogsArtistId } as WriteFields,
-    }));
-    await getDefaultWriteQueue().submit(discogsIdJobs);
-    debug.info("audit", `auditAlbum: wrote discogsArtistId=${discogsArtistId} to ${audioFiles.length} file(s)`);
-  }
+  // Audit runs are intentionally read-only; visible fix plans are applied only
+  // after explicit user approval.
 
-  debug.info("audit", `auditAlbum: ${albumName} — ${rawTracks.length} issue(s) found, ${fixedCount} fixed`);
+  const fixableCount = rawTracks.filter((track) => track.autoFixEligible).length;
+  debug.info("audit", `auditAlbum: ${albumName} — ${rawTracks.length} issue(s) found, ${fixableCount} fixable`);
   if (rawTracks.length > 0) {
     for (const t of rawTracks) {
       debug.debug("audit", `  Track ${t.index + 1} field="${t.field}" status=${t.status} msg="${t.message}"`);
@@ -797,6 +811,11 @@ export function registerAuditHandlers(): void {
 
     const client = createAuditClient();
     return auditAlbum(client, albumPath);
+  });
+
+  ipcMain.handle("audit:apply-fixes", async (_event, albumResults: AuditRunSummary["albumResults"]) => {
+    debug.info("audit", `IPC audit:apply-fixes — albumResults=${albumResults?.length ?? 0}`);
+    return applyAuditFixesForAlbumResults(albumResults);
   });
 
   ipcMain.handle("audit:cancel", async () => {

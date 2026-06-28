@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   appReducer,
+  buildAuditApplyAlbumResults,
   buildAuditByTrackPath,
   getVisibleAuditResult,
   initialAppState,
@@ -215,6 +216,7 @@ describe("appReducer", () => {
       confidence: 0.98,
       autoFixEligible: true,
       autoFixed: true,
+      corrected: { title: "Song" },
     };
 
     it("stores enriched audit metadata without dropping legacy result fields", () => {
@@ -235,6 +237,7 @@ describe("appReducer", () => {
           confidence: 0.98,
           autoFixEligible: true,
           autoFixed: true,
+          corrected: { title: "Song" },
         }),
       ]);
     });
@@ -311,6 +314,56 @@ describe("appReducer", () => {
 
       expect(byPath["/music/Artist/Album/01.flac"].results[0].field).toBe("title");
       expect(byPath["/music/Artist/Other/01.flac"].results[0].field).toBe("genre");
+    });
+
+    it("builds apply payload only for the selected track's audit findings", () => {
+      const payload = buildAuditApplyAlbumResults({
+        auditResults: {
+          "/music/Artist/Album": [
+            { ...auditResult, trackIndex: 0, field: "title" },
+            { ...auditResult, trackIndex: 1, field: "album" },
+          ],
+        },
+        tracks: [
+          { path: "/music/Artist/Album/01.flac" },
+          { path: "/music/Artist/Album/02.flac" },
+        ],
+        trackPath: "/music/Artist/Album/02.flac",
+      });
+
+      expect(payload).toEqual([
+        {
+          albumPath: "/music/Artist/Album",
+          results: [
+            expect.objectContaining({
+              index: 1,
+              field: "album",
+              corrected: { title: "Song" },
+            }),
+          ],
+        },
+      ]);
+    });
+
+    it("builds apply payload only for the visible album", () => {
+      const payload = buildAuditApplyAlbumResults({
+        auditResults: {
+          "/music/Artist/Album": [{ ...auditResult, trackIndex: 0, field: "title" }],
+          "/music/Artist/Other": [{ ...auditResult, trackIndex: 0, field: "genre" }],
+        },
+        tracks: [
+          { path: "/music/Artist/Album/01.flac" },
+          { path: "/music/Artist/Other/01.flac" },
+        ],
+        albumPath: "/music/Artist/Other",
+      });
+
+      expect(payload).toEqual([
+        {
+          albumPath: "/music/Artist/Other",
+          results: [expect.objectContaining({ index: 0, field: "genre" })],
+        },
+      ]);
     });
   });
 

@@ -1,5 +1,12 @@
 import React, { useReducer, useCallback, useEffect, useMemo, useRef } from "react";
-import { appReducer, buildAuditByTrackPath, getVisibleAuditResult, initialAppState } from "./state/AppState";
+import {
+  appReducer,
+  buildAuditApplyAlbumResults,
+  buildAuditByTrackPath,
+  getVisibleAuditResult,
+  initialAppState,
+  type AuditApplyAlbumResult,
+} from "./state/AppState";
 import type { TrackSnapshot } from "./state/UndoManager";
 import { TitleBar } from "./components/TitleBar";
 import { dirname as dirPath, basename } from "./utils/path";
@@ -24,7 +31,7 @@ import {
   getConvertSourceValue,
   type ConvertTrackData,
 } from "../electron/services/ConvertService";
-import type { ExtraTagUndoSnapshot, TrackData, AlbumInfo, AlbumDetail, AuditRunSummary } from "../electron/preload";
+import type { ExtraTagUndoSnapshot, TrackData, AlbumInfo, AlbumDetail, AuditRunSummary, AuditTrackResult } from "../electron/preload";
 import {
   computeNumberedTracks,
   type OrderingRule,
@@ -42,6 +49,7 @@ function mapAuditResultForState(r: {
   confidence?: number;
   autoFixEligible?: boolean;
   autoFixed?: boolean;
+  corrected?: AuditTrackResult["corrected"];
 }) {
   return {
     trackIndex: r.index,
@@ -53,6 +61,7 @@ function mapAuditResultForState(r: {
     confidence: r.confidence,
     autoFixEligible: r.autoFixEligible,
     autoFixed: r.autoFixed,
+    corrected: r.corrected,
   };
 }
 
@@ -1463,6 +1472,45 @@ export default function App() {
     ? auditByTrackPath[state.selectedTrackPath]
     : undefined;
 
+  const handleApplyAuditFixes = useCallback(async (albumResults: AuditApplyAlbumResult[]) => {
+    if (albumResults.length === 0) return;
+
+    dispatch({ type: "SET_SAVING", saving: true });
+    dispatch({ type: "SET_ERROR", error: null });
+    try {
+      const summary = await window.api.applyAuditFixes(albumResults);
+      for (const albumResult of summary.albumResults) {
+        dispatch({
+          type: "ADD_AUDIT_RESULTS",
+          albumPath: albumResult.albumPath,
+          results: albumResult.results.map(mapAuditResultForState),
+        });
+      }
+
+      const refreshedTracks: TrackData[] = [];
+      for (const albumResult of summary.albumResults) {
+        try {
+          const detail = await window.api.readAlbum(albumResult.albumPath);
+          refreshedTracks.push(...detail.tracks);
+        } catch {
+          // Keep the fix result visible even if a post-write refresh fails.
+        }
+      }
+      if (refreshedTracks.length > 0) {
+        dispatch({ type: "UPDATE_TRACKS", tracks: refreshedTracks });
+      }
+      dispatch({
+        type: "SET_ERROR",
+        error: summary.fixed > 0 ? `Applied ${summary.fixed} audit fix(es)` : "No eligible audit fixes to apply",
+      });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to apply audit fixes";
+      dispatch({ type: "SET_ERROR", error: message });
+    } finally {
+      dispatch({ type: "SET_SAVING", saving: false });
+    }
+  }, []);
+
   // Handle batch field save from BatchEditor — single IPC call
   const handleBatchSave = useCallback(
     async (fields: Record<string, string>) => {
@@ -1617,7 +1665,15 @@ export default function App() {
           ) : state.selectedTrack ? (
             <>
               {selectedTrackAudit && (
-                <SelectedTrackAuditFindings results={selectedTrackAudit.results} />
+                <SelectedTrackAuditFindings
+                  results={selectedTrackAudit.results}
+                  onApplyFixes={() => handleApplyAuditFixes(buildAuditApplyAlbumResults({
+                    auditResults: state.auditResults,
+                    tracks: state.tracks,
+                    trackPath: state.selectedTrackPath,
+                  }))}
+                  applying={state.saving}
+                />
               )}
               <MetadataEditor
                 track={state.selectedTrack}
@@ -1635,6 +1691,12 @@ export default function App() {
             <AuditPanel
               results={visibleAuditResult.results}
               albumName={basename(visibleAuditResult.albumPath) ?? ""}
+              onApplyFixes={() => handleApplyAuditFixes(buildAuditApplyAlbumResults({
+                auditResults: state.auditResults,
+                tracks: state.tracks,
+                albumPath: visibleAuditResult.albumPath,
+              }))}
+              applying={state.saving}
             />
           ) : (
             <div className="flex items-center justify-center h-full">

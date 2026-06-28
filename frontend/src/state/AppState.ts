@@ -1,4 +1,4 @@
-import type { TrackData, AlbumInfo } from "../../electron/preload";
+import type { TrackData, AlbumInfo, AuditTrackResult } from "../../electron/preload";
 import { UndoManager, type TrackSnapshot } from "./UndoManager";
 
 export interface AuditResultEntry {
@@ -11,6 +11,7 @@ export interface AuditResultEntry {
   confidence?: number;
   autoFixEligible?: boolean;
   autoFixed?: boolean;
+  corrected?: AuditTrackResult["corrected"];
 }
 
 export interface TrackAuditSummary {
@@ -19,6 +20,11 @@ export interface TrackAuditSummary {
   results: AuditResultEntry[];
   hasManualReview: boolean;
   autoFixedCount: number;
+}
+
+export interface AuditApplyAlbumResult {
+  albumPath: string;
+  results: AuditTrackResult[];
 }
 
 function statusRank(status: AuditResultEntry["status"]): number {
@@ -81,6 +87,53 @@ export function buildAuditByTrackPath({
   }
 
   return byPath;
+}
+
+function toAuditTrackResult(result: AuditResultEntry): AuditTrackResult {
+  return {
+    index: result.trackIndex,
+    field: result.field,
+    status: result.status,
+    message: result.message ?? "",
+    suggestion: result.suggestion,
+    source: result.source,
+    confidence: result.confidence,
+    autoFixEligible: result.autoFixEligible,
+    autoFixed: result.autoFixed,
+    corrected: result.corrected,
+  };
+}
+
+export function buildAuditApplyAlbumResults({
+  auditResults,
+  tracks,
+  albumPath,
+  trackPath,
+}: {
+  auditResults: Record<string, AuditResultEntry[]>;
+  tracks: Array<Pick<TrackData, "path">>;
+  albumPath?: string | null;
+  trackPath?: string | null;
+}): AuditApplyAlbumResult[] {
+  if (trackPath) {
+    const selectedAlbumPath = parentPath(trackPath);
+    const trackIndex = tracks
+      .filter((track) => parentPath(track.path) === selectedAlbumPath)
+      .findIndex((track) => track.path === trackPath);
+    if (trackIndex < 0) return [];
+
+    const results = (auditResults[selectedAlbumPath] ?? [])
+      .filter((result) => result.trackIndex === trackIndex)
+      .map(toAuditTrackResult);
+    return results.length > 0 ? [{ albumPath: selectedAlbumPath, results }] : [];
+  }
+
+  if (albumPath) {
+    const results = (auditResults[albumPath] ?? []).map(toAuditTrackResult);
+    return results.length > 0 ? [{ albumPath, results }] : [];
+  }
+
+  return [];
 }
 
 export function getVisibleAuditResult(

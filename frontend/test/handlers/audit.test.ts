@@ -32,7 +32,14 @@ vi.mock("../../electron/handlers/auto-tag", async () => {
   };
 });
 
-import { applyAuditFixes, auditAlbum, auditSpecificAlbums, collectAudioFilesForAudit, discoverAlbumDirs } from "../../electron/handlers/audit";
+import {
+  applyAuditFixes,
+  applyAuditFixesForAlbumResults,
+  auditAlbum,
+  auditSpecificAlbums,
+  collectAudioFilesForAudit,
+  discoverAlbumDirs,
+} from "../../electron/handlers/audit";
 import { getDefaultWriteQueue } from "../../electron/services/TagWriteQueue";
 
 vi.mock("../../electron/services/TagWriteQueue", () => ({
@@ -190,6 +197,49 @@ describe("applyAuditFixes", () => {
     expect(results[0].autoFixed).toBe(false);
     expect(results[1].autoFixed).toBe(true);
   });
+
+  it("applies eligible fixes from grouped album results after user approval", async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "audit-apply-grouped-"));
+    try {
+      const albumPath = path.join(tmpDir, "Artist", "Album");
+      fs.mkdirSync(albumPath, { recursive: true });
+      const filePath = path.join(albumPath, "01. Song.flac");
+      fs.writeFileSync(filePath, "data");
+      const submit = vi.fn().mockResolvedValue([{ filePath, success: true }]);
+      vi.mocked(getDefaultWriteQueue).mockReturnValue({ submit } as any);
+      const results = [
+        {
+          index: 0,
+          field: "title",
+          status: "error" as const,
+          message: "Title mismatch",
+          corrected: { title: "Song" },
+          autoFixEligible: true,
+          autoFixed: false,
+        },
+        {
+          index: 0,
+          field: "genre",
+          status: "warning" as const,
+          message: "Genre needs review",
+          suggestion: "Rock",
+          autoFixEligible: false,
+          autoFixed: false,
+        },
+      ];
+
+      const summary = await applyAuditFixesForAlbumResults([{ albumPath, results }]);
+
+      expect(summary.fixed).toBe(1);
+      expect(summary.albumResults[0].results[0].autoFixed).toBe(true);
+      expect(summary.albumResults[0].results[1].autoFixed).toBe(false);
+      expect(submit).toHaveBeenCalledWith([
+        { filePath, fields: { title: "Song" } },
+      ]);
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
 });
 
 describe("auditAlbum orchestration", () => {
@@ -209,7 +259,7 @@ describe("auditAlbum orchestration", () => {
     vi.clearAllMocks();
   });
 
-  it("auto-fixes deterministic findings without calling the LLM", async () => {
+  it("returns deterministic fix plans without writing before approval", async () => {
     const albumPath = path.join(tmpDir, "Artist", "2020 - Album");
     fs.mkdirSync(albumPath, { recursive: true });
     fs.writeFileSync(path.join(albumPath, "01. Song.flac"), "data");
@@ -227,22 +277,25 @@ describe("auditAlbum orchestration", () => {
       },
     });
     const client = { completeJson: vi.fn() };
+    const submit = vi.fn();
+    vi.mocked(getDefaultWriteQueue).mockReturnValue({ submit } as any);
 
     const results = await auditAlbum(client as any, albumPath);
 
     expect(client.completeJson).not.toHaveBeenCalled();
+    expect(submit).not.toHaveBeenCalled();
     expect(results).toEqual(expect.arrayContaining([
       expect.objectContaining({
         field: "title",
         source: "deterministic",
         autoFixEligible: true,
-        autoFixed: true,
+        autoFixed: false,
       }),
       expect.objectContaining({
         field: "album",
         source: "deterministic",
         autoFixEligible: true,
-        autoFixed: true,
+        autoFixed: false,
       }),
     ]));
   });
@@ -272,7 +325,7 @@ describe("auditAlbum orchestration", () => {
       expect.objectContaining({
         field: "discNumber",
         autoFixEligible: true,
-        autoFixed: true,
+        autoFixed: false,
         corrected: { discNumber: 1 },
       }),
     ]));
@@ -402,7 +455,8 @@ describe("auditAlbum orchestration", () => {
         results: expect.arrayContaining([
           expect.objectContaining({
             field: "title",
-            autoFixed: true,
+            autoFixEligible: true,
+            autoFixed: false,
           }),
         ]),
       }),

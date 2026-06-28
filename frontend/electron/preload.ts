@@ -66,6 +66,7 @@ export interface AlbumDetail {
     confidence?: number;
     autoFixEligible?: boolean;
     autoFixed?: boolean;
+    corrected?: AuditTrackResult["corrected"];
   }>;
 }
 
@@ -124,6 +125,14 @@ export interface AuditRunSummary {
   albums: number;
   issues: number;
   albumResults?: Array<{
+    albumPath: string;
+    results: AuditTrackResult[];
+  }>;
+}
+
+export interface AuditApplyFixesSummary {
+  fixed: number;
+  albumResults: Array<{
     albumPath: string;
     results: AuditTrackResult[];
   }>;
@@ -340,6 +349,9 @@ export interface ElectronAPI {
   runAuditOnTracks: (trackPaths: string[]) => Promise<AuditRunSummary>;
   runAuditOnAlbums: (albumPaths: string[]) => Promise<AuditRunSummary>;
   runAlbumAudit: (albumPath: string) => Promise<AuditTrackResult[]>;
+  applyAuditFixes: (
+    albumResults: NonNullable<AuditRunSummary["albumResults"]>
+  ) => Promise<AuditApplyFixesSummary>;
   onAuditEvent: (callback: (event: AuditEvent) => void) => () => void;
   cancelAudit: () => Promise<void>;
 
@@ -528,6 +540,8 @@ contextBridge.exposeInMainWorld("api", {
     ipcRenderer.invoke("audit:run-specified", { albumPaths }),
   runAlbumAudit: (albumPath: string) =>
     ipcRenderer.invoke("audit:run-album", albumPath),
+  applyAuditFixes: (albumResults: NonNullable<AuditRunSummary["albumResults"]>) =>
+    ipcRenderer.invoke("audit:apply-fixes", albumResults),
   onAuditEvent: (callback: (event: AuditEvent) => void): (() => void) => {
     const listener = (_event: Electron.IpcRendererEvent, payload: AuditEvent) =>
       callback(payload);
