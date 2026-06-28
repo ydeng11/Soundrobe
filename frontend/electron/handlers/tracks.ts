@@ -4,7 +4,8 @@ import fs from "fs";
 import { readFile } from "fs/promises";
 import path from "path";
 import type { CoverInfo } from "../preload";
-import { writeTags, parseApeTagItems } from "./writer";
+import { parseApeTagItems } from "../services/ApeTagEngine";
+import { writeTags } from "./writer";
 import type { ExtraTagUpdate, WriteFields } from "./writer";
 import { getDefaultWriteQueue } from "../services/TagWriteQueue";
 import { mapConcurrent, LOCAL_READ_CONCURRENCY } from "../services/concurrency";
@@ -93,10 +94,12 @@ const METADATA_EDITOR_KEYS = new Set([
   "YEAR",
   // Track / Disc (numeric fields shown as range in editor)
   "TRCK",
+  "TRACK",
   "TRACKNUMBER",
   "TRACKTOTAL",
   "TOTALTRACKS",
   "TPOS",
+  "DISC",
   "DISCNUMBER",
   "DISCTOTAL",
   "TOTALDISCS",
@@ -211,7 +214,7 @@ export async function readTrackMetadata(filePath: string): Promise<TrackData> {
     duration: format.duration ?? 0,
   };
 
-  if (path.extname(filePath).toLowerCase() === ".ape" && !result.title) {
+  if (path.extname(filePath).toLowerCase() === ".ape") {
     const fallback = await readApeMetadataFallback(filePath, result);
     if (fallback) return fallback;
   }
@@ -259,7 +262,9 @@ async function readApeMetadataFallback(
     const disc = parseComposite(getAny("DISC", "DISCNUMBER"));
     const albumArtist = getAny("ALBUM ARTIST", "ALBUMARTIST");
     const date = getAny("DATE", "YEAR");
-    const duration = base?.duration ?? stream.duration ?? 0;
+    const duration = base?.duration && base.duration > 0
+      ? base.duration
+      : (stream.duration ?? 0);
 
     return {
       path: filePath,
