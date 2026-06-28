@@ -41,7 +41,7 @@ import { isAlbumCoverSuppressed } from "./cover-suppression";
 const AUDIO_EXTENSIONS = new Set([".mp3", ".flac", ".m4a", ".mp4", ".wav", ".ogg", ".opus", ".aiff", ".ape"]);
 import { homedir } from "node:os";
 import debug from "./debug";
-import { AUTO_TAG_ALBUM_CONCURRENCY, LOCAL_READ_CONCURRENCY } from "../services/concurrency";
+import { AUTO_TAG_ALBUM_CONCURRENCY, LOCAL_READ_CONCURRENCY, mapConcurrent } from "../services/concurrency";
 import { getDefaultWriteQueue } from "../services/TagWriteQueue";
 
 /**
@@ -1348,31 +1348,29 @@ class TaskManager {
       return fields;
     });
 
-    // Write tags - album-level to every file, track-level matched by
-    // position in the sorted directory listing.
-    // All writes go through the concurrent write queue for bounded parallelism.
-
-    // 1. Collect all write jobs (with lyrics resolution)
+    // Phase A: Collect write jobs and check local lyrics (sync, fast)
+    const LYRICS_DOWNLOAD_CONCURRENCY = 2;
+    const lyricsNeeded: Array<{
+      fields: WriteFields;
+      trackName: string;
+      artistName: string;
+      album: string | null | undefined;
+    }> = [];
     const writeJobs: Array<{ filePath: string; fields: WriteFields }> = [];
     for (let i = 0; i < audioFiles.length; i++) {
       const filePath = audioFiles[i];
       const trackFields = i < trackFieldsList.length ? trackFieldsList[i] : {};
       const mergedFields: WriteFields = { ...albumFields, ...trackFields };
 
-      // 1. Read local lyrics (with encoding fix)
-      let lyrics = readLocalLyrics(filePath);
+      const lyrics = readLocalLyrics(filePath);
       if (lyrics) {
         mergedFields.lyrics = lyrics;
         this.emitTask(taskId, "source", `Local lyrics: ${filePath}`, { source: "lyrics", path: filePath });
-      }
-
-      // 2. If no local file and download is enabled, fetch from API
-      if (!lyrics && this.config.lyricsDownloadEnabled) {
+      } else if (this.config.lyricsDownloadEnabled) {
         const trackName = mergedFields.title;
         const artistName = mergedFields.artist ?? albumFields.albumArtist ?? folderName;
-        const downloaded = await this.fetchTrackLyrics(taskId, trackName, artistName, mergedFields.album);
-        if (downloaded) {
-          mergedFields.lyrics = downloaded;
+        if (trackName && artistName) {
+          lyricsNeeded.push({ fields: mergedFields, trackName, artistName, album: mergedFields.album });
         }
       }
 
@@ -1383,7 +1381,26 @@ class TaskManager {
       writeJobs.push({ filePath, fields: mergedFields });
     }
 
-    // 2. Submit all write jobs through the concurrent queue
+    // Phase B: Download missing lyrics concurrently with dedup cache
+    if (lyricsNeeded.length > 0) {
+      const lyricsCache = new Map<string, string | null>();
+      debug.info("auto-tag", `Downloading lyrics for ${lyricsNeeded.length} track(s) (concurrency=${LYRICS_DOWNLOAD_CONCURRENCY})`);
+      await mapConcurrent(lyricsNeeded, LYRICS_DOWNLOAD_CONCURRENCY, async (entry) => {
+        const cacheKey = `${entry.artistName}:${entry.trackName}`.toLowerCase();
+        if (lyricsCache.has(cacheKey)) {
+          const cached = lyricsCache.get(cacheKey);
+          if (cached) entry.fields.lyrics = cached;
+          return;
+        }
+        const downloaded = await this.fetchTrackLyrics(taskId, entry.trackName, entry.artistName, entry.album);
+        lyricsCache.set(cacheKey, downloaded);
+        if (downloaded) {
+          entry.fields.lyrics = downloaded;
+        }
+      });
+    }
+
+    // Submit all write jobs through the concurrent queue
     const writeResults = await getDefaultWriteQueue().submit(writeJobs);
     const written = writeResults.filter((r) => r.success).length;
     const errors = writeResults.filter((r) => !r.success).length;

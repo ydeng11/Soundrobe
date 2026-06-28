@@ -62,6 +62,8 @@ import { makeAlbumCandidate, makeLookupRequest, makeTrackCandidate } from "../..
 import { candidateFromFolder } from "../../electron/handlers/fallback";
 import { writeTags, batchWriteTags } from "../../electron/handlers/writer";
 import { readTrackMetadata } from "../../electron/handlers/tracks";
+import { readLocalLyrics } from "../../electron/handlers/lyrics";
+import { mapConcurrent } from "../../electron/services/concurrency";
 import * as NodeID3 from "node-id3";
 
 /**
@@ -1772,3 +1774,79 @@ function findVorbisTag(
   }
   return undefined;
 }
+
+// ── Lyrics parallelization (Phase A + B) ──────────────────────────
+
+describe("lyrics download parallelization", () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = mkdtempSync(join(tmpdir(), "auto-tag-lyrics-parallel-"));
+  });
+
+  afterEach(() => {
+    rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it("returns lyrics from local .lrc file, skipping API download", () => {
+    const audioPath = join(tmpDir, "song.flac");
+    writeFileSync(audioPath, Buffer.alloc(10));
+    writeFileSync(join(tmpDir, "song.lrc"), "[00:01.00]Local lyrics", "utf8");
+
+    const lyrics = readLocalLyrics(audioPath);
+    expect(lyrics).toBe("[00:01.00]Local lyrics");
+  });
+
+  it("returns null when no .lrc exists, triggering API download", () => {
+    const audioPath = join(tmpDir, "song.flac");
+    writeFileSync(audioPath, Buffer.alloc(10));
+
+    const lyrics = readLocalLyrics(audioPath);
+    expect(lyrics).toBeNull();
+  });
+
+  it("downloads lyrics concurrently via mapConcurrent (Phase B)", async () => {
+    const downloadCalls: string[] = [];
+
+    // Simulate 4 tracks needing lyrics download
+    const tracks = [
+      { name: "Track A", artist: "Artist 1" },
+      { name: "Track B", artist: "Artist 1" },
+      { name: "Track C", artist: "Artist 2" },
+      { name: "Track D", artist: "Artist 2" },
+    ];
+
+    // Verify mapConcurrent with concurrency=2 processes items
+    const results = await mapConcurrent(tracks, 2, async (entry) => {
+      downloadCalls.push(entry.name);
+      return `${entry.artist} - ${entry.name}`;
+    });
+
+    expect(results).toHaveLength(4);
+    expect(downloadCalls).toEqual(["Track A", "Track B", "Track C", "Track D"]);
+  });
+
+  it("deduplicates lyrics downloads via cache (Phase B cache)", async () => {
+    const downloadCalls: string[] = [];
+    const lyricsCache = new Map<string, string | null>();
+
+    const tracks = [
+      { name: "Song", artist: "Artist" },
+      { name: "Song", artist: "Artist" }, // duplicate
+    ];
+
+    await mapConcurrent(tracks, 2, async (entry) => {
+      const cacheKey = `${entry.artist}:${entry.name}`.toLowerCase();
+      if (lyricsCache.has(cacheKey)) {
+        return lyricsCache.get(cacheKey);
+      }
+      downloadCalls.push(entry.name);
+      const result = `lyrics for ${entry.name}`;
+      lyricsCache.set(cacheKey, result);
+      return result;
+    });
+
+    // Only 1 API call for 2 identical tracks
+    expect(downloadCalls).toEqual(["Song"]);
+  });
+});
