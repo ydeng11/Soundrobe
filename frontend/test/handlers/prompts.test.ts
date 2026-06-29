@@ -179,6 +179,71 @@ describe("buildTagCorrectionMessages", () => {
     expect(systemMsg).toContain("tracks");
     expect(systemMsg).toContain("confidence");
   });
+
+  it("includes full_path and filenames when context is provided", () => {
+    const messages = buildTagCorrectionMessages(
+      "2009-100天",
+      "林俊杰",
+      "林俊杰",
+      "0天",
+      "2009",
+      [{ title: "X", artist: "林俊杰" }],
+      {
+        fullPath: "/Volumes/downloads/林俊杰/2009-100天",
+        filenames: ["林俊杰 - 01.X.flac", "林俊杰 - 02.第几个100天.flac"],
+        existingAlbumTags: ["0天"],
+        existingArtistTags: ["林俊杰"],
+      },
+    );
+    const payload = JSON.parse(messages[1].content);
+    expect(payload.full_path).toBe("/Volumes/downloads/林俊杰/2009-100天");
+    expect(payload.filenames).toEqual(["林俊杰 - 01.X.flac", "林俊杰 - 02.第几个100天.flac"]);
+    expect(payload.existing_album_tags).toEqual(["0天"]);
+    expect(payload.existing_artist_tags).toEqual(["林俊杰"]);
+  });
+
+  it("omits context fields when not provided", () => {
+    const messages = buildTagCorrectionMessages(
+      "Album",
+      "Artist",
+      "Artist",
+      "Album",
+      null,
+      [],
+    );
+    const payload = JSON.parse(messages[1].content);
+    expect(payload.full_path).toBeUndefined();
+    expect(payload.filenames).toBeUndefined();
+    expect(payload.existing_album_tags).toBeUndefined();
+    expect(payload.existing_artist_tags).toBeUndefined();
+  });
+
+  it("system prompt contains rule about year prefix misparsing", () => {
+    const messages = buildTagCorrectionMessages(
+      "Album",
+      null,
+      null,
+      null,
+      null,
+      [],
+    );
+    expect(messages[0].content).toContain("parsed_hints may be WRONG");
+    expect(messages[0].content).toContain("2009-100天");
+  });
+
+  it("system prompt contains rule for Year-Artist-Album separator patterns", () => {
+    const messages = buildTagCorrectionMessages(
+      "Album",
+      null,
+      null,
+      null,
+      null,
+      [],
+    );
+    expect(messages[0].content).toContain("Year - Artist - Album");
+    expect(messages[0].content).toContain("Lossless");
+    expect(messages[0].content).toContain("24bit-48Hz");
+  });
 });
 
 describe("buildAuditMessages", () => {

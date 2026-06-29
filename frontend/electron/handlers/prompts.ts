@@ -125,6 +125,21 @@ export function buildFolderExtractionMessages(
  *   1. Corrected search params fed to MusicBrainz/Discogs API queries
  *   2. Fallback candidate when all API lookups return nothing
  */
+/**
+ * Extra context the caller may provide to help the LLM make better decisions.
+ * All fields are optional — when absent the payload omits them.
+ */
+export interface TagCorrectionContext {
+  /** Full directory path (gives the LLM structural context). */
+  fullPath?: string;
+  /** List of audio filenames in the directory. */
+  filenames?: string[];
+  /** Unique album tags found in the audio files. */
+  existingAlbumTags?: string[];
+  /** Unique artist tags found in the audio files. */
+  existingArtistTags?: string[];
+}
+
 export function buildTagCorrectionMessages(
   folderName: string,
   parentName: string | null,
@@ -138,6 +153,7 @@ export function buildTagCorrectionMessages(
     trackNumber?: number | null;
     genre?: string | null;
   }>,
+  context?: TagCorrectionContext,
 ): Array<{ role: string; content: string }> {
   const payload: Record<string, unknown> = {
     folder_name: folderName,
@@ -149,6 +165,18 @@ export function buildTagCorrectionMessages(
   };
   if (parentName) {
     payload.parent_name = parentName;
+  }
+  if (context?.fullPath) {
+    payload.full_path = context.fullPath;
+  }
+  if (context?.filenames && context.filenames.length > 0) {
+    payload.filenames = context.filenames;
+  }
+  if (context?.existingAlbumTags && context.existingAlbumTags.length > 0) {
+    payload.existing_album_tags = context.existingAlbumTags;
+  }
+  if (context?.existingArtistTags && context.existingArtistTags.length > 0) {
+    payload.existing_artist_tags = context.existingArtistTags;
   }
   if (currentTracks.length > 0) {
     payload.current_tracks = currentTracks.map((t, i) => ({
@@ -184,7 +212,16 @@ export function buildTagCorrectionMessages(
         "10. Per-track corrections: only include title/artist fields that differ " +
         "from the album defaults. Leave null for fields that match.\n" +
         "11. Do not invent MusicBrainz IDs. Leave uncertain fields null.\n" +
-        "12. Set confidence (0.0-1.0) based on how sure you are about the correction.",
+        "12. Set confidence (0.0-1.0) based on how sure you are about the correction.\n" +
+        "13. parsed_hints may be WRONG — especially when the folder name contains a year " +
+        "prefix followed by a number that looks like a month (e.g. '2009-100天' was " +
+        "misparsed as '0天'). Always derive the album from folder_name by stripping " +
+        "ONLY the 4-digit year+separator prefix. Never consume following album digits " +
+        "as part of the date.\n" +
+        "14. When folder_name uses 'Year - Artist - Album' or 'Year - Artist - Album " +
+        "(format)' patterns, extract only the Album portion. Common separators: dash " +
+        "(-), space, comma (,), underscore (_). Common format suffixes: (Lossless), " +
+        "[FLAC], (24bit), (24bit-48Hz)(WAV).",
     },
     {
       role: "user",

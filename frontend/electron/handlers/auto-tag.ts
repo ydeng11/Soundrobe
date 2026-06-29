@@ -1061,6 +1061,16 @@ class TaskManager {
           trackNumber: t.trackNumber,
           genre: t.genre,
         })),
+        {
+          fullPath: request.path,
+          filenames: getSortedAudioFilenames(requestAlbumPath(request.path)),
+          existingAlbumTags: request.tracks.length > 0
+            ? [...new Set(request.tracks.map((t) => t.album).filter(Boolean) as string[])]
+            : undefined,
+          existingArtistTags: request.tracks.length > 0
+            ? [...new Set(request.tracks.map((t) => t.artist).filter(Boolean) as string[])]
+            : undefined,
+        },
       );
 
       const schema = {

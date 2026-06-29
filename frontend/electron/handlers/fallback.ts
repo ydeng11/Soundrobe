@@ -57,7 +57,7 @@ export function isCompilationFolder(name: string | null | undefined): boolean {
 /** Album artist used when the folder indicates a compilation. */
 const VARIOUS_ARTISTS = "Various Artists";
 
-const DATE_PREFIX_RE = /^(\d{4})[-.](?:0[1-9]|1[0-2])(?:[-.](?:0[1-9]|[12]\d|3[01]))?\s*/; // "2003-04", "2007-09-28", or "2005.08"
+const DATE_PREFIX_RE = /^(\d{4})[-.](?:0[1-9]|1[0-2])(?!\d)(?:[-.](?:0[1-9]|[12]\d|3[01]))?\s*/; // "2003-04", "2007-09-28", or "2005.08"
 const YEAR_PREFIX_RE = /^(\d{4})\s*[.-]\s*/; // "2017-" or "2018."
 const YEAR_FROM_PREFIX_RE = /^(\d{4})[-.]/; // capture year from "2003-"
 const STANDALONE_YEAR_RE = /(?:^|[^\d])((?:19|20)\d{2})(?!\d)/;

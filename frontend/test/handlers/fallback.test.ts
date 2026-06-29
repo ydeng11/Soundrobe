@@ -73,6 +73,16 @@ describe("cleanAlbumFolderName", () => {
     expect(cleanAlbumFolderName("Queen II", "Queen")).toBe("Queen II");
     expect(parseAlbumPath("/music/Queen/Queen II").albumHint).toBe("Queen II");
   });
+
+  it("does not misparse numeric album names like 100天 as 0天", () => {
+    // Bug: DATE_PREFIX_RE matched "2009-10" from "2009-100天", leaving "0天"
+    expect(cleanFolderName("2009-100天")).toBe("100天");
+    expect(cleanAlbumFolderName("2009-100天", "林俊杰")).toBe("100天");
+    const r = parseAlbumPath("/music/林俊杰/2009-100天");
+    expect(r.artistHint).toBe("林俊杰");
+    expect(r.albumHint).toBe("100天");
+    expect(r.yearHint).toBe("2009");
+  });
 });
 
 describe("extractYearFromName", () => {
