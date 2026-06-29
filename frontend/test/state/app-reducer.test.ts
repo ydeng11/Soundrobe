@@ -1,5 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { appReducer, initialAppState } from "../../src/state/AppState";
+import {
+  appReducer,
+  buildAuditApplyAlbumResults,
+  buildAuditByTrackPath,
+  getVisibleAuditResult,
+  initialAppState,
+} from "../../src/state/AppState";
 import type { TrackData } from "../../electron/preload";
 import { UndoManager } from "../../src/state/UndoManager";
 
@@ -196,6 +202,168 @@ describe("appReducer", () => {
       const state = { ...initialAppState, coverDataUrl: "data:..." };
       const next = appReducer(state, { type: "SET_COVER_URL", url: null });
       expect(next.coverDataUrl).toBeNull();
+    });
+  });
+
+  describe("ADD_AUDIT_RESULTS", () => {
+    const auditResult = {
+      trackIndex: 0,
+      field: "title",
+      status: "error" as const,
+      message: "Title mismatch",
+      suggestion: "Song",
+      source: "deterministic" as const,
+      confidence: 0.98,
+      autoFixEligible: true,
+      autoFixed: true,
+      corrected: { title: "Song" },
+    };
+
+    it("stores enriched audit metadata without dropping legacy result fields", () => {
+      const next = appReducer(initialAppState, {
+        type: "ADD_AUDIT_RESULTS",
+        albumPath: "/music/Artist/Album",
+        results: [auditResult],
+      });
+
+      expect(next.auditResults["/music/Artist/Album"]).toEqual([
+        expect.objectContaining({
+          trackIndex: 0,
+          field: "title",
+          status: "error",
+          message: "Title mismatch",
+          suggestion: "Song",
+          source: "deterministic",
+          confidence: 0.98,
+          autoFixEligible: true,
+          autoFixed: true,
+          corrected: { title: "Song" },
+        }),
+      ]);
+    });
+
+    it("shows a single audited album even when no active album is selected", () => {
+      expect(getVisibleAuditResult({
+        "/music/Artist/Album": [auditResult],
+      }, null)).toEqual({
+        albumPath: "/music/Artist/Album",
+        results: [auditResult],
+      });
+    });
+
+    it("does not choose an arbitrary audit panel for multi-album audits without an active album", () => {
+      expect(getVisibleAuditResult({
+        "/music/Artist/Album": [auditResult],
+        "/music/Artist/Other": [{ ...auditResult, field: "genre" }],
+      }, null)).toBeNull();
+    });
+
+    it("prefers the active album audit results when available", () => {
+      const otherResult = { ...auditResult, field: "genre" };
+
+      expect(getVisibleAuditResult({
+        "/music/Artist/Album": [auditResult],
+        "/music/Artist/Other": [otherResult],
+      }, "/music/Artist/Other")).toEqual({
+        albumPath: "/music/Artist/Other",
+        results: [otherResult],
+      });
+    });
+
+    it("maps audit results to track paths and keeps only unresolved findings attention-grabbing", () => {
+      const byPath = buildAuditByTrackPath({
+        auditResults: {
+          "/music/Artist/Album": [
+            { ...auditResult, trackIndex: 0, status: "error", autoFixed: true },
+            { ...auditResult, trackIndex: 1, status: "warning", autoFixed: false },
+            { ...auditResult, trackIndex: 99, status: "error", autoFixed: false },
+          ],
+        },
+        tracks: [
+          { path: "/music/Artist/Album/01.flac" },
+          { path: "/music/Artist/Album/02.flac" },
+        ],
+      });
+
+      expect(byPath["/music/Artist/Album/01.flac"]).toEqual(expect.objectContaining({
+        count: 1,
+        highestStatus: "correct",
+        autoFixedCount: 1,
+        hasManualReview: false,
+      }));
+      expect(byPath["/music/Artist/Album/02.flac"]).toEqual(expect.objectContaining({
+        count: 1,
+        highestStatus: "warning",
+        autoFixedCount: 0,
+        hasManualReview: true,
+      }));
+      expect(Object.keys(byPath)).not.toContain("/music/Artist/Album/99.flac");
+    });
+
+    it("maps multi-album audit results without mixing same-index tracks", () => {
+      const byPath = buildAuditByTrackPath({
+        auditResults: {
+          "/music/Artist/Album": [{ ...auditResult, trackIndex: 0, field: "title" }],
+          "/music/Artist/Other": [{ ...auditResult, trackIndex: 0, field: "genre" }],
+        },
+        tracks: [
+          { path: "/music/Artist/Album/01.flac" },
+          { path: "/music/Artist/Other/01.flac" },
+        ],
+      });
+
+      expect(byPath["/music/Artist/Album/01.flac"].results[0].field).toBe("title");
+      expect(byPath["/music/Artist/Other/01.flac"].results[0].field).toBe("genre");
+    });
+
+    it("builds apply payload only for the selected track's audit findings", () => {
+      const payload = buildAuditApplyAlbumResults({
+        auditResults: {
+          "/music/Artist/Album": [
+            { ...auditResult, trackIndex: 0, field: "title" },
+            { ...auditResult, trackIndex: 1, field: "album" },
+          ],
+        },
+        tracks: [
+          { path: "/music/Artist/Album/01.flac" },
+          { path: "/music/Artist/Album/02.flac" },
+        ],
+        trackPath: "/music/Artist/Album/02.flac",
+      });
+
+      expect(payload).toEqual([
+        {
+          albumPath: "/music/Artist/Album",
+          results: [
+            expect.objectContaining({
+              index: 1,
+              field: "album",
+              corrected: { title: "Song" },
+            }),
+          ],
+        },
+      ]);
+    });
+
+    it("builds apply payload only for the visible album", () => {
+      const payload = buildAuditApplyAlbumResults({
+        auditResults: {
+          "/music/Artist/Album": [{ ...auditResult, trackIndex: 0, field: "title" }],
+          "/music/Artist/Other": [{ ...auditResult, trackIndex: 0, field: "genre" }],
+        },
+        tracks: [
+          { path: "/music/Artist/Album/01.flac" },
+          { path: "/music/Artist/Other/01.flac" },
+        ],
+        albumPath: "/music/Artist/Other",
+      });
+
+      expect(payload).toEqual([
+        {
+          albumPath: "/music/Artist/Other",
+          results: [expect.objectContaining({ index: 0, field: "genre" })],
+        },
+      ]);
     });
   });
 

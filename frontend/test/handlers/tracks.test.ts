@@ -17,8 +17,9 @@ import {
   readTrackMetadata,
   readAlbum,
   isAudioFile,
+  readExtraTags,
 } from "../../electron/handlers/tracks";
-import { writeTags } from "../../electron/handlers/writer";
+import { writeExtraTags, writeTags } from "../../electron/handlers/writer";
 import { splitArtistNames } from "../../electron/handlers/candidates";
 
 import {
@@ -180,6 +181,46 @@ describe("readTrackMetadata — APE", () => {
     expect(result.genre).toBe("Alternative Rock");
     expect(result.codec).toBe("Monkey's Audio");
     expect(result.duration).toBeGreaterThan(0);
+  });
+
+  it("round-trips APE writes through UI-facing metadata and extra-tag readback", async () => {
+    const fp = path.join(tmpDir, "02 - 梦.ape");
+    fs.writeFileSync(fp, minimalApeAudio());
+
+    await writeTags(fp, {
+      title: "梦",
+      artist: "刺猬",
+      album: "幻象波普星",
+      artists: ["Hedgehog"],
+      trackNumber: 2,
+      trackTotal: 12,
+      year: "2004",
+    });
+    const beforeExtras = await readTrackMetadata(fp);
+    const beforeExtraRows = await readExtraTags(fp);
+
+    await writeExtraTags(fp, [
+      { key: "MOOD", value: "noisy" },
+      { key: "SOURCE", value: "tmp-copy" },
+    ]);
+
+    const track = await readTrackMetadata(fp);
+    const extras = await readExtraTags(fp);
+
+    expect(track.title).toBe("梦");
+    expect(track.artist).toBe("刺猬");
+    expect(track.artists).toEqual(["刺猬", "Hedgehog"]);
+    expect(track.album).toBe("幻象波普星");
+    expect(track.trackNumber).toBe(2);
+    expect(track.trackTotal).toBe(12);
+    expect(beforeExtras.trackNumber).toBe(2);
+    expect(beforeExtras.year).toBe("2004");
+    expect(beforeExtras.bitrate).toBeGreaterThan(0);
+    expect(beforeExtraRows).toEqual([]);
+    expect(extras).toEqual([
+      { key: "MOOD", value: "noisy", source: "APEv2" },
+      { key: "SOURCE", value: "tmp-copy", source: "APEv2" },
+    ]);
   });
 });
 

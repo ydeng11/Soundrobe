@@ -12,6 +12,7 @@ import {
   lookupRequestToJson,
   lookupRequestFromJson,
   queryHash,
+  ALBUM_TITLE_MATCH_THRESHOLD,
   normalizeLookupText,
   scoreAlbumTitleMatch,
   buildLookupVariantPairs,
@@ -180,6 +181,49 @@ describe("normalizeLookupText", () => {
     // Fullwidth latin gets NFKC-normalized to ASCII
     expect(normalizeLookupText("ＡＢＣ")).toBe("abc");
   });
+
+  it("strips spaces between CJK characters", () => {
+    expect(normalizeLookupText("就是红 光辉全记录")).toBe("就是红光辉全记录");
+    expect(normalizeLookupText("七里 香")).toBe("七里香");
+    expect(normalizeLookupText("就是紅 光輝全紀錄")).toBe("就是紅光輝全紀錄");
+  });
+
+  it("handles consecutive CJK-space-CJK sequences", () => {
+    expect(normalizeLookupText("就是红 光 辉全记录")).toBe("就是红光辉全记录");
+  });
+
+  it("does not strip spaces between Latin characters", () => {
+    expect(normalizeLookupText("Test  Album")).toBe("test album");
+  });
+
+  it("converts standalone Roman numerals to Arabic", () => {
+    expect(normalizeLookupText("Part II")).toBe("part 2");
+    expect(normalizeLookupText("Vol.VI")).toBe("vol 6"); // period becomes space
+    expect(normalizeLookupText("III")).toBe("3");
+    expect(normalizeLookupText("Chapter IV")).toBe("chapter 4");
+  });
+
+  it("does not convert Roman numerals inside words", () => {
+    expect(normalizeLookupText("live")).toBe("live");
+    expect(normalizeLookupText("civil")).toBe("civil");
+    expect(normalizeLookupText("give")).toBe("give");
+    expect(normalizeLookupText("active")).toBe("active");
+  });
+
+  it("converts Roman numerals adjacent to CJK characters", () => {
+    expect(normalizeLookupText("第II章")).toBe("第2章");
+    expect(normalizeLookupText("Vol.II精选")).toBe("vol 2精选"); // period becomes space
+  });
+
+  it("strips diacritical marks", () => {
+    expect(normalizeLookupText("Café")).toBe("cafe");
+    expect(normalizeLookupText("naïve")).toBe("naive");
+    expect(normalizeLookupText("über")).toBe("uber");
+  });
+
+  it("normalizes fullwidth digits via NFKD", () => {
+    expect(normalizeLookupText("０１２")).toBe("012");
+  });
 });
 
 describe("scoreAlbumTitleMatch", () => {
@@ -205,6 +249,24 @@ describe("scoreAlbumTitleMatch", () => {
       remoteYear: 2013,
     });
     expect(result.score).toBe(110);
+  });
+
+  it("matches CJK title with space against title without space (regression: 就是红 光辉全记录)", async () => {
+    // CJK space stripped + fuzzy match handles 记/纪 variant pair
+    const result = await scoreAlbumTitleMatch("就是红 光辉全记录", "就是紅光輝全紀錄");
+    expect(result.score).toBeGreaterThanOrEqual(75);
+  });
+
+  it("matches fuzzy CJK variants (记 vs 紀)", async () => {
+    const result = await scoreAlbumTitleMatch("就是红光辉全记录", "就是紅光輝全紀錄");
+    expect(result.score).toBeGreaterThanOrEqual(75);
+    expect(result.reason).toBe("fuzzy");
+  });
+
+  it("does not accept Latin title typos through fuzzy matching", async () => {
+    const result = await scoreAlbumTitleMatch("The Dark Side of the Moon", "The Dark Side of the Noon");
+    expect(result.score).toBeLessThan(ALBUM_TITLE_MATCH_THRESHOLD);
+    expect(result.reason).toBe("none");
   });
 });
 
@@ -278,5 +340,15 @@ describe("verifyAlbumName", () => {
   it("returns mismatch for different", async () => {
     const c = makeAlbumCandidate({ album: "Revolver" });
     expect(await verifyAlbumName("Abbey Road", c)).toBe("mismatch");
+  });
+
+  it("returns close for fuzzy CJK match (记 vs 紀 variant)", async () => {
+    const c = makeAlbumCandidate({ album: "就是紅光輝全紀錄" });
+    expect(await verifyAlbumName("就是红 光辉全记录", c)).toBe("close");
+  });
+
+  it("does not return close for Latin title typos through fuzzy matching", async () => {
+    const c = makeAlbumCandidate({ album: "The Dark Side of the Noon" });
+    expect(await verifyAlbumName("The Dark Side of the Moon", c)).toBe("mismatch");
   });
 });

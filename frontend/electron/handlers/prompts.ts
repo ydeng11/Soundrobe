@@ -198,6 +198,14 @@ export function buildTagCorrectionMessages(
 export interface AuditContext {
   /** Discogs lookup alias (English search name for a Chinese artist). */
   discogsAlias?: string | null;
+  reviewTargets?: Array<{
+    index: number;
+    field: string;
+    current: string;
+    expected?: string;
+    evidence: string;
+    reason: string;
+  }>;
 }
 
 export function buildAuditMessages(
@@ -208,7 +216,14 @@ export function buildAuditMessages(
     artist?: string | null;
     album?: string | null;
     albumArtist?: string | null;
+    albumArtists?: string[];
     artists?: string[];
+    year?: string | null;
+    genre?: string | null;
+    trackNumber?: number | null;
+    trackTotal?: number | null;
+    discNumber?: number | null;
+    discTotal?: number | null;
     path?: string;
   }>,
   filenames: string[],
@@ -221,7 +236,14 @@ export function buildAuditMessages(
     artist: meta.artist ?? "",
     album: meta.album ?? "",
     album_artist: meta.albumArtist ?? "",
+    album_artists: (meta.albumArtists ?? []).join(", "),
     artists: (meta.artists ?? []).join(", "),
+    year: meta.year ?? "",
+    genre: meta.genre ?? "",
+    track_number: meta.trackNumber ?? null,
+    track_total: meta.trackTotal ?? null,
+    disc_number: meta.discNumber ?? null,
+    disc_total: meta.discTotal ?? null,
   }));
 
   const payload: Record<string, unknown> = {
@@ -229,6 +251,7 @@ export function buildAuditMessages(
     artist_folder: albumArtistHint ?? "",
     preferred_artist_name: albumArtistHint ?? "",
     tracks: trackData,
+    review_targets: context?.reviewTargets ?? [],
   };
 
   if (context?.discogsAlias) {
@@ -239,89 +262,32 @@ export function buildAuditMessages(
     {
       role: "system",
       content:
-        "You audit music track metadata. The **primary principle** is that " +
-        "the file path must match the metadata: the album folder name should " +
-        "match the `album` field, the parent artist folder should match the " +
-        "`album_artist` field, and each filename should match its `title` field.\n\n" +
-        "The input provides:\n" +
-        "- `album_folder`: the album directory name (authoritative source for album name)\n" +
-        "- `artist_folder`: the parent directory name (authoritative source for album_artist)\n" +
-        "- `tracks[].path`: the filename (authoritative source for track title)\n" +
-        "- `tracks[].album`, `tracks[].album_artist`, `tracks[].title`: current metadata values\n\n" +
+        "You audit music track metadata. Deterministic code has already checked " +
+        "obvious path/tag mismatches, so you only review `review_targets`.\n\n" +
+        "Primary principle: file path evidence must match metadata. The album " +
+        "folder is evidence for album/year, the parent artist folder is evidence " +
+        "for album artist, and each filename is evidence for title, artist, and " +
+        "track/disc numbers.\n\n" +
         "Rules:\n" +
-        "1. 'error' means a field is clearly wrong or missing.\n" +
-        "2. 'warning' means the field might be wrong (typo, inconsistent capitalization, " +
-        "mismatched artist/album_artist convention).\n" +
-        "3. 'correct' means the field looks right.\n" +
-        "4. **Compare `tracks[].album` with `album_folder`.** If the album folder suggests " +
-        "a different album name than what is tagged, flag the `album` field. " +
-        "The folder name is authoritative.\n" +
-        "5. **Compare `tracks[].album_artist` with `artist_folder`.** If the parent " +
-        "artist directory suggests a different artist than what is tagged, " +
-        "flag the `album_artist` field. The folder name is authoritative.\n" +
-        "6. **Compare `tracks[].title` with `tracks[].path` (filename).** " +
-        "If the filename suggests a different title (after stripping track numbers, " +
-        "separators, and extensions), flag the `title` field.\n" +
-        "7. If artist != album_artist and artists is empty, flag artists as warning.\n" +
-        "8. Don't flag empty album_artist on single-artist albums.\n" +
-        "9. Be conservative — only flag when you have reasonable confidence.\n" +
-        "10. Title casing variations ('Come Together' vs 'come together') are warnings, " +
-        "not errors.\n" +
-        "11. **Chinese name preference**: When the `preferred_artist_name` " +
+        "1. Review only fields listed in `review_targets`; do not invent findings for other fields.\n" +
+        "2. Return one field at a time. Each result's `corrected` object may contain only that result's field.\n" +
+        "3. Include `confidence` from 0.0 to 1.0 for every warning or error.\n" +
+        "4. 'error' means the correction is clearly right; 'warning' means manual review is needed.\n" +
+        "5. If evidence is ambiguous, return warning with no `corrected` value.\n" +
+        "6. For genre, use Discogs-style comma-separated terms only when confident; otherwise warn.\n" +
+        "7. **Chinese name preference**: When the `preferred_artist_name` " +
         "(from folder/tags) is in Chinese and a `discogs_lookup_alias` is " +
-        "provided (an English name found on Discogs for the same artist), " +
-        "always prefer the Chinese name in `corrected` metadata. The English " +
-        "alias is only a search aid for external lookups, not a replacement " +
-        "tag value. Do NOT write the English alias into `artist`, `artists`, " +
-        "or `album_artist` fields when the Chinese name is available.\n" +
-        "12. For Chinese tracks: judge the correct character script " +
-        "(Simplified vs Traditional) based on the filename. The filename " +
-        "is the authoritative source for which script to use.\n" +
-        "13. **For every track with a warning or error, provide the complete " +
-        "corrected metadata in the `corrected` field.** Populate `corrected` " +
-        "with all the metadata fields that the track SHOULD have — title, " +
-        "artist, artists, album, album_artist, year, genre. Only include " +
-        "fields that are relevant (the code will merge your corrected values " +
-        "with the existing metadata).\n" +
-        "13. The `suggestion` field is used for per-field display " +
-        "but `corrected` is what gets written to the file.\n\n" +
-        "Examples of path-metadata matches (no issues):\n" +
-        "- album_folder='OK Computer', album='OK Computer' → correct\n" +
-        "- artist_folder='Radiohead', album_artist='Radiohead' → correct\n" +
-        "- path='01. Karma Police.flac', title='Karma Police' → correct\n" +
-        "\n" +
-        "Examples of path-metadata mismatches (with corrected metadata):\n" +
-        "- album_folder='OK Computer', album='OK Computer 1997' (wrong) → " +
-        '{ "index": 0, "field": "album", "status": "error", ' +
-        '"message": "Album tag \'OK Computer 1997\' does not match folder name \'OK Computer\'", ' +
-        '"suggestion": "OK Computer", ' +
-        '"corrected": { "album": "OK Computer" } }\n' +
-        "- artist_folder='Pink Floyd', album_artist='Pink Floyd' but artist='David Gilmour' → " +
-        '{ "index": 0, "field": "artist", "status": "warning", ' +
-        '"message": "Track artist \'David Gilmour\' differs from album_artist " +' +
-        '"\'Pink Floyd\', which matches the artist folder", ' +
-        '"suggestion": "Pink Floyd", ' +
-        '"corrected": { "artist": "Pink Floyd" } }\n' +
-        "- path='01. 我爱的人.flac', title='I Love You' (English, not matching filename) → " +
-        '{ "index": 0, "field": "title", "status": "error", ' +
-        '"message": "Title \'I Love You\' does not match filename \'01. 我爱的人.flac\'", ' +
-        '"suggestion": "我爱的人", ' +
-        '"corrected": { "title": "我爱的人" } }\n' +
-        "- filename='03 - Bohemian Rhapsody.flac', title='Bohemian Rhapsody (Remastered 2011)' → " +
-        '{ "index": 0, "field": "title", "status": "warning", ' +
-        '"message": "Title \'Bohemian Rhapsody (Remastered 2011)\' may have extra suffix not in filename", ' +
-        '"suggestion": "Bohemian Rhapsody", ' +
-        '"corrected": { "title": "Bohemian Rhapsody" } }\n\n' +
-        "Other common patterns (preserved from existing logic):\n" +
-        '- artist=\'Beatles\' (missing \'The\') → ' +
-        '{ "index": 0, "field": "artist", "status": "warning", ' +
-        '"message": "Artist may be missing \'The\'", "suggestion": "The Beatles" }\n' +
-        "- year='20' (truncated) → " +
-        '{ "index": 0, "field": "year", "status": "error", ' +
-        '"message": "Year truncated to 2 digits", "suggestion": "2020" }\n' +
-        "- title is placeholder string → " +
-        '{ "index": 0, "field": "title", "status": "error", ' +
-        '"message": "Title is placeholder text, not real track name" }\n\n' +
+        "provided, prefer the Chinese name in corrected metadata. The English " +
+        "alias is only a search aid, not a replacement tag value.\n" +
+        "8. For Chinese tracks, judge Simplified vs Traditional script from the filename.\n\n" +
+        "Output examples:\n" +
+        '{ "index": 0, "field": "genre", "status": "warning", ' +
+        '"message": "Genre is missing and cannot be inferred confidently from path evidence", ' +
+        '"confidence": 0.4 }\n' +
+        '{ "index": 1, "field": "title", "status": "error", ' +
+        '"message": "Title has a clear typo compared with filename", ' +
+        '"suggestion": "Karma Police", "confidence": 0.95, ' +
+        '"corrected": { "title": "Karma Police" } }\n\n' +
         "Return only valid JSON. No markdown, no code fences, no extra text.",
     },
     {

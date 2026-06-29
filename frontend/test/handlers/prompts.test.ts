@@ -4,6 +4,7 @@ import {
   buildFallbackMessages,
   buildFolderExtractionMessages,
   buildTagCorrectionMessages,
+  buildAuditMessages,
 } from "../../electron/handlers/prompts";
 import {
   makeLookupRequest,
@@ -177,5 +178,61 @@ describe("buildTagCorrectionMessages", () => {
     expect(systemMsg).toContain("genre");
     expect(systemMsg).toContain("tracks");
     expect(systemMsg).toContain("confidence");
+  });
+});
+
+describe("buildAuditMessages", () => {
+  it("builds a targeted audit payload and requires per-field confidence", () => {
+    const messages = buildAuditMessages(
+      "Artist",
+      "Album",
+      [
+        {
+          title: "Song",
+          artist: "Artist",
+          artists: ["Artist"],
+          album: "Album",
+          albumArtist: "Artist",
+          year: "2020",
+          genre: null,
+        },
+      ],
+      ["01. Song.flac"],
+      {
+        reviewTargets: [
+          {
+            index: 0,
+            field: "genre",
+            current: "",
+            evidence: "Genre tag is empty.",
+            reason: "Semantic genre requires LLM judgment.",
+          },
+        ],
+      },
+    );
+
+    expect(messages[0].content).toContain("one field at a time");
+    expect(messages[0].content).toContain("confidence");
+    expect(messages[0].content).not.toContain("complete corrected metadata");
+
+    const payload = JSON.parse(messages[1].content);
+    expect(payload.tracks).toEqual([
+      expect.objectContaining({
+        index: 0,
+        path: "01. Song.flac",
+        title: "Song",
+        genre: "",
+      }),
+    ]);
+    expect(payload.review_targets).toEqual([
+      expect.objectContaining({
+        index: 0,
+        field: "genre",
+      }),
+    ]);
+    expect(payload.review_targets).not.toEqual(expect.arrayContaining([
+      expect.objectContaining({ field: "title" }),
+      expect.objectContaining({ field: "album" }),
+    ]));
   });
 });

@@ -62,6 +62,11 @@ export interface AlbumDetail {
     status: "correct" | "warning" | "error";
     message: string | null;
     suggestion: string | null;
+    source?: "deterministic" | "llm";
+    confidence?: number;
+    autoFixEligible?: boolean;
+    autoFixed?: boolean;
+    corrected?: AuditTrackResult["corrected"];
   }>;
 }
 
@@ -80,14 +85,23 @@ export interface AuditTrackResult {
   status: "correct" | "warning" | "error";
   message: string;
   suggestion?: string | null;
+  source?: "deterministic" | "llm";
+  confidence?: number;
+  autoFixEligible?: boolean;
+  autoFixed?: boolean;
   corrected?: {
     title?: string | null;
     artist?: string | null;
     artists?: string[] | null;
     album?: string | null;
     albumArtist?: string | null;
+    albumArtists?: string[] | null;
     year?: string | null;
     genre?: string | null;
+    trackNumber?: number | null;
+    trackTotal?: number | null;
+    discNumber?: number | null;
+    discTotal?: number | null;
   } | null;
 }
 
@@ -105,6 +119,23 @@ export interface AuditEvent {
   total?: number;
   message?: string;
   results?: AuditTrackResult[];
+}
+
+export interface AuditRunSummary {
+  albums: number;
+  issues: number;
+  albumResults?: Array<{
+    albumPath: string;
+    results: AuditTrackResult[];
+  }>;
+}
+
+export interface AuditApplyFixesSummary {
+  fixed: number;
+  albumResults: Array<{
+    albumPath: string;
+    results: AuditTrackResult[];
+  }>;
 }
 
 export interface AutoTagEvent {
@@ -314,10 +345,13 @@ export interface ElectronAPI {
   getDatasetStatus: () => Promise<DatasetStatus>;
 
   // Audit
-  runAudit: (libraryPath: string) => Promise<{ albums: number; issues: number }>;
-  runAuditOnTracks: (trackPaths: string[]) => Promise<{ albums: number; issues: number }>;
-  runAuditOnAlbums: (albumPaths: string[]) => Promise<{ albums: number; issues: number }>;
+  runAudit: (libraryPath: string) => Promise<AuditRunSummary>;
+  runAuditOnTracks: (trackPaths: string[]) => Promise<AuditRunSummary>;
+  runAuditOnAlbums: (albumPaths: string[]) => Promise<AuditRunSummary>;
   runAlbumAudit: (albumPath: string) => Promise<AuditTrackResult[]>;
+  applyAuditFixes: (
+    albumResults: NonNullable<AuditRunSummary["albumResults"]>
+  ) => Promise<AuditApplyFixesSummary>;
   onAuditEvent: (callback: (event: AuditEvent) => void) => () => void;
   cancelAudit: () => Promise<void>;
 
@@ -506,6 +540,8 @@ contextBridge.exposeInMainWorld("api", {
     ipcRenderer.invoke("audit:run-specified", { albumPaths }),
   runAlbumAudit: (albumPath: string) =>
     ipcRenderer.invoke("audit:run-album", albumPath),
+  applyAuditFixes: (albumResults: NonNullable<AuditRunSummary["albumResults"]>) =>
+    ipcRenderer.invoke("audit:apply-fixes", albumResults),
   onAuditEvent: (callback: (event: AuditEvent) => void): (() => void) => {
     const listener = (_event: Electron.IpcRendererEvent, payload: AuditEvent) =>
       callback(payload);

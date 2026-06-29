@@ -1,6 +1,14 @@
 import path from "path";
-import { readFile, writeFile, open } from "fs/promises";
+import { randomUUID } from "crypto";
+import { readFile, writeFile, open, rename, unlink } from "fs/promises";
 import * as NodeID3 from "node-id3";
+import {
+  buildApeFooter,
+  buildApeTagItems,
+  parseApeTagItems,
+  stripApeTag,
+} from "../services/ApeTagEngine";
+export { findApeFooterOffset, parseApeTagItems } from "../services/ApeTagEngine";
 
 type NodeID3Module = typeof import("node-id3");
 const nodeId3 = ((NodeID3 as unknown as { default?: NodeID3Module }).default ??
@@ -105,9 +113,11 @@ const STANDARD_VORBIS_TAGS = new Set([
   "LYRICS",
   "UNSYNCEDLYRICS",
   "UNSYNCHRONISEDLYRICS",
+  "TRACK",
   "TRACKNUMBER",
   "TRACKTOTAL",
   "TOTALTRACKS",
+  "DISC",
   "DISCNUMBER",
   "DISCTOTAL",
   "TOTALDISCS",
@@ -339,7 +349,15 @@ async function writeVorbis(
   setVorbisList(updated, "ARTISTS", fields.artists);
   setVorbisField(updated, "ALBUM", fields.album);
   setVorbisField(updated, "ALBUMARTIST", fields.albumArtist);
-  setVorbisList(updated, "ALBUMARTISTS", fields.albumArtists);
+  setVorbisList(
+    updated,
+    "ALBUMARTISTS",
+    fields.albumArtists !== undefined ? fields.albumArtists : fields.albumArtist,
+  );
+  if (fields.albumArtist !== undefined || fields.albumArtists !== undefined) {
+    delete updated["ALBUM ARTIST"];
+    delete updated.ALBUM_ARTIST;
+  }
   setVorbisField(updated, "DATE", fields.year);
   setVorbisField(updated, "GENRE", fields.genre);
   setVorbisField(updated, "COMPOSER", fields.composer);
@@ -1424,199 +1442,25 @@ async function writeVorbisExtraTags(filePath: string, extraTags: ExtraTagUpdate[
 
 // ── APEv2 tag writer (Monkey's Audio .ape) ────────────────────────────
 
-/**
- * Compute the end of Monkey's Audio data from the MAC descriptor/header.
- * Returns the byte offset where audio data ends and tag/metadata can begin.
- * If the file doesn't have a valid MAC descriptor, returns the eariliest
- * APETAGEX offset minus 32 as fallback.
- */
-function computeAudioEnd(data: Buffer): number | null {
-  // Minimal MAC descriptor parser (52 bytes)
-  if (data.length < 52) return null;
-  const descId = data.toString("ascii", 0, 4);
-  if (descId !== "MAC ") return null;
+async function replaceFileAtomically(filePath: string, data: Buffer): Promise<void> {
+  const tempPath = path.join(
+    path.dirname(filePath),
+    `.${path.basename(filePath)}.${process.pid}.${Date.now()}.${randomUUID()}.tmp`,
+  );
+  let handle: Awaited<ReturnType<typeof open>> | null = null;
 
-  const descriptorBytes = data.readUInt32LE(8);
-  const headerBytes = data.readUInt32LE(12);
-  // At offset 12: seekTableBytes, headerDataBytes, apeFrameDataBytes,
-  //              apeFrameDataBytesHigh, terminatingDataBytes
-  if (data.length < descriptorBytes + headerBytes) return null;
-
-  const seekTableBytes = data.readUInt32LE(16);
-  const headerDataBytes = data.readUInt32LE(20);
-  const apeFrameDataBytes = data.readUInt32LE(24);
-  const terminatingDataBytes = data.readUInt32LE(32);
-
-  const forwardBytes =
-    seekTableBytes + headerDataBytes +
-    apeFrameDataBytes + terminatingDataBytes;
-
-  return descriptorBytes + headerBytes + forwardBytes;
-}
-
-/**
- * Find all APEv2 tags in the file and compute the earliest byte at which
- * tag/ID3v1 data begins, accounting for any gap between MAC audio data
- * and the first APEv2 tag. Everything from this offset onward is stripped.
- *
- * Handles:
- *   - Multiple separate APEv2 tags (header+footer or footer-only)
- *   - ID3v1 tag (128 bytes) between APEv2 tags
- *   - Gap between MAC audio data end and first APEv2 tag
- *   - Single footer-only or header+footer tag at end
- *
- * Returns `null` if no APEv2 tag is found.
- */
-function getApeTagStart(data: Buffer): number | null {
-  if (data.length < 32) return null;
-
-  // Use Buffer.indexOf to find all "APETAGEX" occurrences (fast even on 30MB files)
-  const preamble = Buffer.from("APETAGEX", "ascii");
-  const offsets: number[] = [];
-  let searchFrom = 0;
-  while (true) {
-    const idx = data.indexOf(preamble, searchFrom);
-    if (idx === -1) break;
-    offsets.push(idx);
-    searchFrom = idx + 1;
+  try {
+    handle = await open(tempPath, "wx");
+    await handle.writeFile(data);
+    await handle.sync();
+    await handle.close();
+    handle = null;
+    await rename(tempPath, filePath);
+  } catch (error) {
+    if (handle) await handle.close().catch(() => undefined);
+    await unlink(tempPath).catch(() => undefined);
+    throw error;
   }
-
-  if (offsets.length === 0) return null;
-
-  // Resolve each APETAGEX to find the earliest byte it occupies
-  let earliest = data.length;
-  for (const offset of offsets) {
-    const flags = data.readUInt32LE(offset + 20);
-    const isHeader = !!(flags & 0x20000000);
-    const tagSize = data.readUInt32LE(offset + 12);
-
-    if (isHeader) {
-      // Header: the tag data starts at this offset
-      if (offset < earliest) earliest = offset;
-    } else {
-      // Footer: items start at `offset + 32 - tagSize`
-      const itemsStart = offset + 32 - tagSize;
-      if (itemsStart >= 0 && itemsStart < earliest) {
-        // Check for a header preceding items
-        const hdrOff = itemsStart - 32;
-        if (
-          hdrOff >= 0 &&
-          data.toString("ascii", hdrOff, hdrOff + 8) === "APETAGEX" &&
-          (data.readUInt32LE(hdrOff + 20) & 0x20000000)
-        ) {
-          if (hdrOff < earliest) earliest = hdrOff;
-        } else {
-          earliest = itemsStart;
-        }
-      }
-    }
-  }
-
-  // If the earliest tag byte is after the MAC audio data end, strip
-  // from audio end (to remove the gap). Otherwise strip from earliest tag.
-  const audioEnd = computeAudioEnd(data);
-  if (audioEnd !== null && earliest > audioEnd) {
-    return audioEnd;
-  }
-
-  return earliest < data.length ? earliest : null;
-}
-
-/**
- * @deprecated Use getApeTagStart instead, which handles multiple tags.
- * Kept for backward compatibility with test file.
- */
-export function findApeFooterOffset(data: Buffer): number {
-  if (data.length < 32) return -1;
-  const limit = Math.min(data.length, 2048);
-  for (let offset = data.length - 8; offset >= data.length - limit; offset--) {
-    if (data.toString("ascii", offset, offset + 8) === "APETAGEX") {
-      const flags = data.readUInt32LE(offset + 20);
-      if (!(flags & 0x20000000)) return offset;
-    }
-  }
-  return -1;
-}
-
-/**
- * Strip an existing APEv2 tag from the end of a file buffer.
- * Handles both footer-only and header+footer layouts.
- * Returns the buffer with the tag removed, or the original buffer unchanged.
- */
-function stripApeTag(data: Buffer): Buffer {
-  const tagStart = getApeTagStart(data);
-  if (tagStart === null) return data;
-  return data.subarray(0, tagStart);
-}
-
-/**
- * Build APEv2 tag items from a set of key-value pairs.
- * Returns { items: Buffer, count: number }.
- */
-function buildApeTagItems(entries: Array<{ key: string; value: string }>): { items: Buffer; count: number } {
-  const chunks: Buffer[] = [];
-  let count = 0;
-  for (const { key, value } of entries) {
-    if (!key || value == null || value === "") continue;
-    const keyBuf = Buffer.from(key.toUpperCase() + "\0", "utf8");
-    const valBuf = Buffer.from(value, "utf8");
-    const header = Buffer.alloc(8);
-    header.writeUInt32LE(valBuf.length, 0);  // value size
-    header.writeUInt32LE(0x20000000, 4);      // flags: UTF-8 text
-    chunks.push(header, keyBuf, valBuf);
-    count++;
-  }
-  return { items: Buffer.concat(chunks), count };
-}
-
-/**
- * Parse APEv2 tag items from a buffer.
- * Returns an array of { key, value } pairs, or an empty array if no valid tag is found.
- */
-export function parseApeTagItems(data: Buffer): Array<{ key: string; value: string }> {
-  const items: Array<{ key: string; value: string }> = [];
-  if (data.length < 32) return items;
-
-  const footerOffset = findApeFooterOffset(data);
-  if (footerOffset < 0) return items;
-
-  const tagSize = data.readUInt32LE(footerOffset + 12);
-  const itemCount = data.readUInt32LE(footerOffset + 16);
-  if (tagSize < 32 || tagSize > data.length) return items;
-
-  // itemsStart relative to the footer, NOT relative to file end,
-  // because ID3v1 tag may trail after the APEv2 footer.
-  const itemsStart = footerOffset + 32 - tagSize;
-  if (itemsStart < 0 || itemsStart >= footerOffset) return items;
-
-  let offset = itemsStart;
-  for (let i = 0; i < itemCount; i++) {
-    if (offset + 8 > footerOffset) break;
-    const valSize = data.readUInt32LE(offset);
-    offset += 8;
-    const nullIdx = data.indexOf(0, offset);
-    if (nullIdx < 0 || nullIdx >= footerOffset) break;
-    const key = data.toString("utf8", offset, nullIdx);
-    offset = nullIdx + 1;
-    const value = data.toString("utf8", offset, Math.min(offset + valSize, footerOffset));
-    offset += valSize;
-    items.push({ key, value });
-  }
-  return items;
-}
-
-/**
- * Build an APEv2 footer (32 bytes).
- */
-function buildApeFooter(tagSize: number, itemCount: number): Buffer {
-  const footer = Buffer.alloc(32);
-  footer.write("APETAGEX", 0, 8, "ascii");       // preamble
-  footer.writeUInt32LE(2000, 8);                    // version
-  footer.writeUInt32LE(tagSize, 12);                // tag size (items + footer)
-  footer.writeUInt32LE(itemCount, 16);              // item count
-  footer.writeUInt32LE(0x80000000, 20);             // flags: footer present
-  // Bytes 24-31 reserved (zeros)
-  return footer;
 }
 
 /**
@@ -1722,14 +1566,14 @@ async function writeApe(filePath: string, fields: WriteFields): Promise<void> {
   }
 
   if (entries.length === 0) {
-    await writeFile(filePath, stripApeTag(data));
+    await replaceFileAtomically(filePath, stripApeTag(data));
     return;
   }
 
   const { items, count } = buildApeTagItems(entries);
   const tagSize = items.length + 32;
   const body = stripApeTag(data);
-  await writeFile(filePath, Buffer.concat([body, items, buildApeFooter(tagSize, count)]));
+  await replaceFileAtomically(filePath, Buffer.concat([body, items, buildApeFooter(tagSize, count)]));
 }
 
 /**
@@ -1755,14 +1599,14 @@ async function writeApeExtraTags(filePath: string, extraTags: ExtraTagUpdate[]):
   const finalEntries = kept.concat(extraEntries);
 
   if (finalEntries.length === 0) {
-    await writeFile(filePath, stripApeTag(data));
+    await replaceFileAtomically(filePath, stripApeTag(data));
     return;
   }
 
   const { items, count } = buildApeTagItems(finalEntries);
   const tagSize = items.length + 32;
   const body = stripApeTag(data);
-  await writeFile(filePath, Buffer.concat([body, items, buildApeFooter(tagSize, count)]));
+  await replaceFileAtomically(filePath, Buffer.concat([body, items, buildApeFooter(tagSize, count)]));
 }
 
 /**

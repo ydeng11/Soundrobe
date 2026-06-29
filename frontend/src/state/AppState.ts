@@ -1,12 +1,154 @@
-import type { TrackData, AlbumInfo } from "../../electron/preload";
+import type { TrackData, AlbumInfo, AuditTrackResult } from "../../electron/preload";
 import { UndoManager, type TrackSnapshot } from "./UndoManager";
 
-interface AuditResultEntry {
+export interface AuditResultEntry {
   trackIndex: number;
   field: string;
   status: "correct" | "warning" | "error";
   message: string | null;
   suggestion: string | null;
+  source?: "deterministic" | "llm";
+  confidence?: number;
+  autoFixEligible?: boolean;
+  autoFixed?: boolean;
+  corrected?: AuditTrackResult["corrected"];
+}
+
+export interface TrackAuditSummary {
+  count: number;
+  highestStatus: "correct" | "warning" | "error";
+  results: AuditResultEntry[];
+  hasManualReview: boolean;
+  autoFixedCount: number;
+}
+
+export interface AuditApplyAlbumResult {
+  albumPath: string;
+  results: AuditTrackResult[];
+}
+
+function statusRank(status: AuditResultEntry["status"]): number {
+  if (status === "error") return 2;
+  if (status === "warning") return 1;
+  return 0;
+}
+
+function parentPath(filePath: string): string {
+  const slash = Math.max(filePath.lastIndexOf("/"), filePath.lastIndexOf("\\"));
+  return slash >= 0 ? filePath.slice(0, slash) : "";
+}
+
+export function buildAuditByTrackPath({
+  auditResults,
+  tracks,
+}: {
+  auditResults: Record<string, AuditResultEntry[]>;
+  tracks: Array<Pick<TrackData, "path">>;
+}): Record<string, TrackAuditSummary> {
+  const byPath: Record<string, TrackAuditSummary> = {};
+  const tracksByAlbum = new Map<string, Array<Pick<TrackData, "path">>>();
+
+  for (const track of tracks) {
+    const albumPath = parentPath(track.path);
+    const albumTracks = tracksByAlbum.get(albumPath) ?? [];
+    albumTracks.push(track);
+    tracksByAlbum.set(albumPath, albumTracks);
+  }
+
+  for (const [albumPath, results] of Object.entries(auditResults)) {
+    const albumTracks = tracksByAlbum.get(albumPath);
+    if (!albumTracks) continue;
+
+    for (const result of results) {
+      const track = albumTracks[result.trackIndex];
+      if (!track) continue;
+
+      const existing = byPath[track.path] ?? {
+        count: 0,
+        highestStatus: "correct" as const,
+        results: [],
+        hasManualReview: false,
+        autoFixedCount: 0,
+      };
+      const isManualReview = (result.status === "error" || result.status === "warning") && !result.autoFixed;
+      const highestStatus =
+        isManualReview && statusRank(result.status) > statusRank(existing.highestStatus)
+          ? result.status
+          : existing.highestStatus;
+
+      byPath[track.path] = {
+        count: existing.count + 1,
+        highestStatus,
+        results: [...existing.results, result],
+        hasManualReview: existing.hasManualReview || isManualReview,
+        autoFixedCount: existing.autoFixedCount + (result.autoFixed ? 1 : 0),
+      };
+    }
+  }
+
+  return byPath;
+}
+
+function toAuditTrackResult(result: AuditResultEntry): AuditTrackResult {
+  return {
+    index: result.trackIndex,
+    field: result.field,
+    status: result.status,
+    message: result.message ?? "",
+    suggestion: result.suggestion,
+    source: result.source,
+    confidence: result.confidence,
+    autoFixEligible: result.autoFixEligible,
+    autoFixed: result.autoFixed,
+    corrected: result.corrected,
+  };
+}
+
+export function buildAuditApplyAlbumResults({
+  auditResults,
+  tracks,
+  albumPath,
+  trackPath,
+}: {
+  auditResults: Record<string, AuditResultEntry[]>;
+  tracks: Array<Pick<TrackData, "path">>;
+  albumPath?: string | null;
+  trackPath?: string | null;
+}): AuditApplyAlbumResult[] {
+  if (trackPath) {
+    const selectedAlbumPath = parentPath(trackPath);
+    const trackIndex = tracks
+      .filter((track) => parentPath(track.path) === selectedAlbumPath)
+      .findIndex((track) => track.path === trackPath);
+    if (trackIndex < 0) return [];
+
+    const results = (auditResults[selectedAlbumPath] ?? [])
+      .filter((result) => result.trackIndex === trackIndex)
+      .map(toAuditTrackResult);
+    return results.length > 0 ? [{ albumPath: selectedAlbumPath, results }] : [];
+  }
+
+  if (albumPath) {
+    const results = (auditResults[albumPath] ?? []).map(toAuditTrackResult);
+    return results.length > 0 ? [{ albumPath, results }] : [];
+  }
+
+  return [];
+}
+
+export function getVisibleAuditResult(
+  auditResults: Record<string, AuditResultEntry[]>,
+  activeAlbumPath: string | null,
+): { albumPath: string; results: AuditResultEntry[] } | null {
+  if (activeAlbumPath && auditResults[activeAlbumPath]) {
+    return { albumPath: activeAlbumPath, results: auditResults[activeAlbumPath] };
+  }
+
+  const entries = Object.entries(auditResults);
+  if (entries.length !== 1) return null;
+
+  const [albumPath, results] = entries[0];
+  return { albumPath, results };
 }
 
 export interface AppState {
