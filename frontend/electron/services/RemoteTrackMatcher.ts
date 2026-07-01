@@ -78,6 +78,9 @@ const FILENAME_ARTIST_PREFIX_RE =
   /^(.*?)[\s\-–—]+(?:[-–—]|[\u2013\u2014])\s*/;
 const FILENAME_DIRECT_ARTIST_SEPARATOR_RE = /[-–—]/g;
 
+// Match a leading CJK segment before any non-CJK character (space, Latin, etc.)
+const LEADING_CJK_RE = /^([\u4e00-\u9fff\u3400-\u4dbf]+)/;
+
 // ── Unicode punctuation/symbol regex ──────────────────────────────
 
 const UNICODE_PUNCT_SYMBOL_RE = /[\p{P}\p{S}]+/gu;
@@ -110,6 +113,25 @@ async function getOpenCC(): Promise<{
 
 function escapeRegex(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/** Normalize string for comparison: NFKC + lowercase + trim. */
+function normArtist(s: string): string {
+  return s.normalize("NFKC").trim().toLowerCase();
+}
+
+/** Get all OpenCC variants of a string (original + Simplified + Traditional). */
+function getArtistVariants(name: string): string[] {
+  const base = normArtist(name);
+  if (!openCCInstance) return [base];
+  return [base, normArtist(openCCInstance.s2t(name)), normArtist(openCCInstance.t2s(name))];
+}
+
+/** Check if two artist names match, including OpenCC Simplified/Traditional variants. */
+function artistsMatch(a: string, b: string): boolean {
+  const aVariants = getArtistVariants(a);
+  const bVariants = getArtistVariants(b);
+  return aVariants.some((av) => bVariants.includes(av));
 }
 
 /**
@@ -192,6 +214,16 @@ export async function generateTitleForms(
     if (oc) {
       addForm(oc.s2t(cleaned), "tag");
       addForm(oc.t2s(cleaned), "tag");
+    }
+
+    // Strip known artist suffix (e.g. "想念-林宥嘉" → "想念")
+    const suffixStripped = stripKnownArtistSuffix(cleaned, knownArtists);
+    if (suffixStripped && suffixStripped !== cleaned) {
+      addForm(suffixStripped, "tag");
+      if (oc) {
+        addForm(oc.s2t(suffixStripped), "tag");
+        addForm(oc.t2s(suffixStripped), "tag");
+      }
     }
   }
 
@@ -280,6 +312,48 @@ function stripKnownArtistPrefix(
   }
 
   return null;
+}
+
+/**
+ * Strip a known artist name from the END of a title string.
+ * E.g. "想念-林宥嘉" with artist "林宥嘉" → "想念"
+ * Handles separators: -, –, —, with optional surrounding spaces.
+ * Returns null if no artist suffix is found.
+ */
+function stripKnownArtistSuffix(
+  title: string,
+  knownArtists: string[],
+): string | null {
+  const normalizedArtists = knownArtists
+    .map((artist) => stripPunctuationAndSymbols(stripAnnotations(artist)))
+    .filter((artist) => artist.length > 0);
+  if (normalizedArtists.length === 0) return null;
+
+  for (const match of title.matchAll(FILENAME_DIRECT_ARTIST_SEPARATOR_RE)) {
+    const index = match.index;
+    if (index == null) continue;
+    const titlePart = title.slice(0, index).trim();
+    const artistPart = title.slice(index + match[0].length).trim();
+    if (!artistPart || !titlePart) continue;
+    const normalizedArtistPart = stripPunctuationAndSymbols(
+      stripAnnotations(artistPart),
+    );
+    if (normalizedArtists.includes(normalizedArtistPart)) {
+      return titlePart;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Extract the leading CJK segment from a bilingual title.
+ * E.g. "想念 I Miss You" → "想念", "Fly My Way" → null
+ * Used to match Chinese local titles against bilingual remote titles.
+ */
+function extractLeadingCjk(title: string): string | null {
+  const match = LEADING_CJK_RE.exec(title);
+  return match?.[1] ?? null;
 }
 
 /**
@@ -515,6 +589,14 @@ export async function matchRemoteCandidateTracks(
         replacementOpenCC.t2s(annotationStripped),
       ]
       : [annotationStripped];
+
+    // Extract leading CJK segment from bilingual titles
+    // E.g. "想念 I Miss You" → "想念"
+    const leadingCjk = extractLeadingCjk(annotationStripped);
+    if (leadingCjk && leadingCjk !== annotationStripped) {
+      titleVariants.push(leadingCjk);
+    }
+
     return {
       index: i,
       title: annotationStripped,
@@ -533,6 +615,16 @@ export async function matchRemoteCandidateTracks(
     const existing = remoteTitleIndex.get(rm.normalized) ?? [];
     existing.push(rm.index);
     remoteTitleIndex.set(rm.normalized, existing);
+
+    // Also index CJK prefix variants (e.g. "想念" from "想念 I Miss You")
+    for (const variant of rm.titleVariants) {
+      const normalizedVariant = stripPunctuationAndSymbols(variant);
+      if (normalizedVariant && normalizedVariant !== rm.normalized) {
+        const variantExisting = remoteTitleIndex.get(normalizedVariant) ?? [];
+        variantExisting.push(rm.index);
+        remoteTitleIndex.set(normalizedVariant, variantExisting);
+      }
+    }
   }
 
   // 4. For each local track, try to find a unique remote match
@@ -754,15 +846,50 @@ export async function matchRemoteCandidateTracks(
       result.musicbrainzTrackId = remoteTrack.musicbrainzTrackId;
     }
 
-    // ── Remote artist/artists only when local is blank ────────
-    const localArtistBlank =
-      !localTrack.artist || localTrack.artist.trim() === "";
-    if (localArtistBlank && remoteTrack.artist) {
-      result.artist = remoteTrack.artist;
-      result.artists =
-        remoteTrack.artists.length > 0
-          ? [...remoteTrack.artists]
-          : result.artists;
+    // ── Remote artist/artists ─────────────────────────────────
+    // Prefer remote (MusicBrainz) artist credits when they are richer
+    // than the local (e.g. "林俊傑 feat. MC HotDog" vs "林俊傑").
+    // Transfer when:
+    //   1. Local artist is blank, OR
+    //   2. Remote artists contain the local primary artist AND add more
+    //      (e.g. featured artist), using normalized comparison.
+    // This preserves user-customized artists that differ from the remote.
+    const localArtistBlank = !localTrack.artist || localTrack.artist.trim() === "";
+    const localArtist = localTrack.artist;
+    let remoteEnrichesLocal = false;
+
+    if (!localArtistBlank && localArtist && remoteTrack.artist && remoteTrack.artist !== localArtist) {
+      const remotePrimaryMatch = remoteTrack.artists.length > 0
+        ? remoteTrack.artists.some((a) => artistsMatch(a, localArtist))
+        : normArtist(remoteTrack.artist).startsWith(normArtist(localArtist));
+      remoteEnrichesLocal = remotePrimaryMatch && remoteTrack.artists.length > localTrack.artists.length;
+    }
+
+    if ((localArtistBlank || remoteEnrichesLocal) && remoteTrack.artist) {
+      if (localArtistBlank) {
+        // No local artist — use remote as-is
+        result.artist = remoteTrack.artist;
+        result.artists = remoteTrack.artists.length > 0 ? [...remoteTrack.artists] : result.artists;
+      } else if (remoteEnrichesLocal && localArtist) {
+        // Remote enriches local — preserve local primary script, add remote extras
+        const equivalentRemoteIdx = remoteTrack.artists.findIndex((r) => artistsMatch(r, localArtist));
+
+        // Build enriched artists: local primary + remote extras (excluding equivalent)
+        const remoteExtras = remoteTrack.artists.filter((_, idx) => idx !== equivalentRemoteIdx);
+        result.artists = [localArtist, ...remoteExtras];
+
+        // Build display artist: replace equivalent remote primary with local primary
+        if (equivalentRemoteIdx >= 0) {
+          const remotePrimaryName = remoteTrack.artists[equivalentRemoteIdx];
+          result.artist = remoteTrack.artist.replace(remotePrimaryName, localArtist);
+          // Fallback: if replacement didn't work, join artists
+          if (result.artist === remoteTrack.artist) {
+            result.artist = result.artists.join(" feat. ");
+          }
+        } else {
+          result.artist = result.artists.join(" feat. ");
+        }
+      }
     }
 
     // ── Track/disc number fields: only for full ordered match ─

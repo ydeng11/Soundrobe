@@ -44,6 +44,42 @@ import debug from "./debug";
 import { AUTO_TAG_ALBUM_CONCURRENCY, LOCAL_READ_CONCURRENCY, mapConcurrent } from "../services/concurrency";
 import { getDefaultWriteQueue } from "../services/TagWriteQueue";
 
+// ── OpenCC lazy loader (for Simplified/Traditional Chinese comparison) ──
+let openCCInstance: { s2t: (s: string) => string; t2s: (s: string) => string } | null = null;
+function getOpenCCSync(): { s2t: (s: string) => string; t2s: (s: string) => string } | null {
+  if (openCCInstance) return openCCInstance;
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const mod = require("opencc-js");
+    const s2t = mod.Converter({ from: "cn", to: "tw" });
+    const t2s = mod.Converter({ from: "tw", to: "cn" });
+    openCCInstance = { s2t, t2s };
+    return openCCInstance;
+  } catch {
+    return null;
+  }
+}
+
+/** Normalize string for comparison: NFKC + lowercase + trim. */
+function normArtist(s: string): string {
+  return s.normalize("NFKC").trim().toLowerCase();
+}
+
+/** Get all OpenCC variants of a string (original + Simplified + Traditional). */
+function getArtistVariants(name: string): string[] {
+  const base = normArtist(name);
+  const oc = getOpenCCSync();
+  if (!oc) return [base];
+  return [base, normArtist(oc.s2t(name)), normArtist(oc.t2s(name))];
+}
+
+/** Check if two artist names match, including OpenCC Simplified/Traditional variants. */
+function artistsMatch(a: string, b: string): boolean {
+  const aVariants = getArtistVariants(a);
+  const bVariants = getArtistVariants(b);
+  return aVariants.some((av) => bVariants.includes(av));
+}
+
 /**
  * Get sorted audio filenames from an album path.
  * Returns only the basenames (not full paths) in filesystem sort order.
@@ -173,10 +209,68 @@ function fillTrackGapsByPosition(
         sourceTrack.title,
       ) ?? targetTrack.title;
     }
+    if (trackArtistCanBeEnriched(targetTrack, sourceTrack)) {
+      // Preserve local primary artist script when enriching
+      const enriched = enrichArtistWithRemote(targetTrack.artist, targetTrack.artists, sourceTrack.artist, sourceTrack.artists);
+      targetTrack.artist = enriched.artist;
+      targetTrack.artists = enriched.artists;
+    }
     targetTrack.musicbrainzTrackId ??= sourceTrack.musicbrainzTrackId;
     targetTrack.length ??= sourceTrack.length;
     targetTrack.genre ??= sourceTrack.genre;
   }
+}
+
+function trackArtistCanBeEnriched(
+  targetTrack: TrackCandidate,
+  sourceTrack: TrackCandidate,
+): boolean {
+  if (!sourceTrack.artist) return false;
+  if (!targetTrack.artist || targetTrack.artist.trim() === "") return true;
+  if (sourceTrack.artist === targetTrack.artist) return false;
+
+  const sourceContainsTarget = sourceTrack.artists.some((artist) =>
+    artistsMatch(artist, targetTrack.artist!)
+  );
+  return sourceContainsTarget && sourceTrack.artists.length > targetTrack.artists.length;
+}
+
+/**
+ * Enrich local artist with remote artists, preserving the local primary artist script.
+ * When remote has the same primary artist (in different Chinese script) plus featured artists,
+ * this function keeps the local primary and adds the remote featured artists.
+ */
+function enrichArtistWithRemote(
+  localPrimary: string | null,
+  localArtists: string[],
+  remoteArtist: string | null,
+  remoteArtists: string[],
+): { artist: string | null; artists: string[] } {
+  if (!localPrimary || !remoteArtist) {
+    return { artist: remoteArtist, artists: remoteArtists };
+  }
+
+  // Find which remote artist is equivalent to local primary
+  const equivalentRemoteIdx = remoteArtists.findIndex((r) => artistsMatch(r, localPrimary));
+
+  // If no equivalent found, return remote as-is
+  if (equivalentRemoteIdx < 0) {
+    return { artist: remoteArtist, artists: remoteArtists };
+  }
+
+  // Build enriched artists: local primary + remote extras (excluding equivalent)
+  const remoteExtras = remoteArtists.filter((_, idx) => idx !== equivalentRemoteIdx);
+  const enrichedArtists = [localPrimary, ...remoteExtras];
+
+  // Build display artist: replace equivalent remote primary with local primary in artist string
+  const remotePrimaryName = remoteArtists[equivalentRemoteIdx];
+  let enrichedArtist = remoteArtist.replace(remotePrimaryName, localPrimary);
+  // Fallback: if replacement didn't work (e.g. different formatting), join artists
+  if (enrichedArtist === remoteArtist && remoteExtras.length > 0) {
+    enrichedArtist = enrichedArtists.join(" feat. ");
+  }
+
+  return { artist: enrichedArtist, artists: enrichedArtists };
 }
 
 export function applyCanonicalArtistName(
@@ -186,17 +280,27 @@ export function applyCanonicalArtistName(
   const artistName = cleanProviderArtistName(canonicalName);
   if (!artistName) return candidate;
 
+  const oldAlbumArtist = candidate.artist ?? candidate.albumArtist;
+
   return {
     ...candidate,
     artist: artistName,
     artists: [artistName],
     albumArtist: artistName,
     albumArtists: [artistName],
-    tracks: candidate.tracks.map((track) => ({
-      ...track,
-      artist: artistName,
-      artists: [artistName],
-    })),
+    tracks: candidate.tracks.map((track) => {
+      // Only overwrite track artist if it matches the old album artist
+      // (i.e. it's a solo track). Preserve per-track credits for featured
+      // artists (e.g. "林俊傑 feat. MC HotDog" should not become just
+      // "JJ Lin").
+      const isSoloTrack = !oldAlbumArtist || track.artist === oldAlbumArtist;
+      return {
+        ...track,
+        ...(isSoloTrack
+          ? { artist: artistName, artists: [artistName] }
+          : {}),
+      };
+    }),
   };
 }
 
@@ -1064,9 +1168,7 @@ class TaskManager {
         {
           fullPath: request.path,
           filenames: getSortedAudioFilenames(requestAlbumPath(request.path)),
-          existingAlbumTags: request.tracks.length > 0
-            ? [...new Set(request.tracks.map((t) => t.album).filter(Boolean) as string[])]
-            : undefined,
+          existingAlbumTags: request.albumHint ? [request.albumHint] : undefined,
           existingArtistTags: request.tracks.length > 0
             ? [...new Set(request.tracks.map((t) => t.artist).filter(Boolean) as string[])]
             : undefined,
