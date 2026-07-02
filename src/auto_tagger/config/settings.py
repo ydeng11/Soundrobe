@@ -6,6 +6,15 @@ from typing import Any
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+# Valid aliases for the chinese_script setting (module-level to avoid
+# Pydantic treating a class attribute with ``_`` prefix as private).
+_CHINESE_SCRIPT_ALIASES: dict[str, str] = {
+    "sc": "simplified",
+    "simplified": "simplified",
+    "tc": "traditional",
+    "traditional": "traditional",
+}
+
 
 class Settings(BaseSettings):
     """Application settings with multi-source configuration."""
@@ -250,6 +259,25 @@ class Settings(BaseSettings):
         default=False,
         description="Prompt interactively when neither dry-run nor YOLO is set",
     )
+
+    chinese_script: str | None = Field(
+        default=None,
+        description="Enforce Chinese script variant when writing tags: "
+        "'simplified'/'sc' or 'traditional'/'tc'. Null disables.",
+    )
+
+    @field_validator("chinese_script")
+    @classmethod
+    def validate_chinese_script(cls, v: str | None) -> str | None:
+        """Validate and normalize chinese_script setting."""
+        if v is not None:
+            v = v.strip().lower()
+            if v not in _CHINESE_SCRIPT_ALIASES:
+                raise ValueError(
+                    f"chinese_script must be one of {set(_CHINESE_SCRIPT_ALIASES)}, got {v!r}"
+                )
+            return _CHINESE_SCRIPT_ALIASES[v]
+        return v
 
     @field_validator("output_format")
     @classmethod

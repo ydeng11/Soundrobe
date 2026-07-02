@@ -20,6 +20,12 @@ const MUSICBRAINZ_BASE = "https://musicbrainz.org/ws/2";
 const USER_AGENT = "auto-tagger/0.1.0 ( https://github.com/auto-tagger )";
 
 /**
+ * Cache provider key for release-detail entries. Bump this to invalidate
+ * stale cached AlbumCandidate objects (e.g. when parsing logic changes).
+ */
+const MUSICBRAINZ_RELEASE_DETAIL_CACHE_PROVIDER = "musicbrainz-v2";
+
+/**
  * App-wide 1-req/sec rate limiter for MusicBrainz API.
  * Module-level state so all MusicBrainzClient instances share the same
  * request budget across the entire application.
@@ -139,7 +145,7 @@ export class MusicBrainzClient {
    * Calls /ws/2/release/{id}?inc=recordings+artist-credits directly.
    */
   async lookupReleaseById(releaseId: string): Promise<AlbumCandidate | null> {
-    const cached = this.releaseCache?.getReleaseDetail("musicbrainz", releaseId);
+    const cached = this.releaseCache?.getReleaseDetail(MUSICBRAINZ_RELEASE_DETAIL_CACHE_PROVIDER, releaseId);
     if (cached) return cached;
 
     const key = `musicbrainz:release:${releaseId}`;
@@ -196,7 +202,7 @@ export class MusicBrainzClient {
         tracks,
         source: "musicbrainz",
       });
-      this.releaseCache?.setReleaseDetail("musicbrainz", data.id ?? releaseId, candidate);
+      this.releaseCache?.setReleaseDetail(MUSICBRAINZ_RELEASE_DETAIL_CACHE_PROVIDER, data.id ?? releaseId, candidate);
       return candidate;
     } catch {
       return null;
@@ -302,7 +308,51 @@ export class MusicBrainzClient {
   }
 
   /**
+   * Format a MusicBrainz artist-credit array into a display string.
+   * E.g. [{name: "林俊傑", joinphrase: " feat. "}, {name: "MC HotDog", joinphrase: ""}]
+   *   → "林俊傑 feat. MC HotDog"
+   */
+  private formatArtistCredit(
+    credit: Array<Record<string, unknown>>,
+  ): string {
+    return credit
+      .map((c) => {
+        const name = (c.name as string) ?? "";
+        const join = (c.joinphrase as string) ?? "";
+        return name + join;
+      })
+      .join("");
+  }
+
+  /**
+   * Extract individual artist names from a MusicBrainz artist-credit array.
+   * E.g. [{name: "林俊傑", ...}, {name: "MC HotDog", ...}]
+   *   → ["林俊傑", "MC HotDog"]
+   */
+  private artistNamesFromCredit(
+    credit: Array<Record<string, unknown>>,
+  ): string[] {
+    return credit
+      .map((c) => (c.name as string) ?? "")
+      .filter((n) => n.length > 0);
+  }
+
+  private parsePositiveInteger(value: unknown): number | null {
+    if (typeof value === "number" && Number.isInteger(value) && value > 0) {
+      return value;
+    }
+    if (typeof value === "string" && /^\d+$/.test(value.trim())) {
+      return Number(value);
+    }
+    return null;
+  }
+
+  /**
    * Parse TrackCandidate array from release media data.
+   * Per-track artist-credit takes precedence over release-level artistName:
+   *   1. track["artist-credit"] (release-track level)
+   *   2. recording["artist-credit"] (recording level)
+   *   3. release-level artistName (fallback)
    */
   private parseTracksFromMedia(
     media: Array<Record<string, unknown>>,
@@ -316,12 +366,35 @@ export class MusicBrainzClient {
 
       for (const track of recordings) {
         const recording = track.recording as Record<string, unknown> | undefined;
+
+        // Resolve artist credit: track-level → recording-level → release-level
+        // Only treat non-empty arrays as authoritative (guard against empty credits)
+        const hasCredit = (v: unknown): v is Array<Record<string, unknown>> =>
+          Array.isArray(v) && v.length > 0;
+        const trackCredit = track["artist-credit"];
+        const recordingCredit = recording?.["artist-credit"];
+        const resolvedCredit = hasCredit(trackCredit)
+          ? trackCredit
+          : hasCredit(recordingCredit)
+            ? recordingCredit
+            : null;
+
+        let trackArtist: string | null;
+        let trackArtists: string[];
+        if (resolvedCredit) {
+          trackArtist = this.formatArtistCredit(resolvedCredit);
+          trackArtists = this.artistNamesFromCredit(resolvedCredit);
+        } else {
+          trackArtist = artistName;
+          trackArtists = artistName ? [artistName] : [];
+        }
+
         tracks.push(
           makeTrackCandidate({
             title: (track.title as string) ?? (recording?.title as string) ?? null,
-            artist: artistName,
-            artists: artistName ? [artistName] : [],
-            trackNumber: (track.number as number) ?? (track.position as number) ?? null,
+            artist: trackArtist,
+            artists: trackArtists,
+            trackNumber: this.parsePositiveInteger(track.number) ?? this.parsePositiveInteger(track.position),
             discNumber,
             musicbrainzTrackId: recording?.id as string ?? null,
             length: recording?.length as number ?? null,
@@ -342,7 +415,7 @@ export class MusicBrainzClient {
   ): Promise<TrackCandidate[]> {
     await musicBrainzRateLimit();
 
-    const url = `${this.baseUrl}/release/${releaseId}?fmt=json&inc=recordings`;
+    const url = `${this.baseUrl}/release/${releaseId}?fmt=json&inc=recordings+artist-credits`;
 
     try {
       const response = await fetch(url, {

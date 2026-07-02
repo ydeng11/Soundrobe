@@ -50,3 +50,7 @@ dataset_services:
 dataset_max_candidates: 5
 dataset_downloader_command: aria2c
 dataset_extractor_command: 7z
+
+# Enforce a specific Chinese script variant in tag text fields.
+# Accepts: simplified/sc, traditional/tc, or omit to disable.
+# chinese_script: simplified

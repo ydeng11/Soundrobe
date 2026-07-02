@@ -96,6 +96,38 @@ describe("generateTitleForms", () => {
     const forms = await generateTitleForms(null, "");
     expect(forms.length).toBe(0);
   });
+
+  it("strips known artist suffix from tag title", async () => {
+    const forms = await generateTitleForms("想念-林宥嘉", "", ["林宥嘉"]);
+    const tagForms = forms.filter((f) => f.source === "tag").map((f) => f.text);
+    // Should include both original and suffix-stripped forms
+    // Note: hyphen is normalized to space by stripPunctuationAndSymbols
+    expect(tagForms).toContain("想念 林宥嘉"); // original normalized
+    expect(tagForms).toContain("想念"); // suffix-stripped
+  });
+
+  it("strips artist suffix with different separators", async () => {
+    const forms = await generateTitleForms("不换–林宥嘉", "", ["林宥嘉"]);
+    const tagForms = forms.filter((f) => f.source === "tag").map((f) => f.text);
+    expect(tagForms).toContain("不换");
+  });
+
+  it("does not strip when artist is not known", async () => {
+    const forms = await generateTitleForms("想念-林宥嘉", "", ["周杰伦"]);
+    const tagForms = forms.filter((f) => f.source === "tag").map((f) => f.text);
+    // Should NOT include stripped form since "林宥嘉" is not a known artist
+    expect(tagForms).not.toContain("想念");
+    expect(tagForms).toContain("想念 林宥嘉");
+  });
+
+  it("does not strip when suffix does not match any known artist", async () => {
+    // "Remix" is NOT an annotation keyword, so it stays in the title
+    const forms = await generateTitleForms("Song - Remix", "", ["Artist"]);
+    const tagForms = forms.filter((f) => f.source === "tag").map((f) => f.text);
+    // Should contain the full normalized form, NOT a stripped "song" form
+    expect(tagForms).toContain("song remix");
+    expect(tagForms).not.toContain("song");
+  });
 });
 
 // ── cleanFilenameTitle ──────────────────────────────────────────
@@ -431,6 +463,61 @@ describe("matchRemoteCandidateTracks", () => {
 
     expect(result.tracks[0].artist).toBe("Local Singer");
     expect(result.tracks[0].artists).toEqual(["Local Singer"]);
+  });
+
+  it("updates local artist when remote enriches with featured artist", async () => {
+    const localTracks = [
+      makeTrackCandidate({
+        title: "加油!",
+        artist: "林俊傑",
+        artists: ["林俊傑"],
+      }),
+    ];
+    const remoteTracks = [
+      makeTrackCandidate({
+        title: "加油!",
+        artist: "林俊傑 feat. MC HotDog",
+        artists: ["林俊傑", "MC HotDog"],
+      }),
+    ];
+
+    const result = await matchRemoteCandidateTracks(
+      localTracks,
+      [],
+      remoteTracks,
+      "musicbrainz",
+    );
+
+    expect(result.tracks[0].artist).toBe("林俊傑 feat. MC HotDog");
+    expect(result.tracks[0].artists).toEqual(["林俊傑", "MC HotDog"]);
+  });
+
+  it("does NOT overwrite local artist when remote is a different artist", async () => {
+    const localTracks = [
+      makeTrackCandidate({
+        title: "Song",
+        artist: "A",
+        artists: ["A"],
+      }),
+    ];
+    const remoteTracks = [
+      makeTrackCandidate({
+        title: "Song",
+        artist: "Adele feat. X",
+        artists: ["Adele", "X"],
+      }),
+    ];
+
+    const result = await matchRemoteCandidateTracks(
+      localTracks,
+      [],
+      remoteTracks,
+      "musicbrainz",
+    );
+
+    // "A" should NOT match "Adele" — different artist entirely
+    expect(result.tracks[0].artist).toBe("A");
+    expect(result.tracks[0].artists).toEqual(["A"]);
   });
 
   it("writes musicbrainzTrackId for matched tracks", async () => {
@@ -839,5 +926,57 @@ describe("matchRemoteCandidateTracks — positional fallback", () => {
     // Local titles preserved
     expect(result.tracks[0].title).toBe("本地标题1");
     expect(result.tracks[1].title).toBe("本地标题2");
+  });
+
+  it("matches Chinese titles with artist suffix against bilingual remote titles", async () => {
+    // Real-world scenario: local files have "TITLE-ARTIST" pattern
+    // MusicBrainz has bilingual titles like "想念 I Miss You"
+    const localTracks = [
+      makeTrackCandidate({ title: "Fly My Way", artist: "林宥嘉", trackNumber: 1 }),
+      makeTrackCandidate({ title: "不换-林宥嘉", artist: "林宥嘉", trackNumber: 2 }),
+      makeTrackCandidate({ title: "想念-林宥嘉", artist: "林宥嘉", trackNumber: 3 }),
+      makeTrackCandidate({ title: "晚安-林宥嘉", artist: "林宥嘉", trackNumber: 8 }),
+    ];
+    const filenames = [
+      "Fly My Way-林宥嘉.flac",
+      "不换-林宥嘉.flac",
+      "想念-林宥嘉.flac",
+      "晚安-林宥嘉.flac",
+    ];
+    const remoteTracks = [
+      makeTrackCandidate({ title: "Fly My Way", trackNumber: 11 }),
+      makeTrackCandidate({ title: "不換 Going On My Way", trackNumber: 6 }),
+      makeTrackCandidate({ title: "想念 I Miss You", trackNumber: 9 }),
+      makeTrackCandidate({ title: "晚安 Good Night", trackNumber: 10 }),
+    ];
+
+    const result = await matchRemoteCandidateTracks(
+      localTracks,
+      filenames,
+      remoteTracks,
+      "musicbrainz",
+      { artistHints: ["林宥嘉"] },
+    );
+
+    // All 4 tracks should match
+    expect(result.stats.matched).toBe(4);
+    expect(result.stats.skipped).toHaveLength(0);
+
+    // Verify specific matches
+    // Exact match: local title preserved
+    expect(result.tracks[0].title).toBe("Fly My Way");
+    // CJK prefix match via artist suffix stripping: local title preserved
+    // (the stripped form "不换" matched via CJK prefix, but pollution detection
+    // didn't fire because the full normalized form didn't match)
+    expect(result.tracks[1].title).toBe("不换-林宥嘉");
+    // CJK prefix match with pollution detection: remote title replaces local
+    expect(result.tracks[2].title).toBe("想念 I Miss You");
+    expect(result.tracks[3].title).toBe("晚安 Good Night");
+
+    // All tracks have MusicBrainz track IDs
+    expect(result.tracks[0].musicbrainzTrackId).toBeDefined();
+    expect(result.tracks[1].musicbrainzTrackId).toBeDefined();
+    expect(result.tracks[2].musicbrainzTrackId).toBeDefined();
+    expect(result.tracks[3].musicbrainzTrackId).toBeDefined();
   });
 });

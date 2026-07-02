@@ -287,6 +287,295 @@ describe("MusicBrainzClient", () => {
     expect(vi.mocked(globalThis.fetch)).toHaveBeenCalledTimes(2);
   });
 
+  it("uses per-track artist-credit when present (featured artist)", async () => {
+    globalThis.fetch = vi.fn().mockImplementation(async (url: string) => {
+      if (url.includes("/release?")) {
+        return mockReleaseResponse([
+          {
+            id: "mb-album",
+            title: "100天",
+            date: "2009-12-18",
+            "artist-credit": [
+              { name: "林俊傑", artist: { id: "mb-artist-1" } },
+            ],
+          },
+        ]);
+      }
+      if (url.includes("/release/mb-album")) {
+        return {
+          ok: true,
+          json: async () => ({
+            id: "mb-album",
+            title: "100天",
+            date: "2009-12-18",
+            "artist-credit": [
+              { name: "林俊傑", artist: { id: "mb-artist-1" } },
+            ],
+            media: [
+              {
+                position: 1,
+                tracks: [
+                  {
+                    number: "3",
+                    title: "加油!",
+                    "artist-credit": [
+                      { name: "林俊傑", joinphrase: " feat. ", artist: { id: "mb-artist-1" } },
+                      { name: "MC HotDog", joinphrase: "", artist: { id: "mb-artist-2" } },
+                    ],
+                    recording: {
+                      id: "rec-1",
+                      title: "加油!",
+                      length: 227000,
+                    },
+                  },
+                ],
+              },
+            ],
+          }),
+        };
+      }
+      return { ok: false };
+    });
+
+    const client = new MusicBrainzClient();
+    const results = await client.searchAlbum("林俊傑", "100天");
+
+    expect(results).toHaveLength(1);
+    const tracks = results[0].tracks;
+    expect(tracks).toHaveLength(1);
+    expect(tracks[0].trackNumber).toBe(3);
+    expect(tracks[0].artist).toBe("林俊傑 feat. MC HotDog");
+    expect(tracks[0].artists).toEqual(["林俊傑", "MC HotDog"]);
+    // Album-level artist stays as release-level
+    expect(results[0].artist).toBe("林俊傑");
+  });
+
+  it("falls back to recording artist-credit when track has none", async () => {
+    globalThis.fetch = vi.fn().mockImplementation(async (url: string) => {
+      if (url.includes("/release?")) {
+        return mockReleaseResponse([
+          {
+            id: "mb-album",
+            title: "Test Album",
+            date: "2020-01-01",
+            "artist-credit": [
+              { name: "Main Artist", artist: { id: "mb-artist-1" } },
+            ],
+          },
+        ]);
+      }
+      if (url.includes("/release/mb-album")) {
+        return {
+          ok: true,
+          json: async () => ({
+            id: "mb-album",
+            title: "Test Album",
+            date: "2020-01-01",
+            "artist-credit": [
+              { name: "Main Artist", artist: { id: "mb-artist-1" } },
+            ],
+            media: [
+              {
+                position: 1,
+                tracks: [
+                  {
+                    number: 1,
+                    title: "Track With Recording Credit",
+                    // No track-level artist-credit
+                    recording: {
+                      id: "rec-1",
+                      title: "Track With Recording Credit",
+                      length: 180000,
+                      "artist-credit": [
+                        { name: "Main Artist", joinphrase: " feat. ", artist: { id: "mb-artist-1" } },
+                        { name: "Guest Artist", joinphrase: "", artist: { id: "mb-artist-3" } },
+                      ],
+                    },
+                  },
+                ],
+              },
+            ],
+          }),
+        };
+      }
+      return { ok: false };
+    });
+
+    const client = new MusicBrainzClient();
+    const results = await client.searchAlbum("Main Artist", "Test Album");
+
+    expect(results).toHaveLength(1);
+    const tracks = results[0].tracks;
+    expect(tracks).toHaveLength(1);
+    expect(tracks[0].artist).toBe("Main Artist feat. Guest Artist");
+    expect(tracks[0].artists).toEqual(["Main Artist", "Guest Artist"]);
+  });
+
+  it("falls back to recording artist-credit when track credit is empty array", async () => {
+    globalThis.fetch = vi.fn().mockImplementation(async (url: string) => {
+      if (url.includes("/release?")) {
+        return mockReleaseResponse([
+          {
+            id: "mb-album",
+            title: "Test Album",
+            date: "2020-01-01",
+            "artist-credit": [
+              { name: "Main Artist", artist: { id: "mb-artist-1" } },
+            ],
+          },
+        ]);
+      }
+      if (url.includes("/release/mb-album")) {
+        return {
+          ok: true,
+          json: async () => ({
+            id: "mb-album",
+            title: "Test Album",
+            date: "2020-01-01",
+            "artist-credit": [
+              { name: "Main Artist", artist: { id: "mb-artist-1" } },
+            ],
+            media: [
+              {
+                position: 1,
+                tracks: [
+                  {
+                    number: 1,
+                    title: "Track With Empty Credit",
+                    "artist-credit": [], // empty — should not be treated as authoritative
+                    recording: {
+                      id: "rec-1",
+                      title: "Track With Empty Credit",
+                      length: 180000,
+                      "artist-credit": [
+                        { name: "Main Artist", joinphrase: " feat. ", artist: { id: "mb-artist-1" } },
+                        { name: "Guest", joinphrase: "", artist: { id: "mb-artist-3" } },
+                      ],
+                    },
+                  },
+                ],
+              },
+            ],
+          }),
+        };
+      }
+      return { ok: false };
+    });
+
+    const client = new MusicBrainzClient();
+    const results = await client.searchAlbum("Main Artist", "Test Album");
+
+    expect(results).toHaveLength(1);
+    const tracks = results[0].tracks;
+    expect(tracks).toHaveLength(1);
+    // Should use recording-level credit, not the empty track credit
+    expect(tracks[0].artist).toBe("Main Artist feat. Guest");
+    expect(tracks[0].artists).toEqual(["Main Artist", "Guest"]);
+  });
+
+  it("falls back to release-level artist when neither track nor recording has credit", async () => {
+    globalThis.fetch = vi.fn().mockImplementation(async (url: string) => {
+      if (url.includes("/release?")) {
+        return mockReleaseResponse([
+          {
+            id: "mb-album",
+            title: "Simple Album",
+            date: "2020-01-01",
+            "artist-credit": [
+              { name: "Solo Artist", artist: { id: "mb-artist-1" } },
+            ],
+          },
+        ]);
+      }
+      if (url.includes("/release/mb-album")) {
+        return {
+          ok: true,
+          json: async () => ({
+            id: "mb-album",
+            title: "Simple Album",
+            date: "2020-01-01",
+            "artist-credit": [
+              { name: "Solo Artist", artist: { id: "mb-artist-1" } },
+            ],
+            media: [
+              {
+                position: 1,
+                tracks: [
+                  {
+                    number: 1,
+                    title: "Simple Track",
+                    // No artist-credit anywhere
+                    recording: {
+                      id: "rec-1",
+                      title: "Simple Track",
+                      length: 200000,
+                    },
+                  },
+                ],
+              },
+            ],
+          }),
+        };
+      }
+      return { ok: false };
+    });
+
+    const client = new MusicBrainzClient();
+    const results = await client.searchAlbum("Solo Artist", "Simple Album");
+
+    expect(results).toHaveLength(1);
+    const tracks = results[0].tracks;
+    expect(tracks).toHaveLength(1);
+    expect(tracks[0].artist).toBe("Solo Artist");
+    expect(tracks[0].artists).toEqual(["Solo Artist"]);
+  });
+
+  it("loadTracks requests artist-credits in inc param", async () => {
+    globalThis.fetch = vi.fn().mockImplementation(async (url: string) => {
+      if (url.includes("/release?")) {
+        return mockReleaseResponse([
+          {
+            id: "mb-album",
+            title: "Test",
+            date: "2020-01-01",
+            "artist-credit": [
+              { name: "Artist", artist: { id: "mb-artist-1" } },
+            ],
+          },
+        ]);
+      }
+      if (url.includes("/release/mb-album")) {
+        return {
+          ok: true,
+          json: async () => ({
+            media: [
+              {
+                position: 1,
+                tracks: [
+                  {
+                    number: 1,
+                    title: "Track",
+                    recording: { id: "rec-1", title: "Track", length: 100000 },
+                  },
+                ],
+              },
+            ],
+          }),
+        };
+      }
+      return { ok: false };
+    });
+
+    const client = new MusicBrainzClient();
+    await client.searchAlbum("Artist", "Test");
+
+    // Find the release-detail URL (not the search URL)
+    const urls = vi.mocked(globalThis.fetch).mock.calls.map((c) => String(c[0]));
+    const detailUrl = urls.find((u) => u.includes("/release/mb-album"));
+    expect(detailUrl).toBeDefined();
+    expect(detailUrl).toContain("inc=recordings+artist-credits");
+  });
+
   it("shares rate limiter across instances (app-wide 1 req/sec)", async () => {
     // Verify that two MusicBrainzClient instances share the same
     // module-level rate limiter by measuring the time between sequential

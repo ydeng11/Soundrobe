@@ -10,9 +10,21 @@ from auto_tagger.core.metadata import TrackMetadata
 from auto_tagger.exceptions import FileProcessingError, TaggingError
 
 
-def write_metadata(path: Path, metadata: TrackMetadata, dry_run: bool = False) -> TrackMetadata:
-    """Write metadata to a supported audio file or return it unchanged in dry-run mode."""
+def write_metadata(
+    path: Path,
+    metadata: TrackMetadata,
+    dry_run: bool = False,
+    chinese_script: str | None = None,
+) -> TrackMetadata:
+    """Write metadata to a supported audio file or return it unchanged in dry-run mode.
+
+    When *chinese_script* is set (``"simplified"`` or ``"traditional"``), all
+    text-like metadata fields are converted via OpenCC before writing —
+    including in dry-run mode so the caller can preview the result.
+    """
     normalized = metadata.normalized()
+    if chinese_script:
+        normalized = normalized.with_chinese_script(chinese_script)
     try:
         audio_file = load_audio_file(path)
         if dry_run:

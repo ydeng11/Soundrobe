@@ -227,6 +227,42 @@ describe("mergeAutoTagCandidateFields", () => {
 
     expect(merged.tracks[0].title).toBe("I Can't Go On");
   });
+
+  it("lets a fresh provider candidate enrich stale cached provider track artists for the same release", () => {
+    const cached = makeAlbumCandidate({
+      source: "musicbrainz",
+      artist: "林俊傑",
+      album: "100天",
+      musicbrainzAlbumId: "mb-100-days",
+      tracks: [
+        makeTrackCandidate({
+          title: "加油!",
+          artist: "林俊傑",
+          artists: ["林俊傑"],
+          trackNumber: 3,
+        }),
+      ],
+    });
+    const fresh = makeAlbumCandidate({
+      source: "musicbrainz",
+      artist: "林俊傑",
+      album: "100天",
+      musicbrainzAlbumId: "mb-100-days",
+      tracks: [
+        makeTrackCandidate({
+          title: "加油!",
+          artist: "林俊傑 feat. MC HotDog",
+          artists: ["林俊傑", "MC HotDog"],
+          trackNumber: 3,
+        }),
+      ],
+    });
+
+    const [merged] = mergeAutoTagCandidateFields([cached, fresh]);
+
+    expect(merged.tracks[0].artist).toBe("林俊傑 feat. MC HotDog");
+    expect(merged.tracks[0].artists).toEqual(["林俊傑", "MC HotDog"]);
+  });
 });
 
 describe("applyCanonicalArtistName", () => {
@@ -258,6 +294,45 @@ describe("applyCanonicalArtistName", () => {
     expect(normalized.tracks[0].artists).toEqual(["黄绮珊"]);
     expect(normalized.tracks[0].title).toBe("我的美丽");
     expect(normalized.discogsArtistId).toBe("5244238");
+  });
+
+  it("preserves per-track featured artist when canonical name differs", () => {
+    const candidate = makeAlbumCandidate({
+      source: "musicbrainz",
+      artist: "林俊傑",
+      artists: ["林俊傑"],
+      albumArtist: "林俊傑",
+      albumArtists: ["林俊傑"],
+      musicbrainzAlbumId: "mb-1",
+      tracks: [
+        makeTrackCandidate({
+          title: "加油!",
+          artist: "林俊傑 feat. MC HotDog",
+          artists: ["林俊傑", "MC HotDog"],
+          trackNumber: 3,
+        }),
+        makeTrackCandidate({
+          title: "背對背擁抱",
+          artist: "林俊傑",
+          artists: ["林俊傑"],
+          trackNumber: 6,
+        }),
+      ],
+    });
+
+    const normalized = applyCanonicalArtistName(candidate, "JJ Lin");
+
+    // Album-level fields updated
+    expect(normalized.artist).toBe("JJ Lin");
+    expect(normalized.albumArtist).toBe("JJ Lin");
+
+    // Solo track updated to canonical name
+    expect(normalized.tracks[1].artist).toBe("JJ Lin");
+    expect(normalized.tracks[1].artists).toEqual(["JJ Lin"]);
+
+    // Featured track preserves per-track credit
+    expect(normalized.tracks[0].artist).toBe("林俊傑 feat. MC HotDog");
+    expect(normalized.tracks[0].artists).toEqual(["林俊傑", "MC HotDog"]);
   });
 });
 
@@ -420,6 +495,30 @@ describe("protectCandidateTrackFieldsForAutoApply", () => {
     // Local artist is non-empty — remote should NOT overwrite
     expect(protectedCandidate.tracks[0].artist).toBe("Local Artist");
     expect(protectedCandidate.tracks[0].artists).toEqual(["Local Artist"]);
+  });
+
+  it("updates local artist when remote enriches with featured artist", async () => {
+    const request = makeLookupRequest({
+      path: "/tmp/Artist/Album",
+      artistHint: "Artist",
+      albumHint: "Album",
+      tracks: [
+        makeTrackCandidate({ title: "Song", trackNumber: 1, artist: "Artist", artists: ["Artist"] }),
+      ],
+    });
+    const remoteAlbum = makeAlbumCandidate({
+      source: "musicbrainz",
+      album: "Album",
+      tracks: [
+        makeTrackCandidate({ title: "Song", trackNumber: 1, artist: "Artist feat. Guest", artists: ["Artist", "Guest"] }),
+      ],
+    });
+
+    const [protectedCandidate] = await protectCandidateTrackFieldsForAutoApply(request, [remoteAlbum]);
+
+    // Remote enriches local with featured artist — should update
+    expect(protectedCandidate.tracks[0].artist).toBe("Artist feat. Guest");
+    expect(protectedCandidate.tracks[0].artists).toEqual(["Artist", "Guest"]);
   });
 
   it("fills blank local artist from remote for matched tracks", async () => {

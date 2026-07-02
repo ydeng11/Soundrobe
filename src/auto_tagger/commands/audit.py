@@ -261,7 +261,7 @@ def _audit_album(
                     meta_kwargs[attr] = suggestion if attr != "artists" else [suggestion]
 
                 new_meta = TrackMetadata(**meta_kwargs)
-                write_metadata(audio_path, new_meta, dry_run=False)
+                write_metadata(audio_path, new_meta, dry_run=False, chinese_script=settings.chinese_script)
                 fixed_count += 1
             except Exception:
                 continue

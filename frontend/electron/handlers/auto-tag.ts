@@ -39,6 +39,58 @@ import { basename, dirname, join, extname } from "node:path";
 import { isAlbumCoverSuppressed } from "./cover-suppression";
 
 const AUDIO_EXTENSIONS = new Set([".mp3", ".flac", ".m4a", ".mp4", ".wav", ".ogg", ".opus", ".aiff", ".ape"]);
+
+// ── Chinese script conversion ────────────────────────────────────────────
+
+let _s2tConverter: ((text: string) => string) | null = null;
+let _t2sConverter: ((text: string) => string) | null = null;
+
+async function getChineseConverters(): Promise<{ s2t: (t: string) => string; t2s: (t: string) => string } | null> {
+  if (_s2tConverter && _t2sConverter) return { s2t: _s2tConverter, t2s: _t2sConverter };
+  try {
+    const mod = await import("opencc-js");
+    _s2tConverter = mod.Converter({ from: "cn", to: "tw" });
+    _t2sConverter = mod.Converter({ from: "tw", to: "cn" });
+    return { s2t: _s2tConverter, t2s: _t2sConverter };
+  } catch {
+    return null;
+  }
+}
+
+/** Convert a single string value to the target Chinese script. */
+async function convertScript(value: string | null | undefined, target: string): Promise<string | null | undefined> {
+  if (!value || !target) return value;
+  const converters = await getChineseConverters();
+  if (!converters) return value;
+  const fn = target === "traditional" ? converters.s2t : converters.t2s;
+  return fn(value);
+}
+
+/** Convert an array of strings to the target Chinese script. */
+async function convertScriptArray(values: string[], target: string): Promise<string[]> {
+  if (!target || values.length === 0) return values;
+  const converters = await getChineseConverters();
+  if (!converters) return values;
+  const fn = target === "traditional" ? converters.s2t : converters.t2s;
+  return values.map(fn);
+}
+
+/** Apply Chinese script conversion to all text fields in WriteFields. */
+async function convertFieldsChineseScript(fields: WriteFields, target: string): Promise<WriteFields> {
+  if (!target) return fields;
+  const out = { ...fields };
+  out.title = await convertScript(out.title, target);
+  out.artist = await convertScript(out.artist, target);
+  if (out.artists && Array.isArray(out.artists)) out.artists = await convertScriptArray(out.artists, target);
+  out.album = await convertScript(out.album, target);
+  out.albumArtist = await convertScript(out.albumArtist, target);
+  if (out.albumArtists && Array.isArray(out.albumArtists)) out.albumArtists = await convertScriptArray(out.albumArtists, target);
+  out.year = await convertScript(out.year, target);
+  out.genre = await convertScript(out.genre, target);
+  out.composer = await convertScript(out.composer, target);
+  out.lyrics = await convertScript(out.lyrics, target);
+  return out;
+}
 import { homedir } from "node:os";
 import debug from "./debug";
 import { AUTO_TAG_ALBUM_CONCURRENCY, LOCAL_READ_CONCURRENCY, mapConcurrent } from "../services/concurrency";
@@ -471,6 +523,7 @@ export interface AutoTagConfig {
   googleImageEnabled?: boolean;
   theAudioDbApiKey?: string;
   theAudioDbEnabled?: boolean;
+  chineseScript?: string | null;
 }
 
 const taskEvents = new EventEmitter();
@@ -545,6 +598,7 @@ export function loadConfig(): AutoTagConfig {
       const b = parseBoolOrNull(v);
       if (b !== null) config.theAudioDbEnabled = b;
     },
+    chinese_script: (v) => { config.chineseScript = v; },
   };
 
   // 1. Config file first (lowest priority)
@@ -587,6 +641,7 @@ export function loadConfig(): AutoTagConfig {
   if (process.env.GOOGLE_IMAGE_API_KEY) config.googleImageApiKey = process.env.GOOGLE_IMAGE_API_KEY;
   if (process.env.GOOGLE_IMAGE_SEARCH_ENGINE_ID) config.googleImageSearchEngineId = process.env.GOOGLE_IMAGE_SEARCH_ENGINE_ID;
   if (process.env.GOOGLE_IMAGE_ENABLED === "false") config.googleImageEnabled = false;
+  if (process.env.AUTO_TAG_CHINESE_SCRIPT) config.chineseScript = process.env.AUTO_TAG_CHINESE_SCRIPT;
   if (process.env.THEAUDIODB_API_KEY) config.theAudioDbApiKey = process.env.THEAUDIODB_API_KEY;
   if (process.env.THEAUDIODB_ENABLED === "false") config.theAudioDbEnabled = false;
 
@@ -1490,7 +1545,10 @@ class TaskManager {
         debug.debug("auto-tag", `No fields to write for: ${filePath} - skipping`);
         continue;
       }
-      writeJobs.push({ filePath, fields: mergedFields });
+      const finalFields = this.config.chineseScript
+        ? await convertFieldsChineseScript(mergedFields, this.config.chineseScript)
+        : mergedFields;
+      writeJobs.push({ filePath, fields: finalFields });
     }
 
     // Phase B: Download missing lyrics concurrently with dedup cache
@@ -2040,6 +2098,7 @@ export function getConfig(): Record<string, unknown> {
     googleImageEnabled: cfg.googleImageEnabled ?? true,
     theAudioDbApiKey: cfg.theAudioDbApiKey ? "****" + cfg.theAudioDbApiKey.slice(-4) : null,
     theAudioDbEnabled: cfg.theAudioDbEnabled ?? true,
+    chineseScript: cfg.chineseScript ?? null,
   };
 }
 
@@ -2064,6 +2123,7 @@ const CONFIG_KEY_MAP: Record<string, string> = {
   googleImageEnabled: "google_image_enabled",
   theAudioDbApiKey: "theaudiodb_api_key",
   theAudioDbEnabled: "theaudiodb_enabled",
+  chineseScript: "chinese_script",
 };
 
 /**

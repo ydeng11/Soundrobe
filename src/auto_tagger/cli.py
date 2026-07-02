@@ -16,6 +16,16 @@ CONTEXT_SETTINGS = {
 }
 
 
+def _chinese_script_option(f):
+    """Shared --chinese-script Click option for tag and batch commands."""
+    return click.option(
+        "--chinese-script",
+        type=click.Choice(["simplified", "traditional", "sc", "tc"]),
+        default=None,
+        help="Enforce Simplified (sc) or Traditional (tc) Chinese in tag text fields",
+    )(f)
+
+
 @click.group(context_settings=CONTEXT_SETTINGS)
 @click.option(
     "--config",
@@ -89,6 +99,7 @@ def cli(ctx: click.Context, config: Path | None, verbose: bool, debug: bool, out
     type=click.Path(dir_okay=False, path_type=Path),
     help="Explicit path for health report (default: auto-generated MD+JSON under health_report_dir)",
 )
+@_chinese_script_option
 @click.pass_context
 def tag(
     ctx: click.Context,
@@ -98,6 +109,7 @@ def tag(
     interactive: bool,
     force: bool,
     health_report: Path | None,
+    chinese_script: str | None,
 ) -> None:
     """Tag a single album or directory.
 
@@ -109,6 +121,8 @@ def tag(
 
     if yolo:
         settings.yolo = True
+    if chinese_script:
+        settings = settings.model_copy(update={"chinese_script": chinese_script})
 
     execute(settings, path, dry_run, health_report, interactive, force=force)
 
@@ -135,6 +149,7 @@ def tag(
     type=click.Path(dir_okay=False, path_type=Path),
     help="Explicit path for combined health report (default: auto-generated per-album + combined MD+JSON)",
 )
+@_chinese_script_option
 @click.pass_context
 def batch(
     ctx: click.Context,
@@ -145,6 +160,7 @@ def batch(
     force: bool,
     parallel: int,
     health_report: Path | None,
+    chinese_script: str | None,
 ) -> None:
     """Batch process entire music library.
 
@@ -156,6 +172,8 @@ def batch(
 
     if yolo:
         settings.yolo = True
+    if chinese_script:
+        settings = settings.model_copy(update={"chinese_script": chinese_script})
 
     execute(settings, path, dry_run, parallel, interactive, health_report, force=force)
 

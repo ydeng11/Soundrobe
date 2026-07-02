@@ -290,6 +290,30 @@ const TEST_CASES: LlmEvalCase[] = [
     tracks: [{ title: "X", artist: "林俊杰" }],
     expectedAlbum: "100天",
   },
+
+  // ── Group D: Real-world cases — title contains artist suffix ──
+  {
+    name: "D1: 美妙生活 — titles have artist suffix",
+    folderName: "2011-美妙生活",
+    parentName: "林宥嘉",
+    parsedArtist: "林宥嘉",
+    parsedAlbum: "美妙生活",
+    parsedYear: "2011",
+    tracks: [
+      { title: "Fly My Way", artist: "林宥嘉" },
+      { title: "不换-林宥嘉", artist: "林宥嘉" },
+      { title: "想念-林宥嘉", artist: "林宥嘉" },
+      { title: "想自由-林宥嘉", artist: "林宥嘉" },
+      { title: "我总是一个人在练习一个人-林宥嘉", artist: "林宥嘉" },
+      { title: "拥有-林宥嘉", artist: "林宥嘉" },
+      { title: "早开的晚霞-林宥嘉", artist: "林宥嘉" },
+      { title: "晚安-林宥嘉", artist: "林宥嘉" },
+      { title: "纪念品-林宥嘉", artist: "林宥嘉" },
+      { title: "美妙生活-林宥嘉", artist: "林宥嘉" },
+      { title: "自然醒-林宥嘉", artist: "林宥嘉" },
+    ],
+    expectedAlbum: "美妙生活",
+  },
 ];
 
 // ── Test runner ────────────────────────────────────────────────────
@@ -329,6 +353,21 @@ describeLlm("LLM tag correction evaluation", () => {
       const data = response.data as Record<string, unknown>;
       const album = (data.album as string) ?? "";
       const confidence = (data.confidence as number) ?? 0;
+
+      // Log full response for debugging
+      console.log(`\n    [${tc.name}] Full LLM response:`);
+      console.log(`      artist: ${data.artist}`);
+      console.log(`      albumArtist: ${data.albumArtist}`);
+      console.log(`      album: ${JSON.stringify(data.album)}`);
+      console.log(`      year: ${data.year}`);
+      console.log(`      genre: ${data.genre}`);
+      console.log(`      confidence: ${data.confidence}`);
+      if (data.tracks && Array.isArray(data.tracks)) {
+        console.log(`      tracks:`);
+        for (const t of data.tracks as Array<Record<string, unknown>>) {
+          console.log(`        ${t.index}: title=${JSON.stringify(t.title)} artist=${JSON.stringify(t.artist)}`);
+        }
+      }
 
       const pass = album === tc.expectedAlbum;
       if (pass) passCount++;

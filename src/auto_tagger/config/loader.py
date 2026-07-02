@@ -76,9 +76,11 @@ def load_settings(config_file: Path | None = None, **cli_overrides: Any) -> Sett
     """
     config_data = load_config_file(config_file)
 
-    env_settings = Settings()
-
-    merged_settings = env_settings.model_copy(update=config_data)
+    # Merge config file values with env-derived defaults, re-validating
+    # via model_validate so field validators run on config-file values.
+    merged_dict = Settings().model_dump()
+    merged_dict.update(config_data)
+    merged_settings = Settings.model_validate(merged_dict)
 
     if cli_overrides:
         merged_settings = merged_settings.merge_with_cli_args(**cli_overrides)

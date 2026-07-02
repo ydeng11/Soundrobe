@@ -66,7 +66,7 @@ def test_album_workflow_yolo_fallback_writes_on_fix_failure(monkeypatch, tmp_pat
     # Mock write_metadata so it doesn't actually try to write to empty test files
     monkeypatch.setattr(
         "auto_tagger.workflows.album.write_metadata",
-        lambda path, metadata, dry_run=False: None,
+        lambda *a, **kw: None,
     )
 
     result = AlbumWorkflow(Settings(yolo=True)).run(tmp_path, dry_run=False)
@@ -110,7 +110,7 @@ def test_yolo_writes_collaborative_artists(monkeypatch, tmp_path: Path):
 
     captured_normalized: list[TrackMetadata] = []
 
-    def _capture_write(path, meta, dry_run=False):
+    def _capture_write(path, meta, dry_run=False, **kw):
         # Simulate what write_metadata does: call normalized()
         normalized_write = meta.normalized()
         captured_normalized.append(normalized_write)
@@ -214,7 +214,7 @@ def test_cover_art_fix_no_local_no_mbid(monkeypatch, tmp_path: Path):
     )
     monkeypatch.setattr(
         "auto_tagger.workflows.album.write_metadata",
-        lambda path, metadata, dry_run=False: metadata,
+        lambda path, metadata, dry_run=False, **kw: metadata,
     )
     # Mock Discogs to prevent live API call
     monkeypatch.setattr(
@@ -268,7 +268,7 @@ def test_write_candidate_handles_collaboration(monkeypatch, tmp_path: Path):
     written: list[TrackMetadata] = []
     monkeypatch.setattr(
         "auto_tagger.workflows.album.write_metadata",
-        lambda p, m, dry_run=False: written.append(m),
+        lambda p, m, dry_run=False, **kw: written.append(m),
     )
 
     workflow = AlbumWorkflow(Settings())
@@ -325,7 +325,7 @@ def test_write_candidate_handles_classical(monkeypatch, tmp_path: Path):
     written: list[TrackMetadata] = []
     monkeypatch.setattr(
         "auto_tagger.workflows.album.write_metadata",
-        lambda p, m, dry_run=False: written.append(m),
+        lambda p, m, dry_run=False, **kw: written.append(m),
     )
 
     workflow = AlbumWorkflow(Settings())
@@ -376,7 +376,7 @@ def test_write_candidate_handles_compilation(monkeypatch, tmp_path: Path):
     written: list[TrackMetadata] = []
     monkeypatch.setattr(
         "auto_tagger.workflows.album.write_metadata",
-        lambda p, m, dry_run=False: written.append(m),
+        lambda p, m, dry_run=False, **kw: written.append(m),
     )
 
     workflow = AlbumWorkflow(Settings())
@@ -433,7 +433,7 @@ def test_write_candidate_handles_ampersand_duo(monkeypatch, tmp_path: Path):
     written: list[TrackMetadata] = []
     monkeypatch.setattr(
         "auto_tagger.workflows.album.write_metadata",
-        lambda p, m, dry_run=False: written.append(m),
+        lambda p, m, dry_run=False, **kw: written.append(m),
     )
 
     workflow = AlbumWorkflow(Settings())
@@ -488,7 +488,7 @@ def test_write_candidate_handles_single_artist(monkeypatch, tmp_path: Path):
     written: list[TrackMetadata] = []
     monkeypatch.setattr(
         "auto_tagger.workflows.album.write_metadata",
-        lambda p, m, dry_run=False: written.append(m),
+        lambda p, m, dry_run=False, **kw: written.append(m),
     )
 
     workflow = AlbumWorkflow(Settings())
@@ -518,7 +518,7 @@ def test_fix_duplicate_track_numbers_renumbers_from_filenames(monkeypatch, tmp_p
     write_calls: list[tuple[Path, TrackMetadata]] = []
     monkeypatch.setattr(
         "auto_tagger.workflows.album.write_metadata",
-        lambda path, metadata, dry_run=False: write_calls.append((path, metadata)),
+        lambda path, metadata, dry_run=False, **kw: write_calls.append((path, metadata)),
     )
     # Mock build_album_health_report for the rebuild to return a clean report
     monkeypatch.setattr(
@@ -590,7 +590,7 @@ def test_fix_duplicate_track_numbers_skipped_when_no_duplicates(monkeypatch, tmp
 
     monkeypatch.setattr(
         "auto_tagger.workflows.album.write_metadata",
-        lambda path, metadata, dry_run=False: None,
+        lambda *a, **kw: None,
     )
 
     audio = tmp_path / "01.flac"
@@ -617,7 +617,7 @@ def test_fix_duplicate_track_numbers_renumbers_sequentially_when_filenames_lack_
 
     monkeypatch.setattr(
         "auto_tagger.workflows.album.write_metadata",
-        lambda path, metadata, dry_run=False: None,
+        lambda *a, **kw: None,
     )
 
     audio_a = tmp_path / "SongA.flac"
@@ -661,7 +661,7 @@ def test_fix_duplicate_track_numbers_skipped_when_stem_numbers_not_unique(monkey
 
     monkeypatch.setattr(
         "auto_tagger.workflows.album.write_metadata",
-        lambda path, metadata, dry_run=False: None,
+        lambda *a, **kw: None,
     )
 
     audio_a = tmp_path / "01 Intro.flac"
@@ -766,7 +766,7 @@ def test_fix_duplicate_track_numbers_end_to_end_via_workflow_yolo(monkeypatch, t
     # Prevent actual disk writes from interfering
     monkeypatch.setattr(
         "auto_tagger.workflows.album.write_metadata",
-        lambda path, metadata, dry_run=False: None,
+        lambda *a, **kw: None,
     )
     # Prevent _fix_metadata lookup from running (it would fail without real data)
     monkeypatch.setattr(
@@ -959,7 +959,7 @@ def test_pattern_3_does_not_exclude_disc_none_on_single_disc(
     )
     monkeypatch.setattr(
         "auto_tagger.workflows.album.write_metadata",
-        lambda path, md, dry_run=False: None,
+        lambda *a, **kw: None,
     )
 
     # Stub _fix_metadata so the lookup cascade doesn't run
@@ -1039,7 +1039,7 @@ def test_pattern_3_excludes_disc_none_on_multi_disc(monkeypatch, tmp_path: Path)
     )
     monkeypatch.setattr(
         "auto_tagger.workflows.album.write_metadata",
-        lambda path, md, dry_run=False: None,
+        lambda *a, **kw: None,
     )
     monkeypatch.setattr(
         AlbumWorkflow,
@@ -1101,7 +1101,7 @@ def test_fix_via_llm_preserves_per_track_artist(monkeypatch, tmp_path: Path):
     written_calls: list[TrackMetadata] = []
     monkeypatch.setattr(
         "auto_tagger.workflows.album.write_metadata",
-        lambda path, md, dry_run=False: written_calls.append(md),
+        lambda path, md, dry_run=False, **kw: written_calls.append(md),
     )
 
     workflow = AlbumWorkflow(Settings(yolo=True))
@@ -1237,7 +1237,7 @@ def test_write_candidate_multi_artist_preserves_per_track_artist(monkeypatch, tm
     written: list[tuple[Path, TrackMetadata]] = []
     monkeypatch.setattr(
         "auto_tagger.workflows.album.write_metadata",
-        lambda p, m, dry_run=False: written.append((p, m)),
+        lambda p, m, dry_run=False, **kw: written.append((p, m)),
     )
 
     workflow = AlbumWorkflow(Settings())
@@ -1300,7 +1300,7 @@ def test_album_workflow_force_reprocesses_tagged_album(monkeypatch, tmp_path):
     monkeypatch.setattr(mod, "build_album_health_report", lambda *a, **kw: AlbumHealthReport(
         album_path=a[0], tracks_checked=1, lrc_files_checked=0, issues=[]
     ))
-    monkeypatch.setattr(mod, "write_metadata", lambda p, m, dry_run=False: None)
+    monkeypatch.setattr(mod, "write_metadata", lambda *a, **kw: None)
     monkeypatch.setattr(AlbumWorkflow, "_fix_cover_art", lambda self, path, af, mbp: (False, "", ""))
 
     settings = Settings(cache_path=str(tmp_path / "cache.db"), yolo=True)
@@ -1331,7 +1331,7 @@ def test_album_workflow_skip_tagged_with_new_content(monkeypatch, tmp_path):
     monkeypatch.setattr(mod, "build_album_health_report", lambda *a, **kw: AlbumHealthReport(
         album_path=a[0], tracks_checked=1, lrc_files_checked=0, issues=[]
     ))
-    monkeypatch.setattr(mod, "write_metadata", lambda p, m, dry_run=False: None)
+    monkeypatch.setattr(mod, "write_metadata", lambda *a, **kw: None)
     monkeypatch.setattr(AlbumWorkflow, "_fix_cover_art", lambda self, path, af, mbp: (False, "", ""))
 
     settings = Settings(cache_path=str(tmp_path / "cache.db"), yolo=True)

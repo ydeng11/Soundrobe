@@ -252,6 +252,7 @@ class AlbumWorkflow:
         )
 
         fix_messages: list[str] = []
+        _cs = self.settings.chinese_script
 
         # ── Fix duplicate track numbers before exclusion checks ──
         # Run early so that Pattern 3 (discard strays from duplicate groups)
@@ -295,7 +296,7 @@ class AlbumWorkflow:
                 fixed = replace(meta, track_number=fn_track)
                 if not dry_run:
                     try:
-                        write_metadata(af, fixed, dry_run=False)
+                        write_metadata(af, fixed, dry_run=False, chinese_script=_cs)
                         metadata_by_path[af] = fixed
                         track_num_fixed = True
                     except Exception:
@@ -366,7 +367,7 @@ class AlbumWorkflow:
                     meta = metadata_by_path.get(th.path)
                     if meta is not None:
                         fixed = replace(meta, track_number=1, track_total=1)
-                        write_metadata(th.path, fixed, dry_run=False)
+                        write_metadata(th.path, fixed, dry_run=False, chinese_script=_cs)
                         metadata_by_path[th.path] = fixed
                     break
 
@@ -516,7 +517,7 @@ class AlbumWorkflow:
                                 continue
                             fixed = replace(meta, track_total=n_files)
                             try:
-                                write_metadata(af, fixed, dry_run=False)
+                                write_metadata(af, fixed, dry_run=False, chinese_script=_cs)
                                 metadata_by_path[af] = fixed
                                 stale_fixed = True
                             except Exception:
@@ -549,7 +550,7 @@ class AlbumWorkflow:
                         pass
 
                 for audio_file, metadata in metadata_by_path.items():
-                    write_metadata(audio_file, metadata, dry_run=False)
+                    write_metadata(audio_file, metadata, dry_run=False, chinese_script=_cs)
                     applied_writes += 1
                 wrote_all = True
 
@@ -569,7 +570,7 @@ class AlbumWorkflow:
                 if fn_track is not None and meta.track_number is not None and fn_track != meta.track_number:
                     fixed = replace(meta, track_number=fn_track)
                     try:
-                        write_metadata(af, fixed, dry_run=False)
+                        write_metadata(af, fixed, dry_run=False, chinese_script=_cs)
                         metadata_by_path[af] = fixed
                         post_fixed = True
                     except Exception:
@@ -670,6 +671,8 @@ class AlbumWorkflow:
         if not has_any_dup:
             return False, metadata_by_path, health_report
 
+        _cs = self.settings.chinese_script
+
         # ── Strategy 1: Prefix-based renumbering ──────────────────────
 
         # Build map of existing track numbers for non-duplicate conflict checking
@@ -743,7 +746,7 @@ class AlbumWorkflow:
                 )
                 if not dry_run:
                     try:
-                        write_metadata(dp, fixed_meta, dry_run=False)
+                        write_metadata(dp, fixed_meta, dry_run=False, chinese_script=_cs)
                         metadata_by_path[dp] = fixed_meta
                         fixed_paths.add(dp)
                         fixed = True
@@ -797,6 +800,7 @@ class AlbumWorkflow:
         Returns True if any tracks were renumbered.
         """
         dup_code = "metadata.duplicate_track_number"
+        _cs = self.settings.chinese_script
 
         # Normalise disc_number: treat None as 1 for grouping
         def _effective_disc(path: Path) -> int:
@@ -871,7 +875,7 @@ class AlbumWorkflow:
                 )
                 if not dry_run:
                     try:
-                        write_metadata(af, fixed_meta, dry_run=False)
+                        write_metadata(af, fixed_meta, dry_run=False, chinese_script=_cs)
                         metadata_by_path[af] = fixed_meta
                         any_fixed = True
                     except Exception:
@@ -1277,7 +1281,7 @@ class AlbumWorkflow:
                     new_metadata.compilation,
                 )
             try:
-                write_metadata(audio_file, new_metadata, dry_run=False)
+                write_metadata(audio_file, new_metadata, dry_run=False, chinese_script=self.settings.chinese_script)
             except Exception:
                 continue
 
@@ -1313,7 +1317,7 @@ class AlbumWorkflow:
                             musicbrainz_artistid=meta.musicbrainz_artistid,
                         )
                         try:
-                            write_metadata(audio_file, enriched, dry_run=False)
+                            write_metadata(audio_file, enriched, dry_run=False, chinese_script=self.settings.chinese_script)
                         except Exception:
                             continue
 
@@ -1556,7 +1560,7 @@ class AlbumWorkflow:
                     new_metadata.compilation,
                 )
             try:
-                write_metadata(audio_file, new_metadata, dry_run=False)
+                write_metadata(audio_file, new_metadata, dry_run=False, chinese_script=self.settings.chinese_script)
             except Exception:
                 continue
 

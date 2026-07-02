@@ -91,6 +91,37 @@ def _clean_list(values: list[str]) -> list[str]:
     return [value.strip() for value in values if value and value.strip()]
 
 
+# Cache OpenCC converters to avoid re-instantiation on every call.
+_OPENCC_CONVERTERS: dict[str, object] = {}
+
+
+def convert_chinese_script(text: str | None, target: str) -> str | None:
+    """Convert a string to the target Chinese script variant.
+
+    OpenCC passes non-CJK text through unchanged, so no pre-check is needed.
+    Uses ``t2s`` for simplified and ``s2t`` for generic traditional
+    (not region-specific TW/HK).
+
+    Args:
+        text: Input string (may be SC, TC, mixed, or non-CJK).
+        target: ``"simplified"`` or ``"traditional"``.
+
+    Returns:
+        Converted string, or the original if *opencc* is unavailable.
+    """
+    if not text:
+        return text
+    try:
+        if target not in _OPENCC_CONVERTERS:
+            import opencc
+
+            cfg = "t2s" if target == "simplified" else "s2t"
+            _OPENCC_CONVERTERS[target] = opencc.OpenCC(cfg)
+        return _OPENCC_CONVERTERS[target].convert(text)
+    except Exception:
+        return text
+
+
 @dataclass(frozen=True)
 class ReplayGainTags:
     """ReplayGain tag values stored as normalized strings."""
@@ -152,6 +183,37 @@ class TrackMetadata:
             self,
             artists=artists,
             album_artists=album_artists,
+        )
+
+    def with_chinese_script(self, target: str) -> "TrackMetadata":
+        """Return a copy with text-like fields converted to the target script.
+
+        Converts: title, artist, artists, album, album_artist, album_artists,
+        year, genre, composer, lyrics.
+        Does NOT convert: musicbrainz IDs, replaygain values, booleans,
+        track/disc numbers.
+
+        Args:
+            target: ``"simplified"`` or ``"traditional"``.
+        """
+        if not target:
+            return self
+
+        def _convert(text: str | None) -> str | None:
+            return convert_chinese_script(text, target)
+
+        return replace(
+            self,
+            title=_convert(self.title),
+            artist=_convert(self.artist),
+            artists=[_convert(a) for a in self.artists],
+            album=_convert(self.album),
+            album_artist=_convert(self.album_artist),
+            album_artists=[_convert(a) for a in self.album_artists],
+            year=_convert(self.year),
+            genre=_convert(self.genre),
+            composer=_convert(self.composer),
+            lyrics=_convert(self.lyrics),
         )
 
     def to_display_rows(self) -> list[list[str]]:

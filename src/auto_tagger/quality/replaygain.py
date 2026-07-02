@@ -109,6 +109,7 @@ def apply_replaygain_tags(
     results: dict[Path, ReplayGainResult],
     existing_metadata: dict[Path, TrackMetadata],
     dry_run: bool = True,
+    chinese_script: str | None = None,
 ) -> dict[Path, TrackMetadata]:
     """Apply ReplayGain tags while preserving all other metadata fields."""
     updated: dict[Path, TrackMetadata] = {}
@@ -120,7 +121,7 @@ def apply_replaygain_tags(
         if dry_run:
             updated[path] = new_metadata.normalized()
         else:
-            updated[path] = write_metadata(path, new_metadata, dry_run=False)
+            updated[path] = write_metadata(path, new_metadata, dry_run=False, chinese_script=chinese_script)
     return updated
 
 
