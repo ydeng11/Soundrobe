@@ -20,8 +20,7 @@ export type ArtworkSource =
   | "cover-art-archive"
   | "discogs"
   | "theaudiodb"
-  | "wikimedia"
-  | "google";
+  | "wikimedia";
 
 export interface ArtworkResult {
   kind: ArtworkKind;
@@ -50,15 +49,13 @@ export interface ArtworkProvider {
 }
 
 export interface ArtworkCredentials {
-  googleApiKey?: string | null;
-  googleSearchEngineId?: string | null;
   theAudioDbApiKey?: string | null;
   discogsToken?: string | null;
 }
 
 // ── Default provider order per kind ────────────────────────────
-// album-cover: local → cover-art-archive → discogs → theaudiodb → google
-// artist-image: local → wikimedia → google
+// album-cover: local → cover-art-archive → discogs → theaudiodb
+// artist-image: local → discogs → wikimedia
 
 function defaultAlbumCoverProviders(): ArtworkProvider[] {
   return [
@@ -66,28 +63,32 @@ function defaultAlbumCoverProviders(): ArtworkProvider[] {
     { name: "cover-art-archive", needsCredentials: false, find: findCoverArtArchive },
     { name: "discogs", needsCredentials: false, find: findDiscogs },
     { name: "theaudiodb", needsCredentials: true, find: findTheAudioDb },
-    { name: "google", needsCredentials: true, find: findGoogle },
+  ];
+}
+
+function defaultArtistImageProviders(): ArtworkProvider[] {
+  return [
+    { name: "local", needsCredentials: false, find: findLocal },
+    { name: "discogs", needsCredentials: false, find: findDiscogs },
+    { name: "wikimedia", needsCredentials: false, find: findWikimedia },
   ];
 }
 
 // ── Service ─────────────────────────────────────────────────────────
 
 export class ArtworkResolverService {
-  private providers: ArtworkProvider[];
+  private customProviders: ArtworkProvider[] | null = null;
   private credentials: ArtworkCredentials = {};
-
-  constructor() {
-    this.providers = defaultAlbumCoverProviders();
-  }
 
   /** Override the provider list (for testing or customization). */
   setProviders(providers: ArtworkProvider[]): void {
-    this.providers = providers;
+    this.customProviders = providers;
   }
 
   /** Get current provider names in order. */
   getProviderNames(): ArtworkSource[] {
-    return this.providers.map((p) => p.name);
+    const providers = this.customProviders ?? defaultAlbumCoverProviders();
+    return providers.map((p) => p.name);
   }
 
   /** Set credentials for credentialed providers. */
@@ -97,14 +98,16 @@ export class ArtworkResolverService {
 
   /** Resolve artwork by trying providers in order. */
   async resolve(ctx: ArtworkContext): Promise<ArtworkResult | null> {
+    const providers = this.resolveProviderList(ctx);
+
     logger.info(
       "cover",
       `Resolve: kind=${ctx.kind} artist="${ctx.artistName ?? ""}" album="${ctx.albumName ?? ""}" ` +
       `mbid=${ctx.musicbrainzAlbumId ?? "null"} discogsArtistId=${ctx.discogsArtistId ?? "null"} ` +
-      `discogsReleaseId=${ctx.discogsReleaseId ?? "null"} providers=[${this.providers.map(p => p.name).join(",")}]`,
+      `discogsReleaseId=${ctx.discogsReleaseId ?? "null"} providers=[${providers.map(p => p.name).join(",")}]`,
     );
 
-    for (const provider of this.providers) {
+    for (const provider of providers) {
       const skipReason = this.skipReasonForProvider(provider, ctx);
       if (skipReason) {
         logger.debug("cover", `Resolve: skip provider=${provider.name} reason=${skipReason}`);
@@ -180,8 +183,6 @@ export class ArtworkResolverService {
 
   private hasCredentials(name: ArtworkSource): boolean {
     switch (name) {
-      case "google":
-        return !!(this.credentials.googleApiKey && this.credentials.googleSearchEngineId);
       case "theaudiodb":
         return !!this.credentials.theAudioDbApiKey;
       default:
@@ -195,9 +196,17 @@ export class ArtworkResolverService {
       if (ctx.kind !== "album-cover") return "wrong kind";
       if (!ctx.musicbrainzAlbumId) return "no mbid";
     }
+    // Wikimedia is artist-image only — guard against manual setProviders override
     if (provider.name === "wikimedia" && ctx.kind !== "artist-image") return "wrong kind";
     if (provider.needsCredentials && !this.hasCredentials(provider.name)) return "missing credentials";
     return null;
+  }
+
+  /** Select provider list based on artwork kind. */
+  private resolveProviderList(ctx: ArtworkContext): ArtworkProvider[] {
+    if (this.customProviders) return this.customProviders;
+    if (ctx.kind === "artist-image") return defaultArtistImageProviders();
+    return defaultAlbumCoverProviders();
   }
 }
 
@@ -612,71 +621,6 @@ async function findWikimedia(
     return { kind: "artist-image", source: "wikimedia", bytes, mime, url: commonsUrl };
   } catch (err) {
     logger.warn("cover", "findWikimedia: threw", err);
-    return null;
-  }
-}
-
-/**
- * Google Custom Search — final fallback.
- * Requires googleApiKey and googleSearchEngineId credentials.
- * Searches for "{artist} {album} cover" for album covers,
- * or "{artist} artist photo" for artist images.
- */
-async function findGoogle(
-  ctx: ArtworkContext,
-  creds: ArtworkCredentials,
-): Promise<ArtworkResult | null> {
-  const apiKey = creds.googleApiKey;
-  const cx = creds.googleSearchEngineId;
-  if (!apiKey || !cx) {
-    logger.debug("cover", "findGoogle: skip — missing apiKey or cx");
-    return null;
-  }
-
-  try {
-    const query =
-      ctx.kind === "album-cover"
-        ? `${ctx.artistName ?? ""} ${ctx.albumName ?? ""} album cover`
-        : `${ctx.artistName ?? ""} artist photo`;
-
-    const url = `https://www.googleapis.com/customsearch/v1?key=${encodeURIComponent(apiKey)}&cx=${encodeURIComponent(cx)}&searchType=image&q=${encodeURIComponent(query)}&num=1`;
-    logger.debug("cover", `findGoogle: query="${query}"`);
-
-    const res = await fetch(url, { signal: AbortSignal.timeout(10_000) });
-    if (!res.ok) {
-      logger.debug("cover", `findGoogle: HTTP ${res.status}`);
-      return null;
-    }
-
-    const data = (await res.json()) as {
-      items?: Array<{ link?: string; mime?: string }>;
-    };
-    const itemCount = data.items?.length ?? 0;
-    logger.debug("cover", `findGoogle: returned ${itemCount} items`);
-
-    if (!data.items || data.items.length === 0) return null;
-
-    const imageUrl = data.items[0].link;
-    if (!imageUrl) {
-      logger.debug("cover", "findGoogle: first item has no link");
-      return null;
-    }
-
-    logger.debug("cover", `findGoogle: selected image ${imageUrl}`);
-
-    const imgRes = await fetch(imageUrl, { signal: AbortSignal.timeout(10_000) });
-    if (!imgRes.ok) {
-      logger.debug("cover", `findGoogle: image fetch HTTP ${imgRes.status}`);
-      return null;
-    }
-
-    const bytes = Buffer.from(await imgRes.arrayBuffer());
-    const mime = imgRes.headers.get("content-type") ?? data.items[0].mime ?? "image/jpeg";
-    logger.debug("cover", `findGoogle: downloaded ${bytes.length} bytes, type=${mime}`);
-
-    return { kind: ctx.kind, source: "google", bytes, mime, url: imageUrl };
-  } catch (err) {
-    logger.warn("cover", "findGoogle: threw", err);
     return null;
   }
 }

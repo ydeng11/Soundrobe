@@ -51,10 +51,10 @@ describe("SettingsModal", () => {
       ),
     ).toBeTruthy();
     expect(
-      screen.getByPlaceholderText(
+      screen.getAllByPlaceholderText(
         "(leave blank to keep current)",
-      ),
-    ).toBeTruthy();
+      ).length,
+    ).toBe(2); // Discogs Token + TheAudioDB API Key
   });
 
   it("shows loading state then fields", async () => {

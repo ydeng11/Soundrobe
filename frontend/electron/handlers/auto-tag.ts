@@ -518,11 +518,7 @@ export interface AutoTagConfig {
   debug?: boolean;
   lyricsDownloadEnabled?: boolean;
   lyricsApiUrl?: string;
-  googleImageApiKey?: string;
-  googleImageSearchEngineId?: string;
-  googleImageEnabled?: boolean;
   theAudioDbApiKey?: string;
-  theAudioDbEnabled?: boolean;
   chineseScript?: string | null;
 }
 
@@ -587,16 +583,10 @@ export function loadConfig(): AutoTagConfig {
       if (b !== null) config.lyricsDownloadEnabled = b;
     },
     lyrics_api_url: (v) => { config.lyricsApiUrl = v; },
-    google_image_api_key: (v) => { config.googleImageApiKey = v; },
-    google_image_search_engine_id: (v) => { config.googleImageSearchEngineId = v; },
-    google_image_enabled: (v) => {
-      const b = parseBoolOrNull(v);
-      if (b !== null) config.googleImageEnabled = b;
-    },
     theaudiodb_api_key: (v) => { config.theAudioDbApiKey = v; },
     theaudiodb_enabled: (v) => {
       const b = parseBoolOrNull(v);
-      if (b !== null) config.theAudioDbEnabled = b;
+
     },
     chinese_script: (v) => { config.chineseScript = v; },
   };
@@ -638,12 +628,9 @@ export function loadConfig(): AutoTagConfig {
   if (process.env.AUTO_TAG_DEBUG === "true") config.debug = true;
   if (process.env.AUTO_TAG_LYRICS_DOWNLOAD_ENABLED === "false") config.lyricsDownloadEnabled = false;
   if (process.env.AUTO_TAG_LYRICS_API_URL) config.lyricsApiUrl = process.env.AUTO_TAG_LYRICS_API_URL;
-  if (process.env.GOOGLE_IMAGE_API_KEY) config.googleImageApiKey = process.env.GOOGLE_IMAGE_API_KEY;
-  if (process.env.GOOGLE_IMAGE_SEARCH_ENGINE_ID) config.googleImageSearchEngineId = process.env.GOOGLE_IMAGE_SEARCH_ENGINE_ID;
-  if (process.env.GOOGLE_IMAGE_ENABLED === "false") config.googleImageEnabled = false;
   if (process.env.AUTO_TAG_CHINESE_SCRIPT) config.chineseScript = process.env.AUTO_TAG_CHINESE_SCRIPT;
   if (process.env.THEAUDIODB_API_KEY) config.theAudioDbApiKey = process.env.THEAUDIODB_API_KEY;
-  if (process.env.THEAUDIODB_ENABLED === "false") config.theAudioDbEnabled = false;
+
 
   // Sync debug logger with config
   debug.setEnabled(!!config.debug);
@@ -655,7 +642,6 @@ export function loadConfig(): AutoTagConfig {
   }
   if (config.llmModel) debug.info("config", `LLM_MODEL loaded from env: ${config.llmModel}`);
   if (config.discogsToken) debug.info("config", "AUTO_TAG_DISCOGS_TOKEN loaded from env");
-  if (config.googleImageApiKey) debug.info("config", "GOOGLE_IMAGE_API_KEY loaded from env");
   if (config.theAudioDbApiKey) debug.info("config", "THEAUDIODB_API_KEY loaded from env");
   if (config.debug) debug.info("config", "AUTO_TAG_DEBUG loaded from env - debug mode enabled");
 
@@ -2093,11 +2079,8 @@ export function getConfig(): Record<string, unknown> {
     debug: cfg.debug ?? false,
     lyricsDownloadEnabled: cfg.lyricsDownloadEnabled ?? false,
     lyricsApiUrl: cfg.lyricsApiUrl ?? null,
-    googleImageApiKey: cfg.googleImageApiKey ? "****" + cfg.googleImageApiKey.slice(-4) : null,
-    googleImageSearchEngineId: cfg.googleImageSearchEngineId ?? null,
-    googleImageEnabled: cfg.googleImageEnabled ?? true,
     theAudioDbApiKey: cfg.theAudioDbApiKey ? "****" + cfg.theAudioDbApiKey.slice(-4) : null,
-    theAudioDbEnabled: cfg.theAudioDbEnabled ?? true,
+
     chineseScript: cfg.chineseScript ?? null,
   };
 }
@@ -2118,11 +2101,8 @@ const CONFIG_KEY_MAP: Record<string, string> = {
   debug: "debug",
   lyricsDownloadEnabled: "lyrics_download_enabled",
   lyricsApiUrl: "lyrics_api_url",
-  googleImageApiKey: "google_image_api_key",
-  googleImageSearchEngineId: "google_image_search_engine_id",
-  googleImageEnabled: "google_image_enabled",
   theAudioDbApiKey: "theaudiodb_api_key",
-  theAudioDbEnabled: "theaudiodb_enabled",
+
   chineseScript: "chinese_script",
 };
 

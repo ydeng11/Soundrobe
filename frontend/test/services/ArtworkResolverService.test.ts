@@ -3,7 +3,6 @@
  *
  * Principles:
  * - Provider order is respected (first match wins).
- * - Google is never called when a prior source succeeds.
  * - Cover Art Archive only runs for album-cover with MBID.
  * - Wikimedia only runs for artist-image.
  * - Invalid/non-image responses are skipped (next provider tried).
@@ -87,7 +86,7 @@ describe("ArtworkResolverService", () => {
     it("tries next provider when first returns null", async () => {
       const p1 = spyProvider("cover-art-archive", null);
       const p2 = spyProvider("discogs", makeResult({ source: "discogs" }));
-      const p3 = spyProvider("google", makeResult({ source: "google" }));
+      const p3 = spyProvider("theaudiodb", makeResult({ source: "theaudiodb" }));
       service.setProviders([p1, p2, p3]);
 
       const result = await service.resolve(defaultContext);
@@ -109,59 +108,79 @@ describe("ArtworkResolverService", () => {
       expect(result).toBeNull();
     });
 
-    it("defaults to album-cover provider order: local → CAA → discogs → TADB → google", () => {
+    it("defaults to album-cover provider order: local → CAA → discogs → TADB", () => {
       const names = service.getProviderNames();
       expect(names).toEqual([
         "local",
         "cover-art-archive",
         "discogs",
         "theaudiodb",
-        "google",
       ]);
     });
 
-    it("uses artist-image provider order: local → discogs → wikimedia → google", async () => {
-      const local = spyProvider("local", null);
-      const discogs = spyProvider("discogs", null);
-      const wikimedia = spyProvider("wikimedia", makeResult({ kind: "artist-image", source: "wikimedia" }));
-      const google = spyProvider("google", makeResult({ kind: "artist-image", source: "google" }));
-      service.setProviders([local, discogs, wikimedia, google]);
-      service.setCredentials({ googleApiKey: "k", googleSearchEngineId: "cx" });
-
+    it("uses wikimedia for artist-image by default (no setProviders needed)", async () => {
+      // Regression: previously wikimedia was defined but never included in the
+      // default provider list, so artist-image resolution never tried it.
       const ctx: ArtworkContext = {
         kind: "artist-image",
-        artistName: "Test",
-        albumName: null,
-        albumPath: "/music/Test/Album",
+        artistName: "林忆莲",
+        albumName: "野花",
+        albumPath: "/nonexistent/path/林忆莲/1991-野花",
         musicbrainzAlbumId: null,
+        discogsArtistId: "2056591",
       };
 
-      const result = await service.resolve(ctx);
+      // Mock fetch for wikidata + commons
+      const originalFetch = global.fetch;
+      global.fetch = vi.fn().mockImplementation((url: string | Request | URL) => {
+        const u = url.toString();
+        if (u.includes("wikidata.org/w/api.php")) {
+          return Promise.resolve(new Response(JSON.stringify({
+            search: [{ id: "Q369247", label: "Sandy Lam" }],
+          }), { status: 200, headers: { "Content-Type": "application/json" } }));
+        }
+        if (u.includes("Special:EntityData")) {
+          return Promise.resolve(new Response(JSON.stringify({
+            entities: { Q369247: { claims: { P18: [{ mainsnak: { datavalue: { value: "Sandy_Lam_2011.jpg" } } }] } } },
+          }), { status: 200, headers: { "Content-Type": "application/json" } }));
+        }
+        if (u.includes("Special:FilePath")) {
+          return Promise.resolve(new Response(tinyJpeg, {
+            status: 200, headers: { "Content-Type": "image/jpeg" },
+          }));
+        }
+        return Promise.resolve(new Response(null, { status: 404 }));
+      });
 
-      expect(result!.source).toBe("wikimedia");
-      expect(local.find).toHaveBeenCalledOnce();
-      expect(discogs.find).toHaveBeenCalledOnce();
-      expect(wikimedia.find).toHaveBeenCalledOnce();
-      expect(google.find).not.toHaveBeenCalled();
+      try {
+        const result = await service.resolve(ctx);
+        // Should have reached wikimedia (local=null, discogs=null for this artist, then wikimedia succeeds)
+        expect(result).not.toBeNull();
+        expect(result!.source).toBe("wikimedia");
+      } finally {
+        global.fetch = originalFetch;
+      }
     });
+
+
   });
 
   describe("resolve / provider-specific guards", () => {
     it("Cover Art Archive is skipped for album-cover without MBID", async () => {
       const p1 = spyProvider("cover-art-archive", makeResult());
-      const p2 = spyProvider("google", makeResult({ source: "google" }));
+      const p2 = spyProvider("theaudiodb", makeResult({ source: "theaudiodb" }));
       service.setProviders([p1, p2]);
       const ctx: ArtworkContext = { ...defaultContext, musicbrainzAlbumId: null };
 
       const result = await service.resolve(ctx);
 
-      expect(result!.source).toBe("google");
+      expect(result!.source).toBe("theaudiodb");
       expect(p1.find).not.toHaveBeenCalled();
     });
 
     it("Cover Art Archive runs for album-cover with MBID", async () => {
       const p1 = spyProvider("cover-art-archive", makeResult({ source: "cover-art-archive" }));
-      const p2 = spyProvider("google", makeResult({ source: "google" }));
+      const p2 = spyProvider("theaudiodb", makeResult({ source: "theaudiodb" }));
       service.setProviders([p1, p2]);
       const ctx: ArtworkContext = { ...defaultContext, musicbrainzAlbumId: "mbid-456" };
 
@@ -173,21 +192,20 @@ describe("ArtworkResolverService", () => {
 
     it("Wikimedia is skipped for album-cover", async () => {
       const wikimedia = spyProvider("wikimedia", makeResult({ source: "wikimedia" }));
-      const google = spyProvider("google", makeResult({ source: "google" }));
-      service.setProviders([wikimedia, google]);
+      const theaudiodb = spyProvider("theaudiodb", makeResult({ source: "theaudiodb" }));
+      service.setProviders([wikimedia, theaudiodb]);
       const ctx: ArtworkContext = { ...defaultContext, kind: "album-cover" };
 
       const result = await service.resolve(ctx);
 
       // wikimedia should not have been called for album-cover
-      expect(result!.source).toBe("google");
+      expect(result!.source).toBe("theaudiodb");
       expect(wikimedia.find).not.toHaveBeenCalled();
     });
 
     it("Wikimedia runs for artist-image", async () => {
       const wikimedia = spyProvider("wikimedia", makeResult({ kind: "artist-image", source: "wikimedia" }));
-      const google = spyProvider("google", makeResult({ kind: "artist-image", source: "google" }));
-      service.setProviders([wikimedia, google]);
+      service.setProviders([wikimedia]);
       const ctx: ArtworkContext = { ...defaultContext, kind: "artist-image" };
 
       const result = await service.resolve(ctx);
@@ -232,12 +250,12 @@ describe("ArtworkResolverService", () => {
         name: "local",
         find: vi.fn().mockResolvedValue(makeResult({ bytes: Buffer.alloc(0) })),
       };
-      const p2 = spyProvider("google", makeResult({ source: "google" }));
+      const p2 = spyProvider("theaudiodb", makeResult({ source: "theaudiodb" }));
       service.setProviders([p1, p2]);
 
       const result = await service.resolve(defaultContext);
 
-      expect(result!.source).toBe("google");
+      expect(result!.source).toBe("theaudiodb");
       expect(p1.find).toHaveBeenCalledOnce();
     });
 
@@ -246,12 +264,12 @@ describe("ArtworkResolverService", () => {
         name: "local",
         find: vi.fn().mockResolvedValue(makeResult({ bytes: null as unknown as Buffer })),
       };
-      const p2 = spyProvider("google", makeResult({ source: "google" }));
+      const p2 = spyProvider("theaudiodb", makeResult({ source: "theaudiodb" }));
       service.setProviders([p1, p2]);
 
       const result = await service.resolve(defaultContext);
 
-      expect(result!.source).toBe("google");
+      expect(result!.source).toBe("theaudiodb");
     });
 
     it("continues when a provider throws", async () => {
@@ -269,55 +287,19 @@ describe("ArtworkResolverService", () => {
   });
 
   describe("resolve / credential guards", () => {
-    it("skips Google when credentials are missing", async () => {
-      const googleProvider: ArtworkProvider = {
-        name: "google",
-        needsCredentials: true,
-        find: vi.fn(),
-      };
-      const discogs = spyProvider("discogs", makeResult({ source: "discogs" }));
-      service.setProviders([googleProvider, discogs]);
-
-      const result = await service.resolve(defaultContext);
-
-      expect(result!.source).toBe("discogs");
-      expect(googleProvider.find).not.toHaveBeenCalled();
-    });
-
     it("skips TheAudioDB when credentials are missing", async () => {
       const tadb: ArtworkProvider = {
         name: "theaudiodb",
         needsCredentials: true,
         find: vi.fn(),
       };
-      const google: ArtworkProvider = {
-        name: "google",
-        needsCredentials: true,
-        find: vi.fn(),
-      };
       const discogs = spyProvider("discogs", makeResult({ source: "discogs" }));
-      service.setProviders([tadb, google, discogs]);
+      service.setProviders([tadb, discogs]);
 
       const result = await service.resolve(defaultContext);
 
       expect(result!.source).toBe("discogs");
       expect(tadb.find).not.toHaveBeenCalled();
-      expect(google.find).not.toHaveBeenCalled();
-    });
-
-    it("runs Google when credentials are present", async () => {
-      const googleProvider: ArtworkProvider = {
-        name: "google",
-        needsCredentials: true,
-        find: vi.fn().mockResolvedValue(makeResult({ source: "google" })),
-      };
-      service.setProviders([googleProvider]);
-      service.setCredentials({ googleApiKey: "key", googleSearchEngineId: "cx" });
-
-      const result = await service.resolve(defaultContext);
-
-      expect(result!.source).toBe("google");
-      expect(googleProvider.find).toHaveBeenCalledOnce();
     });
   });
 
@@ -440,7 +422,7 @@ describe("ArtworkResolverService", () => {
         };
 
         // Default providers: local (no fs mock → null), CAA (no mbid → skip),
-        // discogs (our mock), TADB (no creds → skip), google (no creds → skip)
+        // discogs (our mock), TADB (no creds → skip)
         const result = await service.resolve(ctx);
         expect(result).toBeNull();
       });
@@ -854,10 +836,7 @@ describe("ArtworkResolverService", () => {
         expect(result!.source).toBe("discogs");
       });
 
-      it("restores original fetch after test", async () => {
-        // Verify fetch is restored by running a simple check
-        expect(global.fetch).not.toBe(originalFetch);
-      });
+
     });
 
     describe("Headers and credentials", () => {
@@ -944,7 +923,7 @@ describe("ArtworkResolverService", () => {
     describe("Fallthrough to next provider", () => {
       it("returns null when all Discogs candidates are unrelated — fallback providers can run", async () => {
         // Discogs returns only unrelated results — should return null
-        // so the next provider (TADB, Google) gets a chance
+        // so the next provider (TADB) gets a chance
         const searchResponse = mockDiscogsResponse([
           { title: "Various - 冰菊盛放在秋季", cover_image: "https://img.discogs.com/1.jpg", id: 1 },
           { title: "ちゅううううううう!!!!!! - Unicode", cover_image: "https://img.discogs.com/2.jpg", id: 2 },

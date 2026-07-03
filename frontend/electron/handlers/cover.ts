@@ -153,8 +153,6 @@ function getArtworkResolver(): ArtworkResolverService {
   try {
     const cfg = loadConfig();
     resolver.setCredentials({
-      googleApiKey: (cfg as any).googleImageApiKey ?? null,
-      googleSearchEngineId: (cfg as any).googleImageSearchEngineId ?? null,
       theAudioDbApiKey: (cfg as any).theAudioDbApiKey ?? null,
       discogsToken: (cfg as any).discogsToken ?? null,
     });

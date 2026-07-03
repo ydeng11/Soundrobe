@@ -3,18 +3,12 @@ import React, { useState, useEffect } from "react";
 interface SettingsState {
   llmApiKey: string;
   llmModel: string;
-  remoteLookupEnabled: boolean;
-  discogsEnabled: boolean;
   discogsToken: string;
   debug: boolean;
   lyricsDownloadEnabled: boolean;
   lyricsApiUrl: string;
   assistantAutonomous: boolean;
-  googleImageApiKey: string;
-  googleImageSearchEngineId: string;
-  googleImageEnabled: boolean;
   theAudioDbApiKey: string;
-  theAudioDbEnabled: boolean;
 }
 
 interface SettingsModalProps {
@@ -26,18 +20,12 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
   const [settings, setSettings] = useState<SettingsState>({
     llmApiKey: "",
     llmModel: "",
-    remoteLookupEnabled: true,
-    discogsEnabled: true,
     discogsToken: "",
     debug: false,
     lyricsDownloadEnabled: false,
     lyricsApiUrl: "",
     assistantAutonomous: false,
-    googleImageApiKey: "",
-    googleImageSearchEngineId: "",
-    googleImageEnabled: true,
     theAudioDbApiKey: "",
-    theAudioDbEnabled: true,
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -54,18 +42,12 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
         setSettings({
           llmApiKey: "",
           llmModel: (cfg.llmModel as string) ?? "",
-          remoteLookupEnabled: (cfg.remoteLookupEnabled as boolean) ?? true,
-          discogsEnabled: (cfg.discogsEnabled as boolean) ?? true,
           lyricsDownloadEnabled: (cfg.lyricsDownloadEnabled as boolean) ?? false,
           lyricsApiUrl: (cfg.lyricsApiUrl as string) ?? "",
           discogsToken: "",
           debug: (cfg.debug as boolean) ?? false,
           assistantAutonomous: (cfg.assistantAutonomous as boolean) ?? false,
-          googleImageApiKey: "",
-          googleImageSearchEngineId: (cfg.googleImageSearchEngineId as string) ?? "",
-          googleImageEnabled: (cfg.googleImageEnabled as boolean) ?? true,
           theAudioDbApiKey: "",
-          theAudioDbEnabled: (cfg.theAudioDbEnabled as boolean) ?? true,
         });
       } catch (err) {
         setSaveError(
@@ -91,30 +73,12 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
           window.api.setConfig("discogsToken", settings.discogsToken),
         );
       }
-      if (settings.googleImageApiKey) {
-        promises.push(
-          window.api.setConfig("googleImageApiKey", settings.googleImageApiKey),
-        );
-      }
-      promises.push(
-        window.api.setConfig("googleImageSearchEngineId", settings.googleImageSearchEngineId || null),
-      );
-      promises.push(
-        window.api.setConfig("googleImageEnabled", settings.googleImageEnabled),
-      );
       if (settings.theAudioDbApiKey) {
         promises.push(
           window.api.setConfig("theAudioDbApiKey", settings.theAudioDbApiKey),
         );
       }
-      promises.push(
-        window.api.setConfig("theAudioDbEnabled", settings.theAudioDbEnabled),
-      );
       promises.push(window.api.setConfig("llmModel", settings.llmModel));
-      promises.push(
-        window.api.setConfig("remoteLookupEnabled", settings.remoteLookupEnabled),
-      );
-      promises.push(window.api.setConfig("discogsEnabled", settings.discogsEnabled));
       promises.push(window.api.setConfig("lyricsDownloadEnabled", settings.lyricsDownloadEnabled));
       promises.push(window.api.setConfig("lyricsApiUrl", settings.lyricsApiUrl || null));
       promises.push(window.api.setConfig("debug", settings.debug));
@@ -242,46 +206,16 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
               <hr className="border-border/40 my-2" />
               <h3 className="text-[11px] font-semibold text-text-primary tracking-wide uppercase">Artwork</h3>
 
-              <FieldRow label="Google Custom Search API Key" description="Google Custom Search JSON API key for image fallback">
-                <InputField
-                  type="password"
-                  value={settings.googleImageApiKey}
-                  onChange={(v) => setSettings({ ...settings, googleImageApiKey: v })}
-                  placeholder="AIzaSy… (leave blank to keep current)"
-                />
-              </FieldRow>
-
-              <FieldRow label="Google Search Engine ID" description="Custom Search Engine ID (cx) for image search">
-                <InputField
-                  value={settings.googleImageSearchEngineId}
-                  onChange={(v) => setSettings({ ...settings, googleImageSearchEngineId: v })}
-                  placeholder="0123456789…"
-                />
-              </FieldRow>
-
               <FieldRow label="TheAudioDB API Key" description="Optional: theaudiodb.com API key for album art">
                 <InputField
                   type="password"
                   value={settings.theAudioDbApiKey}
                   onChange={(v) => setSettings({ ...settings, theAudioDbApiKey: v })}
-                  placeholder="(leave blank to disable)"
+                  placeholder="(leave blank to keep current)"
                 />
               </FieldRow>
 
-              <div className="pt-1 space-y-3">
-                <ToggleRow
-                  label="Google Image Search"
-                  description="Allow Google Custom Search as fallback for artwork"
-                  checked={settings.googleImageEnabled}
-                  onChange={(v) => setSettings({ ...settings, googleImageEnabled: v })}
-                />
-                <ToggleRow
-                  label="TheAudioDB"
-                  description="Use TheAudioDB as an album art source"
-                  checked={settings.theAudioDbEnabled}
-                  onChange={(v) => setSettings({ ...settings, theAudioDbEnabled: v })}
-                />
-              </div>
+
 
               <hr className="border-border/40 my-2" />
               <h3 className="text-[11px] font-semibold text-text-primary tracking-wide uppercase">Lyrics</h3>
@@ -301,18 +235,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
                   checked={settings.lyricsDownloadEnabled}
                   onChange={(v) => setSettings({ ...settings, lyricsDownloadEnabled: v })}
                 />
-                <ToggleRow
-                  label="Remote Lookup"
-                  description="Search MusicBrainz &amp; Discogs when dataset misses"
-                  checked={settings.remoteLookupEnabled}
-                  onChange={(v) => setSettings({ ...settings, remoteLookupEnabled: v })}
-                />
-                <ToggleRow
-                  label="Discogs"
-                  description="Enable Discogs as a lookup source"
-                  checked={settings.discogsEnabled}
-                  onChange={(v) => setSettings({ ...settings, discogsEnabled: v })}
-                />
+
                 <ToggleRow
                   label="Auto-apply Assistant Actions"
                   description="When enabled, the assistant applies low-risk tag changes without manual approval. Medium/high risk actions still require confirmation."
