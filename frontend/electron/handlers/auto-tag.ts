@@ -22,13 +22,14 @@ import { DatasetReader } from "./dataset";
 import { MusicBrainzClient } from "./musicbrainz";
 import { DiscogsClient } from "./discogs";
 import { OpenRouterClient } from "./openrouter";
-import { parseAlbumWithTags, candidateFromFolder, isCompilationFolder } from "./fallback";
+import { parseAlbumWithTags, candidateFromFolder, isCompilationFolder, cleanAlbumFolderName } from "./fallback";
 import { buildGenreFillMessages, buildTagCorrectionMessages } from "./prompts";
 import { getAllNameVariants } from "./aliases";
 import { writeTags, type WriteFields } from "./writer";
 import {
   matchRemoteCandidateTracks,
   replacementTitleForPollutedTitle,
+  isPlaceholderTitle,
 } from "../services/RemoteTrackMatcher";
 import { readLocalLyrics, LyricsClient } from "./lyrics";
 import { readTrackMetadata } from "./tracks";
@@ -256,10 +257,15 @@ function fillTrackGapsByPosition(
     const targetTrack = target[i];
     const sourceTrack = source[i];
     if (API_TITLE_CLEANUP_SOURCES.has(sourceName) && targetTrack.title && sourceTrack.title) {
-      targetTrack.title = replacementTitleForPollutedTitle(
+      const titleReplacement = replacementTitleForPollutedTitle(
         targetTrack.title,
         sourceTrack.title,
-      ) ?? targetTrack.title;
+      );
+      if (titleReplacement) {
+        targetTrack.title = titleReplacement;
+      } else if (isPlaceholderTitle(targetTrack.title)) {
+        targetTrack.title = sourceTrack.title;
+      }
     }
     if (trackArtistCanBeEnriched(targetTrack, sourceTrack)) {
       // Preserve local primary artist script when enriching
@@ -584,10 +590,6 @@ export function loadConfig(): AutoTagConfig {
     },
     lyrics_api_url: (v) => { config.lyricsApiUrl = v; },
     theaudiodb_api_key: (v) => { config.theAudioDbApiKey = v; },
-    theaudiodb_enabled: (v) => {
-      const b = parseBoolOrNull(v);
-
-    },
     chinese_script: (v) => { config.chineseScript = v; },
   };
 
@@ -630,7 +632,6 @@ export function loadConfig(): AutoTagConfig {
   if (process.env.AUTO_TAG_LYRICS_API_URL) config.lyricsApiUrl = process.env.AUTO_TAG_LYRICS_API_URL;
   if (process.env.AUTO_TAG_CHINESE_SCRIPT) config.chineseScript = process.env.AUTO_TAG_CHINESE_SCRIPT;
   if (process.env.THEAUDIODB_API_KEY) config.theAudioDbApiKey = process.env.THEAUDIODB_API_KEY;
-
 
   // Sync debug logger with config
   debug.setEnabled(!!config.debug);
@@ -964,20 +965,19 @@ class TaskManager {
           return this.failCancelled(taskId);
         }
 
-        // If provider identity is unavailable or direct/artist scoped lookups
-        // have produced no candidates, ask the LLM for better hints and a safe
-        // fallback candidate. The LLM does not replace provider evidence.
-        if (!this.hasProviderIdentity(lookupRequest) || allCandidates.length === 0) {
-          debug.info("auto-tag", "Resolving fallback hints via LLM...");
-          const { correctedRequest, fallbackCandidate } = await this.resolveTagsViaLLM(lookupRequest, signal);
-          llmFallback = fallbackCandidate;
-          if (
-            correctedRequest.artistHint !== lookupRequest.artistHint ||
-            correctedRequest.albumHint !== lookupRequest.albumHint
-          ) {
-            debug.info("auto-tag", `LLM corrected: artist="${correctedRequest.artistHint}" album="${correctedRequest.albumHint}"`);
-            lookupRequest = await this.resolveProviderArtistIds(correctedRequest);
-          }
+        // Ask the LLM for better hints and a safe fallback candidate.
+        // The LLM does not replace provider evidence but provides genre
+        // and can correct ambiguous folder-name hints even when provider
+        // IDs exist (which often lack genre from Discogs/MusicBrainz).
+        debug.info("auto-tag", "Resolving fallback hints via LLM...");
+        const { correctedRequest, fallbackCandidate } = await this.resolveTagsViaLLM(lookupRequest, signal);
+        llmFallback = fallbackCandidate;
+        if (
+          correctedRequest.artistHint !== lookupRequest.artistHint ||
+          correctedRequest.albumHint !== lookupRequest.albumHint
+        ) {
+          debug.info("auto-tag", `LLM corrected: artist="${correctedRequest.artistHint}" album="${correctedRequest.albumHint}"`);
+          lookupRequest = await this.resolveProviderArtistIds(correctedRequest);
         }
 
         const lookupVariants = await buildAliasedLookupVariants(
@@ -1245,7 +1245,9 @@ class TaskManager {
         schema,
       );
 
-      const data = response.data as Record<string, unknown>;
+      const data = Object.fromEntries(
+        Object.entries(response.data as Record<string, unknown>).map(([k, v]) => [k, normalizeLlmNulls(v)]),
+      );
       debug.info(
         "auto-tag",
         `LLM resolved: artist="${data.artist ?? ""}" album="${data.album ?? ""}" ` +
@@ -1254,10 +1256,15 @@ class TaskManager {
       );
 
       // Build corrected request with cleaned hints for API search
+      const correctedArtist = (data.artist as string) || request.artistHint;
+      const llmAlbum = ((data.album as string) || request.albumHint) ?? "";
+      const cleanedAlbum = correctedArtist
+        ? cleanAlbumFolderName(llmAlbum, correctedArtist) || llmAlbum
+        : llmAlbum;
       const correctedRequest = {
         ...request,
-        artistHint: (data.artist as string) || request.artistHint,
-        albumHint: (data.album as string) || request.albumHint,
+        artistHint: correctedArtist,
+        albumHint: cleanedAlbum,
         yearHint: (data.year as string) || request.yearHint,
       };
 
@@ -1265,15 +1272,17 @@ class TaskManager {
       // Normalize LLM track indices: some models return 1-based indices
       // instead of 0-based, which causes title-to-file mapping drift.
       const rawTracks = Array.isArray(data.tracks)
-        ? (data.tracks as Array<Record<string, unknown>>)
+        ? (data.tracks as Array<Record<string, unknown>>).map((t) =>
+            Object.fromEntries(Object.entries(t).map(([k, v]) => [k, normalizeLlmNulls(v)])),
+          )
         : [];
       const llmTracks = normalizeLlmTrackIndices(rawTracks, request.tracks.length);
       const fallbackCandidate: AlbumCandidate = {
-        artist: (data.artist as string) || request.artistHint,
-        artists: splitArtistNames([(data.artist as string) || request.artistHint]),
-        album: (data.album as string) || request.albumHint,
-        albumArtist: (data.albumArtist as string) || (data.artist as string) || request.artistHint,
-        albumArtists: splitArtistNames([(data.albumArtist as string) || (data.artist as string) || request.artistHint]),
+        artist: correctedArtist,
+        artists: splitArtistNames([correctedArtist]),
+        album: cleanedAlbum,
+        albumArtist: (data.albumArtist as string) || correctedArtist,
+        albumArtists: splitArtistNames([(data.albumArtist as string) || correctedArtist]),
         year: (data.year as string) || request.yearHint || null,
         genre: (data.genre as string) || null,
         musicbrainzAlbumId: request.musicbrainzAlbumId,
@@ -2080,7 +2089,6 @@ export function getConfig(): Record<string, unknown> {
     lyricsDownloadEnabled: cfg.lyricsDownloadEnabled ?? false,
     lyricsApiUrl: cfg.lyricsApiUrl ?? null,
     theAudioDbApiKey: cfg.theAudioDbApiKey ? "****" + cfg.theAudioDbApiKey.slice(-4) : null,
-
     chineseScript: cfg.chineseScript ?? null,
   };
 }
@@ -2102,7 +2110,6 @@ const CONFIG_KEY_MAP: Record<string, string> = {
   lyricsDownloadEnabled: "lyrics_download_enabled",
   lyricsApiUrl: "lyrics_api_url",
   theAudioDbApiKey: "theaudiodb_api_key",
-
   chineseScript: "chinese_script",
 };
 
@@ -2196,6 +2203,17 @@ function formatYamlValue(value: unknown): string {
  *     and use positional order, ignoring the absolute index values.
  *  3. Return a positional array (index = position).
  */
+/**
+ * Normalize string values that LLMs emit for null (e.g. "null", "None", "undefined").
+ * Returns actual null so downstream `value || fallback` logic works correctly.
+ */
+function normalizeLlmNulls(value: unknown): unknown {
+  if (typeof value === "string" && /^(?:null|none|undefined|n\/a|unknown)$/i.test(value.trim())) {
+    return null;
+  }
+  return value;
+}
+
 function normalizeLlmTrackIndices(
   tracks: Array<Record<string, unknown>>,
   expectedCount: number,

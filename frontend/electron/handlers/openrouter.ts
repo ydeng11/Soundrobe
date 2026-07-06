@@ -135,6 +135,19 @@ export class OpenRouterClient {
         if (options.allowMessageFallback) {
           break;
         }
+        // Model may have prefixed JSON with reasoning text. Try to extract
+        // the first JSON object from the response before giving up.
+        const jsonStart = trimmed.indexOf("{");
+        const jsonEnd = trimmed.lastIndexOf("}");
+        if (jsonStart >= 0 && jsonEnd > jsonStart) {
+          const extracted = trimmed.slice(jsonStart, jsonEnd + 1);
+          try {
+            const data = JSON.parse(extracted) as Record<string, unknown>;
+            return this.buildResponse(responsePayload, data, model);
+          } catch {
+            // Extracted JSON is still malformed — fall through to error
+          }
+        }
         throw new Error(`LLM returned non-JSON content: ${trimmed.slice(0, 120)}`);
       }
 

@@ -64,6 +64,10 @@ describe("cleanAlbumFolderName", () => {
     expect(cleanAlbumFolderName("Abbey Road")).toBe("Abbey Road");
   });
 
+  it("strips CJK artist + English artist prefix from folder name", () => {
+    expect(cleanAlbumFolderName("林子祥 - George Lam Ultimate Sound Vol. II", "林子祥")).toBe("Ultimate Sound Vol. II");
+  });
+
   it("uses the parent artist to strip repeated artist/category prefixes", () => {
     expect(cleanAlbumFolderName("流行与摇滚  黄绮珊  小霞2.0", "黄绮珊")).toBe("小霞2.0");
     expect(cleanAlbumFolderName("黄绮珊.2019 - 出走【FLAC】", "黄绮珊")).toBe("出走");
@@ -140,6 +144,18 @@ describe("parseAlbumPath", () => {
     expect(r.artistHint).toBe("黄绮珊");
     expect(r.albumHint).toBe("小霞2.0");
     expect(r.yearHint).toBeNull();
+  });
+
+  it("strips CJK artist + English artist prefix from folder", () => {
+    const r = parseAlbumPath("/music/林子祥/林子祥 - George Lam Ultimate Sound Vol. II");
+    expect(r.artistHint).toBe("林子祥");
+    expect(r.albumHint).toBe("Ultimate Sound Vol. II");
+  });
+
+  it("strips space-dash-space separator between artist and album", () => {
+    const r = parseAlbumPath("/music/Beatles/Beatles - Abbey Road");
+    expect(r.artistHint).toBe("Beatles");
+    expect(r.albumHint).toBe("Abbey Road");
   });
 
   it("parses Chinese bookmark album folders with trailing year", () => {

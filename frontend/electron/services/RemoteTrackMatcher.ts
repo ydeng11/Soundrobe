@@ -55,6 +55,9 @@ const ANNOTATION_PATTERNS = [
 
 const TITLE_POLLUTION_EXTRA_MIN_CHARS = 3;
 const TITLE_POLLUTION_EXTRA_MIN_RATIO = 0.25;
+
+// Pattern for generic placeholder titles like "Track 01", "Track 1", "Track 08"
+const PLACEHOLDER_TITLE_RE = /^\s*track\s*\d{1,3}\s*$/i;
 const MEANINGFUL_VERSION_QUALIFIERS = new Set([
   "live",
   "remix",
@@ -156,6 +159,11 @@ function stripPunctuationAndSymbols(title: string): string {
   return title
     .normalize("NFKC")
     .toLowerCase()
+    // Normalize gender-specific CJK variants that differ between
+    // simplified/traditional but are semantically equivalent for matching.
+    // "妳" (U+59B3, female you) → "你" (generic you) — MusicBrainz
+    // sometimes uses the gendered form while local files use the generic form.
+    .replace(/\u59B3/g, "你")
     .replace(UNICODE_PUNCT_SYMBOL_RE, " ")
     .replace(WHITESPACE_RE, " ")
     .trim();
@@ -434,6 +442,15 @@ export function replacementTitleForPollutedTitle(
   }
 
   return null;
+}
+
+/**
+ * Check if a title is a generic placeholder like "Track 01", "Track 1", etc.
+ * These should be replaced with the actual title from the remote source.
+ */
+export function isPlaceholderTitle(title: string | null | undefined): boolean {
+  if (!title) return false;
+  return PLACEHOLDER_TITLE_RE.test(title);
 }
 
 function titleReplacementCurrentCandidates(
@@ -814,7 +831,9 @@ export async function matchRemoteCandidateTracks(
     const result: TrackCandidate = { ...localTrack };
 
     // ── Title ─────────────────────────────────────────────────
-    const titleReplacement = API_TITLE_CLEANUP_SOURCES.has(source)
+    const canUseRemoteTitle = API_TITLE_CLEANUP_SOURCES.has(source);
+    const localIsPlaceholder = isPlaceholderTitle(localTrack.title);
+    const titleReplacement = canUseRemoteTitle
       ? replacementTitleForPollutedTitle(
         localTrack.title,
         remoteTrack.title,
@@ -822,11 +841,10 @@ export async function matchRemoteCandidateTracks(
       )
       : null;
 
-    if (
-      API_TITLE_CLEANUP_SOURCES.has(source) &&
-      titleReplacement
-    ) {
+    if (canUseRemoteTitle && titleReplacement) {
       result.title = titleReplacement;
+    } else if (canUseRemoteTitle && localIsPlaceholder && remoteTrack.title) {
+      result.title = remoteTrack.title;
     } else if (anyTagFormMatched) {
       // Local tag title matched — preserve original local title
       result.title = localTrack.title;
@@ -847,28 +865,42 @@ export async function matchRemoteCandidateTracks(
     }
 
     // ── Remote artist/artists ─────────────────────────────────
-    // Prefer remote (MusicBrainz) artist credits when they are richer
-    // than the local (e.g. "林俊傑 feat. MC HotDog" vs "林俊傑").
-    // Transfer when:
-    //   1. Local artist is blank, OR
-    //   2. Remote artists contain the local primary artist AND add more
-    //      (e.g. featured artist), using normalized comparison.
-    // This preserves user-customized artists that differ from the remote.
+    // Prefer remote (MusicBrainz) artist credits when they add value
+    // over the local (blank, featured credits, or corrupted placeholder
+    // like "[momishi.com]" that doesn't match any known album hint).
+    // This preserves user-customized artists that differ from the
+    // album artist.
     const localArtistBlank = !localTrack.artist || localTrack.artist.trim() === "";
     const localArtist = localTrack.artist;
     let remoteEnrichesLocal = false;
+    let localArtistIsUnusual = false;
 
-    if (!localArtistBlank && localArtist && remoteTrack.artist && remoteTrack.artist !== localArtist) {
+    const remoteArtist = remoteTrack.artist;
+    if (!localArtistBlank && localArtist && remoteArtist && remoteArtist !== localArtist) {
       const remotePrimaryMatch = remoteTrack.artists.length > 0
-        ? remoteTrack.artists.some((a) => artistsMatch(a, localArtist))
-        : normArtist(remoteTrack.artist).startsWith(normArtist(localArtist));
+        ? remoteTrack.artists.some((a) => artistsMatch(a, localArtist!))
+        : normArtist(remoteArtist).startsWith(normArtist(localArtist!));
       remoteEnrichesLocal = remotePrimaryMatch && remoteTrack.artists.length > localTrack.artists.length;
+
+      // If local artist looks like a bracket-wrapped domain placeholder
+      // (e.g. "[momishi.com]") and the remote matches a known hint,
+      // the local value is a bootleg artifact — replace it.
+      if (options.artistHints?.length) {
+        const localLooksCorrupted = /^\[[a-zA-Z0-9][-a-zA-Z0-9.]*\.[a-zA-Z]{2,}\]$/.test(localArtist);
+        // Check both the full artist string AND individual artists (e.g. "品冠" matches
+        // "品冠 vs 光良" when checking remoteTrack.artists).
+        const remoteMatchesHint = options.artistHints.some((h) =>
+          artistsMatch(h, remoteArtist!) ||
+          remoteTrack.artists.some((ra) => artistsMatch(h, ra)),
+        );
+        localArtistIsUnusual = localLooksCorrupted && remoteMatchesHint;
+      }
     }
 
-    if ((localArtistBlank || remoteEnrichesLocal) && remoteTrack.artist) {
-      if (localArtistBlank) {
-        // No local artist — use remote as-is
-        result.artist = remoteTrack.artist;
+    if ((localArtistBlank || remoteEnrichesLocal || localArtistIsUnusual) && remoteArtist) {
+      if (localArtistBlank || localArtistIsUnusual) {
+        // No local artist or corrupted placeholder — use remote as-is
+        result.artist = remoteArtist;
         result.artists = remoteTrack.artists.length > 0 ? [...remoteTrack.artists] : result.artists;
       } else if (remoteEnrichesLocal && localArtist) {
         // Remote enriches local — preserve local primary script, add remote extras
@@ -881,9 +913,9 @@ export async function matchRemoteCandidateTracks(
         // Build display artist: replace equivalent remote primary with local primary
         if (equivalentRemoteIdx >= 0) {
           const remotePrimaryName = remoteTrack.artists[equivalentRemoteIdx];
-          result.artist = remoteTrack.artist.replace(remotePrimaryName, localArtist);
+          result.artist = remoteArtist.replace(remotePrimaryName, localArtist);
           // Fallback: if replacement didn't work, join artists
-          if (result.artist === remoteTrack.artist) {
+          if (result.artist === remoteArtist) {
             result.artist = result.artists.join(" feat. ");
           }
         } else {

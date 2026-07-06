@@ -10,6 +10,7 @@ import {
   durationsMatch,
   shouldReplacePollutedTitleWithApiTitle,
   replacementTitleForPollutedTitle,
+  isPlaceholderTitle,
   matchRemoteCandidateTracks,
 } from "../../electron/services/RemoteTrackMatcher";
 import { makeTrackCandidate } from "../../electron/handlers/candidates";
@@ -239,6 +240,24 @@ describe("replacementTitleForPollutedTitle", () => {
 
   it("uses the API title when the match requires a Simplified/Traditional variant", () => {
     expect(replacementTitleForPollutedTitle("让爱重生(亚特兰提斯)(24bit-48Hz)", "讓愛重生", ["让爱重生"])).toBe("讓愛重生");
+  });
+});
+
+describe("isPlaceholderTitle", () => {
+  it("detects generic placeholder titles", () => {
+    expect(isPlaceholderTitle("Track 01")).toBe(true);
+    expect(isPlaceholderTitle("Track 1")).toBe(true);
+    expect(isPlaceholderTitle("Track 08")).toBe(true);
+    expect(isPlaceholderTitle("track 5")).toBe(true);
+    expect(isPlaceholderTitle("Track 123")).toBe(true);
+  });
+
+  it("rejects non-placeholder titles", () => {
+    expect(isPlaceholderTitle("Song Title")).toBe(false);
+    expect(isPlaceholderTitle("Track A")).toBe(false);
+    expect(isPlaceholderTitle("My Track")).toBe(false);
+    expect(isPlaceholderTitle(null)).toBe(false);
+    expect(isPlaceholderTitle(undefined)).toBe(false);
   });
 });
 
@@ -738,6 +757,32 @@ describe("matchRemoteCandidateTracks — SC/TC matching", () => {
     expect(result.stats.matched).toBe(1);
     expect(result.tracks[0].title).toBe("唱一遍一遍");
   });
+
+  it("matches gendered 妳 to generic 你 (U+59B3)", async () => {
+    // Real-world: MusicBrainz uses 妳 (female-you) while local files use 你 (generic-you)
+    // e.g. 品冠「疼妳的責任」on MusicBrainz vs local "疼你的责任"
+    const localTracks = [
+      makeTrackCandidate({ title: "疼你的责任", trackNumber: 1 }),
+      makeTrackCandidate({ title: "陪你一起老", trackNumber: 2 }),
+    ];
+    const remoteTracks = [
+      makeTrackCandidate({ title: "疼妳的責任", trackNumber: 1, length: 264093 }),
+      makeTrackCandidate({ title: "陪妳一起老", trackNumber: 2, length: 333000 }),
+    ];
+
+    const result = await matchRemoteCandidateTracks(
+      localTracks,
+      [],
+      remoteTracks,
+      "musicbrainz",
+      { artistHints: ["品冠"] },
+    );
+
+    expect(result.stats.matched).toBe(2);
+    expect(result.isFullOrderedMatch).toBe(true);
+    expect(result.tracks[0].title).toBe("疼你的责任");
+    expect(result.tracks[1].title).toBe("陪你一起老");
+  });
 });
 
 // ── Source-specific duration handling ─────────────────────────
@@ -978,5 +1023,35 @@ describe("matchRemoteCandidateTracks — positional fallback", () => {
     expect(result.tracks[1].musicbrainzTrackId).toBeDefined();
     expect(result.tracks[2].musicbrainzTrackId).toBeDefined();
     expect(result.tracks[3].musicbrainzTrackId).toBeDefined();
+  });
+
+  it("replaces placeholder titles like 'Track 01' with remote titles", async () => {
+    // Real-world scenario: files have generic placeholder titles
+    const localTracks = [
+      makeTrackCandidate({ title: "Track 01", trackNumber: 1 }),
+      makeTrackCandidate({ title: "Track 02", trackNumber: 2 }),
+      makeTrackCandidate({ title: "Track 03", trackNumber: 3 }),
+    ];
+    const remoteTracks = [
+      makeTrackCandidate({ title: "分分鐘需要你", trackNumber: 1 }),
+      makeTrackCandidate({ title: "似夢迷離", trackNumber: 2 }),
+      makeTrackCandidate({ title: "每一個日落", trackNumber: 3 }),
+    ];
+
+    const result = await matchRemoteCandidateTracks(
+      localTracks,
+      [],
+      remoteTracks,
+      "discogs",
+    );
+
+    // Positional fallback should match all tracks
+    expect(result.stats.matched).toBe(3);
+    expect(result.isFullOrderedMatch).toBe(true);
+
+    // Placeholder titles should be replaced with remote titles
+    expect(result.tracks[0].title).toBe("分分鐘需要你");
+    expect(result.tracks[1].title).toBe("似夢迷離");
+    expect(result.tracks[2].title).toBe("每一個日落");
   });
 });

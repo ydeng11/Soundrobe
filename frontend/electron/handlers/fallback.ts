@@ -171,7 +171,7 @@ function stripRepeatedArtistFromAlbumFolder(
       (prefix !== artist && /^\s+/.test(afterPrefix))
     ) {
       const cleaned = cleanAlbumRemainder(afterPrefix);
-      if (cleaned) return cleaned;
+      if (cleaned) return stripEnglishArtistFromRemainder(cleaned, artist) ?? cleaned;
     }
   }
 
@@ -185,7 +185,7 @@ function stripRepeatedArtistFromAlbumFolder(
     looksLikeArtistAlbumSeparator(afterArtist, false)
   ) {
     const cleaned = cleanAlbumRemainder(afterArtist);
-    if (cleaned) return cleaned;
+    if (cleaned) return stripEnglishArtistFromRemainder(cleaned, artist) ?? cleaned;
   }
 
   return null;
@@ -221,8 +221,28 @@ function looksLikeArtistAlbumSeparator(
   allowYearAfterSingleSpace: boolean,
 ): boolean {
   if (/^\s{2,}/.test(text)) return true;
+  if (/^\s*[-—–]\s+/.test(text)) return true;
   if (/^[._:：\-—–]+/.test(text)) return true;
   return allowYearAfterSingleSpace && /^\s+(?:19|20)\d{2}\b/.test(text);
+}
+
+/**
+ * When the artist is pure CJK (no Latin) and the album remainder starts
+ * with an English name that is the artist's English name, strip it.
+ * e.g. "George Lam Ultimate Sound Vol. II" → "Ultimate Sound Vol. II"
+ * when artist is "林子祥" (George Lam's Chinese name).
+ */
+function stripEnglishArtistFromRemainder(
+  cleaned: string,
+  artist: string,
+): string | null {
+  if (artist.match(/[\u4e00-\u9fff]/) && !artist.match(/[a-zA-Z]/)) {
+    const latinLead = cleaned.match(
+      /^([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+)?)\s+(.+)/,
+    );
+    if (latinLead) return latinLead[2];
+  }
+  return null;
 }
 
 // ── Path parsing ────────────────────────────────────────────────────

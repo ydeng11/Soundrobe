@@ -195,6 +195,9 @@ export function buildTagCorrectionMessages(
       content:
         "Resolve correct music metadata by analyzing the folder name, " +
         "parent folder name, basic parser hints, and existing file tags.\n\n" +
+        "CRITICAL: Your entire response must be ONLY a single JSON object. " +
+        "Do NOT include any explanatory text, reasoning, analysis, " +
+        "markdown formatting, or code fences before or after the JSON.\n\n" +
         "Rules:\n" +
         "1. Return JSON with artist, albumArtist, album, year, genre, tracks, and confidence.\n" +
         "2. The folder_name is the album directory (may include year prefix like '2009-', " +
