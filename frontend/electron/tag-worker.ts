@@ -11,13 +11,19 @@
  * Message protocol:
  *   - parent → worker: { type: "write", jobId: string, action: "writeTags" | "writeExtraTags", filePath: string, fields?: WriteFields, extraTags?: ExtraTagUpdate[] }
  *   - parent → worker: { type: "shutdown" }
- *   - worker → parent: { type: "result", jobId: string, success: boolean, error?: string }
+ *   - worker → parent: { type: "result", jobId: string, success: boolean, outcome?: WriteOutcome, reason?: WriteReason, error?: string }
  *   - worker → parent: { type: "ready" }
  */
 
 import { parentPort, isMainThread } from "node:worker_threads";
-import { writeTags, writeExtraTags } from "./handlers/writer";
-import type { WriteFields, ExtraTagUpdate } from "./handlers/writer";
+import { writeTagsWithResult, writeExtraTagsWithResult } from "./handlers/writer";
+import type {
+  WriteFields,
+  ExtraTagUpdate,
+  WriteOutcome,
+  WriteReason,
+  WriteResult,
+} from "./handlers/writer";
 
 if (isMainThread) {
   throw new Error("tag-worker should only run as a worker thread");
@@ -46,6 +52,8 @@ interface TagResultMessage {
   filePath: string;
   success: boolean;
   error?: string;
+  outcome?: WriteOutcome;
+  reason?: WriteReason;
 }
 
 // ── Message handler ────────────────────────────────────────────────
@@ -66,16 +74,22 @@ parentPort.on("message", async (msg: WorkerMessage) => {
 
   if (msg.type === "write") {
     try {
+      let result: WriteResult = {
+        outcome: "skipped",
+        reason: "unchanged",
+      };
       if (msg.action === "writeExtraTags") {
-        await writeExtraTags(msg.filePath, msg.extraTags ?? []);
+        result = await writeExtraTagsWithResult(msg.filePath, msg.extraTags ?? []);
       } else if (msg.action === "writeTags" && msg.fields) {
-        await writeTags(msg.filePath, msg.fields);
+        result = await writeTagsWithResult(msg.filePath, msg.fields);
       }
       parentPort.postMessage({
         type: "result",
         jobId: msg.jobId,
         filePath: msg.filePath,
         success: true,
+        outcome: result.outcome,
+        reason: result.reason,
       } satisfies TagResultMessage);
     } catch (err) {
       parentPort.postMessage({

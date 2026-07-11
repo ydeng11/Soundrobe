@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { DiscogsClient } from "../../electron/handlers/discogs";
-import type { AlbumCandidate } from "../../electron/handlers/candidates";
+import { makeTrackCandidate, type AlbumCandidate } from "../../electron/handlers/candidates";
 import type { ReleaseMeta } from "../../electron/handlers/cache";
 
 const BASE = "https://api.discogs.com";
@@ -50,6 +50,29 @@ describe("DiscogsClient — direct ID lookup", () => {
     expect(candidate!.source).toBe("discogs");
     expect(candidate!.discogsReleaseId).toBe("6951078");
     expect(candidate!.tracks).toHaveLength(2);
+  });
+
+  it("does not treat Discogs extra artist credits as track performers", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(JSON.stringify({
+        id: 28809994,
+        title: "情义新歌+精选光耀全纪录",
+        artists: [{ name: "任賢齊" }],
+        tracklist: [{
+          position: "8",
+          title: "你是我老婆",
+          extraartists: [
+            { name: "涂惠源", role: "Composed By" },
+            { name: "小虫", role: "Written-By" },
+          ],
+        }],
+      }), { status: 200 }),
+    );
+
+    const candidate = await client.lookupReleaseById("28809994");
+
+    expect(candidate?.tracks[0].artist).toBe("任賢齊");
+    expect(candidate?.tracks[0].artists).toEqual(["任賢齊"]);
   });
 
   it("lookupReleaseById returns null on HTTP error", async () => {
@@ -165,6 +188,170 @@ describe("DiscogsClient — direct ID lookup", () => {
     expect(candidate).not.toBeNull();
     expect(fetchSpy).toHaveBeenCalledTimes(1);
     expect(String(fetchSpy.mock.calls[0][0])).toBe(`${BASE}/releases/6951078`);
+    expect(releaseCache.getReleaseDetail).toHaveBeenCalledWith("discogs-v2", "6951078");
+    expect(releaseCache.setReleaseDetail).toHaveBeenCalledWith(
+      "discogs-v2",
+      "6951078",
+      expect.objectContaining({ discogsReleaseId: "6951078" }),
+    );
+  });
+
+  it("uses track-title coverage to choose among shortlisted Discogs artist releases", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    fetchSpy.mockImplementation(async (url) => {
+      const textUrl = String(url);
+      if (textUrl.includes("/artists/1902728/releases")) {
+        return new Response(JSON.stringify({
+          releases: [
+            { id: 1001, title: "那些女孩教我的事 [FLAC]", artist: "品冠", year: 2008 },
+            { id: 1002, title: "那些女孩教我的事", artist: "品冠", year: 2008 },
+          ],
+        }), { status: 200 });
+      }
+      if (textUrl.includes("/releases/1001")) {
+        return new Response(JSON.stringify({
+          id: 1001,
+          title: "那些女孩教我的事 [FLAC]",
+          artists: [{ name: "品冠" }],
+          year: 2008,
+          tracklist: [
+            { position: "1", title: "Wrong A" },
+            { position: "2", title: "Wrong B" },
+          ],
+        }), { status: 200 });
+      }
+      if (textUrl.includes("/releases/1002")) {
+        return new Response(JSON.stringify({
+          id: 1002,
+          title: "那些女孩教我的事",
+          artists: [{ name: "品冠" }],
+          year: 2008,
+          tracklist: [
+            { position: "1", title: "小白很乖" },
+            { position: "2", title: "漂亮" },
+          ],
+        }), { status: 200 });
+      }
+      return new Response(null, { status: 404 });
+    });
+
+    const candidate = await client.lookupArtistReleaseByAlbum(
+      "1902728",
+      "那些女孩教我的事 [FLAC]",
+      {
+        localTracks: [
+          makeTrackCandidate({ title: "小白很乖", trackNumber: 1 }),
+          makeTrackCandidate({ title: "漂亮", trackNumber: 2 }),
+        ],
+      },
+    );
+
+    expect(candidate?.discogsReleaseId).toBe("1002");
+    const urls = fetchSpy.mock.calls.map((call) => String(call[0]));
+    expect(urls.some((url) => url.includes("/releases/1001"))).toBe(true);
+    expect(urls.some((url) => url.includes("/releases/1002"))).toBe(true);
+  });
+
+  it("uses alternate LLM-cleaned titles when scoring Discogs releases", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    fetchSpy.mockImplementation(async (url) => {
+      const textUrl = String(url);
+      if (textUrl.includes("/artists/1902728/releases")) {
+        return new Response(JSON.stringify({ releases: [
+          { id: 1001, title: "那些女孩教我的事 [FLAC]", artist: "品冠", year: 2008 },
+          { id: 1002, title: "那些女孩教我的事", artist: "品冠", year: 2008 },
+        ] }), { status: 200 });
+      }
+      const good = textUrl.includes("/releases/1002");
+      return new Response(JSON.stringify({
+        id: good ? 1002 : 1001,
+        title: good ? "那些女孩教我的事" : "那些女孩教我的事 [FLAC]",
+        artists: [{ name: "品冠" }],
+        year: 2008,
+        tracklist: [{ position: "1", title: good ? "小白很乖" : "Wrong" }],
+      }), { status: 200 });
+    });
+
+    const candidate = await client.lookupArtistReleaseByAlbum(
+      "1902728",
+      "那些女孩教我的事 [FLAC]",
+      {
+        localTracks: [makeTrackCandidate({ title: "Unknown 01", trackNumber: 1 })],
+        alternateTrackTitles: ["小白很乖"],
+      },
+    );
+
+    expect(candidate?.discogsReleaseId).toBe("1002");
+  });
+
+  it("deduplicates main release IDs before applying the shortlist cap", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    fetchSpy.mockImplementation(async (url) => {
+      const textUrl = String(url);
+      if (textUrl.includes("/artists/1902728/releases")) {
+        return new Response(JSON.stringify({ releases: [
+          { id: 2001, main_release: 1001, title: "那些女孩教我的事 [FLAC]", artist: "品冠", year: 2008 },
+          { id: 2002, main_release: 1001, title: "那些女孩教我的事 [FLAC]", artist: "品冠", year: 2008 },
+          { id: 2003, main_release: 1001, title: "那些女孩教我的事 [FLAC]", artist: "品冠", year: 2008 },
+          { id: 1002, title: "那些女孩教我的事", artist: "品冠", year: 2008 },
+        ] }), { status: 200 });
+      }
+      const good = textUrl.includes("/releases/1002");
+      return new Response(JSON.stringify({
+        id: good ? 1002 : 1001,
+        title: good ? "那些女孩教我的事" : "那些女孩教我的事 [FLAC]",
+        artists: [{ name: "品冠" }],
+        year: 2008,
+        tracklist: [{ position: "1", title: good ? "小白很乖" : "Wrong" }],
+      }), { status: 200 });
+    });
+
+    const candidate = await client.lookupArtistReleaseByAlbum(
+      "1902728",
+      "那些女孩教我的事 [FLAC]",
+      { localTracks: [makeTrackCandidate({ title: "小白很乖", trackNumber: 1 })] },
+    );
+
+    expect(candidate?.discogsReleaseId).toBe("1002");
+    const detailUrls = fetchSpy.mock.calls
+      .map((call) => String(call[0]))
+      .filter((url) => url.includes("/releases/"));
+    expect(detailUrls.filter((url) => url.includes("/releases/1001"))).toHaveLength(1);
+    expect(detailUrls.some((url) => url.includes("/releases/1002"))).toBe(true);
+  });
+
+  it("does not fetch weak album-name matches for Discogs artist-scoped shortlist", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    fetchSpy.mockImplementation(async (url) => {
+      const textUrl = String(url);
+      if (textUrl.includes("/artists/1902728/releases")) {
+        return new Response(JSON.stringify({
+          releases: [
+            { id: 1001, title: "Unrelated Album", artist: "品冠", year: 2008 },
+            { id: 1002, title: "那些女孩教我的事", artist: "品冠", year: 2008 },
+          ],
+        }), { status: 200 });
+      }
+      if (textUrl.includes("/releases/1002")) {
+        return new Response(JSON.stringify({
+          id: 1002,
+          title: "那些女孩教我的事",
+          artists: [{ name: "品冠" }],
+          year: 2008,
+          tracklist: [],
+        }), { status: 200 });
+      }
+      return new Response(null, { status: 404 });
+    });
+
+    const candidate = await client.lookupArtistReleaseByAlbum(
+      "1902728",
+      "那些女孩教我的事",
+    );
+
+    expect(candidate?.discogsReleaseId).toBe("1002");
+    const urls = fetchSpy.mock.calls.map((call) => String(call[0]));
+    expect(urls.some((url) => url.includes("/releases/1001"))).toBe(false);
   });
 
   it("coalesces concurrent artist release page and release detail requests", async () => {

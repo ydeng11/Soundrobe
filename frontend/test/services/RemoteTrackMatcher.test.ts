@@ -12,6 +12,7 @@ import {
   replacementTitleForPollutedTitle,
   isPlaceholderTitle,
   matchRemoteCandidateTracks,
+  scoreRemoteTrackTitleCoverage,
 } from "../../electron/services/RemoteTrackMatcher";
 import { makeTrackCandidate } from "../../electron/handlers/candidates";
 
@@ -128,6 +129,63 @@ describe("generateTitleForms", () => {
     // Should contain the full normalized form, NOT a stripped "song" form
     expect(tagForms).toContain("song remix");
     expect(tagForms).not.toContain("song");
+  });
+});
+
+describe("scoreRemoteTrackTitleCoverage", () => {
+  it("counts unique title containment matches without preparing write output", async () => {
+    const localTracks = [
+      makeTrackCandidate({ title: "小白很乖(那些女孩教我的事)(24bit-48Hz)", trackNumber: 6 }),
+      makeTrackCandidate({ title: "漂亮", trackNumber: 7 }),
+    ];
+    const remoteTracks = [
+      makeTrackCandidate({ title: "小白很乖", trackNumber: 6 }),
+      makeTrackCandidate({ title: "漂亮", trackNumber: 7 }),
+    ];
+
+    const score = await scoreRemoteTrackTitleCoverage(
+      localTracks,
+      [],
+      remoteTracks,
+      "musicbrainz",
+    );
+
+    expect(score.matched).toBe(2);
+    expect(score.durationMatched).toBe(0);
+    expect(score.coverage).toBe(1);
+  });
+
+  it("does not count ambiguous title containment toward release coverage", async () => {
+    const localTracks = [
+      makeTrackCandidate({ title: "Intro", trackNumber: 1 }),
+    ];
+    const remoteTracks = [
+      makeTrackCandidate({ title: "Intro", trackNumber: 1 }),
+      makeTrackCandidate({ title: "Intro Reprise", trackNumber: 2 }),
+    ];
+
+    const score = await scoreRemoteTrackTitleCoverage(
+      localTracks,
+      [],
+      remoteTracks,
+      "musicbrainz",
+    );
+
+    expect(score.matched).toBe(0);
+    expect(score.skipped[0].reason).toBe("duplicate_ambiguous");
+  });
+
+  it("counts an LLM-cleaned filename title as alternate local evidence", async () => {
+    const score = await scoreRemoteTrackTitleCoverage(
+      [makeTrackCandidate({ title: "Unknown 06", trackNumber: 6 })],
+      ["unstructured-file-name.flac"],
+      [makeTrackCandidate({ title: "小白很乖", trackNumber: 6 })],
+      "musicbrainz",
+      { alternateTrackTitles: ["小白很乖"] },
+    );
+
+    expect(score.matched).toBe(1);
+    expect(score.coverage).toBe(1);
   });
 });
 
@@ -457,7 +515,7 @@ describe("matchRemoteCandidateTracks", () => {
     expect(result.tracks[0].artists).toEqual(["Remote Singer"]);
   });
 
-  it("does NOT overwrite non-empty local artist", async () => {
+  it("trusts remote artist when a MusicBrainz title match is strong", async () => {
     const localTracks = [
       makeTrackCandidate({
         title: "Song",
@@ -480,8 +538,157 @@ describe("matchRemoteCandidateTracks", () => {
       "musicbrainz",
     );
 
-    expect(result.tracks[0].artist).toBe("Local Singer");
-    expect(result.tracks[0].artists).toEqual(["Local Singer"]);
+    expect(result.matchEvidence).toEqual(["tag-title"]);
+    expect(result.tracks[0].artist).toBe("Remote Singer");
+    expect(result.tracks[0].artists).toEqual(["Remote Singer"]);
+  });
+
+  it("trusts remote duet artist when matched local artist is a placeholder", async () => {
+    const localTracks = [
+      makeTrackCandidate({
+        title: "身边",
+        artist: "[momishi.com]",
+        artists: ["[momishi.com]"],
+      }),
+    ];
+    const remoteTracks = [
+      makeTrackCandidate({
+        title: "身边",
+        artist: "品冠 vs 光良",
+        artists: ["品冠", "光良"],
+      }),
+    ];
+
+    const result = await matchRemoteCandidateTracks(
+      localTracks,
+      [],
+      remoteTracks,
+      "musicbrainz",
+      { artistHints: ["品冠"] },
+    );
+
+    expect(result.matchEvidence).toEqual(["tag-title"]);
+    expect(result.tracks[0].artist).toBe("品冠 vs 光良");
+    expect(result.tracks[0].artists).toEqual(["品冠", "光良"]);
+  });
+
+  it("trusts remote title and artist when MusicBrainz track ID matches", async () => {
+    const localTracks = [
+      makeTrackCandidate({
+        title: "06.小白很乖",
+        artist: "[momishi.com]",
+        artists: ["[momishi.com]"],
+        musicbrainzTrackId: "96fd68c2-669e-4906-8d8e-041e48e3f78e",
+      }),
+    ];
+    const remoteTracks = [
+      makeTrackCandidate({
+        title: "小白很乖",
+        artist: "品冠",
+        artists: ["品冠"],
+        musicbrainzTrackId: "96fd68c2-669e-4906-8d8e-041e48e3f78e",
+      }),
+    ];
+
+    const result = await matchRemoteCandidateTracks(
+      localTracks,
+      [],
+      remoteTracks,
+      "musicbrainz",
+    );
+
+    expect(result.matchEvidence).toEqual(["musicbrainz-track-id"]);
+    expect(result.tracks[0].title).toBe("小白很乖");
+    expect(result.tracks[0].artist).toBe("品冠");
+    expect(result.tracks[0].artists).toEqual(["品冠"]);
+  });
+
+  it("matches a MusicBrainz recording title but writes the release-track title", async () => {
+    const localTracks = [
+      makeTrackCandidate({
+        title: "Top of the World / 我站上全世界的屋顶",
+        artist: "[momishi.com]",
+        artists: ["[momishi.com]"],
+        length: 232.7,
+      }),
+    ];
+    const remoteTracks = [
+      makeTrackCandidate({
+        title: "站在世界之巔",
+        matchTitles: ["Top of the World（我站上全世界的屋頂）"],
+        artist: "品冠",
+        artists: ["品冠"],
+        musicbrainzTrackId: "df2eeddb-4c12-432a-a3b3-c3b170222a15",
+        length: 232693,
+      }),
+    ];
+
+    const result = await matchRemoteCandidateTracks(
+      localTracks,
+      ["品冠 - 12.Top of the World - 我站上全世界的屋顶.flac"],
+      remoteTracks,
+      "musicbrainz",
+      { artistHints: ["品冠"] },
+    );
+
+    expect(result.matchEvidence).toEqual(["tag-title"]);
+    expect(result.tracks[0].title).toBe("站在世界之巔");
+    expect(result.tracks[0].artist).toBe("品冠");
+    expect(result.tracks[0].musicbrainzTrackId).toBe(
+      "df2eeddb-4c12-432a-a3b3-c3b170222a15",
+    );
+  });
+
+  it("matches a unique bilingual component when translated word order differs", async () => {
+    const localTracks = [
+      makeTrackCandidate({
+        title: "Have I Told You Lately / 最近我有没有跟妳说",
+        artist: "[momishi.com]",
+        artists: ["[momishi.com]"],
+        length: 269.9,
+      }),
+    ];
+    const remoteTracks = [
+      makeTrackCandidate({
+        title: "最近我有沒有告訴你",
+        matchTitles: ["Have I Told You Lately（我最近有沒有跟妳說）"],
+        artist: "品冠",
+        artists: ["品冠"],
+        musicbrainzTrackId: "0fd2a474-6e91-4271-84c9-334fef23c47a",
+        length: 269933,
+      }),
+    ];
+
+    const result = await matchRemoteCandidateTracks(
+      localTracks,
+      ["品冠 - 06.Have I Told You Lately - 最近我有没有跟妳说.flac"],
+      remoteTracks,
+      "musicbrainz",
+      { artistHints: ["品冠"] },
+    );
+
+    expect(result.matchEvidence).toEqual(["tag-title"]);
+    expect(result.tracks[0].title).toBe("最近我有沒有告訴你");
+    expect(result.tracks[0].artist).toBe("品冠");
+    expect(result.tracks[0].musicbrainzTrackId).toBe(
+      "0fd2a474-6e91-4271-84c9-334fef23c47a",
+    );
+  });
+
+  it("rejects a bilingual component shared by multiple remote tracks", async () => {
+    const result = await matchRemoteCandidateTracks(
+      [makeTrackCandidate({ title: "Shared English / 本地翻译" })],
+      [],
+      [
+        makeTrackCandidate({ title: "远端甲", matchTitles: ["Shared English（译名甲）"] }),
+        makeTrackCandidate({ title: "远端乙", matchTitles: ["Shared English（译名乙）"] }),
+      ],
+      "musicbrainz",
+    );
+
+    expect(result.stats.matched).toBe(0);
+    expect(result.matchEvidence).toEqual([null]);
+    expect(result.stats.skipped.some((skip) => skip.reason === "duplicate_ambiguous")).toBe(true);
   });
 
   it("updates local artist when remote enriches with featured artist", async () => {
@@ -511,30 +718,38 @@ describe("matchRemoteCandidateTracks", () => {
     expect(result.tracks[0].artists).toEqual(["林俊傑", "MC HotDog"]);
   });
 
-  it("does NOT overwrite local artist when remote is a different artist", async () => {
+  it("does NOT overwrite local artist when only positional fallback matched", async () => {
     const localTracks = [
       makeTrackCandidate({
-        title: "Song",
+        title: "Local Song",
         artist: "A",
         artists: ["A"],
       }),
     ];
     const remoteTracks = [
       makeTrackCandidate({
-        title: "Song",
+        title: "Remote Song",
         artist: "Adele feat. X",
         artists: ["Adele", "X"],
+      }),
+      makeTrackCandidate({
+        title: "Another Remote Song",
+        artist: "Adele",
+        artists: ["Adele"],
       }),
     ];
 
     const result = await matchRemoteCandidateTracks(
-      localTracks,
+      [
+        ...localTracks,
+        makeTrackCandidate({ title: "Other Local Song", artist: "B", artists: ["B"] }),
+      ],
       [],
       remoteTracks,
       "musicbrainz",
     );
 
-    // "A" should NOT match "Adele" — different artist entirely
+    expect(result.matchEvidence).toEqual(["position", "position"]);
     expect(result.tracks[0].artist).toBe("A");
     expect(result.tracks[0].artists).toEqual(["A"]);
   });
@@ -716,10 +931,10 @@ describe("matchRemoteCandidateTracks", () => {
 describe("matchRemoteCandidateTracks — SC/TC matching", () => {
   it("matches Simplified vs Traditional Chinese (传奇 ↔ 傳奇)", async () => {
     const localTracks = [
-      makeTrackCandidate({ title: "传奇", trackNumber: 1 }),
+      makeTrackCandidate({ title: "传奇", artist: "本地歌手", artists: ["本地歌手"], trackNumber: 1 }),
     ];
     const remoteTracks = [
-      makeTrackCandidate({ title: "傳奇", trackNumber: 1 }),
+      makeTrackCandidate({ title: "傳奇", artist: "遠端歌手", artists: ["遠端歌手"], trackNumber: 1 }),
     ];
 
     const result = await matchRemoteCandidateTracks(
@@ -730,7 +945,10 @@ describe("matchRemoteCandidateTracks — SC/TC matching", () => {
     );
 
     expect(result.stats.matched).toBe(1);
+    expect(result.matchEvidence).toEqual(["tag-title"]);
     expect(result.tracks[0].title).toBe("传奇"); // local preserved
+    expect(result.tracks[0].artist).toBe("遠端歌手");
+    expect(result.tracks[0].artists).toEqual(["遠端歌手"]);
   });
 
   it("matches annotated title to base title via stripping", async () => {
@@ -943,12 +1161,12 @@ describe("matchRemoteCandidateTracks — positional fallback", () => {
 
   it("applies remote track/disc numbers when positional fallback succeeds", async () => {
     const localTracks = [
-      makeTrackCandidate({ title: "本地标题1", trackNumber: null, discNumber: null }),
-      makeTrackCandidate({ title: "本地标题2", trackNumber: null, discNumber: null }),
+      makeTrackCandidate({ title: "本地标题1", artist: "本地歌手", artists: ["本地歌手"], trackNumber: null, discNumber: null }),
+      makeTrackCandidate({ title: "本地标题2", artist: null, artists: [], trackNumber: null, discNumber: null }),
     ];
     const remoteTracks = [
-      makeTrackCandidate({ title: "Remote Title 1", trackNumber: 1, discNumber: 1 }),
-      makeTrackCandidate({ title: "Remote Title 2", trackNumber: 2, discNumber: 1 }),
+      makeTrackCandidate({ title: "Remote Title 1", artist: "Remote Singer 1", artists: ["Remote Singer 1"], trackNumber: 1, discNumber: 1 }),
+      makeTrackCandidate({ title: "Remote Title 2", artist: "Remote Singer 2", artists: ["Remote Singer 2"], trackNumber: 2, discNumber: 1 }),
     ];
 
     const result = await matchRemoteCandidateTracks(
@@ -961,6 +1179,7 @@ describe("matchRemoteCandidateTracks — positional fallback", () => {
     // isFullOrderedMatch = true enables remote track/disc field application
     expect(result.isFullOrderedMatch).toBe(true);
     expect(result.stats.matched).toBe(2);
+    expect(result.matchEvidence).toEqual(["position", "position"]);
 
     // Remote track/disc numbers applied via the full-ordered-match path
     expect(result.tracks[0].trackNumber).toBe(1);
@@ -971,6 +1190,11 @@ describe("matchRemoteCandidateTracks — positional fallback", () => {
     // Local titles preserved
     expect(result.tracks[0].title).toBe("本地标题1");
     expect(result.tracks[1].title).toBe("本地标题2");
+    // Position-only evidence preserves non-empty local artists but can fill blanks.
+    expect(result.tracks[0].artist).toBe("本地歌手");
+    expect(result.tracks[0].artists).toEqual(["本地歌手"]);
+    expect(result.tracks[1].artist).toBe("Remote Singer 2");
+    expect(result.tracks[1].artists).toEqual(["Remote Singer 2"]);
   });
 
   it("matches Chinese titles with artist suffix against bilingual remote titles", async () => {

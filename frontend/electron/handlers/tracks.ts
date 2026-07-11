@@ -5,6 +5,7 @@ import { readFile } from "fs/promises";
 import path from "path";
 import type { CoverInfo } from "../preload";
 import { parseApeTagItems } from "../services/ApeTagEngine";
+import { canonicalProviderTagKey } from "../services/ProviderTagKeys";
 import { writeTags } from "./writer";
 import type { ExtraTagUpdate, WriteFields } from "./writer";
 import { getDefaultWriteQueue } from "../services/TagWriteQueue";
@@ -147,6 +148,13 @@ function parseFileWithTimeout(filePath: string, timeoutMs = 30000): ReturnType<t
   ]);
 }
 
+function normalizeSerializedArtistList(values: string[] | undefined): string[] {
+  return (values ?? [])
+    .flatMap((value) => value.split(";"))
+    .map((value) => value.trim())
+    .filter(Boolean);
+}
+
 export async function readTrackMetadata(filePath: string): Promise<TrackData> {
   let metadata;
   try {
@@ -184,7 +192,7 @@ export async function readTrackMetadata(filePath: string): Promise<TrackData> {
     path: filePath,
     title: common.title ?? null,
     artist: common.artist ?? null,
-    artists: common.artists ?? [],
+    artists: normalizeSerializedArtistList(common.artists),
     album: common.album ?? null,
     albumArtist: common.albumartist ?? null,
     albumArtists: common.albumartist ? [common.albumartist] : [],
@@ -345,15 +353,22 @@ export async function readExtraTags(filePath: string): Promise<ExtraTag[]> {
   }
   const rows: ExtraTag[] = [];
   const seen = new Set<string>();
+  const seenProviderKeys = new Set<string>();
 
   for (const [source, tags] of Object.entries(metadata.native)) {
     for (const tag of tags) {
-      const key = normalizeNativeKey(tag.id, tag.value);
+      const nativeKey = normalizeNativeKey(tag.id, tag.value);
+      const providerKey = canonicalProviderTagKey(nativeKey);
+      const key = providerKey ?? nativeKey;
       if (!key || METADATA_EDITOR_KEYS.has(key.toUpperCase())) continue;
 
       const value = stringifyTagValue(tag.value);
       if (!value) continue;
 
+      if (providerKey) {
+        if (seenProviderKeys.has(providerKey)) continue;
+        seenProviderKeys.add(providerKey);
+      }
       const identity = `${source}\0${key}\0${value}`;
       if (seen.has(identity)) continue;
       seen.add(identity);
@@ -372,11 +387,18 @@ export async function readExtraTags(filePath: string): Promise<ExtraTag[]> {
 async function readApeExtraTagsFallback(filePath: string): Promise<ExtraTag[]> {
   const rows: ExtraTag[] = [];
   const seen = new Set<string>();
+  const seenProviderKeys = new Set<string>();
   try {
     const raw = await readFile(filePath);
     const items = parseApeTagItems(raw);
-    for (const { key, value } of items) {
+    for (const { key: nativeKey, value } of items) {
+      const providerKey = canonicalProviderTagKey(nativeKey);
+      const key = providerKey ?? nativeKey;
       if (!key || METADATA_EDITOR_KEYS.has(key.toUpperCase())) continue;
+      if (providerKey) {
+        if (seenProviderKeys.has(providerKey)) continue;
+        seenProviderKeys.add(providerKey);
+      }
       const identity = `APEv2\0${key}\0${value}`;
       if (seen.has(identity)) continue;
       seen.add(identity);
@@ -389,6 +411,7 @@ async function readApeExtraTagsFallback(filePath: string): Promise<ExtraTag[]> {
 }
 
 function normalizeNativeKey(id: string, value: unknown): string {
+  if (id.toUpperCase() === "COMM") return "COMMENT";
   if (id.startsWith("TXXX:")) {
     const description = id.slice("TXXX:".length).trim();
     if (description) return description;
@@ -440,7 +463,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
  * TXXX-style "MusicBrainz Track Id" and vice versa.
  */
 function normalizeTagKey(s: string): string {
-  return s.replace(/[\s_-]/g, "").toUpperCase();
+  return canonicalProviderTagKey(s) ?? s.replace(/[\s_-]/g, "").toUpperCase();
 }
 
 /**

@@ -12,6 +12,7 @@ import {
   isExtraTagJob,
 } from "../../electron/services/TagWriteQueue";
 import type { TagWriteExecutor } from "../../electron/services/TagWriteQueue";
+import logger from "../../electron/handlers/debug";
 
 // ── Helpers ──────────────────────────────────────────────────────
 
@@ -322,8 +323,38 @@ describe("TagWriteQueue.submit", () => {
     expect(results[0].durationMs).toBeGreaterThanOrEqual(0);
     // outcome should be present (even if full_rewrite for MP3)
     expect(results[0].outcome).toBeDefined();
+    expect(results[0].reason).toBeDefined();
     expect(["skipped", "in_place", "metadata_rewrite", "full_rewrite"]).toContain(results[0].outcome);
     expect(NodeID3.read(fp).title).toBe("Meta Test");
+  });
+
+  it("logs the final write outcome and reason", async () => {
+    const fp = path.join(tmpDir, "reason.flac");
+    fs.writeFileSync(fp, Buffer.from("fLaC"));
+    const logSpy = vi.spyOn(logger, "info").mockImplementation(() => {});
+    const executor: TagWriteExecutor = async () => ({
+      filePath: fp,
+      success: true,
+      outcome: "full_rewrite",
+      reason: "insufficient_metadata_space",
+      durationMs: 12,
+    });
+
+    try {
+      const queue = new TagWriteQueue(1, executor);
+      await queue.submitOne(fp, { title: "Song" });
+
+      expect(logSpy).toHaveBeenCalledWith(
+        "write",
+        expect.stringContaining("full_rewrite — insufficient_metadata_space — 12ms"),
+        expect.objectContaining({
+          outcome: "full_rewrite",
+          reason: "insufficient_metadata_space",
+        }),
+      );
+    } finally {
+      logSpy.mockRestore();
+    }
   });
 
   it("bounded concurrency — caps concurrent writes", async () => {

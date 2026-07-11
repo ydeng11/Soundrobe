@@ -14,6 +14,7 @@ import {
   makeLookupRequest,
   makeTrackCandidate,
 } from "../../electron/handlers/candidates";
+import { flacHeaderWithDuration, vorbisCommentBlock } from "../helpers/flac-helpers";
 
 // ── Sync functions (no mocking needed) ──────────────────────────────
 
@@ -258,6 +259,141 @@ describe("trackHintsFromPath", () => {
     expect(tracks[0].artists).toEqual(["F.I.R飞儿乐团"]);
     expect(tracks[0].title).toBe("Revolution");
     expect(tracks[0].trackNumber).toBe(1);
+  });
+
+  it("replaces a bracketed-domain artist placeholder with the filename artist", async () => {
+    const tmpRoot = mkdtempSync(join(tmpdir(), "auto-tag-fallback-"));
+    tmpRoots.push(tmpRoot);
+    const albumDir = join(tmpRoot, "品冠", "现在你在哪里");
+    mkdirSync(albumDir, { recursive: true });
+    const comments = vorbisCommentBlock([
+      "TITLE=身边 (Live)",
+      "ARTIST=[momishi.com]",
+      "ARTISTS=[momishi.com]",
+      "ALBUMARTIST=品冠",
+    ], { isLast: true });
+    writeFileSync(
+      join(albumDir, "品冠 - 身边 (Live).flac"),
+      Buffer.concat([flacHeaderWithDuration(false, 200, [comments]), Buffer.alloc(16)]),
+    );
+
+    const tracks = await trackHintsFromPath(albumDir);
+
+    expect(tracks[0].artist).toBe("品冠");
+    expect(tracks[0].artists).toEqual(["品冠"]);
+  });
+
+  it("preserves a meaningful track artist instead of replacing it from the filename", async () => {
+    const tmpRoot = mkdtempSync(join(tmpdir(), "auto-tag-fallback-"));
+    tmpRoots.push(tmpRoot);
+    const albumDir = join(tmpRoot, "品冠", "Live Album");
+    mkdirSync(albumDir, { recursive: true });
+    const comments = vorbisCommentBlock([
+      "TITLE=Duet",
+      "ARTIST=品冠 feat. Guest",
+      "ARTISTS=[momishi.com]",
+      "ARTISTS=品冠",
+      "ARTISTS=Guest",
+      "ALBUMARTIST=品冠",
+    ], { isLast: true });
+    writeFileSync(
+      join(albumDir, "品冠 - Duet.flac"),
+      Buffer.concat([flacHeaderWithDuration(false, 200, [comments]), Buffer.alloc(16)]),
+    );
+
+    const tracks = await trackHintsFromPath(albumDir);
+
+    expect(tracks[0].artist).toBe("品冠 feat. Guest");
+    expect(tracks[0].artists).toEqual(["品冠", "Guest"]);
+  });
+
+  it("ignores a watermark filename artist and uses the trusted album artist", async () => {
+    const tmpRoot = mkdtempSync(join(tmpdir(), "auto-tag-fallback-"));
+    tmpRoots.push(tmpRoot);
+    const albumDir = join(tmpRoot, "品冠", "Live Album");
+    mkdirSync(albumDir, { recursive: true });
+    const comments = vorbisCommentBlock([
+      "TITLE=身边",
+      "ARTIST=[momishi.com]",
+      "ARTISTS=[momishi.com]",
+      "ALBUMARTIST=品冠",
+    ], { isLast: true });
+    writeFileSync(
+      join(albumDir, "[momishi.com] - 身边.flac"),
+      Buffer.concat([flacHeaderWithDuration(false, 200, [comments]), Buffer.alloc(16)]),
+    );
+
+    const tracks = await trackHintsFromPath(albumDir);
+
+    expect(tracks[0].artist).toBe("品冠");
+    expect(tracks[0].artists).toEqual(["品冠"]);
+  });
+
+  it("preserves meaningful ARTISTS when the singular ARTIST is a placeholder", async () => {
+    const tmpRoot = mkdtempSync(join(tmpdir(), "auto-tag-fallback-"));
+    tmpRoots.push(tmpRoot);
+    const albumDir = join(tmpRoot, "品冠", "Live Album");
+    mkdirSync(albumDir, { recursive: true });
+    const comments = vorbisCommentBlock([
+      "TITLE=Duet",
+      "ARTIST=[momishi.com]",
+      "ARTISTS=品冠",
+      "ARTISTS=Guest",
+      "ALBUMARTIST=品冠",
+    ], { isLast: true });
+    writeFileSync(
+      join(albumDir, "品冠 - Duet.flac"),
+      Buffer.concat([flacHeaderWithDuration(false, 200, [comments]), Buffer.alloc(16)]),
+    );
+
+    const tracks = await trackHintsFromPath(albumDir);
+
+    expect(tracks[0].artist).toBe("品冠 & Guest");
+    expect(tracks[0].artists).toEqual(["品冠", "Guest"]);
+  });
+
+  it("uses a non-compilation album artist when the filename has no artist", async () => {
+    const tmpRoot = mkdtempSync(join(tmpdir(), "auto-tag-fallback-"));
+    tmpRoots.push(tmpRoot);
+    const albumDir = join(tmpRoot, "品冠", "Live Album");
+    mkdirSync(albumDir, { recursive: true });
+    const comments = vorbisCommentBlock([
+      "TITLE=身边 (Live)",
+      "ARTIST=[momishi.com]",
+      "ARTISTS=[momishi.com]",
+      "ALBUMARTIST=品冠",
+    ], { isLast: true });
+    writeFileSync(
+      join(albumDir, "01. 身边 (Live).flac"),
+      Buffer.concat([flacHeaderWithDuration(false, 200, [comments]), Buffer.alloc(16)]),
+    );
+
+    const tracks = await trackHintsFromPath(albumDir);
+
+    expect(tracks[0].artist).toBe("品冠");
+    expect(tracks[0].artists).toEqual(["品冠"]);
+  });
+
+  it("does not use Various Artists as a missing per-track artist", async () => {
+    const tmpRoot = mkdtempSync(join(tmpdir(), "auto-tag-fallback-"));
+    tmpRoots.push(tmpRoot);
+    const albumDir = join(tmpRoot, "Compilations", "Live Album");
+    mkdirSync(albumDir, { recursive: true });
+    const comments = vorbisCommentBlock([
+      "TITLE=Unknown Song",
+      "ARTIST=[momishi.com]",
+      "ARTISTS=[momishi.com]",
+      "ALBUMARTIST=Various Artists",
+    ], { isLast: true });
+    writeFileSync(
+      join(albumDir, "01. Unknown Song.flac"),
+      Buffer.concat([flacHeaderWithDuration(false, 200, [comments]), Buffer.alloc(16)]),
+    );
+
+    const tracks = await trackHintsFromPath(albumDir);
+
+    expect(tracks[0].artist).toBe("[momishi.com]");
+    expect(tracks[0].artists).toEqual(["[momishi.com]"]);
   });
 
   it("preserves meaningful parenthesized title qualifiers in filename fallback", async () => {

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterAll } from "vitest";
 import { MusicBrainzClient } from "../../electron/handlers/musicbrainz";
-import type { AlbumCandidate } from "../../electron/handlers/candidates";
+import { makeTrackCandidate, type AlbumCandidate } from "../../electron/handlers/candidates";
 import type { ReleaseMeta } from "../../electron/handlers/cache";
 
 describe("MusicBrainzClient", () => {
@@ -185,6 +185,56 @@ describe("MusicBrainzClient", () => {
     expect(urls.some((url) => url.includes("/release/mb-wrong"))).toBe(false);
   });
 
+  it("keeps MusicBrainz recording titles as match-only alternatives", async () => {
+    globalThis.fetch = vi.fn().mockImplementation(async (url: string) => {
+      if (url.includes("/release?artist=mb-artist-1")) {
+        return mockReleaseResponse([
+          {
+            id: "mb-need-u-most",
+            title: "Need U Most（最需要妳）",
+            date: "2007-10-05",
+            "artist-credit": [{ name: "品冠", artist: { id: "mb-artist-1" } }],
+          },
+        ]);
+      }
+      if (url.includes("/release/mb-need-u-most")) {
+        return {
+          ok: true,
+          json: async () => ({
+            id: "mb-need-u-most",
+            title: "Need U Most（最需要妳）",
+            date: "2007-10-05",
+            "artist-credit": [{ name: "品冠", artist: { id: "mb-artist-1" } }],
+            media: [{
+              position: 1,
+              tracks: [{
+                number: "12",
+                title: "站在世界之巔",
+                recording: {
+                  id: "df2eeddb-4c12-432a-a3b3-c3b170222a15",
+                  title: "Top of the World（我站上全世界的屋頂）",
+                  length: 232693,
+                },
+              }],
+            }],
+          }),
+        };
+      }
+      return { ok: false };
+    });
+
+    const candidate = await new MusicBrainzClient().lookupArtistReleaseByAlbum(
+      "mb-artist-1",
+      "Need U Most 最需要你 K歌情人",
+    );
+
+    expect(candidate?.musicbrainzAlbumId).toBe("mb-need-u-most");
+    expect(candidate?.tracks[0].title).toBe("站在世界之巔");
+    expect(candidate?.tracks[0].matchTitles).toEqual([
+      "Top of the World（我站上全世界的屋頂）",
+    ]);
+  });
+
   it("uses cached MusicBrainz artist release pages before fetching", async () => {
     const cachedReleases: ReleaseMeta[] = [
       {
@@ -218,6 +268,174 @@ describe("MusicBrainzClient", () => {
     expect(candidate).not.toBeNull();
     expect(vi.mocked(globalThis.fetch)).toHaveBeenCalledTimes(1);
     expect(String(vi.mocked(globalThis.fetch).mock.calls[0][0])).toContain("/release/mb-good");
+    expect(releaseCache.getReleaseDetail).toHaveBeenCalledWith("musicbrainz-v3", "mb-good");
+    expect(releaseCache.setReleaseDetail).toHaveBeenCalledWith(
+      "musicbrainz-v3",
+      "mb-good",
+      expect.any(Object),
+    );
+  });
+
+  it("uses track-title coverage to choose among shortlisted artist releases", async () => {
+    globalThis.fetch = vi.fn().mockImplementation(async (url: string) => {
+      if (url.includes("/release?artist=mb-artist-1")) {
+        return mockReleaseResponse([
+          {
+            id: "mb-exact-wrong",
+            title: "那些女孩教我的事 [FLAC]",
+            date: "2008-06-01",
+            "artist-credit": [{ name: "品冠", artist: { id: "mb-artist-1" } }],
+          },
+          {
+            id: "mb-contained-good",
+            title: "那些女孩教我的事",
+            date: "2008-06-01",
+            "artist-credit": [{ name: "品冠", artist: { id: "mb-artist-1" } }],
+          },
+        ]);
+      }
+      if (url.includes("/release/mb-exact-wrong")) {
+        return {
+          ok: true,
+          json: async () => ({
+            id: "mb-exact-wrong",
+            title: "那些女孩教我的事 [FLAC]",
+            date: "2008-06-01",
+            "artist-credit": [{ name: "品冠", artist: { id: "mb-artist-1" } }],
+            media: [
+              {
+                position: 1,
+                tracks: [
+                  { number: "1", title: "Wrong A", recording: { id: "wrong-a", title: "Wrong A" } },
+                  { number: "2", title: "Wrong B", recording: { id: "wrong-b", title: "Wrong B" } },
+                ],
+              },
+            ],
+          }),
+        };
+      }
+      if (url.includes("/release/mb-contained-good")) {
+        return {
+          ok: true,
+          json: async () => ({
+            id: "mb-contained-good",
+            title: "那些女孩教我的事",
+            date: "2008-06-01",
+            "artist-credit": [{ name: "品冠", artist: { id: "mb-artist-1" } }],
+            media: [
+              {
+                position: 1,
+                tracks: [
+                  { number: "1", title: "小白很乖", recording: { id: "good-a", title: "小白很乖" } },
+                  { number: "2", title: "漂亮", recording: { id: "good-b", title: "漂亮" } },
+                ],
+              },
+            ],
+          }),
+        };
+      }
+      return { ok: false };
+    });
+
+    const client = new MusicBrainzClient();
+    const candidate = await client.lookupArtistReleaseByAlbum(
+      "mb-artist-1",
+      "那些女孩教我的事 [FLAC]",
+      {
+        localTracks: [
+          makeTrackCandidate({ title: "小白很乖", trackNumber: 1 }),
+          makeTrackCandidate({ title: "漂亮", trackNumber: 2 }),
+        ],
+      },
+    );
+
+    expect(candidate?.musicbrainzAlbumId).toBe("mb-contained-good");
+    const urls = vi.mocked(globalThis.fetch).mock.calls.map((call) => String(call[0]));
+    expect(urls.some((url) => url.includes("/release/mb-exact-wrong"))).toBe(true);
+    expect(urls.some((url) => url.includes("/release/mb-contained-good"))).toBe(true);
+  });
+
+  it("uses alternate LLM-cleaned track titles when scoring shortlisted releases", async () => {
+    globalThis.fetch = vi.fn().mockImplementation(async (url: string) => {
+      if (url.includes("/release?artist=mb-artist-1")) {
+        return mockReleaseResponse([
+          { id: "mb-wrong", title: "那些女孩教我的事 [FLAC]", date: "2008-06-01" },
+          { id: "mb-good", title: "那些女孩教我的事", date: "2008-06-01" },
+        ]);
+      }
+      const good = url.includes("/release/mb-good");
+      return {
+        ok: true,
+        json: async () => ({
+          id: good ? "mb-good" : "mb-wrong",
+          title: good ? "那些女孩教我的事" : "那些女孩教我的事 [FLAC]",
+          date: "2008-06-01",
+          media: [{
+            position: 1,
+            tracks: [{
+              number: "1",
+              title: good ? "小白很乖" : "Wrong",
+              recording: { id: good ? "good" : "wrong", title: good ? "小白很乖" : "Wrong" },
+            }],
+          }],
+        }),
+      };
+    });
+
+    const candidate = await new MusicBrainzClient().lookupArtistReleaseByAlbum(
+      "mb-artist-1",
+      "那些女孩教我的事 [FLAC]",
+      {
+        localTracks: [makeTrackCandidate({ title: "Unknown 01", trackNumber: 1 })],
+        alternateTrackTitles: ["小白很乖"],
+      },
+    );
+
+    expect(candidate?.musicbrainzAlbumId).toBe("mb-good");
+  });
+
+  it("does not fetch weak album-name matches for artist-scoped shortlist", async () => {
+    globalThis.fetch = vi.fn().mockImplementation(async (url: string) => {
+      if (url.includes("/release?artist=mb-artist-1")) {
+        return mockReleaseResponse([
+          {
+            id: "mb-weak",
+            title: "Unrelated Album",
+            date: "2008-06-01",
+            "artist-credit": [{ name: "品冠", artist: { id: "mb-artist-1" } }],
+          },
+          {
+            id: "mb-good",
+            title: "那些女孩教我的事",
+            date: "2008-06-01",
+            "artist-credit": [{ name: "品冠", artist: { id: "mb-artist-1" } }],
+          },
+        ]);
+      }
+      if (url.includes("/release/mb-good")) {
+        return {
+          ok: true,
+          json: async () => ({
+            id: "mb-good",
+            title: "那些女孩教我的事",
+            date: "2008-06-01",
+            "artist-credit": [{ name: "品冠", artist: { id: "mb-artist-1" } }],
+            media: [],
+          }),
+        };
+      }
+      return { ok: false };
+    });
+
+    const client = new MusicBrainzClient();
+    const candidate = await client.lookupArtistReleaseByAlbum(
+      "mb-artist-1",
+      "那些女孩教我的事",
+    );
+
+    expect(candidate?.musicbrainzAlbumId).toBe("mb-good");
+    const urls = vi.mocked(globalThis.fetch).mock.calls.map((call) => String(call[0]));
+    expect(urls.some((url) => url.includes("/release/mb-weak"))).toBe(false);
   });
 
   it("coalesces concurrent artist release page and release detail requests", async () => {

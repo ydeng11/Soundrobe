@@ -9,15 +9,21 @@ import {
   type AlbumCandidate,
   type TrackCandidate,
   artistDisplayName,
+  isAlbumTitleShortlistMatch,
   makeAlbumCandidate,
   makeTrackCandidate,
   scoreAlbumTitleMatch,
   splitArtistNames,
-  ALBUM_TITLE_MATCH_THRESHOLD,
 } from "./candidates";
 import type { ReleaseCache, ReleaseMeta } from "./cache";
+import {
+  scoreRemoteTrackTitleCoverage,
+  type TrackTitleCoverageScore,
+} from "../services/RemoteTrackMatcher";
 
 const DISCOGS_BASE = "https://api.discogs.com";
+const DISCOGS_RELEASE_DETAIL_CACHE_PROVIDER = "discogs-v2";
+const ARTIST_RELEASE_SHORTLIST_LIMIT = 3;
 
 // ── App-wide rate limiter for Discogs API ──────────────────────────
 // Sliding-window rate limiter: 25 req / 60s unauthenticated, 60/min with token.
@@ -57,6 +63,28 @@ class DiscogsRateLimiter {
 
 /** Shared app-wide Discogs rate limiter. Starts at 25/min (anonymous). */
 const sharedDiscogsRateLimiter = new DiscogsRateLimiter(25);
+
+function compareShortlistedRelease(
+  a: { candidate: AlbumCandidate; albumScore: number; titleScore: TrackTitleCoverageScore | null },
+  b: { candidate: AlbumCandidate; albumScore: number; titleScore: TrackTitleCoverageScore | null },
+  localTrackCount: number,
+): number {
+  if (localTrackCount > 0 && (a.titleScore || b.titleScore)) {
+    const aTitle = a.titleScore?.matched ?? 0;
+    const bTitle = b.titleScore?.matched ?? 0;
+    if (aTitle !== bTitle) return aTitle - bTitle;
+
+    const aDuration = a.titleScore?.durationMatched ?? 0;
+    const bDuration = b.titleScore?.durationMatched ?? 0;
+    if (aDuration !== bDuration) return aDuration - bDuration;
+
+    const aDelta = Math.abs(a.candidate.tracks.length - localTrackCount);
+    const bDelta = Math.abs(b.candidate.tracks.length - localTrackCount);
+    if (aDelta !== bDelta) return bDelta - aDelta;
+  }
+
+  return a.albumScore - b.albumScore;
+}
 
 /**
  * Update the shared Discogs rate limit when an API token is available.
@@ -252,9 +280,7 @@ export class DiscogsClient {
           const position = t.position as string;
           const parsed = parseDiscogsPosition(position);
           const artists = parseDiscogsArtists(
-            (t.artists as Array<Record<string, unknown>>) ??
-              (t.extraartists as Array<Record<string, unknown>>) ??
-              [],
+            (t.artists as Array<Record<string, unknown>>) ?? [],
             albumArtists[0] ?? null,
           );
           return makeTrackCandidate({
@@ -275,7 +301,10 @@ export class DiscogsClient {
    * Calls /releases/{id} directly.
    */
   async lookupReleaseById(releaseId: string): Promise<AlbumCandidate | null> {
-    const cached = this.releaseCache?.getReleaseDetail("discogs", releaseId);
+    const cached = this.releaseCache?.getReleaseDetail(
+      DISCOGS_RELEASE_DETAIL_CACHE_PROVIDER,
+      releaseId,
+    );
     if (cached) return cached;
 
     const key = `discogs:release:${releaseId}`;
@@ -327,7 +356,11 @@ export class DiscogsClient {
         tracks,
         source: "discogs",
       });
-      this.releaseCache?.setReleaseDetail("discogs", releaseIdStr, candidate);
+      this.releaseCache?.setReleaseDetail(
+        DISCOGS_RELEASE_DETAIL_CACHE_PROVIDER,
+        releaseIdStr,
+        candidate,
+      );
       return candidate;
     } catch {
       return null;
@@ -341,35 +374,80 @@ export class DiscogsClient {
   async lookupArtistReleaseByAlbum(
     artistId: string,
     albumHint: string,
-    options?: { yearHint?: string | null },
+    options?: {
+      yearHint?: string | null;
+      localTracks?: TrackCandidate[];
+      filenames?: string[];
+      artistHints?: string[];
+      alternateTrackTitles?: Array<string | null | undefined>;
+    },
   ): Promise<AlbumCandidate | null> {
     const MAX_PAGES = 3;
     const PER_PAGE = 100;
 
-    let bestMatch: ReleaseMeta | null = null;
-    let bestScore = 0;
+    const shortlist: Array<{
+      release: ReleaseMeta;
+      albumScore: number;
+    }> = [];
 
     for (let page = 1; page <= MAX_PAGES; page++) {
       const releases = await this.getArtistReleasePage(artistId, page, PER_PAGE);
       if (releases.length === 0) break;
 
       for (const release of releases) {
-        const match = await scoreAlbumTitleMatch(albumHint, release.title, {
+        const baseMatch = await scoreAlbumTitleMatch(albumHint, release.title);
+        if (!isAlbumTitleShortlistMatch(baseMatch)) continue;
+
+        const rankedMatch = await scoreAlbumTitleMatch(albumHint, release.title, {
           localYear: options?.yearHint,
           remoteYear: release.year,
           artistMatches: true,
         });
-        if (match.score > bestScore) {
-          bestScore = match.score;
-          bestMatch = release;
-        }
+        shortlist.push({ release, albumScore: rankedMatch.score });
       }
 
-      if (bestScore >= 100) break;
+      if (releases.length < PER_PAGE) break;
     }
 
-    if (!bestMatch || bestScore < ALBUM_TITLE_MATCH_THRESHOLD) return null;
-    return this.lookupReleaseById(bestMatch.id);
+    const seenReleaseIds = new Set<string>();
+    const detailShortlist = shortlist
+      .sort((a, b) => b.albumScore - a.albumScore)
+      .filter((item) => {
+        if (seenReleaseIds.has(item.release.id)) return false;
+        seenReleaseIds.add(item.release.id);
+        return true;
+      })
+      .slice(0, ARTIST_RELEASE_SHORTLIST_LIMIT);
+    if (detailShortlist.length === 0) return null;
+
+    let best: {
+      candidate: AlbumCandidate;
+      albumScore: number;
+      titleScore: TrackTitleCoverageScore | null;
+    } | null = null;
+
+    for (const item of detailShortlist) {
+      const candidate = await this.lookupReleaseById(item.release.id);
+      if (!candidate) continue;
+      const titleScore = options?.localTracks && options.localTracks.length > 0
+        ? await scoreRemoteTrackTitleCoverage(
+            options.localTracks,
+            options.filenames ?? [],
+            candidate.tracks,
+            "discogs",
+            {
+              artistHints: options.artistHints,
+              alternateTrackTitles: options.alternateTrackTitles,
+            },
+          )
+        : null;
+      const current = { candidate, albumScore: item.albumScore, titleScore };
+      if (!best || compareShortlistedRelease(current, best, options?.localTracks?.length ?? 0) > 0) {
+        best = current;
+      }
+    }
+
+    return best?.candidate ?? null;
   }
 
   private async getArtistReleasePage(

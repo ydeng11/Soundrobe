@@ -27,40 +27,29 @@ const COMMON_EXTRA_TAGS = [
   "ARTISTS",
   "ALBUMARTISTS",
   "COMPILATION",
+  "MUSICBRAINZ_ALBUMID",
+  "MUSICBRAINZ_ARTISTID",
+  "MUSICBRAINZ_TRACKID",
+  "DISCOGS_ARTIST_ID",
+  "DISCOGS_RELEASE_ID",
 ];
 
 // Vorbis-style uppercase tags (FLAC, OGG, OPUS, APE)
 const VORBIS_SPECIFIC_TAGS = [
   // MusicBrainz
-  "MUSICBRAINZ_ALBUMID",
-  "MUSICBRAINZ_ARTISTID",
   "MUSICBRAINZ_DISCID",
   "MUSICBRAINZ_ORIGINALALBUMID",
   "MUSICBRAINZ_RELEASEGROUPID",
   "MUSICBRAINZ_RELEASEID",
-  "MUSICBRAINZ_TRACKID",
   "MUSICBRAINZ_WORKID",
   // Discogs
-  "DISCOGS_ARTIST_ID",
   "DISCOGS_ALBUM_ARTISTS",
   "DISCOGS_CATALOG",
   "DISCOGS_COUNTRY",
   "DISCOGS_LABEL",
-  "DISCOGS_RELEASE_ID",
   "DISCOGS_RELEASED",
   "DISCOGS_STYLE",
   "DISCOGS_VOTES",
-];
-
-// ID3v2 TXXX descriptions used by auto-tag (MP3, WAV)
-const ID3V2_TXXX_TAGS = [
-  // MusicBrainz (space-separated descriptions)
-  "MusicBrainz Track Id",
-  "MusicBrainz Album Id",
-  "MusicBrainz Artist Id",
-  // Discogs
-  "Discogs Artist Id",
-  "Discogs Release Id",
 ];
 
 // ID3v2 native frame IDs
@@ -79,7 +68,7 @@ const ID3V2_FRAME_TAGS = [
   "TSOT",
 ];
 
-const ID3V2_SUGGESTED_KEYS = [...COMMON_EXTRA_TAGS, ...ID3V2_TXXX_TAGS, ...ID3V2_FRAME_TAGS];
+const ID3V2_SUGGESTED_KEYS = [...COMMON_EXTRA_TAGS, ...ID3V2_FRAME_TAGS];
 const VORBIS_SUGGESTED_KEYS = [...COMMON_EXTRA_TAGS, ...VORBIS_SPECIFIC_TAGS];
 
 /** Return file-type-specific suggested tag keys. */

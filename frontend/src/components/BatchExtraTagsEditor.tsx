@@ -339,6 +339,8 @@ function BatchExtraTagRow({
         <option value="MUSICBRAINZ_ALBUMID" />
         <option value="MUSICBRAINZ_ARTISTID" />
         <option value="MUSICBRAINZ_TRACKID" />
+        <option value="DISCOGS_ARTIST_ID" />
+        <option value="DISCOGS_RELEASE_ID" />
         <option value="BARCODE" />
         <option value="CATALOGNUMBER" />
         <option value="LABEL" />

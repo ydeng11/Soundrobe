@@ -15,6 +15,8 @@ export type LookupSource = "beets" | "dataset" | "discogs" | "folder" | "llm" | 
 
 export interface TrackCandidate {
   title: string | null;
+  /** Provider titles that may establish identity but must never be written. */
+  matchTitles: string[];
   artist: string | null;
   artists: string[];
   trackNumber: number | null;
@@ -31,6 +33,7 @@ export function makeTrackCandidate(
 ): TrackCandidate {
   return {
     title: null,
+    matchTitles: [],
     artist: null,
     artists: [],
     trackNumber: null,
@@ -47,6 +50,7 @@ export function makeTrackCandidate(
 export function trackCandidateToJson(t: TrackCandidate): Record<string, unknown> {
   return {
     title: t.title,
+    match_titles: t.matchTitles,
     artist: t.artist,
     artists: t.artists,
     track_number: t.trackNumber,
@@ -62,6 +66,7 @@ export function trackCandidateToJson(t: TrackCandidate): Record<string, unknown>
 export function trackCandidateFromJson(data: Record<string, unknown>): TrackCandidate {
   return makeTrackCandidate({
     title: (data.title as string) ?? null,
+    matchTitles: (data.match_titles as string[]) ?? [],
     artist: (data.artist as string) ?? null,
     artists: (data.artists as string[]) ?? [],
     trackNumber: (data.track_number as number) ?? null,
@@ -226,10 +231,11 @@ export function lookupRequestFromJson(data: Record<string, unknown>): LookupRequ
 
 /**
  * Stable hash for cache keys.
- * Mirrors Python's query_hash() — uses sorted JSON keys for stability.
+ * The query object and nested track objects are built in a fixed key order.
  */
 export function queryHash(request: LookupRequest): string {
   const query: Record<string, unknown> = {
+    cache_version: 3,
     artist_hint: request.artistHint,
     album_hint: request.albumHint,
     musicbrainz_album_id: request.musicbrainzAlbumId,
@@ -240,10 +246,11 @@ export function queryHash(request: LookupRequest): string {
       title: t.title,
       track_number: t.trackNumber,
       disc_number: t.discNumber,
+      musicbrainz_track_id: t.musicbrainzTrackId,
     })),
     track_count: request.tracks.length,
   };
-  const payload = JSON.stringify(query, Object.keys(query).sort());
+  const payload = JSON.stringify(query);
   return createHash("sha256").update(payload).digest("hex");
 }
 
@@ -303,6 +310,8 @@ export function normalizeLookupText(value: string | null): string {
   let result = value
     .normalize("NFKD")
     .toLowerCase()
+    .replace(/斉/g, "齊")
+    .replace(/妳/g, "你")
     .replace(ASCII_PUNCTUATION_RE, " ")
     .replace(UNICODE_PUNCT_RE, " ")
     .replace(WHITESPACE_RE, " ")
@@ -388,6 +397,19 @@ export interface AlbumTitleMatchScoreOptions {
 export interface AlbumTitleMatchScore {
   score: number;
   reason: "exact" | "remote-contains-local" | "local-contains-remote" | "fuzzy" | "none";
+}
+
+export function isAlbumTitleShortlistMatch(match: AlbumTitleMatchScore): boolean {
+  switch (match.reason) {
+    case "exact":
+    case "remote-contains-local":
+    case "local-contains-remote":
+      return true;
+    case "fuzzy":
+      return match.score >= ALBUM_TITLE_MATCH_THRESHOLD;
+    case "none":
+      return false;
+  }
 }
 
 function yearPrefix(value: string | number | null | undefined): string | null {

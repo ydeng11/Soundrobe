@@ -8,6 +8,7 @@
  */
 
 import { EventEmitter } from "node:events";
+import sharp from "sharp";
 import {
   type AlbumCandidate,
   type TrackCandidate,
@@ -36,7 +37,7 @@ import { readTrackMetadata } from "./tracks";
 import { findArtistIdentity, type ArtistIdentity } from "../services/ArtistIdentityResolver";
 import { DiscogsService } from "../services/DiscogsService";
 import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, statSync } from "node:fs";
-import { basename, dirname, join, extname } from "node:path";
+import { basename, dirname, join, extname, resolve as resolvePath } from "node:path";
 import { isAlbumCoverSuppressed } from "./cover-suppression";
 
 const AUDIO_EXTENSIONS = new Set([".mp3", ".flac", ".m4a", ".mp4", ".wav", ".ogg", ".opus", ".aiff", ".ape"]);
@@ -97,42 +98,6 @@ import debug from "./debug";
 import { AUTO_TAG_ALBUM_CONCURRENCY, LOCAL_READ_CONCURRENCY, mapConcurrent } from "../services/concurrency";
 import { getDefaultWriteQueue } from "../services/TagWriteQueue";
 
-// ── OpenCC lazy loader (for Simplified/Traditional Chinese comparison) ──
-let openCCInstance: { s2t: (s: string) => string; t2s: (s: string) => string } | null = null;
-function getOpenCCSync(): { s2t: (s: string) => string; t2s: (s: string) => string } | null {
-  if (openCCInstance) return openCCInstance;
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const mod = require("opencc-js");
-    const s2t = mod.Converter({ from: "cn", to: "tw" });
-    const t2s = mod.Converter({ from: "tw", to: "cn" });
-    openCCInstance = { s2t, t2s };
-    return openCCInstance;
-  } catch {
-    return null;
-  }
-}
-
-/** Normalize string for comparison: NFKC + lowercase + trim. */
-function normArtist(s: string): string {
-  return s.normalize("NFKC").trim().toLowerCase();
-}
-
-/** Get all OpenCC variants of a string (original + Simplified + Traditional). */
-function getArtistVariants(name: string): string[] {
-  const base = normArtist(name);
-  const oc = getOpenCCSync();
-  if (!oc) return [base];
-  return [base, normArtist(oc.s2t(name)), normArtist(oc.t2s(name))];
-}
-
-/** Check if two artist names match, including OpenCC Simplified/Traditional variants. */
-function artistsMatch(a: string, b: string): boolean {
-  const aVariants = getArtistVariants(a);
-  const bVariants = getArtistVariants(b);
-  return aVariants.some((av) => bVariants.includes(av));
-}
-
 /**
  * Get sorted audio filenames from an album path.
  * Returns only the basenames (not full paths) in filesystem sort order.
@@ -160,6 +125,40 @@ function requestAlbumPath(inputPath: string): string {
 
 export function shouldResolveAutoTagCover(albumPath: string): boolean {
   return !isAlbumCoverSuppressed(albumPath);
+}
+
+type ResolvedAutoTagCover = {
+  path: string;
+  data: Buffer;
+  mime: string;
+};
+
+const RECOGNIZED_ALBUM_SIDECAR = /^(cover|folder|front)\.(jpe?g|png|webp)$/i;
+
+export async function persistAutoTagCoverSidecar(
+  albumPath: string,
+  cover: ResolvedAutoTagCover,
+): Promise<string | null> {
+  const isLocalRecognizedSidecar =
+    existsSync(cover.path) &&
+    dirname(resolvePath(cover.path)) === resolvePath(albumPath) &&
+    RECOGNIZED_ALBUM_SIDECAR.test(basename(cover.path));
+  if (isLocalRecognizedSidecar) return cover.path;
+
+  const sidecarPath = join(albumPath, "cover.jpg");
+  if (existsSync(sidecarPath)) return sidecarPath;
+
+  try {
+    const normalized = await sharp(cover.data)
+      .resize(1000, 1000, { fit: "inside", withoutEnlargement: true })
+      .jpeg({ quality: 90 })
+      .toBuffer();
+    writeFileSync(sidecarPath, normalized);
+    return sidecarPath;
+  } catch (err) {
+    debug.warn("auto-tag", `Could not save album cover sidecar for: ${albumPath}`, err);
+    return null;
+  }
 }
 
 export async function filterCandidatesForAutoApply(
@@ -217,7 +216,12 @@ export function mergeAutoTagCandidateFields(candidates: AlbumCandidate[]): Album
     if (merged.tracks.length === 0 && candidate.tracks.length > 0) {
       merged.tracks = candidate.tracks;
     } else if (merged.tracks.length > 0 && candidate.tracks.length > 0) {
-      fillTrackGapsByPosition(merged.tracks, candidate.tracks, candidate.source);
+      fillTrackGapsByPosition(
+        merged.tracks,
+        candidate.tracks,
+        candidate.source,
+        candidateMatchesProviderRelease(merged, candidate),
+      );
     }
   }
 
@@ -252,6 +256,7 @@ function fillTrackGapsByPosition(
   target: TrackCandidate[],
   source: TrackCandidate[],
   sourceName: AlbumCandidate["source"],
+  sameProviderRelease: boolean,
 ): void {
   for (let i = 0; i < Math.min(target.length, source.length); i++) {
     const targetTrack = target[i];
@@ -267,11 +272,15 @@ function fillTrackGapsByPosition(
         targetTrack.title = sourceTrack.title;
       }
     }
-    if (trackArtistCanBeEnriched(targetTrack, sourceTrack)) {
-      // Preserve local primary artist script when enriching
-      const enriched = enrichArtistWithRemote(targetTrack.artist, targetTrack.artists, sourceTrack.artist, sourceTrack.artists);
-      targetTrack.artist = enriched.artist;
-      targetTrack.artists = enriched.artists;
+    if (sourceTrack.artist && (!targetTrack.artist || targetTrack.artist.trim() === "")) {
+      copyTrackArtist(targetTrack, sourceTrack);
+    } else if (
+      sameProviderRelease &&
+      sourceTrack.artist &&
+      sourceTrack.artist !== targetTrack.artist &&
+      sourceTrack.artists.length > targetTrack.artists.length
+    ) {
+      copyTrackArtist(targetTrack, sourceTrack);
     }
     targetTrack.musicbrainzTrackId ??= sourceTrack.musicbrainzTrackId;
     targetTrack.length ??= sourceTrack.length;
@@ -279,56 +288,23 @@ function fillTrackGapsByPosition(
   }
 }
 
-function trackArtistCanBeEnriched(
-  targetTrack: TrackCandidate,
-  sourceTrack: TrackCandidate,
-): boolean {
-  if (!sourceTrack.artist) return false;
-  if (!targetTrack.artist || targetTrack.artist.trim() === "") return true;
-  if (sourceTrack.artist === targetTrack.artist) return false;
-
-  const sourceContainsTarget = sourceTrack.artists.some((artist) =>
-    artistsMatch(artist, targetTrack.artist!)
-  );
-  return sourceContainsTarget && sourceTrack.artists.length > targetTrack.artists.length;
+function copyTrackArtist(targetTrack: TrackCandidate, sourceTrack: TrackCandidate): void {
+  if (!sourceTrack.artist) return;
+  targetTrack.artist = sourceTrack.artist;
+  targetTrack.artists = sourceTrack.artists.length > 0 ? [...sourceTrack.artists] : [sourceTrack.artist];
 }
 
-/**
- * Enrich local artist with remote artists, preserving the local primary artist script.
- * When remote has the same primary artist (in different Chinese script) plus featured artists,
- * this function keeps the local primary and adds the remote featured artists.
- */
-function enrichArtistWithRemote(
-  localPrimary: string | null,
-  localArtists: string[],
-  remoteArtist: string | null,
-  remoteArtists: string[],
-): { artist: string | null; artists: string[] } {
-  if (!localPrimary || !remoteArtist) {
-    return { artist: remoteArtist, artists: remoteArtists };
-  }
-
-  // Find which remote artist is equivalent to local primary
-  const equivalentRemoteIdx = remoteArtists.findIndex((r) => artistsMatch(r, localPrimary));
-
-  // If no equivalent found, return remote as-is
-  if (equivalentRemoteIdx < 0) {
-    return { artist: remoteArtist, artists: remoteArtists };
-  }
-
-  // Build enriched artists: local primary + remote extras (excluding equivalent)
-  const remoteExtras = remoteArtists.filter((_, idx) => idx !== equivalentRemoteIdx);
-  const enrichedArtists = [localPrimary, ...remoteExtras];
-
-  // Build display artist: replace equivalent remote primary with local primary in artist string
-  const remotePrimaryName = remoteArtists[equivalentRemoteIdx];
-  let enrichedArtist = remoteArtist.replace(remotePrimaryName, localPrimary);
-  // Fallback: if replacement didn't work (e.g. different formatting), join artists
-  if (enrichedArtist === remoteArtist && remoteExtras.length > 0) {
-    enrichedArtist = enrichedArtists.join(" feat. ");
-  }
-
-  return { artist: enrichedArtist, artists: enrichedArtists };
+function candidateMatchesProviderRelease(
+  merged: AlbumCandidate,
+  candidate: AlbumCandidate,
+): boolean {
+  return (
+    !!merged.musicbrainzAlbumId &&
+    merged.musicbrainzAlbumId === candidate.musicbrainzAlbumId
+  ) || (
+    !!merged.discogsReleaseId &&
+    merged.discogsReleaseId === candidate.discogsReleaseId
+  );
 }
 
 export function applyCanonicalArtistName(
@@ -392,6 +368,7 @@ export function chooseProviderArtistName(
 export async function protectCandidateTrackFieldsForAutoApply(
   request: ReturnType<typeof makeLookupRequest>,
   candidates: AlbumCandidate[],
+  alternateTrackTitles: Array<string | null | undefined> = [],
 ): Promise<AlbumCandidate[]> {
   // Discover sorted audio filenames for filename-derived title matching
   const albumPath = requestAlbumPath(request.path);
@@ -413,6 +390,7 @@ export async function protectCandidateTrackFieldsForAutoApply(
           ...candidate.artists,
           ...candidate.albumArtists,
         ].filter((artist): artist is string => !!artist?.trim()),
+        alternateTrackTitles,
       },
     );
 
@@ -920,6 +898,7 @@ class TaskManager {
       let llmFallback: AlbumCandidate | null = null;
 
       let allCandidates: AlbumCandidate[] = [];
+      let cachedCandidates: AlbumCandidate[] = [];
 
       // Step 3: Cache check. Stale dataset candidates are discarded so the
       // removed dataset flow cannot still win via older lookup_cache rows.
@@ -934,12 +913,12 @@ class TaskManager {
         const cachedRaw = cache.get(lookupRequest);
         const cached = cachedRaw ? this.withoutDatasetCandidates(cachedRaw) : null;
         if (cached && cached.length > 0) {
+          cachedCandidates = cached;
           debug.info("auto-tag", `Cache HIT: ${cached.length} candidates`);
           this.emitTask(taskId, "source", `Cache: ${cached.length} candidate(s)`, {
             source: "cache",
             count: cached.length,
           });
-          allCandidates.push(...cached);
         } else {
           debug.debug("auto-tag", "Cache MISS - proceeding with remote lookups");
         }
@@ -953,6 +932,11 @@ class TaskManager {
         debug.info("auto-tag", "Step 4/9: Direct provider ID lookup...");
         update("Direct provider ID lookup...", 4);
         const directLookups = await this.performDirectIdLookups(lookupRequest, releaseCache);
+        const hasDirectMusicBrainzRelease = !!lookupRequest.musicbrainzAlbumId && directLookups.some(
+          (candidate) =>
+            candidate.source === "musicbrainz" &&
+            candidate.musicbrainzAlbumId === lookupRequest.musicbrainzAlbumId,
+        );
         if (directLookups.length > 0) {
           debug.info("auto-tag", `Direct ID lookups returned ${directLookups.length} candidate(s)`);
           this.emitTask(taskId, "source", `Direct ID lookup: ${directLookups.length} candidate(s)`, {
@@ -984,9 +968,15 @@ class TaskManager {
           lookupRequest.artistHint,
           lookupRequest.albumHint,
         );
+        const artistScopedFilenames = getSortedAudioFilenames(requestAlbumPath(lookupRequest.path));
+        const artistScopedHints = [
+          lookupRequest.artistHint,
+          ...lookupVariants.map(([artist]) => artist),
+        ].filter((artist): artist is string => !!artist?.trim());
+        const alternateTrackTitles = llmFallback?.tracks.map((track) => track.title) ?? [];
 
         // Step 5: MusicBrainz artist-release browsing, then generic fallback.
-        if (this.config.remoteLookupEnabled !== false) {
+        if (this.config.remoteLookupEnabled !== false && !hasDirectMusicBrainzRelease) {
           debug.info("auto-tag", "Step 5/9: Searching MusicBrainz...");
           update("Searching MusicBrainz...", 5);
           try {
@@ -1000,6 +990,10 @@ class TaskManager {
               artistId: lookupRequest.musicbrainzArtistId,
               albumHint: lookupRequest.albumHint,
               yearHint: lookupRequest.yearHint,
+              localTracks: lookupRequest.tracks,
+              filenames: artistScopedFilenames,
+              artistHints: artistScopedHints,
+              alternateTrackTitles,
             });
             debug.info("auto-tag", `MusicBrainz returned ${mbCandidates.length} candidates`);
             this.emitTask(taskId, "source", `MusicBrainz: ${mbCandidates.length} candidate(s)`, {
@@ -1011,6 +1005,8 @@ class TaskManager {
             debug.warn("auto-tag", `MusicBrainz lookup failed (non-fatal)`, err);
             this.emitTask(taskId, "warning", "MusicBrainz lookup failed", { error: String(err) });
           }
+        } else if (hasDirectMusicBrainzRelease) {
+          debug.info("auto-tag", "Exact MusicBrainz release already loaded - skipping MusicBrainz search");
         } else {
           debug.info("auto-tag", "Remote lookups disabled - skipping MusicBrainz");
         }
@@ -1019,7 +1015,7 @@ class TaskManager {
         }
 
         // Step 6: Discogs artist-release browsing, then generic fallback.
-        if (this.config.discogsEnabled !== false) {
+        if (this.config.discogsEnabled !== false && !hasDirectMusicBrainzRelease) {
           debug.info("auto-tag", "Step 6/9: Searching Discogs releases...");
           update("Searching Discogs...", 6);
           try {
@@ -1034,6 +1030,10 @@ class TaskManager {
               artistId: lookupRequest.discogsArtistId,
               albumHint: lookupRequest.albumHint,
               yearHint: lookupRequest.yearHint,
+              localTracks: lookupRequest.tracks,
+              filenames: artistScopedFilenames,
+              artistHints: artistScopedHints,
+              alternateTrackTitles,
             });
             debug.info("auto-tag", `Discogs returned ${discogsCandidates.length} candidates`);
             this.emitTask(taskId, "source", `Discogs releases: ${discogsCandidates.length} candidate(s)`, {
@@ -1045,6 +1045,8 @@ class TaskManager {
             debug.warn("auto-tag", `Discogs lookup failed (non-fatal)`, err);
             this.emitTask(taskId, "warning", "Discogs lookup failed", { error: String(err) });
           }
+        } else if (hasDirectMusicBrainzRelease) {
+          debug.info("auto-tag", "Exact MusicBrainz release already loaded - skipping Discogs lookup");
         } else {
           debug.info("auto-tag", "Discogs disabled - skipping");
         }
@@ -1066,17 +1068,33 @@ class TaskManager {
         const folderCandidate = candidateFromFolder(lookupRequest);
         allCandidates.push(folderCandidate);
 
-        const filtered = await filterCandidatesForAutoApply(lookupRequest, allCandidates);
+        const freshCandidates = await filterCandidatesForAutoApply(lookupRequest, allCandidates);
+        const filteredCachedCandidates = await filterCandidatesForAutoApply(
+          lookupRequest,
+          cachedCandidates,
+        );
+
+        const freshCachePayload = this.withoutDatasetCandidates(freshCandidates);
+        const hasFreshProviderCandidate = freshCachePayload.some(
+          (candidate) => candidate.source === "musicbrainz" || candidate.source === "discogs",
+        );
+        if (
+          freshCachePayload.length > 0 &&
+          (cachedCandidates.length === 0 || hasFreshProviderCandidate)
+        ) {
+          cache.set(lookupRequest, freshCachePayload);
+          debug.debug("auto-tag", "Cached fresh results for future lookups");
+        } else if (cachedCandidates.length > 0) {
+          debug.debug("auto-tag", "Kept existing cache because no fresh provider candidate was available");
+        }
+
         allCandidates = await protectCandidateTrackFieldsForAutoApply(
           lookupRequest,
-          filtered,
+          [...freshCandidates, ...filteredCachedCandidates],
+          alternateTrackTitles,
         );
 
         debug.info("auto-tag", `Total candidates across all sources: ${allCandidates.length}`);
-
-        // Cache the results
-        cache.set(lookupRequest, this.withoutDatasetCandidates(allCandidates));
-        debug.debug("auto-tag", "Cached results for future lookups");
 
         const mergedCandidates = this.mergeCandidateFields(allCandidates);
         this.emitTask(taskId, "merge", `Merged ${allCandidates.length} source candidate(s)`, {
@@ -1327,7 +1345,9 @@ class TaskManager {
     const shouldResolveMusicBrainz =
       this.config.remoteLookupEnabled !== false && !request.musicbrainzArtistId;
     const shouldResolveDiscogs =
-      this.config.discogsEnabled !== false && !request.discogsArtistId;
+      this.config.discogsEnabled !== false &&
+      !request.musicbrainzAlbumId &&
+      !request.discogsArtistId;
 
     if (
       !request.artistHint ||
@@ -1370,7 +1390,12 @@ class TaskManager {
     request: ReturnType<typeof makeLookupRequest>,
     candidate: AlbumCandidate,
   ): Promise<string | null> {
-    const discogsArtistId = candidate.discogsArtistId ?? request.discogsArtistId;
+    const hasExactMusicBrainzRelease = !!request.musicbrainzAlbumId &&
+      candidate.source === "musicbrainz" &&
+      candidate.musicbrainzAlbumId === request.musicbrainzAlbumId;
+    const discogsArtistId = hasExactMusicBrainzRelease
+      ? null
+      : candidate.discogsArtistId ?? request.discogsArtistId;
     const musicbrainzArtistId = candidate.musicbrainzArtistId ?? request.musicbrainzArtistId;
 
     const [discogsName, musicbrainzName] = await Promise.all([
@@ -1488,9 +1513,10 @@ class TaskManager {
     if (candidate.discogsReleaseId !== undefined) albumFields.discogsReleaseId = candidate.discogsReleaseId;
     if (candidate.discogsArtistId !== undefined) albumFields.discogsArtistId = candidate.discogsArtistId;
     if (cover) {
-      albumFields.coverData = cover.data;
-      albumFields.coverMime = cover.mime;
-      this.emitTask(taskId, "source", `Cover art: ${cover.path}`, { source: "cover", path: cover.path });
+      const sidecarPath = await persistAutoTagCoverSidecar(albumPath, cover);
+      if (sidecarPath) {
+        this.emitTask(taskId, "source", `Cover art: ${sidecarPath}`, { source: "cover", path: sidecarPath });
+      }
     }
 
     // Build track-level fields, preserving input order.
@@ -1623,6 +1649,10 @@ class TaskManager {
   ): Promise<AlbumCandidate[]> {
     const results: AlbumCandidate[] = [];
     const albumHint = request.albumHint ?? "";
+    const filenames = getSortedAudioFilenames(requestAlbumPath(request.path));
+    const artistHints = [
+      request.artistHint,
+    ].filter((artist): artist is string => !!artist?.trim());
 
     debug.debug("auto-tag",
       `performDirectIdLookups: mbAlbumId=${request.musicbrainzAlbumId ?? "-"} ` +
@@ -1653,6 +1683,15 @@ class TaskManager {
       }
     }
 
+    if (results.some(
+      (candidate) =>
+        candidate.source === "musicbrainz" &&
+        candidate.musicbrainzAlbumId === request.musicbrainzAlbumId,
+    )) {
+      debug.info("auto-tag", "Direct MusicBrainz release matched - skipping Discogs direct lookup");
+      return results;
+    }
+
     // 2. MusicBrainz artist ID only (no album ID) → browse artist releases
     if (!request.musicbrainzAlbumId && request.musicbrainzArtistId) {
       debug.info("auto-tag", `Direct MB artist lookup: artistId=${request.musicbrainzArtistId}`);
@@ -1665,6 +1704,9 @@ class TaskManager {
         const candidate = albumHint
           ? await mb.lookupArtistReleaseByAlbum(request.musicbrainzArtistId, albumHint, {
               yearHint: request.yearHint,
+              localTracks: request.tracks,
+              filenames,
+              artistHints,
             })
           : null;
         if (candidate) {
@@ -1712,6 +1754,9 @@ class TaskManager {
         });
         const candidate = await discogs.lookupArtistReleaseByAlbum(request.discogsArtistId, albumHint, {
           yearHint: request.yearHint,
+          localTracks: request.tracks,
+          filenames,
+          artistHints,
         });
         if (candidate) {
           debug.info("auto-tag", `Direct Discogs artist lookup: found album="${candidate.album}"`);
@@ -1733,7 +1778,13 @@ class TaskManager {
       lookupArtistReleaseByAlbum?(
         artistId: string,
         albumHint: string,
-        options?: { yearHint?: string | null },
+        options?: {
+          yearHint?: string | null;
+          localTracks?: TrackCandidate[];
+          filenames?: string[];
+          artistHints?: string[];
+          alternateTrackTitles?: Array<string | null | undefined>;
+        },
       ): Promise<AlbumCandidate | null>;
     },
     variants: Array<[string, string]>,
@@ -1741,13 +1792,23 @@ class TaskManager {
       artistId: string | null;
       albumHint: string | null;
       yearHint: string | null;
+      localTracks?: TrackCandidate[];
+      filenames?: string[];
+      artistHints?: string[];
+      alternateTrackTitles?: Array<string | null | undefined>;
     },
   ): Promise<AlbumCandidate[]> {
     if (artistScoped?.artistId && artistScoped.albumHint && client.lookupArtistReleaseByAlbum) {
       const candidate = await client.lookupArtistReleaseByAlbum(
         artistScoped.artistId,
         artistScoped.albumHint,
-        { yearHint: artistScoped.yearHint },
+        {
+          yearHint: artistScoped.yearHint,
+          localTracks: artistScoped.localTracks,
+          filenames: artistScoped.filenames,
+          artistHints: artistScoped.artistHints,
+          alternateTrackTitles: artistScoped.alternateTrackTitles,
+        },
       );
       if (candidate) return [candidate];
     }
@@ -1763,19 +1824,18 @@ class TaskManager {
     return mergeAutoTagCandidateFields(candidates);
   }
 
-  private findLocalCover(albumPath: string, albumName: string | null): {
-    path: string;
-    data: Buffer;
-    mime: string;
-  } | null {
+  private findLocalCover(
+    albumPath: string,
+    albumName: string | null,
+  ): ResolvedAutoTagCover | null {
     const names = [
-      albumName,
       "cover",
       "folder",
       "front",
+      albumName,
       "album",
     ].filter((name): name is string => !!name?.trim());
-    const exts = [".jpg", ".jpeg", ".png"];
+    const exts = [".jpg", ".jpeg", ".png", ".webp"];
     for (const name of names) {
       for (const ext of exts) {
         const path = join(albumPath, `${name}${ext}`);
@@ -1783,7 +1843,7 @@ class TaskManager {
         return {
           path,
           data: readFileSync(path),
-          mime: ext === ".png" ? "image/png" : "image/jpeg",
+          mime: ext === ".png" ? "image/png" : ext === ".webp" ? "image/webp" : "image/jpeg",
         };
       }
     }
@@ -1793,11 +1853,7 @@ class TaskManager {
   private async resolveVerifiedCover(
     albumPath: string,
     candidate: AlbumCandidate,
-  ): Promise<{
-    path: string;
-    data: Buffer;
-    mime: string;
-  } | null> {
+  ): Promise<ResolvedAutoTagCover | null> {
     const local = this.findLocalCover(albumPath, candidate.album);
     if (local) return local;
 

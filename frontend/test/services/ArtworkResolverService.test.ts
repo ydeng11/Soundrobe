@@ -162,6 +162,53 @@ describe("ArtworkResolverService", () => {
       }
     });
 
+    it("retries Wikimedia after a transient DNS failure", async () => {
+      const ctx: ArtworkContext = {
+        kind: "artist-image",
+        artistName: "宋冬野",
+        albumName: "安和桥北",
+        albumPath: "/nonexistent/path/宋冬野/安和桥北",
+        musicbrainzAlbumId: null,
+      };
+      const dnsError = Object.assign(new TypeError("fetch failed"), {
+        cause: Object.assign(new Error("getaddrinfo ENOTFOUND www.wikidata.org"), {
+          code: "ENOTFOUND",
+        }),
+      });
+      let wikidataSearchAttempts = 0;
+      const originalFetch = global.fetch;
+      global.fetch = vi.fn().mockImplementation((url: string | Request | URL) => {
+        const u = url.toString();
+        if (u.includes("wikidata.org/w/api.php")) {
+          wikidataSearchAttempts += 1;
+          if (wikidataSearchAttempts === 1) return Promise.reject(dnsError);
+          return Promise.resolve(new Response(JSON.stringify({
+            search: [{ id: "Q15914828", label: "Song Dongye" }],
+          }), { status: 200, headers: { "Content-Type": "application/json" } }));
+        }
+        if (u.includes("Special:EntityData")) {
+          return Promise.resolve(new Response(JSON.stringify({
+            entities: { Q15914828: { claims: { P18: [{ mainsnak: { datavalue: { value: "Song_Dongye.jpg" } } }] } } },
+          }), { status: 200, headers: { "Content-Type": "application/json" } }));
+        }
+        if (u.includes("Special:FilePath")) {
+          return Promise.resolve(new Response(tinyJpeg, {
+            status: 200, headers: { "Content-Type": "image/jpeg" },
+          }));
+        }
+        return Promise.resolve(new Response(null, { status: 404 }));
+      });
+
+      try {
+        const result = await service.resolve(ctx);
+
+        expect(result?.source).toBe("wikimedia");
+        expect(wikidataSearchAttempts).toBe(2);
+      } finally {
+        global.fetch = originalFetch;
+      }
+    });
+
 
   });
 
@@ -745,6 +792,38 @@ describe("ArtworkResolverService", () => {
           "https://coverartarchive.org/release/mbid-with-cover",
           "https://coverartarchive.org/release/mbid-with-cover/front.jpg",
         ]);
+      });
+
+      it("retries Cover Art Archive after a transient DNS failure", async () => {
+        const dnsError = Object.assign(new TypeError("fetch failed"), {
+          cause: Object.assign(new Error("getaddrinfo ENOTFOUND coverartarchive.org"), {
+            code: "ENOTFOUND",
+          }),
+        });
+        const metadataUrl = "https://coverartarchive.org/release/mbid-dns-retry";
+        const imageUrl = `${metadataUrl}/front.jpg`;
+        global.fetch = vi.fn()
+          .mockRejectedValueOnce(dnsError)
+          .mockResolvedValueOnce(new Response(JSON.stringify({
+            images: [{ image: imageUrl, types: ["Front"] }],
+          }), { status: 200, headers: { "Content-Type": "application/json" } }))
+          .mockResolvedValueOnce(mockImageResponse(tinyJpeg));
+
+        const result = await service.resolve({
+          kind: "album-cover",
+          artistName: "任贤齐",
+          albumName: "神魔·不信邪",
+          musicbrainzAlbumId: "mbid-dns-retry",
+          albumPath: "/music/任贤齐/2011-神魔不信邪",
+        });
+
+        expect(result?.source).toBe("cover-art-archive");
+        expect(global.fetch).toHaveBeenCalledTimes(3);
+        expect(global.fetch).toHaveBeenNthCalledWith(
+          2,
+          metadataUrl,
+          expect.objectContaining({ signal: expect.any(AbortSignal) }),
+        );
       });
 
       it("skips first bad result and uses a later exact match", async () => {

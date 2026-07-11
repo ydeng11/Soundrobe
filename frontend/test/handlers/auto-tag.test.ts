@@ -1,12 +1,24 @@
 import { describe, it, expect, afterEach, beforeEach, vi } from "vitest";
 
+const lookupCacheMock = vi.hoisted(() => ({
+  responseJson: null as string | null,
+  writes: [] as string[],
+}));
+
 // Mock native-check so better-sqlite3 doesn't need to load (ABI mismatch in Vitest)
 vi.mock("../../electron/handlers/native-check", () => {
   class MockStatement {
-    run(..._params: unknown[]) {
+    constructor(private readonly sql: string) {}
+    run(...params: unknown[]) {
+      if (this.sql.includes("INSERT OR REPLACE INTO lookup_cache")) {
+        lookupCacheMock.writes.push(String(params[2]));
+      }
       return { changes: 1, lastInsertRowid: 1 };
     }
     get(..._params: unknown[]) {
+      if (this.sql.includes("FROM lookup_cache") && lookupCacheMock.responseJson) {
+        return { response_json: lookupCacheMock.responseJson };
+      }
       return undefined;
     }
     all(..._params: unknown[]) {
@@ -20,8 +32,8 @@ vi.mock("../../electron/handlers/native-check", () => {
     pragma(_sql: string) {
       return {};
     }
-    prepare(_sql: string) {
-      return new MockStatement();
+    prepare(sql: string) {
+      return new MockStatement(sql);
     }
     exec(_sql: string) {}
     close() {}
@@ -31,7 +43,7 @@ vi.mock("../../electron/handlers/native-check", () => {
     getBetterSqlite3: () => MockDB as never,
   };
 });
-import { mkdtempSync, rmSync, writeFileSync, mkdirSync, openSync, writeSync, closeSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync, mkdirSync, openSync, writeSync, closeSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { parseFile } from "music-metadata";
@@ -56,15 +68,32 @@ import {
   applyCanonicalArtistName,
   chooseProviderArtistName,
   shouldResolveAutoTagCover,
+  persistAutoTagCoverSidecar,
 } from "../../electron/handlers/auto-tag";
 import { setAliasFilePath, saveAlias } from "../../electron/handlers/aliases";
-import { makeAlbumCandidate, makeLookupRequest, makeTrackCandidate } from "../../electron/handlers/candidates";
+import {
+  candidatesFromJson,
+  candidatesToJson,
+  makeAlbumCandidate,
+  makeLookupRequest,
+  makeTrackCandidate,
+} from "../../electron/handlers/candidates";
 import { candidateFromFolder } from "../../electron/handlers/fallback";
 import { writeTags, batchWriteTags } from "../../electron/handlers/writer";
 import { readTrackMetadata } from "../../electron/handlers/tracks";
 import { readLocalLyrics } from "../../electron/handlers/lyrics";
 import { mapConcurrent } from "../../electron/services/concurrency";
 import * as NodeID3 from "node-id3";
+
+const tinyPng = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
+  "base64",
+);
+
+afterEach(() => {
+  lookupCacheMock.responseJson = null;
+  lookupCacheMock.writes = [];
+});
 
 /**
  * Shared env isolation for auto-tag lifecycle tests.
@@ -165,6 +194,64 @@ describe("shouldResolveAutoTagCover", () => {
   });
 });
 
+describe("persistAutoTagCoverSidecar", () => {
+  it.each(["cover.jpg", "folder.png", "front.webp"])(
+    "reuses recognized sidecar %s without rewriting it",
+    async (filename) => {
+      const albumPath = mkdtempSync(join(tmpdir(), "auto-tag-sidecar-existing-"));
+      try {
+        const sidecarPath = join(albumPath, filename);
+        const original = Buffer.from("existing-sidecar");
+        writeFileSync(sidecarPath, original);
+
+        const result = await persistAutoTagCoverSidecar(albumPath, {
+          path: sidecarPath,
+          data: Buffer.from("replacement"),
+          mime: "image/jpeg",
+        });
+
+        expect(result).toBe(sidecarPath);
+        expect(readFileSync(sidecarPath)).toEqual(original);
+      } finally {
+        rmSync(albumPath, { recursive: true, force: true });
+      }
+    },
+  );
+
+  it.each(["Album.jpg", "cover-art-archive:release-id"])(
+    "normalizes %s to cover.jpg",
+    async (sourceName) => {
+      const albumPath = mkdtempSync(join(tmpdir(), "auto-tag-sidecar-create-"));
+      try {
+        const sourcePath = sourceName.includes(":") ? sourceName : join(albumPath, sourceName);
+        if (!sourceName.includes(":")) writeFileSync(sourcePath, tinyPng);
+
+        const result = await persistAutoTagCoverSidecar(albumPath, {
+          path: sourcePath,
+          data: tinyPng,
+          mime: "image/png",
+        });
+
+        expect(result).toBe(join(albumPath, "cover.jpg"));
+        expect(readFileSync(result!).length).toBeGreaterThan(0);
+        expect(readFileSync(result!).subarray(0, 2)).toEqual(Buffer.from([0xff, 0xd8]));
+      } finally {
+        rmSync(albumPath, { recursive: true, force: true });
+      }
+    },
+  );
+
+  it("returns null when the sidecar cannot be written", async () => {
+    const missingAlbumPath = join(tmpdir(), `auto-tag-sidecar-missing-${Date.now()}`);
+
+    await expect(persistAutoTagCoverSidecar(missingAlbumPath, {
+      path: "cover-art-archive:release-id",
+      data: tinyPng,
+      mime: "image/png",
+    })).resolves.toBeNull();
+  });
+});
+
 describe("mergeAutoTagCandidateFields", () => {
   it("prefers provider evidence over LLM and folder fallbacks", () => {
     const provider = makeAlbumCandidate({
@@ -262,6 +349,41 @@ describe("mergeAutoTagCandidateFields", () => {
 
     expect(merged.tracks[0].artist).toBe("林俊傑 feat. MC HotDog");
     expect(merged.tracks[0].artists).toEqual(["林俊傑", "MC HotDog"]);
+  });
+
+  it("does not let LLM fallback overwrite provider track artists", () => {
+    const provider = makeAlbumCandidate({
+      source: "musicbrainz",
+      artist: "Artist",
+      album: "Album",
+      musicbrainzAlbumId: "mb-album",
+      tracks: [
+        makeTrackCandidate({
+          title: "Song",
+          artist: "Artist",
+          artists: ["Artist"],
+          trackNumber: 1,
+        }),
+      ],
+    });
+    const llm = makeAlbumCandidate({
+      source: "llm",
+      artist: "Artist",
+      album: "Album",
+      tracks: [
+        makeTrackCandidate({
+          title: "Song",
+          artist: "Artist feat. Guess",
+          artists: ["Artist", "Guess"],
+          trackNumber: 1,
+        }),
+      ],
+    });
+
+    const [merged] = mergeAutoTagCandidateFields([provider, llm]);
+
+    expect(merged.tracks[0].artist).toBe("Artist");
+    expect(merged.tracks[0].artists).toEqual(["Artist"]);
   });
 });
 
@@ -473,7 +595,7 @@ describe("protectCandidateTrackFieldsForAutoApply", () => {
     expect(protectedCandidate.tracks.map((track) => track.title)).toEqual(["微光", "讓我們一起微笑吧"]);
   });
 
-  it("does not overwrite non-empty local artist with remote artist", async () => {
+  it("trusts remote artist for a matched provider track", async () => {
     const request = makeLookupRequest({
       path: "/tmp/Artist/Album",
       artistHint: "Artist",
@@ -492,9 +614,8 @@ describe("protectCandidateTrackFieldsForAutoApply", () => {
 
     const [protectedCandidate] = await protectCandidateTrackFieldsForAutoApply(request, [remoteAlbum]);
 
-    // Local artist is non-empty — remote should NOT overwrite
-    expect(protectedCandidate.tracks[0].artist).toBe("Local Artist");
-    expect(protectedCandidate.tracks[0].artists).toEqual(["Local Artist"]);
+    expect(protectedCandidate.tracks[0].artist).toBe("Remote Artist");
+    expect(protectedCandidate.tracks[0].artists).toEqual(["Remote Artist"]);
   });
 
   it("updates local artist when remote enriches with featured artist", async () => {
@@ -541,6 +662,43 @@ describe("protectCandidateTrackFieldsForAutoApply", () => {
     const [protectedCandidate] = await protectCandidateTrackFieldsForAutoApply(request, [remoteAlbum]);
 
     expect(protectedCandidate.tracks[0].artist).toBe("Remote Artist");
+  });
+
+  it("uses an LLM-cleaned title only to align an authoritative provider track", async () => {
+    const request = makeLookupRequest({
+      path: "/tmp/品冠/那些女孩教我的事",
+      artistHint: "品冠",
+      albumHint: "那些女孩教我的事",
+      tracks: [
+        makeTrackCandidate({
+          title: "Unknown 06",
+          artist: "[momishi.com]",
+          artists: ["[momishi.com]"],
+          trackNumber: 6,
+        }),
+      ],
+    });
+    const remoteAlbum = makeAlbumCandidate({
+      source: "musicbrainz",
+      album: "那些女孩教我的事",
+      tracks: [
+        makeTrackCandidate({
+          title: "小白很乖",
+          artist: "品冠",
+          artists: ["品冠"],
+          trackNumber: 6,
+        }),
+      ],
+    });
+
+    const [protectedCandidate] = await protectCandidateTrackFieldsForAutoApply(
+      request,
+      [remoteAlbum],
+      ["小白很乖"],
+    );
+
+    expect(protectedCandidate.tracks[0].title).toBe("小白很乖");
+    expect(protectedCandidate.tracks[0].artist).toBe("品冠");
   });
 });
 
@@ -936,6 +1094,195 @@ describe("resolveTagsViaLLM — full pipeline with mocked LLM", () => {
 
   afterEach(() => {
     globalThis.fetch = originalFetch;
+  });
+
+  it("keeps album artwork in a sidecar without adding or replacing embedded pictures", async () => {
+    const originalEnv = { ...process.env };
+    const tmpHome = mkdtempSync(join(tmpdir(), "auto-tag-sidecar-flow-"));
+    process.env.HOME = tmpHome;
+    delete process.env.LLM_API_KEY;
+    delete process.env.LLM_MODEL;
+    process.env.AUTO_TAG_REMOTE_LOOKUP = "false";
+    process.env.AUTO_TAG_DISCOGS_ENABLED = "false";
+    process.env.AUTO_TAG_LYRICS_DOWNLOAD_ENABLED = "false";
+
+    try {
+      const albumDir = join(tmpHome, "Artist", "Album");
+      mkdirSync(albumDir, { recursive: true });
+      writeFileSync(join(albumDir, "Album.png"), tinyPng);
+
+      const firstTrack = join(albumDir, "01. First.flac");
+      const secondTrack = join(albumDir, "02. Second.flac");
+      for (const [trackPath, title] of [[firstTrack, "First"], [secondTrack, "Second"]]) {
+        const block = vorbisCommentBlock([
+          `TITLE=${title}`,
+          "ARTIST=Artist",
+          "ALBUM=Album",
+        ], { isLast: true });
+        writeFileSync(trackPath, Buffer.concat([
+          flacHeaderWithDuration(false, 200, [block]),
+          Buffer.from([0xff, 0xf8, 0x69, 0x18]),
+          Buffer.alloc(100),
+        ]));
+      }
+
+      await writeTags(secondTrack, { coverData: tinyPng, coverMime: "image/png" });
+      const embeddedBefore = (await parseFile(secondTrack, { duration: false })).common.picture?.[0]?.data;
+      expect(embeddedBefore).toBeDefined();
+
+      refreshConfig();
+      const taskId = startAutoTag(albumDir);
+      await waitForTask(taskId);
+
+      expect(getProgress(taskId)?.status).toBe("completed");
+      expect(readFileSync(join(albumDir, "cover.jpg")).subarray(0, 2)).toEqual(Buffer.from([0xff, 0xd8]));
+      expect((await parseFile(firstTrack, { duration: false })).common.picture).toBeUndefined();
+      const embeddedAfter = (await parseFile(secondTrack, { duration: false })).common.picture?.[0]?.data;
+      expect(embeddedAfter).toEqual(embeddedBefore);
+    } finally {
+      process.env = { ...originalEnv };
+      refreshConfig();
+      rmSync(tmpHome, { recursive: true, force: true });
+    }
+  });
+
+  it("replaces a junk track artist from filename evidence when providers and LLM are unavailable", async () => {
+    const originalEnv = { ...process.env };
+    const tmpHome = mkdtempSync(join(tmpdir(), "auto-tag-folder-artist-"));
+    process.env.HOME = tmpHome;
+    delete process.env.LLM_API_KEY;
+    delete process.env.LLM_MODEL;
+    process.env.AUTO_TAG_REMOTE_LOOKUP = "false";
+    process.env.AUTO_TAG_DISCOGS_ENABLED = "false";
+    process.env.AUTO_TAG_LYRICS_DOWNLOAD_ENABLED = "false";
+
+    try {
+      const albumDir = join(tmpHome, "品冠", "2017-现在你在哪里 Live");
+      mkdirSync(albumDir, { recursive: true });
+      const trackPath = join(albumDir, "品冠 - 身边 (Live).flac");
+      const block = vorbisCommentBlock([
+        "TITLE=身边 (Live)",
+        "ARTIST=[momishi.com]",
+        "ARTISTS=[momishi.com]",
+        "ALBUMARTIST=品冠",
+      ], { isLast: true });
+      writeFileSync(trackPath, Buffer.concat([
+        flacHeaderWithDuration(false, 200, [block]),
+        Buffer.from([0xff, 0xf8, 0x69, 0x18]),
+        Buffer.alloc(100),
+      ]));
+
+      refreshConfig();
+      const taskId = startAutoTag(albumDir);
+      await waitForTask(taskId);
+
+      expect(getProgress(taskId)?.status).toBe("completed");
+      const metadata = await readTrackMetadata(trackPath);
+      expect(metadata.artist).toBe("品冠");
+      expect(metadata.artists).toEqual(["品冠"]);
+    } finally {
+      process.env = { ...originalEnv };
+      refreshConfig();
+      rmSync(tmpHome, { recursive: true, force: true });
+    }
+  });
+
+  it("keeps fresh provider data ahead of a stale cache hit and caches only fresh candidates", async () => {
+    const originalEnv = { ...process.env };
+    const tmpHome = mkdtempSync(join(tmpdir(), "auto-tag-cache-fresh-"));
+    process.env.HOME = tmpHome;
+    delete process.env.LLM_API_KEY;
+    delete process.env.LLM_MODEL;
+    process.env.AUTO_TAG_REMOTE_LOOKUP = "true";
+    process.env.AUTO_TAG_DISCOGS_ENABLED = "true";
+    process.env.AUTO_TAG_LYRICS_DOWNLOAD_ENABLED = "false";
+
+    try {
+      const albumDir = join(tmpHome, "Provider Artist", "Album");
+      mkdirSync(albumDir, { recursive: true });
+      writeFileSync(join(albumDir, ".auto-tagger-cover-removed"), "");
+      const trackPath = join(albumDir, "06. Provider Song.flac");
+      const block = vorbisCommentBlock([
+        "TITLE=Unknown 06",
+        "ARTIST=[momishi.com]",
+        "ALBUM=Album",
+        "MUSICBRAINZ_ALBUMID=mb-release",
+        "MUSICBRAINZ_ARTISTID=mb-artist",
+        "MUSICBRAINZ_TRACKID=recording-1",
+        "DISCOGS_ARTIST_ID=123",
+        "DISCOGS_RELEASE_ID=456",
+      ], { isLast: true });
+      writeFileSync(trackPath, Buffer.concat([
+        flacHeaderWithDuration(false, 200, [block]),
+        Buffer.from([0xff, 0xf8, 0x69, 0x18]),
+        Buffer.alloc(100),
+      ]));
+
+      const cached = makeAlbumCandidate({
+        source: "musicbrainz",
+        artist: "[momishi.com]",
+        artists: ["[momishi.com]"],
+        album: "Album",
+        musicbrainzAlbumId: "mb-release",
+        musicbrainzArtistId: "mb-artist",
+        tracks: [makeTrackCandidate({
+          title: "Unknown 06",
+          artist: "[momishi.com]",
+          artists: ["[momishi.com]"],
+          musicbrainzTrackId: "recording-1",
+          trackNumber: 6,
+        })],
+      });
+      lookupCacheMock.responseJson = candidatesToJson([cached]);
+
+      globalThis.fetch = vi.fn().mockImplementation(async (url) => {
+        const textUrl = String(url);
+        if (textUrl.includes("/release/mb-release")) {
+          return {
+            ok: true,
+            json: async () => ({
+              id: "mb-release",
+              title: "Album",
+              date: "2008-01-01",
+              "artist-credit": [{ name: "Provider Artist", artist: { id: "mb-artist" } }],
+              media: [{
+                position: 1,
+                tracks: [{
+                  number: "6",
+                  title: "Provider Song",
+                  "artist-credit": [{ name: "Provider Artist", artist: { id: "mb-artist" } }],
+                  recording: { id: "recording-1", title: "Provider Song" },
+                }],
+              }],
+            }),
+          };
+        }
+        if (textUrl.includes("/artist/mb-artist")) {
+          return { ok: true, json: async () => ({ id: "mb-artist", name: "Provider Artist" }) };
+        }
+        return { ok: true, json: async () => ({ releases: [] }) };
+      });
+      refreshConfig();
+
+      const taskId = startAutoTag(albumDir);
+      await waitForTask(taskId);
+
+      expect(getProgress(taskId)?.status).toBe("completed");
+      const metadata = await readTrackMetadata(trackPath);
+      expect(metadata.title).toBe("Provider Song");
+      expect(metadata.artist).toBe("Provider Artist");
+
+      const providerUrls = vi.mocked(globalThis.fetch).mock.calls.map((call) => String(call[0]));
+      expect(providerUrls.some((url) => url.includes("api.discogs.com"))).toBe(false);
+
+      expect(lookupCacheMock.writes).toHaveLength(1);
+      const writtenCandidates = candidatesFromJson(lookupCacheMock.writes[0]);
+      expect(writtenCandidates.some((candidate) => candidate.artist === "[momishi.com]")).toBe(false);
+    } finally {
+      process.env = { ...originalEnv };
+      refreshConfig();
+      rmSync(tmpHome, { recursive: true, force: true });
+    }
   });
 
   it("corrects album metadata via LLM fallback when no API candidates exist", async () => {

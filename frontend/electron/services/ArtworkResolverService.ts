@@ -273,7 +273,7 @@ async function findCoverArtArchive(
     const caaUrl = `https://coverartarchive.org/release/${encodeURIComponent(mbid)}`;
     logger.debug("cover", `findCoverArtArchive: fetching ${caaUrl}`);
 
-    const response = await fetch(caaUrl, { signal: AbortSignal.timeout(10_000) });
+    const response = await fetchCoverArtArchiveRequest(caaUrl, "metadata");
     if (!response.ok) {
       logger.debug("cover", `findCoverArtArchive: HTTP ${response.status}`);
       return null;
@@ -294,7 +294,7 @@ async function findCoverArtArchive(
 
     logger.debug("cover", `findCoverArtArchive: selected image ${imageUrl} (${data.images.length} total images, front=${!!front})`);
 
-    const imgResponse = await fetch(imageUrl, { signal: AbortSignal.timeout(10_000) });
+    const imgResponse = await fetchCoverArtArchiveRequest(imageUrl, "image");
     if (!imgResponse.ok) {
       logger.debug("cover", `findCoverArtArchive: image fetch HTTP ${imgResponse.status}`);
       return null;
@@ -308,6 +308,23 @@ async function findCoverArtArchive(
   } catch (err) {
     logger.warn("cover", "findCoverArtArchive: threw", err);
     return null;
+  }
+}
+
+async function fetchCoverArtArchiveRequest(
+  url: string,
+  requestKind: string,
+): Promise<Response> {
+  try {
+    return await fetch(url, { signal: AbortSignal.timeout(10_000) });
+  } catch (err) {
+    logger.debug(
+      "cover",
+      `findCoverArtArchive: ${requestKind} request failed, retrying once`,
+      err,
+    );
+    await new Promise((resolve) => setTimeout(resolve, 250));
+    return fetch(url, { signal: AbortSignal.timeout(10_000) });
   }
 }
 
@@ -554,7 +571,7 @@ async function findWikimedia(
     const wikiDataUrl = `https://www.wikidata.org/w/api.php?action=wbsearchentities&search=${encodeURIComponent(artist)}&language=en&limit=5&format=json`;
     logger.debug("cover", `findWikimedia: searching Wikidata for "${artist}"`);
 
-    const wdRes = await fetch(wikiDataUrl, { signal: AbortSignal.timeout(10_000) });
+    const wdRes = await fetchWikimediaRequest(wikiDataUrl, 10_000, "search");
     if (!wdRes.ok) {
       logger.debug("cover", `findWikimedia: Wikidata HTTP ${wdRes.status}`);
       return null;
@@ -573,7 +590,7 @@ async function findWikimedia(
     logger.debug("cover", `findWikimedia: selected entity ${entityId} ("${wdData.search[0].label ?? "?"}")`);
 
     const entityUrl = `https://www.wikidata.org/wiki/Special:EntityData/${entityId}.json`;
-    const entityRes = await fetch(entityUrl, { signal: AbortSignal.timeout(10_000) });
+    const entityRes = await fetchWikimediaRequest(entityUrl, 10_000, "entity");
     if (!entityRes.ok) {
       logger.debug("cover", `findWikimedia: entity HTTP ${entityRes.status}`);
       return null;
@@ -608,7 +625,7 @@ async function findWikimedia(
     const commonsUrl = `https://commons.wikimedia.org/wiki/Special:FilePath/${encodeURIComponent(filename.replace(/ /g, "_"))}`;
     logger.debug("cover", `findWikimedia: Commons filename="${filename}" url=${commonsUrl}`);
 
-    const imgRes = await fetch(commonsUrl, { signal: AbortSignal.timeout(15_000) });
+    const imgRes = await fetchWikimediaRequest(commonsUrl, 15_000, "image");
     if (!imgRes.ok) {
       logger.debug("cover", `findWikimedia: Commons HTTP ${imgRes.status}`);
       return null;
@@ -622,6 +639,20 @@ async function findWikimedia(
   } catch (err) {
     logger.warn("cover", "findWikimedia: threw", err);
     return null;
+  }
+}
+
+async function fetchWikimediaRequest(
+  url: string,
+  timeoutMs: number,
+  requestKind: string,
+): Promise<Response> {
+  try {
+    return await fetch(url, { signal: AbortSignal.timeout(timeoutMs) });
+  } catch (err) {
+    logger.debug("cover", `findWikimedia: ${requestKind} request failed, retrying once`, err);
+    await new Promise((resolve) => setTimeout(resolve, 250));
+    return fetch(url, { signal: AbortSignal.timeout(timeoutMs) });
   }
 }
 

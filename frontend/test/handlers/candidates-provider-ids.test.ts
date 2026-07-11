@@ -144,4 +144,30 @@ describe("LookupRequest — provider IDs", () => {
     expect(queryHash(r2)).not.toBe(queryHash(r3));
     expect(queryHash(r1)).toBe(queryHash(r4));
   });
+
+  it("includes per-track MusicBrainz IDs because they change track alignment", () => {
+    const withTrackId = makeLookupRequest({
+      artistHint: "品冠",
+      albumHint: "那些女孩教我的事",
+      tracks: [
+        makeTrackCandidate({
+          title: "06.小白很乖",
+          trackNumber: 6,
+          musicbrainzTrackId: "96fd68c2-669e-4906-8d8e-041e48e3f78e",
+        }),
+      ],
+    });
+    const withoutTrackId = makeLookupRequest({
+      artistHint: "品冠",
+      albumHint: "那些女孩教我的事",
+      tracks: [
+        makeTrackCandidate({
+          title: "06.小白很乖",
+          trackNumber: 6,
+        }),
+      ],
+    });
+
+    expect(queryHash(withTrackId)).not.toBe(queryHash(withoutTrackId));
+  });
 });

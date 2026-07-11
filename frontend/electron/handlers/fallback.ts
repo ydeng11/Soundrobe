@@ -34,6 +34,7 @@ const COMPILATION_FOLDER_SET = new Set([
 ]);
 
 const AUDIO_EXTENSIONS = new Set([".mp3", ".flac", ".m4a", ".mp4", ".wav", ".ogg", ".opus", ".ape"]);
+const BRACKETED_DOMAIN_ARTIST_RE = /^\[(?:https?:\/\/)?(?:www\.)?[a-z0-9-]+(?:\.[a-z0-9-]+)+(?:\/[^\]]*)?\]$/i;
 
 function isAudioFilePath(inputPath: string): boolean {
   try {
@@ -367,7 +368,13 @@ async function scanAlbumFilesWithTags(filePath: string): Promise<AlbumFileScan> 
 
       try {
         const meta = await readTrackMetadata(fullPath);
-        result.artist ??= meta.artist || meta.albumArtist;
+        const resolvedArtist = resolveLocalTrackArtist(
+          meta.artist,
+          meta.artists,
+          meta.albumArtist,
+          filenameHint.artist,
+        );
+        result.artist ??= resolvedArtist.artist || meta.albumArtist;
         result.album ??= meta.album;
         result.year ??= meta.year;
         result.musicbrainzAlbumId ??= meta.musicbrainzAlbumId;
@@ -377,8 +384,8 @@ async function scanAlbumFilesWithTags(filePath: string): Promise<AlbumFileScan> 
         result.tracks.push(
           makeTrackCandidate({
             title: meta.title || filenameHint.title,
-            artist: meta.artist || filenameHint.artist,
-            artists: meta.artists.length > 0 ? meta.artists : filenameHint.artists,
+            artist: resolvedArtist.artist,
+            artists: resolvedArtist.artists,
             trackNumber: filenameHint.trackNumber ?? meta.trackNumber ?? index,
             trackTotal: null, // filled after all tracks are collected
             discNumber: meta.discNumber,
@@ -409,6 +416,55 @@ async function scanAlbumFilesWithTags(filePath: string): Promise<AlbumFileScan> 
   }
 
   return result;
+}
+
+function resolveLocalTrackArtist(
+  taggedArtist: string | null,
+  taggedArtists: string[],
+  albumArtist: string | null,
+  filenameArtist: string | null,
+): { artist: string | null; artists: string[] } {
+  const normalizedTaggedArtist = taggedArtist?.trim() || null;
+  const meaningfulTaggedArtists = taggedArtists
+    .map((artist) => artist.trim())
+    .filter((artist) => !isUntrustedTrackArtist(artist));
+  if (normalizedTaggedArtist && !isUntrustedTrackArtist(normalizedTaggedArtist)) {
+    return {
+      artist: normalizedTaggedArtist,
+      artists: meaningfulTaggedArtists.length > 0
+        ? meaningfulTaggedArtists
+        : [normalizedTaggedArtist],
+    };
+  }
+
+  if (meaningfulTaggedArtists.length > 0) {
+    return {
+      artist: meaningfulTaggedArtists.join(" & "),
+      artists: meaningfulTaggedArtists,
+    };
+  }
+
+  const normalizedFilenameArtist = filenameArtist?.trim() || null;
+  const normalizedAlbumArtist = albumArtist?.trim() || null;
+  const fallbackArtist = [normalizedFilenameArtist, normalizedAlbumArtist]
+    .find(isTrustedSoloArtist) ?? null;
+  if (!fallbackArtist) {
+    return { artist: taggedArtist, artists: taggedArtists };
+  }
+
+  return {
+    artist: fallbackArtist,
+    artists: [fallbackArtist],
+  };
+}
+
+function isUntrustedTrackArtist(artist: string | null): boolean {
+  const value = artist?.trim() ?? "";
+  return value.length === 0 || BRACKETED_DOMAIN_ARTIST_RE.test(value);
+}
+
+function isTrustedSoloArtist(artist: string | null): artist is string {
+  return !!artist && !isUntrustedTrackArtist(artist) && !isCompilationFolder(artist);
 }
 
 // ── Track hints ─────────────────────────────────────────────────────

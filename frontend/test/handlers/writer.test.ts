@@ -11,6 +11,7 @@ import {
   writeExtraTags,
   writeExtraTagsWithOutcome,
   writeTagsWithOutcome,
+  writeTagsWithResult,
 } from "../../electron/handlers/writer";
 import { readExtraTags } from "../../electron/handlers/tracks";
 import { TagWriteQueue } from "../../electron/services/TagWriteQueue";
@@ -214,9 +215,9 @@ describe("writeTags — MP3", () => {
     // readExtraTags should now show MusicBrainz fields (no longer hidden)
     const extras = await readExtraTags(fp);
     const keys = extras.map((tag) => tag.key);
-    expect(keys).toContain("MusicBrainz Track Id");
-    expect(keys).toContain("MusicBrainz Album Id");
-    expect(keys).toContain("MusicBrainz Artist Id");
+    expect(keys).toContain("MUSICBRAINZ_TRACKID");
+    expect(keys).toContain("MUSICBRAINZ_ALBUMID");
+    expect(keys).toContain("MUSICBRAINZ_ARTISTID");
     expect(keys).toContain("COMPILATION");
     // Standard editor fields remain hidden
     expect(keys).not.toContain("TITLE");
@@ -505,7 +506,7 @@ describe("writeTags — FLAC with corrupted metadata", () => {
   /**
    * Create a FLAC file with a VORBIS_COMMENT block header
    * that has an impossibly large length (simulates corruption).
-   * readVorbisComments and writeFlacMetadataBlock iterate
+   * The FLAC comment reader and metadata transaction iterate
    * metadata blocks by length — a corrupted length would
    * previously cause out-of-bounds reads.
    */
@@ -702,7 +703,7 @@ describe("writeTags — FLAC with corrupted metadata", () => {
   it("does not corrupt audio data when FLAC has many metadata blocks", async () => {
     // Create a FLAC with multiple metadata blocks followed by audio data.
     // The audio data contains bytes with high bit set, which previously
-    // caused fixLastFlacBlock to corrupt audio by treating them as isLast flags.
+    // caused the old metadata finalization pass to treat them as isLast flags.
     const fp = path.join(tmpDir, "multi-block.flac");
 
     const parts: Buffer[] = [];
@@ -720,7 +721,7 @@ describe("writeTags — FLAC with corrupted metadata", () => {
     siHeader[3] = si.length & 0xff;
     parts.push(siHeader, si);
 
-    // VORBIS_COMMENT (type 4) - NOT last, so fixLastFlacBlock will process it
+    // VORBIS_COMMENT (type 4) - NOT last, so metadata parsing continues
     // Build inline (no helper dependency)
     const vcVendor = Buffer.from("auto-tagger-test", "utf8");
     const vcVLen = Buffer.alloc(4);
@@ -780,7 +781,7 @@ describe("writeTags — FLAC with corrupted metadata", () => {
     expect(audioAfter.equals(audioBefore)).toBe(true);
   });
 
-  it("fixLastFlacBlock does not modify audio bytes with high bit set", async () => {
+  it("metadata rewrite does not modify audio bytes with high bit set", async () => {
     // Similar to above but with specific known pattern in audio.
     // This simulates the real corruption: audio bytes with bit 7 set
     // are misinterpreted as metadata isLast flags.
@@ -829,7 +830,7 @@ describe("writeTags — FLAC with corrupted metadata", () => {
     parts.push(padHeader, padBody);
 
     // Audio data: every byte has bit 7 set (80-FF hex)
-    // Previously fixLastFlacBlock would modify these bytes!
+    // The historical block finalization pass modified these bytes.
     const audioData = Buffer.alloc(5000);
     for (let i = 0; i < audioData.length; i++) {
       audioData[i] = 0x80 | (i & 0x7f);
@@ -1037,6 +1038,86 @@ describe("writeTags — FLAC in-place padding-aware", () => {
 
   afterEach(() => {
     fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it("skips an identical requested PICTURE block and unchanged comments", async () => {
+    const fp = path.join(tmpDir, "same-cover.flac");
+    const coverData = Buffer.from([0xff, 0xd8, 0xff, 0xd9]);
+    buildFlacWithPadding(fp, 5000, { TITLE: "Stay" });
+    await writeTags(fp, { title: "Stay", coverData, coverMime: "image/jpeg" });
+    const before = fs.readFileSync(fp);
+
+    const result = await writeTagsWithResult(fp, {
+      title: "Stay",
+      coverData,
+      coverMime: "image/jpeg",
+    });
+
+    expect(result).toEqual({ outcome: "skipped", reason: "unchanged" });
+    expect(fs.readFileSync(fp)).toEqual(before);
+  });
+
+  it("applies comments and cover art in one metadata-region rewrite", async () => {
+    const fp = path.join(tmpDir, "combined.flac");
+    const coverData = Buffer.from([0xff, 0xd8, 0xff, 0xd9]);
+    buildFlacWithPadding(fp, 5000, { TITLE: "Old" });
+    const before = fs.readFileSync(fp);
+    const audioOffset = findAudioOffset(before);
+    const audioBefore = before.subarray(audioOffset);
+
+    const result = await writeTagsWithResult(fp, {
+      title: "New title",
+      artist: "Artist",
+      coverData,
+      coverMime: "image/jpeg",
+    });
+
+    const after = fs.readFileSync(fp);
+    expect(result).toEqual({ outcome: "metadata_rewrite", reason: "metadata_region_repacked" });
+    expect(after.length).toBe(before.length);
+    expect(findAudioOffset(after)).toBe(audioOffset);
+    expect(after.subarray(audioOffset)).toEqual(audioBefore);
+    const metadata = await parseFile(fp, { duration: false });
+    expect(metadata.common.title).toBe("New title");
+    expect(metadata.common.artist).toBe("Artist");
+    expect(Buffer.from(metadata.common.picture?.[0]?.data ?? [])).toEqual(coverData);
+  });
+
+  it("uses padding after a seektable without rewriting audio", async () => {
+    const fp = path.join(tmpDir, "seektable-space.flac");
+    buildFlacWithPadding(fp, 5000, { TITLE: "Old" }, { includeSeektable: true });
+    const before = fs.readFileSync(fp);
+    const audioOffset = findAudioOffset(before);
+    const audioBefore = before.subarray(audioOffset);
+
+    const result = await writeTagsWithResult(fp, {
+      title: "A much longer title that grows the Vorbis comment block",
+      artist: "Artist",
+      album: "Album",
+    });
+
+    const after = fs.readFileSync(fp);
+    expect(result).toEqual({ outcome: "metadata_rewrite", reason: "metadata_region_repacked" });
+    expect(after.length).toBe(before.length);
+    expect(findAudioOffset(after)).toBe(audioOffset);
+    expect(after.subarray(audioOffset)).toEqual(audioBefore);
+  });
+
+  it("reports why insufficient metadata space requires a full rewrite", async () => {
+    const fp = path.join(tmpDir, "insufficient-space.flac");
+    buildFlacWithPadding(fp, 8, { TITLE: "Old" });
+
+    const result = await writeTagsWithResult(fp, {
+      title: "New",
+      lyrics: "lyrics".repeat(500),
+      coverData: Buffer.alloc(1000, 0x7f),
+      coverMime: "image/jpeg",
+    });
+
+    expect(result).toEqual({ outcome: "full_rewrite", reason: "insufficient_metadata_space" });
+    const metadata = await parseFile(fp, { duration: false });
+    expect(metadata.common.title).toBe("New");
+    expect(Buffer.from(metadata.common.picture?.[0]?.data ?? [])).toEqual(Buffer.alloc(1000, 0x7f));
   });
 
   it("smaller Vorbis update keeps file size and audio bytes unchanged", async () => {
@@ -1373,6 +1454,9 @@ describe("writeTags — WAV in-place", () => {
       if (existingTags.title) nodeId3Tags.title = existingTags.title;
       if (existingTags.artist) nodeId3Tags.artist = existingTags.artist;
       if (existingTags.album) nodeId3Tags.album = existingTags.album;
+      if (existingTags.comment) {
+        nodeId3Tags.comment = { language: "eng", text: existingTags.comment };
+      }
     }
     const id3Payload = NodeID3.create(nodeId3Tags);
 
@@ -1389,6 +1473,63 @@ describe("writeTags — WAV in-place", () => {
     header.writeUInt32LE(body.length, 4);
     fs.writeFileSync(filePath, Buffer.concat([header, body]));
   }
+
+  it("round-trips the canonical UI provider key through an ID3 description", async () => {
+    const fp = path.join(tmpDir, "provider-id.wav");
+    createMinimalWav(fp);
+
+    await writeExtraTags(fp, [
+      { key: "MUSICBRAINZ_ALBUMID", value: "mb-album" },
+    ]);
+
+    const extras = await readExtraTags(fp);
+    expect(extras).toEqual([
+      expect.objectContaining({ key: "MUSICBRAINZ_ALBUMID", value: "mb-album" }),
+    ]);
+    const metadata = await parseFile(fp, { duration: false });
+    expect(
+      Object.values(metadata.native)
+        .flat()
+        .some((tag) => tag.id === "TXXX:MusicBrainz Album Id"),
+    ).toBe(true);
+  });
+
+  it("writes one WAV ARTISTS frame per artist for Navidrome", async () => {
+    const fp = path.join(tmpDir, "collaboration.wav");
+    createMinimalWav(fp);
+
+    const fields = {
+      artist: "梁静茹、光良",
+      artists: ["梁静茹", "光良"],
+    };
+    await writeTags(fp, fields);
+
+    const metadata = await parseFile(fp, { duration: false });
+    const artistFrames = Object.values(metadata.native)
+      .flat()
+      .filter((tag) => tag.id === "TXXX:ARTISTS")
+      .map((tag) => tag.value);
+
+    expect(artistFrames).toEqual(["梁静茹", "光良"]);
+    expect(metadata.common.artists).toEqual(["梁静茹", "光良"]);
+    await expect(writeTagsWithOutcome(fp, fields)).resolves.toBe("skipped");
+  });
+
+  it("removes a native COMM frame when COMMENT is deleted from extra tags", async () => {
+    const fp = path.join(tmpDir, "comment.wav");
+    createWavWithId3(fp, { comment: "Remove this comment" });
+
+    expect(await readExtraTags(fp)).toEqual([
+      expect.objectContaining({ key: "COMMENT", value: "Remove this comment" }),
+    ]);
+
+    const outcome = await writeExtraTagsWithOutcome(fp, []);
+
+    expect(outcome).not.toBe("skipped");
+    const metadata = await parseFile(fp, { duration: false });
+    expect(metadata.common.comment).toBeUndefined();
+    expect(await readExtraTags(fp)).toEqual([]);
+  });
 
   it("existing id3 chunk update fits in place, preserves file size and audio bytes", async () => {
     const fp = path.join(tmpDir, "inplace.wav");
@@ -1666,7 +1807,7 @@ describe("batchWriteExtraTags", () => {
 
     // Write extra tags including the musicbrainz fields (now editable through extras)
     await writeExtraTags(fp, [
-      { key: "MusicBrainz Track Id", value: "new-mb-track" },
+      { key: "MUSICBRAINZ_TRACKID", value: "new-mb-track" },
       { key: "COMPILATION", value: "0" },
       { key: "MOOD", value: "Bright" },
     ]);
@@ -1686,6 +1827,72 @@ describe("batchWriteExtraTags", () => {
     expect(byDescription["MusicBrainz Track Id"]).toBe("new-mb-track");
     expect(byDescription["COMPILATION"]).toBe("0");
     expect(byDescription["MOOD"]).toBe("Bright");
+  });
+
+  it("shows equivalent ID3 provider aliases as one canonical extra tag", async () => {
+    const fp = path.join(tmpDir, "provider-aliases.mp3");
+    createMinimalMp3(fp);
+    NodeID3.update({
+      userDefinedText: [
+        { description: "MusicBrainz Album Id", value: "mb-album" },
+        { description: "MUSICBRAINZ_ALBUM_ID", value: "mb-album" },
+        { description: "MUSICBRAINS_ALBUM_ID", value: "mb-album" },
+      ],
+    }, fp);
+
+    const extras = await readExtraTags(fp);
+    expect(extras.filter((tag) => tag.key === "MUSICBRAINZ_ALBUMID")).toEqual([
+      expect.objectContaining({ value: "mb-album" }),
+    ]);
+  });
+
+  it("writes the canonical UI provider key using the native ID3 description", async () => {
+    const fp = path.join(tmpDir, "canonical-provider-key.mp3");
+    createMinimalMp3(fp);
+
+    await writeExtraTags(fp, [
+      { key: "MUSICBRAINZ_ALBUMID", value: "mb-album" },
+    ]);
+
+    const tags = NodeID3.read(fp);
+    const userDefinedText = Array.isArray(tags.userDefinedText)
+      ? tags.userDefinedText
+      : tags.userDefinedText
+        ? [tags.userDefinedText]
+        : [];
+    expect(userDefinedText).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          description: "MusicBrainz Album Id",
+          value: "mb-album",
+        }),
+      ]),
+    );
+    expect(await readExtraTags(fp)).toEqual([
+      expect.objectContaining({ key: "MUSICBRAINZ_ALBUMID", value: "mb-album" }),
+    ]);
+  });
+
+  it("removes legacy provider aliases when sidebar metadata rewrites the field", async () => {
+    const fp = path.join(tmpDir, "legacy-provider-key.mp3");
+    createMinimalMp3(fp);
+    NodeID3.update({
+      userDefinedText: [
+        { description: "MUSICBRAINS_ALBUM_ID", value: "old-id" },
+      ],
+    }, fp);
+
+    await writeTags(fp, { musicbrainzAlbumId: "new-id" });
+
+    const tags = NodeID3.read(fp);
+    const userDefinedText = Array.isArray(tags.userDefinedText)
+      ? tags.userDefinedText
+      : tags.userDefinedText
+        ? [tags.userDefinedText]
+        : [];
+    expect(userDefinedText.filter((tag) => /musicbrains?/i.test(tag.description ?? ""))).toEqual([
+      expect.objectContaining({ description: "MusicBrainz Album Id", value: "new-id" }),
+    ]);
   });
 
   it("removes musicbrainz detail tags when not included in extra tags write", async () => {

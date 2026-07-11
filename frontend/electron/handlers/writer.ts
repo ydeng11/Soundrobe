@@ -8,6 +8,10 @@ import {
   parseApeTagItems,
   stripApeTag,
 } from "../services/ApeTagEngine";
+import {
+  canonicalProviderTagKey,
+  providerTagId3Description,
+} from "../services/ProviderTagKeys";
 export { findApeFooterOffset, parseApeTagItems } from "../services/ApeTagEngine";
 
 type NodeID3Module = typeof import("node-id3");
@@ -89,6 +93,23 @@ export interface ExtraTagUpdate {
  * Renderer-facing APIs are unchanged; this is used by the queue/debug path.
  */
 export type WriteOutcome = "skipped" | "in_place" | "metadata_rewrite" | "full_rewrite";
+
+export type WriteReason =
+  | "unchanged"
+  | "in_place_update"
+  | "metadata_region_repacked"
+  | "insufficient_metadata_space"
+  | "invalid_metadata_padding"
+  | "ape_tag_removed"
+  | "ghost_vorbis_removed"
+  | "duplicate_vorbis_removed"
+  | "container_requires_full_rewrite"
+  | "format_requires_full_rewrite";
+
+export interface WriteResult {
+  outcome: WriteOutcome;
+  reason: WriteReason;
+}
 
 /** Describes one FLAC metadata block in the file layout. */
 interface FlacBlockInfo {
@@ -205,7 +226,29 @@ function mergeMp3UserDefinedText(
 
   for (const { description, value } of upserts) {
     if (value === undefined) continue;
-    const text = Array.isArray(value) ? value.join("; ") : value;
+    if (Array.isArray(value)) {
+      for (let index = rows.length - 1; index >= 0; index--) {
+        if (rows[index].description.toUpperCase() === description) {
+          rows.splice(index, 1);
+        }
+      }
+      for (const text of value) {
+        rows.push({ description, value: text });
+      }
+      continue;
+    }
+
+    const text = value;
+    const providerKey = canonicalProviderTagKey(description);
+    if (providerKey) {
+      for (let index = rows.length - 1; index >= 0; index--) {
+        if (canonicalProviderTagKey(rows[index].description) === providerKey) {
+          rows.splice(index, 1);
+        }
+      }
+      if (text) rows.push({ description, value: text });
+      continue;
+    }
     const index = rows.findIndex((row) => row.description === description);
     if (!text) {
       if (index >= 0) rows.splice(index, 1);
@@ -221,20 +264,7 @@ function mergeMp3UserDefinedText(
 
 async function writeMp3ExtraTags(filePath: string, extraTags: ExtraTagUpdate[]): Promise<void> {
   const existingTags = await readNodeId3Tags(filePath);
-  const preserved = toArray(existingTags.userDefinedText).filter(
-    (tag) =>
-      tag.description &&
-      isReservedExtraTagKey(tag.description) &&
-      !EXTRA_TAG_RESERVED_EXCEPTIONS.has(tag.description.trim().toUpperCase()),
-  );
-  const custom = normalizeExtraTags(extraTags, EXTRA_TAG_RESERVED_EXCEPTIONS).map((tag) => ({
-    description: tag.key,
-    value: tag.value,
-  }));
-  const nextTags: NodeID3.Tags = {
-    ...existingTags,
-    userDefinedText: [...preserved, ...custom],
-  };
+  const nextTags = mergeId3ExtraTags(existingTags, extraTags);
   await writeNodeId3Tags(nextTags, filePath);
 }
 
@@ -280,21 +310,7 @@ async function writeWavExtraTags(filePath: string, extraTags: ExtraTagUpdate[]):
     offset = end;
   }
 
-  // Apply extra-tag update (same logic as MP3)
-  const preserved = toArray(existingTags.userDefinedText).filter(
-    (tag) =>
-      tag.description &&
-      isReservedExtraTagKey(tag.description) &&
-      !EXTRA_TAG_RESERVED_EXCEPTIONS.has(tag.description.trim().toUpperCase()),
-  );
-  const custom = normalizeExtraTags(extraTags, EXTRA_TAG_RESERVED_EXCEPTIONS).map((tag) => ({
-    description: tag.key,
-    value: tag.value,
-  }));
-  const mergedTags: NodeID3.Tags = {
-    ...existingTags,
-    userDefinedText: [...preserved, ...custom],
-  };
+  const mergedTags = mergeId3ExtraTags(existingTags, extraTags);
 
   const id3Payload = nodeId3.create(mergedTags);
 
@@ -338,8 +354,8 @@ async function writeWavExtraTags(filePath: string, extraTags: ExtraTagUpdate[]):
  */
 async function writeVorbis(
   filePath: string,
-  fields: WriteFields
-): Promise<WriteOutcome> {
+  fields: WriteFields,
+): Promise<WriteResult> {
   const data = await readFile(filePath);
   const existing = readVorbisComments(data);
   const updated = { ...existing };
@@ -368,27 +384,21 @@ async function writeVorbis(
   setVorbisField(updated, "DISCNUMBER", fields.discNumber ?? fields.disc);
   setVorbisField(updated, "DISCTOTAL", fields.discTotal);
   setVorbisField(updated, "LYRICS", fields.lyrics);
-  setVorbisField(updated, "MUSICBRAINZ_TRACKID", fields.musicbrainzTrackId);
-  setVorbisField(updated, "MUSICBRAINZ_ALBUMID", fields.musicbrainzAlbumId);
-  setVorbisField(updated, "MUSICBRAINZ_ARTISTID", fields.musicbrainzArtistId);
-  setVorbisField(updated, "DISCOGS_ARTIST_ID", fields.discogsArtistId);
-  setVorbisField(updated, "DISCOGS_RELEASE_ID", fields.discogsReleaseId);
+  setProviderVorbisField(updated, "MUSICBRAINZ_TRACKID", fields.musicbrainzTrackId);
+  setProviderVorbisField(updated, "MUSICBRAINZ_ALBUMID", fields.musicbrainzAlbumId);
+  setProviderVorbisField(updated, "MUSICBRAINZ_ARTISTID", fields.musicbrainzArtistId);
+  setProviderVorbisField(updated, "DISCOGS_ARTIST_ID", fields.discogsArtistId);
+  setProviderVorbisField(updated, "DISCOGS_RELEASE_ID", fields.discogsReleaseId);
   setVorbisField(updated, "COMPILATION", compilationToTag(fields.compilation));
   // Never store cover art in Vorbis comments — it bloats the block and causes
   // metadata chain breaks with large images. Strip any existing entry too.
   delete updated.METADATA_BLOCK_PICTURE;
 
-  const outcome = await writeVorbisComments(filePath, data, updated);
-
-  // For FLAC files, write cover as a native METADATA_BLOCK_PICTURE (type 6)
-  // instead of inside Vorbis comments, to avoid bloating the Vorbis block.
-  if (fields.coverData && filePath.toLowerCase().endsWith(".flac")) {
-    const pictureData = buildFlacPictureBlock(fields.coverData, fields.coverMime ?? "image/jpeg");
-    const fileBuf = await readFile(filePath);
-    await writeFlacNonVorbisBlock(filePath, fileBuf, 6, pictureData);
-  }
-
-  return outcome;
+  const pictureData =
+    fields.coverData && filePath.toLowerCase().endsWith(".flac")
+      ? buildFlacPictureBlock(fields.coverData, fields.coverMime ?? "image/jpeg")
+      : undefined;
+  return writeVorbisComments(filePath, data, updated, pictureData);
 }
 
 interface VorbisDict {
@@ -407,6 +417,21 @@ function setVorbisField(
   } else {
     comments[key] = [text];
   }
+}
+
+function setProviderVorbisField(
+  comments: VorbisDict,
+  key: string,
+  value: string | null | undefined,
+): void {
+  if (value === undefined) return;
+  const canonical = canonicalProviderTagKey(key);
+  for (const existingKey of Object.keys(comments)) {
+    if (canonicalProviderTagKey(existingKey) === canonical) {
+      delete comments[existingKey];
+    }
+  }
+  setVorbisField(comments, key, value);
 }
 
 function setVorbisList(
@@ -542,8 +567,9 @@ function stripApeTagFromBuffer(buf: Buffer): Buffer {
 async function writeVorbisComments(
   filePath: string,
   origBuf: Buffer,
-  comments: VorbisDict
-): Promise<WriteOutcome> {
+  comments: VorbisDict,
+  pictureData?: Buffer,
+): Promise<WriteResult> {
   // Never store cover art in Vorbis comments — it bloats the block and causes
   // metadata chain breaks with large images. Strip any existing entry too.
   delete comments.METADATA_BLOCK_PICTURE;
@@ -588,23 +614,21 @@ async function writeVorbisComments(
     const ghost = neutralizeGhostVorbisComments(cleaned);
     cleaned = ghost.buf;
 
-    if (hasApe || ghost.found) {
-      // Full rewrite required: can't remove bytes via in-place write
-      const layout = parseFlacLayout(cleaned);
-      await writeFlacWithPaddingFallback(filePath, cleaned, layout, commentBlock);
-      return "full_rewrite";
-    }
-    return await writeFlacMetadataBlock(filePath, cleaned, 4, commentBlock);
+    return writeFlacMetadataTransaction(filePath, cleaned, commentBlock, {
+      pictureData,
+      removedApeTag: hasApe,
+      removedGhostVorbis: ghost.found,
+    });
   } else if (
     filePath.toLowerCase().endsWith(".ogg") ||
     filePath.toLowerCase().endsWith(".opus")
   ) {
     await writeOggVorbisComments(filePath, commentBlock);
-    return "full_rewrite";
+    return { outcome: "full_rewrite", reason: "container_requires_full_rewrite" };
   } else {
     // Unsupported Vorbis container — fall through
     await writeFile(filePath, origBuf);
-    return "full_rewrite";
+    return { outcome: "full_rewrite", reason: "container_requires_full_rewrite" };
   }
 }
 
@@ -863,315 +887,171 @@ function isVorbisUnchanged(
   return true;
 }
 
-/**
- * Replace or append a FLAC metadata block.
- */
-async function writeFlacMetadataBlock(
+interface FlacBlockPayload {
+  type: number;
+  data: Buffer;
+}
+
+function buildDesiredFlacBlocks(
+  buf: Buffer,
+  layout: ReturnType<typeof parseFlacLayout>,
+  vorbisData: Buffer,
+  pictureData?: Buffer,
+): FlacBlockPayload[] {
+  const blocks: FlacBlockPayload[] = [];
+  let replacedVorbis = false;
+  let replacedPicture = false;
+
+  for (const block of layout.blocks) {
+    if (block.type === 1) continue;
+    if (block.type === 4) {
+      if (!replacedVorbis) {
+        blocks.push({ type: 4, data: vorbisData });
+        replacedVorbis = true;
+      }
+      continue;
+    }
+    if (block.type === 6 && pictureData && !replacedPicture) {
+      blocks.push({ type: 6, data: pictureData });
+      replacedPicture = true;
+      continue;
+    }
+    blocks.push({
+      type: block.type,
+      data: Buffer.from(
+        buf.subarray(block.dataOffset, block.dataOffset + block.length),
+      ),
+    });
+  }
+
+  const streamInfoIndex = blocks.findIndex((block) => block.type === 0);
+  if (streamInfoIndex < 0) {
+    throw new Error("Cannot write FLAC metadata: STREAMINFO block is missing");
+  }
+  if (!replacedVorbis) {
+    blocks.splice(streamInfoIndex + 1, 0, { type: 4, data: vorbisData });
+  }
+  if (pictureData && !replacedPicture) {
+    blocks.splice(streamInfoIndex + 1, 0, { type: 6, data: pictureData });
+  }
+  return blocks;
+}
+
+function serializeFlacMetadata(
+  blocks: FlacBlockPayload[],
+  paddingBytes: number,
+): Buffer {
+  if (blocks.length === 0) throw new Error("Cannot write empty FLAC metadata");
+  if (paddingBytes > 0 && paddingBytes < 4) {
+    throw new Error("FLAC padding requires at least a four-byte block header");
+  }
+
+  const parts = blocks.map((block, index) =>
+    Buffer.concat([
+      buildFlacBlockHeader(
+        block.type,
+        block.data.length,
+        paddingBytes === 0 && index === blocks.length - 1,
+      ),
+      block.data,
+    ]),
+  );
+  if (paddingBytes >= 4) {
+    parts.push(Buffer.concat([
+      buildFlacBlockHeader(1, paddingBytes - 4, true),
+      Buffer.alloc(paddingBytes - 4),
+    ]));
+  }
+  return Buffer.concat(parts);
+}
+
+async function writeFlacMetadataTransaction(
   filePath: string,
   buf: Buffer,
-  blockType: number,
-  blockData: Buffer
-): Promise<WriteOutcome> {
-  // Safety guard: abort if file doesn't contain "fLaC" marker.
-  // Some FLAC files have ID3v2 tags prepended (non-standard but common).
-  const flacOffset = buf.indexOf("fLaC");
-  if (buf.length < 4 || flacOffset < 0) {
+  vorbisData: Buffer,
+  options: {
+    pictureData?: Buffer;
+    removedApeTag: boolean;
+    removedGhostVorbis: boolean;
+  },
+): Promise<WriteResult> {
+  const layout = parseFlacLayout(buf);
+  if (layout.flacOffset < 0 || layout.blocks.length === 0) {
     throw new Error(
-      `Cannot write FLAC metadata: file does not contain fLaC marker (${filePath})`,
+      `Cannot write FLAC metadata: file does not contain a valid fLaC marker (${filePath})`,
     );
   }
 
-  // For non-Vorbis blocks, use the simple full-rewrite path
-  if (blockType !== 4) {
-    await writeFlacNonVorbisBlock(filePath, buf, blockType, blockData);
-    return "full_rewrite";
+  const vorbisBlocks = layout.blocks.filter((block) => block.type === 4);
+  const existingVorbis = vorbisBlocks[0];
+  const existingPicture = layout.blocks.find((block) => block.type === 6);
+  const commentsUnchanged =
+    vorbisBlocks.length === 1 &&
+    !!existingVorbis &&
+    isVorbisUnchanged(buf, existingVorbis, vorbisData);
+  const pictureUnchanged =
+    options.pictureData === undefined ||
+    (!!existingPicture && buf.subarray(
+      existingPicture.dataOffset,
+      existingPicture.dataOffset + existingPicture.length,
+    ).equals(options.pictureData));
+
+  if (
+    commentsUnchanged &&
+    pictureUnchanged &&
+    !options.removedApeTag &&
+    !options.removedGhostVorbis
+  ) {
+    return { outcome: "skipped", reason: "unchanged" };
   }
 
-  const layout = parseFlacLayout(buf);
-  const existing = layout.blocks.find((b) => b.type === 4);
+  const desiredBlocks = buildDesiredFlacBlocks(
+    buf,
+    layout,
+    vorbisData,
+    options.pictureData,
+  );
+  const desiredBytes = desiredBlocks.reduce(
+    (total, block) => total + 4 + block.data.length,
+    0,
+  );
+  const metadataCapacity = layout.audioOffset - (layout.flacOffset + 4);
+  const remainingBytes = metadataCapacity - desiredBytes;
+  const canRewriteMetadataRegion =
+    !options.removedApeTag &&
+    !options.removedGhostVorbis &&
+    remainingBytes >= 0 &&
+    (remainingBytes === 0 || remainingBytes >= 4);
 
-  // No existing Vorbis block — do a full rewrite
-  if (!existing) {
-    await writeFlacWithPaddingFallback(filePath, buf, layout, blockData);
-    return "full_rewrite";
-  }
-
-  // Ghost VCs from prior writes may have created multiple Vorbis Comment
-  // blocks in the chain. In-place writes can't remove blocks, so force
-  // a full rewrite that strips them via stripTrailingVorbisBlocks.
-  const vcCount = layout.blocks.filter((b) => b.type === 4).length;
-  if (vcCount > 1) {
-    await writeFlacWithPaddingFallback(filePath, buf, layout, blockData);
-    return "full_rewrite";
-  }
-
-  // Skip entirely if comments are unchanged
-  if (isVorbisUnchanged(buf, existing, blockData)) {
-    return "skipped";
-  }
-
-  // Fast path 1: new payload fits inside existing block space.
-  // When the payload shrinks, we MUST update the header length and convert
-  // leftover bytes to a valid PADDING block — leaving stale zeros inside a
-  // Vorbis comment block causes flac -t BAD_METADATA errors.
-  if (blockData.length <= existing.length) {
-    const leftover = existing.length - blockData.length;
-
-    // If leftover is 1–3 bytes, we cannot fit a PADDING header — fall through
-    // to the full-rewrite path which rebuilds the block chain cleanly.
-    if (leftover === 0 || leftover >= 4) {
-      const handle = await open(filePath, "r+");
-      try {
-        await handle.write(blockData, 0, blockData.length, existing.dataOffset);
-        if (leftover >= 4) {
-          // Convert leftover space to a PADDING block inheriting isLast
-          const padHdr = buildFlacBlockHeader(1, leftover - 4, existing.isLast);
-          await handle.write(
-            padHdr, 0, 4, existing.dataOffset + blockData.length,
-          );
-          // Update Vorbis header: correct length, isLast = false
-          const vorbisHdr = buildFlacBlockHeader(
-            4, blockData.length, false,
-          );
-          await handle.write(vorbisHdr, 0, 4, existing.headerOffset);
-        }
-      } finally {
-        await handle.close();
-      }
-      return "in_place";
-    }
-  }
-
-  // Fast path 2: next block is PADDING with enough combined room
-  const existingIdx = layout.blocks.indexOf(existing);
-  const nextBlock = layout.blocks[existingIdx + 1];
-  const neededExtra = blockData.length - existing.length;
-
-  if (nextBlock && nextBlock.type === 1 && neededExtra > 0 && nextBlock.length >= neededExtra) {
-    // nextBlock.length is PADDING *data* bytes (header excluded).
-    // After consuming neededExtra bytes from that data, the remaining
-    // PADDING data bytes are exactly nextBlock.length - neededExtra.
-    // Do not subtract 4 again when declaring the new PADDING block length,
-    // or a 4-byte metadata/audio gap is created.
-    const remainingPaddingData = nextBlock.length - neededExtra;
-    // The PADDING header shifts forward by neededExtra bytes.
-    const newPadHdrOffset = nextBlock.headerOffset + neededExtra;
-    // PADDING block still exists (possibly 0-byte body), so Vorbis is not last.
-    const vorbisHdr = buildFlacBlockHeader(4, blockData.length, false);
+  if (canRewriteMetadataRegion) {
+    const metadata = serializeFlacMetadata(desiredBlocks, remainingBytes);
     const handle = await open(filePath, "r+");
     try {
-      // Update Vorbis block header
-      await handle.write(vorbisHdr, 0, 4, existing.headerOffset);
-      // Write new payload (extends into old padding area)
-      await handle.write(blockData, 0, blockData.length, existing.dataOffset);
-      // Rewrite PADDING header at its shifted position.
-      const padHdr = buildFlacBlockHeader(1, remainingPaddingData, nextBlock.isLast);
-      await handle.write(padHdr, 0, 4, newPadHdrOffset);
+      await handle.write(metadata, 0, metadata.length, layout.flacOffset + 4);
     } finally {
       await handle.close();
     }
-    return "in_place";
+    return {
+      outcome: "metadata_rewrite",
+      reason: vorbisBlocks.length > 1 ? "duplicate_vorbis_removed" : "metadata_region_repacked",
+    };
   }
 
-  // Fallback: full rewrite with 64 KiB PADDING
-  await writeFlacWithPaddingFallback(filePath, buf, layout, blockData);
-  return "full_rewrite";
-}
-
-/**
- * Ensure only one FLAC metadata block has isLast=true (the very last one).
- */
-function fixLastFlacBlock(buf: Buffer): void {
-  const flacOffset = findFlacMarker(buf);
-  if (flacOffset < 0) return;
-
-  let offset = flacOffset + 4;
-  let lastMetadataBlockOffset = -1;
-
-  while (offset + 4 <= buf.length) {
-    const type = buf[offset] & 0x7f;
-    const length =
-      (buf[offset + 1] << 16) | (buf[offset + 2] << 8) | buf[offset + 3];
-
-    const isLast = buf[offset] >> 7;
-    const blockStart = offset;
-    const nextOffset = offset + 4 + length;
-    if (type > 6 || nextOffset > buf.length || length > 20_000_000) break;
-
-    buf[blockStart] = type & 0x7f;
-    lastMetadataBlockOffset = blockStart;
-    offset = nextOffset;
-
-    if (isLast || offset >= buf.length) break;
-  }
-
-  if (lastMetadataBlockOffset >= 0) {
-    buf[lastMetadataBlockOffset] |= 0x80;
-  }
-}
-
-/** Full rewrite of a non-Vorbis FLAC block (keeps existing behavior). */
-async function writeFlacNonVorbisBlock(
-  filePath: string,
-  buf: Buffer,
-  blockType: number,
-  blockData: Buffer,
-): Promise<void> {
-  const flacOffset = findFlacMarker(buf);
-  if (flacOffset < 0) {
-    throw new Error(
-      `Cannot write FLAC metadata: file does not contain fLaC marker (${filePath})`,
-    );
-  }
-
-  const header = buildFlacBlockHeader(blockType, blockData.length, false);
-  let offset = flacOffset + 4;
-  let found = false;
-
-  while (offset + 4 <= buf.length) {
-    const isLastBlock = buf[offset] >> 7;
-    const type = buf[offset] & 0x7f;
-    const length =
-      (buf[offset + 1] << 16) | (buf[offset + 2] << 8) | buf[offset + 3];
-    const blockStart = offset;
-    offset += 4;
-
-    if (type === blockType) {
-      const before = buf.subarray(0, blockStart);
-      const after = buf.subarray(blockStart + 4 + length);
-      const newHeader = Buffer.from(header);
-      if (isLastBlock) newHeader[0] |= 0x80;
-      const result = Buffer.concat([before, newHeader, blockData, after]);
-      fixLastFlacBlock(result);
-      await writeFile(filePath, result);
-      found = true;
-      break;
-    }
-
-    if (isLastBlock) break;
-    if (length === 0) break;
-    offset += length;
-  }
-
-  if (!found) {
-    const streamInfoHeaderOffset = flacOffset + 4;
-    const streamInfoLen =
-      (buf[streamInfoHeaderOffset + 1] << 16) |
-      (buf[streamInfoHeaderOffset + 2] << 8) |
-      buf[streamInfoHeaderOffset + 3];
-    const insOffset = streamInfoHeaderOffset + 4 + streamInfoLen;
-    const before = buf.subarray(0, insOffset);
-    const after = buf.subarray(insOffset);
-    const newHeader = Buffer.from(header);
-    newHeader[0] = blockType & 0x7f;
-    const result = Buffer.concat([before, newHeader, blockData, after]);
-    const resultFlacOffset = findFlacMarker(result);
-    if (resultFlacOffset >= 0) result[resultFlacOffset + 4] &= 0x7f;
-    fixLastFlacBlock(result);
-    await writeFile(filePath, result);
-  }
-}
-
-/**
- * Strip any Vorbis Comment blocks (type=4) from a FLAC metadata segment.
- * The middle segment sits between the primary VC and audio data; any
- * type=4 block here is a ghost from a prior write.
- */
-function stripTrailingVorbisBlocks(segment: Buffer): Buffer {
-  for (let offset = 0; offset + 4 <= segment.length; ) {
-    const byte0 = segment[offset];
-    const isLast = !!(byte0 >> 7);
-    const type = byte0 & 0x7f;
-    const length =
-      (segment[offset + 1] << 16) |
-      (segment[offset + 2] << 8) |
-      segment[offset + 3];
-
-    if (type > 6 || length > 20_000_000 || offset + 4 + length > segment.length) break;
-    if (type === 4) return segment.subarray(0, offset);
-    if (isLast) break;
-    offset += 4 + length;
-  }
-  return segment;
-}
-
-function normalizeFlacRewriteMiddle(segment: Buffer): Buffer {
-  const blocks: Buffer[] = [];
-
-  for (let offset = 0; offset + 4 <= segment.length; ) {
-    const byte0 = segment[offset];
-    const isLast = !!(byte0 >> 7);
-    const type = byte0 & 0x7f;
-    const length =
-      (segment[offset + 1] << 16) |
-      (segment[offset + 2] << 8) |
-      segment[offset + 3];
-    const nextOffset = offset + 4 + length;
-
-    if (type > 6 || length > 20_000_000 || nextOffset > segment.length) break;
-    if (type !== 1 && type !== 4) {
-      const block = Buffer.from(segment.subarray(offset, nextOffset));
-      block[0] &= 0x7f;
-      blocks.push(block);
-    }
-    offset = nextOffset;
-    if (isLast) break;
-  }
-
-  return Buffer.concat(blocks);
-}
-
-/** Fallback: replace Vorbis block, preserve non-Vorbis metadata, and add 64 KiB PADDING before audio. */
-async function writeFlacWithPaddingFallback(
-  filePath: string,
-  buf: Buffer,
-  layout: { blocks: FlacBlockInfo[]; audioOffset: number; flacOffset: number },
-  newBlockData: Buffer,
-): Promise<void> {
-  const PADDING_SIZE = 65536;
-
-  // Build new Vorbis block (not last — padding will follow)
-  const newVorbis = Buffer.concat([
-    buildFlacBlockHeader(4, newBlockData.length, false),
-    newBlockData,
+  const fullRewriteReason: WriteReason = options.removedApeTag
+    ? "ape_tag_removed"
+    : options.removedGhostVorbis
+      ? "ghost_vorbis_removed"
+      : remainingBytes < 0
+        ? "insufficient_metadata_space"
+        : "invalid_metadata_padding";
+  const metadata = serializeFlacMetadata(desiredBlocks, 65540);
+  const result = Buffer.concat([
+    buf.subarray(0, layout.flacOffset + 4),
+    metadata,
+    buf.subarray(layout.audioOffset),
   ]);
-
-  // Build PADDING block (isLast=true so fixLastFlacBlock doesn't scan past it
-  // into audio data — which would interpret audio bytes as metadata blocks)
-  const padding = Buffer.concat([
-    buildFlacBlockHeader(1, PADDING_SIZE, true),
-    Buffer.alloc(PADDING_SIZE),
-  ]);
-
-  const vorbisBlock = layout.blocks.find((b) => b.type === 4);
-  const audio = buf.subarray(layout.audioOffset);
-
-  // Build: [prefix] + newVorbis + [middle] + padding + audio
-  let prefix: Buffer;
-  let middle: Buffer;
-  if (vorbisBlock) {
-    // Replace existing Vorbis, keep other metadata blocks in order
-    prefix = buf.subarray(0, vorbisBlock.headerOffset);
-    middle = buf.subarray(
-      vorbisBlock.headerOffset + 4 + vorbisBlock.length,
-      layout.audioOffset,
-    );
-  } else {
-    // No existing Vorbis — insert after STREAMINFO
-    const streamInfoEnd = layout.flacOffset + 4 + 4 + (layout.blocks[0]?.length ?? 0);
-    prefix = buf.subarray(0, streamInfoEnd);
-    middle = buf.subarray(streamInfoEnd, layout.audioOffset);
-  }
-
-  // Drop old padding and ghost Vorbis blocks from the preserved middle.
-  // The fresh padding below becomes the only final metadata block.
-  middle = normalizeFlacRewriteMiddle(stripTrailingVorbisBlocks(middle));
-
-  const result = Buffer.concat([prefix, newVorbis, middle, padding, audio]);
-  const resultFlacOffset = findFlacMarker(result);
-  if (resultFlacOffset >= 0) result[resultFlacOffset + 4] &= 0x7f; // clear isLast on STREAMINFO
-  fixLastFlacBlock(result);
   await writeFile(filePath, result);
+  return { outcome: "full_rewrite", reason: fullRewriteReason };
 }
 
 /**
@@ -1399,7 +1279,9 @@ function normalizeExtraTags(
   const seen = new Set<string>();
 
   for (const tag of extraTags) {
-    const key = tag.key.trim();
+    const rawKey = tag.key.trim();
+    const formatKey = rawKey.toUpperCase() === "COMM" ? "COMMENT" : rawKey;
+    const key = canonicalProviderTagKey(formatKey) ?? formatKey;
     const value = tag.value.trim();
     const normalizedKey = key.toUpperCase();
     if (!key || !value) continue;
@@ -1416,11 +1298,45 @@ function normalizeExtraTags(
   return result;
 }
 
+function mergeId3ExtraTags(
+  existingTags: NodeID3.Tags,
+  extraTags: ExtraTagUpdate[],
+): NodeID3.Tags {
+  const normalized = normalizeExtraTags(extraTags, EXTRA_TAG_RESERVED_EXCEPTIONS);
+  const preserved = toArray(existingTags.userDefinedText).filter(
+    (tag) =>
+      tag.description &&
+      isReservedExtraTagKey(tag.description) &&
+      !EXTRA_TAG_RESERVED_EXCEPTIONS.has(tag.description.trim().toUpperCase()),
+  );
+  const comment = normalized.find((tag) => tag.key.toUpperCase() === "COMMENT");
+  const custom = normalized
+    .filter((tag) => tag.key.toUpperCase() !== "COMMENT")
+    .map((tag) => ({
+      description: providerTagId3Description(tag.key) ?? tag.key,
+      value: tag.value,
+    }));
+  const nextTags: NodeID3.Tags = {
+    ...existingTags,
+    userDefinedText: [...preserved, ...custom],
+  };
+
+  if (comment) {
+    nextTags.comment = {
+      language: existingTags.comment?.language || "eng",
+      text: comment.value,
+    };
+  } else {
+    delete nextTags.comment;
+  }
+  return nextTags;
+}
+
 function isReservedExtraTagKey(key: string): boolean {
   return STANDARD_VORBIS_TAGS.has(key.trim().toUpperCase());
 }
 
-async function writeVorbisExtraTags(filePath: string, extraTags: ExtraTagUpdate[]): Promise<WriteOutcome> {
+async function writeVorbisExtraTags(filePath: string, extraTags: ExtraTagUpdate[]): Promise<WriteResult> {
   const data = await readFile(filePath);
   const comments = readVorbisComments(data);
 
@@ -1479,7 +1395,7 @@ async function writeApe(filePath: string, fields: WriteFields): Promise<void> {
   const existing = parseApeTagItems(data);
   const merged = new Map<string, string[]>();
   for (const { key, value } of existing) {
-    const upper = key.toUpperCase();
+    const upper = canonicalProviderTagKey(key) ?? key.toUpperCase();
     if (!merged.has(upper)) merged.set(upper, []);
     merged.get(upper)!.push(value);
   }
@@ -1679,17 +1595,25 @@ export async function writeTagsWithOutcome(
   filePath: string,
   fields: WriteFields
 ): Promise<WriteOutcome> {
+  return (await writeTagsWithResult(filePath, fields)).outcome;
+}
+
+export async function writeTagsWithResult(
+  filePath: string,
+  fields: WriteFields,
+): Promise<WriteResult> {
   const ext = path.extname(filePath).toLowerCase();
   // Formats whose writers return an outcome: flac, ogg, opus, wav
   if (ext === ".flac" || ext === ".ogg" || ext === ".opus") {
     return await writeVorbis(filePath, fields);
   }
   if (ext === ".wav") {
-    return await writeWav(filePath, fields);
+    const outcome = await writeWav(filePath, fields);
+    return { outcome, reason: reasonForSimpleOutcome(outcome) };
   }
   // All others: delegate to writeTags (which throws for unsupported)
   await writeTags(filePath, fields);
-  return "full_rewrite";
+  return { outcome: "full_rewrite", reason: "format_requires_full_rewrite" };
 }
 
 /**
@@ -1699,17 +1623,32 @@ export async function writeExtraTagsWithOutcome(
   filePath: string,
   extraTags: ExtraTagUpdate[]
 ): Promise<WriteOutcome> {
+  return (await writeExtraTagsWithResult(filePath, extraTags)).outcome;
+}
+
+export async function writeExtraTagsWithResult(
+  filePath: string,
+  extraTags: ExtraTagUpdate[],
+): Promise<WriteResult> {
   const ext = path.extname(filePath).toLowerCase();
   // Formats whose writers return an outcome: flac, ogg, opus, wav
   if (ext === ".flac" || ext === ".ogg" || ext === ".opus") {
     return await writeVorbisExtraTags(filePath, extraTags);
   }
   if (ext === ".wav") {
-    return await writeWavExtraTags(filePath, extraTags);
+    const outcome = await writeWavExtraTags(filePath, extraTags);
+    return { outcome, reason: reasonForSimpleOutcome(outcome) };
   }
   // All others: delegate to writeExtraTags (which throws for unsupported)
   await writeExtraTags(filePath, extraTags);
-  return "full_rewrite";
+  return { outcome: "full_rewrite", reason: "format_requires_full_rewrite" };
+}
+
+function reasonForSimpleOutcome(outcome: WriteOutcome): WriteReason {
+  if (outcome === "skipped") return "unchanged";
+  if (outcome === "in_place") return "in_place_update";
+  if (outcome === "metadata_rewrite") return "metadata_region_repacked";
+  return "format_requires_full_rewrite";
 }
 
 /** Yields control back to the event loop so the renderer can repaint. */

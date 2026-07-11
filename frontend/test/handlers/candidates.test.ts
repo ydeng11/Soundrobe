@@ -27,6 +27,7 @@ describe("TrackCandidate", () => {
   it("creates with defaults", () => {
     const t = makeTrackCandidate();
     expect(t.title).toBeNull();
+    expect(t.matchTitles).toEqual([]);
     expect(t.artist).toBeNull();
     expect(t.artists).toEqual([]);
     expect(t.trackNumber).toBeNull();
@@ -49,6 +50,7 @@ describe("TrackCandidate", () => {
   it("round-trips through JSON", () => {
     const original = makeTrackCandidate({
       title: "Test",
+      matchTitles: ["Test recording title"],
       artist: "Tester",
       artists: ["Tester", "Another"],
       trackNumber: 3,
@@ -231,6 +233,23 @@ describe("scoreAlbumTitleMatch", () => {
     const result = await scoreAlbumTitleMatch("到底有谁能够告诉我", "到底有誰能夠告訴我");
     expect(result.score).toBeGreaterThanOrEqual(100);
     expect(result.reason).toBe("exact");
+  });
+
+  it("matches Japanese shinjitai embedded in a Chinese provider title", async () => {
+    const result = await scoreAlbumTitleMatch("一个任贤齐", "一個任贤斉");
+
+    expect(result.score).toBeGreaterThanOrEqual(100);
+    expect(result.reason).toBe("exact");
+  });
+
+  it("matches gendered Chinese pronouns before testing album containment", async () => {
+    const result = await scoreAlbumTitleMatch(
+      "Need U Most 最需要你 K歌情人",
+      "Need U Most（最需要妳）",
+    );
+
+    expect(result.reason).toBe("local-contains-remote");
+    expect(result.score).toBeGreaterThanOrEqual(70);
   });
 
   it("strips ellipsis and fullwidth punctuation before matching", async () => {

@@ -54,6 +54,35 @@ function minimalApeAudio(): Buffer {
   return Buffer.concat([descriptor, header, Buffer.alloc(4096, 0x55)]);
 }
 
+function minimalWavAudio(): Buffer {
+  const fmt = Buffer.alloc(16);
+  fmt.writeUInt16LE(1, 0);
+  fmt.writeUInt16LE(1, 2);
+  fmt.writeUInt32LE(44100, 4);
+  fmt.writeUInt32LE(88200, 8);
+  fmt.writeUInt16LE(2, 12);
+  fmt.writeUInt16LE(16, 14);
+
+  const data = Buffer.alloc(882);
+  const fmtHeader = Buffer.alloc(8);
+  fmtHeader.write("fmt ", 0, 4, "ascii");
+  fmtHeader.writeUInt32LE(fmt.length, 4);
+  const dataHeader = Buffer.alloc(8);
+  dataHeader.write("data", 0, 4, "ascii");
+  dataHeader.writeUInt32LE(data.length, 4);
+  const body = Buffer.concat([
+    Buffer.from("WAVE", "ascii"),
+    fmtHeader,
+    fmt,
+    dataHeader,
+    data,
+  ]);
+  const header = Buffer.alloc(8);
+  header.write("RIFF", 0, 4, "ascii");
+  header.writeUInt32LE(body.length, 4);
+  return Buffer.concat([header, body]);
+}
+
 function id3v1Tail(): Buffer {
   const id3 = Buffer.alloc(128, 0);
   id3.write("TAG", 0, 3, "ascii");
@@ -146,6 +175,28 @@ describe("readTrackMetadata — corrupted FLAC", () => {
     expect(typeof result.duration).toBe("number");
     expect(result.sizeBytes).toBe(buf.length);
     expect(result.title).toBe("Test");
+  });
+});
+
+describe("readTrackMetadata — WAV artist lists", () => {
+  it("splits the semicolon-delimited ARTISTS frame written by auto-tag", async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "wav-artists-read-"));
+    const filePath = path.join(tmpDir, "02. 再出發.wav");
+
+    try {
+      fs.writeFileSync(filePath, minimalWavAudio());
+      await writeTags(filePath, {
+        artist: "任贤齐 V.S. 阿牛(陈庆祥)",
+        artists: ["任贤齐", "阿牛(陈庆祥)"],
+      });
+
+      const metadata = await readTrackMetadata(filePath);
+
+      expect(metadata.artist).toBe("任贤齐 V.S. 阿牛(陈庆祥)");
+      expect(metadata.artists).toEqual(["任贤齐", "阿牛(陈庆祥)"]);
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
   });
 });
 
@@ -568,15 +619,13 @@ describe("auto-tag artist splitting — 谢天华&朱永棠&林晓峰", () => {
     // Step 1: Read metadata — same as what readTrackMetadata does for auto-tag
     const meta = await readTrackMetadata(fp);
     expect(meta.artist).toBe("谢天华&朱永棠&林晓峰");
-    // music-metadata returns ARTISTS as a single string (not split on ;)
-    expect(meta.artists).toEqual(["谢天华;朱永棠;林晓峰"]);
+    expect(meta.artists).toEqual(["谢天华", "朱永棠", "林晓峰"]);
 
     // Step 2: Apply auto-tag's artist splitting logic (line 771 in auto-tag.ts):
     //   albumFields.artists = candidate.artists.length > 0
     //     ? candidate.artists
     //     : splitArtistNames([candidate.artist]);
-    // The raw artists from the file are a single string with semicolons,
-    // so we use splitArtistNames on the artist field to get 3 individual names.
+    // The display ARTIST can also recover the same individual names.
     const splitArtists = splitArtistNames([meta.artist]);
     expect(splitArtists).toEqual(["谢天华", "朱永棠", "林晓峰"]);
 
@@ -681,7 +730,7 @@ describe("undo round-trip — snapshot→write→revert→verify", () => {
 
     expect(snapshot.title).toBe("古古惑惑 (清清楚楚我系我)");
     expect(snapshot.artist).toBe("谢天华&朱永棠&林晓峰");
-    expect(snapshot.artists).toEqual(["谢天华;朱永棠;林晓峰"]);
+    expect(snapshot.artists).toEqual(["谢天华", "朱永棠", "林晓峰"]);
     expect(snapshot.album).toBe("古惑仔Ⅲ 只手遮天");
     expect(snapshot.albumArtist).toBe("Various Artists");
     expect(snapshot.year).toBe("1996");
@@ -729,7 +778,7 @@ describe("undo round-trip — snapshot→write→revert→verify", () => {
     const after = await readTrackMetadata(fp);
     expect(after.title).toBe("古古惑惑 (清清楚楚我系我)");
     expect(after.artist).toBe("谢天华&朱永棠&林晓峰");
-    expect(after.artists).toEqual(["谢天华;朱永棠;林晓峰"]);
+    expect(after.artists).toEqual(["谢天华", "朱永棠", "林晓峰"]);
     expect(after.album).toBe("古惑仔Ⅲ 只手遮天");
     expect(after.albumArtist).toBe("Various Artists");
     expect(after.albumArtists).toEqual(["Various Artists"]);
@@ -807,9 +856,9 @@ describe("undo round-trip — snapshot→write→revert→verify", () => {
     const fp = path.join(tmpDir, "artists-split.flac");
     fs.writeFileSync(fp, buf);
 
-    // Snapshot captures unsplit ARTISTS
+    // Snapshot captures the normalized ARTISTS list.
     const before = await readTrackMetadata(fp);
-    expect(before.artists).toEqual(["谢天华;朱永棠;林晓峰"]);
+    expect(before.artists).toEqual(["谢天华", "朱永棠", "林晓峰"]);
 
     // Pipeline splits ARTISTS into separate values
     await writeTags(fp, {
@@ -818,12 +867,12 @@ describe("undo round-trip — snapshot→write→revert→verify", () => {
     const mid = await readTrackMetadata(fp);
     expect(mid.artists).toEqual(["谢天华", "朱永棠", "林晓峰"]);
 
-    // Revert with snapshot restores unsplit form
+    // Revert with snapshot preserves the normalized list.
     await writeTags(fp, {
       artists: before.artists,
     } as any);
     const after = await readTrackMetadata(fp);
-    expect(after.artists).toEqual(["谢天华;朱永棠;林晓峰"]);
+    expect(after.artists).toEqual(["谢天华", "朱永棠", "林晓峰"]);
   });
 
   it("restores disc and track totals that were missing (null) in original file", async () => {

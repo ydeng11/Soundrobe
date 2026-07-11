@@ -1,209 +1,123 @@
-# Plan: Add Chinese Script Enforcement Flag
+# Plan: Trust Remote Track Artist on Match
 
 ## Context
 
-The auto-tagger writes metadata tags to audio files. Chinese artist/album/title text can appear in either Simplified Chinese (SC) or Traditional Chinese (TC), and the code does not normalize between them. The project already depends on `opencc` (used in `integrations/aliases.py`). The user wants a config flag that forces all Chinese text fields to be converted to a target script at write time. The source script is unknown — text may already be SC, TC, or mixed.
+The artist replacement logic in `RemoteTrackMatcher.ts` (lines 867–925) has grown complex with three overlapping conditions (`remoteEnrichesLocal`, `localArtistIsUnusual`, `remoteMatchesHint`). This led to bugs (collaborative tracks like `品冠 vs 光良` not matching the hint `"品冠"`). The root cause: when a track title matches a remote release, MB/Discogs per-track artist-credits are authoritative — no need to second-guess them.
 
-## Approach
+The `processAlbum` method is 262 lines with 9 steps, including complex candidate merging. The goal is to simplify to a clear flow where matched release/track data is ground truth.
 
-Add a `chinese_script` config option (`"simplified"`, `"traditional"`, or `None`) with user-facing aliases `sc`/`tc`. Apply OpenCC conversion to text-like metadata fields after `normalized()` and before `write_tags(...)`, so dry-run returns also reflect the conversion.
+## Proposed Simplified Flow
 
-**OpenCC config:** `t2s` for simplified, `s2t` for generic traditional (not region-specific TW/HK; a future flag could add that).
-
-### 1. Add the config setting
-
-**File: `src/auto_tagger/config/settings.py`**
-
-Add field + validator:
-
-```python
-chinese_script: str | None = Field(
-    default=None,
-    description="Enforce Chinese script variant when writing tags: "
-                "'simplified'/'sc' or 'traditional'/'tc'. Null disables.",
-)
-
-@field_validator("chinese_script")
-@classmethod
-def validate_chinese_script(cls, v: str | None) -> str | None:
-    if v is not None:
-        ALIASES = {"sc": "simplified", "simplified": "simplified",
-                   "tc": "traditional", "traditional": "traditional"}
-        v = v.strip().lower()
-        if v not in ALIASES:
-            raise ValueError(f"chinese_script must be one of {set(ALIASES)}, got {v!r}")
-        return ALIASES[v]
-    return v
+```
+1. artistFinder    → resolve MB/Discogs artist IDs (already exists)
+2. fetchReleases   → fetch all releases for artist from MB + Discogs, store in memory
+3. processAlbum    → for each album:
+   a. find matching release (by title)
+   b. for each track:
+      - title matches  → use remote artist/title as ground truth
+      - no match       → use LLM fallback
 ```
 
-Env var: `AUTO_TAG_CHINESE_SCRIPT` (via existing `env_prefix`).
+### How this differs from current flow
 
-### 2. Fix config loader validation bypass
+| Current (9 steps, 262 lines) | Proposed (5 steps, <200 lines) |
+|---|---|
+| Parse hints → resolve IDs → cache → direct ID lookup → search MB → search Discogs → LLM → filter → protect → merge → apply | Resolve IDs → fetch all releases → for each album: match release → match tracks (remote or LLM) → apply |
+| Multiple candidates merged with priority logic | Single release selected per album |
+| Complex artist replacement (3 conditions) | Simple: match = trust remote |
+| `protectCandidateTrackFieldsForAutoApply` with `RemoteTrackMatcher` | Simplified matching: title match → use remote |
+| `fillTrackGapsByPosition` to merge candidates | No merging needed |
+| `trackArtistCanBeEnriched` + `enrichArtistWithRemote` | Removed — remote is ground truth for matched tracks |
 
-**File: `src/auto_tagger/config/loader.py`**
+### LLM fallback preserved
 
-`load_settings()` currently uses `model_copy(update=config_data)` which **skips validators**. Replace with `model_validate()` so config-file values are validated:
+- LLM is called per-album as it is now (step 7 in current flow)
+- For tracks with no title match against MB/Discogs, LLM per-track data is used
+- For albums not found in MB/Discogs at all, LLM provides album-level + per-track data
 
-```python
-def load_settings(config_file: Path | None = None, **cli_overrides: Any) -> Settings:
-    config_data = load_config_file(config_file)
-    env_settings = Settings()
-    # Merge config data into env-derived defaults, re-validating
-    merged_dict = env_settings.model_dump()
-    merged_dict.update(config_data)
-    merged_settings = Settings.model_validate(merged_dict)
-    if cli_overrides:
-        merged_settings = merged_settings.merge_with_cli_args(**cli_overrides)
-    return merged_settings
+## Files to modify
+
+1. **`frontend/electron/services/RemoteTrackMatcher.ts`** — simplify artist logic to just trust remote on match
+2. **`frontend/electron/handlers/auto-tag.ts`** — simplify `processAlbum` flow
+3. **`frontend/test/services/RemoteTrackMatcher.test.ts`** — update/add tests
+
+## Steps
+
+### Step 1: Simplify artist logic in `RemoteTrackMatcher.ts`
+
+Replace lines 867–925 (the `localArtistBlank / remoteEnrichesLocal / localArtistIsUnusual` block) with:
+
+```ts
+// ── Remote artist/artists ─────────────────────────────────
+// When a track title matched, remote per-track artist-credits are
+// authoritative (MusicBrainz/Discogs are the ground truth).
+const remoteArtist = remoteTrack.artist;
+if (remoteArtist) {
+  result.artist = remoteArtist;
+  result.artists = remoteTrack.artists.length > 0
+    ? [...remoteTrack.artists]
+    : [remoteArtist];
+}
 ```
 
-### 3. Add Chinese conversion utility
+This removes: `localArtistIsUnusual`, `remoteMatchesHint`, `localLooksCorrupted`, `remoteEnrichesLocal`, `remotePrimaryMatch`, `localArtistBlank`.
 
-**File: `src/auto_tagger/core/metadata.py`** (add near top-level helpers)
+### Step 2: Remove `enrichArtistWithRemote` and `trackArtistCanBeEnriched`
 
-```python
-def convert_chinese_script(text: str | None, target: str) -> str | None:
-    """Convert a string to the target Chinese script variant.
+In `auto-tag.ts`:
+- Delete `enrichArtistWithRemote` (lines 301–332)
+- Delete `trackArtistCanBeEnriched` (lines 282–293)
+- Simplify `fillTrackGapsByPosition`: for unmatched tracks, if remote has artist data and local is blank, fill it. Otherwise leave local as-is.
 
-    OpenCC passes non-CJK text through unchanged.
-    Uses 't2s' for simplified, 's2t' for generic traditional.
-    """
-    if not text:
-        return text
-    try:
-        import opencc
-        cfg = "t2s" if target == "simplified" else "s2t"
-        conv = opencc.OpenCC(cfg)
-        return conv.convert(text)
-    except Exception:
-        return text
+```ts
+function fillTrackGapsByPosition(
+  target: TrackCandidate[],
+  source: TrackCandidate[],
+  sourceName: AlbumCandidate["source"],
+): void {
+  for (let i = 0; i < Math.min(target.length, source.length); i++) {
+    const targetTrack = target[i];
+    const sourceTrack = source[i];
+    if (API_TITLE_CLEANUP_SOURCES.has(sourceName) && targetTrack.title && sourceTrack.title) {
+      const titleReplacement = replacementTitleForPollutedTitle(
+        targetTrack.title, sourceTrack.title);
+      if (titleReplacement) {
+        targetTrack.title = titleReplacement;
+      } else if (isPlaceholderTitle(targetTrack.title)) {
+        targetTrack.title = sourceTrack.title;
+      }
+    }
+    // Only fill blank local artists — matched tracks already have correct artist
+    if (sourceTrack.artist && (!targetTrack.artist || targetTrack.artist.trim() === "")) {
+      targetTrack.artist = sourceTrack.artist;
+      targetTrack.artists = sourceTrack.artists.length > 0 ? sourceTrack.artists : [sourceTrack.artist];
+    }
+    targetTrack.musicbrainzTrackId ??= sourceTrack.musicbrainzTrackId;
+    targetTrack.length ??= sourceTrack.length;
+    targetTrack.genre ??= sourceTrack.genre;
+  }
+}
 ```
 
-Add method on `TrackMetadata`:
+### Step 3: Remove `protectCandidateTrackFieldsForAutoApply`
 
-```python
-def with_chinese_script(self, target: str) -> "TrackMetadata":
-    """Return a copy with text-like fields converted to the target script.
+Since RemoteTrackMatcher no longer has complex artist logic, this function can be simplified to just the title matching + writing matched remote data. The trust is implicit — all matched tracks use remote data.
 
-    Converts: title, artist, artists, album, album_artist, album_artists,
-    genre, composer, lyrics, year.
-    Does NOT convert: musicbrainz_* IDs, replaygain values, booleans,
-    track/disc numbers.
-    """
-    if not target:
-        return self
-    c = lambda t: convert_chinese_script(t, target)
-    return replace(
-        self,
-        title=c(self.title),
-        artist=c(self.artist),
-        artists=[c(a) for a in self.artists],
-        album=c(self.album),
-        album_artist=c(self.album_artist),
-        album_artists=[c(a) for a in self.album_artists],
-        year=c(self.year),
-        genre=c(self.genre),
-        composer=c(self.composer),
-        lyrics=c(self.lyrics),
-    )
-```
+### Step 4: Update tests
 
-### 4. Apply conversion at write time
+- **Remove** tests for `localArtistIsUnusual` / `remoteMatchesHint` / `remoteEnrichesLocal` behavior
+- **Add** tests:
+  - Matched MB track replaces `[momishi.com]` with remote artist
+  - Matched MB track replaces non-blank local artist with remote duet artist
+  - Unmatched track preserves local artist
+  - SC/TC title match triggers remote artist
 
-**File: `src/auto_tagger/core/writer.py`**
+### Step 5: Build and verify
 
-```python
-def write_metadata(
-    path: Path,
-    metadata: TrackMetadata,
-    dry_run: bool = False,
-    chinese_script: str | None = None,
-) -> TrackMetadata:
-    normalized = metadata.normalized()
-    if chinese_script:
-        normalized = normalized.with_chinese_script(chinese_script)
-    try:
-        audio_file = load_audio_file(path)
-        if dry_run:
-            return normalized
-        write_tags(audio_file.format, audio_file.mutagen_file, normalized)
-        audio_file.mutagen_file.save()
-        return normalized
-    except FileProcessingError:
-        raise
-    except Exception as exc:
-        raise TaggingError(f"Could not write metadata to {path}: {exc}") from exc
-```
-
-Conversion happens **after** `normalized()` and **before** `write_tags(...)`. Dry-run returns converted metadata too.
-
-### 5. Thread `chinese_script` through all callers
-
-All `write_metadata()` call sites:
-
-- **`workflows/album.py`** (10 calls) — all in `AlbumWorkflow` methods with `self.settings`. Add `chinese_script=self.settings.chinese_script` to each.
-- **`commands/audit.py`** (1 call, line 264) — in `_apply_fixes()` helper called from `execute(settings, ...)`. Thread `settings.chinese_script` from `execute()` into `_apply_fixes()`.
-- **`quality/replaygain.py`** (1 call, line 123) — in `apply_replaygain_tags()`. Add optional `chinese_script: str | None = None` param. This function is exported and called in tests; callers pass it from their settings context.
-
-### 6. Add CLI flag
-
-**File: `src/auto_tagger/cli.py`**
-
-Add to `tag` and `batch` commands:
-
-```python
-@click.option(
-    "--chinese-script",
-    type=click.Choice(["simplified", "traditional", "sc", "tc"]),
-    default=None,
-    help="Enforce Simplified (sc) or Traditional (tc) Chinese in tag text fields",
-)
-```
-
-Thread to `settings.chinese_script` via direct assignment (same pattern as existing `--yolo`).
-
-### 7. Update example config
-
-**File: `config.example.yaml`**
-
-```yaml
-# Enforce a specific Chinese script variant in tag text fields.
-# Accepts: simplified/sc, traditional/tc, or omit to disable.
-# chinese_script: simplified
-```
-
-### 8. Tests
-
-**File: `tests/test_chinese_script.py`** (new)
-
-- `convert_chinese_script()` SC→TC (e.g. "蔡健雅" → "蔡健雅" already TC; "音乐" → "音樂")
-- `convert_chinese_script()` TC→SC (e.g. "音樂" → "音乐")
-- `convert_chinese_script()` with non-CJK text (unchanged)
-- `convert_chinese_script()` with `None` input (returns `None`)
-- `TrackMetadata.with_chinese_script()` end-to-end on all text fields
-- `write_metadata(..., chinese_script="simplified", dry_run=True)` returns converted metadata without saving
-- `Settings(chinese_script="sc").chinese_script == "simplified"`
-- `Settings(chinese_script="tc").chinese_script == "traditional"`
-- Invalid config value (`chinese_script: foo`) raises `ValidationError` after loader fix
-- `chinese_script=None` (default) produces no conversion
-
-## Files to Modify
-
-1. `src/auto_tagger/config/settings.py` — add `chinese_script` field + validator
-2. `src/auto_tagger/config/loader.py` — fix validation bypass with `model_validate()`
-3. `src/auto_tagger/core/metadata.py` — add `convert_chinese_script()` + `TrackMetadata.with_chinese_script()`
-4. `src/auto_tagger/core/writer.py` — accept + apply `chinese_script` param
-5. `src/auto_tagger/workflows/album.py` — thread `chinese_script` through all 10 `write_metadata()` calls
-6. `src/auto_tagger/commands/audit.py` — thread `chinese_script` through 1 `write_metadata()` call
-7. `src/auto_tagger/quality/replaygain.py` — add `chinese_script` param to `apply_replaygain_tags()`
-8. `src/auto_tagger/cli.py` — add `--chinese-script` option to `tag` and `batch`
-9. `config.example.yaml` — document the new setting
-10. `tests/test_chinese_script.py` — new test file
-
-## Verification
-
-1. `uv run pytest tests/test_chinese_script.py -v` — unit tests for conversion + settings + dry-run
-2. `uv run pytest tests/test_writer.py tests/test_metadata.py tests/test_formats.py -v` — existing tests still pass
-3. `uv run pytest tests/test_replaygain.py -v` — replaygain tests still pass with new param
-4. `uv run pytest tests/ -v` — full test suite green
-5. Manual: `auto-tag tag /path/to/chinese-album --chinese-script sc --dry-run`
+1. `npx vitest run` — all tests pass
+2. `npm run build`
+3. Clear `lookup_cache` for affected albums
+4. Re-run auto-tag on `品冠/2005-后来的我[flac]/` — verify:
+   - `品冠_光良-身边.flac` → `ARTIST=品冠 vs 光良` (was `[momishi.com]`)
+   - `品冠-又一年又三年.flac` → `ARTIST=品冠` (unchanged)
+   - `品冠_梁静茹-明明很爱你.flac` → `ARTIST=品冠 vs 梁靜茹` (was `[momishi.com]`)

@@ -8,22 +8,27 @@
 import {
   type AlbumCandidate,
   type TrackCandidate,
+  isAlbumTitleShortlistMatch,
   makeAlbumCandidate,
   makeTrackCandidate,
   normalizeLookupText,
   scoreAlbumTitleMatch,
-  ALBUM_TITLE_MATCH_THRESHOLD,
 } from "./candidates";
 import type { ReleaseCache, ReleaseMeta } from "./cache";
+import {
+  scoreRemoteTrackTitleCoverage,
+  type TrackTitleCoverageScore,
+} from "../services/RemoteTrackMatcher";
 
 const MUSICBRAINZ_BASE = "https://musicbrainz.org/ws/2";
 const USER_AGENT = "auto-tagger/0.1.0 ( https://github.com/auto-tagger )";
+const ARTIST_RELEASE_SHORTLIST_LIMIT = 3;
 
 /**
  * Cache provider key for release-detail entries. Bump this to invalidate
  * stale cached AlbumCandidate objects (e.g. when parsing logic changes).
  */
-const MUSICBRAINZ_RELEASE_DETAIL_CACHE_PROVIDER = "musicbrainz-v2";
+const MUSICBRAINZ_RELEASE_DETAIL_CACHE_PROVIDER = "musicbrainz-v3";
 
 /**
  * App-wide 1-req/sec rate limiter for MusicBrainz API.
@@ -38,6 +43,28 @@ async function musicBrainzRateLimit(): Promise<void> {
     await new Promise((r) => setTimeout(r, 1000 - elapsed));
   }
   lastMusicBrainzCall = Date.now();
+}
+
+function compareShortlistedRelease(
+  a: { candidate: AlbumCandidate; albumScore: number; titleScore: TrackTitleCoverageScore | null },
+  b: { candidate: AlbumCandidate; albumScore: number; titleScore: TrackTitleCoverageScore | null },
+  localTrackCount: number,
+): number {
+  if (localTrackCount > 0 && (a.titleScore || b.titleScore)) {
+    const aTitle = a.titleScore?.matched ?? 0;
+    const bTitle = b.titleScore?.matched ?? 0;
+    if (aTitle !== bTitle) return aTitle - bTitle;
+
+    const aDuration = a.titleScore?.durationMatched ?? 0;
+    const bDuration = b.titleScore?.durationMatched ?? 0;
+    if (aDuration !== bDuration) return aDuration - bDuration;
+
+    const aDelta = Math.abs(a.candidate.tracks.length - localTrackCount);
+    const bDelta = Math.abs(b.candidate.tracks.length - localTrackCount);
+    if (aDelta !== bDelta) return bDelta - aDelta;
+  }
+
+  return a.albumScore - b.albumScore;
 }
 
 export class MusicBrainzClient {
@@ -212,35 +239,74 @@ export class MusicBrainzClient {
   async lookupArtistReleaseByAlbum(
     artistId: string,
     albumHint: string,
-    options?: { yearHint?: string | null },
+    options?: {
+      yearHint?: string | null;
+      localTracks?: TrackCandidate[];
+      filenames?: string[];
+      artistHints?: string[];
+      alternateTrackTitles?: Array<string | null | undefined>;
+    },
   ): Promise<AlbumCandidate | null> {
     const MAX_PAGES = 3;
     const LIMIT = 100;
 
-    let bestMatch: ReleaseMeta | null = null;
-    let bestScore = 0;
+    const shortlist: Array<{
+      release: ReleaseMeta;
+      albumScore: number;
+    }> = [];
 
     for (let page = 1; page <= MAX_PAGES; page++) {
       const releases = await this.getArtistReleasePage(artistId, page, LIMIT);
       if (releases.length === 0) break;
 
       for (const release of releases) {
-        const match = await scoreAlbumTitleMatch(albumHint, release.title, {
+        const baseMatch = await scoreAlbumTitleMatch(albumHint, release.title);
+        if (!isAlbumTitleShortlistMatch(baseMatch)) continue;
+
+        const rankedMatch = await scoreAlbumTitleMatch(albumHint, release.title, {
           localYear: options?.yearHint,
           remoteYear: release.year,
           artistMatches: true,
         });
-        if (match.score > bestScore) {
-          bestScore = match.score;
-          bestMatch = release;
-        }
+        shortlist.push({ release, albumScore: rankedMatch.score });
       }
 
-      if (bestScore >= 100) break;
+      if (releases.length < LIMIT) break;
     }
 
-    if (!bestMatch || bestScore < ALBUM_TITLE_MATCH_THRESHOLD) return null;
-    return this.lookupReleaseById(bestMatch.id);
+    const detailShortlist = shortlist
+      .sort((a, b) => b.albumScore - a.albumScore)
+      .slice(0, ARTIST_RELEASE_SHORTLIST_LIMIT);
+    if (detailShortlist.length === 0) return null;
+
+    let best: {
+      candidate: AlbumCandidate;
+      albumScore: number;
+      titleScore: TrackTitleCoverageScore | null;
+    } | null = null;
+
+    for (const item of detailShortlist) {
+      const candidate = await this.lookupReleaseById(item.release.id);
+      if (!candidate) continue;
+      const titleScore = options?.localTracks && options.localTracks.length > 0
+        ? await scoreRemoteTrackTitleCoverage(
+            options.localTracks,
+            options.filenames ?? [],
+            candidate.tracks,
+            "musicbrainz",
+            {
+              artistHints: options.artistHints,
+              alternateTrackTitles: options.alternateTrackTitles,
+            },
+          )
+        : null;
+      const current = { candidate, albumScore: item.albumScore, titleScore };
+      if (!best || compareShortlistedRelease(current, best, options?.localTracks?.length ?? 0) > 0) {
+        best = current;
+      }
+    }
+
+    return best?.candidate ?? null;
   }
 
   private async getArtistReleasePage(
@@ -366,6 +432,8 @@ export class MusicBrainzClient {
 
       for (const track of recordings) {
         const recording = track.recording as Record<string, unknown> | undefined;
+        const title = (track.title as string) ?? (recording?.title as string) ?? null;
+        const recordingTitle = (recording?.title as string) ?? null;
 
         // Resolve artist credit: track-level → recording-level → release-level
         // Only treat non-empty arrays as authoritative (guard against empty credits)
@@ -391,7 +459,8 @@ export class MusicBrainzClient {
 
         tracks.push(
           makeTrackCandidate({
-            title: (track.title as string) ?? (recording?.title as string) ?? null,
+            title,
+            matchTitles: recordingTitle && recordingTitle !== title ? [recordingTitle] : [],
             artist: trackArtist,
             artists: trackArtists,
             trackNumber: this.parsePositiveInteger(track.number) ?? this.parsePositiveInteger(track.position),

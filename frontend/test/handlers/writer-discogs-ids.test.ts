@@ -152,10 +152,10 @@ describe("writeTags — combined MusicBrainz + Discogs provider IDs (MP3)", () =
 
     const extras = await readExtraTags(fp);
     const keys = extras.map((t) => t.key);
-    expect(keys).toContain("MusicBrainz Album Id");
-    expect(keys).toContain("MusicBrainz Artist Id");
-    expect(keys).toContain("Discogs Artist Id");
-    expect(keys).toContain("Discogs Release Id");
+    expect(keys).toContain("MUSICBRAINZ_ALBUMID");
+    expect(keys).toContain("MUSICBRAINZ_ARTISTID");
+    expect(keys).toContain("DISCOGS_ARTIST_ID");
+    expect(keys).toContain("DISCOGS_RELEASE_ID");
   });
 });
 
@@ -204,8 +204,8 @@ describe("writeTags — Discogs IDs round-trip (MP3)", () => {
     });
 
     const extras = await readExtraTags(fp);
-    const artistId = extras.find((t) => t.key === "Discogs Artist Id");
-    const releaseId = extras.find((t) => t.key === "Discogs Release Id");
+    const artistId = extras.find((t) => t.key === "DISCOGS_ARTIST_ID");
+    const releaseId = extras.find((t) => t.key === "DISCOGS_RELEASE_ID");
     expect(artistId?.value).toBe("1902728");
     expect(releaseId?.value).toBe("6951078");
   });

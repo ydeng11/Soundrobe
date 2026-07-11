@@ -55,6 +55,8 @@ const ANNOTATION_PATTERNS = [
 
 const TITLE_POLLUTION_EXTRA_MIN_CHARS = 3;
 const TITLE_POLLUTION_EXTRA_MIN_RATIO = 0.25;
+const TRACK_CONTAINMENT_MIN_CJK_CHARS = 2;
+const TRACK_CONTAINMENT_MIN_LATIN_TOKEN = 3;
 
 // Pattern for generic placeholder titles like "Track 01", "Track 1", "Track 08"
 const PLACEHOLDER_TITLE_RE = /^\s*track\s*\d{1,3}\s*$/i;
@@ -83,6 +85,8 @@ const FILENAME_DIRECT_ARTIST_SEPARATOR_RE = /[-–—]/g;
 
 // Match a leading CJK segment before any non-CJK character (space, Latin, etc.)
 const LEADING_CJK_RE = /^([\u4e00-\u9fff\u3400-\u4dbf]+)/;
+const BILINGUAL_TITLE_SEPARATOR_RE = /[()（）]|\s+(?:\/|[-–—])\s+/;
+const LATIN_LETTER_RE = /[a-z]/i;
 
 // ── Unicode punctuation/symbol regex ──────────────────────────────
 
@@ -116,25 +120,6 @@ async function getOpenCC(): Promise<{
 
 function escapeRegex(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-/** Normalize string for comparison: NFKC + lowercase + trim. */
-function normArtist(s: string): string {
-  return s.normalize("NFKC").trim().toLowerCase();
-}
-
-/** Get all OpenCC variants of a string (original + Simplified + Traditional). */
-function getArtistVariants(name: string): string[] {
-  const base = normArtist(name);
-  if (!openCCInstance) return [base];
-  return [base, normArtist(openCCInstance.s2t(name)), normArtist(openCCInstance.t2s(name))];
-}
-
-/** Check if two artist names match, including OpenCC Simplified/Traditional variants. */
-function artistsMatch(a: string, b: string): boolean {
-  const aVariants = getArtistVariants(a);
-  const bVariants = getArtistVariants(b);
-  return aVariants.some((av) => bVariants.includes(av));
 }
 
 /**
@@ -178,6 +163,7 @@ export interface NormalizedTitleForm {
 
 export interface RemoteTrackMatcherOptions {
   artistHints?: string[];
+  alternateTrackTitles?: Array<string | null | undefined>;
 }
 
 /**
@@ -214,36 +200,32 @@ export async function generateTitleForms(
     if (!exists) forms.push({ text: normalized, source });
   };
 
+  const addTitleForms = (text: string, source: "tag" | "filename") => {
+    for (const candidate of [text, ...extractBilingualTitleComponents(text)]) {
+      addForm(candidate, source);
+      if (oc) {
+        addForm(oc.s2t(candidate), source);
+        addForm(oc.t2s(candidate), source);
+      }
+    }
+  };
+
   // ── Tag title forms ─────────────────────────────────────────
   if (tagTitle && tagTitle.trim()) {
     const cleaned = stripAnnotations(tagTitle.trim());
-    addForm(cleaned, "tag");
-
-    if (oc) {
-      addForm(oc.s2t(cleaned), "tag");
-      addForm(oc.t2s(cleaned), "tag");
-    }
+    addTitleForms(cleaned, "tag");
 
     // Strip known artist suffix (e.g. "想念-林宥嘉" → "想念")
     const suffixStripped = stripKnownArtistSuffix(cleaned, knownArtists);
     if (suffixStripped && suffixStripped !== cleaned) {
-      addForm(suffixStripped, "tag");
-      if (oc) {
-        addForm(oc.s2t(suffixStripped), "tag");
-        addForm(oc.t2s(suffixStripped), "tag");
-      }
+      addTitleForms(suffixStripped, "tag");
     }
   }
 
   // ── Filename-derived forms ──────────────────────────────────
   const stem = extractFilenameStem(filename, knownArtists);
   if (stem) {
-    addForm(stem, "filename");
-
-    if (oc) {
-      addForm(oc.s2t(stem), "filename");
-      addForm(oc.t2s(stem), "filename");
-    }
+    addTitleForms(stem, "filename");
   }
 
   return forms;
@@ -362,6 +344,35 @@ function stripKnownArtistSuffix(
 function extractLeadingCjk(title: string): string | null {
   const match = LEADING_CJK_RE.exec(title);
   return match?.[1] ?? null;
+}
+
+function extractBilingualTitleComponents(title: string): string[] {
+  if (!hasCjk(title) || !LATIN_LETTER_RE.test(title)) return [];
+  return title
+    .split(BILINGUAL_TITLE_SEPARATOR_RE)
+    .map((part) => part.trim())
+    .filter((part) => part.length > 0 && part !== title)
+    .filter((part) => canUseTrackTitleContainment(stripPunctuationAndSymbols(part)));
+}
+
+function compactLength(value: string): number {
+  return value.replace(/\s+/g, "").length;
+}
+
+function hasCjk(value: string): boolean {
+  return /[\u3400-\u4dbf\u4e00-\u9fff]/.test(value);
+}
+
+function hasUsefulLatinToken(value: string): boolean {
+  return value.split(WHITESPACE_RE).some((token) => token.length >= TRACK_CONTAINMENT_MIN_LATIN_TOKEN);
+}
+
+function canUseTrackTitleContainment(contained: string): boolean {
+  if (!contained) return false;
+  if (hasCjk(contained)) {
+    return compactLength(contained) >= TRACK_CONTAINMENT_MIN_CJK_CHARS;
+  }
+  return hasUsefulLatinToken(contained);
 }
 
 /**
@@ -522,13 +533,199 @@ export interface SkipReason {
   reason: "no_title_match" | "duration_mismatch" | "duplicate_ambiguous" | "no_local_evidence";
 }
 
+export interface TrackTitleCoverageScore {
+  matched: number;
+  local: number;
+  remote: number;
+  durationMatched: number;
+  coverage: number;
+  skipped: SkipReason[];
+}
+
+/**
+ * Score local-to-remote track title coverage without preparing write output.
+ *
+ * This is used while choosing among already-shortlisted releases. It shares the
+ * matcher title normalization rules, requires unique one-file-to-one-track
+ * alignment, and intentionally does not use positional fallback.
+ */
+export async function scoreRemoteTrackTitleCoverage(
+  localTracks: TrackCandidate[],
+  filenames: string[],
+  remoteTracks: TrackCandidate[],
+  source: string,
+  options: RemoteTrackMatcherOptions = {},
+): Promise<TrackTitleCoverageScore> {
+  const score: TrackTitleCoverageScore = {
+    matched: 0,
+    local: localTracks.length,
+    remote: remoteTracks.length,
+    durationMatched: 0,
+    coverage: 0,
+    skipped: [],
+  };
+
+  if (localTracks.length === 0 || remoteTracks.length === 0) return score;
+
+  const remoteMeta = await buildRemoteTitleMeta(remoteTracks, source);
+  const matchedRemote = new Set<number>();
+
+  for (let i = 0; i < localTracks.length; i++) {
+    const localTrack = localTracks[i];
+    const knownArtists = [
+      ...(options.artistHints ?? []),
+      ...(localTrack.artist ? [localTrack.artist] : []),
+      ...localTrack.artists,
+    ];
+    const forms = await generateTitleForms(
+      localTrack.title,
+      filenames[i] ?? "",
+      knownArtists,
+    );
+    const alternateTitle = options.alternateTrackTitles?.[i];
+    const alternateForms = alternateTitle
+      ? await generateTitleForms(alternateTitle, "", knownArtists)
+      : [];
+    const localForms = [...new Set(
+      [...forms, ...alternateForms].map((form) => form.text).filter(Boolean),
+    )];
+
+    if (localForms.length === 0) {
+      score.skipped.push({
+        localIndex: i,
+        localTitle: localTrack.title,
+        reason: "no_local_evidence",
+      });
+      continue;
+    }
+
+    const candidates = remoteMeta
+      .filter((remote) => !matchedRemote.has(remote.index))
+      .filter((remote) => localForms.some((form) => remoteTitleMatchesLocalForm(remote.normalizedForms, form)));
+
+    if (candidates.length === 0) {
+      score.skipped.push({
+        localIndex: i,
+        localTitle: localTrack.title,
+        reason: "no_title_match",
+      });
+      continue;
+    }
+
+    const localDuration = normalizeDurationSeconds(localTrack.length, "local");
+    let chosen = candidates.length === 1 ? candidates[0] : null;
+    let matchedByDuration = false;
+
+    if (candidates.length > 1 && localDuration != null) {
+      const durationMatches = candidates.filter((candidate) =>
+        candidate.duration != null && durationsMatch(localDuration, candidate.duration),
+      );
+      if (durationMatches.length === 1) {
+        chosen = durationMatches[0];
+        matchedByDuration = true;
+      }
+    } else if (chosen && localDuration != null && chosen.duration != null) {
+      if (!durationsMatch(localDuration, chosen.duration)) {
+        score.skipped.push({
+          localIndex: i,
+          localTitle: localTrack.title,
+          reason: "duration_mismatch",
+        });
+        continue;
+      }
+      matchedByDuration = true;
+    }
+
+    if (!chosen) {
+      score.skipped.push({
+        localIndex: i,
+        localTitle: localTrack.title,
+        reason: "duplicate_ambiguous",
+      });
+      continue;
+    }
+
+    matchedRemote.add(chosen.index);
+    score.matched++;
+    if (matchedByDuration) score.durationMatched++;
+  }
+
+  score.coverage = score.local > 0 ? score.matched / score.local : 0;
+  return score;
+}
+
+async function buildRemoteTitleMeta(
+  remoteTracks: TrackCandidate[],
+  source: string,
+): Promise<Array<{
+  index: number;
+  normalizedForms: string[];
+  duration: number | null;
+}>> {
+  const oc = await getOpenCC();
+  return remoteTracks.map((track, index) => {
+    const variants = buildRemoteTitleVariants([track.title, ...track.matchTitles], oc);
+    const normalizedForms = [...new Set(
+      variants
+        .map((variant) => stripPunctuationAndSymbols(variant))
+        .filter(Boolean),
+    )];
+    return {
+      index,
+      normalizedForms,
+      duration: normalizeDurationSeconds(track.length, source),
+    };
+  });
+}
+
+function buildRemoteTitleVariants(
+  titles: Array<string | null>,
+  oc: { s2t: (s: string) => string; t2s: (s: string) => string } | null,
+): string[] {
+  const variants: string[] = [];
+  for (const title of titles) {
+    const cleaned = stripAnnotations(title ?? "");
+    if (!cleaned) continue;
+    for (const candidate of [cleaned, ...extractBilingualTitleComponents(cleaned)]) {
+      variants.push(candidate);
+      if (oc) variants.push(oc.s2t(candidate), oc.t2s(candidate));
+      const leadingCjk = extractLeadingCjk(candidate);
+      if (leadingCjk && leadingCjk !== candidate) variants.push(leadingCjk);
+    }
+  }
+  return [...new Set(variants)];
+}
+
+function remoteTitleMatchesLocalForm(remoteForms: string[], localForm: string): boolean {
+  return remoteForms.some((remoteForm) => {
+    if (remoteForm === localForm) return true;
+    if (localForm.includes(remoteForm) && canUseTrackTitleContainment(remoteForm)) {
+      return true;
+    }
+    if (remoteForm.includes(localForm) && canUseTrackTitleContainment(localForm)) {
+      return true;
+    }
+    return false;
+  });
+}
+
 // ── Main matcher ───────────────────────────────────────────────
+
+export type MatchEvidence =
+  | "musicbrainz-track-id"
+  | "tag-title"
+  | "filename-title"
+  | "fallback-title"
+  | "contained-title"
+  | "position";
 
 export interface MatchedCandidate {
   /** Tracks aligned to local file order, with safe per-track fields applied. */
   tracks: TrackCandidate[];
   /** Match statistics for observability. */
   stats: MatchStats;
+  /** Per-local-track evidence that justified the aligned remote track. */
+  matchEvidence: Array<MatchEvidence | null>;
   /** Whether every local track has a unique remote match and counts align. */
   isFullOrderedMatch: boolean;
 }
@@ -565,6 +762,7 @@ export async function matchRemoteCandidateTracks(
     return {
       tracks: localTracks.map((t) => ({ ...t })),
       stats,
+      matchEvidence: localTracks.map(() => null),
       isFullOrderedMatch: false,
     };
   }
@@ -573,6 +771,7 @@ export async function matchRemoteCandidateTracks(
   const localForms: Array<{
     tagForms: string[];
     filenameForms: string[];
+    alternateForms: string[];
     tagTitle: string | null;
     filename: string;
   }> = [];
@@ -586,9 +785,14 @@ export async function matchRemoteCandidateTracks(
       ...lt.artists,
     ];
     const forms = await generateTitleForms(lt.title, fname, knownArtists);
+    const alternateTitle = options.alternateTrackTitles?.[i];
+    const alternateForms = alternateTitle
+      ? await generateTitleForms(alternateTitle, "", knownArtists)
+      : [];
     localForms.push({
       tagForms: forms.filter((f) => f.source === "tag").map((f) => f.text),
       filenameForms: forms.filter((f) => f.source === "filename").map((f) => f.text),
+      alternateForms: alternateForms.map((f) => f.text),
       tagTitle: lt.title,
       filename: fname,
     });
@@ -599,26 +803,20 @@ export async function matchRemoteCandidateTracks(
   const replacementOpenCC = await getOpenCC();
   const remoteMeta = remoteTracks.map((rt, i) => {
     const annotationStripped = stripAnnotations(rt.title ?? "");
-    const titleVariants = replacementOpenCC
-      ? [
-        annotationStripped,
-        replacementOpenCC.s2t(annotationStripped),
-        replacementOpenCC.t2s(annotationStripped),
-      ]
-      : [annotationStripped];
-
-    // Extract leading CJK segment from bilingual titles
-    // E.g. "想念 I Miss You" → "想念"
-    const leadingCjk = extractLeadingCjk(annotationStripped);
-    if (leadingCjk && leadingCjk !== annotationStripped) {
-      titleVariants.push(leadingCjk);
-    }
+    const titleVariants = buildRemoteTitleVariants(
+      [rt.title, ...rt.matchTitles],
+      replacementOpenCC,
+    );
+    const primaryTitleVariants = buildRemoteTitleVariants([rt.title], replacementOpenCC);
 
     return {
       index: i,
       title: annotationStripped,
       titleVariants,
       normalized: stripPunctuationAndSymbols(annotationStripped),
+      primaryNormalizedForms: new Set(
+        primaryTitleVariants.map(stripPunctuationAndSymbols).filter(Boolean),
+      ),
       duration: normalizeDurationSeconds(rt.length, source),
       track: rt,
     };
@@ -627,43 +825,74 @@ export async function matchRemoteCandidateTracks(
   // 3. Build title-form index for remote tracks
   //    Maps normalized title → array of remote indices
   const remoteTitleIndex = new Map<string, number[]>();
+  const remoteMusicBrainzTrackIdIndex = new Map<string, number[]>();
   for (const rm of remoteMeta) {
-    if (!rm.normalized) continue;
-    const existing = remoteTitleIndex.get(rm.normalized) ?? [];
-    existing.push(rm.index);
-    remoteTitleIndex.set(rm.normalized, existing);
+    if (rm.track.musicbrainzTrackId) {
+      const existing = remoteMusicBrainzTrackIdIndex.get(rm.track.musicbrainzTrackId) ?? [];
+      existing.push(rm.index);
+      remoteMusicBrainzTrackIdIndex.set(rm.track.musicbrainzTrackId, existing);
+    }
 
-    // Also index CJK prefix variants (e.g. "想念" from "想念 I Miss You")
     for (const variant of rm.titleVariants) {
       const normalizedVariant = stripPunctuationAndSymbols(variant);
-      if (normalizedVariant && normalizedVariant !== rm.normalized) {
-        const variantExisting = remoteTitleIndex.get(normalizedVariant) ?? [];
-        variantExisting.push(rm.index);
-        remoteTitleIndex.set(normalizedVariant, variantExisting);
-      }
+      if (!normalizedVariant) continue;
+      const variantExisting = remoteTitleIndex.get(normalizedVariant) ?? [];
+      if (!variantExisting.includes(rm.index)) variantExisting.push(rm.index);
+      remoteTitleIndex.set(normalizedVariant, variantExisting);
     }
   }
 
   // 4. For each local track, try to find a unique remote match
   const matchedRemote = new Set<number>();
   const matchedLocal = new Array<number | null>(localTracks.length).fill(null);
+  const matchEvidence = new Array<MatchEvidence | null>(localTracks.length).fill(null);
+  const matchedRemoteAlternateTitle = new Array<boolean>(localTracks.length).fill(false);
 
   for (let i = 0; i < localTracks.length; i++) {
     const lf = localForms[i];
     const localDuration = normalizeDurationSeconds(localTracks[i].length, "local");
+    const localMusicBrainzTrackId = localTracks[i].musicbrainzTrackId;
+
+    if (source === "musicbrainz" && localMusicBrainzTrackId) {
+      const remoteMatches = remoteMusicBrainzTrackIdIndex
+        .get(localMusicBrainzTrackId)
+        ?.filter((ri) => !matchedRemote.has(ri)) ?? [];
+      if (remoteMatches.length === 1) {
+        const ri = remoteMatches[0];
+        matchedRemote.add(ri);
+        matchedLocal[i] = ri;
+        matchEvidence[i] = "musicbrainz-track-id";
+        stats.matched++;
+        continue;
+      }
+      if (remoteMatches.length > 1) {
+        stats.skipped.push({
+          localIndex: i,
+          localTitle: lf.tagTitle,
+          reason: "duplicate_ambiguous",
+        });
+        continue;
+      }
+    }
 
     // Try tag forms first (more reliable), then filename forms
     const allForms = [
       ...lf.tagForms.map((f) => ({ form: f, source: "tag" as const })),
       ...lf.filenameForms.map((f) => ({ form: f, source: "filename" as const })),
+      ...lf.alternateForms.map((f) => ({ form: f, source: "fallback" as const })),
     ];
 
     let matched = false;
 
-    for (const { form } of allForms) {
+    for (const { form, source: formSource } of allForms) {
       if (!form) continue;
       const candidates = remoteTitleIndex.get(form);
       if (!candidates || candidates.length === 0) continue;
+      const evidence: MatchEvidence = formSource === "tag"
+        ? "tag-title"
+        : formSource === "filename"
+          ? "filename-title"
+          : "fallback-title";
 
       // Filter to unassigned remote tracks
       const unassigned = candidates.filter(
@@ -680,6 +909,8 @@ export async function matchRemoteCandidateTracks(
           if (durationsMatch(localDuration, rm.duration)) {
             matchedRemote.add(ri);
             matchedLocal[i] = ri;
+            matchEvidence[i] = evidence;
+            matchedRemoteAlternateTitle[i] = !rm.primaryNormalizedForms.has(form);
             stats.matched++;
             matched = true;
             break;
@@ -697,6 +928,8 @@ export async function matchRemoteCandidateTracks(
         // unassigned candidate (already guaranteed by filter above)
         matchedRemote.add(ri);
         matchedLocal[i] = ri;
+        matchEvidence[i] = evidence;
+        matchedRemoteAlternateTitle[i] = !rm.primaryNormalizedForms.has(form);
         stats.matched++;
         matched = true;
         break;
@@ -718,6 +951,8 @@ export async function matchRemoteCandidateTracks(
         const ri = withDurations[0].ri;
         matchedRemote.add(ri);
         matchedLocal[i] = ri;
+        matchEvidence[i] = evidence;
+        matchedRemoteAlternateTitle[i] = !remoteMeta[ri].primaryNormalizedForms.has(form);
         stats.matched++;
         matched = true;
         break;
@@ -730,6 +965,7 @@ export async function matchRemoteCandidateTracks(
           const ri = unassigned[0];
           matchedRemote.add(ri);
           matchedLocal[i] = ri;
+          matchEvidence[i] = evidence;
           stats.matched++;
           matched = true;
           break;
@@ -766,6 +1002,7 @@ export async function matchRemoteCandidateTracks(
         const ri = containedTitleMatches[0].index;
         matchedRemote.add(ri);
         matchedLocal[i] = ri;
+        matchEvidence[i] = "contained-title";
         stats.matched++;
         matched = true;
       } else if (containedTitleMatches.length > 1) {
@@ -802,6 +1039,7 @@ export async function matchRemoteCandidateTracks(
     for (let i = 0; i < localTracks.length; i++) {
       matchedLocal[i] = i;
       matchedRemote.add(i);
+      matchEvidence[i] = "position";
     }
     stats.matched = localTracks.length;
     // Clear stale skip entries from failed title-match attempt
@@ -822,6 +1060,7 @@ export async function matchRemoteCandidateTracks(
 
     const remoteTrack = remoteTracks[remoteIdx];
     const lf = localForms[i];
+    const evidence = matchEvidence[i];
 
     // Check if any tag form matched (not just filename-derived)
     const anyTagFormMatched = lf.tagForms.some(
@@ -841,14 +1080,18 @@ export async function matchRemoteCandidateTracks(
       )
       : null;
 
-    if (canUseRemoteTitle && titleReplacement) {
+    if (canUseRemoteTitle && matchedRemoteAlternateTitle[i] && remoteTrack.title) {
+      result.title = remoteTrack.title;
+    } else if (canUseRemoteTitle && titleReplacement) {
       result.title = titleReplacement;
+    } else if (canUseRemoteTitle && evidence === "musicbrainz-track-id" && remoteTrack.title) {
+      result.title = remoteTrack.title;
     } else if (canUseRemoteTitle && localIsPlaceholder && remoteTrack.title) {
       result.title = remoteTrack.title;
-    } else if (anyTagFormMatched) {
+    } else if (evidence === "tag-title" && anyTagFormMatched) {
       // Local tag title matched — preserve original local title
       result.title = localTrack.title;
-    } else {
+    } else if (evidence === "filename-title") {
       // Only filename-derived title matched — write cleaned filename title
       const knownArtists = [
         ...(options.artistHints ?? []),
@@ -857,6 +1100,10 @@ export async function matchRemoteCandidateTracks(
       ];
       const cleaned = cleanFilenameTitle(lf.filename, knownArtists);
       result.title = cleaned || localTrack.title;
+    } else if (canUseRemoteTitle && evidence === "fallback-title" && remoteTrack.title) {
+      result.title = remoteTrack.title;
+    } else {
+      result.title = localTrack.title;
     }
 
     // ── musicbrainzTrackId always allowed for matched tracks ──
@@ -865,63 +1112,25 @@ export async function matchRemoteCandidateTracks(
     }
 
     // ── Remote artist/artists ─────────────────────────────────
-    // Prefer remote (MusicBrainz) artist credits when they add value
-    // over the local (blank, featured credits, or corrupted placeholder
-    // like "[momishi.com]" that doesn't match any known album hint).
-    // This preserves user-customized artists that differ from the
-    // album artist.
+    // MB/Discogs per-track artist credits are authoritative once a real
+    // title/filename/containment match was made. Position-only alignment is
+    // weaker evidence, so it only fills a blank local artist.
     const localArtistBlank = !localTrack.artist || localTrack.artist.trim() === "";
-    const localArtist = localTrack.artist;
-    let remoteEnrichesLocal = false;
-    let localArtistIsUnusual = false;
-
     const remoteArtist = remoteTrack.artist;
-    if (!localArtistBlank && localArtist && remoteArtist && remoteArtist !== localArtist) {
-      const remotePrimaryMatch = remoteTrack.artists.length > 0
-        ? remoteTrack.artists.some((a) => artistsMatch(a, localArtist!))
-        : normArtist(remoteArtist).startsWith(normArtist(localArtist!));
-      remoteEnrichesLocal = remotePrimaryMatch && remoteTrack.artists.length > localTrack.artists.length;
+    const strongRemoteArtistEvidence =
+      evidence === "musicbrainz-track-id" ||
+      evidence === "tag-title" ||
+      evidence === "filename-title" ||
+      evidence === "fallback-title" ||
+      evidence === "contained-title";
+    const canTrustRemoteArtist =
+      API_TITLE_CLEANUP_SOURCES.has(source) &&
+      remoteArtist &&
+      (strongRemoteArtistEvidence || (evidence === "position" && localArtistBlank));
 
-      // If local artist looks like a bracket-wrapped domain placeholder
-      // (e.g. "[momishi.com]") and the remote matches a known hint,
-      // the local value is a bootleg artifact — replace it.
-      if (options.artistHints?.length) {
-        const localLooksCorrupted = /^\[[a-zA-Z0-9][-a-zA-Z0-9.]*\.[a-zA-Z]{2,}\]$/.test(localArtist);
-        // Check both the full artist string AND individual artists (e.g. "品冠" matches
-        // "品冠 vs 光良" when checking remoteTrack.artists).
-        const remoteMatchesHint = options.artistHints.some((h) =>
-          artistsMatch(h, remoteArtist!) ||
-          remoteTrack.artists.some((ra) => artistsMatch(h, ra)),
-        );
-        localArtistIsUnusual = localLooksCorrupted && remoteMatchesHint;
-      }
-    }
-
-    if ((localArtistBlank || remoteEnrichesLocal || localArtistIsUnusual) && remoteArtist) {
-      if (localArtistBlank || localArtistIsUnusual) {
-        // No local artist or corrupted placeholder — use remote as-is
-        result.artist = remoteArtist;
-        result.artists = remoteTrack.artists.length > 0 ? [...remoteTrack.artists] : result.artists;
-      } else if (remoteEnrichesLocal && localArtist) {
-        // Remote enriches local — preserve local primary script, add remote extras
-        const equivalentRemoteIdx = remoteTrack.artists.findIndex((r) => artistsMatch(r, localArtist));
-
-        // Build enriched artists: local primary + remote extras (excluding equivalent)
-        const remoteExtras = remoteTrack.artists.filter((_, idx) => idx !== equivalentRemoteIdx);
-        result.artists = [localArtist, ...remoteExtras];
-
-        // Build display artist: replace equivalent remote primary with local primary
-        if (equivalentRemoteIdx >= 0) {
-          const remotePrimaryName = remoteTrack.artists[equivalentRemoteIdx];
-          result.artist = remoteArtist.replace(remotePrimaryName, localArtist);
-          // Fallback: if replacement didn't work, join artists
-          if (result.artist === remoteArtist) {
-            result.artist = result.artists.join(" feat. ");
-          }
-        } else {
-          result.artist = result.artists.join(" feat. ");
-        }
-      }
+    if (canTrustRemoteArtist && remoteArtist) {
+      result.artist = remoteArtist;
+      result.artists = remoteTrack.artists.length > 0 ? [...remoteTrack.artists] : [remoteArtist];
     }
 
     // ── Track/disc number fields: only for full ordered match ─
@@ -939,5 +1148,5 @@ export async function matchRemoteCandidateTracks(
     return result;
   });
 
-  return { tracks: outputTracks, stats, isFullOrderedMatch: finalIsFullOrderedMatch };
+  return { tracks: outputTracks, stats, matchEvidence, isFullOrderedMatch: finalIsFullOrderedMatch };
 }

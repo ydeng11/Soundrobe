@@ -22,8 +22,14 @@ import path from "node:path";
 import { stat } from "node:fs/promises";
 import { Worker } from "node:worker_threads";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { writeTagsWithOutcome, writeExtraTagsWithOutcome } from "../handlers/writer";
-import type { WriteFields, ExtraTagUpdate, WriteOutcome } from "../handlers/writer";
+import { writeTagsWithResult, writeExtraTagsWithResult } from "../handlers/writer";
+import type {
+  WriteFields,
+  ExtraTagUpdate,
+  WriteOutcome,
+  WriteReason,
+  WriteResult,
+} from "../handlers/writer";
 import logger from "../handlers/debug";
 
 // ── Types ──────────────────────────────────────────────────────────
@@ -40,6 +46,8 @@ export interface TagWriteResult {
   error?: string;
   /** Internal write outcome — how the write was performed. */
   outcome?: WriteOutcome;
+  /** Why this write outcome was selected. */
+  reason?: WriteReason;
   /** Duration in milliseconds for the write operation. */
   durationMs?: number;
 }
@@ -58,18 +66,27 @@ export function isExtraTagJob(job: TagWriteJob): boolean {
 // ── Inline write execution ─────────────────────────────────────────
 
 /**
- * Execute a single tag write job by calling the low-level writer directly.\n * Kept separate from the queue so it remains individually testable.
+ * Execute a single tag write job by calling the low-level writer directly.
+ * Kept separate from the queue so it remains individually testable.
  */
 export async function executeTagWrite(job: TagWriteJob): Promise<TagWriteResult> {
   const start = Date.now();
   try {
-    let outcome: WriteOutcome = "full_rewrite";
+    let writeResult: WriteResult = {
+      outcome: "skipped",
+      reason: "unchanged",
+    };
     if (isExtraTagJob(job)) {
-      outcome = await writeExtraTagsWithOutcome(job.filePath, job.extraTags!);
+      writeResult = await writeExtraTagsWithResult(job.filePath, job.extraTags!);
     } else if (job.fields && Object.keys(job.fields).length > 0) {
-      outcome = await writeTagsWithOutcome(job.filePath, job.fields);
+      writeResult = await writeTagsWithResult(job.filePath, job.fields);
     }
-    return { filePath: job.filePath, success: true, outcome, durationMs: Date.now() - start };
+    return {
+      filePath: job.filePath,
+      success: true,
+      ...writeResult,
+      durationMs: Date.now() - start,
+    };
   } catch (err) {
     return {
       filePath: job.filePath,
@@ -297,14 +314,21 @@ export class TagWriteQueue {
         result.durationMs = Date.now() - start;
       }
 
-      logger.info("write", `${path.basename(entry.job.filePath)} — ${result.outcome ?? "full_rewrite"} — ${result.durationMs}ms`, {
-        path: entry.job.filePath,
-        extension: path.extname(entry.job.filePath),
-        size: fileSize,
-        durationMs: result.durationMs,
-        outcome: result.outcome,
-        error: result.error ?? null,
-      });
+      const outcome = result.outcome ?? "full_rewrite";
+      const reason = result.reason ?? "unspecified";
+      logger.info(
+        "write",
+        `${path.basename(entry.job.filePath)} — ${outcome} — ${reason} — ${result.durationMs}ms`,
+        {
+          path: entry.job.filePath,
+          extension: path.extname(entry.job.filePath),
+          size: fileSize,
+          durationMs: result.durationMs,
+          outcome: result.outcome,
+          reason: result.reason,
+          error: result.error ?? null,
+        },
+      );
 
       this.resolveBatchJob(entry.batchId, entry.index, result);
     } catch (err) {
@@ -359,6 +383,8 @@ export interface TagWorkerResponse {
   filePath?: string;
   success?: boolean;
   error?: string;
+  outcome?: WriteOutcome;
+  reason?: WriteReason;
 }
 
 /** Message sent from the parent to the worker. */
@@ -425,7 +451,12 @@ export function createWorkerExecutor(workerPath?: string): TagWriteExecutor {
             pending.delete(msg.jobId);
             const filePath = msg.filePath ?? msg.jobId;
             if (msg.success) {
-              pending_job.resolve({ filePath, success: true });
+              pending_job.resolve({
+                filePath,
+                success: true,
+                outcome: msg.outcome,
+                reason: msg.reason,
+              });
             } else {
               pending_job.resolve({
                 filePath,
