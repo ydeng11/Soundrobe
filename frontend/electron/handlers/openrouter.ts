@@ -10,6 +10,29 @@ import debug from "./debug";
 const OPENROUTER_BASE = "https://openrouter.ai/api/v1";
 const RETRYABLE_STATUSES = new Set([429, 500, 502, 503, 504]);
 
+/** Default total deadline (covering retries) for a single LLM call. */
+const DEFAULT_LLM_TIMEOUT_MS = 30_000;
+
+/** Sleep that resolves early if the signal aborts. Resolves immediately for ms <= 0. */
+function abortableSleep(ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve) => {
+    if (ms <= 0 || signal?.aborted) {
+      resolve();
+      return;
+    }
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const onAbort = () => {
+      if (timer) clearTimeout(timer);
+      resolve();
+    };
+    timer = setTimeout(() => {
+      signal?.removeEventListener("abort", onAbort);
+      resolve();
+    }, ms);
+    signal?.addEventListener("abort", onAbort, { once: true });
+  });
+}
+
 export interface TokenUsage {
   promptTokens: number;
   completionTokens: number;
@@ -32,6 +55,17 @@ export interface OpenRouterConfig {
 
 export interface CompleteJsonOptions {
   allowMessageFallback?: boolean;
+  /** Caller AbortSignal (e.g. task cancellation). Aborts are surfaced as abort errors. */
+  signal?: AbortSignal;
+  /** Total deadline in ms covering all retries within one postWithRetries call. Default: 30s. */
+  timeoutMs?: number;
+  /**
+   * Per-call OpenRouter `reasoning` control, e.g. `{ max_tokens: 256 }` to cap
+   * chain-of-thought or `{ enabled: false }` to disable it. Only included in the
+   * request body when provided, so unrelated callers (audit, assistant) are
+   * unaffected.
+   */
+  reasoning?: Record<string, unknown>;
 }
 
 /**
@@ -98,8 +132,14 @@ export class OpenRouterClient {
     let payload: Record<string, unknown> | null = null;
     let content = "";
     let parseError: Error | null = null;
+    // One total deadline shared across both JSON-repair attempts and all retries.
+    const totalBudget = options.timeoutMs ?? DEFAULT_LLM_TIMEOUT_MS;
+    const deadline = Date.now() + totalBudget;
 
     for (let attempt = 0; attempt < 2; attempt++) {
+      const remaining = deadline - Date.now();
+      if (remaining <= 0) break;
+
       // If the previous attempt was truncated (finish_reason=length), double
       // the token budget so the model can complete its JSON output.
       const maxTokensOverride =
@@ -107,8 +147,14 @@ export class OpenRouterClient {
           ? (this.config.maxTokens ?? 4096) * 2
           : undefined;
 
+      // On a repair attempt, disable reasoning so the model emits its answer
+      // directly into message.content instead of only chain-of-thought.
+      const reasoningForAttempt =
+        attempt === 0 ? options.reasoning : { enabled: false };
+
       const response = await this.postWithRetries(
         messages, schemaName, schema, model, 2, maxTokensOverride,
+        options.signal, remaining, reasoningForAttempt,
       );
       const responsePayload = await response.json() as Record<string, unknown>;
       payload = responsePayload;
@@ -126,7 +172,18 @@ export class OpenRouterClient {
         if (options.allowMessageFallback) {
           break;
         }
-        throw new Error("OpenRouter response did not include message content");
+        // Reasoning models may emit only chain-of-thought and exhaust the token
+        // budget before writing the answer, leaving message.content empty. Retry
+        // once with reasoning disabled to prioritize a content response. Never
+        // treat message.reasoning as the answer.
+        if (attempt === 0) {
+          debug.debug("openrouter", "Empty message.content (reasoning model?) — retrying with reasoning disabled");
+          continue;
+        }
+        const fr = this.getFinishReason(payload);
+        const usage = ((payload ?? {}) as any).usage ?? {};
+        const detail = `model=${model ?? this.config.model} finish_reason=${fr ?? "?"} completion_tokens=${usage.completion_tokens ?? "?"} reasoning_tokens=${usage.reasoning_tokens ?? "?"}`;
+        throw new Error(`OpenRouter returned empty message content after retry (${detail})`);
       }
       content = String(content);
 
@@ -202,13 +259,26 @@ export class OpenRouterClient {
     model?: string,
     maxRetries = 2,
     maxTokensOverride?: number,
+    signal?: AbortSignal,
+    timeoutMs?: number,
+    reasoning?: Record<string, unknown>,
   ): Promise<Response> {
     let lastResponse: Response | null = null;
     let lastError: Error | null = null;
+    const totalBudget = timeoutMs ?? DEFAULT_LLM_TIMEOUT_MS;
+    const deadline = Date.now() + totalBudget;
 
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      const remaining = deadline - Date.now();
+      if (remaining <= 0) {
+        // Budget exhausted before this attempt could start.
+        if (!lastResponse && !lastError) {
+          lastError = new Error(`LLM request timed out after ${totalBudget}ms`);
+        }
+        break;
+      }
       try {
-        const response = await this.post(messages, schemaName, schema, model, maxTokensOverride);
+        const response = await this.post(messages, schemaName, schema, model, maxTokensOverride, signal, remaining, reasoning);
         lastResponse = response;
 
         if (response.ok) return response;
@@ -220,7 +290,9 @@ export class OpenRouterClient {
 
         if (isProviderError) {
           debug.debug("openrouter", `Provider error (attempt ${attempt + 1}/${maxRetries + 1}), retrying...`);
-          await new Promise((r) => setTimeout(r, 1000 * (attempt + 1)));
+          const backoff = 1000 * (attempt + 1);
+          if (Date.now() + backoff >= deadline) break;
+          await abortableSleep(backoff, signal);
           continue;
         }
 
@@ -228,13 +300,23 @@ export class OpenRouterClient {
           break;
         }
 
-        // Wait before retry
-        await new Promise((r) => setTimeout(r, 250 * (attempt + 1)));
+        // Wait before retry — but not past the deadline, and interruptible by abort.
+        const retryBackoff = 250 * (attempt + 1);
+        if (Date.now() + retryBackoff >= deadline) break;
+        await abortableSleep(retryBackoff, signal);
       } catch (err) {
-        // Network-level failure (DNS, TLS, connection reset) — retry
+        // Network-level failure (DNS, TLS, connection reset) — retry.
+        // Timeouts and caller aborts are not retried.
         lastError = err instanceof Error ? err : new Error(String(err));
+        if (/timed out|abort/i.test(lastError.message)) {
+          // An abort/timeout must surface as-is, not as a stale prior response.
+          lastResponse = null;
+          break;
+        }
         if (attempt >= maxRetries) break;
-        await new Promise((r) => setTimeout(r, 250 * (attempt + 1)));
+        const retryBackoff = 250 * (attempt + 1);
+        if (Date.now() + retryBackoff >= deadline) break;
+        await abortableSleep(retryBackoff, signal);
       }
     }
 
@@ -254,6 +336,9 @@ export class OpenRouterClient {
     schema: Record<string, unknown>,
     model?: string,
     maxTokensOverride?: number,
+    signal?: AbortSignal,
+    timeoutMs?: number,
+    reasoning?: Record<string, unknown>,
   ): Promise<Response> {
     const url = `${this.config.baseUrl!.replace(/\/$/, "")}/chat/completions`;
 
@@ -270,15 +355,47 @@ export class OpenRouterClient {
         },
       },
     };
+    // Per-call reasoning control (cap or disable chain-of-thought). Only included
+    // when the caller opts in; unrelated callers are untouched.
+    if (reasoning) body.reasoning = reasoning;
 
-    return fetch(url, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${this.config.apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(body),
-    });
+    // Combine the caller's AbortSignal with a per-request timeout into a single
+    // controller. A timeout is reported distinctly from a caller abort so that
+    // postWithRetries can decide not to retry on either.
+    const controller = new AbortController();
+    let timedOut = false;
+    const onCallerAbort = () => controller.abort();
+    if (signal) {
+      if (signal.aborted) controller.abort();
+      else signal.addEventListener("abort", onCallerAbort, { once: true });
+    }
+    const timer = timeoutMs
+      ? setTimeout(() => {
+          timedOut = true;
+          controller.abort();
+        }, timeoutMs)
+      : undefined;
+
+    try {
+      return await fetch(url, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${this.config.apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      });
+    } catch (err) {
+      if (timedOut) {
+        throw new Error(`LLM request timed out after ${timeoutMs}ms`);
+      }
+      // Caller-initiated abort: surface the abort error as-is.
+      throw err instanceof Error ? err : new Error(String(err));
+    } finally {
+      if (timer) clearTimeout(timer);
+      if (signal) signal.removeEventListener("abort", onCallerAbort);
+    }
   }
 
 }

@@ -1285,6 +1285,307 @@ describe("resolveTagsViaLLM — full pipeline with mocked LLM", () => {
     }
   });
 
+  it("skips the LLM tag-correction when an exact MusicBrainz release match is found", async () => {
+    const originalEnv = { ...process.env };
+    const tmpHome = mkdtempSync(join(tmpdir(), "auto-tag-skip-llm-"));
+    process.env.HOME = tmpHome;
+    delete process.env.LLM_API_KEY;
+    delete process.env.LLM_MODEL;
+    process.env.AUTO_TAG_REMOTE_LOOKUP = "true";
+    process.env.AUTO_TAG_DISCOGS_ENABLED = "false";
+    process.env.AUTO_TAG_LYRICS_DOWNLOAD_ENABLED = "false";
+
+    try {
+      const albumDir = join(tmpHome, "Provider Artist", "Album");
+      mkdirSync(albumDir, { recursive: true });
+      writeFileSync(join(albumDir, ".auto-tagger-cover-removed"), "");
+      const trackPath = join(albumDir, "01. Provider Song.flac");
+      const block = vorbisCommentBlock([
+        "TITLE=Unknown 01",
+        "ARTIST=Provider Artist",
+        "ALBUM=Album",
+        "GENRE=Pop",
+        "MUSICBRAINZ_ALBUMID=mb-release",
+        "MUSICBRAINZ_ARTISTID=mb-artist",
+        "MUSICBRAINZ_TRACKID=recording-1",
+      ], { isLast: true });
+      writeFileSync(trackPath, Buffer.concat([
+        flacHeaderWithDuration(false, 200, [block]),
+        Buffer.from([0xff, 0xf8, 0x69, 0x18]),
+        Buffer.alloc(100),
+      ]));
+
+      globalThis.fetch = vi.fn().mockImplementation(async (url) => {
+        const textUrl = String(url);
+        if (textUrl.includes("/release/mb-release")) {
+          return {
+            ok: true,
+            json: async () => ({
+              id: "mb-release",
+              title: "Album",
+              date: "2008-01-01",
+              "artist-credit": [{ name: "Provider Artist", artist: { id: "mb-artist" } }],
+              media: [{
+                position: 1,
+                tracks: [{
+                  number: "1",
+                  title: "Provider Song",
+                  "artist-credit": [{ name: "Provider Artist", artist: { id: "mb-artist" } }],
+                  recording: { id: "recording-1", title: "Provider Song" },
+                }],
+              }],
+            }),
+          };
+        }
+        if (textUrl.includes("/artist/mb-artist")) {
+          return { ok: true, json: async () => ({ id: "mb-artist", name: "Provider Artist" }) };
+        }
+        return { ok: true, json: async () => ({ releases: [] }) };
+      });
+
+      // Arm the LLM. The full tag-correction call must be skipped because an
+      // exact MB release match was loaded from the file-tag MBIDs. The only LLM
+      // call that may fire is the small genre-fill (Step 8), and only because the
+      // MB release carries no genre — which is the intended behavior.
+      process.env.LLM_API_KEY = "test-key";
+      process.env.LLM_MODEL = "test-model";
+      refreshConfig();
+
+      const taskId = startAutoTag(albumDir);
+      await waitForTask(taskId);
+
+      expect(getProgress(taskId)?.status).toBe("completed");
+      const metadata = await readTrackMetadata(trackPath);
+      expect(metadata.title).toBe("Provider Song");
+      expect(metadata.artist).toBe("Provider Artist");
+
+      // Exactly one LLM call, and it must be the genre-fill — never the full
+      // tag-correction (TagCorrectionResponse), which is the expensive ~15s call.
+      const llmCalls = vi.mocked(globalThis.fetch).mock.calls
+        .filter((c) => String(c[0]).includes("openrouter.ai"));
+      expect(llmCalls).toHaveLength(1);
+      const body = JSON.parse(String(llmCalls[0][1]?.body));
+      expect(body.response_format.json_schema.name).toBe("GenreFillResponse");
+    } finally {
+      process.env = { ...originalEnv };
+      refreshConfig();
+      rmSync(tmpHome, { recursive: true, force: true });
+    }
+  });
+
+  it("skips the LLM tag-correction when provider search succeeds with unambiguous hints", async () => {
+    const originalEnv = { ...process.env };
+    const tmpHome = mkdtempSync(join(tmpdir(), "auto-tag-defer-llm-"));
+    process.env.HOME = tmpHome;
+    delete process.env.LLM_API_KEY;
+    delete process.env.LLM_MODEL;
+    process.env.AUTO_TAG_REMOTE_LOOKUP = "true";
+    process.env.AUTO_TAG_DISCOGS_ENABLED = "false";
+    process.env.AUTO_TAG_LYRICS_DOWNLOAD_ENABLED = "false";
+
+    try {
+      // Unambiguous folder: artist="Artist", album="Album", no year/brackets/dots.
+      // No MBIDs in tags → hasDirectMusicBrainzRelease is false → the LLM is
+      // deferred. MusicBrainz name-search returns a match, so the deferred LLM
+      // must be skipped (only genre-fill may still fire).
+      const albumDir = join(tmpHome, "Artist", "Album");
+      mkdirSync(albumDir, { recursive: true });
+      writeFileSync(join(albumDir, ".auto-tagger-cover-removed"), "");
+      const trackPath = join(albumDir, "01. Provider Song.flac");
+      const block = vorbisCommentBlock([
+        "TITLE=Unknown 01",
+        "ARTIST=Artist",
+        "ALBUM=Album",
+      ], { isLast: true });
+      writeFileSync(trackPath, Buffer.concat([
+        flacHeaderWithDuration(false, 200, [block]),
+        Buffer.from([0xff, 0xf8, 0x69, 0x18]),
+        Buffer.alloc(100),
+      ]));
+
+      globalThis.fetch = vi.fn().mockImplementation(async (url) => {
+        const u = String(url);
+        if (u.includes("openrouter.ai")) {
+          // Genre-fill may fire (MB candidate lacks genre); return valid genre.
+          return {
+            ok: true,
+            json: async () => ({
+              choices: [{ message: { content: JSON.stringify({ genre: "Pop", confidence: 0.9 }) } }],
+              usage: {},
+            }),
+          };
+        }
+        if (u.includes("/ws/2/release?query=")) {
+          return {
+            ok: true,
+            json: async () => ({
+              releases: [{
+                id: "mb-rel",
+                title: "Album",
+                date: "2020",
+                "artist-credit": [{ name: "Artist", artist: { id: "mb-art" } }],
+              }],
+            }),
+          };
+        }
+        if (u.includes("/ws/2/release/mb-rel")) {
+          return {
+            ok: true,
+            json: async () => ({
+              id: "mb-rel",
+              title: "Album",
+              date: "2020",
+              "artist-credit": [{ name: "Artist", artist: { id: "mb-art" } }],
+              media: [{
+                position: 1,
+                tracks: [{
+                  number: "1",
+                  title: "Provider Song",
+                  "artist-credit": [{ name: "Artist", artist: { id: "mb-art" } }],
+                  recording: { id: "rec-1", title: "Provider Song" },
+                }],
+              }],
+            }),
+          };
+        }
+        if (u.includes("/ws/2/artist/mb-art")) {
+          return { ok: true, json: async () => ({ id: "mb-art", name: "Artist" }) };
+        }
+        return { ok: true, json: async () => ({ releases: [] }) };
+      });
+
+      // Arm the LLM — the full tag-correction (TagCorrectionResponse) must NOT
+      // fire because provider search succeeded with unambiguous hints.
+      process.env.LLM_API_KEY = "test-key";
+      process.env.LLM_MODEL = "test-model";
+      refreshConfig();
+
+      const taskId = startAutoTag(albumDir);
+      await waitForTask(taskId);
+
+      expect(getProgress(taskId)?.status).toBe("completed");
+      const metadata = await readTrackMetadata(trackPath);
+      expect(metadata.title).toBe("Provider Song");
+      expect(metadata.artist).toBe("Artist");
+
+      // The expensive tag-correction call must be skipped. Only genre-fill
+      // (GenreFillResponse) is permitted.
+      const llmCalls = vi.mocked(globalThis.fetch).mock.calls
+        .filter((c) => String(c[0]).includes("openrouter.ai"));
+      const tagCorrectionCalls = llmCalls.filter((c) => {
+        const body = JSON.parse(String(c[1]?.body));
+        return body.response_format?.json_schema?.name === "TagCorrectionResponse";
+      });
+      expect(tagCorrectionCalls).toHaveLength(0);
+    } finally {
+      process.env = { ...originalEnv };
+      refreshConfig();
+      rmSync(tmpHome, { recursive: true, force: true });
+    }
+  });
+
+  it("genre-fill sends a conservative reasoning cap to bound chain-of-thought", async () => {
+    const originalEnv = { ...process.env };
+    const tmpHome = mkdtempSync(join(tmpdir(), "auto-tag-genre-cap-"));
+    process.env.HOME = tmpHome;
+    delete process.env.LLM_API_KEY;
+    delete process.env.LLM_MODEL;
+    process.env.AUTO_TAG_REMOTE_LOOKUP = "true";
+    process.env.AUTO_TAG_DISCOGS_ENABLED = "false";
+    process.env.AUTO_TAG_LYRICS_DOWNLOAD_ENABLED = "false";
+
+    try {
+      const albumDir = join(tmpHome, "Artist", "Album");
+      mkdirSync(albumDir, { recursive: true });
+      writeFileSync(join(albumDir, ".auto-tagger-cover-removed"), "");
+      const trackPath = join(albumDir, "01. Provider Song.flac");
+      const block = vorbisCommentBlock([
+        "TITLE=Unknown 01",
+        "ARTIST=Artist",
+        "ALBUM=Album",
+      ], { isLast: true });
+      writeFileSync(trackPath, Buffer.concat([
+        flacHeaderWithDuration(false, 200, [block]),
+        Buffer.from([0xff, 0xf8, 0x69, 0x18]),
+        Buffer.alloc(100),
+      ]));
+
+      globalThis.fetch = vi.fn().mockImplementation(async (url) => {
+        const u = String(url);
+        if (u.includes("openrouter.ai")) {
+          // Genre-fill fires because the MB candidate carries no genre.
+          return {
+            ok: true,
+            json: async () => ({
+              choices: [{ message: { content: JSON.stringify({ genre: "Pop", confidence: 0.9 }) } }],
+              usage: {},
+            }),
+          };
+        }
+        if (u.includes("/ws/2/release?query=")) {
+          return {
+            ok: true,
+            json: async () => ({
+              releases: [{
+                id: "mb-rel",
+                title: "Album",
+                date: "2020",
+                "artist-credit": [{ name: "Artist", artist: { id: "mb-art" } }],
+              }],
+            }),
+          };
+        }
+        if (u.includes("/ws/2/release/mb-rel")) {
+          return {
+            ok: true,
+            json: async () => ({
+              id: "mb-rel",
+              title: "Album",
+              date: "2020",
+              "artist-credit": [{ name: "Artist", artist: { id: "mb-art" } }],
+              media: [{
+                position: 1,
+                tracks: [{
+                  number: "1",
+                  title: "Provider Song",
+                  "artist-credit": [{ name: "Artist", artist: { id: "mb-art" } }],
+                  recording: { id: "rec-1", title: "Provider Song" },
+                }],
+              }],
+            }),
+          };
+        }
+        if (u.includes("/ws/2/artist/mb-art")) {
+          return { ok: true, json: async () => ({ id: "mb-art", name: "Artist" }) };
+        }
+        return { ok: true, json: async () => ({ releases: [] }) };
+      });
+
+      process.env.LLM_API_KEY = "test-key";
+      process.env.LLM_MODEL = "test-model";
+      refreshConfig();
+
+      const taskId = startAutoTag(albumDir);
+      await waitForTask(taskId);
+
+      expect(getProgress(taskId)?.status).toBe("completed");
+
+      const llmCalls = vi.mocked(globalThis.fetch).mock.calls
+        .filter((c) => String(c[0]).includes("openrouter.ai"));
+      expect(llmCalls).toHaveLength(1);
+      const body = JSON.parse(String(llmCalls[0][1]?.body));
+      expect(body.response_format.json_schema.name).toBe("GenreFillResponse");
+      // Genre-fill must cap chain-of-thought so the model always has room for
+      // the answer in message.content; reasoning models can otherwise return
+      // empty content.
+      expect(body.reasoning).toEqual({ max_tokens: 256 });
+    } finally {
+      process.env = { ...originalEnv };
+      refreshConfig();
+      rmSync(tmpHome, { recursive: true, force: true });
+    }
+  });
+
   it("corrects album metadata via LLM fallback when no API candidates exist", async () => {
     const originalEnv = { ...process.env };
     const tmpHome = mkdtempSync(join(tmpdir(), "auto-tag-llm-1-"));

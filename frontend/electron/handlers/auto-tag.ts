@@ -931,7 +931,13 @@ class TaskManager {
         // and fetch the release directly from the provider's API.
         debug.info("auto-tag", "Step 4/9: Direct provider ID lookup...");
         update("Direct provider ID lookup...", 4);
-        const directLookups = await this.performDirectIdLookups(lookupRequest, releaseCache);
+        debug.startTimer(`direct-lookup-${taskId}`);
+        let directLookups!: AlbumCandidate[];
+        try {
+          directLookups = await this.performDirectIdLookups(lookupRequest, releaseCache);
+        } finally {
+          debug.endTimer(`direct-lookup-${taskId}`, "auto-tag", "Direct provider ID lookup");
+        }
         const hasDirectMusicBrainzRelease = !!lookupRequest.musicbrainzAlbumId && directLookups.some(
           (candidate) =>
             candidate.source === "musicbrainz" &&
@@ -949,19 +955,41 @@ class TaskManager {
           return this.failCancelled(taskId);
         }
 
-        // Ask the LLM for better hints and a safe fallback candidate.
-        // The LLM does not replace provider evidence but provides genre
-        // and can correct ambiguous folder-name hints even when provider
-        // IDs exist (which often lack genre from Discogs/MusicBrainz).
-        debug.info("auto-tag", "Resolving fallback hints via LLM...");
-        const { correctedRequest, fallbackCandidate } = await this.resolveTagsViaLLM(lookupRequest, signal);
-        llmFallback = fallbackCandidate;
-        if (
-          correctedRequest.artistHint !== lookupRequest.artistHint ||
-          correctedRequest.albumHint !== lookupRequest.albumHint
-        ) {
-          debug.info("auto-tag", `LLM corrected: artist="${correctedRequest.artistHint}" album="${correctedRequest.albumHint}"`);
-          lookupRequest = await this.resolveProviderArtistIds(correctedRequest);
+        // Step 4b: LLM tag resolution.
+        // The LLM corrects ambiguous folder hints (improving provider search) and
+        // builds a fallback candidate with genre. It is expensive (~15s on free-tier
+        // models), so we skip the upfront call when it is redundant:
+        //   - hasDirectMusicBrainzRelease: an exact release was already loaded from
+        //     file-tag MBIDs — the LLM cannot improve on it. Genre fill (Step 8)
+        //     handles a missing genre.
+        //   - Unambiguous hints: provider search likely succeeds with the raw hints,
+        //     so the LLM is deferred until after search (Step 6.5). If search finds
+        //     nothing, the LLM runs then to produce a fallback candidate.
+        // Ambiguous hints still invoke the LLM upfront so it can correct hints
+        // before provider search runs.
+        const hintsAmbiguous = hintsAreAmbiguous(
+          lookupRequest.albumHint,
+          lookupRequest.artistHint,
+          lookupRequest.path,
+          lookupRequest.yearHint,
+        );
+        let llmDeferred = false;
+        if (hasDirectMusicBrainzRelease) {
+          debug.info("auto-tag", "Skipping LLM tag resolution — exact MusicBrainz release match found");
+        } else if (hintsAmbiguous) {
+          debug.info("auto-tag", "Resolving fallback hints via LLM (ambiguous hints)...");
+          const { correctedRequest, fallbackCandidate } = await this.resolveTagsViaLLM(lookupRequest, signal, taskId);
+          llmFallback = fallbackCandidate;
+          if (
+            correctedRequest.artistHint !== lookupRequest.artistHint ||
+            correctedRequest.albumHint !== lookupRequest.albumHint
+          ) {
+            debug.info("auto-tag", `LLM corrected: artist="${correctedRequest.artistHint}" album="${correctedRequest.albumHint}"`);
+            lookupRequest = await this.resolveProviderArtistIds(correctedRequest);
+          }
+        } else {
+          llmDeferred = true;
+          debug.info("auto-tag", "Hints unambiguous — deferring LLM until after provider search");
         }
 
         const lookupVariants = await buildAliasedLookupVariants(
@@ -973,7 +1001,7 @@ class TaskManager {
           lookupRequest.artistHint,
           ...lookupVariants.map(([artist]) => artist),
         ].filter((artist): artist is string => !!artist?.trim());
-        const alternateTrackTitles = llmFallback?.tracks.map((track) => track.title) ?? [];
+        let alternateTrackTitles = llmFallback?.tracks.map((track) => track.title) ?? [];
 
         // Step 5: MusicBrainz artist-release browsing, then generic fallback.
         if (this.config.remoteLookupEnabled !== false && !hasDirectMusicBrainzRelease) {
@@ -986,15 +1014,21 @@ class TaskManager {
               inFlightReleaseDetails: this.providerReleaseDetailPromises,
             });
             debug.debug("auto-tag", `MusicBrainz search: artist="${lookupRequest.artistHint}" album="${lookupRequest.albumHint}"`);
-            const mbCandidates = await this.searchVariants(mb, lookupVariants, {
-              artistId: lookupRequest.musicbrainzArtistId,
-              albumHint: lookupRequest.albumHint,
-              yearHint: lookupRequest.yearHint,
-              localTracks: lookupRequest.tracks,
-              filenames: artistScopedFilenames,
-              artistHints: artistScopedHints,
-              alternateTrackTitles,
-            });
+            debug.startTimer(`mb-search-${taskId}`);
+            let mbCandidates!: AlbumCandidate[];
+            try {
+              mbCandidates = await this.searchVariants(mb, lookupVariants, {
+                artistId: lookupRequest.musicbrainzArtistId,
+                albumHint: lookupRequest.albumHint,
+                yearHint: lookupRequest.yearHint,
+                localTracks: lookupRequest.tracks,
+                filenames: artistScopedFilenames,
+                artistHints: artistScopedHints,
+                alternateTrackTitles,
+              });
+            } finally {
+              debug.endTimer(`mb-search-${taskId}`, "auto-tag", "MusicBrainz search");
+            }
             debug.info("auto-tag", `MusicBrainz returned ${mbCandidates.length} candidates`);
             this.emitTask(taskId, "source", `MusicBrainz: ${mbCandidates.length} candidate(s)`, {
               source: "musicbrainz",
@@ -1026,15 +1060,21 @@ class TaskManager {
               inFlightReleaseDetails: this.providerReleaseDetailPromises,
             });
             debug.debug("auto-tag", `Discogs search: artist="${lookupRequest.artistHint}" album="${lookupRequest.albumHint}"`);
-            const discogsCandidates = await this.searchVariants(discogs, lookupVariants, {
-              artistId: lookupRequest.discogsArtistId,
-              albumHint: lookupRequest.albumHint,
-              yearHint: lookupRequest.yearHint,
-              localTracks: lookupRequest.tracks,
-              filenames: artistScopedFilenames,
-              artistHints: artistScopedHints,
-              alternateTrackTitles,
-            });
+            debug.startTimer(`discogs-search-${taskId}`);
+            let discogsCandidates!: AlbumCandidate[];
+            try {
+              discogsCandidates = await this.searchVariants(discogs, lookupVariants, {
+                artistId: lookupRequest.discogsArtistId,
+                albumHint: lookupRequest.albumHint,
+                yearHint: lookupRequest.yearHint,
+                localTracks: lookupRequest.tracks,
+                filenames: artistScopedFilenames,
+                artistHints: artistScopedHints,
+                alternateTrackTitles,
+              });
+            } finally {
+              debug.endTimer(`discogs-search-${taskId}`, "auto-tag", "Discogs search");
+            }
             debug.info("auto-tag", `Discogs returned ${discogsCandidates.length} candidates`);
             this.emitTask(taskId, "source", `Discogs releases: ${discogsCandidates.length} candidate(s)`, {
               source: "discogs",
@@ -1052,6 +1092,18 @@ class TaskManager {
         }
         if (signal.aborted) {
           return this.failCancelled(taskId);
+        }
+
+        // Step 6.5: Deferred LLM fallback.
+        // If hints were unambiguous and provider search returned no candidates,
+        // invoke the LLM now to produce a fallback candidate. We do not re-run
+        // provider search with corrected hints — for unambiguous hints the LLM
+        // rarely changes them, and the fallback is the best available source.
+        if (llmDeferred && allCandidates.length === 0 && cachedCandidates.length === 0 && this.config.llmApiKey && !signal.aborted) {
+          debug.info("auto-tag", "Provider search returned no candidates — invoking LLM fallback");
+          const { fallbackCandidate: deferred } = await this.resolveTagsViaLLM(lookupRequest, signal, taskId);
+          llmFallback = deferred;
+          alternateTrackTitles = llmFallback?.tracks.map((track) => track.title) ?? [];
         }
 
         // Step 7: Fallback candidate
@@ -1113,11 +1165,17 @@ class TaskManager {
             const artistName = candidate.artist ?? candidate.albumArtist;
             if (artistName && !isCompilationFolder(artistName)) {
               debug.debug("auto-tag", `Resolving artist identity for "${artistName}"...`);
-              const identity = await this.getArtistIdentity(artistName, {
-                discogsToken: this.config.discogsToken,
-                skipMusicBrainz: this.config.remoteLookupEnabled === false,
-                skipDiscogs: this.config.discogsEnabled === false,
-              });
+              debug.startTimer(`artist-identity-${taskId}`);
+              let identity!: ArtistIdentity;
+              try {
+                identity = await this.getArtistIdentity(artistName, {
+                  discogsToken: this.config.discogsToken,
+                  skipMusicBrainz: this.config.remoteLookupEnabled === false,
+                  skipDiscogs: this.config.discogsEnabled === false,
+                });
+              } finally {
+                debug.endTimer(`artist-identity-${taskId}`, "auto-tag", "Artist identity resolution");
+              }
               if (identity.musicbrainzArtistId && !candidate.musicbrainzArtistId) {
                 candidate.musicbrainzArtistId = identity.musicbrainzArtistId;
                 debug.info("auto-tag", `Resolved MB artist ID: ${identity.musicbrainzArtistId} (source=${identity.source})`);
@@ -1143,7 +1201,7 @@ class TaskManager {
           // Conditional genre fill: only call LLM if genre is still missing
           // after Discogs and LLM tag resolution.
           update("Resolving genre...", 8);
-          const filledCandidate = await this.fillGenreIfMissing(writeCandidate, lookupRequest, signal);
+          const filledCandidate = await this.fillGenreIfMissing(writeCandidate, lookupRequest, signal, taskId);
           debug.info("auto-tag", `Step 8/9: Genre resolved: "${filledCandidate.genre ?? "(none)"}"`);
 
           debug.info("auto-tag", "Step 9/9: Applying album tags...");
@@ -1182,6 +1240,7 @@ class TaskManager {
   private async resolveTagsViaLLM(
     request: ReturnType<typeof makeLookupRequest>,
     signal: AbortSignal,
+    taskId?: string,
   ): Promise<{
     correctedRequest: ReturnType<typeof makeLookupRequest>;
     fallbackCandidate: AlbumCandidate | null;
@@ -1192,7 +1251,8 @@ class TaskManager {
     }
 
     debug.info("auto-tag", `Resolving tags via LLM (model: ${this.config.llmModel ?? "default"})`);
-    debug.startTimer("resolve-tags");
+    const timerKey = `resolve-tags-${taskId ?? "shared"}`;
+    debug.startTimer(timerKey);
 
     try {
       const client = new OpenRouterClient({
@@ -1261,6 +1321,8 @@ class TaskManager {
         messages,
         "TagCorrectionResponse",
         schema,
+        undefined,
+        { signal },
       );
 
       const data = Object.fromEntries(
@@ -1335,7 +1397,7 @@ class TaskManager {
       // LLM failure is non-fatal - fall back to original hints and folder fallback
       return { correctedRequest: request, fallbackCandidate: null };
     } finally {
-      debug.endTimer("resolve-tags", "auto-tag", "LLM tag resolution");
+      debug.endTimer(timerKey, "auto-tag", "LLM tag resolution");
     }
   }
 
@@ -1942,13 +2004,15 @@ class TaskManager {
     candidate: AlbumCandidate,
     request: ReturnType<typeof makeLookupRequest>,
     signal: AbortSignal,
+    taskId?: string,
   ): Promise<AlbumCandidate> {
     if (candidate.genre || !this.config.llmApiKey || signal.aborted) {
       return candidate;
     }
 
     debug.info("auto-tag", "Genre missing after all sources - filling via LLM...");
-    debug.startTimer("fill-genre");
+    const timerKey = `fill-genre-${taskId ?? "shared"}`;
+    debug.startTimer(timerKey);
 
     try {
       const client = new OpenRouterClient({
@@ -1975,6 +2039,11 @@ class TaskManager {
         messages,
         "GenreFillResponse",
         schema,
+        undefined,
+        // Genre-fill output is tiny; cap chain-of-thought so the model always
+        // has room to write the answer into message.content. A reasoning model
+        // that empties its budget on thinking would otherwise return no content.
+        { signal, reasoning: { max_tokens: 256 } },
       );
 
       const genre = response.data.genre as string | null;
@@ -1989,7 +2058,7 @@ class TaskManager {
     } catch (err) {
       debug.warn("auto-tag", "LLM genre fill failed (non-fatal)", err);
     } finally {
-      debug.endTimer("fill-genre", "auto-tag", "LLM genre fill");
+      debug.endTimer(timerKey, "auto-tag", "LLM genre fill");
     }
 
     return candidate;
