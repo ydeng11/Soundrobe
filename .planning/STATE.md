@@ -368,3 +368,11 @@ Ready for v1 milestone audit and release readiness review
 - Removed active `.planning/REQUIREMENTS.md` so the next milestone can define fresh requirements
 - Updated `.planning/PROJECT.md` with current state and recommended v1.1 discovery topics
 - Next action: start a new milestone or manually complete v1.0 release publishing
+
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 260713-25w | Support Ctrl-click toggling of multiple track selection while preserving primary selection consistency | 2026-07-13 | 5810db4 | [260713-25w-support-ctrl-click-toggling-of-multiple-](./quick/260713-25w-support-ctrl-click-toggling-of-multiple-/) |
+
+Last activity: 2026-07-13 - Completed quick task 260713-25w: Support Ctrl-click toggling of multiple track selection
