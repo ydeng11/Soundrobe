@@ -427,13 +427,19 @@ export function FileGrid({
         // overwrite selectedTrackPaths to a single element, hiding the BatchEditor.
         // The BatchEditor (shown when selectedTrackPaths.length > 1) gets cover art
         // from handleMultiSelect's first-track logic anyway.
+      } else if (event.ctrlKey || event.metaKey) {
+        const paths = multiSelected.has(track.path)
+          ? selectedTrackPaths.filter((path) => path !== track.path)
+          : [...selectedTrackPaths, track.path];
+        onMultiSelect?.(paths);
+        lastClickedRef.current = index;
       } else {
         onMultiSelect?.([track.path]);
         lastClickedRef.current = index;
         onSelectTrack(track.path, track);
       }
     },
-    [sorted, onSelectTrack, onMultiSelect]
+    [sorted, multiSelected, selectedTrackPaths, onSelectTrack, onMultiSelect]
   );
 
   const handleHeaderContextMenu = useCallback((e: React.MouseEvent) => {

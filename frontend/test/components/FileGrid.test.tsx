@@ -493,6 +493,49 @@ describe("FileGrid", () => {
     expect(onSelect).not.toHaveBeenCalled();
   });
 
+  it("ctrl-click adds an unselected track without replacing the existing selection", () => {
+    const onSelect = vi.fn();
+    const onMulti = vi.fn();
+    render(
+      <FileGrid
+        tracks={tracks}
+        selectedTrackPath="/music/song1.mp3"
+        selectedTrackPaths={["/music/song1.mp3"]}
+        filterText=""
+        onSelectTrack={onSelect}
+        onMultiSelect={onMulti}
+      />
+    );
+
+    fireEvent.click(screen.getByText("music/song2.mp3"), { ctrlKey: true });
+
+    expect(onMulti).toHaveBeenCalledWith([
+      "/music/song1.mp3",
+      "/music/song2.mp3",
+    ]);
+    expect(onSelect).not.toHaveBeenCalled();
+  });
+
+  it("ctrl-click removes an already selected track", () => {
+    const onSelect = vi.fn();
+    const onMulti = vi.fn();
+    render(
+      <FileGrid
+        tracks={tracks}
+        selectedTrackPath="/music/song1.mp3"
+        selectedTrackPaths={["/music/song1.mp3", "/music/song2.mp3"]}
+        filterText=""
+        onSelectTrack={onSelect}
+        onMultiSelect={onMulti}
+      />
+    );
+
+    fireEvent.click(screen.getByText("music/song1.mp3"), { ctrlKey: true });
+
+    expect(onMulti).toHaveBeenCalledWith(["/music/song2.mp3"]);
+    expect(onSelect).not.toHaveBeenCalled();
+  });
+
   it("calls onDeleteFiles when context menu returns delete-files from row", async () => {
     const onSelect = vi.fn();
     const onDeleteFiles = vi.fn();

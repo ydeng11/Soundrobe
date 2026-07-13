@@ -69,6 +69,53 @@ describe("appReducer", () => {
     });
   });
 
+  describe("SET_SELECTED_TRACKS", () => {
+    it("moves the primary track when Ctrl-toggle removes the current primary", () => {
+      const track1 = makeTrack("/music/song1.mp3", { title: "Song One" });
+      const track2 = makeTrack("/music/song2.mp3", { title: "Song Two" });
+      const state = {
+        ...initialAppState,
+        tracks: [track1, track2],
+        selectedTrackPaths: [track1.path, track2.path],
+        selectedTrackPath: track1.path,
+        selectedTrack: track1,
+        coverDataUrl: "data:image/jpeg;base64,old-cover",
+      };
+
+      const next = appReducer(state, {
+        type: "SET_SELECTED_TRACKS",
+        paths: [track2.path],
+      });
+
+      expect(next.selectedTrackPaths).toEqual([track2.path]);
+      expect(next.selectedTrackPath).toBe(track2.path);
+      expect(next.selectedTrack).toBe(track2);
+      expect(next.coverDataUrl).toBeNull();
+    });
+
+    it("clears the primary track when Ctrl-toggle removes the final selection", () => {
+      const track = makeTrack("/music/song.mp3");
+      const state = {
+        ...initialAppState,
+        tracks: [track],
+        selectedTrackPaths: [track.path],
+        selectedTrackPath: track.path,
+        selectedTrack: track,
+        coverDataUrl: "data:image/jpeg;base64,cover",
+      };
+
+      const next = appReducer(state, {
+        type: "SET_SELECTED_TRACKS",
+        paths: [],
+      });
+
+      expect(next.selectedTrackPaths).toEqual([]);
+      expect(next.selectedTrackPath).toBeNull();
+      expect(next.selectedTrack).toBeNull();
+      expect(next.coverDataUrl).toBeNull();
+    });
+  });
+
   describe("SET_TRACKS", () => {
     it("refreshes the selected track object when reloaded tracks include it", () => {
       const selectedPath = "/music/song.mp3";

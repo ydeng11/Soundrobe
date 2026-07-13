@@ -351,11 +351,23 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         selectedTrack: action.track,
       };
 
-    case "SET_SELECTED_TRACKS":
+    case "SET_SELECTED_TRACKS": {
+      const selectedTrackPath = state.selectedTrackPath != null &&
+        action.paths.includes(state.selectedTrackPath)
+        ? state.selectedTrackPath
+        : action.paths[0] ?? null;
+      const primaryChanged = selectedTrackPath !== state.selectedTrackPath;
+
       return {
         ...state,
         selectedTrackPaths: action.paths,
+        selectedTrackPath,
+        selectedTrack: primaryChanged
+          ? state.tracks.find((track) => track.path === selectedTrackPath) ?? null
+          : state.selectedTrack,
+        coverDataUrl: primaryChanged ? null : state.coverDataUrl,
       };
+    }
 
     case "CLEAR_SELECTION":
       return {
