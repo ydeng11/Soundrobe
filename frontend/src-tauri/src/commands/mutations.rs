@@ -116,6 +116,12 @@ pub struct TrackPatch {
     pub discogs_release_id: Patch<String>,
 }
 
+#[derive(Debug, Clone, Deserialize)]
+pub struct TrackUpdate {
+    pub path: String,
+    pub fields: TrackPatch,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TrackWriteOutcome {
     Skipped,
@@ -131,11 +137,15 @@ pub async fn track_write(
     write_track_queued(&queue, PathBuf::from(path), fields).await
 }
 
-async fn write_track_queued(
-    queue: &WriteQueue,
-    path: PathBuf,
-    patch: TrackPatch,
+#[tauri::command]
+pub async fn tracks_batch_write(
+    updates: Vec<TrackUpdate>,
+    queue: State<'_, WriteQueue>,
 ) -> Result<(), ApiError> {
+    batch_write_queued(&queue, updates).await
+}
+
+fn validated_track_extension(path: &Path) -> Result<String, ApiError> {
     let extension = path
         .extension()
         .and_then(|extension| extension.to_str())
@@ -153,21 +163,49 @@ async fn write_track_queued(
             "track:write for formats other than MP3/FLAC/OGG/Opus/M4A/MP4/WAV/APE",
         ));
     }
+    Ok(extension.unwrap_or_default())
+}
+
+fn write_track_dispatch(path: &Path, patch: &TrackPatch) -> Result<TrackWriteOutcome, ApiError> {
+    match validated_track_extension(path)?.as_str() {
+        "mp3" => write_mp3_atomic(path, patch),
+        "flac" => write_flac_atomic(path, patch),
+        "ogg" | "opus" => write_ogg_atomic(path, patch),
+        "m4a" | "mp4" => write_mp4_atomic(path, patch),
+        "wav" => write_wav_atomic(path, patch),
+        _ => write_ape_atomic(path, patch),
+    }
+}
+
+async fn write_track_queued(
+    queue: &WriteQueue,
+    path: PathBuf,
+    patch: TrackPatch,
+) -> Result<(), ApiError> {
+    validated_track_extension(&path)?;
     queue
         .run(async move {
-            tokio::task::spawn_blocking(move || match extension.as_deref() {
-                Some("mp3") => write_mp3_atomic(&path, &patch),
-                Some("flac") => write_flac_atomic(&path, &patch),
-                Some("ogg" | "opus") => write_ogg_atomic(&path, &patch),
-                Some("m4a" | "mp4") => write_mp4_atomic(&path, &patch),
-                Some("wav") => write_wav_atomic(&path, &patch),
-                _ => write_ape_atomic(&path, &patch),
+            tokio::task::spawn_blocking(move || write_track_dispatch(&path, &patch))
+                .await
+                .map_err(|error| ApiError::WriteTask(error.to_string()))?
+        })
+        .await?;
+    Ok(())
+}
+
+async fn batch_write_queued(queue: &WriteQueue, updates: Vec<TrackUpdate>) -> Result<(), ApiError> {
+    queue
+        .run(async move {
+            tokio::task::spawn_blocking(move || {
+                for update in updates {
+                    write_track_dispatch(Path::new(&update.path), &update.fields)?;
+                }
+                Ok::<(), ApiError>(())
             })
             .await
             .map_err(|error| ApiError::WriteTask(error.to_string()))?
         })
-        .await?;
-    Ok(())
+        .await
 }
 
 /// Write canonical APEv2 metadata after the exact tag-free Monkey audio core.
@@ -1866,6 +1904,68 @@ mod tests {
             Some("Queued FLAC title")
         );
         assert!(!queue.is_active());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn batch_write_is_sequential_and_supports_empty_batches() {
+        let (root, first) = copy_to_temp(&media_fixture("minimal.mp3"), "first.mp3");
+        let second = root.join("second.mp3");
+        fs::copy(media_fixture("minimal.mp3"), &second).unwrap();
+        let updates = vec![
+            TrackUpdate {
+                path: first.to_string_lossy().into_owned(),
+                fields: serde_json::from_value(serde_json::json!({"title": "First batch title"}))
+                    .unwrap(),
+            },
+            TrackUpdate {
+                path: second.to_string_lossy().into_owned(),
+                fields: serde_json::from_value(serde_json::json!({"title": "Second batch title"}))
+                    .unwrap(),
+            },
+        ];
+        let queue = WriteQueue::default();
+        batch_write_queued(&queue, updates).await.unwrap();
+        assert_eq!(
+            read_track_metadata(&first).unwrap().title.as_deref(),
+            Some("First batch title")
+        );
+        assert_eq!(
+            read_track_metadata(&second).unwrap().title.as_deref(),
+            Some("Second batch title")
+        );
+        batch_write_queued(&queue, Vec::new()).await.unwrap();
+        assert!(!queue.is_active());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn batch_write_stops_at_first_error_after_prior_commits() {
+        let (root, first) = copy_to_temp(&media_fixture("minimal.mp3"), "first.mp3");
+        let unsupported = root.join("second.xyz");
+        fs::write(&unsupported, b"untouched").unwrap();
+        let updates = vec![
+            TrackUpdate {
+                path: first.to_string_lossy().into_owned(),
+                fields: serde_json::from_value(serde_json::json!({"title": "Committed first"}))
+                    .unwrap(),
+            },
+            TrackUpdate {
+                path: unsupported.to_string_lossy().into_owned(),
+                fields: TrackPatch::default(),
+            },
+        ];
+        let error = batch_write_queued(&WriteQueue::default(), updates)
+            .await
+            .unwrap_err();
+        assert!(error
+            .to_string()
+            .contains("other than MP3/FLAC/OGG/Opus/M4A/MP4/WAV/APE"));
+        assert_eq!(
+            read_track_metadata(&first).unwrap().title.as_deref(),
+            Some("Committed first")
+        );
+        assert_eq!(fs::read(&unsupported).unwrap(), b"untouched");
         fs::remove_dir_all(root).unwrap();
     }
 
