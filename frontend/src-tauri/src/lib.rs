@@ -70,6 +70,7 @@ pub fn run() {
             commands::meta::app_info,
             commands::configuration::config_get,
             commands::configuration::config_set,
+            commands::shell::dialog_open_folder,
         ])
         .run(tauri::generate_context!())
         .expect("error while running the Auto Tagger Tauri shell");

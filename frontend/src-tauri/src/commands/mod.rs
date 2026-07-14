@@ -7,6 +7,9 @@
 
 /// Build identity + scaffold health-check (currently wired).
 pub mod meta;
+/// Native shell: folder dialog, context menu, window activation, quit guard
+/// (the `electron/main.ts` GUI handlers ported per step 2).
+pub mod shell;
 
 // ── Parity owners (slices; wired as they turn green) ────────────────
 /// `assistant:*` — `electron/handlers/assistant.ts`.
