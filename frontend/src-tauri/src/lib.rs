@@ -83,6 +83,7 @@ pub fn run() {
             commands::shell::track_context_menu,
             commands::shell::window_focused,
             commands::directories::directory_list,
+            commands::directories::directory_read,
             commands::library::library_scan,
         ])
         .run(tauri::generate_context!())

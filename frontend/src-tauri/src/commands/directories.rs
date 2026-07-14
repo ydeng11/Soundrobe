@@ -6,11 +6,12 @@
 //!   - ignore permission errors (skip silently, as Electron's `catch {}`);
 //!   - sort by name using locale-aware comparison (Electron uses `localeCompare`).
 //!
-//! `directory:read` (subdirs + audio files with full metadata) is DEFERRED to
-//! the audio-metadata slice: `readDirectory` calls `readTrackMetadata` (the
-//! `music-metadata` Node library), which needs a Rust audio-tag strategy
-//! decided separately. See `frontend/plans/tauri-parity.md`.
+//! `directory:read` is now backed by the internal Lofty/custom-fallback
+//! `TrackData` reader. Its exposed command is read-only: one unparseable audio
+//! file becomes a minimal row instead of rejecting the whole directory.
 
+use crate::commands::library::is_audio_file;
+use crate::commands::tracks::{read_track_metadata, unreadable_track_data, TrackData};
 use serde::Serialize;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -46,8 +47,9 @@ pub fn list_directory_entries(dir_path: &Path) -> Vec<DirEntry> {
         if name.starts_with('.') {
             continue;
         }
-        // is_dir: follow symlinks like Electron's `withFileTypes` `isDirectory()`
-        // (Dirent.isDirectory is true for resolved dir symlinks).
+        // `entry.file_type()` does NOT follow symlinks, matching Electron's
+        // `Dirent.isDirectory()` (both describe the entry, not its target).
+        // A symlink-to-dir is therefore excluded from the tree in both shells.
         let Ok(file_type) = entry.file_type() else {
             continue;
         };
@@ -70,6 +72,89 @@ pub fn list_directory_entries(dir_path: &Path) -> Vec<DirEntry> {
 #[tauri::command]
 pub fn directory_list(dir_path: String) -> Vec<DirEntry> {
     list_directory_entries(&PathBuf::from(&dir_path))
+}
+
+/// `directory:read` response, matching Electron's `{ path, name, subdirs,
+/// tracks, audioCount }` object exactly.
+#[derive(Debug, Clone, Serialize)]
+pub struct DirectoryData {
+    pub path: String,
+    pub name: String,
+    pub subdirs: Vec<DirEntry>,
+    pub tracks: Vec<TrackData>,
+    #[serde(rename = "audioCount")]
+    pub audio_count: usize,
+}
+
+/// Read direct audio children plus subdirectories. Read errors are deliberately
+/// per-file: Electron catches `readTrackMetadata` failures and returns a minimal
+/// `TrackData` whose title is the filename and size is `stat.size`.
+pub fn read_directory(dir_path: &Path) -> DirectoryData {
+    let subdirs = list_directory_entries(dir_path);
+    let mut audio_files = Vec::new();
+    if let Ok(entries) = fs::read_dir(dir_path) {
+        for entry in entries.flatten() {
+            let name = entry.file_name();
+            let name = name.to_string_lossy();
+            if name.starts_with('.') {
+                continue;
+            }
+            let Ok(file_type) = entry.file_type() else {
+                continue;
+            };
+            let full_path = entry.path();
+            if file_type.is_file() && is_audio_file(&full_path) {
+                audio_files.push(full_path);
+            }
+        }
+    }
+    audio_files.sort();
+
+    let tracks = audio_files
+        .into_iter()
+        .map(|path| match read_track_metadata(&path) {
+            Ok(mut track) => {
+                // The internal reader intentionally returns a minimal DTO for
+                // truncated FLAC (the corpus contract); Electron's directory
+                // boundary would catch that read failure and set basename. Apply
+                // the same renderer-facing fallback at this boundary.
+                if track.codec == "unknown" && track.title.is_none() {
+                    track.title = path
+                        .file_name()
+                        .map(|name| name.to_string_lossy().into_owned());
+                }
+                track
+            }
+            Err(error) => {
+                tracing::warn!("failed to read directory track {}: {error}", path.display());
+                let size = fs::metadata(&path).map(|stat| stat.len()).unwrap_or(0);
+                let title = path
+                    .file_name()
+                    .map(|name| name.to_string_lossy().into_owned())
+                    .unwrap_or_default();
+                unreadable_track_data(&path, size, title)
+            }
+        })
+        .collect::<Vec<_>>();
+    let name = dir_path
+        .file_name()
+        .map(|name| name.to_string_lossy().into_owned())
+        .unwrap_or_default();
+
+    DirectoryData {
+        path: dir_path.to_string_lossy().into_owned(),
+        name,
+        subdirs,
+        audio_count: tracks.len(),
+        tracks,
+    }
+}
+
+/// `directory:read` command. Like Electron, missing/unreadable directories
+/// resolve to empty subdirs/tracks rather than rejecting the folder tree.
+#[tauri::command]
+pub fn directory_read(dir_path: String) -> DirectoryData {
+    read_directory(&PathBuf::from(dir_path))
 }
 
 #[cfg(test)]
@@ -186,6 +271,53 @@ mod tests {
         // Byte-order: uppercase Zoo before lowercase apple; cafe before café
         // ('e'=0x65 < UTF-8 é=0xC3 0xA9).
         assert_eq!(names, vec!["Zoo", "apple", "cafe", "café"]);
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// Intent: one unreadable audio-looking file cannot blank a directory;
+    /// Electron returns a minimal row using stat.size and the basename so the
+    /// renderer can still show/repair it. This is the key `directory:read`
+    /// error-containment behavior.
+    #[test]
+    fn directory_read_keeps_unparseable_audio_with_real_size() {
+        let dir = tmp();
+        fs::create_dir_all(&dir).unwrap();
+        let corrupt = dir.join("corrupt.flac");
+        let bytes = vec![0_u8; 12_345];
+        fs::write(&corrupt, &bytes).unwrap();
+
+        let result = read_directory(&dir);
+        assert_eq!(result.audio_count, 1);
+        assert_eq!(result.tracks.len(), 1);
+        let track = &result.tracks[0];
+        assert_eq!(track.path, corrupt.to_string_lossy());
+        assert_eq!(track.title.as_deref(), Some("corrupt.flac"));
+        assert_eq!(track.size_bytes, 12_345);
+        assert_eq!(track.codec, "unknown");
+        assert_eq!(track.duration, 0.0);
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// Intent: directory:read joins the pure-fs tree with the shared reader:
+    /// hidden loose files are excluded, subdirectories remain visible, and a
+    /// parseable direct audio child preserves its renderer metadata/count.
+    #[test]
+    fn directory_read_combines_subdirs_and_parseable_track() {
+        let dir = tmp();
+        fs::create_dir_all(dir.join("nested")).unwrap();
+        fs::write(dir.join(".hidden.mp3"), b"not counted").unwrap();
+        let corpus = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("..")
+            .join("test/fixtures/tauri/media-corpus/minimal.ogg");
+        fs::copy(corpus, dir.join("track.ogg")).unwrap();
+
+        let result = read_directory(&dir);
+        assert_eq!(result.name, dir.file_name().unwrap().to_string_lossy());
+        assert_eq!(result.subdirs.len(), 1);
+        assert_eq!(result.subdirs[0].name, "nested");
+        assert_eq!(result.audio_count, 1);
+        assert_eq!(result.tracks[0].title.as_deref(), Some("Corpus OGG"));
+        assert_eq!(result.tracks[0].codec, "Vorbis I");
         fs::remove_dir_all(&dir).unwrap();
     }
 }

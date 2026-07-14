@@ -98,6 +98,16 @@ impl TrackData {
     }
 }
 
+/// Create Electron's per-file read fallback: preserve the real path/size and
+/// let a caller supply the basename title, while all metadata stays null and
+/// codec/duration advertise an unreadable file. Used by directory/album reads
+/// so one malformed track never rejects the whole container.
+pub(crate) fn unreadable_track_data(path: &Path, size_bytes: u64, title: String) -> TrackData {
+    let mut track = TrackData::unreadable(path, size_bytes);
+    track.title = Some(title);
+    track
+}
+
 /// Read one track into the renderer DTO. Generic containers use Lofty; FLAC
 /// falls back to a bounded metadata scanner for damaged/no-frame files, and APE
 /// uses the raw APEv2 fallback because a trailing ID3v1 tag makes normal parsers
