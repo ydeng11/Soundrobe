@@ -1346,7 +1346,11 @@ fn parse_ape_items(data: &[u8]) -> Vec<(String, String)> {
         let item_type = flags & ITEM_TYPE_MASK;
         if item_type != BINARY_ITEM_TYPE && item_type != ITEM_TYPE_MASK {
             if let Ok(value) = std::str::from_utf8(&data[cursor..value_end]) {
-                items.push((key.to_string(), value.to_string()));
+                items.extend(
+                    value
+                        .split('\0')
+                        .map(|value| (key.to_string(), value.to_string())),
+                );
             }
         }
         cursor = value_end;

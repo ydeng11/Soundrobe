@@ -4,6 +4,7 @@
 use crate::commands::tracks::{id3_user_text_values, read_track_metadata, TrackData};
 use crate::error::ApiError;
 use crate::state::write_queue::WriteQueue;
+use lofty::ape::{ApeFile, ApeItem, ApeTag};
 use lofty::config::{ParseOptions, WriteOptions};
 use lofty::file::AudioFile;
 use lofty::flac::FlacFile;
@@ -12,7 +13,7 @@ use lofty::iff::wav::WavFile;
 use lofty::mp4::{Atom, AtomData, AtomIdent, Ilst, Mp4File};
 use lofty::mpeg::MpegFile;
 use lofty::ogg::{OpusFile, VorbisFile};
-use lofty::tag::{Accessor, TagExt};
+use lofty::tag::{Accessor, ItemValue, TagExt};
 use lofty::TextEncoding;
 use serde::{Deserialize, Deserializer};
 use std::borrow::Cow;
@@ -146,10 +147,10 @@ async fn write_track_queued(
     }
     if !matches!(
         extension.as_deref(),
-        Some("mp3" | "flac" | "ogg" | "opus" | "m4a" | "mp4" | "wav")
+        Some("mp3" | "flac" | "ogg" | "opus" | "m4a" | "mp4" | "wav" | "ape")
     ) {
         return Err(ApiError::NotImplemented(
-            "track:write for formats other than MP3/FLAC/OGG/Opus/M4A/MP4/WAV",
+            "track:write for formats other than MP3/FLAC/OGG/Opus/M4A/MP4/WAV/APE",
         ));
     }
     queue
@@ -159,13 +160,52 @@ async fn write_track_queued(
                 Some("flac") => write_flac_atomic(&path, &patch),
                 Some("ogg" | "opus") => write_ogg_atomic(&path, &patch),
                 Some("m4a" | "mp4") => write_mp4_atomic(&path, &patch),
-                _ => write_wav_atomic(&path, &patch),
+                Some("wav") => write_wav_atomic(&path, &patch),
+                _ => write_ape_atomic(&path, &patch),
             })
             .await
             .map_err(|error| ApiError::WriteTask(error.to_string()))?
         })
         .await?;
     Ok(())
+}
+
+/// Write canonical APEv2 metadata after the exact tag-free Monkey audio core.
+/// Trailing ID3v1 is intentionally removed, matching Electron characterization.
+pub fn write_ape_atomic(path: &Path, patch: &TrackPatch) -> Result<TrackWriteOutcome, ApiError> {
+    let original_bytes = fs::read(path)?;
+    let original_core = ape_audio_core(&original_bytes)
+        .ok_or_else(|| ApiError::MediaSafety("invalid Monkey audio boundary".to_string()))?;
+    let before = read_track_metadata(path)?;
+    let mut file = File::open(path)?;
+    let parsed = ApeFile::read_from(&mut file, ParseOptions::new().read_properties(false))?;
+    let mut tag = parsed.ape().cloned().unwrap_or_default();
+    apply_ape_patch(&mut tag, patch)?;
+
+    let temporary = sibling_temp_path(path);
+    let result = (|| {
+        fs::write(&temporary, original_core)?;
+        tag.save_to_path(&temporary, WriteOptions::new())?;
+        let candidate_bytes = fs::read(&temporary)?;
+        let candidate_core = ape_audio_core(&candidate_bytes).ok_or_else(|| {
+            ApiError::MediaSafety("invalid written Monkey audio boundary".to_string())
+        })?;
+        if candidate_core != original_core {
+            return Err(ApiError::MediaSafety(
+                "Monkey audio core changed during metadata write".to_string(),
+            ));
+        }
+        let after = read_track_metadata(&temporary)?;
+        if candidate_bytes == original_bytes && same_metadata(before, after) {
+            return Ok(TrackWriteOutcome::Skipped);
+        }
+        replace_file_atomic(&temporary, path)?;
+        Ok(TrackWriteOutcome::Replaced)
+    })();
+    if temporary.exists() {
+        let _ = fs::remove_file(&temporary);
+    }
+    result
 }
 
 /// Write WAV ID3 metadata through a validated sibling. RIFF chunk layout may
@@ -395,6 +435,139 @@ fn read_id3v2(path: &Path) -> Result<Id3v2Tag, ApiError> {
     let mut file = File::open(path)?;
     let parsed = MpegFile::read_from(&mut file, ParseOptions::new().read_properties(false))?;
     Ok(parsed.id3v2().cloned().unwrap_or_default())
+}
+
+fn apply_ape_patch(tag: &mut ApeTag, patch: &TrackPatch) -> Result<(), ApiError> {
+    apply_ape_text(tag, "TITLE", &patch.title)?;
+    apply_ape_text(tag, "ALBUM", &patch.album)?;
+    apply_ape_text(tag, "ALBUM ARTIST", &patch.album_artist)?;
+    apply_ape_text(tag, "DATE", &patch.year)?;
+    apply_ape_text(tag, "GENRE", &patch.genre)?;
+    apply_ape_text(tag, "COMPOSER", &patch.composer)?;
+    apply_ape_text(tag, "COMMENT", &patch.comment)?;
+    apply_ape_text(tag, "DESCRIPTION", &patch.description)?;
+    apply_ape_text(tag, "LYRICS", &patch.lyrics)?;
+    apply_ape_merged_list(tag, "ARTIST", &patch.artist, &patch.artists)?;
+    apply_ape_merged_list(
+        tag,
+        "ALBUM ARTIST",
+        &patch.album_artist,
+        &patch.album_artists,
+    )?;
+    apply_ape_bool(tag, "COMPILATION", &patch.compilation)?;
+    apply_ape_provider(tag, "MUSICBRAINZ_TRACKID", &patch.musicbrainz_track_id)?;
+    apply_ape_provider(tag, "MUSICBRAINZ_ALBUMID", &patch.musicbrainz_album_id)?;
+    apply_ape_provider(tag, "MUSICBRAINZ_ARTISTID", &patch.musicbrainz_artist_id)?;
+    apply_ape_provider(tag, "DISCOGS_ARTIST_ID", &patch.discogs_artist_id)?;
+    apply_ape_provider(tag, "DISCOGS_RELEASE_ID", &patch.discogs_release_id)?;
+    apply_ape_position(tag, "TRACK", &patch.track_number, &patch.track_total)?;
+    apply_ape_position(tag, "DISC", &patch.disc_number, &patch.disc_total)?;
+    Ok(())
+}
+
+fn apply_ape_text(tag: &mut ApeTag, key: &str, patch: &Patch<String>) -> Result<(), ApiError> {
+    match patch {
+        Patch::Omitted => {}
+        Patch::Null => tag.remove(key),
+        Patch::Value(value) if value.is_empty() => tag.remove(key),
+        Patch::Value(value) => tag.insert(ApeItem::new(
+            key.to_string(),
+            ItemValue::Text(value.clone()),
+        )?),
+    }
+    Ok(())
+}
+
+fn apply_ape_provider(
+    tag: &mut ApeTag,
+    canonical_key: &str,
+    patch: &Patch<String>,
+) -> Result<(), ApiError> {
+    if matches!(patch, Patch::Omitted) {
+        return Ok(());
+    }
+    let canonical = normalize_provider_key(canonical_key);
+    let aliases = (&*tag)
+        .into_iter()
+        .filter(|item| normalize_provider_key(item.key()) == canonical)
+        .map(|item| item.key().to_string())
+        .collect::<Vec<_>>();
+    for alias in aliases {
+        tag.remove(&alias);
+    }
+    if let Patch::Value(value) = patch {
+        if !value.is_empty() {
+            tag.insert(ApeItem::new(
+                canonical_key.to_string(),
+                ItemValue::Text(value.clone()),
+            )?);
+        }
+    }
+    Ok(())
+}
+
+fn apply_ape_merged_list(
+    tag: &mut ApeTag,
+    key: &str,
+    primary: &Patch<String>,
+    list: &Patch<StringList>,
+) -> Result<(), ApiError> {
+    if matches!(primary, Patch::Omitted) && matches!(list, Patch::Omitted) {
+        return Ok(());
+    }
+    let mut values = Vec::new();
+    if let Patch::Value(value) = primary {
+        if !value.is_empty() {
+            values.push(value.clone());
+        }
+    }
+    if let Patch::Value(list) = list {
+        for value in list.normalized() {
+            if !values.contains(&value) {
+                values.push(value);
+            }
+        }
+    }
+    tag.remove(key);
+    if !values.is_empty() {
+        tag.insert(ApeItem::new(
+            key.to_string(),
+            ItemValue::Text(values.join("\0")),
+        )?);
+    }
+    Ok(())
+}
+
+fn apply_ape_bool(tag: &mut ApeTag, key: &str, patch: &Patch<bool>) -> Result<(), ApiError> {
+    match patch {
+        Patch::Omitted => {}
+        Patch::Null => tag.remove(key),
+        Patch::Value(value) => tag.insert(ApeItem::new(
+            key.to_string(),
+            ItemValue::Text(if *value { "1" } else { "0" }.to_string()),
+        )?),
+    }
+    Ok(())
+}
+
+fn apply_ape_position(
+    tag: &mut ApeTag,
+    key: &str,
+    number: &Patch<u32>,
+    total: &Patch<u32>,
+) -> Result<(), ApiError> {
+    match number {
+        Patch::Omitted => {}
+        Patch::Null => tag.remove(key),
+        Patch::Value(number) => {
+            let value = match total {
+                Patch::Value(total) => format!("{number}/{total}"),
+                _ => number.to_string(),
+            };
+            tag.insert(ApeItem::new(key.to_string(), ItemValue::Text(value))?);
+        }
+    }
+    Ok(())
 }
 
 fn apply_mp4_patch(tag: &mut Ilst, patch: &TrackPatch) {
@@ -787,6 +960,19 @@ fn same_metadata_ignoring_container_size(before: TrackData, mut after: TrackData
     after.size_bytes = before.size_bytes;
     after.bitrate = before.bitrate;
     before == after
+}
+
+fn ape_audio_core(bytes: &[u8]) -> Option<&[u8]> {
+    if bytes.len() < 52 || bytes.get(..4)? != b"MAC " {
+        return None;
+    }
+    let fields = [8_usize, 12, 16, 20, 24, 32];
+    let mut audio_end = 0_usize;
+    for offset in fields {
+        let value = u32::from_le_bytes(bytes.get(offset..offset + 4)?.try_into().ok()?) as usize;
+        audio_end = audio_end.checked_add(value)?;
+    }
+    (audio_end > 0).then(|| bytes.get(..audio_end)).flatten()
 }
 
 fn wav_data_payloads(bytes: &[u8]) -> Option<Vec<Vec<u8>>> {
@@ -1257,6 +1443,99 @@ mod tests {
     }
 
     #[test]
+    fn ape_rich_update_preserves_audio_removes_id3v1_and_noops() {
+        let (root, path) = copy_to_temp(&media_fixture("ape-id3v1-fallback.ape"), "track.ape");
+        let original_core = ape_audio_core(&fs::read(&path).unwrap()).unwrap().to_vec();
+        let patch: TrackPatch = serde_json::from_value(serde_json::json!({
+            "title": "Replacement APE",
+            "artist": "Primary",
+            "artists": ["Primary", "Guest"],
+            "album": "Replacement Album",
+            "trackNumber": 7,
+            "trackTotal": 9,
+            "discNumber": 2,
+            "discTotal": 3,
+            "musicbrainzAlbumId": "replacement-mb-album",
+            "discogsReleaseId": "replacement-discogs-release"
+        }))
+        .unwrap();
+        assert_eq!(
+            write_ape_atomic(&path, &patch).unwrap(),
+            TrackWriteOutcome::Replaced
+        );
+        let after = fs::read(&path).unwrap();
+        assert_eq!(ape_audio_core(&after).unwrap(), original_core);
+        assert_ne!(
+            after.get(after.len().saturating_sub(128)..after.len().saturating_sub(125)),
+            Some(&b"TAG"[..])
+        );
+        let track = read_track_metadata(&path).unwrap();
+        assert_eq!(track.title.as_deref(), Some("Replacement APE"));
+        assert_eq!(track.artist.as_deref(), Some("Primary"));
+        assert_eq!(track.artists, ["Primary", "Guest"]);
+        assert_eq!(track.album.as_deref(), Some("Replacement Album"));
+        assert_eq!((track.track_number, track.track_total), (Some(7), Some(9)));
+        assert_eq!((track.disc_number, track.disc_total), (Some(2), Some(3)));
+        assert_eq!(
+            track.musicbrainz_album_id.as_deref(),
+            Some("replacement-mb-album")
+        );
+        assert_eq!(
+            track.discogs_release_id.as_deref(),
+            Some("replacement-discogs-release")
+        );
+
+        let before_noop = fs::read(&path).unwrap();
+        assert_eq!(
+            write_ape_atomic(&path, &patch).unwrap(),
+            TrackWriteOutcome::Skipped
+        );
+        assert_eq!(fs::read(&path).unwrap(), before_noop);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn ape_null_clears_and_unknown_item_survives() {
+        let (root, path) = copy_to_temp(&media_fixture("ape-id3v1-fallback.ape"), "track.ape");
+        let mut source = File::open(&path).unwrap();
+        let parsed =
+            ApeFile::read_from(&mut source, ParseOptions::new().read_properties(false)).unwrap();
+        let mut tag = parsed.ape().cloned().unwrap_or_default();
+        tag.insert(
+            ApeItem::new(
+                "UNRELATED".to_string(),
+                ItemValue::Text("keep-me".to_string()),
+            )
+            .unwrap(),
+        );
+        fs::write(&path, ape_audio_core(&fs::read(&path).unwrap()).unwrap()).unwrap();
+        tag.save_to_path(&path, WriteOptions::new()).unwrap();
+
+        let patch: TrackPatch =
+            serde_json::from_value(serde_json::json!({"title": null, "artist": "Changed"}))
+                .unwrap();
+        write_ape_atomic(&path, &patch).unwrap();
+        let track = read_track_metadata(&path).unwrap();
+        assert_eq!(track.title, None);
+        assert_eq!(track.artist.as_deref(), Some("Changed"));
+        let mut source = File::open(&path).unwrap();
+        let parsed =
+            ApeFile::read_from(&mut source, ParseOptions::new().read_properties(false)).unwrap();
+        assert_eq!(
+            parsed
+                .ape()
+                .unwrap()
+                .get("UNRELATED")
+                .unwrap()
+                .text_values()
+                .unwrap()
+                .next(),
+            Some("keep-me")
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
     fn wav_add_update_noop_and_null_preserve_pcm() {
         let (root, path) = copy_to_temp(&media_fixture("minimal.wav"), "track.wav");
         let original_audio = wav_data_payloads(&fs::read(&path).unwrap()).unwrap();
@@ -1591,6 +1870,21 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn queued_ape_write_runs_the_atomic_core() {
+        let (root, path) = copy_to_temp(&media_fixture("ape-id3v1-fallback.ape"), "track.ape");
+        let patch: TrackPatch =
+            serde_json::from_value(serde_json::json!({"title": "Queued APE title"})).unwrap();
+        write_track_queued(&WriteQueue::default(), path.clone(), patch)
+            .await
+            .unwrap();
+        assert_eq!(
+            read_track_metadata(&path).unwrap().title.as_deref(),
+            Some("Queued APE title")
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
     async fn queued_wav_write_runs_the_atomic_core() {
         let (root, path) = copy_to_temp(&media_fixture("minimal.wav"), "track.wav");
         let patch: TrackPatch =
@@ -1651,15 +1945,30 @@ mod tests {
             TEMP_SEQUENCE.fetch_add(1, Ordering::Relaxed)
         ));
         fs::create_dir_all(&root).unwrap();
-        let path = root.join("pending.ape");
+        let path = root.join("pending.xyz");
         fs::write(&path, b"unchanged").unwrap();
         let error = write_track_queued(&WriteQueue::default(), path.clone(), TrackPatch::default())
             .await
             .unwrap_err();
         assert!(error
             .to_string()
-            .contains("other than MP3/FLAC/OGG/Opus/M4A/MP4/WAV"));
+            .contains("other than MP3/FLAC/OGG/Opus/M4A/MP4/WAV/APE"));
         assert_eq!(fs::read(&path).unwrap(), b"unchanged");
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn malformed_ape_failure_leaves_original_untouched() {
+        let root = std::env::temp_dir().join(format!(
+            "auto-tagger-bad-ape-{}",
+            TEMP_SEQUENCE.fetch_add(1, Ordering::Relaxed)
+        ));
+        fs::create_dir_all(&root).unwrap();
+        let path = root.join("bad.ape");
+        fs::write(&path, b"not an ape").unwrap();
+        let before = fs::read(&path).unwrap();
+        assert!(write_ape_atomic(&path, &TrackPatch::default()).is_err());
+        assert_eq!(fs::read(&path).unwrap(), before);
         fs::remove_dir_all(root).unwrap();
     }
 
