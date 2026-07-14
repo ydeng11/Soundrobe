@@ -5,7 +5,8 @@ description = "Desktop audio file tag editor — Tauri 2 shell (Electron migrati
 authors = ["Auto Tagger Contributors"]
 license = "MIT"
 homepage = "https://github.com/ihelio/auto-tagger"
-rust-version = "1.77"
+# Lofty 0.24 (the mandated Rust tag-I/O crate) requires Rust 1.85.
+rust-version = "1.85"
 edition = "2021"
 
 [lib]
@@ -28,13 +29,15 @@ thiserror = "2"
 anyhow = "1"
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "fs", "io-util"] }
 dirs = "6"
+# Read-only tag parsing first; writer support is enabled only after the
+# differential reader/media-safety contract is green.
+lofty = "0.24.0"
 
 # Infrastructure crates — pinned to the versions locked by `Cargo.lock` and
 # introduced per migration slice. Listed here so the toolchain is recorded;
 # each slice enables only what it needs to keep SLOC change review bounded.
 #   rusqlite   = { version = "0.40", features = ["bundled"] }   # SQLite read-through slice
 #   reqwest    = { version = "0.13", default-features = false, features = ["json","rustls-tls"] }  # provider clients
-#   lofty      = { version = "0.24" }                            # tag I/O media-safety slice
 #   image      = { version = "0.25" }                            # artwork resize/convert
 #   chardetng  = "1"                                             # lyrics encoding detection
 #   encoding_rs= "0.8"                                           # lyrics encoding

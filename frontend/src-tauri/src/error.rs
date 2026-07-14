@@ -24,6 +24,9 @@ pub enum ApiError {
     #[error("tauri error: {0}")]
     Tauri(#[from] tauri::Error),
 
+    #[error("audio metadata error: {0}")]
+    Lofty(#[from] lofty::error::LoftyError),
+
     /// A second modal context menu would overwrite the first request's labels
     /// and resolve the wrong renderer promise, so reject it loudly.
     #[error("track context menu already active")]
