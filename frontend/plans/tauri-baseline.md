@@ -56,15 +56,18 @@ the plan failed only because `node_modules` was absent then.)
   8. `number-tracks.electron.spec.ts` — by title Z-A reverses title order (30000ms timeout)
   - Passed: 1 (`extra-tags`… or one of the suites had a passing case).
 
-**Failure characterization (environmental, not logic):** every failure is a GUI
-visibility / element-not-found / timeout failure against the launched Electron
-window. The corresponding business logic is covered by the integration test suite
-above, which is fully green (1296 passed). The sandboxed Electron build does not
-get a usable interactive window (no accelerated display session for Playwright
-to drive), so the Electron E2E driver cannot reach the first visible control.
-These E2E failures are the **existing baseline state under this environment** and
-are recorded as-is; they will be re-evaluated once the Tauri WebdriverIO E2E
-shim replaces them. No E2E failures were fixed before this record was written.
+**Failure characterization (observed, root cause not fully proven):** the
+failures are observed as GUI visibility / element-not-found / timeouts against
+the launched Electron window. One suite passed; one (`audit`) failed on an
+equality mismatch (`expect(received).toBe(expected)`), so a logic cause is
+**not** ruled out for that case. Most failures resemble what a headless /
+no-display Electron session produces, but that is a hypothesis rather than a
+proven root cause, since this environment does not run interactive Electron
+GUIs and no `pytest`/Playwright GUI trace was inspected. Failures are recorded
+as the **observed baseline under this environment**; they will be
+re-investigated once the Tauri WebdriverIO E2E shim replaces them and a
+display session is available. No E2E failures were fixed before this record
+was written.
 
 ## Native modules and ABI
 

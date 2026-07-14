@@ -29,54 +29,54 @@ const CHANNEL_PARITY: Array<{
 }> = [
   { method: "scanLibrary", command: "library_scan", args: { dirPath: "/lib" } },
   { method: "refreshAlbum", command: "album_refresh", args: { albumPath: "/a" } },
-  { method: "openFolderDialog", command: "dialog_open-folder", args: {} },
+  { method: "openFolderDialog", command: "dialog_open_folder", args: {} },
   { method: "readAlbum", command: "album_read", args: { albumPath: "/a" } },
   { method: "writeTrack", command: "track_write", args: { trackPath: "/t", fields: { x: 1 } } },
-  { method: "writeTracks", command: "tracks_batch-write", args: { updates: [{ path: "/t", fields: {} }] } },
-  { method: "readExtraTags", command: "track_extra-tags_read", args: { trackPath: "/t" } },
-  { method: "writeExtraTags", command: "track_extra-tags_write", args: { trackPath: "/t", tags: [] } },
-  { method: "writeExtraTagsBatch", command: "tracks_batch-write-extra-tags", args: { updates: [] } },
+  { method: "writeTracks", command: "tracks_batch_write", args: { updates: [{ path: "/t", fields: {} }] } },
+  { method: "readExtraTags", command: "track_extra_tags_read", args: { trackPath: "/t" } },
+  { method: "writeExtraTags", command: "track_extra_tags_write", args: { trackPath: "/t", tags: [] } },
+  { method: "writeExtraTagsBatch", command: "tracks_batch_write_extra_tags", args: { updates: [] } },
   { method: "renameTrack", command: "track_rename", args: { oldPath: "/a", newPath: "/b" } },
   { method: "checkFileExists", command: "file_exists", args: { filePath: "/t" } },
-  { method: "showTrackContextMenu", command: "track_context-menu", args: { trackPath: "/t", labels: {} } },
-  { method: "deleteFiles", command: "track_delete-files", args: { filePaths: ["/t"] } },
-  { method: "getCoverDataUrl", command: "cover_data-url", args: { albumPath: "/a" } },
+  { method: "showTrackContextMenu", command: "track_context_menu", args: { trackPath: "/t", labels: {} } },
+  { method: "deleteFiles", command: "track_delete_files", args: { filePaths: ["/t"] } },
+  { method: "getCoverDataUrl", command: "cover_data_url", args: { albumPath: "/a" } },
   { method: "setCover", command: "cover_set", args: { albumPath: "/a" } },
   { method: "removeCover", command: "cover_remove", args: { albumPath: "/a" } },
   { method: "downloadCoverArt", command: "cover_download", args: { albumPath: "/a" } },
-  { method: "downloadArtistArt", command: "cover_download-artist-art", args: { albumPath: "/a" } },
+  { method: "downloadArtistArt", command: "cover_download_artist_art", args: { albumPath: "/a" } },
   { method: "listDirectory", command: "directory_list", args: { dirPath: "/d" } },
   { method: "readDirectory", command: "directory_read", args: { dirPath: "/d" } },
   { method: "fetchLyrics", command: "lyrics_fetch", args: { trackName: "t", artistName: "a", albumName: "g", duration: 1 } },
   { method: "getConfig", command: "config_get", args: {} },
   { method: "setConfig", command: "config_set", args: { key: "k", value: "v" } },
-  { method: "autoTagAlbum", command: "album_auto-tag", args: { albumPath: "/a" } },
-  { method: "downloadAlbumLyrics", command: "album_download-lyrics", args: { albumPath: "/a" } },
+  { method: "autoTagAlbum", command: "album_auto_tag", args: { albumPath: "/a" } },
+  { method: "downloadAlbumLyrics", command: "album_download_lyrics", args: { albumPath: "/a" } },
   { method: "getTaskProgress", command: "task_progress", args: { taskId: "1" } },
   { method: "cancelTask", command: "task_cancel", args: { taskId: "1" } },
   { method: "getDatasetStatus", command: "dataset_status", args: {} },
   { method: "runAudit", command: "audit_run", args: { libraryPath: "/lib" } },
-  { method: "runAuditOnTracks", command: "audit_run-specified", args: { trackPaths: ["/t"] } },
-  { method: "runAuditOnAlbums", command: "audit_run-specified", args: { albumPaths: ["/a"] } },
-  { method: "runAlbumAudit", command: "audit_run-album", args: { albumPath: "/a" } },
-  { method: "applyAuditFixes", command: "audit_apply-fixes", args: { albumResults: [] } },
+  { method: "runAuditOnTracks", command: "audit_run_specified", args: { trackPaths: ["/t"] } },
+  { method: "runAuditOnAlbums", command: "audit_run_specified", args: { albumPaths: ["/a"] } },
+  { method: "runAlbumAudit", command: "audit_run_album", args: { albumPath: "/a" } },
+  { method: "applyAuditFixes", command: "audit_apply_fixes", args: { albumResults: [] } },
   { method: "cancelAudit", command: "audit_cancel", args: {} },
   { method: "assistantSend", command: "assistant_send", args: { input: { message: "hi" } } },
   { method: "assistantCancel", command: "assistant_cancel", args: {} },
   { method: "assistantClear", command: "assistant_clear", args: {} },
-  { method: "assistantApplyActions", command: "assistant_apply-actions", args: { actionBatchId: "b1" } },
-  { method: "assistantRejectActions", command: "assistant_reject-actions", args: { actionBatchId: "b1" } },
-  { method: "assistantGetBatches", command: "assistant_get-batches", args: {} },
-  { method: "assistantInitRuntime", command: "assistant_init-runtime", args: {} },
-  { method: "assistantInitServices", command: "assistant_init-services", args: { config: { apiKey: "x" } } },
+  { method: "assistantApplyActions", command: "assistant_apply_actions", args: { actionBatchId: "b1" } },
+  { method: "assistantRejectActions", command: "assistant_reject_actions", args: { actionBatchId: "b1" } },
+  { method: "assistantGetBatches", command: "assistant_get_batches", args: {} },
+  { method: "assistantInitRuntime", command: "assistant_init_runtime", args: {} },
+  { method: "assistantInitServices", command: "assistant_init_services", args: { config: { apiKey: "x" } } },
   { method: "subscribeDebugLogs", command: "debug_subscribe", args: {} },
-  { method: "setDebugMode", command: "debug_set-mode", args: { enabled: true } },
+  { method: "setDebugMode", command: "debug_set_mode", args: { enabled: true } },
   { method: "onFocus", command: "window_focused", args: {} },
-  { method: "sortByAlbum", command: "files_sort-by-album", args: { sourceDir: "/d", options: { copy: true } } },
-  { method: "listSessions", command: "assistant_list-sessions", args: { limit: 5 } },
-  { method: "getConversation", command: "assistant_get-conversation", args: { sessionUuidOrNumber: "s" } },
-  { method: "getSession", command: "assistant_get-session", args: { sessionUuidOrNumber: "s" } },
-  { method: "getCurrentSession", command: "assistant_current-session", args: {} },
+  { method: "sortByAlbum", command: "files_sort_by_album", args: { sourceDir: "/d", options: { copy: true } } },
+  { method: "listSessions", command: "assistant_list_sessions", args: { limit: 5 } },
+  { method: "getConversation", command: "assistant_get_conversation", args: { sessionUuidOrNumber: "s" } },
+  { method: "getSession", command: "assistant_get_session", args: { sessionUuidOrNumber: "s" } },
+  { method: "getCurrentSession", command: "assistant_current_session", args: {} },
 ];
 
 describe("tauri-adapter channel parity", () => {
@@ -103,6 +103,19 @@ describe("tauri-adapter channel parity", () => {
       expect(payload).toEqual(expected);
     },
   );
+
+  it("normalizes every non-identifier channel char (':' and '-') to '_' so command names are valid Rust identifiers", () => {
+    // Intent: a channel like "<group>:batch-write" must map to
+    // "<group>_batch_write", not "<group>_batch-write" — hyphens aren't valid in
+    // Rust command identifiers, so an underscored name keeps generate_handler wired.
+    for (const { command } of CHANNEL_PARITY) {
+      expect(command).toMatch(/^[A-Za-z0-9_]+$/);
+      expect(command).not.toContain("-");
+    }
+    // Direct round-trip spot checks for the noisiest channels.
+    expect("tracks:batch-write".replace(/[^A-Za-z0-9_]/g, "_")).toBe("tracks_batch_write");
+    expect("track:extra-tags:read".replace(/[^A-Za-z0-9_]/g, "_")).toBe("track_extra_tags_read");
+  });
 
   it("covers every DesktopAPI method (no drift)", () => {
     const covered = new Set(CHANNEL_PARITY.map((r) => r.method));
@@ -187,5 +200,28 @@ describe("tauri-adapter event subscribe contract", () => {
     await Promise.resolve();
     await Promise.resolve();
     expect(unlisten).toHaveBeenCalled();
+  });
+
+  /// Intent: a failed `listen` attach must never throw out of subscribe, but
+  /// it must NOT vanish silently — it logs to console.error so a broken event
+  /// stream is observable (Rule 11 — fail loud).
+  it("logs (does not swallow) a failed event listener attachment", async () => {
+    const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    listenMock.mockReset();
+    listenMock.mockRejectedValue(new Error("blocked"));
+    const dispose = api.onAutoTagEvent(() => {});
+    expect(listenMock).toHaveBeenCalledTimes(1);
+    // subscribe itself must not have thrown (returns a disposer fn).
+    expect(typeof dispose).toBe("function");
+    // Microtasks flush the rejected promise chain so console.error fires.
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(errSpy).toHaveBeenCalled();
+    const call = errSpy.mock.calls[0];
+    // console.error(prefix_with_message, err): index 0 carries the message.
+    const msg = String(call[0]).concat(" ", String(call[1] ?? ""));
+    expect(msg).toContain("failed to attach Tauri event listener");
+    expect(msg).toContain("auto-tag:event");
+    errSpy.mockRestore();
   });
 });

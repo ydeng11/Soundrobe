@@ -224,8 +224,10 @@ pub fn format_yaml_value(value: &Value) -> String {
 }
 
 /// Rewrite a single key's value in a flat YAML body, preserving every other
-/// line (comments, unknown keys, order) and appending the key if absent.
-/// Mirrors the line map in `saveConfig`.
+/// line (comments, unknown keys, order, and any leading whitespace) and
+/// appending the key if absent. Mirrors Electron's
+/// `line.replace(/:.+/, ": " + formattedValue)`: only the text from the first
+/// `:` onward is replaced — the key name and its indentation survive intact.
 pub fn apply_key(text: &str, yaml_key: &str, formatted_value: &str) -> String {
     let mut lines: Vec<String> = if text.is_empty() {
         Vec::new()
@@ -244,7 +246,10 @@ pub fn apply_key(text: &str, yaml_key: &str, formatted_value: &str) -> String {
         let existing_key = trimmed[..colon].trim();
         if existing_key == yaml_key {
             found = true;
-            *line = format!("{yaml_key}: {formatted_value}");
+            // Preserve the indentation and key text before the colon; replace
+            // only from the first `:` (exactly `line.replace(/:.+/, ...)`).
+            let prefix = &line[..line.find(':').unwrap()];
+            *line = format!("{prefix}: {formatted_value}");
         }
     }
     if !found {
@@ -443,6 +448,39 @@ mod tests {
         let written =
             std::fs::read_to_string(dir.join(".auto-tagger").join("config.yaml")).unwrap();
         assert_eq!(written, "debug: true\n");
+    }
+
+    /// Intent (from test/handlers/config.test.ts `updates an existing key`):
+    /// updating one key must leave the other keys and order intact.
+    #[test]
+    fn updates_existing_key_preserving_others_fixture() {
+        let text = "llm_model: old-model\nremote_lookup_enabled: true\n";
+        let out = apply_key(text, "llm_model", "new-model");
+        assert!(out.contains("llm_model: new-model"));
+        assert!(out.contains("remote_lookup_enabled: true"));
+        assert!(!out.contains("old-model"));
+    }
+
+    /// Intent (from config.test.ts `maps JS camelCase to YAML snake_case`):
+    /// the camelCase->yaml key map and bool formatting underpin the renderer's
+    /// `setConfig` round-trip.
+    #[test]
+    fn camel_to_yaml_map_and_bool_format_fixture() {
+        let key = yaml_key_for("discogsEnabled").unwrap();
+        assert_eq!(key, "discogs_enabled");
+        let text = apply_key("", key, &format_yaml_value(&json!(false)));
+        assert_eq!(text, "discogs_enabled: false\n");
+    }
+
+    /// Intent: leading indentation must survive a value update — Electron's
+    /// `line.replace(/:.+/, ...)` keeps the whitespace/key prefix, so a
+    /// hand-indented file keeps its layout.
+    #[test]
+    fn preserves_leading_indentation_on_update() {
+        let text = "  llm_model: old\n    discogs_token: tok\n";
+        let out = apply_key(text, "llm_model", "new");
+        assert!(out.contains("  llm_model: new\n"), "got: {out}");
+        assert!(out.contains("    discogs_token: tok\n"));
     }
 
     #[test]

@@ -19,9 +19,14 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import type { DesktopAPI } from "./desktop-api";
 
-/** Map an Electron IPC channel to a Tauri command name (`:` -> `_`). */
+/** Map an Electron IPC channel to a Tauri command name.
+ *
+ * Every non-identifier character (`:`, `-`) is normalized to `_` so the
+ * resulting name is a valid Rust command (e.g. `tracks:batch-write` ->
+ * `tracks_batch_write`, `track:extra-tags:read` -> `track_extra_tags_read`).
+ */
 function commandForChannel(channel: string): string {
-  return channel.replace(/:/g, "_");
+  return channel.replace(/[^A-Za-z0-9_]/g, "_");
 }
 
 /** Convert any invoke rejection into a JavaScript `Error` with a stable message. */
@@ -54,13 +59,18 @@ async function invokeCommand<T>(
  * safe to call immediately and asynchronously detaches the listener.
  */
 function subscribe<T>(channel: string, callback: (payload: T) => void): () => void {
-  // A failed attach is a no-op under Electron too; never throw from subscribe.
+  // A failed attach never throws out of subscribe (the renderer's on* methods
+  // return a plain disposer). But unlike a silent swallow, it is logged so a
+  // broken stream is observable in DevTools rather than vanishing.
   const noopUnlisten: UnlistenFn = () => {};
   const unlisten: Promise<UnlistenFn> = listen<T>(channel, (event) =>
     callback(event.payload),
   ).then(
     (fn) => fn,
-    () => noopUnlisten,
+    (err) => {
+      console.error(`[auto-tagger] failed to attach Tauri event listener for "${channel}":`, err);
+      return noopUnlisten;
+    },
   );
   return () => {
     unlisten.then((fn) => fn()).catch(() => {});

@@ -55,11 +55,15 @@ export function installDesktopApi(): void {
   w.api = createTauriDesktopApi();
 
   // Forward pushed debug log entries to the renderer console, mirroring the
-  // Electron preload's inline `ipcRenderer.on("debug:log", ...)`.
+  // Electron preload's inline `ipcRenderer.on("debug:log", ...)`. A failed
+  // attach is logged (not silently swallowed) so the live-log stream is
+  // observable if the IPC channel breaks.
   listen<LogEntry>("debug:log", (event) => {
     const entry = event.payload;
     const prefix = `[${entry.tag}] ${entry.level.toUpperCase()}`;
     const method = CONSOLE_METHOD[entry.level] ?? "log";
     console[method](`[auto-tagger] ${prefix} ${entry.message}`, entry.data ?? "");
-  }).catch(() => {});
+  }).catch((err) => {
+    console.error('[auto-tagger] failed to attach Tauri "debug:log" listener:', err);
+  });
 }

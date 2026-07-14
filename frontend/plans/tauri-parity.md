@@ -11,8 +11,8 @@ before `electron/` is removed. Generated from `electron/preload.ts`,
 | Slice | Status | Evidence |
 |---|---|---|
 | Step 1 — characterization + dual-shell scaffold | ✅ green | shared `DesktopAPI` contract extracted; Tauri crate/adapter/loader + contract tests (60 shared tests); cargo fmt/clippy/test + electron typecheck/vitest/build green |
-| Window state persistence + off-screen recovery | ✅ logic green (wired, GUI runtime unverified) | `state/window_state.rs` (10 unit tests encoding Electron intent); wired in `run()` |
-| Config flat parser + env precedence + save/redaction | ✅ logic green (pure; not yet wired to `config:get/set`) | `state/config.rs` (11 unit tests: defaults, comments, quote-unwrap, env override, redaction, save-preserves-comments/order/unknown-keys, append-missing, ignore-unknown-key, round-trip) |
+| Window state persistence + off-screen recovery | ⏳ logic implemented, GUI parity pending | `state/window_state.rs` (11 unit tests encoding Electron intent, incl. missing-axis LeaveUnspecified); wired in `run()`. PENDING: `ready-to-show` show timing (Tauri equivalent needs `unstable` feature) — verified only under a display session; adapter command-name normalization regressions fixed |
+| Config flat parser + env precedence + save/redaction | ⏳ logic implemented, command wiring pending | `state/config.rs` (14 unit tests incl. fixtures from `config.test.ts`: existing-key update preserves others, camel->yaml map+bool, indentation preservation, append-missing, ignore-unknown-key, round-trip). Not yet wired to `config:get`/`config:set` commands |
 | Folder dialog / context menu+clipboard / window activation / quit-during-write guard | ⏳ pending (step 2 native shell) | |
 | Persistence (config/cache/dataset/aliases/logs) | ⏳ pending | |
 | Read-only library slice (traversal/grouping/readback/cover discovery/lyrics/dataset) | ⏳ pending | |
@@ -173,7 +173,7 @@ Unsubscribe contract: each `on*` returns a disposer `() => void` that calls
 
 | File | Path | Owner | Format / notes |
 |---|---|---|---|
-| Config | `~/.auto-tagger/config.yaml` (fallback `~/.config/auto-tagger/config.yaml`) | auto-tag.ts `getConfigPaths()` | flat YAML, comments, unknown keys, env precedence, redaction |
+| Config | `~/.auto-tagger/config.yaml` (single path; `getConfigPaths()` returns only this one) | auto-tag.ts `getConfigPaths()` | flat YAML, comments, unknown keys, env precedence, redaction |
 | Artist aliases | `~/.auto-tagger/artist-aliases.json` | aliases.ts `DEFAULT_ALIAS_FILE` | JSON |
 | Cache DB | `~/.auto-tagger/cache.db` | auto-tag.ts (configurable `cachePath`) | SQLite — `lookup_cache`, `album_state`, `conversation_log` (names/ns/hashes unchanged) |
 | Dataset index | `~/.auto-tagger/dataset-index.sqlite` | dataset.ts `DEFAULT_DB_PATH` | SQLite |

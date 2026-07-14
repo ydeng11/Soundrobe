@@ -32,7 +32,7 @@ use std::time::Duration;
 use tauri::{Manager, PhysicalPosition, PhysicalSize, WindowEvent};
 use tracing_subscriber::EnvFilter;
 
-use crate::state::window_state::{DisplayWorkArea, WindowState};
+use crate::state::window_state::{DisplayWorkArea, PositionAction, WindowState};
 
 /// Initialise structured logging. Debug forwarding to the renderer's
 /// `debug:log` stream is wired in the debug slice; until then logs land in
@@ -85,18 +85,28 @@ fn wire_window_lifecycle(window: Option<tauri::WebviewWindow>) {
     let saved = dirs::home_dir().and_then(|h| WindowState::load(&WindowState::path(&h)));
     let bounds = WindowState::resolve(saved, &displays);
 
-    // Apply saved size; place/center; honor maximized.
+    // Apply saved size; place/center/leave; honor maximized.
     let _ = window.set_size(PhysicalSize::new(bounds.width, bounds.height));
-    if bounds.center || bounds.x.is_none() || bounds.y.is_none() {
-        let _ = window.center();
-    } else if let (Some(x), Some(y)) = (bounds.x, bounds.y) {
-        let _ = window.set_position(PhysicalPosition::new(x, y));
+    match bounds.position {
+        PositionAction::SetPosition { x, y } => {
+            let _ = window.set_position(PhysicalPosition::new(x, y));
+        }
+        PositionAction::Center => {
+            let _ = window.center();
+        }
+        PositionAction::LeaveUnspecified => {} // OS places, like Electron's `undefined` x/y.
     }
     if bounds.is_maximized {
         let _ = window.maximize();
     }
 
-    // Electron ready-to-show -> show(): reveal now that geometry is applied.
+    // Reveal the window after geometry is applied. PENDING PARITY: Electron
+    // waits for the renderer `ready-to-show` event (first paint) before
+    // `show()`. Tauri 2's exact equivalent (`on_page_load(Finished)`) requires
+    // the `unstable` feature; without it we reveal immediately once geometry is
+    // applied. For a pre-rendered `frontendDist` build this is visually
+    // indistinguishable; the no-flash guarantee is verified separately under a
+    // real display session and tracked as a pending window-lifecycle row.
     let _ = window.show();
 
     // WebviewWindow is a cheaply cloneable handle to the underlying window, so

@@ -3,9 +3,11 @@
 //! Pure logic ported from `electron/main.ts`:
 //!   - persists `{ x, y, width, height, isMaximized }` to the same file in place
 //!     (no move, no schema change);
-//!   - on load, if the saved `(x, y)` is not on any display work area (with the
-//!     same 100px margin Electron used), the window is centered on the primary
-//!     display instead of restoring an unreachable position;
+//!   - on load, when BOTH `x` and `y` are saved, the position is checked
+//!     against every display work area minus a 100px inner margin; an off-screen
+//!     position is centered on the primary display, and an on-screen one is
+//!     restored. When one or both axes are missing, the OS places the window
+//!     (Electron's `x != null && y != null` guard) — never over-center;
 //!   - a corrupted file is ignored (matches Electron's `catch {}`), never panics.
 //!
 //! The Tauri wiring (debounced save on resize/move, save on close, apply-on
@@ -32,11 +34,14 @@ pub struct DisplayWorkArea {
 }
 
 /// Persisted window geometry. Field names match the JSON Electron writes.
+/// `x`/`y` are optional in both Electron's writer and Rust's deserialize
+/// (a stale file may omit them);
+/// `width`/`height` are required like Electron's `WindowState`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct WindowState {
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub x: Option<i32>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub y: Option<i32>,
     pub width: i32,
     pub height: i32,
@@ -44,23 +49,34 @@ pub struct WindowState {
     pub is_maximized: bool,
 }
 
-/// Resolved startup geometry: what to actually apply to the window. `center`
-/// is `true` when the saved position was off-screen (or missing) and Electron
-/// would call `mainWindow.center()`.
+/// What `createWindow` should do about the window position. Matches Electron
+/// exactly:
+///   - [`LeaveUnspecified`] — no saved position (or one axis missing): the OS
+///     places the window; Electron never centers in this case.
+///   - [`SetPosition`] — both x/y saved and on a display work area; restore them.
+///   - [`Center`] — both x/y saved but off-screen; Electron calls
+///     `mainWindow.center()`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PositionAction {
+    LeaveUnspecified,
+    SetPosition { x: i32, y: i32 },
+    Center,
+}
+
+/// Resolved startup geometry: what to actually apply to the window.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ResolvedBounds {
-    pub x: Option<i32>,
-    pub y: Option<i32>,
+    pub position: PositionAction,
     pub width: i32,
     pub height: i32,
     pub is_maximized: bool,
-    pub center: bool,
 }
 
 impl WindowState {
-    /// Electron: the saved position is "on screen" iff, for some display, the
-    /// saved x/y is its work area minus 100px. Returns `false` when x or y were
-    /// never saved (matches `savedState?.x != null && savedState?.y != null`).
+    /// Electron: when BOTH x and y are saved, the position is "on screen" iff
+    /// it sits inside some display work area minus a 100px inner margin. Returns
+    /// `false` when x or y were never saved (so the `x != null && y != null`
+    /// guard in `createWindow` skips the center check entirely).
     pub fn is_on_any_screen(&self, displays: &[DisplayWorkArea]) -> bool {
         let (Some(x), Some(y)) = (self.x, self.y) else {
             return false;
@@ -74,26 +90,37 @@ impl WindowState {
     }
 
     /// Decide startup geometry from a (possibly absent) saved state and the
-    /// available displays. Mirrors the precedence in `createWindow`/`loadURL`.
+    /// available displays. Mirrors `createWindow`: size defaults when absent,
+    /// restore a complete on-screen position, center only a complete off-screen
+    /// position, and otherwise leave placement to the OS.
     pub fn resolve(saved: Option<WindowState>, displays: &[DisplayWorkArea]) -> ResolvedBounds {
         match saved {
             None => ResolvedBounds {
-                x: None,
-                y: None,
+                position: PositionAction::LeaveUnspecified,
                 width: DEFAULT_WIDTH,
                 height: DEFAULT_HEIGHT,
                 is_maximized: false,
-                center: false,
             },
             Some(s) => {
-                let off_screen = !s.is_on_any_screen(displays);
+                // Electron's guard: only both-present positions are checked.
+                let position = match (s.x, s.y) {
+                    (Some(x), Some(y)) => {
+                        if s.is_on_any_screen(displays) {
+                            PositionAction::SetPosition { x, y }
+                        } else {
+                            PositionAction::Center
+                        }
+                    }
+                    // One axis missing: Electron passes the partial coords to
+                    // BrowserWindow as `undefined` for the missing axis, which the
+                    // OS replaces — so we too leave placement to the OS.
+                    _ => PositionAction::LeaveUnspecified,
+                };
                 ResolvedBounds {
-                    x: s.x,
-                    y: s.y,
+                    position,
                     width: s.width,
                     height: s.height,
                     is_maximized: s.is_maximized,
-                    center: off_screen,
                 }
             }
         }
@@ -216,12 +243,10 @@ mod tests {
         assert_eq!(
             r,
             ResolvedBounds {
-                x: None,
-                y: None,
+                position: PositionAction::LeaveUnspecified,
                 width: DEFAULT_WIDTH,
                 height: DEFAULT_HEIGHT,
-                is_maximized: false,
-                center: false
+                is_maximized: false
             }
         );
     }
@@ -236,7 +261,7 @@ mod tests {
             is_maximized: false,
         };
         let r = WindowState::resolve(Some(off), &[disp(0, 0, 1440, 900)]);
-        assert!(r.center);
+        assert_eq!(r.position, PositionAction::Center);
         assert_eq!(r.width, 1100);
     }
 
@@ -250,8 +275,37 @@ mod tests {
             is_maximized: true,
         };
         let r = WindowState::resolve(Some(on_), &[disp(0, 0, 1440, 900)]);
-        assert!(!r.center);
+        assert_eq!(r.position, PositionAction::SetPosition { x: 100, y: 100 });
         assert!(r.is_maximized);
+    }
+
+    /// Intent: when x or y was never saved (Electron's
+    /// `savedState?.x != null && savedState?.y != null` guard is false),
+    /// Electron does NOT center — it leaves the missing axis to the OS. The
+    /// Tauri port must not over-center and override a reasonable OS placement.
+    #[test]
+    fn resolve_leaves_unspecified_when_axis_missing() {
+        let missing_y = WindowState {
+            x: Some(100),
+            y: None,
+            width: 1100,
+            height: 700,
+            is_maximized: false,
+        };
+        let r = WindowState::resolve(Some(missing_y), &[disp(0, 0, 1440, 900)]);
+        assert_eq!(r.position, PositionAction::LeaveUnspecified);
+
+        let missing_x = WindowState {
+            x: None,
+            y: Some(200),
+            width: 1100,
+            height: 700,
+            is_maximized: false,
+        };
+        assert_eq!(
+            WindowState::resolve(Some(missing_x), &[disp(0, 0, 1440, 900)]).position,
+            PositionAction::LeaveUnspecified
+        );
     }
 
     /// Intent: a corrupted state file must NOT crash the app — Electron
