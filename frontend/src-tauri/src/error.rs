@@ -31,6 +31,9 @@ pub enum ApiError {
     #[error("media safety validation failed: {0}")]
     MediaSafety(String),
 
+    #[error("background write task failed: {0}")]
+    WriteTask(String),
+
     /// A second modal context menu would overwrite the first request's labels
     /// and resolve the wrong renderer promise, so reject it loudly.
     #[error("track context menu already active")]

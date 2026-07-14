@@ -3,6 +3,7 @@
 
 use crate::commands::tracks::{id3_user_text_values, read_track_metadata, TrackData};
 use crate::error::ApiError;
+use crate::state::write_queue::WriteQueue;
 use lofty::config::{ParseOptions, WriteOptions};
 use lofty::file::AudioFile;
 use lofty::id3::v2::{Frame, FrameId, Id3v2Tag, TextInformationFrame, UnsynchronizedTextFrame};
@@ -14,6 +15,7 @@ use std::borrow::Cow;
 use std::fs::{self, File};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
+use tauri::State;
 
 static TEMP_SEQUENCE: AtomicU64 = AtomicU64::new(0);
 
@@ -113,6 +115,38 @@ pub struct Mp3Patch {
 pub enum Mp3WriteOutcome {
     Skipped,
     Replaced,
+}
+
+#[tauri::command]
+pub async fn track_write(
+    path: String,
+    fields: Mp3Patch,
+    queue: State<'_, WriteQueue>,
+) -> Result<(), ApiError> {
+    write_track_queued(&queue, PathBuf::from(path), fields).await
+}
+
+async fn write_track_queued(
+    queue: &WriteQueue,
+    path: PathBuf,
+    patch: Mp3Patch,
+) -> Result<(), ApiError> {
+    if path
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .map(str::to_ascii_lowercase)
+        != Some("mp3".to_string())
+    {
+        return Err(ApiError::NotImplemented("track:write for non-MP3 formats"));
+    }
+    queue
+        .run(async move {
+            tokio::task::spawn_blocking(move || write_mp3_atomic(&path, &patch))
+                .await
+                .map_err(|error| ApiError::WriteTask(error.to_string()))?
+        })
+        .await?;
+    Ok(())
 }
 
 /// Write one MP3 through a validated sibling file. The original path is not
@@ -603,6 +637,40 @@ mod tests {
             serde_json::from_value(serde_json::json!({"title": "Changed title"})).unwrap();
         write_mp3_atomic(&path, &patch).unwrap();
         assert!(read_id3v2(&path).unwrap().get(&unknown_id).is_some());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn queued_single_track_write_runs_the_atomic_core() {
+        let (root, path) = copy_fixture();
+        let queue = WriteQueue::default();
+        let patch: Mp3Patch =
+            serde_json::from_value(serde_json::json!({"title": "Queued title"})).unwrap();
+        write_track_queued(&queue, path.clone(), patch)
+            .await
+            .unwrap();
+        assert_eq!(
+            read_track_metadata(&path).unwrap().title.as_deref(),
+            Some("Queued title")
+        );
+        assert!(!queue.is_active());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn queued_non_mp3_write_fails_loudly_without_touching_file() {
+        let root = std::env::temp_dir().join(format!(
+            "auto-tagger-pending-write-{}",
+            TEMP_SEQUENCE.fetch_add(1, Ordering::Relaxed)
+        ));
+        fs::create_dir_all(&root).unwrap();
+        let path = root.join("pending.flac");
+        fs::write(&path, b"unchanged").unwrap();
+        let error = write_track_queued(&WriteQueue::default(), path.clone(), Mp3Patch::default())
+            .await
+            .unwrap_err();
+        assert!(error.to_string().contains("non-MP3"));
+        assert_eq!(fs::read(&path).unwrap(), b"unchanged");
         fs::remove_dir_all(root).unwrap();
     }
 

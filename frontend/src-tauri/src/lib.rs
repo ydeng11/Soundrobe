@@ -35,6 +35,7 @@ use tracing_subscriber::EnvFilter;
 use crate::commands::shell::ContextMenuState;
 use crate::state::config::ConfigState;
 use crate::state::window_state::{DisplayWorkArea, PositionAction, WindowState};
+use crate::state::write_queue::WriteQueue;
 
 /// Initialise structured logging. Debug forwarding to the renderer's
 /// `debug:log` stream is wired in the debug slice; until then logs land in
@@ -65,6 +66,7 @@ pub fn run() {
                 app.manage(ConfigState::init(home));
             }
             app.manage(ContextMenuState::default());
+            app.manage(WriteQueue::default());
             // Tauri menu events are global; ContextMenuState scopes recognized
             // IDs to the single active popup so ordinary app/tray menu events
             // cannot resolve a renderer context-menu promise.
@@ -87,6 +89,7 @@ pub fn run() {
             commands::library::library_scan,
             commands::library::album_refresh,
             commands::tracks::album_read,
+            commands::mutations::track_write,
         ])
         .run(tauri::generate_context!())
         .expect("error while running the Auto Tagger Tauri shell");
