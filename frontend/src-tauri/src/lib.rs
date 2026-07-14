@@ -71,6 +71,8 @@ pub fn run() {
             commands::configuration::config_get,
             commands::configuration::config_set,
             commands::shell::dialog_open_folder,
+            commands::directories::directory_list,
+            commands::library::library_scan,
         ])
         .run(tauri::generate_context!())
         .expect("error while running the Auto Tagger Tauri shell");
