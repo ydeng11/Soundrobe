@@ -12,6 +12,7 @@ before `electron/` is removed. Generated from `electron/preload.ts`,
 |---|---|---|
 | Step 1 — characterization + dual-shell scaffold | ✅ green | shared `DesktopAPI` contract extracted; Tauri crate/adapter/loader + contract tests (60 shared tests); cargo fmt/clippy/test + electron typecheck/vitest/build green |
 | Window state persistence + off-screen recovery | ✅ logic green (wired, GUI runtime unverified) | `state/window_state.rs` (10 unit tests encoding Electron intent); wired in `run()` |
+| Config flat parser + env precedence + save/redaction | ✅ logic green (pure; not yet wired to `config:get/set`) | `state/config.rs` (11 unit tests: defaults, comments, quote-unwrap, env override, redaction, save-preserves-comments/order/unknown-keys, append-missing, ignore-unknown-key, round-trip) |
 | Folder dialog / context menu+clipboard / window activation / quit-during-write guard | ⏳ pending (step 2 native shell) | |
 | Persistence (config/cache/dataset/aliases/logs) | ⏳ pending | |
 | Read-only library slice (traversal/grouping/readback/cover discovery/lyrics/dataset) | ⏳ pending | |
