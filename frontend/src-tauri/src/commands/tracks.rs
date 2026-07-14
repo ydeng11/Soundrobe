@@ -349,8 +349,10 @@ fn from_tags(
 ) -> TrackData {
     let artist = first_string(tags, ItemKey::TrackArtist);
     let album_artist = first_string(tags, ItemKey::AlbumArtist);
-    let mut artists = all_strings(tags, ItemKey::TrackArtist);
-    artists.extend(all_strings(tags, ItemKey::TrackArtists));
+    let mut artists = all_strings(tags, ItemKey::TrackArtists);
+    if artists.is_empty() {
+        artists = all_strings(tags, ItemKey::TrackArtist);
+    }
     artists.dedup();
 
     TrackData {
@@ -480,6 +482,10 @@ fn read_mpeg_header_fallback(path: &Path, size_bytes: u64) -> Result<Option<Trac
         Some(44_100),
     );
     if let Some(id3v2) = id3v2 {
+        let native_artists = id3_user_text_values(path, "ARTISTS");
+        if !native_artists.is_empty() {
+            track.artists = native_artists;
+        }
         track.description = id3v2.get_user_text("DESCRIPTION").map(ToOwned::to_owned);
         track.musicbrainz_track_id = id3v2
             .get_user_text("MusicBrainz Track Id")
@@ -495,6 +501,123 @@ fn read_mpeg_header_fallback(path: &Path, size_bytes: u64) -> Result<Option<Trac
         track.compilation = None;
     }
     Ok(Some(track))
+}
+
+pub(crate) fn id3_user_text_values(path: &Path, wanted: &str) -> Vec<String> {
+    let Ok(data) = fs::read(path) else {
+        return Vec::new();
+    };
+    if data.len() < 10 || &data[..3] != b"ID3" || !matches!(data[3], 3 | 4) {
+        return Vec::new();
+    }
+    let version = data[3];
+    let Some(tag_size) = syncsafe_u32(&data[6..10]).map(|value| value as usize) else {
+        return Vec::new();
+    };
+    let end = 10_usize.saturating_add(tag_size).min(data.len());
+    let mut offset = 10_usize;
+    let mut values = Vec::new();
+    while offset.checked_add(10).is_some_and(|next| next <= end) {
+        let id = &data[offset..offset + 4];
+        if id == [0, 0, 0, 0] {
+            break;
+        }
+        let size = if version == 4 {
+            match syncsafe_u32(&data[offset + 4..offset + 8]) {
+                Some(size) => size as usize,
+                None => break,
+            }
+        } else {
+            u32::from_be_bytes(data[offset + 4..offset + 8].try_into().unwrap_or_default()) as usize
+        };
+        let body_start = offset + 10;
+        let Some(body_end) = body_start.checked_add(size) else {
+            break;
+        };
+        if body_end > end {
+            break;
+        }
+        if id == b"TXXX" {
+            if let Some((description, value)) = decode_txxx(&data[body_start..body_end]) {
+                if description.eq_ignore_ascii_case(wanted) {
+                    values.extend(
+                        value
+                            .split(';')
+                            .map(str::trim)
+                            .filter(|value| !value.is_empty())
+                            .map(ToOwned::to_owned),
+                    );
+                }
+            }
+        }
+        offset = body_end;
+    }
+    values
+}
+
+fn syncsafe_u32(bytes: &[u8]) -> Option<u32> {
+    let bytes: [u8; 4] = bytes.try_into().ok()?;
+    if bytes.iter().any(|byte| byte & 0x80 != 0) {
+        return None;
+    }
+    Some(
+        (u32::from(bytes[0]) << 21)
+            | (u32::from(bytes[1]) << 14)
+            | (u32::from(bytes[2]) << 7)
+            | u32::from(bytes[3]),
+    )
+}
+
+fn decode_txxx(body: &[u8]) -> Option<(String, String)> {
+    let (&encoding, text) = body.split_first()?;
+    match encoding {
+        0 | 3 => {
+            let separator = text
+                .iter()
+                .position(|byte| *byte == 0)
+                .unwrap_or(text.len());
+            let decode = |bytes: &[u8]| {
+                if encoding == 3 {
+                    String::from_utf8_lossy(bytes).into_owned()
+                } else {
+                    bytes.iter().map(|byte| char::from(*byte)).collect()
+                }
+            };
+            let value_start = separator.saturating_add(1).min(text.len());
+            Some((decode(&text[..separator]), decode(&text[value_start..])))
+        }
+        1 | 2 => {
+            let separator = (0..text.len().saturating_sub(1))
+                .step_by(2)
+                .find(|index| text[*index] == 0 && text[*index + 1] == 0)
+                .unwrap_or(text.len());
+            let value_start = separator.saturating_add(2).min(text.len());
+            Some((
+                decode_utf16(&text[..separator], encoding == 2),
+                decode_utf16(&text[value_start..], encoding == 2),
+            ))
+        }
+        _ => None,
+    }
+}
+
+fn decode_utf16(bytes: &[u8], default_big_endian: bool) -> String {
+    let (bytes, big_endian) = if bytes.starts_with(&[0xfe, 0xff]) {
+        (&bytes[2..], true)
+    } else if bytes.starts_with(&[0xff, 0xfe]) {
+        (&bytes[2..], false)
+    } else {
+        (bytes, default_big_endian)
+    };
+    let units = bytes.chunks_exact(2).map(|pair| {
+        let pair = [pair[0], pair[1]];
+        if big_endian {
+            u16::from_be_bytes(pair)
+        } else {
+            u16::from_le_bytes(pair)
+        }
+    });
+    String::from_utf16_lossy(&units.collect::<Vec<_>>())
 }
 
 /// Electron accepts the corpus's identification/comment-only OGG Vorbis file;

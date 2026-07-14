@@ -27,6 +27,10 @@ pub enum ApiError {
     #[error("audio metadata error: {0}")]
     Lofty(#[from] lofty::error::LoftyError),
 
+    /// A candidate media write failed validation before replacing the source.
+    #[error("media safety validation failed: {0}")]
+    MediaSafety(String),
+
     /// A second modal context menu would overwrite the first request's labels
     /// and resolve the wrong renderer promise, so reject it loudly.
     #[error("track context menu already active")]

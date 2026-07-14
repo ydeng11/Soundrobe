@@ -29,8 +29,8 @@ thiserror = "2"
 anyhow = "1"
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "fs", "io-util"] }
 dirs = "6"
-# Read-only tag parsing first; writer support is enabled only after the
-# differential reader/media-safety contract is green.
+# Reader plus format-by-format writer cores, enabled only behind differential
+# media-safety tests before command exposure.
 lofty = "0.24.0"
 
 # Infrastructure crates — pinned to the versions locked by `Cargo.lock` and
@@ -43,6 +43,9 @@ lofty = "0.24.0"
 #   encoding_rs= "0.8"                                           # lyrics encoding
 #   opencc-rust= "2"                                             # SC/TC chinese_script
 #   futures    = "0.3"                                           # provider/blocking task orchestration
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = ["Win32_Storage_FileSystem"] }
 
 [features]
 # Production build hides the embedded dev server URL and ships the packaged

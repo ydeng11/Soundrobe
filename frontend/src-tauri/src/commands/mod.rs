@@ -28,6 +28,8 @@ pub mod dataset;
 pub mod directories;
 /// `library:scan`, `album:refresh` — `electron/handlers/library.ts`.
 pub mod library;
+/// Pure, media-safe writer cores; command/queue wiring follows separately.
+pub mod mutations;
 /// `files:sort-by-album` — `electron/handlers/organizer.ts`.
 pub mod organizer;
 /// `task:progress`, `task:cancel`, `album:auto-tag` — `electron/handlers/auto-tag.ts`.
