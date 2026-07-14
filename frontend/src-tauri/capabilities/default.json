@@ -1,0 +1,17 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Minimal capabilities for the Auto Tagger main window. No broad filesystem or shell permissions; folder selection and clipboard go through application commands and the official dialog/clipboard plugins.",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "core:window:allow-start-dragging",
+    "core:window:allow-show",
+    "core:window:allow-set-size",
+    "core:event:default",
+    "core:webview:default",
+    "core:app:default",
+    "dialog:default",
+    "clipboard-manager:default"
+  ]
+}

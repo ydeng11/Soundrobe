@@ -27,6 +27,7 @@
     "rebuild:node": "npm rebuild better-sqlite3"
   },
   "dependencies": {
+    "@tauri-apps/api": "^2.11.1",
     "better-sqlite3": "^12.11.1",
     "dotenv": "^17.4.2",
     "jschardet": "^3.1.4",
@@ -39,6 +40,7 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.60.0",
+    "@tauri-apps/cli": "^2.11.4",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@types/react": "^19.0.0",

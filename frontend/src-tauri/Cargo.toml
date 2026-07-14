@@ -1,0 +1,46 @@
+[package]
+name = "auto-tagger"
+version = "0.1.0"
+description = "Desktop audio file tag editor — Tauri 2 shell (Electron migration)"
+authors = ["Auto Tagger Contributors"]
+license = "MIT"
+homepage = "https://github.com/ihelio/auto-tagger"
+rust-version = "1.77"
+edition = "2021"
+
+[lib]
+name = "auto_tagger_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2.6", features = [] }
+
+[dependencies]
+tauri = { version = "2.11", features = [] }
+tauri-plugin-dialog = "2.7"
+tauri-plugin-clipboard-manager = "2.3"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+log = "0.4"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+thiserror = "2"
+anyhow = "1"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "fs", "io-util"] }
+
+# Infrastructure crates — pinned to the versions locked by `Cargo.lock` and
+# introduced per migration slice. Listed here so the toolchain is recorded;
+# each slice enables only what it needs to keep SLOC change review bounded.
+#   rusqlite   = { version = "0.40", features = ["bundled"] }   # SQLite read-through slice
+#   reqwest    = { version = "0.13", default-features = false, features = ["json","rustls-tls"] }  # provider clients
+#   lofty      = { version = "0.24" }                            # tag I/O media-safety slice
+#   image      = { version = "0.25" }                            # artwork resize/convert
+#   chardetng  = "1"                                             # lyrics encoding detection
+#   encoding_rs= "0.8"                                           # lyrics encoding
+#   opencc-rust= "2"                                             # SC/TC chinese_script
+#   futures    = "0.3"                                           # provider/blocking task orchestration
+
+[features]
+# Production build hides the embedded dev server URL and ships the packaged
+# frontend from `frontendDist`. Default is the dev shell.
+default = []
