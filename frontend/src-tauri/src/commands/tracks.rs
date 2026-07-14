@@ -59,7 +59,7 @@ pub struct TrackData {
     pub has_cover: bool,
     #[serde(rename = "sizeBytes")]
     pub size_bytes: u64,
-    pub bitrate: Option<u32>,
+    pub bitrate: Option<f64>,
     #[serde(rename = "sampleRate")]
     pub sample_rate: Option<u32>,
     pub codec: String,
@@ -300,22 +300,39 @@ fn from_lofty(
     extension: &str,
     tagged: &lofty::file::TaggedFile,
 ) -> TrackData {
+    let mut duration = tagged.properties().duration().as_secs_f64();
     let mut bitrate = tagged
         .properties()
         .overall_bitrate()
-        .map(|kilobits| kilobits.saturating_mul(1_000));
-    // Electron's music-metadata returns precise bits/second for PCM WAV rather
-    // than Lofty's integer-kbps representation. For PCM the byte rate can be
-    // derived without reading the audio payload.
-    if extension == "wav" {
-        bitrate = wav_bitrate(path).or(bitrate);
+        .map(|kilobits| f64::from(kilobits.saturating_mul(1_000)));
+    // `music-metadata` reports audio-payload bitrate, while Lofty reports a
+    // rounded container/overall kbps value for these formats.
+    match extension {
+        "wav" => bitrate = wav_bitrate(path).map(f64::from).or(bitrate),
+        "m4a" | "mp4" => {
+            if let Some(properties) = mp4_audio_properties(path) {
+                (duration, bitrate) = (properties.0, Some(properties.1));
+            }
+        }
+        "opus" => {
+            if let Some(properties) = opus_audio_properties(path) {
+                (duration, bitrate) = (properties.0, Some(properties.1));
+            }
+        }
+        "aiff" => {
+            if let Some(properties) = aiff_audio_properties(path, tagged.properties().sample_rate())
+            {
+                (duration, bitrate) = (properties.0, Some(properties.1));
+            }
+        }
+        _ => {}
     }
     from_tags(
         path,
         size_bytes,
         extension,
         tagged.tags(),
-        tagged.properties().duration().as_secs_f64(),
+        duration,
         bitrate,
         tagged.properties().sample_rate(),
     )
@@ -327,7 +344,7 @@ fn from_tags(
     extension: &str,
     tags: &[Tag],
     duration: f64,
-    bitrate: Option<u32>,
+    bitrate: Option<f64>,
     sample_rate: Option<u32>,
 ) -> TrackData {
     let artist = first_string(tags, ItemKey::TrackArtist);
@@ -407,7 +424,8 @@ fn codec_name(extension: &str) -> String {
     match extension {
         "mp3" => "MPEG 1 Layer 3",
         "flac" => "FLAC",
-        "wav" => "PCM",
+        "wav" | "aiff" => "PCM",
+        "m4a" | "mp4" => "MPEG-4/AAC",
         "ogg" => "Vorbis I",
         "opus" => "Opus",
         "ape" => "Monkey's Audio",
@@ -458,7 +476,7 @@ fn read_mpeg_header_fallback(path: &Path, size_bytes: u64) -> Result<Option<Trac
         "mp3",
         &tags,
         0.0,
-        Some(128_000),
+        Some(128_000.0),
         Some(44_100),
     );
     if let Some(id3v2) = id3v2 {
@@ -495,7 +513,7 @@ fn read_ogg_vorbis_fallback(path: &Path, size_bytes: u64) -> Result<Option<Track
         return Ok(None);
     }
     let sample_rate = u32_le(identification, 12);
-    let bitrate = u32_le(identification, 20);
+    let bitrate = u32_le(identification, 20).map(f64::from);
     let comments = packets
         .iter()
         .find(|packet| packet.starts_with(b"\x03vorbis"))
@@ -625,6 +643,149 @@ fn parse_ogg_comments(packet: &[u8]) -> HashMap<String, Vec<String>> {
     comments
 }
 
+fn opus_audio_properties(path: &Path) -> Option<(f64, f64)> {
+    let data = fs::read(path).ok()?;
+    let packets = ogg_packets(&data);
+    let head = packets
+        .iter()
+        .find(|packet| packet.starts_with(b"OpusHead"))?;
+    let pre_skip = u64::from(u16_le(head, 10)?);
+    // music-metadata 11.9 derives Opus bitrate from its `lastPos` marker set
+    // while parsing OpusTags. For the characterized stream, that dataSize is
+    // exactly the tags packet length (not the encoded-audio packet length).
+    let audio_bytes = packets
+        .iter()
+        .find(|packet| packet.starts_with(b"OpusTags"))?
+        .len();
+    let granule = last_ogg_granule(&data)?;
+    if granule <= pre_skip {
+        return None;
+    }
+    let duration = (granule - pre_skip) as f64 / 48_000.0;
+    Some((duration, audio_bytes as f64 * 8.0 / duration))
+}
+
+fn last_ogg_granule(data: &[u8]) -> Option<u64> {
+    let mut offset: usize = 0;
+    let mut granule = None;
+    while offset.checked_add(27)? <= data.len() {
+        if &data[offset..offset + 4] != b"OggS" {
+            return None;
+        }
+        granule = Some(u64_le(data, offset + 6)?);
+        let segments = data[offset + 26] as usize;
+        let table_start = offset + 27;
+        let table_end = table_start.checked_add(segments)?;
+        let body_size = data
+            .get(table_start..table_end)?
+            .iter()
+            .map(|value| usize::from(*value))
+            .sum::<usize>();
+        offset = table_end.checked_add(body_size)?;
+    }
+    granule
+}
+
+fn mp4_audio_properties(path: &Path) -> Option<(f64, f64)> {
+    let data = fs::read(path).ok()?;
+    let mdhd = find_mp4_box(&data, 0, data.len(), b"mdhd")?;
+    let version = *data.get(mdhd.0)?;
+    let (timescale, duration_units) = if version == 1 {
+        (u32_be(&data, mdhd.0 + 20)?, u64_be(&data, mdhd.0 + 24)?)
+    } else {
+        (
+            u32_be(&data, mdhd.0 + 12)?,
+            u64::from(u32_be(&data, mdhd.0 + 16)?),
+        )
+    };
+    if timescale == 0 || duration_units == 0 {
+        return None;
+    }
+    let stsz = find_mp4_box(&data, 0, data.len(), b"stsz")?;
+    let sample_size = u32_be(&data, stsz.0 + 4)?;
+    let sample_count = u32_be(&data, stsz.0 + 8)?;
+    let audio_bytes = if sample_size > 0 {
+        u64::from(sample_size) * u64::from(sample_count)
+    } else {
+        let mut total = 0_u64;
+        let mut offset = stsz.0 + 12;
+        for _ in 0..sample_count {
+            total = total.checked_add(u64::from(u32_be(&data, offset)?))?;
+            offset = offset.checked_add(4)?;
+        }
+        total
+    };
+    let duration = duration_units as f64 / f64::from(timescale);
+    Some((duration, audio_bytes as f64 * 8.0 / duration))
+}
+
+/// Find one MP4 atom payload recursively through known container atoms.
+fn find_mp4_box(data: &[u8], start: usize, end: usize, wanted: &[u8; 4]) -> Option<(usize, usize)> {
+    const CONTAINERS: [&[u8; 4]; 8] = [
+        b"moov", b"trak", b"mdia", b"minf", b"stbl", b"edts", b"dinf", b"udta",
+    ];
+    let mut offset = start;
+    while offset.checked_add(8)? <= end && offset + 8 <= data.len() {
+        let size32 = u32_be(data, offset)?;
+        let kind: &[u8; 4] = data.get(offset + 4..offset + 8)?.try_into().ok()?;
+        let (header, size) = if size32 == 1 {
+            (16_usize, usize::try_from(u64_be(data, offset + 8)?).ok()?)
+        } else if size32 == 0 {
+            (8_usize, end.checked_sub(offset)?)
+        } else {
+            (8_usize, size32 as usize)
+        };
+        if size < header {
+            return None;
+        }
+        let box_end = offset.checked_add(size)?;
+        if box_end > end || box_end > data.len() {
+            return None;
+        }
+        let payload = offset + header;
+        if kind == wanted {
+            return Some((payload, box_end));
+        }
+        if CONTAINERS.contains(&kind) {
+            if let Some(found) = find_mp4_box(data, payload, box_end, wanted) {
+                return Some(found);
+            }
+        }
+        offset = box_end;
+    }
+    None
+}
+
+fn aiff_audio_properties(path: &Path, sample_rate: Option<u32>) -> Option<(f64, f64)> {
+    let data = fs::read(path).ok()?;
+    if data.len() < 12 || &data[..4] != b"FORM" || &data[8..12] != b"AIFF" {
+        return None;
+    }
+    let mut offset: usize = 12;
+    let mut sample_frames = None;
+    let mut audio_bytes = None;
+    while offset.checked_add(8)? <= data.len() {
+        let kind = data.get(offset..offset + 4)?;
+        let size = u32_be(&data, offset + 4)? as usize;
+        let payload = offset + 8;
+        let end = payload.checked_add(size)?;
+        if end > data.len() {
+            return None;
+        }
+        if kind == b"COMM" && size >= 18 {
+            sample_frames = Some(u64::from(u32_be(&data, payload + 2)?));
+        } else if kind == b"SSND" && size >= 8 {
+            // music-metadata includes SSND's offset/block-size header when
+            // deriving bitrate, even though those eight bytes are not PCM.
+            audio_bytes = Some(size as u64);
+        }
+        offset = end.checked_add(size % 2)?;
+    }
+    let duration = sample_frames? as f64 / f64::from(sample_rate?);
+    let audio_bytes = audio_bytes?;
+    (duration > 0.0).then(|| (duration, audio_bytes as f64 * 8.0 / duration))
+}
+
 fn wav_bitrate(path: &Path) -> Option<u32> {
     let data = fs::read(path).ok()?;
     if data.len() < 36 || &data[..4] != b"RIFF" || &data[8..12] != b"WAVE" {
@@ -694,7 +855,7 @@ fn read_flac_fallback(path: &Path, size_bytes: u64) -> Result<Option<TrackData>,
         size_bytes,
         // Electron's parseFile reports 0 for metadata-only valid FLAC. Its
         // Infinity duration serializes to JSON null, which Rust matches here.
-        bitrate: Some(0),
+        bitrate: Some(0.0),
         sample_rate: Some(sample_rate),
         codec: "FLAC".to_string(),
         duration: f64::INFINITY,
@@ -860,7 +1021,7 @@ fn read_ape_fallback(path: &Path, size_bytes: u64) -> Result<Option<TrackData>, 
         discogs_release_id: first_tag(&tags, "DISCOGS_RELEASE_ID"),
         has_cover: false,
         size_bytes,
-        bitrate: (duration > 0.0).then(|| ((size_bytes as f64 * 8.0) / duration).round() as u32),
+        bitrate: (duration > 0.0).then(|| ((size_bytes as f64 * 8.0) / duration).round()),
         sample_rate,
         codec: "Monkey's Audio".to_string(),
         duration,
@@ -991,6 +1152,21 @@ fn parse_positive_u32(value: &str) -> Option<u32> {
     value.trim().parse::<u32>().ok().filter(|value| *value > 0)
 }
 
+fn u16_le(data: &[u8], offset: usize) -> Option<u16> {
+    let bytes: [u8; 2] = data.get(offset..offset + 2)?.try_into().ok()?;
+    Some(u16::from_le_bytes(bytes))
+}
+
+fn u64_le(data: &[u8], offset: usize) -> Option<u64> {
+    let bytes: [u8; 8] = data.get(offset..offset + 8)?.try_into().ok()?;
+    Some(u64::from_le_bytes(bytes))
+}
+
+fn u64_be(data: &[u8], offset: usize) -> Option<u64> {
+    let bytes: [u8; 8] = data.get(offset..offset + 8)?.try_into().ok()?;
+    Some(u64::from_be_bytes(bytes))
+}
+
 fn u32_le(data: &[u8], offset: usize) -> Option<u32> {
     let bytes: [u8; 4] = data.get(offset..offset + 4)?.try_into().ok()?;
     Some(u32::from_le_bytes(bytes))
@@ -1014,6 +1190,10 @@ mod tests {
         "ape-id3v1-fallback.ape",
         "malformed-truncated.flac",
         "malformed-vorbis-length.flac",
+        "minimal.m4a",
+        "minimal.mp4",
+        "minimal.opus",
+        "minimal.aiff",
     ];
 
     fn corpus_root() -> PathBuf {
@@ -1031,28 +1211,30 @@ mod tests {
             .to_string_lossy()
             .replace('\\', "/");
         track.path = relative;
-        normalize_duration(
+        normalize_numeric_representation(
             serde_json::to_value(track).expect("TrackData serializes to the renderer DTO"),
         )
     }
 
-    /// Electron/Node and Rust round the APE block-count division one ULP apart.
-    /// Metadata payload comparison therefore normalizes ONLY finite duration to
-    /// 12 decimal places; every other DTO field remains exact. JSON null (the
-    /// intentional non-finite FLAC representation) stays null.
-    fn normalize_duration(mut value: serde_json::Value) -> serde_json::Value {
+    /// Electron/Node and Rust round one duration ULP apart, while serde_json
+    /// preserves integer-vs-float representation that JavaScript cannot see.
+    /// Values themselves remain exact except finite duration at 12 decimals.
+    fn normalize_numeric_representation(mut value: serde_json::Value) -> serde_json::Value {
         if let Some(duration) = value.get("duration").and_then(serde_json::Value::as_f64) {
             value["duration"] =
                 serde_json::json!((duration * 1_000_000_000_000.0).round() / 1_000_000_000_000.0);
+        }
+        // JavaScript has one numeric type; serde_json preserves an integer vs
+        // float representation that is not observable in command payloads.
+        if let Some(bitrate) = value.get("bitrate").and_then(serde_json::Value::as_f64) {
+            value["bitrate"] = serde_json::json!(bitrate);
         }
         value
     }
 
     /// Differential contract: every Lofty/custom-fallback result serializes to
-    /// the same normalized renderer payload Electron produced from these exact
-    /// committed bytes. This covers normal MP3/FLAC/WAV/OGG, APE+ID3v1 raw-tag
-    /// fallback, truncated FLAC, and malformed Vorbis-length FLAC before any
-    /// writer code can be introduced.
+    /// Electron's normalized renderer payload from these exact eleven files:
+    /// MP3/FLAC/WAV/OGG/APE, malformed FLAC, M4A/MP4, Opus, and AIFF.
     #[test]
     fn shared_electron_media_corpus_matches_track_data() {
         let root = corpus_root();
@@ -1067,7 +1249,7 @@ mod tests {
                 .expect("Electron baseline is an array")
                 .iter()
                 .cloned()
-                .map(normalize_duration)
+                .map(normalize_numeric_representation)
                 .collect(),
         );
         let actual = serde_json::Value::Array(
@@ -1083,6 +1265,24 @@ mod tests {
                 .collect(),
         );
         assert_eq!(actual, expected);
+    }
+
+    /// Container parsers are exposed to untrusted library files. Truncated
+    /// atom/page/chunk structures must return None, never panic or over-read.
+    #[test]
+    fn container_property_parsers_reject_truncated_input() {
+        let root = album_test_root();
+        std::fs::create_dir_all(&root).unwrap();
+        for name in ["bad.m4a", "bad.opus", "bad.aiff"] {
+            std::fs::write(root.join(name), b"short").unwrap();
+        }
+        assert_eq!(mp4_audio_properties(&root.join("bad.m4a")), None);
+        assert_eq!(opus_audio_properties(&root.join("bad.opus")), None);
+        assert_eq!(
+            aiff_audio_properties(&root.join("bad.aiff"), Some(44_100)),
+            None
+        );
+        std::fs::remove_dir_all(root).unwrap();
     }
 
     /// Intent: album:read must retain the renderer's folder hints and report a

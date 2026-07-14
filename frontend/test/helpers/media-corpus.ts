@@ -15,7 +15,7 @@ import * as NodeID3 from "node-id3";
 import { writeTags } from "../../electron/handlers/writer";
 import { flacHeader, vorbisCommentBlock } from "./flac-helpers";
 
-export const MEDIA_CORPUS_FILES = [
+export const GENERATED_MEDIA_CORPUS_FILES = [
   "minimal.mp3",
   "minimal.flac",
   "minimal.wav",
@@ -23,6 +23,19 @@ export const MEDIA_CORPUS_FILES = [
   "ape-id3v1-fallback.ape",
   "malformed-truncated.flac",
   "malformed-vorbis-length.flac",
+] as const;
+
+/** Real-encoder fixtures regenerated only by scripts/generate-tauri-media-corpus-extended.mjs. */
+export const ENCODED_MEDIA_CORPUS_FILES = [
+  "minimal.m4a",
+  "minimal.mp4",
+  "minimal.opus",
+  "minimal.aiff",
+] as const;
+
+export const MEDIA_CORPUS_FILES = [
+  ...GENERATED_MEDIA_CORPUS_FILES,
+  ...ENCODED_MEDIA_CORPUS_FILES,
 ] as const;
 
 /**
