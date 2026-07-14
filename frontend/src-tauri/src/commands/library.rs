@@ -275,12 +275,16 @@ mod tests {
     use std::fs;
 
     fn tmp() -> PathBuf {
+        use std::sync::atomic::{AtomicU64, Ordering};
+        static SEQ: AtomicU64 = AtomicU64::new(0);
+        let seq = SEQ.fetch_add(1, Ordering::Relaxed);
         std::env::temp_dir().join(format!(
-            "auto-tag-lib-{}",
+            "auto-tag-lib-{}-{}",
             std::time::SystemTime::UNIX_EPOCH
                 .elapsed()
                 .unwrap()
-                .as_nanos()
+                .as_nanos(),
+            seq
         ))
     }
 
@@ -420,5 +424,52 @@ mod tests {
         assert_eq!(albums[0].artist_hint, "Artist");
         assert_eq!(albums[0].album_hint, "Album");
         fs::remove_dir_all(&lib).ok();
+    }
+
+    /// This is the Rust half of the shared Electron/Tauri `library:scan`
+    /// baseline. See `test/handlers/library.test.ts`: Electron runs its actual
+    /// `scanDirectory` over the same committed tree and asserts this JSON. Here
+    /// we normalize absolute paths to fixture-relative paths and sort them, then
+    /// require the same shape/content/order. This catches real cross-runtime
+    /// grouping or DTO drift rather than two independent test expectations.
+    #[test]
+    fn shared_electron_library_scan_fixture_matches() {
+        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("..")
+            .join("test/fixtures/tauri/library-scan")
+            .canonicalize()
+            .expect("committed Electron/Rust fixture exists");
+        let expected: serde_json::Value = serde_json::from_str(
+            &fs::read_to_string(root.join("expected.json"))
+                .expect("shared expected Electron response exists"),
+        )
+        .expect("shared expected response is valid JSON");
+
+        let mut actual: Vec<(String, serde_json::Value)> = scan_directory(&root)
+            .into_iter()
+            .map(|album| {
+                let relative = Path::new(&album.path)
+                    .strip_prefix(&root)
+                    .expect("album path stays under fixture root");
+                let path = if relative.as_os_str().is_empty() {
+                    ".".to_string()
+                } else {
+                    relative.to_string_lossy().replace('\\', "/")
+                };
+                let row = serde_json::json!({
+                    "path": path,
+                    "name": album.name,
+                    "artistHint": album.artist_hint,
+                    "albumHint": album.album_hint,
+                    "trackCount": album.track_count,
+                });
+                let sort_key = row["path"].as_str().expect("path is a string").to_string();
+                (sort_key, row)
+            })
+            .collect();
+        actual.sort_by(|a, b| a.0.cmp(&b.0));
+        let actual = serde_json::Value::Array(actual.into_iter().map(|(_, row)| row).collect());
+
+        assert_eq!(actual, expected);
     }
 }

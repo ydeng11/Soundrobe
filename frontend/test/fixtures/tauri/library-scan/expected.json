@@ -1,0 +1,23 @@
+[
+  {
+    "path": ".",
+    "name": "library-scan",
+    "artistHint": "",
+    "albumHint": "library-scan",
+    "trackCount": 1
+  },
+  {
+    "path": "Artist One/Album A",
+    "name": "Album A",
+    "artistHint": "Artist One",
+    "albumHint": "Album A",
+    "trackCount": 2
+  },
+  {
+    "path": "Flat Artist - Flat Album",
+    "name": "Flat Album",
+    "artistHint": "Flat Artist",
+    "albumHint": "Flat Album",
+    "trackCount": 1
+  }
+]

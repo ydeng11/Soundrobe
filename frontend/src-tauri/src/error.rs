@@ -23,6 +23,15 @@ pub enum ApiError {
 
     #[error("tauri error: {0}")]
     Tauri(#[from] tauri::Error),
+
+    /// A second modal context menu would overwrite the first request's labels
+    /// and resolve the wrong renderer promise, so reject it loudly.
+    #[error("track context menu already active")]
+    ContextMenuAlreadyActive,
+
+    /// A poisoned native-menu state cannot safely route click events.
+    #[error("track context menu state unavailable")]
+    ContextMenuStatePoisoned,
 }
 
 /// Serialize as a plain message string; the adapter wraps it in `new Error(...)`.

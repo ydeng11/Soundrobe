@@ -12,10 +12,10 @@ before `electron/` is removed. Generated from `electron/preload.ts`,
 |---|---|---|
 | Step 1 — characterization + dual-shell scaffold | ✅ green | shared `DesktopAPI` contract extracted; Tauri crate/adapter/loader + contract tests (60 shared tests); cargo fmt/clippy/test + electron typecheck/vitest/build green |
 | Window state persistence + off-screen recovery | ⏳ logic implemented, GUI parity pending | `state/window_state.rs` (11 unit tests encoding Electron intent, incl. missing-axis LeaveUnspecified); wired in `run()`. PENDING: `ready-to-show` show timing (Tauri equivalent needs `unstable` feature) — verified only under a display session; adapter command-name normalization regressions fixed |
-| Config (`config:get`/`config:set`) | ✅ green (vertical slice) | `state/config.rs` `ConfigState` (init/refresh/set/redacted) + wired sync `config_get`/`config_set` commands. 17 config unit tests incl. `ConfigState` lifecycle + normalized Electron-vs-Rust redaction fixture (both `redacted_fixture_matches_normalized_contract` Rust and the Vitest redaction-fixture pass the same expected JSON). DEFERRED: `config:set` assistant sync (`setStoredConfig` for llmApiKey/llmModel) wired when the assistant slice lands. |
-| Folder dialog | ✅ green | `commands/shell.rs` `dialog_open_folder` wired; honors `AUTO_TAGGER_E2E_LIBRARY_PATH` override (E2E escape hatch) then falls back to `tauri-plugin-dialog` `blocking_pick_folder`; returns selected path or `null` on cancel, rejects on error (Electron parity). 4 unit tests (override path env/empty/cancel). PENDING (context menu + window activation + quit-during-write guard): not yet ported. |
+| Config (`config:get`/`config:set`) | ✅ green (vertical slice) | `state/config.rs` `ConfigState` (init/refresh/set/redacted) + wired sync `config_get`/`config_set` commands. 18 config unit tests incl. lifecycle, poisoned-lock no-panic fallback (`config_get` → `{}`, raw → default; live state remains unchanged until restart), and normalized Electron-vs-Rust redaction fixture (Rust + Vitest pass the same expected JSON). DEFERRED: `config:set` assistant sync (`setStoredConfig` for llmApiKey/llmModel) wired when the assistant slice lands. |
+| Native shell: folder dialog / context menu / focus | ⏳ wired; GUI validation pending | `dialog_open_folder` honors `AUTO_TAGGER_E2E_LIBRARY_PATH`; plugin exposes only `Option<FilePath>`, so cancellation vs native GUI error rejection remains display-pending. `track_context_menu` honors `AUTO_TAGGER_E2E_TRACK_CONTEXT_ACTION`, builds Electron-equivalent action/copy labels, routes selection through managed single-popup state, and writes clipboard text; 4 focused tests cover override/filtering, exact Copy All output, action/null semantics, and overlap rejection. `window_focused` is wired as Electron’s no-op. PENDING: real-display popup/dismissal timing and quit-during-write (depends on `TagWriteQueue`). |
 | Persistence (config/cache/dataset/aliases/logs) | ⏳ pending | |
-| Read-only library slice — traversal/grouping (pure-fs) | ✅ green | `commands/directories.rs` `directory_list` (subdirs, dotfiles skipped, sorted) + `commands/library.rs` `library_scan` (isAudioFile, parseArtistAlbumHint dashed/year rules, collectAudioFiles, scanDirectory artist-vs-album strategy + root/single-file grouping). 15 intent unit tests. PENDING (audio-dependent): `directory:read`, `album:read`, `album:refresh` — need Rust audio-tag library (see advisor). |
+| Read-only library slice — traversal/grouping (pure-fs) | ⏳ partial | `library_scan` grouping is validated by a shared committed Electron/Rust fixture (same tree + normalized baseline JSON), plus pure-fs tests. `directory_list` behavior is ported, but its byte-order sort diverges from Electron `localeCompare` for mixed case/diacritics/CJK; characterization pins the divergence and collation parity remains pending an ICU matcher. PENDING (audio-dependent): `directory:read`, `album:read`, `album:refresh` — need `lofty` + custom fallback parsers. |
 | Mutation + media-safety slice | ⏳ pending | |
 | Providers/auto-tag/audit/assistant | ⏳ pending | |
 | E2E→WebdriverIO + CI + cutover | ⏳ pending | |
@@ -39,9 +39,9 @@ Legend:
 
 | Ch                     | Renderer method   | Owner            | Parity tests                              | Notes |
 |------------------------|-------------------|------------------|-------------------------------------------|-------|
-| `library:scan`         | `scanLibrary`     | library.ts       | `library.test.ts`, `LibraryService.test.ts` | album grouping, audio extension filter |
-| `album:refresh`        | `refreshAlbum`    | library.ts       | `library.test.ts`                         | re-read a single album |
-| `directory:list`       | `listDirectory`   | directory.ts     | `directory.test.ts`                       | one-level subdirs |
+| `library:scan`         | `scanLibrary`     | library.ts       | `library.test.ts`, `LibraryService.test.ts` | pure-fs grouping ported; shared Electron/Rust fixture validates normalized response |
+| `album:refresh`        | `refreshAlbum`    | library.ts       | `library.test.ts`                         | re-read a single album (audio metadata pending) |
+| `directory:list`       | `listDirectory`   | directory.ts     | `directory.test.ts`                       | logic ported; `localeCompare` collation parity pending (case/accents/CJK) |
 | `directory:read`       | `readDirectory`   | directory.ts     | `directory.test.ts`                       | subdir + track readback + audioCount |
 
 ### Tracks (metadata read/write/rename/extra-tags/delete)
@@ -56,7 +56,7 @@ Legend:
 | `tracks:batch-write-extra-tags` | `writeExtraTagsBatch` | tracks.ts | `tracks.test.ts`, `ExtraTagService.test.ts`                         | skip unsupported formats, warn |
 | `track:rename`            | `renameTrack`           | tracks.ts  | `tracks.test.ts`                                                        | mkdir dest dir, rename, readback |
 | `file:exists`             | `checkFileExists`       | tracks.ts  | `tracks.test.ts`                                                        | fs.existsSync |
-| `track:context-menu`      | `showTrackContextMenu`  | main.ts    | (E2E `extra-tags` via `AUTO_TAGGER_E2E_TRACK_CONTEXT_ACTION`)         | native Menu + clipboard; copy title/artist/albumartist/album/year/track/genre/path/all |
+| `track:context-menu`      | `showTrackContextMenu`  | main.ts    | Rust shell unit tests + E2E override | wired native menu + clipboard; E2E action override, exact Copy All payload, single-popup action state. GUI popup/dismissal timing pending display smoke. |
 | `track:delete-files`      | `deleteFiles`          | main.ts    | — (integration)                                                         | unlink, per-file success/error |
 
 ### Covers
@@ -129,8 +129,8 @@ Legend:
 
 | Ch                    | Renderer method     | Owner    | Parity tests   | Notes |
 |-----------------------|---------------------|----------|----------------|-------|
-| `window:focused`      | `onFocus`          | main.ts  | —              | no-op hook for renderer focus events |
-| `dialog:open-folder`  | `openFolderDialog` | main.ts  | (E2E)          | native folder picker via dialog plugin |
+| `window:focused`      | `onFocus`          | main.ts  | shell unit suite | wired no-op hook (matches Electron; no main-process state change) |
+| `dialog:open-folder`  | `openFolderDialog` | main.ts  | (E2E)          | wired; selected/null parity only — plugin GUI-error rejection remains pending display validation |
 | `debug:subscribe`     | `subscribeDebugLogs`| debug.ts | `debug.test.ts`| renderer opts into live `debug:log` forwarding |
 | `debug:set-mode`      | `setDebugMode`     | main.ts  | `debug.test.ts`| toggle + persist to config |
 | `debug:status`        | (internal/test)    | debug.ts | `debug.test.ts`| not in preload; parity still required |

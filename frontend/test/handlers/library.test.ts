@@ -174,3 +174,41 @@ describe("scanDirectory", () => {
     );
   });
 });
+
+/**
+ * Differential parity baseline: Electron generates this exact normalized
+ * library:scan response from the committed fixture tree. Rust's matching test
+ * consumes the same expected.json after running `scan_directory`, so neither
+ * runtime can silently drift in shape, grouping, or normalized path order.
+ */
+describe("library:scan shared Electron/Rust fixture", () => {
+  const fixtureRoot = path.resolve(
+    process.cwd(),
+    "test/fixtures/tauri/library-scan",
+  );
+
+  function normalize(
+    albums: Array<{
+      path: string;
+      name: string;
+      artistHint: string;
+      albumHint: string;
+      trackCount: number;
+    }>,
+  ) {
+    return albums
+      .map((album) => ({
+        ...album,
+        path: path.relative(fixtureRoot, album.path) || ".",
+      }))
+      .sort((a, b) => a.path.localeCompare(b.path));
+  }
+
+  it("matches the committed normalized baseline consumed by Rust", () => {
+    const expected = JSON.parse(
+      fs.readFileSync(path.join(fixtureRoot, "expected.json"), "utf-8"),
+    );
+    const actual = normalize([...scanDirectory(fixtureRoot).albums.values()]);
+    expect(actual).toEqual(expected);
+  });
+});

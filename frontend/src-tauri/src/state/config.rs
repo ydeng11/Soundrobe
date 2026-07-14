@@ -334,7 +334,7 @@ fn load_from_disk(home: &Path, env: &dyn Env) -> AutoTagConfig {
 pub struct ConfigState {
     home: PathBuf,
     env: Arc<dyn Env>,
-    inner: Mutex<AutoTagConfig>,
+    inner: Arc<Mutex<AutoTagConfig>>,
 }
 
 impl ConfigState {
@@ -349,25 +349,55 @@ impl ConfigState {
         Self {
             home,
             env,
-            inner: Mutex::new(config),
+            inner: Arc::new(Mutex::new(config)),
         }
     }
 
-    /// Renderer-facing redacted snapshot (matches `getConfig()`).
+    /// Renderer-facing redacted snapshot (matches `getConfig()`). On a poisoned
+    /// lock (a prior panic during config access), Electron's `getConfig()`
+    /// catches and returns `{}`; we mirror that by logging and returning an empty
+    /// JSON object, so `config_get` never panics and the renderer always gets a
+    /// shape-consistent object.
     pub fn redacted(&self) -> Value {
-        let guard = self.inner.lock().expect("config mutex poisoned");
-        redacted(&guard)
+        match self.inner.lock() {
+            Ok(guard) => redacted(&guard),
+            Err(e) => {
+                tracing::error!("config mutex poisoned: {e}");
+                json!({})
+            }
+        }
     }
 
-    /// Raw (unredacted) snapshot for main-process internal use.
+    /// Raw (unredacted) snapshot for main-process internal use. On a poisoned
+    /// lock, return the default config (no secrets, lookups opt-in) rather than
+    /// panicking — a calling slice must not take the shell down.
     pub fn raw(&self) -> AutoTagConfig {
-        self.inner.lock().expect("config mutex poisoned").clone()
+        match self.inner.lock() {
+            Ok(guard) => guard.clone(),
+            Err(e) => {
+                tracing::error!("config mutex poisoned: {e}");
+                AutoTagConfig::default()
+            }
+        }
     }
 
-    /// Reload config from disk + env (matches `refreshConfig()`).
+    /// Reload config from disk + env (matches `refreshConfig()`). On a poisoned
+    /// lock (a prior panic while holding it), the live config cannot be updated
+    /// — std::sync `Mutex` poison cannot be cleared by `into_inner` (the next
+    /// `lock()` still fails). We mirror Electron's tolerance by logging loudly and
+    /// leaving the live state unchanged (degrading to the restart-loaded values
+    /// until the app is restarted), never panicking. The on-disk file is still
+    /// correct, so a restart picks it up.
     pub fn refresh(&self) {
         let config = load_from_disk(&self.home, self.env.as_ref());
-        *self.inner.lock().expect("config mutex poisoned") = config;
+        match self.inner.lock() {
+            Ok(mut guard) => *guard = config,
+            Err(_) => {
+                tracing::error!(
+                    "config mutex poisoned; live config left unchanged. Restart to recover."
+                );
+            }
+        }
     }
 
     /// Write a renderer camelCase key to disk and refresh the live config
@@ -380,6 +410,7 @@ impl ConfigState {
             tracing::warn!("failed to save config key {camel_key}: {e}");
             return;
         }
+        // `refresh` already handles a poisoned mutex without panicking.
         self.refresh();
     }
 }
@@ -570,12 +601,16 @@ mod tests {
     }
 
     fn cfg_home() -> PathBuf {
+        use std::sync::atomic::{AtomicU64, Ordering};
+        static SEQ: AtomicU64 = AtomicU64::new(0);
+        let seq = SEQ.fetch_add(1, Ordering::Relaxed);
         std::env::temp_dir().join(format!(
-            "auto-tag-cfgstate-{}",
+            "auto-tag-cfgstate-{}-{}",
             std::time::SystemTime::UNIX_EPOCH
                 .elapsed()
                 .unwrap()
-                .as_nanos()
+                .as_nanos(),
+            seq
         ))
     }
 
@@ -658,5 +693,47 @@ mod tests {
             "chineseScript": "traditional"
         });
         assert_eq!(state.redacted(), expected);
+    }
+
+    /// Intent: a poisoned lock must not take `config_get` down — Electron's
+    /// `getConfig()` catches and returns {}; Rust mirrors that by returning `{}`
+    /// (redacted) or the default config (raw) and leaving the live state
+    /// unchanged on refresh — never panicking, so one panic elsewhere can't
+    /// crash the shell or the renderer's settings panel.
+    #[test]
+    fn config_state_survives_poisoned_lock() {
+        let home = cfg_home();
+        let state = ConfigState::init_with_env(home.clone(), Arc::new(EnvMap::new()));
+        let inner = state.inner.clone();
+        let h = std::thread::spawn(move || {
+            let _g = inner.lock().unwrap();
+            panic!("intentionally poison the config mutex");
+        })
+        .join();
+        assert!(
+            h.is_err(),
+            "helper thread should have panicked to poison the lock"
+        );
+        assert_eq!(
+            state.redacted(),
+            json!({}),
+            "redacted degrades to {{}} on poison"
+        );
+        assert_eq!(
+            state.raw(),
+            AutoTagConfig::default(),
+            "raw degrades to default on poison"
+        );
+        // refresh leaves the live state unchanged rather than silently writing
+        // into a dead lock (std::Mutex poison cannot be cleared).
+        fs::create_dir_all(home.join(".auto-tagger")).unwrap();
+        fs::write(config_file_path(&home), "llm_model: fresh\n").unwrap();
+        state.refresh();
+        assert_eq!(
+            state.raw(),
+            AutoTagConfig::default(),
+            "poison is permanent for the instance; live config degraded (restart recovers)"
+        );
+        assert_eq!(state.redacted(), json!({}));
     }
 }

@@ -28,8 +28,13 @@ pub struct DirEntry {
 /// List subdirectories of `dirPath` (dotfiles skipped, sorted by name). Returns
 /// an empty vec if the directory is missing or unreadable — mirroring Electron,
 /// which returns `[]` when `!existsSync` and `[]` on a caught read error.
-/// Sort is byte-order (Electron's `localeCompare` with no explicit locale yields
-/// root collation ≈ byte order for the ASCII names in music libraries).
+/// Sort is byte-order. Electron sorts with `a.name.localeCompare(b.name)` (no
+/// locale arg), which is case-/diacritic-insensitive under Node's default ICU
+/// locale; Rust byte-order DIVERGES for mixed case ("Bar" < "apple" here,
+/// "apple" < "Bar" in localeCompare), accented (café≈cafe), and CJK. This is
+/// a cosmetic folder-tree ordering difference, not a correctness issue for the
+/// tagging pipeline; collation parity is PENDING (see `byte_order_collation`
+/// characterization test). The order is still stable and deterministic.
 pub fn list_directory_entries(dir_path: &Path) -> Vec<DirEntry> {
     let mut results: Vec<DirEntry> = Vec::new();
     let Ok(entries) = fs::read_dir(dir_path) else {
@@ -74,12 +79,16 @@ mod tests {
     use std::path::PathBuf;
 
     fn tmp() -> PathBuf {
+        use std::sync::atomic::{AtomicU64, Ordering};
+        static SEQ: AtomicU64 = AtomicU64::new(0);
+        let seq = SEQ.fetch_add(1, Ordering::Relaxed);
         std::env::temp_dir().join(format!(
-            "auto-tag-dir-{}",
+            "auto-tag-dir-{}-{}",
             std::time::SystemTime::UNIX_EPOCH
                 .elapsed()
                 .unwrap()
-                .as_nanos()
+                .as_nanos(),
+            seq
         ))
     }
 
@@ -148,6 +157,35 @@ mod tests {
         // portably, but the code path uses `entries.flatten()` so bad entries
         // are dropped. At minimum, good entries survive:
         assert_eq!(list_directory_entries(&dir).len(), 1);
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// Collation characterization (NOT a parity claim). Records the known
+    /// divergence between Rust byte-order and Node `localeCompare` (default ICU
+    /// locale) for mixed case and accents. Names are collision-free (distinct
+    /// words, or differing only by diacritic which APFS preserves) so a
+    /// case-insensitive FS does not fold them.
+    ///
+    /// Node `localeCompare` order: `apple | cafe | café | Zoo`  (case-insensitive)
+    /// Rust byte-order order:        `Zoo | apple | cafe | café` (Zoo=0x5A < a=0x61)
+    ///
+    /// Pins the CURRENT byte-order output (catches a regression to an unstable
+    /// order) and keeps the divergence visible (Rule 11) until a real ICU
+    /// collator lands and the parity row turns green.
+    #[test]
+    fn byte_order_collation_characterization() {
+        let dir = tmp();
+        fs::create_dir_all(&dir).unwrap();
+        for n in ["Zoo", "apple", "cafe", "café"] {
+            fs::create_dir(dir.join(n)).unwrap();
+        }
+        let names: Vec<String> = list_directory_entries(&dir)
+            .iter()
+            .map(|e| e.name.clone())
+            .collect();
+        // Byte-order: uppercase Zoo before lowercase apple; cafe before café
+        // ('e'=0x65 < UTF-8 é=0xC3 0xA9).
+        assert_eq!(names, vec!["Zoo", "apple", "cafe", "café"]);
         fs::remove_dir_all(&dir).unwrap();
     }
 }

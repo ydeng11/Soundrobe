@@ -32,6 +32,7 @@ use std::time::Duration;
 use tauri::{Manager, PhysicalPosition, PhysicalSize, WindowEvent};
 use tracing_subscriber::EnvFilter;
 
+use crate::commands::shell::ContextMenuState;
 use crate::state::config::ConfigState;
 use crate::state::window_state::{DisplayWorkArea, PositionAction, WindowState};
 
@@ -63,6 +64,14 @@ pub fn run() {
             if let Some(home) = dirs::home_dir() {
                 app.manage(ConfigState::init(home));
             }
+            app.manage(ContextMenuState::default());
+            // Tauri menu events are global; ContextMenuState scopes recognized
+            // IDs to the single active popup so ordinary app/tray menu events
+            // cannot resolve a renderer context-menu promise.
+            app.on_menu_event(|app, event| {
+                let id: &str = event.id().as_ref();
+                commands::shell::handle_context_menu_event(app, id);
+            });
             wire_window_lifecycle(app.get_webview_window("main"));
             Ok(())
         })
@@ -71,6 +80,8 @@ pub fn run() {
             commands::configuration::config_get,
             commands::configuration::config_set,
             commands::shell::dialog_open_folder,
+            commands::shell::track_context_menu,
+            commands::shell::window_focused,
             commands::directories::directory_list,
             commands::library::library_scan,
         ])
