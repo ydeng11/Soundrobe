@@ -16,6 +16,8 @@
 //! reads per-track metadata via the `music-metadata` Node library; that depends
 //! on the Rust audio-tag strategy decided separately.
 
+use crate::commands::tracks::{read_album, AlbumDetail};
+use crate::error::ApiError;
 use serde::Serialize;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -269,6 +271,13 @@ pub fn library_scan(dir_path: String) -> Result<Vec<AlbumInfo>, String> {
     Ok(scan_directory(&path))
 }
 
+/// `album:refresh` / `refreshAlbum()`: Electron delegates directly to
+/// `readAlbum`, so use the same read-only implementation and error behavior.
+#[tauri::command]
+pub fn album_refresh(album_path: String) -> Result<AlbumDetail, ApiError> {
+    read_album(Path::new(&album_path))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -471,5 +480,22 @@ mod tests {
         let actual = serde_json::Value::Array(actual.into_iter().map(|(_, row)| row).collect());
 
         assert_eq!(actual, expected);
+    }
+
+    /// Intent: album:refresh is not a separate metadata algorithm; Electron
+    /// delegates it to readAlbum. Keep that single source of truth so refresh
+    /// never drifts from album:read's hints, covers, statuses, or fallbacks.
+    #[test]
+    fn album_refresh_delegates_to_album_reader() {
+        let root = tmp();
+        let album = root.join("Artist").join("Album");
+        fs::create_dir_all(&album).unwrap();
+        let result = album_refresh(album.to_string_lossy().into_owned())
+            .expect("readable album refresh should resolve");
+        assert_eq!(result.name, "Album");
+        assert_eq!(result.artist_hint, "Artist");
+        assert_eq!(result.status, "ok");
+        assert!(result.tracks.is_empty());
+        fs::remove_dir_all(&root).unwrap();
     }
 }

@@ -5,6 +5,7 @@
 //! `TrackData` DTO. Mutation, extra tags, rename, queueing, and writers remain
 //! intentionally absent until this differential reader contract is green.
 
+use crate::commands::library::is_audio_file;
 use crate::error::ApiError;
 use lofty::file::{AudioFile, TaggedFileExt};
 use lofty::tag::{ItemKey, Tag};
@@ -106,6 +107,141 @@ pub(crate) fn unreadable_track_data(path: &Path, size_bytes: u64, title: String)
     let mut track = TrackData::unreadable(path, size_bytes);
     track.title = Some(title);
     track
+}
+
+/// Renderer-facing local cover state (matches `CoverInfo`). `dataUrl` remains
+/// null here; data-URL loading belongs to the later covers command slice.
+#[derive(Clone, Debug, PartialEq, Serialize)]
+pub struct CoverInfo {
+    pub path: Option<String>,
+    pub source: String,
+    #[serde(rename = "dataUrl")]
+    pub data_url: Option<String>,
+}
+
+/// Renderer-facing album detail returned by `album:read`.
+#[derive(Clone, Debug, PartialEq, Serialize)]
+pub struct AlbumDetail {
+    pub path: String,
+    pub name: String,
+    #[serde(rename = "artistHint")]
+    pub artist_hint: String,
+    #[serde(rename = "albumHint")]
+    pub album_hint: String,
+    pub tracks: Vec<TrackData>,
+    #[serde(rename = "coverInfo")]
+    pub cover_info: CoverInfo,
+    pub status: String,
+}
+
+const COVER_NAMES: &[&str] = &[
+    "cover", "Cover", "COVER", "front", "Front", "FRONT", "folder", "Folder", "FOLDER", "albumart",
+    "AlbumArt",
+];
+const COVER_EXTENSIONS: &[&str] = &[".jpg", ".jpeg", ".png"];
+
+/// Read a direct-track album with Electron-equivalent hints, cover discovery,
+/// status, and per-track fallback. A missing/unreadable album directory itself
+/// returns an I/O error (Electron's `readdirSync` rejects the IPC invocation).
+pub fn read_album(album_path: &Path) -> Result<AlbumDetail, ApiError> {
+    let mut audio_files = Vec::new();
+    for entry in fs::read_dir(album_path)? {
+        let entry = entry?;
+        let name = entry.file_name();
+        let name = name.to_string_lossy();
+        if name.starts_with('.') {
+            continue;
+        }
+        let file_type = entry.file_type()?;
+        let path = entry.path();
+        if file_type.is_file() && is_audio_file(&path) {
+            audio_files.push(path);
+        }
+    }
+    audio_files.sort();
+
+    let mut error_count = 0;
+    let mut tracks = Vec::with_capacity(audio_files.len());
+    for path in audio_files {
+        match read_track_metadata(&path) {
+            Ok(track) if !(track.codec == "unknown" && track.title.is_none()) => {
+                tracks.push(track);
+            }
+            Ok(_) | Err(_) => {
+                // Reader's truncated-FLAC minimal DTO represents the same
+                // malformed-file condition Electron catches here. Normalize it
+                // to the album's basename/size fallback and include it in status.
+                error_count += 1;
+                let size = fs::metadata(&path)?.len();
+                let title = path
+                    .file_name()
+                    .map(|name| name.to_string_lossy().into_owned())
+                    .unwrap_or_default();
+                tracks.push(unreadable_track_data(&path, size, title));
+            }
+        }
+    }
+
+    let name = album_path
+        .file_name()
+        .map(|name| name.to_string_lossy().into_owned())
+        .unwrap_or_default();
+    let artist_hint = album_path
+        .parent()
+        .and_then(Path::file_name)
+        .map(|name| name.to_string_lossy().into_owned())
+        .unwrap_or_default();
+    let external_cover = detect_external_cover(album_path);
+    let has_embedded_cover = tracks.iter().any(|track| track.has_cover);
+    let cover_info = CoverInfo {
+        path: external_cover.clone(),
+        source: if external_cover.is_some() {
+            "external"
+        } else if has_embedded_cover {
+            "embedded"
+        } else {
+            "missing"
+        }
+        .to_string(),
+        data_url: None,
+    };
+    let status = if error_count == 0 {
+        "ok"
+    } else if error_count < tracks.len() {
+        "warning"
+    } else {
+        "error"
+    }
+    .to_string();
+
+    Ok(AlbumDetail {
+        path: album_path.to_string_lossy().into_owned(),
+        name: name.clone(),
+        artist_hint,
+        album_hint: name,
+        tracks,
+        cover_info,
+        status,
+    })
+}
+
+fn detect_external_cover(album_path: &Path) -> Option<String> {
+    for name in COVER_NAMES {
+        for extension in COVER_EXTENSIONS {
+            let candidate = album_path.join(format!("{name}{extension}"));
+            if candidate.exists() {
+                return Some(candidate.to_string_lossy().into_owned());
+            }
+        }
+    }
+    None
+}
+
+/// `album:read` / `readAlbum()`. Read-only; propagates an unreadable album
+/// directory while containing individual malformed track files in the result.
+#[tauri::command]
+pub fn album_read(album_path: String) -> Result<AlbumDetail, ApiError> {
+    read_album(Path::new(&album_path))
 }
 
 /// Read one track into the renderer DTO. Generic containers use Lofty; FLAC
@@ -895,5 +1031,79 @@ mod tests {
                 .collect(),
         );
         assert_eq!(actual, expected);
+    }
+
+    /// Intent: album:read must retain the renderer's folder hints and report a
+    /// local `cover.jpg` before embedded art. It reuses the real reader instead
+    /// of manufacturing TrackData, so the whole read-only vertical slice is
+    /// exercised from directory bytes to AlbumDetail DTO.
+    #[test]
+    fn album_read_reports_hints_external_cover_and_ok_status() {
+        let root = album_test_root();
+        let album = root.join("Artist").join("Album");
+        std::fs::create_dir_all(&album).unwrap();
+        std::fs::copy(corpus_root().join("minimal.ogg"), album.join("01.ogg")).unwrap();
+        std::fs::write(album.join("cover.jpg"), b"cover").unwrap();
+
+        let result = read_album(&album).expect("readable album should resolve");
+        assert_eq!(result.name, "Album");
+        assert_eq!(result.artist_hint, "Artist");
+        assert_eq!(result.album_hint, "Album");
+        assert_eq!(result.status, "ok");
+        assert_eq!(result.tracks.len(), 1);
+        assert_eq!(result.tracks[0].title.as_deref(), Some("Corpus OGG"));
+        assert_eq!(result.cover_info.source, "external");
+        assert_eq!(
+            result.cover_info.path,
+            Some(album.join("cover.jpg").to_string_lossy().into_owned())
+        );
+        assert_eq!(result.cover_info.data_url, None);
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    /// Intent: one malformed track is visible but must downgrade a otherwise
+    /// healthy album to warning, so callers can distinguish partial results
+    /// from a clean scan without losing the good metadata.
+    #[test]
+    fn album_read_reports_warning_for_partial_track_failure() {
+        let root = album_test_root();
+        let album = root.join("Artist").join("Album");
+        std::fs::create_dir_all(&album).unwrap();
+        std::fs::copy(corpus_root().join("minimal.ogg"), album.join("01.ogg")).unwrap();
+        std::fs::write(album.join("02-corrupt.flac"), vec![0_u8; 128]).unwrap();
+
+        let result = read_album(&album).expect("album stays readable");
+        assert_eq!(result.status, "warning");
+        assert_eq!(result.tracks.len(), 2);
+        assert_eq!(result.tracks[1].title.as_deref(), Some("02-corrupt.flac"));
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    /// Intent: all malformed tracks produce `error`, not warning/ok, matching
+    /// Electron's `errorCount === tracks.length` status rule.
+    #[test]
+    fn album_read_reports_error_when_all_tracks_fail() {
+        let root = album_test_root();
+        let album = root.join("Artist").join("Album");
+        std::fs::create_dir_all(&album).unwrap();
+        std::fs::write(album.join("corrupt.flac"), vec![0_u8; 128]).unwrap();
+
+        let result = read_album(&album).expect("album directory stays readable");
+        assert_eq!(result.status, "error");
+        assert_eq!(result.tracks[0].title.as_deref(), Some("corrupt.flac"));
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    fn album_test_root() -> PathBuf {
+        use std::sync::atomic::{AtomicU64, Ordering};
+        static SEQ: AtomicU64 = AtomicU64::new(0);
+        std::env::temp_dir().join(format!(
+            "auto-tag-album-read-{}-{}",
+            std::time::SystemTime::UNIX_EPOCH
+                .elapsed()
+                .unwrap()
+                .as_nanos(),
+            SEQ.fetch_add(1, Ordering::Relaxed),
+        ))
     }
 }
