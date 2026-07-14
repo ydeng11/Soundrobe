@@ -8,6 +8,7 @@ use lofty::config::{ParseOptions, WriteOptions};
 use lofty::file::AudioFile;
 use lofty::flac::FlacFile;
 use lofty::id3::v2::{Frame, FrameId, Id3v2Tag, TextInformationFrame, UnsynchronizedTextFrame};
+use lofty::mp4::{Atom, AtomData, AtomIdent, Ilst, Mp4File};
 use lofty::mpeg::MpegFile;
 use lofty::ogg::{OpusFile, VorbisFile};
 use lofty::tag::{Accessor, TagExt};
@@ -137,9 +138,12 @@ async fn write_track_queued(
         .extension()
         .and_then(|extension| extension.to_str())
         .map(str::to_ascii_lowercase);
-    if !matches!(extension.as_deref(), Some("mp3" | "flac" | "ogg" | "opus")) {
+    if !matches!(
+        extension.as_deref(),
+        Some("mp3" | "flac" | "ogg" | "opus" | "m4a" | "mp4")
+    ) {
         return Err(ApiError::NotImplemented(
-            "track:write for formats other than MP3/FLAC/OGG/Opus",
+            "track:write for formats other than MP3/FLAC/OGG/Opus/M4A/MP4",
         ));
     }
     queue
@@ -147,13 +151,54 @@ async fn write_track_queued(
             tokio::task::spawn_blocking(move || match extension.as_deref() {
                 Some("mp3") => write_mp3_atomic(&path, &patch),
                 Some("flac") => write_flac_atomic(&path, &patch),
-                _ => write_ogg_atomic(&path, &patch),
+                Some("ogg" | "opus") => write_ogg_atomic(&path, &patch),
+                _ => write_mp4_atomic(&path, &patch),
             })
             .await
             .map_err(|error| ApiError::WriteTask(error.to_string()))?
         })
         .await?;
     Ok(())
+}
+
+/// Write M4A/MP4 ilst metadata through a validated sibling. Container atom
+/// offsets may change, but every top-level `mdat` payload must remain exact.
+pub fn write_mp4_atomic(path: &Path, patch: &TrackPatch) -> Result<TrackWriteOutcome, ApiError> {
+    let original_bytes = fs::read(path)?;
+    let original_media = mp4_mdat_payloads(&original_bytes)
+        .ok_or_else(|| ApiError::MediaSafety("invalid MP4 atom structure".to_string()))?;
+    let before = read_track_metadata(path)?;
+    let mut file = File::open(path)?;
+    let mut parsed = Mp4File::read_from(&mut file, ParseOptions::new().read_properties(false))?;
+    let ilst = parsed
+        .ilst_mut()
+        .ok_or_else(|| ApiError::MediaSafety("MP4 has no ilst metadata atom".to_string()))?;
+    apply_mp4_patch(ilst, patch);
+
+    let temporary = sibling_temp_path(path);
+    let result = (|| {
+        fs::copy(path, &temporary)?;
+        parsed.save_to_path(&temporary, WriteOptions::new())?;
+        let candidate_bytes = fs::read(&temporary)?;
+        let candidate_media = mp4_mdat_payloads(&candidate_bytes).ok_or_else(|| {
+            ApiError::MediaSafety("invalid written MP4 atom structure".to_string())
+        })?;
+        if candidate_media != original_media {
+            return Err(ApiError::MediaSafety(
+                "MP4 mdat payload changed during metadata write".to_string(),
+            ));
+        }
+        let after = read_track_metadata(&temporary)?;
+        if same_metadata(before, after) {
+            return Ok(TrackWriteOutcome::Skipped);
+        }
+        replace_file_atomic(&temporary, path)?;
+        Ok(TrackWriteOutcome::Replaced)
+    })();
+    if temporary.exists() {
+        let _ = fs::remove_file(&temporary);
+    }
+    result
 }
 
 /// Write OGG Vorbis or true Opus through a validated sibling. Page layout and
@@ -303,6 +348,94 @@ fn read_id3v2(path: &Path) -> Result<Id3v2Tag, ApiError> {
     let mut file = File::open(path)?;
     let parsed = MpegFile::read_from(&mut file, ParseOptions::new().read_properties(false))?;
     Ok(parsed.id3v2().cloned().unwrap_or_default())
+}
+
+fn apply_mp4_patch(tag: &mut Ilst, patch: &TrackPatch) {
+    apply_mp4_text(tag, AtomIdent::Fourcc(*b"\xa9nam"), &patch.title);
+    apply_mp4_text(tag, AtomIdent::Fourcc(*b"\xa9ART"), &patch.artist);
+    apply_mp4_freeform_list(tag, "ARTISTS", &patch.artists);
+    apply_mp4_text(tag, AtomIdent::Fourcc(*b"\xa9alb"), &patch.album);
+    apply_mp4_text(tag, AtomIdent::Fourcc(*b"aART"), &patch.album_artist);
+    apply_mp4_freeform_list(tag, "ALBUMARTISTS", &patch.album_artists);
+    apply_mp4_text(tag, AtomIdent::Fourcc(*b"\xa9day"), &patch.year);
+    apply_mp4_number_pair(tag, patch);
+    apply_mp4_text(tag, AtomIdent::Fourcc(*b"\xa9gen"), &patch.genre);
+    apply_mp4_text(tag, AtomIdent::Fourcc(*b"\xa9wrt"), &patch.composer);
+    apply_mp4_text(tag, AtomIdent::Fourcc(*b"\xa9cmt"), &patch.comment);
+    apply_mp4_text(tag, AtomIdent::Fourcc(*b"desc"), &patch.description);
+    apply_mp4_text(tag, AtomIdent::Fourcc(*b"\xa9lyr"), &patch.lyrics);
+    match patch.compilation {
+        Patch::Omitted => {}
+        Patch::Null => drop(tag.remove(&AtomIdent::Fourcc(*b"cpil"))),
+        Patch::Value(value) => tag.set_flag(AtomIdent::Fourcc(*b"cpil"), value),
+    }
+    apply_mp4_freeform(tag, "MusicBrainz Track Id", &patch.musicbrainz_track_id);
+    apply_mp4_freeform(tag, "MusicBrainz Album Id", &patch.musicbrainz_album_id);
+    apply_mp4_freeform(tag, "MusicBrainz Artist Id", &patch.musicbrainz_artist_id);
+    apply_mp4_freeform(tag, "Discogs Artist Id", &patch.discogs_artist_id);
+    apply_mp4_freeform(tag, "Discogs Release Id", &patch.discogs_release_id);
+}
+
+fn apply_mp4_text(tag: &mut Ilst, ident: AtomIdent<'static>, patch: &Patch<String>) {
+    match patch {
+        Patch::Omitted => {}
+        Patch::Null => drop(tag.remove(&ident)),
+        Patch::Value(value) => tag.replace_atom(Atom::new(ident, AtomData::UTF8(value.clone()))),
+    }
+}
+
+fn mp4_freeform(name: &str) -> AtomIdent<'static> {
+    AtomIdent::Freeform {
+        mean: Cow::Borrowed("com.apple.iTunes"),
+        name: Cow::Owned(name.to_string()),
+    }
+}
+
+fn apply_mp4_freeform(tag: &mut Ilst, name: &str, patch: &Patch<String>) {
+    apply_mp4_text(tag, mp4_freeform(name), patch);
+}
+
+fn apply_mp4_freeform_list(tag: &mut Ilst, name: &str, patch: &Patch<StringList>) {
+    let ident = mp4_freeform(name);
+    match patch {
+        Patch::Omitted => {}
+        Patch::Null => drop(tag.remove(&ident)),
+        Patch::Value(values) => {
+            let data = values
+                .normalized()
+                .into_iter()
+                .map(AtomData::UTF8)
+                .collect::<Vec<_>>();
+            if let Some(atom) = Atom::from_collection(ident.clone(), data) {
+                tag.replace_atom(atom);
+            } else {
+                drop(tag.remove(&ident));
+            }
+        }
+    }
+}
+
+fn apply_mp4_number_pair(tag: &mut Ilst, patch: &TrackPatch) {
+    match patch.track_number {
+        Patch::Omitted => {}
+        Patch::Null => tag.remove_track(),
+        Patch::Value(value) => tag.set_track(value),
+    }
+    match patch.track_total {
+        Patch::Omitted => {}
+        Patch::Null => tag.remove_track_total(),
+        Patch::Value(value) => tag.set_track_total(value),
+    }
+    match patch.disc_number {
+        Patch::Omitted => {}
+        Patch::Null => tag.remove_disk(),
+        Patch::Value(value) => tag.set_disk(value),
+    }
+    match patch.disc_total {
+        Patch::Omitted => {}
+        Patch::Null => tag.remove_disk_total(),
+        Patch::Value(value) => tag.set_disk_total(value),
+    }
 }
 
 fn apply_vorbis_patch(tag: &mut lofty::ogg::VorbisComments, patch: &TrackPatch) {
@@ -609,6 +742,40 @@ fn same_metadata_ignoring_container_size(before: TrackData, mut after: TrackData
     before == after
 }
 
+fn mp4_mdat_payloads(bytes: &[u8]) -> Option<Vec<Vec<u8>>> {
+    let mut payloads = Vec::new();
+    let mut offset = 0_usize;
+    while offset.checked_add(8)? <= bytes.len() {
+        let size32 = u32::from_be_bytes(bytes.get(offset..offset + 4)?.try_into().ok()?);
+        let kind = bytes.get(offset + 4..offset + 8)?;
+        let (header, size) = if size32 == 1 {
+            (
+                16_usize,
+                usize::try_from(u64::from_be_bytes(
+                    bytes.get(offset + 8..offset + 16)?.try_into().ok()?,
+                ))
+                .ok()?,
+            )
+        } else if size32 == 0 {
+            (8_usize, bytes.len().checked_sub(offset)?)
+        } else {
+            (8_usize, size32 as usize)
+        };
+        if size < header {
+            return None;
+        }
+        let end = offset.checked_add(size)?;
+        if end > bytes.len() {
+            return None;
+        }
+        if kind == b"mdat" {
+            payloads.push(bytes.get(offset + header..end)?.to_vec());
+        }
+        offset = end;
+    }
+    (offset == bytes.len() && !payloads.is_empty()).then_some(payloads)
+}
+
 fn ogg_audio_packets(bytes: &[u8], header_packets: usize) -> Option<Vec<Vec<u8>>> {
     let mut packets = Vec::new();
     let mut packet = Vec::new();
@@ -798,11 +965,16 @@ mod tests {
     use super::*;
     use lofty::id3::v2::BinaryFrame;
 
-    fn fixture() -> PathBuf {
+    fn media_fixture(name: &str) -> PathBuf {
         PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("../test/fixtures/tauri/media-corpus/minimal.mp3")
+            .join("../test/fixtures/tauri/media-corpus")
+            .join(name)
             .canonicalize()
             .unwrap()
+    }
+
+    fn fixture() -> PathBuf {
+        media_fixture("minimal.mp3")
     }
 
     fn copy_fixture() -> (PathBuf, PathBuf) {
@@ -1016,6 +1188,100 @@ mod tests {
     }
 
     #[test]
+    fn mp4_identical_patch_is_true_noop() {
+        let (root, path) = copy_to_temp(&media_fixture("minimal.m4a"), "track.m4a");
+        let before = fs::read(&path).unwrap();
+        let patch: TrackPatch =
+            serde_json::from_value(serde_json::json!({"title": "Corpus Encoded"})).unwrap();
+        assert_eq!(
+            write_mp4_atomic(&path, &patch).unwrap(),
+            TrackWriteOutcome::Skipped
+        );
+        assert_eq!(fs::read(&path).unwrap(), before);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn mp4_rich_patch_preserves_mdat_and_reads_back_validly() {
+        for name in ["minimal.m4a", "minimal.mp4"] {
+            let (root, path) = copy_to_temp(&media_fixture(name), name);
+            let before = mp4_mdat_payloads(&fs::read(&path).unwrap()).unwrap();
+            let patch: TrackPatch = serde_json::from_value(serde_json::json!({
+                "title": "Replacement MP4",
+                "artist": "Replacement Artist",
+                "artists": ["Primary", "Guest"],
+                "albumArtist": "Replacement Album Artist",
+                "trackNumber": 7,
+                "trackTotal": 9,
+                "discNumber": 2,
+                "discTotal": 3,
+                "description": "Replacement description",
+                "lyrics": "Replacement lyrics",
+                "compilation": true,
+                "musicbrainzAlbumId": "replacement-mb-album",
+                "discogsReleaseId": "replacement-discogs-release"
+            }))
+            .unwrap();
+            assert_eq!(
+                write_mp4_atomic(&path, &patch).unwrap(),
+                TrackWriteOutcome::Replaced
+            );
+            assert_eq!(
+                mp4_mdat_payloads(&fs::read(&path).unwrap()).unwrap(),
+                before
+            );
+            let track = read_track_metadata(&path).unwrap();
+            assert_eq!(track.title.as_deref(), Some("Replacement MP4"));
+            assert_eq!(track.artist.as_deref(), Some("Replacement Artist"));
+            assert_eq!(track.artists, ["Primary", "Guest"]);
+            assert_eq!(
+                track.album_artist.as_deref(),
+                Some("Replacement Album Artist")
+            );
+            assert_eq!((track.track_number, track.track_total), (Some(7), Some(9)));
+            assert_eq!((track.disc_number, track.disc_total), (Some(2), Some(3)));
+            assert_eq!(
+                track.description.as_deref(),
+                Some("Replacement description")
+            );
+            assert_eq!(track.lyrics.as_deref(), Some("Replacement lyrics"));
+            assert_eq!(track.compilation, Some(true));
+            assert_eq!(
+                track.musicbrainz_album_id.as_deref(),
+                Some("replacement-mb-album")
+            );
+            assert_eq!(
+                track.discogs_release_id.as_deref(),
+                Some("replacement-discogs-release")
+            );
+            fs::remove_dir_all(root).unwrap();
+        }
+    }
+
+    #[test]
+    fn mp4_unknown_freeform_atom_survives_changed_patch() {
+        let (root, path) = copy_to_temp(&media_fixture("minimal.m4a"), "track.m4a");
+        let unknown = mp4_freeform("UNRELATED");
+        let mut source = File::open(&path).unwrap();
+        let mut parsed =
+            Mp4File::read_from(&mut source, ParseOptions::new().read_properties(false)).unwrap();
+        parsed.ilst_mut().unwrap().replace_atom(Atom::new(
+            unknown.clone(),
+            AtomData::UTF8("keep-me".to_string()),
+        ));
+        parsed.save_to_path(&path, WriteOptions::new()).unwrap();
+
+        let patch: TrackPatch =
+            serde_json::from_value(serde_json::json!({"title": "Changed"})).unwrap();
+        write_mp4_atomic(&path, &patch).unwrap();
+        let mut source = File::open(&path).unwrap();
+        let parsed =
+            Mp4File::read_from(&mut source, ParseOptions::new().read_properties(false)).unwrap();
+        assert!(parsed.ilst().unwrap().get(&unknown).is_some());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
     fn ogg_identical_patch_is_true_noop() {
         let (root, path) = copy_ogg_fixture("vorbis.ogg");
         let before = fs::read(&path).unwrap();
@@ -1205,6 +1471,21 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn queued_mp4_write_runs_the_atomic_core() {
+        let (root, path) = copy_to_temp(&media_fixture("minimal.mp4"), "track.mp4");
+        let patch: TrackPatch =
+            serde_json::from_value(serde_json::json!({"title": "Queued MP4 title"})).unwrap();
+        write_track_queued(&WriteQueue::default(), path.clone(), patch)
+            .await
+            .unwrap();
+        assert_eq!(
+            read_track_metadata(&path).unwrap().title.as_deref(),
+            Some("Queued MP4 title")
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
     async fn queued_true_opus_write_runs_the_atomic_core() {
         let (root, path) = copy_ogg_fixture("opus.opus");
         let patch: TrackPatch =
@@ -1226,13 +1507,30 @@ mod tests {
             TEMP_SEQUENCE.fetch_add(1, Ordering::Relaxed)
         ));
         fs::create_dir_all(&root).unwrap();
-        let path = root.join("pending.m4a");
+        let path = root.join("pending.wav");
         fs::write(&path, b"unchanged").unwrap();
         let error = write_track_queued(&WriteQueue::default(), path.clone(), TrackPatch::default())
             .await
             .unwrap_err();
-        assert!(error.to_string().contains("other than MP3/FLAC/OGG/Opus"));
+        assert!(error
+            .to_string()
+            .contains("other than MP3/FLAC/OGG/Opus/M4A/MP4"));
         assert_eq!(fs::read(&path).unwrap(), b"unchanged");
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn malformed_mp4_failure_leaves_original_untouched() {
+        let root = std::env::temp_dir().join(format!(
+            "auto-tagger-bad-mp4-{}",
+            TEMP_SEQUENCE.fetch_add(1, Ordering::Relaxed)
+        ));
+        fs::create_dir_all(&root).unwrap();
+        let path = root.join("bad.mp4");
+        fs::write(&path, b"not an mp4").unwrap();
+        let before = fs::read(&path).unwrap();
+        assert!(write_mp4_atomic(&path, &TrackPatch::default()).is_err());
+        assert_eq!(fs::read(&path).unwrap(), before);
         fs::remove_dir_all(root).unwrap();
     }
 

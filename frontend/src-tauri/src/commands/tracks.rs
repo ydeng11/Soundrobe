@@ -9,10 +9,12 @@ use crate::error::ApiError;
 use lofty::config::ParseOptions;
 use lofty::file::{AudioFile, TaggedFileExt};
 use lofty::flac::FlacFile;
+use lofty::mp4::{AtomData, AtomIdent, Mp4File};
 use lofty::mpeg::MpegFile;
 use lofty::ogg::{OpusFile, VorbisFile};
 use lofty::tag::{ItemKey, Tag};
 use serde::Serialize;
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::fs;
 use std::fs::File;
@@ -273,6 +275,8 @@ pub fn read_track_metadata(path: &Path) -> Result<TrackData, ApiError> {
                 apply_flac_native_fields(path, &mut track);
             } else if matches!(extension.as_str(), "ogg" | "opus") {
                 apply_ogg_native_fields(path, &extension, &mut track);
+            } else if matches!(extension.as_str(), "m4a" | "mp4") {
+                apply_mp4_native_fields(path, &mut track);
             }
             if extension == "flac" && track.duration <= 0.0 {
                 // `music-metadata` reports Infinity for these valid metadata
@@ -313,6 +317,46 @@ fn apply_flac_native_fields(path: &Path, track: &mut TrackData) {
     };
     track.discogs_artist_id = comments.get("DISCOGS_ARTIST_ID").map(ToOwned::to_owned);
     track.discogs_release_id = comments.get("DISCOGS_RELEASE_ID").map(ToOwned::to_owned);
+}
+
+fn apply_mp4_native_fields(path: &Path, track: &mut TrackData) {
+    let Ok(mut file) = File::open(path) else {
+        return;
+    };
+    let Ok(parsed) = Mp4File::read_from(&mut file, ParseOptions::new().read_properties(false))
+    else {
+        return;
+    };
+    let Some(ilst) = parsed.ilst() else {
+        return;
+    };
+    let freeform = |name: &'static str| AtomIdent::Freeform {
+        mean: Cow::Borrowed("com.apple.iTunes"),
+        name: Cow::Borrowed(name),
+    };
+    let values = |ident: AtomIdent<'static>| {
+        ilst.get(&ident)
+            .map(|atom| {
+                atom.data()
+                    .filter_map(|data| match data {
+                        AtomData::UTF8(value) | AtomData::UTF16(value) => Some(value.clone()),
+                        _ => None,
+                    })
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default()
+    };
+    let text = |ident: AtomIdent<'static>| values(ident).into_iter().next();
+    let artists = values(freeform("ARTISTS"));
+    if !artists.is_empty() {
+        track.artists = artists;
+    }
+    let album_artists = values(freeform("ALBUMARTISTS"));
+    if !album_artists.is_empty() {
+        track.album_artists = album_artists;
+    }
+    track.discogs_artist_id = text(freeform("Discogs Artist Id"));
+    track.discogs_release_id = text(freeform("Discogs Release Id"));
 }
 
 fn apply_ogg_native_fields(path: &Path, extension: &str, track: &mut TrackData) {
