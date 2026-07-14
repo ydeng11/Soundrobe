@@ -100,3 +100,13 @@ for (const [name, args] of outputs) {
   run(`${outputRoot}/${name}`, args);
 }
 run(`${writerRoot}/padded.flac`, ["-c:a", "flac", ...metadata]);
+run(`${writerRoot}/vorbis.ogg`, [
+  "-c:a",
+  "vorbis",
+  "-strict",
+  "experimental",
+  "-q:a",
+  "2",
+  ...metadata,
+]);
+run(`${writerRoot}/opus.opus`, ["-c:a", "libopus", "-b:a", "64k", ...metadata]);
