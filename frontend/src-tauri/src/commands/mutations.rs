@@ -8,6 +8,7 @@ use lofty::config::{ParseOptions, WriteOptions};
 use lofty::file::AudioFile;
 use lofty::flac::FlacFile;
 use lofty::id3::v2::{Frame, FrameId, Id3v2Tag, TextInformationFrame, UnsynchronizedTextFrame};
+use lofty::iff::wav::WavFile;
 use lofty::mp4::{Atom, AtomData, AtomIdent, Ilst, Mp4File};
 use lofty::mpeg::MpegFile;
 use lofty::ogg::{OpusFile, VorbisFile};
@@ -138,12 +139,17 @@ async fn write_track_queued(
         .extension()
         .and_then(|extension| extension.to_str())
         .map(str::to_ascii_lowercase);
+    if extension.as_deref() == Some("aiff") {
+        return Err(ApiError::UnsupportedFormat(
+            "AIFF metadata writing is not supported".to_string(),
+        ));
+    }
     if !matches!(
         extension.as_deref(),
-        Some("mp3" | "flac" | "ogg" | "opus" | "m4a" | "mp4")
+        Some("mp3" | "flac" | "ogg" | "opus" | "m4a" | "mp4" | "wav")
     ) {
         return Err(ApiError::NotImplemented(
-            "track:write for formats other than MP3/FLAC/OGG/Opus/M4A/MP4",
+            "track:write for formats other than MP3/FLAC/OGG/Opus/M4A/MP4/WAV",
         ));
     }
     queue
@@ -152,13 +158,54 @@ async fn write_track_queued(
                 Some("mp3") => write_mp3_atomic(&path, &patch),
                 Some("flac") => write_flac_atomic(&path, &patch),
                 Some("ogg" | "opus") => write_ogg_atomic(&path, &patch),
-                _ => write_mp4_atomic(&path, &patch),
+                Some("m4a" | "mp4") => write_mp4_atomic(&path, &patch),
+                _ => write_wav_atomic(&path, &patch),
             })
             .await
             .map_err(|error| ApiError::WriteTask(error.to_string()))?
         })
         .await?;
     Ok(())
+}
+
+/// Write WAV ID3 metadata through a validated sibling. RIFF chunk layout may
+/// change, but every PCM `data` payload must remain exact.
+pub fn write_wav_atomic(path: &Path, patch: &TrackPatch) -> Result<TrackWriteOutcome, ApiError> {
+    let original_bytes = fs::read(path)?;
+    let original_audio = wav_data_payloads(&original_bytes)
+        .ok_or_else(|| ApiError::MediaSafety("invalid WAV chunk structure".to_string()))?;
+    let before = read_track_metadata(path)?;
+    let mut file = File::open(path)?;
+    let parsed = WavFile::read_from(&mut file, ParseOptions::new().read_properties(false))?;
+    let mut tag = parsed.id3v2().cloned().unwrap_or_default();
+    preserve_omitted_list(&mut tag, path, "ARTISTS", &patch.artists);
+    preserve_omitted_list(&mut tag, path, "ALBUMARTISTS", &patch.album_artists);
+    apply_patch(&mut tag, patch);
+
+    let temporary = sibling_temp_path(path);
+    let result = (|| {
+        fs::copy(path, &temporary)?;
+        tag.save_to_path(&temporary, WriteOptions::new())?;
+        let candidate_bytes = fs::read(&temporary)?;
+        let candidate_audio = wav_data_payloads(&candidate_bytes).ok_or_else(|| {
+            ApiError::MediaSafety("invalid written WAV chunk structure".to_string())
+        })?;
+        if candidate_audio != original_audio {
+            return Err(ApiError::MediaSafety(
+                "WAV data payload changed during metadata write".to_string(),
+            ));
+        }
+        let after = read_track_metadata(&temporary)?;
+        if same_metadata(before, after) {
+            return Ok(TrackWriteOutcome::Skipped);
+        }
+        replace_file_atomic(&temporary, path)?;
+        Ok(TrackWriteOutcome::Replaced)
+    })();
+    if temporary.exists() {
+        let _ = fs::remove_file(&temporary);
+    }
+    result
 }
 
 /// Write M4A/MP4 ilst metadata through a validated sibling. Container atom
@@ -742,6 +789,28 @@ fn same_metadata_ignoring_container_size(before: TrackData, mut after: TrackData
     before == after
 }
 
+fn wav_data_payloads(bytes: &[u8]) -> Option<Vec<Vec<u8>>> {
+    if bytes.len() < 12 || bytes.get(..4)? != b"RIFF" || bytes.get(8..12)? != b"WAVE" {
+        return None;
+    }
+    let mut payloads = Vec::new();
+    let mut offset = 12_usize;
+    while offset.checked_add(8)? <= bytes.len() {
+        let id = bytes.get(offset..offset + 4)?;
+        let size = u32::from_le_bytes(bytes.get(offset + 4..offset + 8)?.try_into().ok()?) as usize;
+        let data_start = offset.checked_add(8)?;
+        let data_end = data_start.checked_add(size)?;
+        if data_end > bytes.len() {
+            return None;
+        }
+        if id == b"data" {
+            payloads.push(bytes.get(data_start..data_end)?.to_vec());
+        }
+        offset = data_end.checked_add(size % 2)?;
+    }
+    (offset == bytes.len() && !payloads.is_empty()).then_some(payloads)
+}
+
 fn mp4_mdat_payloads(bytes: &[u8]) -> Option<Vec<Vec<u8>>> {
     let mut payloads = Vec::new();
     let mut offset = 0_usize;
@@ -1188,6 +1257,57 @@ mod tests {
     }
 
     #[test]
+    fn wav_add_update_noop_and_null_preserve_pcm() {
+        let (root, path) = copy_to_temp(&media_fixture("minimal.wav"), "track.wav");
+        let original_audio = wav_data_payloads(&fs::read(&path).unwrap()).unwrap();
+        let patch: TrackPatch = serde_json::from_value(serde_json::json!({
+            "title": "Replacement WAV",
+            "artist": "Replacement Artist",
+            "trackNumber": 7,
+            "trackTotal": 9,
+            "musicbrainzAlbumId": "replacement-mb-album",
+            "discogsReleaseId": "replacement-discogs-release"
+        }))
+        .unwrap();
+        assert_eq!(
+            write_wav_atomic(&path, &patch).unwrap(),
+            TrackWriteOutcome::Replaced
+        );
+        assert_eq!(
+            wav_data_payloads(&fs::read(&path).unwrap()).unwrap(),
+            original_audio
+        );
+        let track = read_track_metadata(&path).unwrap();
+        assert_eq!(track.title.as_deref(), Some("Replacement WAV"));
+        assert_eq!(track.artist.as_deref(), Some("Replacement Artist"));
+        assert_eq!((track.track_number, track.track_total), (Some(7), Some(9)));
+        assert_eq!(
+            track.musicbrainz_album_id.as_deref(),
+            Some("replacement-mb-album")
+        );
+        assert_eq!(
+            track.discogs_release_id.as_deref(),
+            Some("replacement-discogs-release")
+        );
+
+        let before_noop = fs::read(&path).unwrap();
+        assert_eq!(
+            write_wav_atomic(&path, &patch).unwrap(),
+            TrackWriteOutcome::Skipped
+        );
+        assert_eq!(fs::read(&path).unwrap(), before_noop);
+
+        let clear: TrackPatch = serde_json::from_value(serde_json::json!({"title": null})).unwrap();
+        write_wav_atomic(&path, &clear).unwrap();
+        assert_eq!(read_track_metadata(&path).unwrap().title, None);
+        assert_eq!(
+            wav_data_payloads(&fs::read(&path).unwrap()).unwrap(),
+            original_audio
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
     fn mp4_identical_patch_is_true_noop() {
         let (root, path) = copy_to_temp(&media_fixture("minimal.m4a"), "track.m4a");
         let before = fs::read(&path).unwrap();
@@ -1471,6 +1591,30 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn queued_wav_write_runs_the_atomic_core() {
+        let (root, path) = copy_to_temp(&media_fixture("minimal.wav"), "track.wav");
+        let patch: TrackPatch =
+            serde_json::from_value(serde_json::json!({"title": "Queued WAV title"})).unwrap();
+        write_track_queued(&WriteQueue::default(), path.clone(), patch)
+            .await
+            .unwrap();
+        assert_eq!(
+            read_track_metadata(&path).unwrap().title.as_deref(),
+            Some("Queued WAV title")
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn aiff_write_returns_electron_unsupported_error() {
+        let path = media_fixture("minimal.aiff");
+        let error = write_track_queued(&WriteQueue::default(), path, TrackPatch::default())
+            .await
+            .unwrap_err();
+        assert_eq!(error.to_string(), "AIFF metadata writing is not supported");
+    }
+
+    #[tokio::test]
     async fn queued_mp4_write_runs_the_atomic_core() {
         let (root, path) = copy_to_temp(&media_fixture("minimal.mp4"), "track.mp4");
         let patch: TrackPatch =
@@ -1507,15 +1651,30 @@ mod tests {
             TEMP_SEQUENCE.fetch_add(1, Ordering::Relaxed)
         ));
         fs::create_dir_all(&root).unwrap();
-        let path = root.join("pending.wav");
+        let path = root.join("pending.ape");
         fs::write(&path, b"unchanged").unwrap();
         let error = write_track_queued(&WriteQueue::default(), path.clone(), TrackPatch::default())
             .await
             .unwrap_err();
         assert!(error
             .to_string()
-            .contains("other than MP3/FLAC/OGG/Opus/M4A/MP4"));
+            .contains("other than MP3/FLAC/OGG/Opus/M4A/MP4/WAV"));
         assert_eq!(fs::read(&path).unwrap(), b"unchanged");
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn malformed_wav_failure_leaves_original_untouched() {
+        let root = std::env::temp_dir().join(format!(
+            "auto-tagger-bad-wav-{}",
+            TEMP_SEQUENCE.fetch_add(1, Ordering::Relaxed)
+        ));
+        fs::create_dir_all(&root).unwrap();
+        let path = root.join("bad.wav");
+        fs::write(&path, b"not a wav").unwrap();
+        let before = fs::read(&path).unwrap();
+        assert!(write_wav_atomic(&path, &TrackPatch::default()).is_err());
+        assert_eq!(fs::read(&path).unwrap(), before);
         fs::remove_dir_all(root).unwrap();
     }
 

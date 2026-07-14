@@ -9,6 +9,7 @@ use crate::error::ApiError;
 use lofty::config::ParseOptions;
 use lofty::file::{AudioFile, TaggedFileExt};
 use lofty::flac::FlacFile;
+use lofty::iff::wav::WavFile;
 use lofty::mp4::{AtomData, AtomIdent, Mp4File};
 use lofty::mpeg::MpegFile;
 use lofty::ogg::{OpusFile, VorbisFile};
@@ -277,6 +278,8 @@ pub fn read_track_metadata(path: &Path) -> Result<TrackData, ApiError> {
                 apply_ogg_native_fields(path, &extension, &mut track);
             } else if matches!(extension.as_str(), "m4a" | "mp4") {
                 apply_mp4_native_fields(path, &mut track);
+            } else if extension == "wav" {
+                apply_wav_native_fields(path, &mut track);
             }
             if extension == "flac" && track.duration <= 0.0 {
                 // `music-metadata` reports Infinity for these valid metadata
@@ -317,6 +320,33 @@ fn apply_flac_native_fields(path: &Path, track: &mut TrackData) {
     };
     track.discogs_artist_id = comments.get("DISCOGS_ARTIST_ID").map(ToOwned::to_owned);
     track.discogs_release_id = comments.get("DISCOGS_RELEASE_ID").map(ToOwned::to_owned);
+}
+
+fn apply_wav_native_fields(path: &Path, track: &mut TrackData) {
+    let Ok(mut file) = File::open(path) else {
+        return;
+    };
+    let Ok(parsed) = WavFile::read_from(&mut file, ParseOptions::new().read_properties(false))
+    else {
+        return;
+    };
+    let Some(id3v2) = parsed.id3v2() else {
+        return;
+    };
+    let artists = id3_user_text_values(path, "ARTISTS");
+    if !artists.is_empty() {
+        track.artists = artists;
+    }
+    let album_artists = id3_user_text_values(path, "ALBUMARTISTS");
+    if !album_artists.is_empty() {
+        track.album_artists = album_artists;
+    }
+    track.discogs_artist_id = id3v2
+        .get_user_text("Discogs Artist Id")
+        .map(ToOwned::to_owned);
+    track.discogs_release_id = id3v2
+        .get_user_text("Discogs Release Id")
+        .map(ToOwned::to_owned);
 }
 
 fn apply_mp4_native_fields(path: &Path, track: &mut TrackData) {
@@ -593,15 +623,29 @@ pub(crate) fn id3_user_text_values(path: &Path, wanted: &str) -> Vec<String> {
     let Ok(data) = fs::read(path) else {
         return Vec::new();
     };
-    if data.len() < 10 || &data[..3] != b"ID3" || !matches!(data[3], 3 | 4) {
-        return Vec::new();
-    }
-    let version = data[3];
-    let Some(tag_size) = syncsafe_u32(&data[6..10]).map(|value| value as usize) else {
+    let Some(start) = data.windows(3).position(|window| window == b"ID3") else {
         return Vec::new();
     };
-    let end = 10_usize.saturating_add(tag_size).min(data.len());
-    let mut offset = 10_usize;
+    let Some(header_end) = start.checked_add(10) else {
+        return Vec::new();
+    };
+    let Some(header) = data.get(start..header_end) else {
+        return Vec::new();
+    };
+    if !matches!(header[3], 3 | 4) {
+        return Vec::new();
+    }
+    let version = header[3];
+    let Some(tag_size) = syncsafe_u32(&header[6..10]).map(|value| value as usize) else {
+        return Vec::new();
+    };
+    let Some(end) = header_end
+        .checked_add(tag_size)
+        .map(|end| end.min(data.len()))
+    else {
+        return Vec::new();
+    };
+    let mut offset = header_end;
     let mut values = Vec::new();
     while offset.checked_add(10).is_some_and(|next| next <= end) {
         let id = &data[offset..offset + 4];
