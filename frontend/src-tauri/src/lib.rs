@@ -29,11 +29,13 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
-use tauri::{Manager, PhysicalPosition, PhysicalSize, WindowEvent};
+use tauri::{Manager, PhysicalPosition, PhysicalSize, RunEvent, WindowEvent};
+use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
 use tracing_subscriber::EnvFilter;
 
 use crate::commands::shell::ContextMenuState;
 use crate::state::config::ConfigState;
+use crate::state::quit_guard::QuitGuard;
 use crate::state::window_state::{DisplayWorkArea, PositionAction, WindowState};
 use crate::state::write_queue::WriteQueue;
 
@@ -54,7 +56,7 @@ pub fn init_logging() {
 pub fn run() {
     init_logging();
 
-    tauri::Builder::default()
+    let app = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_clipboard_manager::init())
         .setup(|app| {
@@ -67,6 +69,7 @@ pub fn run() {
             }
             app.manage(ContextMenuState::default());
             app.manage(WriteQueue::default());
+            app.manage(QuitGuard::default());
             // Tauri menu events are global; ContextMenuState scopes recognized
             // IDs to the single active popup so ordinary app/tray menu events
             // cannot resolve a renderer context-menu promise.
@@ -91,8 +94,43 @@ pub fn run() {
             commands::tracks::album_read,
             commands::mutations::track_write,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running the Auto Tagger Tauri shell");
+        .build(tauri::generate_context!())
+        .expect("error while building the Auto Tagger Tauri shell");
+
+    app.run(|app, event| {
+        let RunEvent::ExitRequested { api, .. } = event else {
+            return;
+        };
+        let queue = app.state::<WriteQueue>();
+        let guard = app.state::<QuitGuard>();
+        if !guard.should_prompt(queue.is_active()) {
+            return;
+        }
+        api.prevent_exit();
+        if !guard.begin_dialog() {
+            return;
+        }
+
+        let prompt_app = app.clone();
+        app.dialog()
+            .message(concat!(
+                "Tags are currently being written to disk.\n\n",
+                "Quitting now may leave some files partially updated. ",
+                "Do you want to quit anyway?"
+            ))
+            .title("Write in Progress")
+            .kind(MessageDialogKind::Warning)
+            .buttons(MessageDialogButtons::OkCancelCustom(
+                "Quit Anyway".to_string(),
+                "Cancel".to_string(),
+            ))
+            .show(move |quit_anyway| {
+                prompt_app.state::<QuitGuard>().finish_dialog(quit_anyway);
+                if quit_anyway {
+                    prompt_app.exit(0);
+                }
+            });
+    });
 }
 
 /// Apply saved startup geometry (with off-screen recovery), reveal the window

@@ -8,6 +8,7 @@
 
 pub mod config;
 pub mod providers;
+pub mod quit_guard;
 pub mod sqlite;
 pub mod tasks;
 pub mod write_queue;
