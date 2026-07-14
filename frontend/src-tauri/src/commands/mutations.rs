@@ -9,6 +9,7 @@ use lofty::file::AudioFile;
 use lofty::flac::FlacFile;
 use lofty::id3::v2::{Frame, FrameId, Id3v2Tag, TextInformationFrame, UnsynchronizedTextFrame};
 use lofty::mpeg::MpegFile;
+use lofty::ogg::{OpusFile, VorbisFile};
 use lofty::tag::{Accessor, TagExt};
 use lofty::TextEncoding;
 use serde::{Deserialize, Deserializer};
@@ -136,25 +137,73 @@ async fn write_track_queued(
         .extension()
         .and_then(|extension| extension.to_str())
         .map(str::to_ascii_lowercase);
-    if !matches!(extension.as_deref(), Some("mp3" | "flac")) {
+    if !matches!(extension.as_deref(), Some("mp3" | "flac" | "ogg" | "opus")) {
         return Err(ApiError::NotImplemented(
-            "track:write for formats other than MP3/FLAC",
+            "track:write for formats other than MP3/FLAC/OGG/Opus",
         ));
     }
     queue
         .run(async move {
-            tokio::task::spawn_blocking(move || {
-                if extension.as_deref() == Some("mp3") {
-                    write_mp3_atomic(&path, &patch)
-                } else {
-                    write_flac_atomic(&path, &patch)
-                }
+            tokio::task::spawn_blocking(move || match extension.as_deref() {
+                Some("mp3") => write_mp3_atomic(&path, &patch),
+                Some("flac") => write_flac_atomic(&path, &patch),
+                _ => write_ogg_atomic(&path, &patch),
             })
             .await
             .map_err(|error| ApiError::WriteTask(error.to_string()))?
         })
         .await?;
     Ok(())
+}
+
+/// Write OGG Vorbis or true Opus through a validated sibling. Page layout and
+/// CRC may change, but every logical encoded-audio packet must remain exact.
+pub fn write_ogg_atomic(path: &Path, patch: &TrackPatch) -> Result<TrackWriteOutcome, ApiError> {
+    let extension = path
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .unwrap_or_default()
+        .to_ascii_lowercase();
+    let header_packets = if extension == "opus" { 2 } else { 3 };
+    let original_bytes = fs::read(path)?;
+    let original_audio = ogg_audio_packets(&original_bytes, header_packets)
+        .ok_or_else(|| ApiError::MediaSafety("invalid OGG packet structure".to_string()))?;
+    let before = read_track_metadata(path)?;
+    let temporary = sibling_temp_path(path);
+    let result = (|| {
+        fs::copy(path, &temporary)?;
+        let mut file = File::open(path)?;
+        let options = ParseOptions::new().read_properties(false);
+        if extension == "opus" {
+            let mut parsed = OpusFile::read_from(&mut file, options)?;
+            apply_vorbis_patch(parsed.vorbis_comments_mut(), patch);
+            parsed.save_to_path(&temporary, WriteOptions::new())?;
+        } else {
+            let mut parsed = VorbisFile::read_from(&mut file, options)?;
+            apply_vorbis_patch(parsed.vorbis_comments_mut(), patch);
+            parsed.save_to_path(&temporary, WriteOptions::new())?;
+        }
+        let candidate_bytes = fs::read(&temporary)?;
+        let candidate_audio =
+            ogg_audio_packets(&candidate_bytes, header_packets).ok_or_else(|| {
+                ApiError::MediaSafety("invalid written OGG packet structure".to_string())
+            })?;
+        if candidate_audio != original_audio {
+            return Err(ApiError::MediaSafety(
+                "OGG audio packets changed during metadata write".to_string(),
+            ));
+        }
+        let after = read_track_metadata(&temporary)?;
+        if same_metadata_ignoring_container_size(before, after) {
+            return Ok(TrackWriteOutcome::Skipped);
+        }
+        replace_file_atomic(&temporary, path)?;
+        Ok(TrackWriteOutcome::Replaced)
+    })();
+    if temporary.exists() {
+        let _ = fs::remove_file(&temporary);
+    }
+    result
 }
 
 /// Write one FLAC through a validated sibling file. Unknown comments and
@@ -262,7 +311,15 @@ fn apply_vorbis_patch(tag: &mut lofty::ogg::VorbisComments, patch: &TrackPatch) 
     apply_vorbis_list(tag, "ARTISTS", &patch.artists);
     apply_vorbis_string(tag, "ALBUM", &patch.album);
     apply_vorbis_string(tag, "ALBUMARTIST", &patch.album_artist);
-    apply_vorbis_list(tag, "ALBUMARTISTS", &patch.album_artists);
+    if matches!(patch.album_artists, Patch::Omitted) {
+        match &patch.album_artist {
+            Patch::Omitted => {}
+            Patch::Null => drop(tag.remove("ALBUMARTISTS")),
+            Patch::Value(value) => tag.insert("ALBUMARTISTS".to_string(), value.clone()),
+        }
+    } else {
+        apply_vorbis_list(tag, "ALBUMARTISTS", &patch.album_artists);
+    }
     apply_vorbis_string(tag, "DATE", &patch.year);
     apply_vorbis_number(tag, "TRACKNUMBER", &patch.track_number);
     apply_vorbis_number(tag, "TRACKTOTAL", &patch.track_total);
@@ -274,11 +331,11 @@ fn apply_vorbis_patch(tag: &mut lofty::ogg::VorbisComments, patch: &TrackPatch) 
     apply_vorbis_string(tag, "DESCRIPTION", &patch.description);
     apply_vorbis_string(tag, "LYRICS", &patch.lyrics);
     apply_vorbis_bool(tag, "COMPILATION", &patch.compilation);
-    apply_vorbis_string(tag, "MUSICBRAINZ_TRACKID", &patch.musicbrainz_track_id);
-    apply_vorbis_string(tag, "MUSICBRAINZ_ALBUMID", &patch.musicbrainz_album_id);
-    apply_vorbis_string(tag, "MUSICBRAINZ_ARTISTID", &patch.musicbrainz_artist_id);
-    apply_vorbis_string(tag, "DISCOGS_ARTIST_ID", &patch.discogs_artist_id);
-    apply_vorbis_string(tag, "DISCOGS_RELEASE_ID", &patch.discogs_release_id);
+    apply_vorbis_provider(tag, "MUSICBRAINZ_TRACKID", &patch.musicbrainz_track_id);
+    apply_vorbis_provider(tag, "MUSICBRAINZ_ALBUMID", &patch.musicbrainz_album_id);
+    apply_vorbis_provider(tag, "MUSICBRAINZ_ARTISTID", &patch.musicbrainz_artist_id);
+    apply_vorbis_provider(tag, "DISCOGS_ARTIST_ID", &patch.discogs_artist_id);
+    apply_vorbis_provider(tag, "DISCOGS_RELEASE_ID", &patch.discogs_release_id);
 }
 
 fn apply_vorbis_string(tag: &mut lofty::ogg::VorbisComments, key: &str, patch: &Patch<String>) {
@@ -308,6 +365,49 @@ fn apply_vorbis_number(tag: &mut lofty::ogg::VorbisComments, key: &str, patch: &
         Patch::Null => drop(tag.remove(key)),
         Patch::Value(value) => tag.insert(key.to_string(), value.to_string()),
     }
+}
+
+fn apply_vorbis_provider(
+    tag: &mut lofty::ogg::VorbisComments,
+    canonical_key: &str,
+    patch: &Patch<String>,
+) {
+    if matches!(patch, Patch::Omitted) {
+        return;
+    }
+    let canonical = normalize_provider_key(canonical_key);
+    let aliases = tag
+        .items()
+        .filter(|(key, _)| normalize_provider_key(key) == canonical)
+        .map(|(key, _)| key.to_string())
+        .collect::<Vec<_>>();
+    for alias in aliases {
+        drop(tag.remove(&alias));
+    }
+    if let Patch::Value(value) = patch {
+        if !value.is_empty() {
+            tag.insert(canonical_key.to_string(), value.clone());
+        }
+    }
+}
+
+fn normalize_provider_key(key: &str) -> String {
+    let key = if key
+        .get(..5)
+        .is_some_and(|prefix| prefix.eq_ignore_ascii_case("TXXX:"))
+    {
+        &key[5..]
+    } else {
+        key
+    };
+    let normalized = key
+        .chars()
+        .filter(|character| !matches!(character, ' ' | '_' | '-'))
+        .collect::<String>()
+        .to_ascii_uppercase();
+    normalized
+        .strip_prefix("MUSICBRAINS")
+        .map_or(normalized.clone(), |suffix| format!("MUSICBRAINZ{suffix}"))
 }
 
 fn apply_vorbis_bool(tag: &mut lofty::ogg::VorbisComments, key: &str, patch: &Patch<bool>) {
@@ -502,6 +602,43 @@ fn same_metadata(before: TrackData, mut after: TrackData) -> bool {
     before == after
 }
 
+fn same_metadata_ignoring_container_size(before: TrackData, mut after: TrackData) -> bool {
+    after.path.clone_from(&before.path);
+    after.size_bytes = before.size_bytes;
+    after.bitrate = before.bitrate;
+    before == after
+}
+
+fn ogg_audio_packets(bytes: &[u8], header_packets: usize) -> Option<Vec<Vec<u8>>> {
+    let mut packets = Vec::new();
+    let mut packet = Vec::new();
+    let mut offset = 0_usize;
+    while offset.checked_add(27)? <= bytes.len() {
+        if bytes.get(offset..offset + 4)? != b"OggS" {
+            return None;
+        }
+        let segment_count = usize::from(*bytes.get(offset + 26)?);
+        let table_start = offset.checked_add(27)?;
+        let data_start = table_start.checked_add(segment_count)?;
+        let table = bytes.get(table_start..data_start)?;
+        let mut data_offset = data_start;
+        for segment in table {
+            let length = usize::from(*segment);
+            let next = data_offset.checked_add(length)?;
+            packet.extend_from_slice(bytes.get(data_offset..next)?);
+            data_offset = next;
+            if length < 255 {
+                packets.push(std::mem::take(&mut packet));
+            }
+        }
+        offset = data_offset;
+    }
+    if offset != bytes.len() || !packet.is_empty() || packets.len() < header_packets {
+        return None;
+    }
+    Some(packets.into_iter().skip(header_packets).collect())
+}
+
 fn repack_flac_metadata(
     candidate: &[u8],
     target_audio_offset: usize,
@@ -672,15 +809,20 @@ mod tests {
         copy_to_temp(&fixture(), "track.mp3")
     }
 
-    fn flac_fixture() -> PathBuf {
+    fn writer_fixture(name: &str) -> PathBuf {
         PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("../test/fixtures/tauri/writer-corpus/padded.flac")
+            .join("../test/fixtures/tauri/writer-corpus")
+            .join(name)
             .canonicalize()
             .unwrap()
     }
 
     fn copy_flac_fixture() -> (PathBuf, PathBuf) {
-        copy_to_temp(&flac_fixture(), "track.flac")
+        copy_to_temp(&writer_fixture("padded.flac"), "track.flac")
+    }
+
+    fn copy_ogg_fixture(name: &str) -> (PathBuf, PathBuf) {
+        copy_to_temp(&writer_fixture(name), name)
     }
 
     fn copy_to_temp(source: &Path, name: &str) -> (PathBuf, PathBuf) {
@@ -874,6 +1016,79 @@ mod tests {
     }
 
     #[test]
+    fn ogg_identical_patch_is_true_noop() {
+        let (root, path) = copy_ogg_fixture("vorbis.ogg");
+        let before = fs::read(&path).unwrap();
+        let patch: TrackPatch =
+            serde_json::from_value(serde_json::json!({"title": "Corpus Encoded"})).unwrap();
+        assert_eq!(
+            write_ogg_atomic(&path, &patch).unwrap(),
+            TrackWriteOutcome::Skipped
+        );
+        assert_eq!(fs::read(&path).unwrap(), before);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn ogg_rich_patch_preserves_logical_audio_packets() {
+        let (root, path) = copy_ogg_fixture("vorbis.ogg");
+        let before = ogg_audio_packets(&fs::read(&path).unwrap(), 3).unwrap();
+        let patch: TrackPatch = serde_json::from_value(serde_json::json!({
+            "title": "Replacement OGG",
+            "artist": "Replacement Artist",
+            "trackNumber": 7,
+            "trackTotal": 9,
+            "discogsReleaseId": "replacement-discogs-release"
+        }))
+        .unwrap();
+        assert_eq!(
+            write_ogg_atomic(&path, &patch).unwrap(),
+            TrackWriteOutcome::Replaced
+        );
+        assert_eq!(
+            ogg_audio_packets(&fs::read(&path).unwrap(), 3).unwrap(),
+            before
+        );
+        let track = read_track_metadata(&path).unwrap();
+        assert_eq!(track.title.as_deref(), Some("Replacement OGG"));
+        assert_eq!(track.artist.as_deref(), Some("Replacement Artist"));
+        assert_eq!((track.track_number, track.track_total), (Some(7), Some(9)));
+        assert_eq!(
+            track.discogs_release_id.as_deref(),
+            Some("replacement-discogs-release")
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn true_opus_patch_updates_tags_and_preserves_audio_packets() {
+        let (root, path) = copy_ogg_fixture("opus.opus");
+        let before = ogg_audio_packets(&fs::read(&path).unwrap(), 2).unwrap();
+        let patch: TrackPatch = serde_json::from_value(serde_json::json!({
+            "title": "Replacement Opus",
+            "artists": ["Primary", "Guest"],
+            "musicbrainzTrackId": "replacement-mb-track"
+        }))
+        .unwrap();
+        assert_eq!(
+            write_ogg_atomic(&path, &patch).unwrap(),
+            TrackWriteOutcome::Replaced
+        );
+        assert_eq!(
+            ogg_audio_packets(&fs::read(&path).unwrap(), 2).unwrap(),
+            before
+        );
+        let track = read_track_metadata(&path).unwrap();
+        assert_eq!(track.title.as_deref(), Some("Replacement Opus"));
+        assert_eq!(track.artists, ["Primary", "Guest"]);
+        assert_eq!(
+            track.musicbrainz_track_id.as_deref(),
+            Some("replacement-mb-track")
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
     fn flac_identical_patch_is_true_noop() {
         let (root, path) = copy_flac_fixture();
         let before = fs::read(&path).unwrap();
@@ -990,19 +1205,49 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn queued_true_opus_write_runs_the_atomic_core() {
+        let (root, path) = copy_ogg_fixture("opus.opus");
+        let patch: TrackPatch =
+            serde_json::from_value(serde_json::json!({"title": "Queued Opus title"})).unwrap();
+        write_track_queued(&WriteQueue::default(), path.clone(), patch)
+            .await
+            .unwrap();
+        assert_eq!(
+            read_track_metadata(&path).unwrap().title.as_deref(),
+            Some("Queued Opus title")
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
     async fn queued_unsupported_write_fails_loudly_without_touching_file() {
         let root = std::env::temp_dir().join(format!(
             "auto-tagger-pending-write-{}",
             TEMP_SEQUENCE.fetch_add(1, Ordering::Relaxed)
         ));
         fs::create_dir_all(&root).unwrap();
-        let path = root.join("pending.ogg");
+        let path = root.join("pending.m4a");
         fs::write(&path, b"unchanged").unwrap();
         let error = write_track_queued(&WriteQueue::default(), path.clone(), TrackPatch::default())
             .await
             .unwrap_err();
-        assert!(error.to_string().contains("other than MP3/FLAC"));
+        assert!(error.to_string().contains("other than MP3/FLAC/OGG/Opus"));
         assert_eq!(fs::read(&path).unwrap(), b"unchanged");
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn malformed_ogg_failure_leaves_original_untouched() {
+        let root = std::env::temp_dir().join(format!(
+            "auto-tagger-bad-ogg-{}",
+            TEMP_SEQUENCE.fetch_add(1, Ordering::Relaxed)
+        ));
+        fs::create_dir_all(&root).unwrap();
+        let path = root.join("bad.ogg");
+        fs::write(&path, b"not an ogg").unwrap();
+        let before = fs::read(&path).unwrap();
+        assert!(write_ogg_atomic(&path, &TrackPatch::default()).is_err());
+        assert_eq!(fs::read(&path).unwrap(), before);
         fs::remove_dir_all(root).unwrap();
     }
 

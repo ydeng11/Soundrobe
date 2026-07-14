@@ -10,6 +10,7 @@ use lofty::config::ParseOptions;
 use lofty::file::{AudioFile, TaggedFileExt};
 use lofty::flac::FlacFile;
 use lofty::mpeg::MpegFile;
+use lofty::ogg::{OpusFile, VorbisFile};
 use lofty::tag::{ItemKey, Tag};
 use serde::Serialize;
 use std::collections::HashMap;
@@ -270,6 +271,8 @@ pub fn read_track_metadata(path: &Path) -> Result<TrackData, ApiError> {
             let mut track = from_lofty(path, size_bytes, &extension, &tagged);
             if extension == "flac" {
                 apply_flac_native_fields(path, &mut track);
+            } else if matches!(extension.as_str(), "ogg" | "opus") {
+                apply_ogg_native_fields(path, &extension, &mut track);
             }
             if extension == "flac" && track.duration <= 0.0 {
                 // `music-metadata` reports Infinity for these valid metadata
@@ -306,6 +309,27 @@ fn apply_flac_native_fields(path: &Path, track: &mut TrackData) {
         return;
     };
     let Some(comments) = flac.vorbis_comments() else {
+        return;
+    };
+    track.discogs_artist_id = comments.get("DISCOGS_ARTIST_ID").map(ToOwned::to_owned);
+    track.discogs_release_id = comments.get("DISCOGS_RELEASE_ID").map(ToOwned::to_owned);
+}
+
+fn apply_ogg_native_fields(path: &Path, extension: &str, track: &mut TrackData) {
+    let Ok(mut file) = File::open(path) else {
+        return;
+    };
+    let options = ParseOptions::new().read_properties(false);
+    let comments = if extension == "opus" {
+        OpusFile::read_from(&mut file, options)
+            .ok()
+            .map(|parsed| parsed.vorbis_comments().clone())
+    } else {
+        VorbisFile::read_from(&mut file, options)
+            .ok()
+            .map(|parsed| parsed.vorbis_comments().clone())
+    };
+    let Some(comments) = comments else {
         return;
     };
     track.discogs_artist_id = comments.get("DISCOGS_ARTIST_ID").map(ToOwned::to_owned);
