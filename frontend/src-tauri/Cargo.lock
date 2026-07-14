@@ -102,6 +102,7 @@ name = "auto-tagger"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "dirs",
  "log",
  "serde",
  "serde_json",

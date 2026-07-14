@@ -11,3 +11,6 @@ pub mod providers;
 pub mod sqlite;
 pub mod tasks;
 pub mod write_queue;
+
+/// `~/.auto-tagger/window-state.json` persistence + off-screen recovery.
+pub mod window_state;

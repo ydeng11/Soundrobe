@@ -6,6 +6,24 @@ before `electron/` is removed. Generated from `electron/preload.ts`,
 `electron/main.ts`, the per-file `register*` handlers, the test corpus, and
 `electron-builder.yml`.
 
+## Migration status
+
+| Slice | Status | Evidence |
+|---|---|---|
+| Step 1 — characterization + dual-shell scaffold | ✅ green | shared `DesktopAPI` contract extracted; Tauri crate/adapter/loader + contract tests (60 shared tests); cargo fmt/clippy/test + electron typecheck/vitest/build green |
+| Window state persistence + off-screen recovery | ✅ logic green (wired, GUI runtime unverified) | `state/window_state.rs` (10 unit tests encoding Electron intent); wired in `run()` |
+| Folder dialog / context menu+clipboard / window activation / quit-during-write guard | ⏳ pending (step 2 native shell) | |
+| Persistence (config/cache/dataset/aliases/logs) | ⏳ pending | |
+| Read-only library slice (traversal/grouping/readback/cover discovery/lyrics/dataset) | ⏳ pending | |
+| Mutation + media-safety slice | ⏳ pending | |
+| Providers/auto-tag/audit/assistant | ⏳ pending | |
+| E2E→WebdriverIO + CI + cutover | ⏳ pending | |
+
+> GUI runtime behavior (window placement, quit-guard dialog, WebdriverIO E2E on
+> macOS/Windows/Linux, installer smoke) requires a display session and CI
+> runners this sandbox lacks; pure logic is unit-tested and compiled, and those
+> runtime gates are recorded as **environment-blocked** rather than skipped silently.
+
 Legend:
 - **Ch** = Electron IPC channel (request/response via `ipcMain.handle`, unless
   marked `evt` for pushed events).
