@@ -16,6 +16,7 @@ use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex};
 
 /// Resolved app configuration. Fields mirror `AutoTagConfig`.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -34,10 +35,12 @@ pub struct AutoTagConfig {
     pub chinese_script: Option<String>,
 }
 
-/// Environment accessor used by [`load_from`]. Tests supply [`EnvMap`]; the
-/// runtime uses [`ProcessEnv`] so `HOME` and `AUTO_TAG_*` precedence is honored
-/// without touching the global process env from unit tests.
-pub trait Env {
+/// Environment accessor used by [`load_from`] and [`ConfigState`]. Tests
+/// supply [`EnvMap`]; the runtime uses [`ProcessEnv`] so `HOME` and
+/// `AUTO_TAG_*` precedence is honored without touching the global process env
+/// from unit tests. `Send + Sync` so `ConfigState` can hold an `Arc<dyn Env>`
+/// and be `tauri::manage`d across threads.
+pub trait Env: Send + Sync {
     fn get(&self, name: &str) -> Option<String>;
 }
 
@@ -315,6 +318,72 @@ pub fn redacted(config: &AutoTagConfig) -> Value {
     })
 }
 
+/// Load config from the on-disk YAML at `home/.auto-tagger/config.yaml` plus an
+/// env. Missing/unreadable file yields the empty text (defaults), matching
+/// Electron's behavior when no config exists yet.
+fn load_from_disk(home: &Path, env: &dyn Env) -> AutoTagConfig {
+    let text = fs::read_to_string(config_file_path(home)).unwrap_or_default();
+    load_from(&text, env)
+}
+
+/// Managed state holding the live app config, mirroring the role of
+/// `TaskManager`'s config in `electron/handlers/auto-tag.ts`: loaded once at
+/// startup from `config.yaml` + the process environment, and refreshed after a
+/// `set_config` write. Held behind a `Mutex` so Tauri commands read it
+/// concurrently without holding a SQLite/network lock.
+pub struct ConfigState {
+    home: PathBuf,
+    env: Arc<dyn Env>,
+    inner: Mutex<AutoTagConfig>,
+}
+
+impl ConfigState {
+    /// Load config from `~/.auto-tagger/config.yaml` + the real process env.
+    pub fn init(home: PathBuf) -> Self {
+        Self::init_with_env(home, Arc::new(ProcessEnv))
+    }
+
+    /// Load config from a given home dir + an injected env (tests).
+    pub fn init_with_env(home: PathBuf, env: Arc<dyn Env>) -> Self {
+        let config = load_from_disk(&home, env.as_ref());
+        Self {
+            home,
+            env,
+            inner: Mutex::new(config),
+        }
+    }
+
+    /// Renderer-facing redacted snapshot (matches `getConfig()`).
+    pub fn redacted(&self) -> Value {
+        let guard = self.inner.lock().expect("config mutex poisoned");
+        redacted(&guard)
+    }
+
+    /// Raw (unredacted) snapshot for main-process internal use.
+    pub fn raw(&self) -> AutoTagConfig {
+        self.inner.lock().expect("config mutex poisoned").clone()
+    }
+
+    /// Reload config from disk + env (matches `refreshConfig()`).
+    pub fn refresh(&self) {
+        let config = load_from_disk(&self.home, self.env.as_ref());
+        *self.inner.lock().expect("config mutex poisoned") = config;
+    }
+
+    /// Write a renderer camelCase key to disk and refresh the live config
+    /// (matches the `config:set` handler: `saveConfig` + `refreshConfig`). Never
+    /// returns an error to the caller — Electron's handler catches and logs — so
+    /// the renderer's `setConfig` never rejects. A failed write is logged via
+    /// `tracing` and the live config is left untouched.
+    pub fn set(&self, camel_key: &str, value: &Value) {
+        if let Err(e) = save_config(&self.home, camel_key, value) {
+            tracing::warn!("failed to save config key {camel_key}: {e}");
+            return;
+        }
+        self.refresh();
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -498,5 +567,96 @@ mod tests {
         // Load it back via the parser.
         let c = load_from(&written, &EnvMap::new());
         assert_eq!(c.llm_api_key.as_deref(), Some("sk-1"));
+    }
+
+    fn cfg_home() -> PathBuf {
+        std::env::temp_dir().join(format!(
+            "auto-tag-cfgstate-{}",
+            std::time::SystemTime::UNIX_EPOCH
+                .elapsed()
+                .unwrap()
+                .as_nanos()
+        ))
+    }
+
+    #[test]
+    fn config_state_init_loads_disk_and_env() {
+        let home = cfg_home();
+        fs::create_dir_all(home.join(".auto-tagger")).unwrap();
+        fs::write(config_file_path(&home), "llm_model: gpt-4\ndebug: true\n").unwrap();
+        let env = EnvMap::new().set("LLM_API_KEY", "env-override");
+        let state = ConfigState::init_with_env(home, Arc::new(env));
+        // Env wins over file for llm_api_key; file value read for llm_model/debug.
+        let raw = state.raw();
+        assert_eq!(raw.llm_api_key.as_deref(), Some("env-override"));
+        assert_eq!(raw.llm_model.as_deref(), Some("gpt-4"));
+        assert_eq!(raw.debug, Some(true));
+    }
+
+    #[test]
+    fn config_state_set_writes_and_refreshes() {
+        let home = cfg_home();
+        let state = ConfigState::init_with_env(home.clone(), Arc::new(EnvMap::new()));
+        // File doesn't exist yet -> set creates it and refreshes the live config.
+        state.set("llmApiKey", &json!("sk-or-v1-1234567890"));
+        assert!(config_file_path(&home).exists());
+        assert_eq!(
+            state.raw().llm_api_key.as_deref(),
+            Some("sk-or-v1-1234567890")
+        );
+        // A subsequent set updates only that key.
+        state.set("debug", &json!(true));
+        let raw = state.raw();
+        assert_eq!(raw.debug, Some(true));
+        assert_eq!(raw.llm_api_key.as_deref(), Some("sk-or-v1-1234567890"));
+    }
+
+    #[test]
+    fn config_state_refresh_picks_up_external_file_change() {
+        let home = cfg_home();
+        fs::create_dir_all(home.join(".auto-tagger")).unwrap();
+        fs::write(config_file_path(&home), "llm_model: old\n").unwrap();
+        let state = ConfigState::init_with_env(home.clone(), Arc::new(EnvMap::new()));
+        assert_eq!(state.raw().llm_model.as_deref(), Some("old"));
+        // External edit (another process / the renderer saves via a text editor).
+        fs::write(config_file_path(&home), "llm_model: new\n").unwrap();
+        state.refresh();
+        assert_eq!(state.raw().llm_model.as_deref(), Some("new"));
+    }
+
+    /// Normalized Electron-vs-Rust redaction fixture. The expected JSON is the
+    /// contract for `config:get`'s response shape; the matching Vitest test
+    /// (`test/handlers/config.test.ts` redaction_fixture) asserts Electron's
+    /// `getConfig()` formula produces the SAME object from the same on-disk
+    /// file. Both runtimes must agree exactly.
+    #[test]
+    fn redacted_fixture_matches_normalized_contract() {
+        let home = cfg_home();
+        fs::create_dir_all(home.join(".auto-tagger")).unwrap();
+        fs::write(
+            config_file_path(&home),
+            "llm_api_key: sk-or-v1-1234567890\n\
+             llm_model: gpt-4\n\
+             discogs_token: mytoken1234\n\
+             debug: true\n\
+             lyrics_api_url: https://lr.example/api\n\
+             chinese_script: traditional\n",
+        )
+        .unwrap();
+        let state = ConfigState::init_with_env(home, Arc::new(EnvMap::new()));
+
+        let expected = json!({
+            "llmApiKey": "****7890",
+            "llmModel": "gpt-4",
+            "discogsToken": "****1234",
+            "remoteLookupEnabled": true,
+            "discogsEnabled": true,
+            "debug": true,
+            "lyricsDownloadEnabled": false,
+            "lyricsApiUrl": "https://lr.example/api",
+            "theAudioDbApiKey": null,
+            "chineseScript": "traditional"
+        });
+        assert_eq!(state.redacted(), expected);
     }
 }

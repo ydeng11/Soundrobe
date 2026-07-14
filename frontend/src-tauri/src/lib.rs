@@ -32,6 +32,7 @@ use std::time::Duration;
 use tauri::{Manager, PhysicalPosition, PhysicalSize, WindowEvent};
 use tracing_subscriber::EnvFilter;
 
+use crate::state::config::ConfigState;
 use crate::state::window_state::{DisplayWorkArea, PositionAction, WindowState};
 
 /// Initialise structured logging. Debug forwarding to the renderer's
@@ -55,10 +56,21 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_clipboard_manager::init())
         .setup(|app| {
+            // Managed config: load once from ~/.auto-tagger/config.yaml + env,
+            // mirroring Electron's `initializeAssistantServices(getRawApi
+            // Config())` config bootstrapping (the full auto-tag TaskManager
+            // port lands in a later slice; config is the first managed state).
+            if let Some(home) = dirs::home_dir() {
+                app.manage(ConfigState::init(home));
+            }
             wire_window_lifecycle(app.get_webview_window("main"));
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![commands::meta::app_info])
+        .invoke_handler(tauri::generate_handler![
+            commands::meta::app_info,
+            commands::configuration::config_get,
+            commands::configuration::config_set,
+        ])
         .run(tauri::generate_context!())
         .expect("error while running the Auto Tagger Tauri shell");
 }
