@@ -623,28 +623,61 @@ pub(crate) fn id3_user_text_values(path: &Path, wanted: &str) -> Vec<String> {
     let Ok(data) = fs::read(path) else {
         return Vec::new();
     };
-    let Some(start) = data.windows(3).position(|window| window == b"ID3") else {
-        return Vec::new();
+    let extension = path
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .map(str::to_ascii_lowercase);
+    let start = match extension.as_deref() {
+        Some("mp3") if data.get(..3) == Some(b"ID3") => Some(0),
+        Some("wav") => wav_id3_offset(&data),
+        _ => None,
     };
+    start.map_or_else(Vec::new, |start| {
+        id3_user_text_values_at(&data, start, wanted)
+    })
+}
+
+fn wav_id3_offset(data: &[u8]) -> Option<usize> {
+    if data.len() < 12 || data.get(..4)? != b"RIFF" || data.get(8..12)? != b"WAVE" {
+        return None;
+    }
+    let mut offset = 12_usize;
+    while offset.checked_add(8).is_some_and(|end| end <= data.len()) {
+        let id = data.get(offset..offset + 4)?;
+        let size = u32::from_le_bytes(data.get(offset + 4..offset + 8)?.try_into().ok()?) as usize;
+        let body_start = offset.checked_add(8)?;
+        let body_end = body_start.checked_add(size)?;
+        if body_end > data.len() {
+            return None;
+        }
+        if matches!(id, b"ID3 " | b"id3 ") {
+            return (data.get(body_start..body_start + 3) == Some(b"ID3")).then_some(body_start);
+        }
+        offset = body_end.checked_add(size & 1)?;
+    }
+    None
+}
+
+fn id3_user_text_values_at(data: &[u8], start: usize, wanted: &str) -> Vec<String> {
     let Some(header_end) = start.checked_add(10) else {
         return Vec::new();
     };
     let Some(header) = data.get(start..header_end) else {
         return Vec::new();
     };
-    if !matches!(header[3], 3 | 4) {
+    if header.get(..3) != Some(b"ID3") || !matches!(header[3], 3 | 4) {
         return Vec::new();
     }
     let version = header[3];
     let Some(tag_size) = syncsafe_u32(&header[6..10]).map(|value| value as usize) else {
         return Vec::new();
     };
-    let Some(end) = header_end
-        .checked_add(tag_size)
-        .map(|end| end.min(data.len()))
-    else {
+    let Some(end) = header_end.checked_add(tag_size) else {
         return Vec::new();
     };
+    if end > data.len() {
+        return Vec::new();
+    }
     let mut offset = header_end;
     let mut values = Vec::new();
     while offset.checked_add(10).is_some_and(|next| next <= end) {
@@ -1601,6 +1634,43 @@ mod tests {
         assert_eq!(result.status, "error");
         assert_eq!(result.tracks[0].title.as_deref(), Some("corrupt.flac"));
         std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn wav_id3_scanner_reads_only_declared_id3_chunks() {
+        let value = b"ARTISTS\0One;Two";
+        let mut frame = Vec::from(&b"TXXX"[..]);
+        frame.extend_from_slice(&(value.len() as u32 + 1).to_be_bytes());
+        frame.extend_from_slice(&[0, 0, 3]);
+        frame.extend_from_slice(value);
+        let mut tag = Vec::from(&b"ID3\x03\0\0"[..]);
+        tag.extend_from_slice(&[0, 0, 0, frame.len() as u8]);
+        tag.extend_from_slice(&frame);
+        let mut wav = Vec::from(&b"RIFF\0\0\0\0WAVEID3 "[..]);
+        wav.extend_from_slice(&(tag.len() as u32).to_le_bytes());
+        wav.extend_from_slice(&tag);
+        let offset = wav_id3_offset(&wav).expect("declared ID3 chunk");
+        assert_eq!(
+            id3_user_text_values_at(&wav, offset, "ARTISTS"),
+            ["One", "Two"]
+        );
+    }
+
+    #[test]
+    fn wav_id3_scanner_ignores_id3_signature_inside_pcm() {
+        let pcm = b"noise-ID3\x03\0\0\0\0\0\0-audio";
+        let mut wav = Vec::from(&b"RIFF\0\0\0\0WAVEdata"[..]);
+        wav.extend_from_slice(&(pcm.len() as u32).to_le_bytes());
+        wav.extend_from_slice(pcm);
+        assert_eq!(wav_id3_offset(&wav), None);
+    }
+
+    #[test]
+    fn wav_id3_scanner_rejects_oversized_malformed_chunk() {
+        let mut wav = Vec::from(&b"RIFF\0\0\0\0WAVEID3 "[..]);
+        wav.extend_from_slice(&u32::MAX.to_le_bytes());
+        wav.extend_from_slice(b"ID3");
+        assert_eq!(wav_id3_offset(&wav), None);
     }
 
     fn album_test_root() -> PathBuf {
