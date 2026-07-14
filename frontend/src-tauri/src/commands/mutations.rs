@@ -6,6 +6,7 @@ use crate::error::ApiError;
 use crate::state::write_queue::WriteQueue;
 use lofty::config::{ParseOptions, WriteOptions};
 use lofty::file::AudioFile;
+use lofty::flac::FlacFile;
 use lofty::id3::v2::{Frame, FrameId, Id3v2Tag, TextInformationFrame, UnsynchronizedTextFrame};
 use lofty::mpeg::MpegFile;
 use lofty::tag::{Accessor, TagExt};
@@ -64,7 +65,7 @@ impl StringList {
 /// MP3 fields currently exposed by `DesktopAPI.writeTrack`.
 #[derive(Debug, Clone, Default, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct Mp3Patch {
+pub struct TrackPatch {
     #[serde(default)]
     pub title: Patch<String>,
     #[serde(default)]
@@ -112,7 +113,7 @@ pub struct Mp3Patch {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Mp3WriteOutcome {
+pub enum TrackWriteOutcome {
     Skipped,
     Replaced,
 }
@@ -120,7 +121,7 @@ pub enum Mp3WriteOutcome {
 #[tauri::command]
 pub async fn track_write(
     path: String,
-    fields: Mp3Patch,
+    fields: TrackPatch,
     queue: State<'_, WriteQueue>,
 ) -> Result<(), ApiError> {
     write_track_queued(&queue, PathBuf::from(path), fields).await
@@ -129,29 +130,81 @@ pub async fn track_write(
 async fn write_track_queued(
     queue: &WriteQueue,
     path: PathBuf,
-    patch: Mp3Patch,
+    patch: TrackPatch,
 ) -> Result<(), ApiError> {
-    if path
+    let extension = path
         .extension()
         .and_then(|extension| extension.to_str())
-        .map(str::to_ascii_lowercase)
-        != Some("mp3".to_string())
-    {
-        return Err(ApiError::NotImplemented("track:write for non-MP3 formats"));
+        .map(str::to_ascii_lowercase);
+    if !matches!(extension.as_deref(), Some("mp3" | "flac")) {
+        return Err(ApiError::NotImplemented(
+            "track:write for formats other than MP3/FLAC",
+        ));
     }
     queue
         .run(async move {
-            tokio::task::spawn_blocking(move || write_mp3_atomic(&path, &patch))
-                .await
-                .map_err(|error| ApiError::WriteTask(error.to_string()))?
+            tokio::task::spawn_blocking(move || {
+                if extension.as_deref() == Some("mp3") {
+                    write_mp3_atomic(&path, &patch)
+                } else {
+                    write_flac_atomic(&path, &patch)
+                }
+            })
+            .await
+            .map_err(|error| ApiError::WriteTask(error.to_string()))?
         })
         .await?;
     Ok(())
 }
 
+/// Write one FLAC through a validated sibling file. Unknown comments and
+/// pictures remain owned by Lofty's format-specific `FlacFile` representation.
+pub fn write_flac_atomic(path: &Path, patch: &TrackPatch) -> Result<TrackWriteOutcome, ApiError> {
+    let original_bytes = fs::read(path)?;
+    let original_payload = flac_audio_payload(&original_bytes)
+        .ok_or_else(|| ApiError::MediaSafety("invalid FLAC metadata boundary".to_string()))?;
+    let original_audio_offset = original_bytes.len() - original_payload.len();
+    let before = read_track_metadata(path)?;
+    let mut flac = read_flac(path)?;
+    let comments = flac
+        .vorbis_comments_mut()
+        .ok_or_else(|| ApiError::MediaSafety("FLAC has no Vorbis comment block".to_string()))?;
+    apply_vorbis_patch(comments, patch);
+
+    let temporary = sibling_temp_path(path);
+    let result = (|| {
+        fs::copy(path, &temporary)?;
+        flac.save_to_path(&temporary, WriteOptions::new())?;
+        let candidate_bytes = fs::read(&temporary)?;
+        let candidate_payload = flac_audio_payload(&candidate_bytes).ok_or_else(|| {
+            ApiError::MediaSafety("invalid written FLAC metadata boundary".to_string())
+        })?;
+        if candidate_payload != original_payload {
+            return Err(ApiError::MediaSafety(
+                "FLAC audio payload changed during metadata write".to_string(),
+            ));
+        }
+        if let Some(repacked) =
+            repack_flac_metadata(&candidate_bytes, original_audio_offset, original_payload)
+        {
+            fs::write(&temporary, repacked)?;
+        }
+        let after = read_track_metadata(&temporary)?;
+        if same_metadata(before, after) {
+            return Ok(TrackWriteOutcome::Skipped);
+        }
+        replace_file_atomic(&temporary, path)?;
+        Ok(TrackWriteOutcome::Replaced)
+    })();
+    if temporary.exists() {
+        let _ = fs::remove_file(&temporary);
+    }
+    result
+}
+
 /// Write one MP3 through a validated sibling file. The original path is not
 /// touched until tag readback and MPEG payload equality both pass.
-pub fn write_mp3_atomic(path: &Path, patch: &Mp3Patch) -> Result<Mp3WriteOutcome, ApiError> {
+pub fn write_mp3_atomic(path: &Path, patch: &TrackPatch) -> Result<TrackWriteOutcome, ApiError> {
     let original_bytes = fs::read(path)?;
     let original_payload = mpeg_payload(&original_bytes)
         .ok_or_else(|| ApiError::MediaSafety("invalid ID3v2 boundary".to_string()))?;
@@ -177,10 +230,10 @@ pub fn write_mp3_atomic(path: &Path, patch: &Mp3Patch) -> Result<Mp3WriteOutcome
 
         let after = read_track_metadata(&temporary)?;
         if same_metadata(before, after) {
-            return Ok(Mp3WriteOutcome::Skipped);
+            return Ok(TrackWriteOutcome::Skipped);
         }
         replace_file_atomic(&temporary, path)?;
-        Ok(Mp3WriteOutcome::Replaced)
+        Ok(TrackWriteOutcome::Replaced)
     })();
 
     if temporary.exists() {
@@ -189,13 +242,85 @@ pub fn write_mp3_atomic(path: &Path, patch: &Mp3Patch) -> Result<Mp3WriteOutcome
     result
 }
 
+fn read_flac(path: &Path) -> Result<FlacFile, ApiError> {
+    let mut file = File::open(path)?;
+    Ok(FlacFile::read_from(
+        &mut file,
+        ParseOptions::new().read_properties(false),
+    )?)
+}
+
 fn read_id3v2(path: &Path) -> Result<Id3v2Tag, ApiError> {
     let mut file = File::open(path)?;
     let parsed = MpegFile::read_from(&mut file, ParseOptions::new().read_properties(false))?;
     Ok(parsed.id3v2().cloned().unwrap_or_default())
 }
 
-fn apply_patch(tag: &mut Id3v2Tag, patch: &Mp3Patch) {
+fn apply_vorbis_patch(tag: &mut lofty::ogg::VorbisComments, patch: &TrackPatch) {
+    apply_vorbis_string(tag, "TITLE", &patch.title);
+    apply_vorbis_string(tag, "ARTIST", &patch.artist);
+    apply_vorbis_list(tag, "ARTISTS", &patch.artists);
+    apply_vorbis_string(tag, "ALBUM", &patch.album);
+    apply_vorbis_string(tag, "ALBUMARTIST", &patch.album_artist);
+    apply_vorbis_list(tag, "ALBUMARTISTS", &patch.album_artists);
+    apply_vorbis_string(tag, "DATE", &patch.year);
+    apply_vorbis_number(tag, "TRACKNUMBER", &patch.track_number);
+    apply_vorbis_number(tag, "TRACKTOTAL", &patch.track_total);
+    apply_vorbis_number(tag, "DISCNUMBER", &patch.disc_number);
+    apply_vorbis_number(tag, "DISCTOTAL", &patch.disc_total);
+    apply_vorbis_string(tag, "GENRE", &patch.genre);
+    apply_vorbis_string(tag, "COMPOSER", &patch.composer);
+    apply_vorbis_string(tag, "COMMENT", &patch.comment);
+    apply_vorbis_string(tag, "DESCRIPTION", &patch.description);
+    apply_vorbis_string(tag, "LYRICS", &patch.lyrics);
+    apply_vorbis_bool(tag, "COMPILATION", &patch.compilation);
+    apply_vorbis_string(tag, "MUSICBRAINZ_TRACKID", &patch.musicbrainz_track_id);
+    apply_vorbis_string(tag, "MUSICBRAINZ_ALBUMID", &patch.musicbrainz_album_id);
+    apply_vorbis_string(tag, "MUSICBRAINZ_ARTISTID", &patch.musicbrainz_artist_id);
+    apply_vorbis_string(tag, "DISCOGS_ARTIST_ID", &patch.discogs_artist_id);
+    apply_vorbis_string(tag, "DISCOGS_RELEASE_ID", &patch.discogs_release_id);
+}
+
+fn apply_vorbis_string(tag: &mut lofty::ogg::VorbisComments, key: &str, patch: &Patch<String>) {
+    match patch {
+        Patch::Omitted => {}
+        Patch::Null => drop(tag.remove(key)),
+        Patch::Value(value) => tag.insert(key.to_string(), value.clone()),
+    }
+}
+
+fn apply_vorbis_list(tag: &mut lofty::ogg::VorbisComments, key: &str, patch: &Patch<StringList>) {
+    match patch {
+        Patch::Omitted => {}
+        Patch::Null => drop(tag.remove(key)),
+        Patch::Value(values) => {
+            drop(tag.remove(key));
+            for value in values.normalized() {
+                tag.push(key.to_string(), value);
+            }
+        }
+    }
+}
+
+fn apply_vorbis_number(tag: &mut lofty::ogg::VorbisComments, key: &str, patch: &Patch<u32>) {
+    match patch {
+        Patch::Omitted => {}
+        Patch::Null => drop(tag.remove(key)),
+        Patch::Value(value) => tag.insert(key.to_string(), value.to_string()),
+    }
+}
+
+fn apply_vorbis_bool(tag: &mut lofty::ogg::VorbisComments, key: &str, patch: &Patch<bool>) {
+    match patch {
+        Patch::Omitted => {}
+        Patch::Null => drop(tag.remove(key)),
+        Patch::Value(value) => {
+            tag.insert(key.to_string(), if *value { "1" } else { "0" }.to_string())
+        }
+    }
+}
+
+fn apply_patch(tag: &mut Id3v2Tag, patch: &TrackPatch) {
     match &patch.title {
         Patch::Omitted => {}
         Patch::Null => tag.remove_title(),
@@ -377,6 +502,95 @@ fn same_metadata(before: TrackData, mut after: TrackData) -> bool {
     before == after
 }
 
+fn repack_flac_metadata(
+    candidate: &[u8],
+    target_audio_offset: usize,
+    original_payload: &[u8],
+) -> Option<Vec<u8>> {
+    let marker = candidate.windows(4).position(|window| window == b"fLaC")?;
+    let metadata_start = marker.checked_add(4)?;
+    let available = target_audio_offset.checked_sub(metadata_start)?;
+    let mut blocks = Vec::new();
+    let mut offset = metadata_start;
+    loop {
+        let header_end = offset.checked_add(4)?;
+        let header = candidate.get(offset..header_end)?;
+        let last = header[0] & 0x80 != 0;
+        let block_type = header[0] & 0x7f;
+        let length =
+            (usize::from(header[1]) << 16) | (usize::from(header[2]) << 8) | usize::from(header[3]);
+        let data_start = header_end;
+        let data_end = data_start.checked_add(length)?;
+        let data = candidate.get(data_start..data_end)?;
+        if block_type != 1 {
+            blocks.push((block_type, data));
+        }
+        offset = data_end;
+        if last {
+            break;
+        }
+    }
+    if blocks.is_empty() {
+        return None;
+    }
+    let required = blocks.iter().try_fold(0_usize, |sum, (_, data)| {
+        sum.checked_add(data.len().checked_add(4)?)
+    })?;
+    let leftover = available.checked_sub(required)?;
+    if (1..4).contains(&leftover) || leftover.saturating_sub(4) > 0x00ff_ffff {
+        return None;
+    }
+
+    let capacity = target_audio_offset.checked_add(original_payload.len())?;
+    let mut output = Vec::with_capacity(capacity);
+    output.extend_from_slice(candidate.get(..metadata_start)?);
+    let has_padding = leftover >= 4;
+    for (index, (block_type, data)) in blocks.iter().enumerate() {
+        let last = !has_padding && index + 1 == blocks.len();
+        push_flac_block(&mut output, *block_type, data, last)?;
+    }
+    if has_padding {
+        let padding = vec![0_u8; leftover - 4];
+        push_flac_block(&mut output, 1, &padding, true)?;
+    }
+    if output.len() != target_audio_offset {
+        return None;
+    }
+    output.extend_from_slice(original_payload);
+    Some(output)
+}
+
+fn push_flac_block(output: &mut Vec<u8>, block_type: u8, data: &[u8], last: bool) -> Option<()> {
+    if data.len() > 0x00ff_ffff {
+        return None;
+    }
+    output.push((if last { 0x80 } else { 0 }) | (block_type & 0x7f));
+    output.push(((data.len() >> 16) & 0xff) as u8);
+    output.push(((data.len() >> 8) & 0xff) as u8);
+    output.push((data.len() & 0xff) as u8);
+    output.extend_from_slice(data);
+    Some(())
+}
+
+fn flac_audio_payload(bytes: &[u8]) -> Option<&[u8]> {
+    let marker = bytes.windows(4).position(|window| window == b"fLaC")?;
+    let mut offset = marker.checked_add(4)?;
+    loop {
+        let header_end = offset.checked_add(4)?;
+        let header = bytes.get(offset..header_end)?;
+        let last = header[0] & 0x80 != 0;
+        let length =
+            (usize::from(header[1]) << 16) | (usize::from(header[2]) << 8) | usize::from(header[3]);
+        offset = header_end.checked_add(length)?;
+        if offset > bytes.len() {
+            return None;
+        }
+        if last {
+            return bytes.get(offset..);
+        }
+    }
+}
+
 fn mpeg_payload(bytes: &[u8]) -> Option<&[u8]> {
     if bytes.get(..3) != Some(b"ID3") {
         return Some(bytes);
@@ -431,9 +645,13 @@ fn sibling_temp_path(path: &Path) -> PathBuf {
     let name = path
         .file_name()
         .and_then(|name| name.to_str())
-        .unwrap_or("track.mp3");
+        .unwrap_or("track");
+    let extension = path
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .unwrap_or("tmp");
     path.with_file_name(format!(
-        ".{name}.auto-tagger-{}-{sequence}.tmp.mp3",
+        ".{name}.auto-tagger-{}-{sequence}.tmp.{extension}",
         std::process::id()
     ))
 }
@@ -451,22 +669,37 @@ mod tests {
     }
 
     fn copy_fixture() -> (PathBuf, PathBuf) {
+        copy_to_temp(&fixture(), "track.mp3")
+    }
+
+    fn flac_fixture() -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../test/fixtures/tauri/writer-corpus/padded.flac")
+            .canonicalize()
+            .unwrap()
+    }
+
+    fn copy_flac_fixture() -> (PathBuf, PathBuf) {
+        copy_to_temp(&flac_fixture(), "track.flac")
+    }
+
+    fn copy_to_temp(source: &Path, name: &str) -> (PathBuf, PathBuf) {
         let root = std::env::temp_dir().join(format!(
-            "auto-tagger-mp3-write-{}-{}",
+            "auto-tagger-write-{}-{}",
             std::process::id(),
             TEMP_SEQUENCE.fetch_add(1, Ordering::Relaxed)
         ));
         fs::create_dir_all(&root).unwrap();
-        let path = root.join("track.mp3");
-        fs::copy(fixture(), &path).unwrap();
+        let path = root.join(name);
+        fs::copy(source, &path).unwrap();
         (root, path)
     }
 
     #[test]
     fn tri_state_deserialization_distinguishes_missing_null_and_value() {
-        let omitted: Mp3Patch = serde_json::from_value(serde_json::json!({})).unwrap();
-        let null: Mp3Patch = serde_json::from_value(serde_json::json!({"title": null})).unwrap();
-        let value: Mp3Patch =
+        let omitted: TrackPatch = serde_json::from_value(serde_json::json!({})).unwrap();
+        let null: TrackPatch = serde_json::from_value(serde_json::json!({"title": null})).unwrap();
+        let value: TrackPatch =
             serde_json::from_value(serde_json::json!({"title": "Changed"})).unwrap();
         assert_eq!(omitted.title, Patch::Omitted);
         assert_eq!(null.title, Patch::Null);
@@ -477,11 +710,11 @@ mod tests {
     fn identical_patch_is_true_noop_and_preserves_all_bytes() {
         let (root, path) = copy_fixture();
         let before = fs::read(&path).unwrap();
-        let patch: Mp3Patch =
+        let patch: TrackPatch =
             serde_json::from_value(serde_json::json!({"title": "Corpus MP3"})).unwrap();
         assert_eq!(
             write_mp3_atomic(&path, &patch).unwrap(),
-            Mp3WriteOutcome::Skipped
+            TrackWriteOutcome::Skipped
         );
         assert_eq!(fs::read(&path).unwrap(), before);
         fs::remove_dir_all(root).unwrap();
@@ -491,11 +724,11 @@ mod tests {
     fn title_update_preserves_mpeg_payload_and_reads_back() {
         let (root, path) = copy_fixture();
         let before = fs::read(&path).unwrap();
-        let patch: Mp3Patch =
+        let patch: TrackPatch =
             serde_json::from_value(serde_json::json!({"title": "Changed title"})).unwrap();
         assert_eq!(
             write_mp3_atomic(&path, &patch).unwrap(),
-            Mp3WriteOutcome::Replaced
+            TrackWriteOutcome::Replaced
         );
         let after = fs::read(&path).unwrap();
         assert_eq!(mpeg_payload(&before), mpeg_payload(&after));
@@ -510,14 +743,14 @@ mod tests {
     fn explicit_null_clears_while_omitted_preserves() {
         let (root, path) = copy_fixture();
         assert_eq!(
-            write_mp3_atomic(&path, &Mp3Patch::default()).unwrap(),
-            Mp3WriteOutcome::Skipped
+            write_mp3_atomic(&path, &TrackPatch::default()).unwrap(),
+            TrackWriteOutcome::Skipped
         );
         assert_eq!(
             read_track_metadata(&path).unwrap().title.as_deref(),
             Some("Corpus MP3")
         );
-        let patch: Mp3Patch = serde_json::from_value(serde_json::json!({"title": null})).unwrap();
+        let patch: TrackPatch = serde_json::from_value(serde_json::json!({"title": null})).unwrap();
         write_mp3_atomic(&path, &patch).unwrap();
         assert_eq!(read_track_metadata(&path).unwrap().title, None);
         fs::remove_dir_all(root).unwrap();
@@ -526,7 +759,7 @@ mod tests {
     #[test]
     fn rich_patch_matches_normalized_electron_readback() {
         let (root, path) = copy_fixture();
-        let patch: Mp3Patch = serde_json::from_value(serde_json::json!({
+        let patch: TrackPatch = serde_json::from_value(serde_json::json!({
             "title": "Replacement",
             "artist": "Replacement Artist",
             "artists": ["Primary", "Guest"],
@@ -553,7 +786,7 @@ mod tests {
         .unwrap();
         assert_eq!(
             write_mp3_atomic(&path, &patch).unwrap(),
-            Mp3WriteOutcome::Replaced
+            TrackWriteOutcome::Replaced
         );
         let track = read_track_metadata(&path).unwrap();
         assert_eq!(track.title.as_deref(), Some("Replacement"));
@@ -614,7 +847,7 @@ mod tests {
         tag.insert_user_text("UNRELATED".to_string(), "keep-me".to_string());
         tag.save_to_path(&path, WriteOptions::new()).unwrap();
 
-        let patch: Mp3Patch =
+        let patch: TrackPatch =
             serde_json::from_value(serde_json::json!({"title": "Changed title"})).unwrap();
         write_mp3_atomic(&path, &patch).unwrap();
         let tag = read_id3v2(&path).unwrap();
@@ -633,10 +866,92 @@ mod tests {
         )));
         tag.save_to_path(&path, WriteOptions::new()).unwrap();
 
-        let patch: Mp3Patch =
+        let patch: TrackPatch =
             serde_json::from_value(serde_json::json!({"title": "Changed title"})).unwrap();
         write_mp3_atomic(&path, &patch).unwrap();
         assert!(read_id3v2(&path).unwrap().get(&unknown_id).is_some());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn flac_identical_patch_is_true_noop() {
+        let (root, path) = copy_flac_fixture();
+        let before = fs::read(&path).unwrap();
+        let patch: TrackPatch =
+            serde_json::from_value(serde_json::json!({"title": "Corpus Encoded"})).unwrap();
+        assert_eq!(
+            write_flac_atomic(&path, &patch).unwrap(),
+            TrackWriteOutcome::Skipped
+        );
+        assert_eq!(fs::read(&path).unwrap(), before);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn flac_rich_patch_preserves_padded_boundary_and_audio() {
+        let (root, path) = copy_flac_fixture();
+        let before = fs::read(&path).unwrap();
+        let before_payload = flac_audio_payload(&before).unwrap();
+        let before_offset = before.len() - before_payload.len();
+        let patch: TrackPatch = serde_json::from_value(serde_json::json!({
+            "title": "Replacement FLAC title",
+            "artist": "Replacement Artist",
+            "trackNumber": 7,
+            "trackTotal": 9,
+            "discNumber": 2,
+            "discTotal": 3,
+            "musicbrainzAlbumId": "replacement-mb-album",
+            "discogsReleaseId": "replacement-discogs-release"
+        }))
+        .unwrap();
+        assert_eq!(
+            write_flac_atomic(&path, &patch).unwrap(),
+            TrackWriteOutcome::Replaced
+        );
+        let after = fs::read(&path).unwrap();
+        let after_payload = flac_audio_payload(&after).unwrap();
+        assert_eq!(after.len(), before.len());
+        assert_eq!(after.len() - after_payload.len(), before_offset);
+        assert_eq!(after_payload, before_payload);
+        let track = read_track_metadata(&path).unwrap();
+        assert_eq!(track.title.as_deref(), Some("Replacement FLAC title"));
+        assert_eq!(track.artist.as_deref(), Some("Replacement Artist"));
+        assert_eq!((track.track_number, track.track_total), (Some(7), Some(9)));
+        assert_eq!((track.disc_number, track.disc_total), (Some(2), Some(3)));
+        assert_eq!(
+            track.musicbrainz_album_id.as_deref(),
+            Some("replacement-mb-album")
+        );
+        assert_eq!(
+            track.discogs_release_id.as_deref(),
+            Some("replacement-discogs-release")
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn flac_null_clears_and_unknown_comment_survives() {
+        let (root, path) = copy_flac_fixture();
+        let mut flac = read_flac(&path).unwrap();
+        flac.vorbis_comments_mut()
+            .unwrap()
+            .insert("UNRELATED".to_string(), "keep-me".to_string());
+        flac.save_to_path(&path, WriteOptions::new()).unwrap();
+        let patch: TrackPatch =
+            serde_json::from_value(serde_json::json!({"title": null, "artist": "Changed"}))
+                .unwrap();
+        write_flac_atomic(&path, &patch).unwrap();
+        let track = read_track_metadata(&path).unwrap();
+        assert_eq!(track.title, None);
+        assert_eq!(track.artist.as_deref(), Some("Changed"));
+        assert_eq!(
+            read_flac(&path)
+                .unwrap()
+                .vorbis_comments()
+                .unwrap()
+                .get("UNRELATED"),
+            Some("keep-me")
+        );
         fs::remove_dir_all(root).unwrap();
     }
 
@@ -644,7 +959,7 @@ mod tests {
     async fn queued_single_track_write_runs_the_atomic_core() {
         let (root, path) = copy_fixture();
         let queue = WriteQueue::default();
-        let patch: Mp3Patch =
+        let patch: TrackPatch =
             serde_json::from_value(serde_json::json!({"title": "Queued title"})).unwrap();
         write_track_queued(&queue, path.clone(), patch)
             .await
@@ -658,24 +973,56 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn queued_non_mp3_write_fails_loudly_without_touching_file() {
+    async fn queued_flac_write_runs_the_atomic_core() {
+        let (root, path) = copy_flac_fixture();
+        let queue = WriteQueue::default();
+        let patch: TrackPatch =
+            serde_json::from_value(serde_json::json!({"title": "Queued FLAC title"})).unwrap();
+        write_track_queued(&queue, path.clone(), patch)
+            .await
+            .unwrap();
+        assert_eq!(
+            read_track_metadata(&path).unwrap().title.as_deref(),
+            Some("Queued FLAC title")
+        );
+        assert!(!queue.is_active());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn queued_unsupported_write_fails_loudly_without_touching_file() {
         let root = std::env::temp_dir().join(format!(
             "auto-tagger-pending-write-{}",
             TEMP_SEQUENCE.fetch_add(1, Ordering::Relaxed)
         ));
         fs::create_dir_all(&root).unwrap();
-        let path = root.join("pending.flac");
+        let path = root.join("pending.ogg");
         fs::write(&path, b"unchanged").unwrap();
-        let error = write_track_queued(&WriteQueue::default(), path.clone(), Mp3Patch::default())
+        let error = write_track_queued(&WriteQueue::default(), path.clone(), TrackPatch::default())
             .await
             .unwrap_err();
-        assert!(error.to_string().contains("non-MP3"));
+        assert!(error.to_string().contains("other than MP3/FLAC"));
         assert_eq!(fs::read(&path).unwrap(), b"unchanged");
         fs::remove_dir_all(root).unwrap();
     }
 
     #[test]
-    fn malformed_input_failure_leaves_original_untouched() {
+    fn malformed_flac_failure_leaves_original_untouched() {
+        let root = std::env::temp_dir().join(format!(
+            "auto-tagger-bad-flac-{}",
+            TEMP_SEQUENCE.fetch_add(1, Ordering::Relaxed)
+        ));
+        fs::create_dir_all(&root).unwrap();
+        let path = root.join("bad.flac");
+        fs::write(&path, b"not a flac").unwrap();
+        let before = fs::read(&path).unwrap();
+        assert!(write_flac_atomic(&path, &TrackPatch::default()).is_err());
+        assert_eq!(fs::read(&path).unwrap(), before);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn malformed_mp3_failure_leaves_original_untouched() {
         let root = std::env::temp_dir().join(format!(
             "auto-tagger-bad-mp3-{}",
             TEMP_SEQUENCE.fetch_add(1, Ordering::Relaxed)
@@ -684,7 +1031,7 @@ mod tests {
         let path = root.join("bad.mp3");
         fs::write(&path, b"not an mp3").unwrap();
         let before = fs::read(&path).unwrap();
-        let result = write_mp3_atomic(&path, &Mp3Patch::default());
+        let result = write_mp3_atomic(&path, &TrackPatch::default());
         assert!(result.is_err());
         assert_eq!(fs::read(&path).unwrap(), before);
         fs::remove_dir_all(root).unwrap();

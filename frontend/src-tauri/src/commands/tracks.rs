@@ -1,14 +1,14 @@
 //! Track metadata read/write parity owner (`electron/handlers/tracks.ts`).
 //!
-//! The first media-safety increment is **read only**: parse the shared committed
-//! Electron/Rust corpus with Lofty and normalize it into the renderer's exact
-//! `TrackData` DTO. Mutation, extra tags, rename, queueing, and writers remain
-//! intentionally absent until this differential reader contract is green.
+//! Lofty-backed read normalization plus format-specific metadata fallbacks.
+//! Atomic mutation cores live in `commands::mutations`; extra tags, rename, and
+//! remaining formats are enabled only as their differential contracts turn green.
 
 use crate::commands::library::is_audio_file;
 use crate::error::ApiError;
 use lofty::config::ParseOptions;
 use lofty::file::{AudioFile, TaggedFileExt};
+use lofty::flac::FlacFile;
 use lofty::mpeg::MpegFile;
 use lofty::tag::{ItemKey, Tag};
 use serde::Serialize;
@@ -267,7 +267,10 @@ pub fn read_track_metadata(path: &Path) -> Result<TrackData, ApiError> {
 
     match lofty::read_from_path(path) {
         Ok(tagged) => {
-            let track = from_lofty(path, size_bytes, &extension, &tagged);
+            let mut track = from_lofty(path, size_bytes, &extension, &tagged);
+            if extension == "flac" {
+                apply_flac_native_fields(path, &mut track);
+            }
             if extension == "flac" && track.duration <= 0.0 {
                 // `music-metadata` reports Infinity for these valid metadata
                 // regions with no audio frames; the bounded fallback preserves
@@ -292,6 +295,21 @@ pub fn read_track_metadata(path: &Path) -> Result<TrackData, ApiError> {
         }
         Err(error) => Err(error.into()),
     }
+}
+
+fn apply_flac_native_fields(path: &Path, track: &mut TrackData) {
+    let Ok(mut file) = File::open(path) else {
+        return;
+    };
+    let Ok(flac) = FlacFile::read_from(&mut file, ParseOptions::new().read_properties(false))
+    else {
+        return;
+    };
+    let Some(comments) = flac.vorbis_comments() else {
+        return;
+    };
+    track.discogs_artist_id = comments.get("DISCOGS_ARTIST_ID").map(ToOwned::to_owned);
+    track.discogs_release_id = comments.get("DISCOGS_RELEASE_ID").map(ToOwned::to_owned);
 }
 
 fn from_lofty(
