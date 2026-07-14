@@ -28,66 +28,9 @@ import {
   vorbisCommentBlock,
   paddingBlock,
 } from "../helpers/flac-helpers";
+import { id3v1Tail, minimalApeAudio, minimalWavAudio } from "../helpers/media-corpus";
 
 const STREAMINFO_LEN = 34;
-
-function minimalApeAudio(): Buffer {
-  const descriptor = Buffer.alloc(52);
-  descriptor.write("MAC ", 0, 4, "ascii");
-  descriptor.writeUInt32LE(2000000, 4);
-  descriptor.writeUInt32LE(52, 8);
-  descriptor.writeUInt32LE(24, 12);
-  descriptor.writeUInt32LE(0, 16);
-  descriptor.writeUInt32LE(0, 20);
-  descriptor.writeUInt32LE(4096, 24);
-  descriptor.writeUInt32LE(0, 28);
-  descriptor.writeUInt32LE(0, 32);
-
-  const header = Buffer.alloc(24);
-  header.writeUInt32LE(4608, 4);
-  header.writeUInt32LE(0, 8);
-  header.writeUInt32LE(1, 12);
-  header.writeUInt16LE(16, 16);
-  header.writeUInt16LE(2, 18);
-  header.writeUInt32LE(44100, 20);
-
-  return Buffer.concat([descriptor, header, Buffer.alloc(4096, 0x55)]);
-}
-
-function minimalWavAudio(): Buffer {
-  const fmt = Buffer.alloc(16);
-  fmt.writeUInt16LE(1, 0);
-  fmt.writeUInt16LE(1, 2);
-  fmt.writeUInt32LE(44100, 4);
-  fmt.writeUInt32LE(88200, 8);
-  fmt.writeUInt16LE(2, 12);
-  fmt.writeUInt16LE(16, 14);
-
-  const data = Buffer.alloc(882);
-  const fmtHeader = Buffer.alloc(8);
-  fmtHeader.write("fmt ", 0, 4, "ascii");
-  fmtHeader.writeUInt32LE(fmt.length, 4);
-  const dataHeader = Buffer.alloc(8);
-  dataHeader.write("data", 0, 4, "ascii");
-  dataHeader.writeUInt32LE(data.length, 4);
-  const body = Buffer.concat([
-    Buffer.from("WAVE", "ascii"),
-    fmtHeader,
-    fmt,
-    dataHeader,
-    data,
-  ]);
-  const header = Buffer.alloc(8);
-  header.write("RIFF", 0, 4, "ascii");
-  header.writeUInt32LE(body.length, 4);
-  return Buffer.concat([header, body]);
-}
-
-function id3v1Tail(): Buffer {
-  const id3 = Buffer.alloc(128, 0);
-  id3.write("TAG", 0, 3, "ascii");
-  return id3;
-}
 
 // ── Tests ────────────────────────────────────────────────────────────
 
