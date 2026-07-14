@@ -24,13 +24,27 @@ function temporaryRoot(): string {
 
 async function normalizedElectronBaseline(root: string) {
   const tracks = await Promise.all(
-    MEDIA_CORPUS_FILES.map(async (file) => ({
-      ...(await readTrackMetadata(path.join(root, file))),
-      path: file,
-    })),
+    MEDIA_CORPUS_FILES.map(async (file) => {
+      const track = await readTrackMetadata(path.join(root, file));
+      // Canonical DesktopAPI declares lyrics as string|null. music-metadata's
+      // ID3 path currently leaks an object through Electron's unsafe cast; the
+      // normalized cross-runtime fixture intentionally extracts `.text` while
+      // a separate characterization below preserves evidence of the raw defect.
+      const rawLyrics = track.lyrics as unknown;
+      const lyrics =
+        typeof rawLyrics === "string"
+          ? rawLyrics
+          : rawLyrics &&
+              typeof rawLyrics === "object" &&
+              "text" in rawLyrics &&
+              typeof (rawLyrics as { text?: unknown }).text === "string"
+            ? (rawLyrics as { text: string }).text
+            : null;
+      return { ...track, path: file, lyrics };
+    }),
   );
-  // JSON normalization intentionally removes any undefined JS-only values, so
-  // Rust consumes the exact committed renderer payload shape.
+  // JSON normalization intentionally removes undefined/non-finite JS-only
+  // values, so Rust consumes the canonical renderer DTO shape.
   return JSON.parse(JSON.stringify(tracks));
 }
 
@@ -79,5 +93,32 @@ describe("shared Electron/Rust media corpus", () => {
   it("committed normalized metadata baseline matches Electron readTrackMetadata", async () => {
     const expected = JSON.parse(fs.readFileSync(expectedPath, "utf-8"));
     expect(await normalizedElectronBaseline(fixtureRoot)).toEqual(expected);
+  });
+
+  /**
+   * Pre-existing Electron contract defect: desktop-api.ts declares lyrics as
+   * string|null, but ID3 music-metadata emits an object and tracks.ts currently
+   * leaks it through an unsafe cast. Renderer consumers guard typeof string and
+   * therefore ignore this object. Tauri keeps the canonical string contract;
+   * normalizedElectronBaseline extracts `.text` explicitly.
+   */
+  it("characterizes raw Electron ID3 lyrics object leakage", async () => {
+    const raw = await readTrackMetadata(path.join(fixtureRoot, "minimal.mp3"));
+    expect(raw.lyrics as unknown).toEqual({
+      language: "eng",
+      descriptor: "",
+      text: "Corpus Lyrics",
+    });
+  });
+
+  /**
+   * Pre-existing Electron writer/read characterization: the production writer
+   * persists COMPILATION=true in a TXXX row, but music-metadata's `common`
+   * normalization does not populate common.compilation, so TrackData is null.
+   * Preserve evidence; do not silently "fix" it in the migration reader.
+   */
+  it("characterizes production MP3 compilation readback as null", async () => {
+    const raw = await readTrackMetadata(path.join(fixtureRoot, "minimal.mp3"));
+    expect(raw.compilation).toBeNull();
   });
 });

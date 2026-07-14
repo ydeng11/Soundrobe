@@ -7,11 +7,14 @@
 
 use crate::commands::library::is_audio_file;
 use crate::error::ApiError;
+use lofty::config::ParseOptions;
 use lofty::file::{AudioFile, TaggedFileExt};
+use lofty::mpeg::MpegFile;
 use lofty::tag::{ItemKey, Tag};
 use serde::Serialize;
 use std::collections::HashMap;
 use std::fs;
+use std::fs::File;
 use std::path::Path;
 
 /// Renderer-facing metadata DTO. Field names/null/default behavior match
@@ -297,23 +300,41 @@ fn from_lofty(
     extension: &str,
     tagged: &lofty::file::TaggedFile,
 ) -> TrackData {
-    let tags = tagged.tags();
-    let artist = first_string(tags, ItemKey::TrackArtist);
-    let album_artist = first_string(tags, ItemKey::AlbumArtist);
-    let artists = all_strings(tags, ItemKey::TrackArtist);
-    let duration = tagged.properties().duration().as_secs_f64();
     let mut bitrate = tagged
         .properties()
         .overall_bitrate()
         .map(|kilobits| kilobits.saturating_mul(1_000));
-    let sample_rate = tagged.properties().sample_rate();
-
     // Electron's music-metadata returns precise bits/second for PCM WAV rather
     // than Lofty's integer-kbps representation. For PCM the byte rate can be
     // derived without reading the audio payload.
     if extension == "wav" {
         bitrate = wav_bitrate(path).or(bitrate);
     }
+    from_tags(
+        path,
+        size_bytes,
+        extension,
+        tagged.tags(),
+        tagged.properties().duration().as_secs_f64(),
+        bitrate,
+        tagged.properties().sample_rate(),
+    )
+}
+
+fn from_tags(
+    path: &Path,
+    size_bytes: u64,
+    extension: &str,
+    tags: &[Tag],
+    duration: f64,
+    bitrate: Option<u32>,
+    sample_rate: Option<u32>,
+) -> TrackData {
+    let artist = first_string(tags, ItemKey::TrackArtist);
+    let album_artist = first_string(tags, ItemKey::AlbumArtist);
+    let mut artists = all_strings(tags, ItemKey::TrackArtist);
+    artists.extend(all_strings(tags, ItemKey::TrackArtists));
+    artists.dedup();
 
     TrackData {
         path: path.to_string_lossy().into_owned(),
@@ -340,9 +361,6 @@ fn from_lofty(
         musicbrainz_track_id: first_string(tags, ItemKey::MusicBrainzRecordingId),
         musicbrainz_album_id: first_string(tags, ItemKey::MusicBrainzReleaseId),
         musicbrainz_artist_id: first_string(tags, ItemKey::MusicBrainzArtistId),
-        // Lofty 0.24 does not normalize Discogs IDs into ItemKey variants. The
-        // raw APE fallback handles them; other formats need their native-tag
-        // reader in the extra-tags slice before these can turn green.
         discogs_artist_id: None,
         discogs_release_id: None,
         has_cover: tags.iter().any(|tag| !tag.pictures().is_empty()),
@@ -419,12 +437,46 @@ fn read_mpeg_header_fallback(path: &Path, size_bytes: u64) -> Result<Option<Trac
             None
         }
     });
-    Ok(header.map(|()| TrackData {
-        codec: "MPEG 1 Layer 3".to_string(),
-        bitrate: Some(128_000),
-        sample_rate: Some(44_100),
-        ..TrackData::unreadable(path, size_bytes)
-    }))
+    let Some(()) = header else {
+        return Ok(None);
+    };
+
+    // Parse ID3 independently of audio properties. Lofty's normal MPEG probe
+    // rejects a one-frame corpus file, but its format reader can skip property
+    // validation and retain the full ID3v2 tag.
+    let mut file = File::open(path)?;
+    let parse_options = ParseOptions::new().read_properties(false);
+    let mpeg = MpegFile::read_from(&mut file, parse_options)?;
+    let mut tags = Vec::new();
+    let id3v2 = mpeg.id3v2();
+    if let Some(id3v2) = id3v2 {
+        tags.push(Tag::from(id3v2.clone()));
+    }
+    let mut track = from_tags(
+        path,
+        size_bytes,
+        "mp3",
+        &tags,
+        0.0,
+        Some(128_000),
+        Some(44_100),
+    );
+    if let Some(id3v2) = id3v2 {
+        track.description = id3v2.get_user_text("DESCRIPTION").map(ToOwned::to_owned);
+        track.musicbrainz_track_id = id3v2
+            .get_user_text("MusicBrainz Track Id")
+            .map(ToOwned::to_owned);
+        track.discogs_artist_id = id3v2
+            .get_user_text("Discogs Artist Id")
+            .map(ToOwned::to_owned);
+        track.discogs_release_id = id3v2
+            .get_user_text("Discogs Release Id")
+            .map(ToOwned::to_owned);
+        // Characterized Electron behavior: production writer stores TXXX
+        // COMPILATION, but readTrackMetadata returns common.compilation=null.
+        track.compilation = None;
+    }
+    Ok(Some(track))
 }
 
 /// Electron accepts the corpus's identification/comment-only OGG Vorbis file;

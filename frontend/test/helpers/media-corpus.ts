@@ -313,13 +313,39 @@ export function createMinimalOgg(
  */
 export async function generateMediaCorpus(root: string): Promise<void> {
   fs.mkdirSync(root, { recursive: true });
-  createMinimalMp3(path.join(root, "minimal.mp3"), {
+  const mp3Path = path.join(root, "minimal.mp3");
+  createMinimalMp3(mp3Path);
+  // Rewrite through the production Electron writer so the committed reader
+  // corpus covers standard/repeated/custom/provider/artwork ID3 behavior—not
+  // just an empty MPEG frame.
+  await writeTags(mp3Path, {
     title: "Corpus MP3",
     artist: "Corpus Artist",
+    artists: ["Corpus Artist", "Featured Artist"],
     album: "Corpus Album",
+    albumArtist: "Corpus Album Artist",
+    albumArtists: ["Corpus Album Artist", "Guest Album Artist"],
     year: "2024",
+    trackNumber: 3,
+    trackTotal: 12,
+    discNumber: 1,
+    discTotal: 2,
     genre: "Rock",
-    trackNumber: "1",
+    composer: "Corpus Composer",
+    comment: "Corpus Comment",
+    description: "Corpus Description",
+    lyrics: "Corpus Lyrics",
+    compilation: true,
+    musicbrainzTrackId: "corpus-mb-track",
+    musicbrainzAlbumId: "corpus-mb-album",
+    musicbrainzArtistId: "corpus-mb-artist",
+    discogsArtistId: "12345",
+    discogsReleaseId: "67890",
+    coverData: Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9WlNq8sAAAAASUVORK5CYII=",
+      "base64",
+    ),
+    coverMime: "image/png",
   });
   createMinimalFlac(
     path.join(root, "minimal.flac"),
