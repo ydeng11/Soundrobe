@@ -36,6 +36,7 @@ use tracing_subscriber::EnvFilter;
 use crate::commands::shell::ContextMenuState;
 use crate::infra::logging::DebugState;
 use crate::state::config::ConfigState;
+use crate::state::conversation::ConversationState;
 use crate::state::quit_guard::QuitGuard;
 use crate::state::tasks::TaskRegistry;
 use crate::state::window_state::{DisplayWorkArea, PositionAction, WindowState};
@@ -69,7 +70,8 @@ pub fn run() {
             if let Some(home) = dirs::home_dir() {
                 let config = ConfigState::init(home.clone());
                 let debug_enabled = config.raw().debug.unwrap_or(false);
-                app.manage(DebugState::new(home, debug_enabled));
+                app.manage(DebugState::new(home.clone(), debug_enabled));
+                app.manage(ConversationState::new(home));
                 app.manage(config);
             }
             app.manage(ContextMenuState::default());
@@ -119,6 +121,11 @@ pub fn run() {
             commands::tasks::task_cancel,
             commands::lyrics::lyrics_fetch,
             commands::lyrics::album_download_lyrics,
+            commands::conversation::assistant_init_runtime,
+            commands::conversation::assistant_list_sessions,
+            commands::conversation::assistant_get_conversation,
+            commands::conversation::assistant_get_session,
+            commands::conversation::assistant_current_session,
         ])
         .build(tauri::generate_context!())
         .expect("error while building the Auto Tagger Tauri shell");

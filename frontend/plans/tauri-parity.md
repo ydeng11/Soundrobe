@@ -112,12 +112,12 @@ Legend:
 | `assistant:apply-actions`  | `assistantApplyActions` | assistant.ts | `assistant.test.ts`, `assistant-folder-group.integration.test.ts`, `assistant-organize-files.integration.test.ts` | returns undo snapshots + optional task trigger |
 | `assistant:reject-actions` | `assistantRejectActions`| assistant.ts | `assistant.test.ts`                                                          | |
 | `assistant:get-batches`    | `assistantGetBatches`   | assistant.ts | `assistant.test.ts`                                                          | |
-| `assistant:init-runtime`    | `assistantInitRuntime`  | assistant.ts | `assistant.test.ts`                                                          | |
+| `assistant:init-runtime`    | `assistantInitRuntime`  | assistant.ts | Rust session/schema tests; LLM runtime tests pending | 🟡 initializes idempotent UUID/session-number + configured/default compatible cache.db; LLM runner/tool registry enhancement remains pending |
 | `assistant:init-services`   | `assistantInitServices` | assistant.ts | `assistant.test.ts`                                                          | apiKey/model/discogsToken/lyricsHost/libraryPath |
-| `assistant:list-sessions`   | `listSessions`          | assistant.ts | `conversation-logger.test.ts`                                               | limit? |
-| `assistant:get-conversation`| `getConversation`       | assistant.ts | `conversation-logger.test.ts`                                               | session uuid or number |
-| `assistant:get-session`     | `getSession`            | assistant.ts | `conversation-logger.test.ts`                                               | |
-| `assistant:current-session` | `getCurrentSession`     | assistant.ts | `conversation-logger.test.ts`                                               | `{sessionId, sessionNumber}` |
+| `assistant:list-sessions`   | `listSessions`          | assistant.ts | Rust existing-Electron-schema query tests + `conversation-logger.test.ts` | ✅ runtime-gated; default/explicit limit, newest first, first user message truncated to 200 characters, API entry count/cost |
+| `assistant:get-conversation`| `getConversation`       | assistant.ts | Rust existing-Electron-schema query tests + `conversation-logger.test.ts` | ✅ UUID or session number, ascending ID, exact nullable/token/cost fields; unavailable/error→[] |
+| `assistant:get-session`     | `getSession`            | assistant.ts | Rust existing-Electron-schema query tests + `conversation-logger.test.ts` | ✅ UUID/number resolution through latest 1000 summaries; unavailable/error→null |
+| `assistant:current-session` | `getCurrentSession`     | assistant.ts | Rust lifecycle tests + `conversation-logger.test.ts` | ✅ null before init; stable `{sessionId, sessionNumber}` after idempotent init |
 
 ### Organizer
 

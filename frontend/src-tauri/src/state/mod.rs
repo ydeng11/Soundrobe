@@ -7,6 +7,7 @@
 //! Not yet ported — populated per slice.
 
 pub mod config;
+pub mod conversation;
 pub mod providers;
 pub mod quit_guard;
 pub mod sqlite;
