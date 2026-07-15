@@ -123,7 +123,7 @@ Legend:
 
 | Ch                    | Renderer method | Owner        | Parity tests                                    | Notes |
 |-----------------------|------------------|--------------|-------------------------------------------------|-------|
-| `files:sort-by-album` | `sortByAlbum`   | organizer.ts | `FolderOrganizerService.test.ts`, `group-by-album.integration.test.ts` | move/copy into album folders |
+| `files:sort-by-album` | `sortByAlbum`   | organizer.ts | Rust organizer tests + `FolderOrganizerService.test.ts` | wired under one queue lease: recursive sorted audio collection, metadata/Unknown Album grouping, exact cross-platform sanitization, copy default or move, per-file failure/skip accounting |
 
 ### Window / dialog / debug
 

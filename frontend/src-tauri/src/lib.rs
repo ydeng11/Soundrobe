@@ -103,6 +103,7 @@ pub fn run() {
             commands::covers::cover_data_url,
             commands::covers::cover_set,
             commands::covers::cover_remove,
+            commands::organizer::files_sort_by_album,
         ])
         .build(tauri::generate_context!())
         .expect("error while building the Auto Tagger Tauri shell");
