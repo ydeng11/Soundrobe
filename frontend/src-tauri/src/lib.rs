@@ -112,6 +112,7 @@ pub fn run() {
             commands::debug::debug_set_mode,
             commands::debug::debug_status,
             commands::debug::debug_toggle,
+            commands::dataset::dataset_status,
         ])
         .build(tauri::generate_context!())
         .expect("error while building the Auto Tagger Tauri shell");

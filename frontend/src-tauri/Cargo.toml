@@ -35,11 +35,11 @@ lofty = "0.24.0"
 image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp"] }
 base64 = "0.22"
 time = { version = "0.3", features = ["formatting"] }
+rusqlite = { version = "=0.39.0", features = ["bundled"] }
 
 # Infrastructure crates — pinned to the versions locked by `Cargo.lock` and
 # introduced per migration slice. Listed here so the toolchain is recorded;
 # each slice enables only what it needs to keep SLOC change review bounded.
-#   rusqlite   = { version = "0.40", features = ["bundled"] }   # SQLite read-through slice
 #   reqwest    = { version = "0.13", default-features = false, features = ["json","rustls-tls"] }  # provider clients
 #   chardetng  = "1"                                             # lyrics encoding detection
 #   encoding_rs= "0.8"                                           # lyrics encoding

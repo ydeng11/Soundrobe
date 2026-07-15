@@ -164,8 +164,8 @@ export interface AutoTagEvent {
 }
 
 export interface DatasetStatus {
+  available: boolean;
   musicbrainz: boolean;
-  spotify: boolean;
   totalRecords: number;
   lastUpdated: string | null;
 }

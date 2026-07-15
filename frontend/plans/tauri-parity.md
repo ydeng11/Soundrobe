@@ -82,7 +82,7 @@ Legend:
 |------------------|---------------------|----------|---------------------|-------|
 | `config:get`     | `getConfig`        | main.ts  | `config.test.ts`    | **redacted**: keys show `****`+last4 or null |
 | `config:set`     | `setConfig`        | main.ts  | `config.test.ts`    | flat YAML, comments/unknown keys preserved, env precedence, key map |
-| `dataset:status` | `getDatasetStatus` | main.ts  | `dataset.test.ts`, `dataset-lookup.test.ts` | musicbrainz/spotify flags, record count, lastUpdated |
+| `dataset:status` | `getDatasetStatus` | main.ts  | Rust SQLite tests + `auto-tag.test.ts` | wired configured/default read-only SQLite status: exact available/musicbrainz/totalRecords/lastUpdated shape; missing/corrupt/wrong schema degrades unavailable. Shared DTO stale `spotify` corrected to runtime `available`. |
 
 ### Tasks / auto-tag manager
 
