@@ -1,7 +1,9 @@
 //! Media mutation core. Commands and queue integration land only after each
 //! format's pure writer passes differential and payload-safety tests.
 
-use crate::commands::tracks::{id3_user_text_values, read_track_metadata, TrackData};
+use crate::commands::tracks::{
+    id3_user_text_values, read_track_metadata, unreadable_track_data, TrackData,
+};
 use crate::error::ApiError;
 use crate::state::write_queue::WriteQueue;
 use lofty::ape::{ApeFile, ApeItem, ApeTag};
@@ -117,6 +119,18 @@ pub struct TrackPatch {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+pub struct ExtraTagUpdate {
+    pub key: String,
+    pub value: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct ExtraTagBatchUpdate {
+    pub path: String,
+    pub tags: Vec<ExtraTagUpdate>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
 pub struct TrackUpdate {
     pub path: String,
     pub fields: TrackPatch,
@@ -143,6 +157,47 @@ pub async fn tracks_batch_write(
     queue: State<'_, WriteQueue>,
 ) -> Result<(), ApiError> {
     batch_write_queued(&queue, updates).await
+}
+
+#[tauri::command]
+pub async fn track_extra_tags_write(
+    track_path: String,
+    tags: Vec<ExtraTagUpdate>,
+    queue: State<'_, WriteQueue>,
+) -> Result<TrackData, ApiError> {
+    let path = PathBuf::from(track_path);
+    write_extra_tags_queued(&queue, path.clone(), tags).await?;
+    read_track_metadata(&path)
+}
+
+#[tauri::command]
+pub async fn tracks_batch_write_extra_tags(
+    updates: Vec<ExtraTagBatchUpdate>,
+    queue: State<'_, WriteQueue>,
+) -> Result<Vec<TrackData>, ApiError> {
+    let supported = updates
+        .iter()
+        .filter(|update| validate_extra_tag_extension(Path::new(&update.path)).is_ok())
+        .cloned()
+        .collect::<Vec<_>>();
+    if !supported.is_empty() {
+        batch_write_extra_tags_queued(&queue, supported).await?;
+    }
+    updates
+        .into_iter()
+        .map(|update| {
+            let path = PathBuf::from(update.path);
+            read_track_metadata(&path).or_else(|_| {
+                let size = fs::metadata(&path)?.len();
+                let title = path
+                    .file_name()
+                    .and_then(|name| name.to_str())
+                    .unwrap_or_default()
+                    .to_string();
+                Ok(unreadable_track_data(&path, size, title))
+            })
+        })
+        .collect()
 }
 
 fn validated_track_extension(path: &Path) -> Result<String, ApiError> {
@@ -206,6 +261,423 @@ async fn batch_write_queued(queue: &WriteQueue, updates: Vec<TrackUpdate>) -> Re
             .map_err(|error| ApiError::WriteTask(error.to_string()))?
         })
         .await
+}
+
+async fn write_extra_tags_queued(
+    queue: &WriteQueue,
+    path: PathBuf,
+    tags: Vec<ExtraTagUpdate>,
+) -> Result<(), ApiError> {
+    validate_extra_tag_extension(&path)?;
+    queue
+        .run(async move {
+            tokio::task::spawn_blocking(move || write_extra_tags_dispatch(&path, &tags))
+                .await
+                .map_err(|error| ApiError::WriteTask(error.to_string()))?
+        })
+        .await?;
+    Ok(())
+}
+
+async fn batch_write_extra_tags_queued(
+    queue: &WriteQueue,
+    updates: Vec<ExtraTagBatchUpdate>,
+) -> Result<(), ApiError> {
+    queue
+        .run(async move {
+            tokio::task::spawn_blocking(move || {
+                let mut failures = Vec::new();
+                for update in updates {
+                    if let Err(error) =
+                        write_extra_tags_dispatch(Path::new(&update.path), &update.tags)
+                    {
+                        failures.push(format!("{}: {error}", update.path));
+                    }
+                }
+                if failures.is_empty() {
+                    Ok(())
+                } else {
+                    Err(ApiError::Message(format!(
+                        "Batch extra-tag write failed for {} file(s): {}",
+                        failures.len(),
+                        failures.join("; ")
+                    )))
+                }
+            })
+            .await
+            .map_err(|error| ApiError::WriteTask(error.to_string()))?
+        })
+        .await
+}
+
+fn validate_extra_tag_extension(path: &Path) -> Result<String, ApiError> {
+    let extension = path
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .unwrap_or_default()
+        .to_ascii_lowercase();
+    if !matches!(
+        extension.as_str(),
+        "mp3" | "flac" | "ogg" | "opus" | "wav" | "ape"
+    ) {
+        let label = path
+            .extension()
+            .and_then(|extension| extension.to_str())
+            .map(|extension| format!(".{extension}"))
+            .unwrap_or_else(|| "this file type".to_string());
+        return Err(ApiError::UnsupportedFormat(format!(
+            "Extra tag editing is not supported for {label}"
+        )));
+    }
+    Ok(extension)
+}
+
+fn write_extra_tags_dispatch(
+    path: &Path,
+    tags: &[ExtraTagUpdate],
+) -> Result<TrackWriteOutcome, ApiError> {
+    match validate_extra_tag_extension(path)?.as_str() {
+        "mp3" => write_id3_extra_tags_atomic(path, tags, false),
+        "wav" => write_id3_extra_tags_atomic(path, tags, true),
+        "flac" => write_flac_extra_tags_atomic(path, tags),
+        "ogg" | "opus" => write_ogg_extra_tags_atomic(path, tags),
+        _ => write_ape_extra_tags_atomic(path, tags),
+    }
+}
+
+fn normalized_extra_tags(tags: &[ExtraTagUpdate]) -> Vec<ExtraTagUpdate> {
+    let mut seen = std::collections::HashSet::new();
+    let mut result = Vec::new();
+    for tag in tags {
+        let raw_key = tag.key.trim();
+        let mut key = if raw_key.eq_ignore_ascii_case("COMM") {
+            "COMMENT".to_string()
+        } else {
+            raw_key.to_string()
+        };
+        let normalized = normalize_provider_key(&key);
+        key = match normalized.as_str() {
+            "MUSICBRAINZTRACKID" | "MUSICBRAINZRECORDINGID" => "MUSICBRAINZ_TRACKID",
+            "MUSICBRAINZALBUMID" | "MUSICBRAINZRELEASEID" => "MUSICBRAINZ_ALBUMID",
+            "MUSICBRAINZARTISTID" => "MUSICBRAINZ_ARTISTID",
+            "DISCOGSARTISTID" => "DISCOGS_ARTIST_ID",
+            "DISCOGSRELEASEID" => "DISCOGS_RELEASE_ID",
+            _ => &key,
+        }
+        .to_string();
+        let value = tag.value.trim().to_string();
+        let upper = key.to_ascii_uppercase();
+        if key.is_empty()
+            || value.is_empty()
+            || (is_reserved_extra_key(&upper) && upper != "ARTISTS")
+            || !seen.insert((upper, value.clone()))
+        {
+            continue;
+        }
+        result.push(ExtraTagUpdate { key, value });
+    }
+    result
+}
+
+fn is_reserved_extra_key(key: &str) -> bool {
+    matches!(
+        key.trim().to_ascii_uppercase().as_str(),
+        "TITLE"
+            | "ARTIST"
+            | "ARTISTS"
+            | "ALBUM"
+            | "ALBUMARTIST"
+            | "ALBUM ARTIST"
+            | "DATE"
+            | "YEAR"
+            | "GENRE"
+            | "COMPOSER"
+            | "LYRICS"
+            | "UNSYNCEDLYRICS"
+            | "UNSYNCHRONISEDLYRICS"
+            | "TRACK"
+            | "TRACKNUMBER"
+            | "TRACKTOTAL"
+            | "TOTALTRACKS"
+            | "DISC"
+            | "DISCNUMBER"
+            | "DISCTOTAL"
+            | "TOTALDISCS"
+            | "METADATA_BLOCK_PICTURE"
+    )
+}
+
+fn apply_id3_extra_tags(tag: &mut Id3v2Tag, updates: &[ExtraTagUpdate]) {
+    let descriptions = (&*tag)
+        .into_iter()
+        .filter_map(|frame| match frame {
+            Frame::UserText(frame) => Some(frame.description.to_string()),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    for description in descriptions {
+        let upper = description.trim().to_ascii_uppercase();
+        if !is_reserved_extra_key(&upper) || upper == "ARTISTS" {
+            tag.remove_user_text(&description);
+        }
+    }
+    tag.remove_comment();
+    let normalized = normalized_extra_tags(updates);
+    let comment = normalized
+        .iter()
+        .find(|tag| tag.key.eq_ignore_ascii_case("COMMENT"));
+    if let Some(comment) = comment {
+        tag.set_comment(comment.value.clone());
+    }
+    let mut groups: Vec<(String, Vec<String>)> = Vec::new();
+    for update in normalized
+        .iter()
+        .filter(|tag| !tag.key.eq_ignore_ascii_case("COMMENT"))
+    {
+        let description = id3_extra_description(&update.key);
+        if let Some((_, values)) = groups
+            .iter_mut()
+            .find(|(key, _)| key.eq_ignore_ascii_case(&description))
+        {
+            values.push(update.value.clone());
+        } else {
+            groups.push((description, vec![update.value.clone()]));
+        }
+    }
+    for (description, values) in groups {
+        let separator = if description.eq_ignore_ascii_case("ARTISTS") {
+            ";"
+        } else {
+            "\0"
+        };
+        tag.insert_user_text(description, values.join(separator));
+    }
+}
+
+fn id3_extra_description(key: &str) -> String {
+    match key.to_ascii_uppercase().as_str() {
+        "MUSICBRAINZ_TRACKID" => "MusicBrainz Track Id",
+        "MUSICBRAINZ_ALBUMID" => "MusicBrainz Album Id",
+        "MUSICBRAINZ_ARTISTID" => "MusicBrainz Artist Id",
+        "DISCOGS_ARTIST_ID" => "Discogs Artist Id",
+        "DISCOGS_RELEASE_ID" => "Discogs Release Id",
+        _ => key,
+    }
+    .to_string()
+}
+
+fn apply_vorbis_extra_tags(tag: &mut lofty::ogg::VorbisComments, updates: &[ExtraTagUpdate]) {
+    let keys = tag
+        .items()
+        .map(|(key, _)| key.to_string())
+        .collect::<Vec<_>>();
+    for key in keys {
+        let upper = key.to_ascii_uppercase();
+        if !is_reserved_extra_key(&upper) || upper == "ARTISTS" {
+            drop(tag.remove(&key));
+        }
+    }
+    for update in normalized_extra_tags(updates) {
+        tag.push(update.key.to_ascii_uppercase(), update.value);
+    }
+}
+
+fn apply_ape_extra_tags(tag: &mut ApeTag, updates: &[ExtraTagUpdate]) -> Result<(), ApiError> {
+    let keys = (&*tag)
+        .into_iter()
+        .map(|item| item.key().to_string())
+        .collect::<Vec<_>>();
+    for key in keys {
+        let upper = key.to_ascii_uppercase();
+        if !is_reserved_extra_key(&upper) || upper == "ARTISTS" {
+            tag.remove(&key);
+        }
+    }
+    for update in normalized_extra_tags(updates) {
+        tag.push(ApeItem::new(
+            update.key.to_ascii_uppercase(),
+            ItemValue::Text(update.value),
+        )?);
+    }
+    Ok(())
+}
+
+fn write_id3_extra_tags_atomic(
+    path: &Path,
+    updates: &[ExtraTagUpdate],
+    wav: bool,
+) -> Result<TrackWriteOutcome, ApiError> {
+    let original = fs::read(path)?;
+    let mut file = File::open(path)?;
+    let mut tag = if wav {
+        WavFile::read_from(&mut file, ParseOptions::new().read_properties(false))?
+            .id3v2()
+            .cloned()
+            .unwrap_or_default()
+    } else {
+        MpegFile::read_from(&mut file, ParseOptions::new().read_properties(false))?
+            .id3v2()
+            .cloned()
+            .unwrap_or_default()
+    };
+    apply_id3_extra_tags(&mut tag, updates);
+    let temporary = sibling_temp_path(path);
+    let result = (|| {
+        fs::copy(path, &temporary)?;
+        tag.save_to_path(&temporary, WriteOptions::new())?;
+        let candidate = fs::read(&temporary)?;
+        let payload_equal = if wav {
+            let before = wav_data_payloads(&original)
+                .ok_or_else(|| ApiError::MediaSafety("invalid WAV chunk structure".to_string()))?;
+            wav_data_payloads(&candidate) == Some(before)
+        } else {
+            let before = mpeg_payload(&original)
+                .ok_or_else(|| ApiError::MediaSafety("invalid ID3v2 boundary".to_string()))?;
+            mpeg_payload(&candidate) == Some(before)
+        };
+        if !payload_equal {
+            return Err(ApiError::MediaSafety(
+                "audio payload changed during extra-tag write".to_string(),
+            ));
+        }
+        read_track_metadata(&temporary)?;
+        if candidate == original {
+            return Ok(TrackWriteOutcome::Skipped);
+        }
+        replace_file_atomic(&temporary, path)?;
+        Ok(TrackWriteOutcome::Replaced)
+    })();
+    if temporary.exists() {
+        let _ = fs::remove_file(&temporary);
+    }
+    result
+}
+
+fn write_flac_extra_tags_atomic(
+    path: &Path,
+    updates: &[ExtraTagUpdate],
+) -> Result<TrackWriteOutcome, ApiError> {
+    let original = fs::read(path)?;
+    let (prepared, repairs) = prepare_flac_source(&original)
+        .ok_or_else(|| ApiError::MediaSafety("invalid FLAC metadata boundary".to_string()))?;
+    let payload = flac_audio_payload(&prepared).ok_or_else(|| {
+        ApiError::MediaSafety("invalid prepared FLAC metadata boundary".to_string())
+    })?;
+    let target_offset = prepared.len() - payload.len();
+    let payload = payload.to_vec();
+    let temporary = sibling_temp_path(path);
+    let result = (|| {
+        fs::write(&temporary, &prepared)?;
+        let flac = read_flac(&temporary)?;
+        let mut comments = flac.vorbis_comments().cloned().unwrap_or_default();
+        apply_vorbis_extra_tags(&mut comments, updates);
+        comments.save_to_path(&temporary, WriteOptions::new())?;
+        let candidate = fs::read(&temporary)?;
+        if flac_audio_payload(&candidate) != Some(payload.as_slice()) {
+            return Err(ApiError::MediaSafety(
+                "FLAC audio payload changed during extra-tag write".to_string(),
+            ));
+        }
+        if !repairs.force_full_rewrite {
+            if let Some(repacked) = repack_flac_metadata(&candidate, target_offset, &payload) {
+                fs::write(&temporary, repacked)?;
+            }
+        }
+        read_track_metadata(&temporary)?;
+        if !repairs.any() && fs::read(&temporary)? == original {
+            return Ok(TrackWriteOutcome::Skipped);
+        }
+        replace_file_atomic(&temporary, path)?;
+        Ok(TrackWriteOutcome::Replaced)
+    })();
+    if temporary.exists() {
+        let _ = fs::remove_file(&temporary);
+    }
+    result
+}
+
+fn write_ogg_extra_tags_atomic(
+    path: &Path,
+    updates: &[ExtraTagUpdate],
+) -> Result<TrackWriteOutcome, ApiError> {
+    let extension = path
+        .extension()
+        .and_then(|value| value.to_str())
+        .unwrap_or_default();
+    let header_packets = if extension.eq_ignore_ascii_case("opus") {
+        2
+    } else {
+        3
+    };
+    let original = fs::read(path)?;
+    let original_audio = ogg_audio_packets(&original, header_packets)
+        .ok_or_else(|| ApiError::MediaSafety("invalid OGG packet structure".to_string()))?;
+    let temporary = sibling_temp_path(path);
+    let result = (|| {
+        fs::copy(path, &temporary)?;
+        let mut file = File::open(path)?;
+        if extension.eq_ignore_ascii_case("opus") {
+            let mut parsed =
+                OpusFile::read_from(&mut file, ParseOptions::new().read_properties(false))?;
+            apply_vorbis_extra_tags(parsed.vorbis_comments_mut(), updates);
+            parsed.save_to_path(&temporary, WriteOptions::new())?;
+        } else {
+            let mut parsed =
+                VorbisFile::read_from(&mut file, ParseOptions::new().read_properties(false))?;
+            apply_vorbis_extra_tags(parsed.vorbis_comments_mut(), updates);
+            parsed.save_to_path(&temporary, WriteOptions::new())?;
+        }
+        let candidate = fs::read(&temporary)?;
+        if ogg_audio_packets(&candidate, header_packets) != Some(original_audio) {
+            return Err(ApiError::MediaSafety(
+                "OGG audio packets changed during extra-tag write".to_string(),
+            ));
+        }
+        read_track_metadata(&temporary)?;
+        if candidate == original {
+            return Ok(TrackWriteOutcome::Skipped);
+        }
+        replace_file_atomic(&temporary, path)?;
+        Ok(TrackWriteOutcome::Replaced)
+    })();
+    if temporary.exists() {
+        let _ = fs::remove_file(&temporary);
+    }
+    result
+}
+
+fn write_ape_extra_tags_atomic(
+    path: &Path,
+    updates: &[ExtraTagUpdate],
+) -> Result<TrackWriteOutcome, ApiError> {
+    let original = fs::read(path)?;
+    let core = ape_audio_core(&original)
+        .ok_or_else(|| ApiError::MediaSafety("invalid Monkey audio boundary".to_string()))?;
+    let mut file = File::open(path)?;
+    let parsed = ApeFile::read_from(&mut file, ParseOptions::new().read_properties(false))?;
+    let mut tag = parsed.ape().cloned().unwrap_or_default();
+    apply_ape_extra_tags(&mut tag, updates)?;
+    let temporary = sibling_temp_path(path);
+    let result = (|| {
+        fs::write(&temporary, core)?;
+        tag.save_to_path(&temporary, WriteOptions::new())?;
+        let candidate = fs::read(&temporary)?;
+        if ape_audio_core(&candidate) != Some(core) {
+            return Err(ApiError::MediaSafety(
+                "Monkey audio core changed during extra-tag write".to_string(),
+            ));
+        }
+        read_track_metadata(&temporary)?;
+        if candidate == original {
+            return Ok(TrackWriteOutcome::Skipped);
+        }
+        replace_file_atomic(&temporary, path)?;
+        Ok(TrackWriteOutcome::Replaced)
+    })();
+    if temporary.exists() {
+        let _ = fs::remove_file(&temporary);
+    }
+    result
 }
 
 /// Write canonical APEv2 metadata after the exact tag-free Monkey audio core.
@@ -2135,6 +2607,245 @@ mod tests {
             Some("Queued FLAC title")
         );
         assert!(!queue.is_active());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    fn extra_payload_snapshot(path: &Path) -> Vec<Vec<u8>> {
+        let bytes = fs::read(path).unwrap();
+        match path.extension().and_then(|value| value.to_str()).unwrap() {
+            "mp3" => vec![mpeg_payload(&bytes).unwrap().to_vec()],
+            "flac" => vec![flac_audio_payload(&bytes).unwrap().to_vec()],
+            "ogg" => ogg_audio_packets(&bytes, 3).unwrap(),
+            "opus" => ogg_audio_packets(&bytes, 2).unwrap(),
+            "wav" => wav_data_payloads(&bytes).unwrap(),
+            "ape" => vec![ape_audio_core(&bytes).unwrap().to_vec()],
+            _ => unreachable!(),
+        }
+    }
+
+    #[test]
+    fn extra_tag_writes_replace_extras_preserve_standard_fields_and_audio() {
+        let cases = [
+            (media_fixture("minimal.mp3"), "track.mp3"),
+            (writer_fixture("padded.flac"), "track.flac"),
+            (writer_fixture("vorbis.ogg"), "track.ogg"),
+            (writer_fixture("opus.opus"), "track.opus"),
+            (media_fixture("minimal.wav"), "track.wav"),
+            (media_fixture("ape-id3v1-fallback.ape"), "track.ape"),
+        ];
+        for (fixture, name) in cases {
+            let (root, path) = copy_to_temp(&fixture, name);
+            let title = read_track_metadata(&path).unwrap().title;
+            let audio = extra_payload_snapshot(&path);
+            write_extra_tags_dispatch(
+                &path,
+                &[
+                    ExtraTagUpdate {
+                        key: " mood ".to_string(),
+                        value: " Bright ".to_string(),
+                    },
+                    ExtraTagUpdate {
+                        key: "BARCODE".to_string(),
+                        value: "111".to_string(),
+                    },
+                    ExtraTagUpdate {
+                        key: "BARCODE".to_string(),
+                        value: "222".to_string(),
+                    },
+                    ExtraTagUpdate {
+                        key: "ARTISTS".to_string(),
+                        value: "One".to_string(),
+                    },
+                    ExtraTagUpdate {
+                        key: "ARTISTS".to_string(),
+                        value: "Two".to_string(),
+                    },
+                    ExtraTagUpdate {
+                        key: "TITLE".to_string(),
+                        value: "Must not replace".to_string(),
+                    },
+                ],
+            )
+            .unwrap();
+            assert_eq!(extra_payload_snapshot(&path), audio, "{name}");
+            assert_eq!(read_track_metadata(&path).unwrap().title, title, "{name}");
+            let rows = crate::commands::tracks::read_extra_tags(&path);
+            assert!(
+                rows.iter()
+                    .any(|row| row.key.eq_ignore_ascii_case("MOOD") && row.value == "Bright"),
+                "{name}"
+            );
+            assert!(
+                rows.iter()
+                    .any(|row| row.key == "BARCODE" && row.value == "111"),
+                "{name}"
+            );
+            assert!(
+                rows.iter()
+                    .any(|row| row.key == "BARCODE" && row.value == "222"),
+                "{name}"
+            );
+            assert_eq!(
+                rows.iter().filter(|row| row.key == "ARTISTS").count(),
+                2,
+                "{name}"
+            );
+            assert!(!rows.iter().any(|row| row.key == "TITLE"), "{name}");
+
+            write_extra_tags_dispatch(
+                &path,
+                &[ExtraTagUpdate {
+                    key: "MOOD".to_string(),
+                    value: "Calm".to_string(),
+                }],
+            )
+            .unwrap();
+            let rows = crate::commands::tracks::read_extra_tags(&path);
+            assert!(
+                rows.iter()
+                    .any(|row| row.key.eq_ignore_ascii_case("MOOD") && row.value == "Calm"),
+                "{name}"
+            );
+            assert!(
+                !rows
+                    .iter()
+                    .any(|row| row.key == "BARCODE" || row.key == "ARTISTS"),
+                "{name}"
+            );
+            write_extra_tags_dispatch(&path, &[]).unwrap();
+            let cleared = crate::commands::tracks::read_extra_tags(&path);
+            assert!(
+                !cleared.iter().any(|row| {
+                    row.key.eq_ignore_ascii_case("MOOD")
+                        || row.key == "BARCODE"
+                        || row.key == "ARTISTS"
+                }),
+                "{name}"
+            );
+            assert_eq!(extra_payload_snapshot(&path), audio, "{name}");
+            fs::remove_dir_all(root).unwrap();
+        }
+    }
+
+    #[tokio::test]
+    async fn batch_extra_tags_writes_all_supported_formats() {
+        let (root, mp3) = copy_to_temp(&media_fixture("minimal.mp3"), "first.mp3");
+        let flac = root.join("second.flac");
+        fs::copy(writer_fixture("padded.flac"), &flac).unwrap();
+        let updates = vec![
+            ExtraTagBatchUpdate {
+                path: mp3.to_string_lossy().into_owned(),
+                tags: vec![ExtraTagUpdate {
+                    key: "MOOD".to_string(),
+                    value: "Bright".to_string(),
+                }],
+            },
+            ExtraTagBatchUpdate {
+                path: flac.to_string_lossy().into_owned(),
+                tags: vec![ExtraTagUpdate {
+                    key: "MOOD".to_string(),
+                    value: "Calm".to_string(),
+                }],
+            },
+        ];
+        let queue = WriteQueue::default();
+        batch_write_extra_tags_queued(&queue, updates)
+            .await
+            .unwrap();
+        assert!(!queue.is_active());
+        assert!(crate::commands::tracks::read_extra_tags(&mp3)
+            .iter()
+            .any(|row| row.value == "Bright"));
+        assert!(crate::commands::tracks::read_extra_tags(&flac)
+            .iter()
+            .any(|row| row.value == "Calm"));
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn batch_extra_tags_aggregates_failures_and_continues() {
+        let root = std::env::temp_dir().join(format!(
+            "auto-tagger-extra-batch-{}",
+            TEMP_SEQUENCE.fetch_add(1, Ordering::Relaxed)
+        ));
+        fs::create_dir_all(&root).unwrap();
+        let bad = root.join("bad.mp3");
+        fs::write(&bad, b"bad").unwrap();
+        let good = root.join("good.flac");
+        fs::copy(writer_fixture("padded.flac"), &good).unwrap();
+        let updates = vec![
+            ExtraTagBatchUpdate {
+                path: bad.to_string_lossy().into_owned(),
+                tags: Vec::new(),
+            },
+            ExtraTagBatchUpdate {
+                path: good.to_string_lossy().into_owned(),
+                tags: vec![ExtraTagUpdate {
+                    key: "MOOD".to_string(),
+                    value: "Written".to_string(),
+                }],
+            },
+        ];
+        let error = batch_write_extra_tags_queued(&WriteQueue::default(), updates)
+            .await
+            .unwrap_err();
+        assert!(error
+            .to_string()
+            .contains("Batch extra-tag write failed for 1 file(s)"));
+        assert!(error.to_string().contains("bad.mp3"));
+        assert!(crate::commands::tracks::read_extra_tags(&good)
+            .iter()
+            .any(|row| row.value == "Written"));
+        assert_eq!(fs::read(&bad).unwrap(), b"bad");
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn extra_tag_normalization_canonicalizes_and_deduplicates() {
+        let rows = normalized_extra_tags(&[
+            ExtraTagUpdate {
+                key: " COMM ".to_string(),
+                value: " note ".to_string(),
+            },
+            ExtraTagUpdate {
+                key: "MusicBrains Album Id".to_string(),
+                value: "mb".to_string(),
+            },
+            ExtraTagUpdate {
+                key: "MUSICBRAINZ_ALBUMID".to_string(),
+                value: "mb".to_string(),
+            },
+            ExtraTagUpdate {
+                key: "GENRE".to_string(),
+                value: "Rock".to_string(),
+            },
+            ExtraTagUpdate {
+                key: "EMPTY".to_string(),
+                value: " ".to_string(),
+            },
+        ]);
+        assert_eq!(rows.len(), 2);
+        assert_eq!(rows[0].key, "COMMENT");
+        assert_eq!(rows[0].value, "note");
+        assert_eq!(rows[1].key, "MUSICBRAINZ_ALBUMID");
+    }
+
+    #[tokio::test]
+    async fn extra_tag_queue_rejects_unsupported_without_mutation() {
+        let root = std::env::temp_dir().join(format!(
+            "auto-tagger-extra-unsupported-{}",
+            TEMP_SEQUENCE.fetch_add(1, Ordering::Relaxed)
+        ));
+        fs::create_dir_all(&root).unwrap();
+        let path = root.join("track.m4a");
+        fs::write(&path, b"untouched").unwrap();
+        let error = write_extra_tags_queued(&WriteQueue::default(), path.clone(), Vec::new())
+            .await
+            .unwrap_err();
+        assert!(error
+            .to_string()
+            .contains("Extra tag editing is not supported for .m4a"));
+        assert_eq!(fs::read(&path).unwrap(), b"untouched");
         fs::remove_dir_all(root).unwrap();
     }
 

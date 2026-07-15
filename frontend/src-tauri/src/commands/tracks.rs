@@ -348,12 +348,22 @@ pub fn read_extra_tags(path: &Path) -> Vec<ExtraTag> {
 fn collect_id3_extra_tags(tag: &Id3v2Tag, source: &str, rows: &mut Vec<ExtraTag>) {
     for frame in tag {
         match frame {
-            Frame::UserText(frame) => push_extra_tag(
-                rows,
-                frame.description.to_string(),
-                frame.content.to_string(),
-                source,
-            ),
+            Frame::UserText(frame) => {
+                for nul_value in frame.content.split('\0').filter(|value| !value.is_empty()) {
+                    if frame.description.eq_ignore_ascii_case("ARTISTS") {
+                        for value in nul_value.split(';').filter(|value| !value.is_empty()) {
+                            push_extra_tag(rows, "ARTISTS".to_string(), value.to_string(), source);
+                        }
+                    } else {
+                        push_extra_tag(
+                            rows,
+                            frame.description.to_string(),
+                            nul_value.to_string(),
+                            source,
+                        );
+                    }
+                }
+            }
             Frame::Comment(frame) => push_extra_tag(
                 rows,
                 "COMMENT".to_string(),

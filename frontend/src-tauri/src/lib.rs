@@ -95,6 +95,8 @@ pub fn run() {
             commands::tracks::track_extra_tags_read,
             commands::mutations::track_write,
             commands::mutations::tracks_batch_write,
+            commands::mutations::track_extra_tags_write,
+            commands::mutations::tracks_batch_write_extra_tags,
         ])
         .build(tauri::generate_context!())
         .expect("error while building the Auto Tagger Tauri shell");
