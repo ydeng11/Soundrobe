@@ -80,6 +80,18 @@ describe("Electron FLAC repair-edge characterization for Tauri parity", () => {
     expect((await parseFile(file, { duration: false })).common.title).toBe("Canonical Title");
   });
 
+  it("creates a Vorbis comment block when none exists", async () => {
+    const file = copy("flac-bare.flac");
+    const before = fs.readFileSync(file);
+    expect(layout(before).types.filter((type) => type === 4)).toHaveLength(0);
+    const result = await writeTagsWithResult(file, { title: "Fresh Title" });
+    const after = fs.readFileSync(file);
+    expect(result).toEqual({ outcome: "metadata_rewrite", reason: "metadata_region_repacked" });
+    expect(layout(after).types.filter((type) => type === 4)).toHaveLength(1);
+    expect(after.subarray(layout(after).audioOffset)).toEqual(before.subarray(layout(before).audioOffset));
+    expect((await parseFile(file, { duration: false })).common.title).toBe("Fresh Title");
+  });
+
   it("uses full rewrite when growth exceeds the eight-byte padding", async () => {
     const file = copy("flac-insufficient-padding.flac");
     const before = fs.readFileSync(file);

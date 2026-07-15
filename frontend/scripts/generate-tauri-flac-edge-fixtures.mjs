@@ -36,6 +36,10 @@ function serialize(blocks, audio) {
 const { blocks, audio } = parse(source);
 const withoutPadding = blocks.filter((block) => block.type !== 1);
 fs.writeFileSync(
+  path.join(root, "flac-bare.flac"),
+  serialize(blocks.filter((block) => block.type !== 4), audio),
+);
+fs.writeFileSync(
   path.join(root, "flac-insufficient-padding.flac"),
   serialize([...withoutPadding, { type: 1, data: Buffer.alloc(8) }], audio),
 );

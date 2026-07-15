@@ -380,20 +380,20 @@ pub fn write_ogg_atomic(path: &Path, patch: &TrackPatch) -> Result<TrackWriteOut
 /// pictures remain owned by Lofty's format-specific `FlacFile` representation.
 pub fn write_flac_atomic(path: &Path, patch: &TrackPatch) -> Result<TrackWriteOutcome, ApiError> {
     let original_bytes = fs::read(path)?;
-    let original_payload = flac_audio_payload(&original_bytes)
+    let (prepared, repairs) = prepare_flac_source(&original_bytes)
         .ok_or_else(|| ApiError::MediaSafety("invalid FLAC metadata boundary".to_string()))?;
-    let original_audio_offset = original_bytes.len() - original_payload.len();
-    let before = read_track_metadata(path)?;
-    let mut flac = read_flac(path)?;
-    let comments = flac
-        .vorbis_comments_mut()
-        .ok_or_else(|| ApiError::MediaSafety("FLAC has no Vorbis comment block".to_string()))?;
-    apply_vorbis_patch(comments, patch);
-
+    let original_payload = flac_audio_payload(&prepared)
+        .ok_or_else(|| ApiError::MediaSafety("invalid prepared FLAC boundary".to_string()))?;
+    let original_audio_offset = prepared.len() - original_payload.len();
+    let original_payload = original_payload.to_vec();
     let temporary = sibling_temp_path(path);
     let result = (|| {
-        fs::copy(path, &temporary)?;
-        flac.save_to_path(&temporary, WriteOptions::new())?;
+        fs::write(&temporary, &prepared)?;
+        let before = read_track_metadata(&temporary)?;
+        let flac = read_flac(&temporary)?;
+        let mut comments = flac.vorbis_comments().cloned().unwrap_or_default();
+        apply_vorbis_patch(&mut comments, patch);
+        comments.save_to_path(&temporary, WriteOptions::new())?;
         let candidate_bytes = fs::read(&temporary)?;
         let candidate_payload = flac_audio_payload(&candidate_bytes).ok_or_else(|| {
             ApiError::MediaSafety("invalid written FLAC metadata boundary".to_string())
@@ -403,13 +403,15 @@ pub fn write_flac_atomic(path: &Path, patch: &TrackPatch) -> Result<TrackWriteOu
                 "FLAC audio payload changed during metadata write".to_string(),
             ));
         }
-        if let Some(repacked) =
-            repack_flac_metadata(&candidate_bytes, original_audio_offset, original_payload)
-        {
-            fs::write(&temporary, repacked)?;
+        if !repairs.force_full_rewrite {
+            if let Some(repacked) =
+                repack_flac_metadata(&candidate_bytes, original_audio_offset, &original_payload)
+            {
+                fs::write(&temporary, repacked)?;
+            }
         }
         let after = read_track_metadata(&temporary)?;
-        if same_metadata(before, after) {
+        if !repairs.any() && same_metadata(before, after) {
             return Ok(TrackWriteOutcome::Skipped);
         }
         replace_file_atomic(&temporary, path)?;
@@ -1099,6 +1101,111 @@ fn ogg_audio_packets(bytes: &[u8], header_packets: usize) -> Option<Vec<Vec<u8>>
     Some(packets.into_iter().skip(header_packets).collect())
 }
 
+#[derive(Debug, Default)]
+struct FlacRepairs {
+    trailing_ape: bool,
+    ghost_vorbis: bool,
+    duplicate_vorbis: bool,
+    force_full_rewrite: bool,
+}
+
+impl FlacRepairs {
+    fn any(&self) -> bool {
+        self.trailing_ape || self.ghost_vorbis || self.duplicate_vorbis
+    }
+}
+
+fn prepare_flac_source(original: &[u8]) -> Option<(Vec<u8>, FlacRepairs)> {
+    let (without_ape, trailing_ape) = strip_trailing_apev2(original)?;
+    let mut prepared = without_ape.to_vec();
+    let audio_offset = flac_audio_offset(&prepared)?;
+    let ghost_vorbis = neutralize_ghost_vorbis(&mut prepared, audio_offset);
+    let duplicate_vorbis = flac_metadata_types(&prepared)?
+        .into_iter()
+        .filter(|block_type| *block_type == 4)
+        .count()
+        > 1;
+    Some((
+        prepared,
+        FlacRepairs {
+            trailing_ape,
+            ghost_vorbis,
+            duplicate_vorbis,
+            force_full_rewrite: trailing_ape || ghost_vorbis,
+        },
+    ))
+}
+
+fn strip_trailing_apev2(bytes: &[u8]) -> Option<(&[u8], bool)> {
+    if bytes.len() < 32 || bytes.get(bytes.len() - 32..bytes.len() - 24)? != b"APETAGEX" {
+        return Some((bytes, false));
+    }
+    let footer = bytes.len() - 32;
+    let tag_size =
+        u32::from_le_bytes(bytes.get(footer + 12..footer + 16)?.try_into().ok()?) as usize;
+    if tag_size < 32 || tag_size > bytes.len() {
+        return None;
+    }
+    let mut start = bytes.len().checked_sub(tag_size)?;
+    if start >= 32 && bytes.get(start - 32..start - 24) == Some(b"APETAGEX") {
+        let flags = u32::from_le_bytes(bytes.get(start - 12..start - 8)?.try_into().ok()?);
+        if flags & 0x2000_0000 != 0 {
+            start -= 32;
+        }
+    }
+    Some((bytes.get(..start)?, true))
+}
+
+fn neutralize_ghost_vorbis(bytes: &mut [u8], audio_offset: usize) -> bool {
+    const VENDOR: &[u8] = b"auto-tagger";
+    let mut search = audio_offset;
+    let mut found = false;
+    while search <= bytes.len().saturating_sub(VENDOR.len()) {
+        let Some(relative) = bytes[search..]
+            .windows(VENDOR.len())
+            .position(|window| window == VENDOR)
+        else {
+            break;
+        };
+        let position = search + relative;
+        if position >= 4 {
+            let claimed =
+                u32::from_le_bytes(bytes[position - 4..position].try_into().unwrap_or_default());
+            if claimed as usize == VENDOR.len() {
+                bytes[position - 4..position].fill(0);
+                found = true;
+            }
+        }
+        search = position + 1;
+    }
+    found
+}
+
+fn flac_metadata_types(bytes: &[u8]) -> Option<Vec<u8>> {
+    let marker = bytes.windows(4).position(|window| window == b"fLaC")?;
+    let mut offset = marker.checked_add(4)?;
+    let mut types = Vec::new();
+    loop {
+        let header = bytes.get(offset..offset.checked_add(4)?)?;
+        let last = header[0] & 0x80 != 0;
+        types.push(header[0] & 0x7f);
+        let length =
+            (usize::from(header[1]) << 16) | (usize::from(header[2]) << 8) | usize::from(header[3]);
+        offset = offset.checked_add(4)?.checked_add(length)?;
+        if offset > bytes.len() {
+            return None;
+        }
+        if last {
+            return Some(types);
+        }
+    }
+}
+
+fn flac_audio_offset(bytes: &[u8]) -> Option<usize> {
+    let payload = flac_audio_payload(bytes)?;
+    bytes.len().checked_sub(payload.len())
+}
+
 fn repack_flac_metadata(
     candidate: &[u8],
     target_audio_offset: usize,
@@ -1108,6 +1215,7 @@ fn repack_flac_metadata(
     let metadata_start = marker.checked_add(4)?;
     let available = target_audio_offset.checked_sub(metadata_start)?;
     let mut blocks = Vec::new();
+    let mut saw_vorbis = false;
     let mut offset = metadata_start;
     loop {
         let header_end = offset.checked_add(4)?;
@@ -1119,7 +1227,12 @@ fn repack_flac_metadata(
         let data_start = header_end;
         let data_end = data_start.checked_add(length)?;
         let data = candidate.get(data_start..data_end)?;
-        if block_type != 1 {
+        if block_type == 4 {
+            if !saw_vorbis {
+                blocks.push((block_type, data));
+                saw_vorbis = true;
+            }
+        } else if block_type != 1 {
             blocks.push((block_type, data));
         }
         offset = data_end;
@@ -1870,6 +1983,124 @@ mod tests {
                 .get("UNRELATED"),
             Some("keep-me")
         );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn flac_trailing_ape_is_removed_with_exact_audio() {
+        let (root, path) = copy_to_temp(&writer_fixture("flac-trailing-ape.flac"), "edge.flac");
+        let before = fs::read(&path).unwrap();
+        let (prepared, repairs) = prepare_flac_source(&before).unwrap();
+        assert!(repairs.trailing_ape);
+        let expected_audio = flac_audio_payload(&prepared).unwrap().to_vec();
+        let patch: TrackPatch =
+            serde_json::from_value(serde_json::json!({"album": "Correct Album"})).unwrap();
+        assert_eq!(
+            write_flac_atomic(&path, &patch).unwrap(),
+            TrackWriteOutcome::Replaced
+        );
+        let after = fs::read(&path).unwrap();
+        assert!(!after.windows(8).any(|window| window == b"APETAGEX"));
+        assert_eq!(flac_audio_payload(&after).unwrap(), expected_audio);
+        assert_eq!(
+            read_track_metadata(&path).unwrap().album.as_deref(),
+            Some("Correct Album")
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn flac_ghost_vorbis_is_neutralized_with_only_length_word_changed() {
+        let (root, path) = copy_to_temp(&writer_fixture("flac-ghost-vc.flac"), "edge.flac");
+        let before = fs::read(&path).unwrap();
+        let (prepared, repairs) = prepare_flac_source(&before).unwrap();
+        assert!(repairs.ghost_vorbis);
+        let expected_audio = flac_audio_payload(&prepared).unwrap().to_vec();
+        let patch: TrackPatch =
+            serde_json::from_value(serde_json::json!({"title": "RealTitle"})).unwrap();
+        write_flac_atomic(&path, &patch).unwrap();
+        let after = fs::read(&path).unwrap();
+        assert!(after.len() > before.len());
+        assert_eq!(flac_audio_payload(&after).unwrap(), expected_audio);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn flac_duplicate_vorbis_is_collapsed_at_same_audio_boundary() {
+        let (root, path) = copy_to_temp(&writer_fixture("flac-duplicate-vc.flac"), "edge.flac");
+        let before = fs::read(&path).unwrap();
+        let before_audio = flac_audio_payload(&before).unwrap().to_vec();
+        let before_offset = flac_audio_offset(&before).unwrap();
+        assert_eq!(
+            flac_metadata_types(&before)
+                .unwrap()
+                .iter()
+                .filter(|kind| **kind == 4)
+                .count(),
+            2
+        );
+        let patch: TrackPatch =
+            serde_json::from_value(serde_json::json!({"title": "Canonical Title"})).unwrap();
+        write_flac_atomic(&path, &patch).unwrap();
+        let after = fs::read(&path).unwrap();
+        assert_eq!(
+            flac_metadata_types(&after)
+                .unwrap()
+                .iter()
+                .filter(|kind| **kind == 4)
+                .count(),
+            1
+        );
+        assert_eq!(flac_audio_offset(&after).unwrap(), before_offset);
+        assert_eq!(flac_audio_payload(&after).unwrap(), before_audio);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn flac_without_vorbis_block_creates_one_at_same_audio_boundary() {
+        let (root, path) = copy_to_temp(&writer_fixture("flac-bare.flac"), "edge.flac");
+        let before = fs::read(&path).unwrap();
+        let before_audio = flac_audio_payload(&before).unwrap().to_vec();
+        let before_offset = flac_audio_offset(&before).unwrap();
+        assert!(!flac_metadata_types(&before).unwrap().contains(&4));
+        let patch: TrackPatch =
+            serde_json::from_value(serde_json::json!({"title": "Fresh Title"})).unwrap();
+        write_flac_atomic(&path, &patch).unwrap();
+        let after = fs::read(&path).unwrap();
+        assert_eq!(
+            flac_metadata_types(&after)
+                .unwrap()
+                .iter()
+                .filter(|kind| **kind == 4)
+                .count(),
+            1
+        );
+        assert_eq!(flac_audio_offset(&after).unwrap(), before_offset);
+        assert_eq!(flac_audio_payload(&after).unwrap(), before_audio);
+        assert_eq!(
+            read_track_metadata(&path).unwrap().title.as_deref(),
+            Some("Fresh Title")
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn flac_insufficient_padding_grows_metadata_without_changing_audio() {
+        let (root, path) = copy_to_temp(
+            &writer_fixture("flac-insufficient-padding.flac"),
+            "edge.flac",
+        );
+        let before = fs::read(&path).unwrap();
+        let before_audio = flac_audio_payload(&before).unwrap().to_vec();
+        let patch: TrackPatch = serde_json::from_value(serde_json::json!({
+            "title": "Expanded",
+            "lyrics": "lyrics".repeat(500)
+        }))
+        .unwrap();
+        write_flac_atomic(&path, &patch).unwrap();
+        let after = fs::read(&path).unwrap();
+        assert!(after.len() > before.len());
+        assert_eq!(flac_audio_payload(&after).unwrap(), before_audio);
         fs::remove_dir_all(root).unwrap();
     }
 
