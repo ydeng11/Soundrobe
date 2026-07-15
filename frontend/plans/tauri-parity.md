@@ -74,7 +74,7 @@ Legend:
 | Ch            | Renderer method | Owner   | Parity tests                 | Notes |
 |---------------|-----------------|---------|------------------------------|-------|
 | `lyrics:fetch` | `fetchLyrics`   | main.ts | Rust local-HTTP tests + `lyrics.test.ts` | wired LRCLIB RustLS client: required names, URL encoding, optional album, rounded positive duration, 10s timeout/user-agent, synced→plain preference, null for non-OK/network/JSON/empty/instrumental. Encoding/local-file work belongs album-download slice. |
-| `album:download-lyrics` | `downloadAlbumLyrics` | main.ts | `lyrics.test.ts` | batch per album |
+| `album:download-lyrics` | `downloadAlbumLyrics` | main.ts | Rust encoding/batch tests + `lyrics.test.ts` | wired sorted direct audio files: `.lrc` then `.txt` local priority with UTF-16 BOM/chardetng+encoding_rs (Shift-JIS/Big5 tested), sequential API fallback using metadata, one atomic WriteQueue batch, per-track failure continuation, success count, outer failures→0 |
 
 ### Configuration & dataset
 

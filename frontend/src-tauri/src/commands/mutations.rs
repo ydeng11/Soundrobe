@@ -311,7 +311,10 @@ fn validated_track_extension(path: &Path) -> Result<String, ApiError> {
     Ok(extension.unwrap_or_default())
 }
 
-fn write_track_dispatch(path: &Path, patch: &TrackPatch) -> Result<TrackWriteOutcome, ApiError> {
+pub(crate) fn write_track_dispatch(
+    path: &Path,
+    patch: &TrackPatch,
+) -> Result<TrackWriteOutcome, ApiError> {
     match validated_track_extension(path)?.as_str() {
         "mp3" => write_mp3_atomic(path, patch),
         "flac" => write_flac_atomic(path, patch),

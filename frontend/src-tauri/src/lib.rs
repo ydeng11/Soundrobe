@@ -118,6 +118,7 @@ pub fn run() {
             commands::tasks::task_progress,
             commands::tasks::task_cancel,
             commands::lyrics::lyrics_fetch,
+            commands::lyrics::album_download_lyrics,
         ])
         .build(tauri::generate_context!())
         .expect("error while building the Auto Tagger Tauri shell");
