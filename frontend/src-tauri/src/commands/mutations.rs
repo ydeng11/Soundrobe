@@ -171,6 +171,37 @@ pub async fn track_extra_tags_write(
 }
 
 #[tauri::command]
+pub async fn track_rename(
+    old_path: String,
+    new_path: String,
+    queue: State<'_, WriteQueue>,
+) -> Result<TrackData, ApiError> {
+    rename_track_queued(&queue, PathBuf::from(old_path), PathBuf::from(new_path)).await
+}
+
+async fn rename_track_queued(
+    queue: &WriteQueue,
+    old_path: PathBuf,
+    new_path: PathBuf,
+) -> Result<TrackData, ApiError> {
+    let readback_path = new_path.clone();
+    queue
+        .run(async move {
+            tokio::task::spawn_blocking(move || {
+                if let Some(parent) = new_path.parent() {
+                    fs::create_dir_all(parent)?;
+                }
+                fs::rename(old_path, new_path)?;
+                Ok::<(), ApiError>(())
+            })
+            .await
+            .map_err(|error| ApiError::WriteTask(error.to_string()))?
+        })
+        .await?;
+    read_track_metadata(&readback_path)
+}
+
+#[tauri::command]
 pub async fn tracks_batch_write_extra_tags(
     updates: Vec<ExtraTagBatchUpdate>,
     queue: State<'_, WriteQueue>,
@@ -2846,6 +2877,65 @@ mod tests {
             .to_string()
             .contains("Extra tag editing is not supported for .m4a"));
         assert_eq!(fs::read(&path).unwrap(), b"untouched");
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn rename_creates_nested_parent_and_returns_new_path_metadata() {
+        let (root, source) = copy_to_temp(&media_fixture("minimal.mp3"), "source.mp3");
+        let target = root.join("nested").join("renamed.mp3");
+        let queue = WriteQueue::default();
+        let track = rename_track_queued(&queue, source.clone(), target.clone())
+            .await
+            .unwrap();
+        assert!(!source.exists());
+        assert!(target.exists());
+        assert_eq!(track.path, target.to_string_lossy());
+        assert_eq!(track.title.as_deref(), Some("Corpus MP3"));
+        assert!(!queue.is_active());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn rename_matches_unix_collision_replacement_semantics() {
+        let (root, source) = copy_to_temp(&media_fixture("minimal.mp3"), "source.mp3");
+        let target = root.join("target.mp3");
+        fs::write(&target, b"old target").unwrap();
+        rename_track_queued(&WriteQueue::default(), source, target.clone())
+            .await
+            .unwrap();
+        assert_eq!(
+            read_track_metadata(&target).unwrap().title.as_deref(),
+            Some("Corpus MP3")
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn rename_uses_normal_filesystem_parent_traversal_resolution() {
+        let (root, source) = copy_to_temp(&media_fixture("minimal.mp3"), "source.mp3");
+        let target = root.join("created").join("..").join("resolved.mp3");
+        let track = rename_track_queued(&WriteQueue::default(), source, target.clone())
+            .await
+            .unwrap();
+        assert_eq!(track.path, target.to_string_lossy());
+        assert!(root.join("resolved.mp3").exists());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn rename_failure_keeps_source_bytes() {
+        let (root, source) = copy_to_temp(&media_fixture("minimal.mp3"), "source.mp3");
+        let before = fs::read(&source).unwrap();
+        let target = root.join("target-dir");
+        fs::create_dir_all(&target).unwrap();
+        assert!(
+            rename_track_queued(&WriteQueue::default(), source.clone(), target)
+                .await
+                .is_err()
+        );
+        assert_eq!(fs::read(&source).unwrap(), before);
         fs::remove_dir_all(root).unwrap();
     }
 
