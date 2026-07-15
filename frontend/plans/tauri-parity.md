@@ -89,8 +89,8 @@ Legend:
 | Ch              | Renderer method    | Owner    | Parity tests        | Notes |
 |-----------------|--------------------|----------|---------------------|-------|
 | `album:auto-tag` | `autoTagAlbum`    | main.ts  | `auto-tag.test.ts`, `auto-tag-chinese.test.ts`, `candidates.test.ts`, `fallback.test.ts`, `musicbrainz.test.ts`, `discogs.test.ts` | returns taskId; pipeline folder hints→MusicBrainz→Discogs→LLM |
-| `task:progress`  | `getTaskProgress` | main.ts  | `auto-tag.test.ts` | running/completed/failed/cancelled, progress/total/message/result |
-| `task:cancel`    | `cancelTask`      | main.ts  | `auto-tag.test.ts` | cooperative cancellation |
+| `task:progress`  | `getTaskProgress` | main.ts  | Rust task registry + `auto-tag.test.ts` | wired nullable unknown lookup and exact running/completed/failed/cancelled progress/total/message/result DTO; shared API corrected nullable |
+| `task:cancel`    | `cancelTask`      | main.ts  | Rust task registry + `auto-tag.test.ts` | wired no-op unknown cancellation, status/message update, shared atomic token; task creation/events attach in auto-tag/audit slices |
 
 ### Audit
 

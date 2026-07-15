@@ -37,6 +37,7 @@ use crate::commands::shell::ContextMenuState;
 use crate::infra::logging::DebugState;
 use crate::state::config::ConfigState;
 use crate::state::quit_guard::QuitGuard;
+use crate::state::tasks::TaskRegistry;
 use crate::state::window_state::{DisplayWorkArea, PositionAction, WindowState};
 use crate::state::write_queue::WriteQueue;
 
@@ -74,6 +75,7 @@ pub fn run() {
             app.manage(ContextMenuState::default());
             app.manage(WriteQueue::default());
             app.manage(QuitGuard::default());
+            app.manage(TaskRegistry::default());
             // Tauri menu events are global; ContextMenuState scopes recognized
             // IDs to the single active popup so ordinary app/tray menu events
             // cannot resolve a renderer context-menu promise.
@@ -113,6 +115,8 @@ pub fn run() {
             commands::debug::debug_status,
             commands::debug::debug_toggle,
             commands::dataset::dataset_status,
+            commands::tasks::task_progress,
+            commands::tasks::task_cancel,
         ])
         .build(tauri::generate_context!())
         .expect("error while building the Auto Tagger Tauri shell");

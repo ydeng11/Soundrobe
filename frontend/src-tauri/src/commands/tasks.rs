@@ -1,6 +1,14 @@
-//! Parity owner for the `tasks` behavioral group.
-//!
-//! Not yet ported: see `frontend/plans/tauri-parity.md`. The slice begins with
-//! a failing contract test encoding the current Electron intent, then the
-//! minimum Rust/adapter code; the command is wired into `generate_handler!`
-//! only when its parity row is green.
+//! Shared task progress polling and cancellation commands.
+
+use crate::state::tasks::{TaskProgress, TaskRegistry};
+use tauri::State;
+
+#[tauri::command]
+pub fn task_progress(task_id: String, tasks: State<'_, TaskRegistry>) -> Option<TaskProgress> {
+    tasks.get(&task_id)
+}
+
+#[tauri::command]
+pub fn task_cancel(task_id: String, tasks: State<'_, TaskRegistry>) {
+    tasks.cancel(&task_id);
+}

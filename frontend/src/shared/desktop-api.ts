@@ -347,7 +347,7 @@ export interface DesktopAPI {
   autoTagAlbum: (albumPath: string) => Promise<string>;
   downloadAlbumLyrics: (albumPath: string) => Promise<number>;
   onAutoTagEvent: (callback: (event: AutoTagEvent) => void) => () => void;
-  getTaskProgress: (taskId: string) => Promise<TaskProgress>;
+  getTaskProgress: (taskId: string) => Promise<TaskProgress | null>;
   cancelTask: (taskId: string) => Promise<void>;
   getDatasetStatus: () => Promise<DatasetStatus>;
 
