@@ -32,13 +32,14 @@ dirs = "6"
 # Reader plus format-by-format writer cores, enabled only behind differential
 # media-safety tests before command exposure.
 lofty = "0.24.0"
+image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp"] }
+base64 = "0.22"
 
 # Infrastructure crates — pinned to the versions locked by `Cargo.lock` and
 # introduced per migration slice. Listed here so the toolchain is recorded;
 # each slice enables only what it needs to keep SLOC change review bounded.
 #   rusqlite   = { version = "0.40", features = ["bundled"] }   # SQLite read-through slice
 #   reqwest    = { version = "0.13", default-features = false, features = ["json","rustls-tls"] }  # provider clients
-#   image      = { version = "0.25" }                            # artwork resize/convert
 #   chardetng  = "1"                                             # lyrics encoding detection
 #   encoding_rs= "0.8"                                           # lyrics encoding
 #   opencc-rust= "2"                                             # SC/TC chinese_script

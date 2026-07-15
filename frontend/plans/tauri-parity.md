@@ -63,9 +63,9 @@ Legend:
 
 | Ch                          | Renderer method        | Owner     | Parity tests                                  | Notes |
 |-----------------------------|------------------------|-----------|-----------------------------------------------|-------|
-| `cover:data-url`            | `getCoverDataUrl`     | cover.ts  | `cover.test.ts`, `ArtworkResolverService.test.ts` | base64 data URL |
-| `cover:set`                 | `setCover`            | cover.ts  | `cover.test.ts`                              | pick image, embed |
-| `cover:remove`              | `removeCover`         | cover.ts  | `cover.test.ts`                              | strip embedded |
+| `cover:data-url`            | `getCoverDataUrl`     | cover.ts  | Rust cover tests + `cover.test.ts` | wired: suppression → ordered external names → embedded artwork; decode/resize JPEG data URL, malformed/missing returns null |
+| `cover:set`                 | `setCover`            | cover.ts  | Rust cover tests + `cover.test.ts` | wired: native image picker, max-500 JPEG quality 90 `cover.jpg`, clears suppression, returns quality-85 data URL; real-display cancel/error distinction pending |
+| `cover:remove`              | `removeCover`         | cover.ts  | Rust cover tests | wired: remove first ordered external cover, write `.auto-tagger-cover-removed`, hide remaining external/embedded sources; missing/write failure returns false |
 | `cover:download`            | `downloadCoverArt`    | cover.ts  | `cover.test.ts`, `cover-download.test.ts`     | resolver chain local→cover-art-archive→discogs→theaudiodb→google |
 | `cover:download-artist-art` | `downloadArtistArt`  | cover.ts  | `cover-download.test.ts`, `ArtworkResolverService.test.ts` | local→wikimedia→google |
 
