@@ -55,9 +55,9 @@ Legend:
 | `track:extra-tags:write`  | `writeExtraTags`        | tracks.ts  | `tracks.test.ts`, `ExtraTagService.test.ts`                            | queue one |
 | `tracks:batch-write-extra-tags` | `writeExtraTagsBatch` | tracks.ts | `tracks.test.ts`, `ExtraTagService.test.ts`                         | skip unsupported formats, warn |
 | `track:rename`            | `renameTrack`           | tracks.ts  | `tracks.test.ts`                                                        | mkdir dest dir, rename, readback |
-| `file:exists`             | `checkFileExists`       | tracks.ts  | `tracks.test.ts`                                                        | fs.existsSync |
+| `file:exists`             | `checkFileExists`       | tracks.ts  | Rust filesystem tests + adapter contract | wired: raw path existence for files/directories; missing false |
 | `track:context-menu`      | `showTrackContextMenu`  | main.ts    | Rust shell unit tests + E2E override | wired native menu + clipboard; E2E action override, exact Copy All payload, single-popup action state. GUI popup/dismissal timing pending display smoke. |
-| `track:delete-files`      | `deleteFiles`          | main.ts    | — (integration)                                                         | unlink, per-file success/error |
+| `track:delete-files`      | `deleteFiles`          | main.ts    | Rust filesystem tests + adapter contract | wired: one queue lease, ordered per-file success/error, continues after missing/duplicate/directory failures; catastrophic task failure becomes per-file errors |
 
 ### Covers
 

@@ -17,7 +17,7 @@ use lofty::mpeg::MpegFile;
 use lofty::ogg::{OpusFile, VorbisFile};
 use lofty::tag::{Accessor, ItemValue, TagExt};
 use lofty::TextEncoding;
-use serde::{Deserialize, Deserializer};
+use serde::{Deserialize, Deserializer, Serialize};
 use std::borrow::Cow;
 use std::fs::{self, File};
 use std::path::{Path, PathBuf};
@@ -118,6 +118,15 @@ pub struct TrackPatch {
     pub discogs_release_id: Patch<String>,
 }
 
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DeleteFileResult {
+    pub path: String,
+    pub success: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+}
+
 #[derive(Debug, Clone, Deserialize)]
 pub struct ExtraTagUpdate {
     pub key: String,
@@ -171,12 +180,62 @@ pub async fn track_extra_tags_write(
 }
 
 #[tauri::command]
+pub fn file_exists(file_path: String) -> bool {
+    Path::new(&file_path).exists()
+}
+
+#[tauri::command]
+pub async fn track_delete_files(
+    file_paths: Vec<String>,
+    queue: State<'_, WriteQueue>,
+) -> Result<Vec<DeleteFileResult>, ApiError> {
+    Ok(delete_files_queued(&queue, file_paths).await)
+}
+
+#[tauri::command]
 pub async fn track_rename(
     old_path: String,
     new_path: String,
     queue: State<'_, WriteQueue>,
 ) -> Result<TrackData, ApiError> {
     rename_track_queued(&queue, PathBuf::from(old_path), PathBuf::from(new_path)).await
+}
+
+async fn delete_files_queued(queue: &WriteQueue, file_paths: Vec<String>) -> Vec<DeleteFileResult> {
+    let fallback_paths = file_paths.clone();
+    match queue
+        .run(async move {
+            tokio::task::spawn_blocking(move || {
+                file_paths
+                    .into_iter()
+                    .map(|path| match fs::remove_file(&path) {
+                        Ok(()) => DeleteFileResult {
+                            path,
+                            success: true,
+                            error: None,
+                        },
+                        Err(error) => DeleteFileResult {
+                            path,
+                            success: false,
+                            error: Some(error.to_string()),
+                        },
+                    })
+                    .collect::<Vec<_>>()
+            })
+            .await
+        })
+        .await
+    {
+        Ok(results) => results,
+        Err(error) => fallback_paths
+            .into_iter()
+            .map(|path| DeleteFileResult {
+                path,
+                success: false,
+                error: Some(format!("background delete task failed: {error}")),
+            })
+            .collect(),
+    }
 }
 
 async fn rename_track_queued(
@@ -2877,6 +2936,68 @@ mod tests {
             .to_string()
             .contains("Extra tag editing is not supported for .m4a"));
         assert_eq!(fs::read(&path).unwrap(), b"untouched");
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn file_exists_matches_files_directories_and_missing_paths() {
+        let root = std::env::temp_dir().join(format!(
+            "auto-tagger-exists-{}",
+            TEMP_SEQUENCE.fetch_add(1, Ordering::Relaxed)
+        ));
+        fs::create_dir_all(&root).unwrap();
+        let file = root.join("track.mp3");
+        fs::write(&file, b"x").unwrap();
+        assert!(file_exists(file.to_string_lossy().into_owned()));
+        assert!(file_exists(root.to_string_lossy().into_owned()));
+        assert!(!file_exists(
+            root.join("missing").to_string_lossy().into_owned()
+        ));
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn delete_files_returns_ordered_per_path_results_and_continues() {
+        let root = std::env::temp_dir().join(format!(
+            "auto-tagger-delete-{}",
+            TEMP_SEQUENCE.fetch_add(1, Ordering::Relaxed)
+        ));
+        fs::create_dir_all(&root).unwrap();
+        let first = root.join("first.mp3");
+        let second = root.join("second.flac");
+        let missing = root.join("missing.ogg");
+        fs::write(&first, b"one").unwrap();
+        fs::write(&second, b"two").unwrap();
+        let queue = WriteQueue::default();
+        let results = delete_files_queued(
+            &queue,
+            vec![
+                first.to_string_lossy().into_owned(),
+                missing.to_string_lossy().into_owned(),
+                second.to_string_lossy().into_owned(),
+                second.to_string_lossy().into_owned(),
+                root.to_string_lossy().into_owned(),
+            ],
+        )
+        .await;
+        assert_eq!(results.len(), 5);
+        assert!(results[0].success);
+        assert!(!results[1].success);
+        assert!(results[2].success);
+        assert!(!results[3].success);
+        assert!(!results[4].success);
+        assert!(results
+            .iter()
+            .skip(1)
+            .filter(|result| !result.success)
+            .all(|result| result
+                .error
+                .as_deref()
+                .is_some_and(|error| !error.is_empty())));
+        assert!(!first.exists());
+        assert!(!second.exists());
+        assert!(root.exists());
+        assert!(!queue.is_active());
         fs::remove_dir_all(root).unwrap();
     }
 

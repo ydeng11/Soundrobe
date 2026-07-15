@@ -98,6 +98,8 @@ pub fn run() {
             commands::mutations::track_extra_tags_write,
             commands::mutations::tracks_batch_write_extra_tags,
             commands::mutations::track_rename,
+            commands::mutations::file_exists,
+            commands::mutations::track_delete_files,
             commands::covers::cover_data_url,
             commands::covers::cover_set,
             commands::covers::cover_remove,
