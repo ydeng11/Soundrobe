@@ -9,6 +9,7 @@ use crate::error::ApiError;
 use lofty::config::ParseOptions;
 use lofty::file::{AudioFile, TaggedFileExt};
 use lofty::flac::FlacFile;
+use lofty::id3::v2::{Frame, Id3v2Tag};
 use lofty::iff::wav::WavFile;
 use lofty::mp4::{AtomData, AtomIdent, Mp4File};
 use lofty::mpeg::MpegFile;
@@ -17,6 +18,7 @@ use lofty::tag::{ItemKey, Tag};
 use serde::Serialize;
 use std::borrow::Cow;
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::fs;
 use std::fs::File;
 use std::path::Path;
@@ -68,6 +70,14 @@ pub struct TrackData {
     pub sample_rate: Option<u32>,
     pub codec: String,
     pub duration: f64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExtraTag {
+    pub key: String,
+    pub value: String,
+    pub source: String,
 }
 
 impl TrackData {
@@ -249,6 +259,223 @@ fn detect_external_cover(album_path: &Path) -> Option<String> {
 #[tauri::command]
 pub fn album_read(album_path: String) -> Result<AlbumDetail, ApiError> {
     read_album(Path::new(&album_path))
+}
+
+#[tauri::command]
+pub fn track_extra_tags_read(track_path: String) -> Vec<ExtraTag> {
+    read_extra_tags(Path::new(&track_path))
+}
+
+pub fn read_extra_tags(path: &Path) -> Vec<ExtraTag> {
+    let extension = path
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .unwrap_or_default()
+        .to_ascii_lowercase();
+    let mut rows = Vec::new();
+    match extension.as_str() {
+        "mp3" => {
+            if let Ok(mut file) = File::open(path) {
+                if let Ok(parsed) =
+                    MpegFile::read_from(&mut file, ParseOptions::new().read_properties(false))
+                {
+                    if let Some(tag) = parsed.id3v2() {
+                        collect_id3_extra_tags(tag, "ID3v2", &mut rows);
+                    }
+                }
+            }
+        }
+        "wav" => {
+            if let Ok(mut file) = File::open(path) {
+                if let Ok(parsed) =
+                    WavFile::read_from(&mut file, ParseOptions::new().read_properties(false))
+                {
+                    if let Some(tag) = parsed.id3v2() {
+                        collect_id3_extra_tags(tag, "ID3v2", &mut rows);
+                    }
+                }
+            }
+        }
+        "flac" => {
+            if let Ok(mut file) = File::open(path) {
+                if let Ok(parsed) =
+                    FlacFile::read_from(&mut file, ParseOptions::new().read_properties(false))
+                {
+                    if let Some(tag) = parsed.vorbis_comments() {
+                        collect_vorbis_extra_tags(tag.items(), "vorbis", &mut rows);
+                    }
+                }
+            }
+        }
+        "ogg" => {
+            if let Ok(mut file) = File::open(path) {
+                if let Ok(parsed) =
+                    VorbisFile::read_from(&mut file, ParseOptions::new().read_properties(false))
+                {
+                    collect_vorbis_extra_tags(
+                        parsed.vorbis_comments().items(),
+                        "vorbis",
+                        &mut rows,
+                    );
+                }
+            }
+        }
+        "opus" => {
+            if let Ok(mut file) = File::open(path) {
+                if let Ok(parsed) =
+                    OpusFile::read_from(&mut file, ParseOptions::new().read_properties(false))
+                {
+                    collect_vorbis_extra_tags(
+                        parsed.vorbis_comments().items(),
+                        "vorbis",
+                        &mut rows,
+                    );
+                }
+            }
+        }
+        "ape" => {
+            if let Ok(bytes) = fs::read(path) {
+                for (key, value) in parse_ape_items(&bytes) {
+                    push_extra_tag(&mut rows, key, value, "APEv2");
+                }
+            }
+        }
+        _ => {}
+    }
+    deduplicate_extra_tags(rows)
+}
+
+fn collect_id3_extra_tags(tag: &Id3v2Tag, source: &str, rows: &mut Vec<ExtraTag>) {
+    for frame in tag {
+        match frame {
+            Frame::UserText(frame) => push_extra_tag(
+                rows,
+                frame.description.to_string(),
+                frame.content.to_string(),
+                source,
+            ),
+            Frame::Comment(frame) => push_extra_tag(
+                rows,
+                "COMMENT".to_string(),
+                frame.content.to_string(),
+                source,
+            ),
+            Frame::UnsynchronizedText(frame) => {
+                push_extra_tag(rows, "USLT".to_string(), frame.content.to_string(), source)
+            }
+            Frame::Text(frame) => push_extra_tag(
+                rows,
+                frame.id().as_str().to_string(),
+                frame.value.to_string(),
+                source,
+            ),
+            Frame::Url(frame) => {
+                if let Ok(bytes) = frame.as_bytes(lofty::config::WriteOptions::new()) {
+                    if let Ok(value) = String::from_utf8(bytes) {
+                        push_extra_tag(rows, frame.id().as_str().to_string(), value, source);
+                    }
+                }
+            }
+            Frame::UserUrl(frame) => push_extra_tag(
+                rows,
+                frame.description.to_string(),
+                frame.content.to_string(),
+                source,
+            ),
+            _ => {}
+        }
+    }
+}
+
+fn collect_vorbis_extra_tags<'a>(
+    items: impl Iterator<Item = (&'a str, &'a str)>,
+    source: &str,
+    rows: &mut Vec<ExtraTag>,
+) {
+    for (key, value) in items {
+        push_extra_tag(rows, key.to_string(), value.to_string(), source);
+    }
+}
+
+fn push_extra_tag(rows: &mut Vec<ExtraTag>, key: String, value: String, source: &str) {
+    let key = canonical_extra_provider_key(&key).unwrap_or(key);
+    if key.is_empty() || value.is_empty() || is_metadata_editor_key(&key) {
+        return;
+    }
+    rows.push(ExtraTag {
+        key,
+        value,
+        source: source.to_string(),
+    });
+}
+
+fn deduplicate_extra_tags(rows: Vec<ExtraTag>) -> Vec<ExtraTag> {
+    let mut seen = HashSet::new();
+    let mut provider_keys = HashSet::new();
+    let mut result = Vec::new();
+    for row in rows {
+        if canonical_extra_provider_key(&row.key).is_some()
+            && !provider_keys.insert(row.key.clone())
+        {
+            continue;
+        }
+        if seen.insert((row.source.clone(), row.key.clone(), row.value.clone())) {
+            result.push(row);
+        }
+    }
+    result.sort_by(|left, right| left.key.cmp(&right.key));
+    result
+}
+
+fn canonical_extra_provider_key(key: &str) -> Option<String> {
+    let mut normalized = key.trim().to_ascii_uppercase().replace(['_', '-', ' '], "");
+    if normalized.starts_with("MUSICBRAINS") {
+        normalized.replace_range(..11, "MUSICBRAINZ");
+    }
+    match normalized.as_str() {
+        "MUSICBRAINZTRACKID" | "MUSICBRAINZRECORDINGID" => Some("MUSICBRAINZ_TRACKID"),
+        "MUSICBRAINZALBUMID" | "MUSICBRAINZRELEASEID" => Some("MUSICBRAINZ_ALBUMID"),
+        "MUSICBRAINZARTISTID" => Some("MUSICBRAINZ_ARTISTID"),
+        "DISCOGSARTISTID" => Some("DISCOGS_ARTIST_ID"),
+        "DISCOGSRELEASEID" => Some("DISCOGS_RELEASE_ID"),
+        _ => None,
+    }
+    .map(ToOwned::to_owned)
+}
+
+fn is_metadata_editor_key(key: &str) -> bool {
+    matches!(
+        key.trim().to_ascii_uppercase().as_str(),
+        "TIT2"
+            | "TITLE"
+            | "TPE1"
+            | "ARTIST"
+            | "TALB"
+            | "ALBUM"
+            | "TPE2"
+            | "ALBUMARTIST"
+            | "ALBUM ARTIST"
+            | "TDRC"
+            | "TYER"
+            | "DATE"
+            | "YEAR"
+            | "TRCK"
+            | "TRACK"
+            | "TRACKNUMBER"
+            | "TRACKTOTAL"
+            | "TOTALTRACKS"
+            | "TPOS"
+            | "DISC"
+            | "DISCNUMBER"
+            | "DISCTOTAL"
+            | "TOTALDISCS"
+            | "TCON"
+            | "GENRE"
+            | "TCOM"
+            | "COMPOSER"
+            | "METADATA_BLOCK_PICTURE"
+            | "APIC"
+    )
 }
 
 /// Read one track into the renderer DTO. Generic containers use Lofty; FLAC
@@ -1634,6 +1861,64 @@ mod tests {
         assert_eq!(result.status, "error");
         assert_eq!(result.tracks[0].title.as_deref(), Some("corrupt.flac"));
         std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn extra_tags_read_filters_editor_fields_and_keeps_rich_id3_rows() {
+        let rows = read_extra_tags(&corpus_root().join("minimal.mp3"));
+        assert!(rows.iter().any(|row| row.key == "DESCRIPTION"));
+        assert!(rows.iter().any(|row| row.key == "ARTISTS"));
+        assert!(rows.iter().any(|row| row.key == "MUSICBRAINZ_ALBUMID"));
+        assert!(rows.iter().all(|row| row.source == "ID3v2"));
+        assert!(!rows.iter().any(|row| matches!(
+            row.key.as_str(),
+            "TIT2" | "TITLE" | "TPE1" | "ARTIST" | "TALB" | "ALBUM"
+        )));
+    }
+
+    #[test]
+    fn extra_tags_provider_aliases_are_canonical_and_deduplicated() {
+        let rows = deduplicate_extra_tags(
+            vec![
+                ExtraTag {
+                    key: "MusicBrainz Album Id".to_string(),
+                    value: "first".to_string(),
+                    source: "ID3v2".to_string(),
+                },
+                ExtraTag {
+                    key: "MUSICBRAINS_ALBUMID".to_string(),
+                    value: "second".to_string(),
+                    source: "ID3v2".to_string(),
+                },
+            ]
+            .into_iter()
+            .map(|mut row| {
+                row.key = canonical_extra_provider_key(&row.key).unwrap_or(row.key);
+                row
+            })
+            .collect(),
+        );
+        assert_eq!(
+            rows,
+            [ExtraTag {
+                key: "MUSICBRAINZ_ALBUMID".to_string(),
+                value: "first".to_string(),
+                source: "ID3v2".to_string(),
+            }]
+        );
+    }
+
+    #[test]
+    fn extra_tags_read_gracefully_handles_malformed_and_unsupported_files() {
+        let root = album_test_root();
+        std::fs::create_dir_all(&root).unwrap();
+        let malformed = root.join("bad.flac");
+        let unsupported = root.join("notes.txt");
+        std::fs::write(&malformed, b"bad").unwrap();
+        std::fs::write(&unsupported, b"TITLE=not metadata").unwrap();
+        assert!(read_extra_tags(&malformed).is_empty());
+        assert!(read_extra_tags(&unsupported).is_empty());
+        std::fs::remove_dir_all(root).unwrap();
     }
 
     #[test]

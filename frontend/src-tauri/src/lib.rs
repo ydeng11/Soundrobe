@@ -92,6 +92,7 @@ pub fn run() {
             commands::library::library_scan,
             commands::library::album_refresh,
             commands::tracks::album_read,
+            commands::tracks::track_extra_tags_read,
             commands::mutations::track_write,
             commands::mutations::tracks_batch_write,
         ])
