@@ -36,11 +36,11 @@ image = { version = "0.25", default-features = false, features = ["jpeg", "png",
 base64 = "0.22"
 time = { version = "0.3", features = ["formatting"] }
 rusqlite = { version = "=0.39.0", features = ["bundled"] }
+reqwest = { version = "=0.12.28", default-features = false, features = ["json", "rustls-tls"] }
 
 # Infrastructure crates — pinned to the versions locked by `Cargo.lock` and
 # introduced per migration slice. Listed here so the toolchain is recorded;
 # each slice enables only what it needs to keep SLOC change review bounded.
-#   reqwest    = { version = "0.13", default-features = false, features = ["json","rustls-tls"] }  # provider clients
 #   chardetng  = "1"                                             # lyrics encoding detection
 #   encoding_rs= "0.8"                                           # lyrics encoding
 #   opencc-rust= "2"                                             # SC/TC chinese_script

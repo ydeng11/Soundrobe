@@ -30,6 +30,8 @@ pub mod debug;
 pub mod directories;
 /// `library:scan`, `album:refresh` — `electron/handlers/library.ts`.
 pub mod library;
+/// `lyrics:fetch` and later album lyric download.
+pub mod lyrics;
 /// Pure, media-safe writer cores; command/queue wiring follows separately.
 pub mod mutations;
 /// `files:sort-by-album` — `electron/handlers/organizer.ts`.

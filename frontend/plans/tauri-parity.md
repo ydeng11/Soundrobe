@@ -73,7 +73,7 @@ Legend:
 
 | Ch            | Renderer method | Owner   | Parity tests                 | Notes |
 |---------------|-----------------|---------|------------------------------|-------|
-| `lyrics:fetch` | `fetchLyrics`   | main.ts | `lyrics.test.ts`, `lyrics-smoke.test.ts` | chardet/encoding for non-UTF8 |
+| `lyrics:fetch` | `fetchLyrics`   | main.ts | Rust local-HTTP tests + `lyrics.test.ts` | wired LRCLIB RustLS client: required names, URL encoding, optional album, rounded positive duration, 10s timeout/user-agent, synced→plain preference, null for non-OK/network/JSON/empty/instrumental. Encoding/local-file work belongs album-download slice. |
 | `album:download-lyrics` | `downloadAlbumLyrics` | main.ts | `lyrics.test.ts` | batch per album |
 
 ### Configuration & dataset
