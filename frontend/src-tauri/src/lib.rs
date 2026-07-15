@@ -34,6 +34,7 @@ use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
 use tracing_subscriber::EnvFilter;
 
 use crate::commands::shell::ContextMenuState;
+use crate::infra::logging::DebugState;
 use crate::state::config::ConfigState;
 use crate::state::quit_guard::QuitGuard;
 use crate::state::window_state::{DisplayWorkArea, PositionAction, WindowState};
@@ -65,7 +66,10 @@ pub fn run() {
             // Config())` config bootstrapping (the full auto-tag TaskManager
             // port lands in a later slice; config is the first managed state).
             if let Some(home) = dirs::home_dir() {
-                app.manage(ConfigState::init(home));
+                let config = ConfigState::init(home.clone());
+                let debug_enabled = config.raw().debug.unwrap_or(false);
+                app.manage(DebugState::new(home, debug_enabled));
+                app.manage(config);
             }
             app.manage(ContextMenuState::default());
             app.manage(WriteQueue::default());
@@ -104,6 +108,10 @@ pub fn run() {
             commands::covers::cover_set,
             commands::covers::cover_remove,
             commands::organizer::files_sort_by_album,
+            commands::debug::debug_subscribe,
+            commands::debug::debug_set_mode,
+            commands::debug::debug_status,
+            commands::debug::debug_toggle,
         ])
         .build(tauri::generate_context!())
         .expect("error while building the Auto Tagger Tauri shell");

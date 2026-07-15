@@ -24,6 +24,8 @@ pub mod conversation;
 pub mod covers;
 /// `dataset:status` — `electron/handlers/dataset.ts`.
 pub mod dataset;
+/// `debug:subscribe` / `debug:set-mode` and renderer log forwarding.
+pub mod debug;
 /// `directory:list`, `directory:read` — `electron/handlers/directory.ts`.
 pub mod directories;
 /// `library:scan`, `album:refresh` — `electron/handlers/library.ts`.

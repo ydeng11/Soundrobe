@@ -131,10 +131,10 @@ Legend:
 |-----------------------|---------------------|----------|----------------|-------|
 | `window:focused`      | `onFocus`          | main.ts  | shell unit suite | wired no-op hook (matches Electron; no main-process state change) |
 | `dialog:open-folder`  | `openFolderDialog` | main.ts  | (E2E)          | wired; selected/null parity only — plugin GUI-error rejection remains pending display validation |
-| `debug:subscribe`     | `subscribeDebugLogs`| debug.ts | `debug.test.ts`| renderer opts into live `debug:log` forwarding |
-| `debug:set-mode`      | `setDebugMode`     | main.ts  | `debug.test.ts`| toggle + persist to config |
-| `debug:status`        | (internal/test)    | debug.ts | `debug.test.ts`| not in preload; parity still required |
-| `debug:toggle`        | (internal/test)    | debug.ts | `debug.test.ts`| not in preload; parity still required |
+| `debug:subscribe`     | `subscribeDebugLogs`| debug.ts | Rust debug tests + adapter listener tests | wired `{subscribed:true}`; loader listener receives Tauri `debug:log` events |
+| `debug:set-mode`      | `setDebugMode`     | main.ts  | Rust debug/config tests | wired managed toggle + config persistence + daily JSONL truncate-once + enable event; automatic generic tracing-layer forwarding remains pending |
+| `debug:status`        | (internal/test)    | debug.ts | Rust debug tests | wired enabled/logFile/forwardedCount snapshot |
+| `debug:toggle`        | (internal/test)    | debug.ts | Rust debug tests | wired non-persistent toggle, matching internal Electron distinction from set-mode |
 
 **Subtotal:** 51 `ipcMain.handle` channels. 49 are surfaced through `window.api`
 in `preload.ts`; `debug:status` and `debug:toggle` are main/internal-only but
@@ -147,7 +147,7 @@ must still be ported for test parity.
 | `auto-tag:event` | `onAutoTagEvent`  | `forwardToWindows(onAutoTagEvent, …)` → all windows `.send` | `AutoTagEvent`   | `auto-tag.test.ts`                  |
 | `audit:event`    | `onAuditEvent`    | `forwardToWindows(onAuditEvent, …)` → all windows `.send`   | `AuditEvent`     | `audit.test.ts`                     |
 | `assistant:event`| `onAssistantEvent`| `win.webContents.send("assistant:event", …)`               | `AssistantEvent` | `assistant.test.ts`                 |
-| `debug:log`      | (inline `ipcRenderer.on`) | `win.webContents.send("debug:log", entry)`        | `LogEntry`       | `debug.test.ts`                     |
+| `debug:log`      | (inline `ipcRenderer.on`) | Tauri global event from `DebugState::emit`; renderer listener installed before React | `LogEntry` | adapter/install tests; enable event wired, future subsystems call managed emitter |
 
 Unsubscribe contract: each `on*` returns a disposer `() => void` that calls
 `ipcRenderer.removeListener(channel, listener)`. Tauri adapter must mirror this

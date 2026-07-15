@@ -34,6 +34,7 @@ dirs = "6"
 lofty = "0.24.0"
 image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp"] }
 base64 = "0.22"
+time = { version = "0.3", features = ["formatting"] }
 
 # Infrastructure crates — pinned to the versions locked by `Cargo.lock` and
 # introduced per migration slice. Listed here so the toolchain is recorded;
