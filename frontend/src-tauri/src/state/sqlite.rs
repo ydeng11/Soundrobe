@@ -132,6 +132,73 @@ impl CacheState {
             .map_err(|error| error.to_string())
     }
 
+    pub fn artist_releases(&self, provider: &str, artist_id: &str, page: u32) -> Option<Value> {
+        let guard = self.inner.lock().ok()?;
+        let connection = guard.as_ref()?;
+        let releases: String = connection
+            .query_row(
+                "SELECT releases_json FROM artist_release_cache
+                 WHERE provider = ?1 AND artist_id = ?2 AND page = ?3",
+                params![provider, artist_id, page],
+                |row| row.get(0),
+            )
+            .ok()?;
+        serde_json::from_str(&releases).ok()
+    }
+
+    pub fn set_artist_releases(
+        &self,
+        provider: &str,
+        artist_id: &str,
+        page: u32,
+        releases: &Value,
+    ) -> Result<(), String> {
+        let guard = self.inner.lock().map_err(|_| "cache state unavailable")?;
+        let connection = guard.as_ref().ok_or("cache state not initialized")?;
+        connection
+            .execute(
+                "INSERT OR REPLACE INTO artist_release_cache
+                 (provider, artist_id, page, releases_json, fetched_at)
+                 VALUES (?1, ?2, ?3, ?4, ?5)",
+                params![provider, artist_id, page, releases.to_string(), now()],
+            )
+            .map(|_| ())
+            .map_err(|error| error.to_string())
+    }
+
+    pub fn release_detail(&self, provider: &str, release_id: &str) -> Option<Value> {
+        let guard = self.inner.lock().ok()?;
+        let connection = guard.as_ref()?;
+        let detail: String = connection
+            .query_row(
+                "SELECT detail_json FROM release_detail_cache
+                 WHERE provider = ?1 AND release_id = ?2",
+                params![provider, release_id],
+                |row| row.get(0),
+            )
+            .ok()?;
+        serde_json::from_str(&detail).ok()
+    }
+
+    pub fn set_release_detail(
+        &self,
+        provider: &str,
+        release_id: &str,
+        detail: &Value,
+    ) -> Result<(), String> {
+        let guard = self.inner.lock().map_err(|_| "cache state unavailable")?;
+        let connection = guard.as_ref().ok_or("cache state not initialized")?;
+        connection
+            .execute(
+                "INSERT OR REPLACE INTO release_detail_cache
+                 (provider, release_id, detail_json, fetched_at)
+                 VALUES (?1, ?2, ?3, ?4)",
+                params![provider, release_id, detail.to_string(), now()],
+            )
+            .map(|_| ())
+            .map_err(|error| error.to_string())
+    }
+
     pub fn album_state(&self, album_path: &Path) -> Option<AlbumState> {
         let guard = self.inner.lock().ok()?;
         let connection = guard.as_ref()?;
@@ -401,6 +468,36 @@ mod tests {
             .unwrap();
         assert_eq!(state.lookup("stable-hash"), Some(replacement));
         assert_eq!(state.lookup("missing"), None);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn provider_release_caches_use_electron_composite_keys_and_json_shapes() {
+        let root = root();
+        let state = CacheState::new(root.clone());
+        assert!(state.initialize(None));
+        let page = serde_json::json!([{
+            "id": "release-id", "title": "Album", "year": 2004,
+            "type": "release", "artistName": "Artist"
+        }]);
+        state
+            .set_artist_releases("musicbrainz", "artist-id", 1, &page)
+            .unwrap();
+        assert_eq!(
+            state.artist_releases("musicbrainz", "artist-id", 1),
+            Some(page)
+        );
+        assert_eq!(state.artist_releases("discogs", "artist-id", 1), None);
+
+        let detail = serde_json::json!([{"source": "musicbrainz", "album": "Album"}]);
+        state
+            .set_release_detail("musicbrainz-v3", "release-id", &detail)
+            .unwrap();
+        assert_eq!(
+            state.release_detail("musicbrainz-v3", "release-id"),
+            Some(detail)
+        );
+        assert_eq!(state.release_detail("musicbrainz-v2", "release-id"), None);
         fs::remove_dir_all(root).unwrap();
     }
 }
