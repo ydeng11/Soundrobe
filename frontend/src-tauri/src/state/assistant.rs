@@ -1,6 +1,7 @@
 //! Assistant service configuration shared by runtime/tools.
 
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::sync::Mutex;
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
@@ -59,6 +60,7 @@ struct AssistantRuntimeInner {
     active: bool,
     cancelled: bool,
     batches: Vec<AssistantActionBatch>,
+    batch_errors: HashMap<String, String>,
 }
 
 #[derive(Default)]
@@ -108,6 +110,46 @@ impl AssistantRuntimeState {
             .iter_mut()
             .find(|batch| batch.id == batch_id)?;
         batch.status = "rejected".to_string();
+        Some(batch.title.clone())
+    }
+
+    pub fn get_batch(&self, batch_id: &str) -> Option<AssistantActionBatch> {
+        self.inner
+            .lock()
+            .ok()?
+            .batches
+            .iter()
+            .find(|batch| batch.id == batch_id)
+            .cloned()
+    }
+
+    pub fn mark_batch_applied(&self, batch_id: &str) -> Option<String> {
+        self.set_batch_status(batch_id, "applied")
+    }
+
+    pub fn mark_batch_failed(&self, batch_id: &str, error: &str) -> Option<String> {
+        let mut state = self.inner.lock().ok()?;
+        let batch = state
+            .batches
+            .iter_mut()
+            .find(|batch| batch.id == batch_id)?;
+        batch.status = "failed".into();
+        let title = batch.title.clone();
+        state.batch_errors.insert(batch_id.into(), error.into());
+        Some(title)
+    }
+
+    pub fn batch_error(&self, batch_id: &str) -> Option<String> {
+        self.inner.lock().ok()?.batch_errors.get(batch_id).cloned()
+    }
+
+    fn set_batch_status(&self, batch_id: &str, status: &str) -> Option<String> {
+        let mut state = self.inner.lock().ok()?;
+        let batch = state
+            .batches
+            .iter_mut()
+            .find(|batch| batch.id == batch_id)?;
+        batch.status = status.into();
         Some(batch.title.clone())
     }
 
@@ -203,7 +245,26 @@ mod tests {
         assert!(state.initialize());
         assert!(state.add_batch(batch("one")));
         assert_eq!(state.pending_batches().len(), 1);
-        assert_eq!(state.reject_batch("one").as_deref(), Some("Update"));
+        assert_eq!(
+            state.get_batch("one").map(|batch| batch.status),
+            Some("pending".into())
+        );
+        assert_eq!(state.mark_batch_applied("one").as_deref(), Some("Update"));
+        assert_eq!(
+            state.get_batch("one").map(|batch| batch.status),
+            Some("applied".into())
+        );
+        assert_eq!(
+            state.mark_batch_failed("one", "late failure").as_deref(),
+            Some("Update")
+        );
+        assert_eq!(
+            state.get_batch("one").map(|batch| batch.status),
+            Some("failed".into())
+        );
+        assert_eq!(state.batch_error("one").as_deref(), Some("late failure"));
+        assert!(state.add_batch(batch("two")));
+        assert_eq!(state.reject_batch("two").as_deref(), Some("Update"));
         assert!(state.pending_batches().is_empty());
         assert!(state.cancel());
         assert!(state.is_cancelled());
