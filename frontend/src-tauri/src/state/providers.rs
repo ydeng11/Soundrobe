@@ -89,6 +89,13 @@ pub struct RemoteImage {
     pub url: String,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum DiscogsAliasResolution {
+    Direct,
+    Alias(String),
+    Unresolved,
+}
+
 #[derive(Debug, Deserialize)]
 struct SearchResponse {
     #[serde(default)]
@@ -675,6 +682,24 @@ impl RemoteArtworkClient {
             }
         }
         self.wikimedia(artist).await.filter(valid_image)
+    }
+
+    /// Resolve a Latin lookup alias only when the original name does not
+    /// already resolve and Discogs independently validates the alias.
+    pub async fn validated_discogs_alias(&self, artist: &str) -> DiscogsAliasResolution {
+        if self.discogs.search_artist_exact(artist).await.is_some() {
+            return DiscogsAliasResolution::Direct;
+        }
+        for alias in self.musicbrainz_aliases(artist).await {
+            if self.discogs.search_artist_exact(&alias).await.is_some() {
+                return DiscogsAliasResolution::Alias(alias);
+            }
+        }
+        DiscogsAliasResolution::Unresolved
+    }
+
+    pub async fn validate_discogs_artist_name(&self, name: &str) -> bool {
+        self.discogs.search_artist_exact(name).await.is_some()
     }
 
     async fn cover_art_archive(&self, mbid: &str) -> Option<RemoteImage> {
@@ -1310,5 +1335,28 @@ mod tests {
         assert!(paths[4].contains("artist=Alias"));
         assert!(paths[5].contains("/discogs/artists/7"));
         assert!(paths[6].contains("/artist-image"));
+    }
+
+    #[tokio::test]
+    async fn audit_alias_is_returned_only_after_exact_discogs_validation() {
+        let (base, requests) = server(4, artist_provider_route);
+        let client = RemoteArtworkClient::at(
+            ProviderState::new().http(),
+            None,
+            None,
+            &format!("{base}/discogs"),
+            endpoints(&base),
+        );
+
+        let alias = client.validated_discogs_alias("原名").await;
+
+        assert_eq!(alias, DiscogsAliasResolution::Alias("Alias".into()));
+        let paths = (0..4)
+            .map(|_| requests.recv().unwrap().lines().next().unwrap().to_string())
+            .collect::<Vec<_>>();
+        assert!(paths[0].contains("artist=%E5%8E%9F%E5%90%8D"));
+        assert!(paths[1].contains("q=%E5%8E%9F%E5%90%8D"));
+        assert!(paths[2].contains("/mb/artist/"));
+        assert!(paths[3].contains("artist=Alias"));
     }
 }

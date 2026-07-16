@@ -8,17 +8,24 @@ use crate::{
         tracks::read_track_metadata,
     },
     error::ApiError,
-    infra::openrouter::{ChatMessage, OpenRouterClient},
-    state::write_queue::WriteQueue,
+    infra::{
+        aliases::save_alias,
+        openrouter::{ChatMessage, OpenRouterClient},
+    },
+    state::{
+        config::ConfigState,
+        providers::{DiscogsAliasResolution, ProviderState, RemoteArtworkClient},
+        write_queue::WriteQueue,
+    },
 };
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, OnceLock};
-use tauri::State;
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::{Arc, Mutex, OnceLock};
+use tauri::{AppHandle, Emitter, State};
 use unicode_normalization::UnicodeNormalization;
 
 const DETERMINISTIC_CONFIDENCE: f64 = 0.98;
@@ -82,6 +89,32 @@ pub struct AuditApplyFixesSummary {
     pub album_results: Vec<AuditAlbumResult>,
 }
 
+#[derive(Clone, Debug, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AuditRunSummary {
+    pub albums: usize,
+    pub issues: usize,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub album_results: Option<Vec<AuditAlbumResult>>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct AuditEvent {
+    #[serde(rename = "type")]
+    kind: &'static str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    album_path: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    current: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    total: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    message: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    results: Option<Vec<AuditFinding>>,
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum AuditStatus {
@@ -132,6 +165,12 @@ struct AuditAlbumContext {
 struct AuditLlmResponse {
     #[serde(default)]
     tracks: Vec<AuditFinding>,
+}
+
+#[derive(Deserialize)]
+struct AuditAliasResponse {
+    #[serde(default)]
+    aliases: Vec<String>,
 }
 
 const LLM_AUTO_FIX_CONFIDENCE: f64 = 0.92;
@@ -1004,6 +1043,15 @@ pub async fn audit_album_with_client(
     let Some(context) = build_audit_album_context(album_path, cancelled)? else {
         return Ok(Vec::new());
     };
+    review_audit_context(context, cancelled, client, discogs_alias).await
+}
+
+async fn review_audit_context(
+    context: AuditAlbumContext,
+    cancelled: &AtomicBool,
+    client: Option<&OpenRouterClient>,
+    discogs_alias: Option<&str>,
+) -> Result<Vec<AuditFinding>, ApiError> {
     let Some(client) = client.filter(|_| !context.review_targets.is_empty()) else {
         return Ok(unresolved_audit_findings(context));
     };
@@ -1023,6 +1071,25 @@ pub async fn audit_album_with_client(
         .map_err(|error| ApiError::Message(format!("Invalid audit response: {error}")))?;
     let llm = normalize_llm_audit_results(parsed.tracks, &context.review_targets);
     Ok(merge_audit_findings(context.deterministic_findings, llm))
+}
+
+async fn audit_album_with_services(
+    album_path: &Path,
+    cancelled: &AtomicBool,
+    client: Option<&OpenRouterClient>,
+    remote: Option<&RemoteArtworkClient>,
+    alias_file: &Path,
+) -> Result<Vec<AuditFinding>, ApiError> {
+    let Some(context) = build_audit_album_context(album_path, cancelled)? else {
+        return Ok(Vec::new());
+    };
+    let alias = if let (Some(client), Some(remote)) = (client, remote) {
+        resolve_audit_discogs_alias(&context.artist_hint, client, remote, alias_file, cancelled)
+            .await?
+    } else {
+        None
+    };
+    review_audit_context(context, cancelled, client, alias.as_deref()).await
 }
 
 fn audit_schema() -> serde_json::Value {
@@ -1064,6 +1131,62 @@ fn audit_schema() -> serde_json::Value {
         },
         "required": ["tracks"]
     })
+}
+
+fn contains_chinese(value: &str) -> bool {
+    value
+        .chars()
+        .any(|character| matches!(character, '\u{4e00}'..='\u{9fff}'))
+}
+
+async fn resolve_audit_discogs_alias(
+    artist: &str,
+    client: &OpenRouterClient,
+    remote: &RemoteArtworkClient,
+    alias_file: &Path,
+    cancelled: &AtomicBool,
+) -> Result<Option<String>, ApiError> {
+    if !contains_chinese(artist) {
+        return Ok(None);
+    }
+    match remote.validated_discogs_alias(artist).await {
+        DiscogsAliasResolution::Direct => return Ok(None),
+        DiscogsAliasResolution::Alias(alias) => return Ok(Some(alias)),
+        DiscogsAliasResolution::Unresolved => {}
+    }
+    let messages = vec![
+        ChatMessage::system(
+            "You suggest artist name aliases for Discogs search. The input is a Chinese artist name that doesn't resolve on Discogs. Suggest 1-3 English/Latin aliases that might work on Discogs. For example, for '刺猬' (a Chinese rock band), suggest 'Hedgehog' because Discogs lists them as 'Hedgehog (4)'.\n\nReturn as JSON: { \"aliases\": [\"alias1\", \"alias2\"] }\nIf no alias makes sense, return { \"aliases\": [] }",
+        ),
+        ChatMessage::user(serde_json::json!({ "artist": artist }).to_string()),
+    ];
+    let response = client
+        .complete_json(
+            messages,
+            "ArtistAliases",
+            serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "aliases": { "type": "array", "items": { "type": "string" } }
+                },
+                "required": ["aliases"]
+            }),
+            cancelled,
+        )
+        .await
+        .map_err(|error| ApiError::Message(error.to_string()))?;
+    let aliases: AuditAliasResponse = serde_json::from_value(response.data)
+        .map_err(|error| ApiError::Message(format!("Invalid artist alias response: {error}")))?;
+    for alias in aliases.aliases.into_iter().take(3) {
+        let alias = alias.trim();
+        if !alias.is_empty() && remote.validate_discogs_artist_name(alias).await {
+            if let Err(error) = save_alias(alias_file, artist, alias) {
+                tracing::warn!("failed to persist artist alias: {error}");
+            }
+            return Ok(Some(alias.to_string()));
+        }
+    }
+    Ok(None)
 }
 
 fn track_meta_from_data(track: crate::commands::tracks::TrackData) -> AuditTrackMeta {
@@ -1271,6 +1394,321 @@ fn merge_track_patch(target: &mut TrackPatch, incoming: TrackPatch) {
     merge!(track_total);
     merge!(disc_number);
     merge!(disc_total);
+}
+
+fn emit_audit(app: &AppHandle, event: AuditEvent) {
+    if let Err(error) = app.emit("audit:event", event) {
+        tracing::warn!("failed to emit audit event: {error}");
+    }
+}
+
+fn audit_event(kind: &'static str, message: Option<String>) -> AuditEvent {
+    AuditEvent {
+        kind,
+        album_path: None,
+        current: None,
+        total: None,
+        message,
+        results: None,
+    }
+}
+
+fn audit_clients(
+    providers: &ProviderState,
+    config: &ConfigState,
+) -> (
+    Option<Arc<OpenRouterClient>>,
+    Option<Arc<RemoteArtworkClient>>,
+) {
+    let raw = config.raw();
+    let client = raw.llm_api_key.map(|key| {
+        Arc::new(
+            OpenRouterClient::new(key, raw.llm_model.unwrap_or_default())
+                .with_generation(0.1, 4096),
+        )
+    });
+    let remote = raw.discogs_token.map(|token| {
+        Arc::new(RemoteArtworkClient::new(
+            providers.http(),
+            Some(token),
+            raw.theaudiodb_api_key,
+        ))
+    });
+    (client, remote)
+}
+
+struct AuditPool<'a> {
+    emit: &'a (dyn Fn(AuditEvent) + Sync),
+    paths: &'a [String],
+    client: Option<&'a OpenRouterClient>,
+    remote: Option<&'a RemoteArtworkClient>,
+    alias_file: &'a Path,
+    cancelled: &'a AtomicBool,
+    next: &'a AtomicUsize,
+    albums: &'a AtomicUsize,
+    issues: &'a AtomicUsize,
+    results: &'a Mutex<Vec<AuditAlbumResult>>,
+}
+
+async fn audit_pool_worker(pool: &AuditPool<'_>) {
+    loop {
+        if pool.cancelled.load(Ordering::Acquire) {
+            return;
+        }
+        let index = pool.next.fetch_add(1, Ordering::AcqRel);
+        let Some(path) = pool.paths.get(index) else {
+            return;
+        };
+        let name = Path::new(path)
+            .file_name()
+            .unwrap_or_default()
+            .to_string_lossy();
+        (pool.emit)(AuditEvent {
+            kind: "album-start",
+            album_path: Some(path.clone()),
+            current: Some(index + 1),
+            total: Some(pool.paths.len()),
+            message: Some(format!("Auditing: {name}")),
+            results: None,
+        });
+        match audit_album_with_services(
+            Path::new(path),
+            pool.cancelled,
+            pool.client,
+            pool.remote,
+            pool.alias_file,
+        )
+        .await
+        {
+            Ok(findings) => {
+                let count = findings.len();
+                pool.issues.fetch_add(count, Ordering::AcqRel);
+                let mut results = pool.results.lock().unwrap_or_else(|poisoned| {
+                    tracing::error!("audit result mutex poisoned");
+                    poisoned.into_inner()
+                });
+                results.push(AuditAlbumResult {
+                    album_path: path.clone(),
+                    results: findings.clone(),
+                });
+                let current = pool.albums.fetch_add(1, Ordering::AcqRel) + 1;
+                (pool.emit)(AuditEvent {
+                    kind: "album-result",
+                    album_path: Some(path.clone()),
+                    current: Some(current),
+                    total: Some(pool.paths.len()),
+                    message: Some(if count == 0 {
+                        format!("{name}: OK")
+                    } else {
+                        format!("{name}: {count} issue(s)")
+                    }),
+                    results: Some(findings),
+                });
+            }
+            Err(_) if pool.cancelled.load(Ordering::Acquire) => return,
+            Err(error) => (pool.emit)(AuditEvent {
+                kind: "album-error",
+                album_path: Some(path.clone()),
+                current: Some(pool.albums.load(Ordering::Acquire) + 1),
+                total: Some(pool.paths.len()),
+                message: Some(format!("{name}: {error}")),
+                results: None,
+            }),
+        }
+    }
+}
+
+async fn audit_specific_albums(
+    emit: &(dyn Fn(AuditEvent) + Sync),
+    paths: Vec<String>,
+    client: Option<Arc<OpenRouterClient>>,
+    remote: Option<Arc<RemoteArtworkClient>>,
+    alias_file: PathBuf,
+    cancelled: &AtomicBool,
+) -> Result<AuditRunSummary, ApiError> {
+    emit(AuditEvent {
+        kind: "progress",
+        album_path: None,
+        current: Some(0),
+        total: Some(paths.len()),
+        message: None,
+        results: None,
+    });
+    let next = AtomicUsize::new(0);
+    let albums = AtomicUsize::new(0);
+    let issues = AtomicUsize::new(0);
+    let results = Mutex::new(Vec::new());
+    let pool = AuditPool {
+        emit,
+        paths: &paths,
+        client: client.as_deref(),
+        remote: remote.as_deref(),
+        alias_file: &alias_file,
+        cancelled,
+        next: &next,
+        albums: &albums,
+        issues: &issues,
+        results: &results,
+    };
+    tokio::join!(audit_pool_worker(&pool), audit_pool_worker(&pool));
+    check_audit_cancelled(cancelled)?;
+    Ok(AuditRunSummary {
+        albums: albums.load(Ordering::Acquire),
+        issues: issues.load(Ordering::Acquire),
+        album_results: Some(results.into_inner().unwrap_or_else(|poisoned| {
+            tracing::error!("audit result mutex poisoned during completion");
+            poisoned.into_inner()
+        })),
+    })
+}
+
+async fn finish_audit_run<F>(
+    app: &AppHandle,
+    state: &AuditState,
+    token: Arc<AtomicBool>,
+    operation: F,
+) -> Result<AuditRunSummary, ApiError>
+where
+    F: std::future::Future<Output = Result<AuditRunSummary, ApiError>>,
+{
+    let output = match operation.await {
+        Ok(summary) => {
+            emit_audit(
+                app,
+                AuditEvent {
+                    kind: "completed",
+                    album_path: None,
+                    current: Some(summary.albums),
+                    total: Some(summary.albums),
+                    message: Some(format!(
+                        "Audit complete: {} album(s), {} issue(s)",
+                        summary.albums, summary.issues
+                    )),
+                    results: None,
+                },
+            );
+            Ok(summary)
+        }
+        Err(_) if token.load(Ordering::Acquire) => {
+            emit_audit(
+                app,
+                audit_event("cancelled", Some("Audit cancelled".into())),
+            );
+            Ok(AuditRunSummary {
+                albums: 0,
+                issues: 0,
+                album_results: None,
+            })
+        }
+        Err(error) => {
+            emit_audit(
+                app,
+                audit_event("failed", Some(format!("Audit failed: {error}"))),
+            );
+            Err(error)
+        }
+    };
+    state.finish(&token);
+    output
+}
+
+fn start_audit(state: &AuditState) -> Result<Arc<AtomicBool>, ApiError> {
+    state.cancel();
+    state
+        .start()
+        .ok_or_else(|| ApiError::Message("Audit state unavailable".into()))
+}
+
+fn specified_album_paths(
+    track_paths: Option<Vec<String>>,
+    album_paths: Option<Vec<String>>,
+) -> Result<Vec<String>, ApiError> {
+    if let Some(track_paths) = track_paths.filter(|paths| !paths.is_empty()) {
+        let mut seen = HashSet::new();
+        return Ok(track_paths
+            .into_iter()
+            .filter_map(|path| Path::new(&path).parent().map(Path::to_path_buf))
+            .filter(|path| seen.insert(path.clone()))
+            .map(|path| path.to_string_lossy().into_owned())
+            .collect());
+    }
+    album_paths
+        .filter(|paths| !paths.is_empty())
+        .ok_or_else(|| ApiError::Message("No tracks or albums specified for audit".into()))
+}
+
+#[tauri::command]
+pub async fn audit_run(
+    library_path: String,
+    app: AppHandle,
+    audit: State<'_, AuditState>,
+    providers: State<'_, ProviderState>,
+    config: State<'_, ConfigState>,
+) -> Result<AuditRunSummary, ApiError> {
+    let token = start_audit(&audit)?;
+    let paths = discover_album_dirs(Path::new(&library_path))
+        .into_iter()
+        .map(|path| path.to_string_lossy().into_owned())
+        .collect();
+    let (client, remote) = audit_clients(&providers, &config);
+    let emit = |event| emit_audit(&app, event);
+    let operation = audit_specific_albums(
+        &emit,
+        paths,
+        client,
+        remote,
+        config.alias_file_path(),
+        &token,
+    );
+    finish_audit_run(&app, &audit, token.clone(), operation).await
+}
+
+#[tauri::command]
+pub async fn audit_run_specified(
+    track_paths: Option<Vec<String>>,
+    album_paths: Option<Vec<String>>,
+    app: AppHandle,
+    audit: State<'_, AuditState>,
+    providers: State<'_, ProviderState>,
+    config: State<'_, ConfigState>,
+) -> Result<AuditRunSummary, ApiError> {
+    let token = start_audit(&audit)?;
+    let paths = match specified_album_paths(track_paths, album_paths) {
+        Ok(paths) => paths,
+        Err(error) => {
+            audit.finish(&token);
+            return Err(error);
+        }
+    };
+    let (client, remote) = audit_clients(&providers, &config);
+    let emit = |event| emit_audit(&app, event);
+    let operation = audit_specific_albums(
+        &emit,
+        paths,
+        client,
+        remote,
+        config.alias_file_path(),
+        &token,
+    );
+    finish_audit_run(&app, &audit, token.clone(), operation).await
+}
+
+#[tauri::command]
+pub async fn audit_run_album(
+    album_path: String,
+    providers: State<'_, ProviderState>,
+    config: State<'_, ConfigState>,
+) -> Result<Vec<AuditFinding>, ApiError> {
+    let cancelled = AtomicBool::new(false);
+    let (client, remote) = audit_clients(&providers, &config);
+    audit_album_with_services(
+        Path::new(&album_path),
+        &cancelled,
+        client.as_deref(),
+        remote.as_deref(),
+        &config.alias_file_path(),
+    )
+    .await
 }
 
 #[tauri::command]
@@ -1582,6 +2020,76 @@ mod deterministic_contract_tests {
         assert!(discovered.contains(&root));
         assert!(discovered.contains(&direct));
         assert!(discovered.contains(&nested));
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn specified_tracks_group_by_parent_in_first_seen_order_and_take_precedence() {
+        let paths = specified_album_paths(
+            Some(vec![
+                "/music/A/one.flac".into(),
+                "/music/B/two.flac".into(),
+                "/music/A/three.flac".into(),
+            ]),
+            Some(vec!["/ignored".into()]),
+        )
+        .unwrap();
+        assert_eq!(paths, vec!["/music/A", "/music/B"]);
+        assert_eq!(
+            specified_album_paths(None, None).unwrap_err().to_string(),
+            "No tracks or albums specified for audit"
+        );
+    }
+
+    #[tokio::test]
+    async fn two_worker_run_emits_progress_and_read_only_results_for_each_album() {
+        let root = temp_dir("audit-pool");
+        let mut albums = Vec::new();
+        for name in ["First", "Second"] {
+            let album = root.join("Artist").join(name);
+            fs::create_dir_all(&album).unwrap();
+            let path = album.join("01. Song.mp3");
+            fs::copy(media_fixture("minimal.mp3"), &path).unwrap();
+            let patch: TrackPatch = serde_json::from_value(serde_json::json!({
+                "title": "Song", "artist": "Artist", "album": name,
+                "albumArtist": "Artist", "trackNumber": 1, "genre": null
+            }))
+            .unwrap();
+            write_track_dispatch(&path, &patch).unwrap();
+            albums.push(album.to_string_lossy().into_owned());
+        }
+        let events = Mutex::new(Vec::<AuditEvent>::new());
+        let emit = |event| events.lock().unwrap().push(event);
+
+        let summary = audit_specific_albums(
+            &emit,
+            albums,
+            None,
+            None,
+            root.join("aliases.json"),
+            &AtomicBool::new(false),
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(summary.albums, 2);
+        assert_eq!(summary.album_results.as_ref().map(Vec::len), Some(2));
+        let events = events.into_inner().unwrap();
+        assert_eq!(events.first().map(|event| event.kind), Some("progress"));
+        assert_eq!(
+            events
+                .iter()
+                .filter(|event| event.kind == "album-start")
+                .count(),
+            2
+        );
+        assert_eq!(
+            events
+                .iter()
+                .filter(|event| event.kind == "album-result")
+                .count(),
+            2
+        );
         fs::remove_dir_all(root).unwrap();
     }
 

@@ -8,6 +8,7 @@
 //!
 //! Not yet ported — populated per slice.
 
+pub mod aliases;
 pub mod artwork;
 pub mod encoding;
 pub mod fs;

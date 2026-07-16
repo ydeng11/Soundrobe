@@ -381,6 +381,10 @@ impl ConfigState {
         }
     }
 
+    pub fn alias_file_path(&self) -> PathBuf {
+        self.home.join(".auto-tagger").join("artist-aliases.json")
+    }
+
     /// Reload config from disk + env (matches `refreshConfig()`). On a poisoned
     /// lock (a prior panic while holding it), the live config cannot be updated
     /// — std::sync `Mutex` poison cannot be cleared by `into_inner` (the next

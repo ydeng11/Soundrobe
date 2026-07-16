@@ -145,6 +145,9 @@ pub fn run() {
             commands::assistant::assistant_clear,
             commands::assistant::assistant_reject_actions,
             commands::assistant::assistant_get_batches,
+            commands::audit::audit_run,
+            commands::audit::audit_run_specified,
+            commands::audit::audit_run_album,
             commands::audit::audit_apply_fixes,
             commands::audit::audit_cancel,
         ])
