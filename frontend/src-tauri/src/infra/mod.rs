@@ -13,5 +13,6 @@ pub mod encoding;
 pub mod fs;
 pub mod http;
 pub mod logging;
+pub mod openrouter;
 pub mod sqlite;
 pub mod tag_io;
