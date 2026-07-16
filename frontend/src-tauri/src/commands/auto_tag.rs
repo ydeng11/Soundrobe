@@ -630,6 +630,14 @@ pub struct LlmTagResolution {
     pub fallback: AlbumCandidate,
 }
 
+pub fn genre_from_value(value: &serde_json::Value) -> Option<String> {
+    let confidence = value.get("confidence")?.as_f64()?;
+    if confidence < 0.6 {
+        return None;
+    }
+    llm_string(value.get("genre"))
+}
+
 pub fn llm_resolution_from_value(
     request: &LookupRequest,
     value: &serde_json::Value,
@@ -801,6 +809,59 @@ async fn resolve_tags_via_llm(
         .map(|response| llm_resolution_from_value(request, &response.data))
 }
 
+async fn fill_genre_if_missing(
+    candidate: &AlbumCandidate,
+    request: &LookupRequest,
+    config: &AutoTagConfig,
+    cancelled: &AtomicBool,
+) -> AlbumCandidate {
+    if candidate.genre.is_some() {
+        return candidate.clone();
+    }
+    let Some(api_key) = config.llm_api_key.as_deref().filter(|key| !key.is_empty()) else {
+        return candidate.clone();
+    };
+    let model = config
+        .llm_model
+        .as_deref()
+        .filter(|model| !model.is_empty())
+        .unwrap_or("deepseek/deepseek-chat");
+    let payload = serde_json::json!({
+        "artist": candidate.artist.as_ref().or(request.artist_hint.as_ref()),
+        "album": candidate.album.as_ref().or(request.album_hint.as_ref()),
+        "tracks": candidate.tracks.iter().filter_map(|track| track.title.as_ref()).collect::<Vec<_>>(),
+    });
+    let messages = vec![
+        ChatMessage::system(concat!(
+            "Infer a conservative music genre from the supplied artist, album, and track titles. ",
+            "Return a concise Discogs-style comma-separated genre and confidence. ",
+            "Use low confidence when the evidence is insufficient."
+        )),
+        ChatMessage::user(payload.to_string()),
+    ];
+    let schema = serde_json::json!({
+        "type": "object",
+        "properties": {
+            "genre": {"type": "string"},
+            "confidence": {"type": "number"}
+        },
+        "required": ["genre", "confidence"]
+    });
+    let Ok(response) = OpenRouterClient::new(api_key, model)
+        .with_generation(0.2, 256)
+        .complete_json(messages, "GenreFillResponse", schema, cancelled)
+        .await
+    else {
+        return candidate.clone();
+    };
+    let Some(genre) = genre_from_value(&response.data) else {
+        return candidate.clone();
+    };
+    let mut filled = candidate.clone();
+    filled.genre = Some(genre);
+    filled
+}
+
 pub async fn resolve_and_apply_album(
     album_path: &Path,
     config: &AutoTagConfig,
@@ -923,6 +984,9 @@ pub async fn resolve_and_apply_album(
         .into_iter()
         .next()
         .ok_or_else(|| ApiError::Message("No auto-tag candidate available".to_string()))?;
+    check_cancelled(cancelled)?;
+    progress(8, "Resolving genre...");
+    let candidate = fill_genre_if_missing(&candidate, &request, config, cancelled).await;
     check_cancelled(cancelled)?;
     progress(9, "Applying tags...");
     let written = apply_candidate_tags(album_path, &candidate, queue).await?;
@@ -1438,6 +1502,31 @@ mod tests {
         assert_eq!(
             resolution.fallback.tracks[1].artist.as_deref(),
             Some("Correct Artist feat. Guest")
+        );
+    }
+
+    #[test]
+    fn genre_fill_requires_nonempty_high_confidence_value() {
+        assert_eq!(
+            genre_from_value(&serde_json::json!({
+                "genre": "Rock, Indie Rock",
+                "confidence": 0.6
+            })),
+            Some("Rock, Indie Rock".into())
+        );
+        assert_eq!(
+            genre_from_value(&serde_json::json!({
+                "genre": "Rock",
+                "confidence": 0.59
+            })),
+            None
+        );
+        assert_eq!(
+            genre_from_value(&serde_json::json!({
+                "genre": "unknown",
+                "confidence": 0.99
+            })),
+            None
         );
     }
 
