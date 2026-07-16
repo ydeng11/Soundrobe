@@ -2,8 +2,13 @@
 
 use crate::state::audit::AuditState;
 use crate::{
-    commands::{library::is_audio_file, tracks::read_track_metadata},
+    commands::{
+        library::is_audio_file,
+        mutations::{write_track_dispatch, Patch, StringList, TrackPatch},
+        tracks::read_track_metadata,
+    },
     error::ApiError,
+    state::write_queue::WriteQueue,
 };
 use regex::Regex;
 use serde::{Deserialize, Serialize};
@@ -36,30 +41,44 @@ pub struct AuditTrackMeta {
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AuditCorrectedFields {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub title: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub artist: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub artists: Option<Vec<String>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub album: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub album_artist: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub album_artists: Option<Vec<String>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub year: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub genre: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub track_number: Option<u32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub track_total: Option<u32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub disc_number: Option<u32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub disc_total: Option<u32>,
+    #[serde(default, skip_serializing_if = "Patch::is_omitted")]
+    pub title: Patch<String>,
+    #[serde(default, skip_serializing_if = "Patch::is_omitted")]
+    pub artist: Patch<String>,
+    #[serde(default, skip_serializing_if = "Patch::is_omitted")]
+    pub artists: Patch<Vec<String>>,
+    #[serde(default, skip_serializing_if = "Patch::is_omitted")]
+    pub album: Patch<String>,
+    #[serde(default, skip_serializing_if = "Patch::is_omitted")]
+    pub album_artist: Patch<String>,
+    #[serde(default, skip_serializing_if = "Patch::is_omitted")]
+    pub album_artists: Patch<Vec<String>>,
+    #[serde(default, skip_serializing_if = "Patch::is_omitted")]
+    pub year: Patch<String>,
+    #[serde(default, skip_serializing_if = "Patch::is_omitted")]
+    pub genre: Patch<String>,
+    #[serde(default, skip_serializing_if = "Patch::is_omitted")]
+    pub track_number: Patch<u32>,
+    #[serde(default, skip_serializing_if = "Patch::is_omitted")]
+    pub track_total: Patch<u32>,
+    #[serde(default, skip_serializing_if = "Patch::is_omitted")]
+    pub disc_number: Patch<u32>,
+    #[serde(default, skip_serializing_if = "Patch::is_omitted")]
+    pub disc_total: Patch<u32>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AuditAlbumResult {
+    pub album_path: String,
+    pub results: Vec<AuditFinding>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AuditApplyFixesSummary {
+    pub fixed: usize,
+    pub album_results: Vec<AuditAlbumResult>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -316,7 +335,7 @@ pub fn build_deterministic_audit_findings(
 
         if !expected_album.is_empty() && !same_text(track.album.as_deref(), Some(&expected_album)) {
             let corrected = AuditCorrectedFields {
-                album: Some(expected_album.clone()),
+                album: Patch::Value(expected_album.clone()),
                 ..Default::default()
             };
             add_unique(
@@ -338,7 +357,7 @@ pub fn build_deterministic_audit_findings(
         if !expected_album_artist.is_empty() && !missing_obvious_album_artist {
             if !same_text(track.album_artist.as_deref(), Some(&expected_album_artist)) {
                 let corrected = AuditCorrectedFields {
-                    album_artist: Some(expected_album_artist.clone()),
+                    album_artist: Patch::Value(expected_album_artist.clone()),
                     ..Default::default()
                 };
                 add_unique(&mut findings, make_finding(index, "albumArtist", AuditStatus::Error,
@@ -349,7 +368,7 @@ pub fn build_deterministic_audit_findings(
                 && !same_string_list(&track.album_artists, &expected_album_artists)
             {
                 let corrected = AuditCorrectedFields {
-                    album_artists: Some(expected_album_artists.clone()),
+                    album_artists: Patch::Value(expected_album_artists.clone()),
                     ..Default::default()
                 };
                 add_unique(&mut findings, make_finding(index, "albumArtists", AuditStatus::Error,
@@ -363,7 +382,7 @@ pub fn build_deterministic_audit_findings(
             .filter(|title| !same_text(track.title.as_deref(), Some(title)))
         {
             let corrected = AuditCorrectedFields {
-                title: Some(title.clone()),
+                title: Patch::Value(title.clone()),
                 ..Default::default()
             };
             add_unique(
@@ -385,7 +404,7 @@ pub fn build_deterministic_audit_findings(
             .filter(|artist| !same_text(track.artist.as_deref(), Some(artist)))
         {
             let corrected = AuditCorrectedFields {
-                artist: Some(artist.clone()),
+                artist: Patch::Value(artist.clone()),
                 ..Default::default()
             };
             add_unique(
@@ -426,7 +445,7 @@ pub fn build_deterministic_audit_findings(
                         ));
                 if high_confidence && replaceable {
                     let corrected = AuditCorrectedFields {
-                        artists: Some(expected.clone()),
+                        artists: Patch::Value(expected.clone()),
                         ..Default::default()
                     };
                     add_unique(
@@ -466,7 +485,7 @@ pub fn build_deterministic_audit_findings(
             .filter(|year| !same_text(track.year.as_deref(), Some(year)))
         {
             let corrected = AuditCorrectedFields {
-                year: Some(year.clone()),
+                year: Patch::Value(year.clone()),
                 ..Default::default()
             };
             add_unique(
@@ -486,8 +505,8 @@ pub fn build_deterministic_audit_findings(
         if let Some(number) = facts.track_number {
             if track.track_number != Some(number) {
                 let corrected = AuditCorrectedFields {
-                    track_number: Some(number),
-                    track_total: total_tracks,
+                    track_number: Patch::Value(number),
+                    track_total: total_tracks.map_or(Patch::Omitted, Patch::Value),
                     ..Default::default()
                 };
                 add_unique(
@@ -506,7 +525,7 @@ pub fn build_deterministic_audit_findings(
                 total_tracks.filter(|total| track.track_total != Some(*total))
             {
                 let corrected = AuditCorrectedFields {
-                    track_total: Some(total),
+                    track_total: Patch::Value(total),
                     ..Default::default()
                 };
                 add_unique(
@@ -527,7 +546,7 @@ pub fn build_deterministic_audit_findings(
         if let Some(number) = facts.disc_number.or(folder_disc_number) {
             if track.disc_number != Some(number) {
                 let corrected = AuditCorrectedFields {
-                    disc_number: Some(number),
+                    disc_number: Patch::Value(number),
                     ..Default::default()
                 };
                 add_unique(
@@ -787,6 +806,196 @@ fn check_audit_cancelled(cancelled: &AtomicBool) -> Result<(), ApiError> {
     }
 }
 
+struct AuditWriteJob {
+    path: PathBuf,
+    fields: TrackPatch,
+    finding_indices: Vec<usize>,
+}
+
+pub async fn apply_audit_fixes_for_album_results(
+    queue: &WriteQueue,
+    mut album_results: Vec<AuditAlbumResult>,
+) -> Result<AuditApplyFixesSummary, ApiError> {
+    let mut fixed = 0;
+    for album_result in &mut album_results {
+        fixed += apply_album_fixes(queue, album_result).await?;
+    }
+    Ok(AuditApplyFixesSummary {
+        fixed,
+        album_results,
+    })
+}
+
+async fn apply_album_fixes(
+    queue: &WriteQueue,
+    album_result: &mut AuditAlbumResult,
+) -> Result<usize, ApiError> {
+    let audio_files = collect_audio_files_for_audit(Path::new(&album_result.album_path));
+    let mut jobs: Vec<AuditWriteJob> = Vec::new();
+    for (finding_index, finding) in album_result.results.iter_mut().enumerate() {
+        finding.auto_fixed = false;
+        if !finding.auto_fix_eligible || finding.field == "path" {
+            continue;
+        }
+        let Some(path) = audio_files.get(finding.index) else {
+            continue;
+        };
+        let Some(fields) = audit_write_fields(finding) else {
+            continue;
+        };
+        if let Some(job) = jobs.iter_mut().find(|job| job.path == *path) {
+            merge_track_patch(&mut job.fields, fields);
+            job.finding_indices.push(finding_index);
+        } else {
+            jobs.push(AuditWriteJob {
+                path: path.clone(),
+                fields,
+                finding_indices: vec![finding_index],
+            });
+        }
+    }
+    if jobs.is_empty() {
+        return Ok(0);
+    }
+
+    let writes = jobs
+        .iter()
+        .map(|job| (job.path.clone(), job.fields.clone()))
+        .collect::<Vec<_>>();
+    let successes = queue
+        .run(async move {
+            tokio::task::spawn_blocking(move || {
+                writes
+                    .into_iter()
+                    .map(
+                        |(path, fields)| match write_track_dispatch(&path, &fields) {
+                            Ok(_) => true,
+                            Err(error) => {
+                                tracing::warn!(
+                                    path = %path.display(),
+                                    %error,
+                                    "audit fix write failed"
+                                );
+                                false
+                            }
+                        },
+                    )
+                    .collect::<Vec<_>>()
+            })
+            .await
+            .map_err(|error| ApiError::WriteTask(error.to_string()))
+        })
+        .await?;
+
+    for (job, success) in jobs.iter().zip(&successes) {
+        for finding_index in &job.finding_indices {
+            album_result.results[*finding_index].auto_fixed = *success;
+        }
+    }
+    Ok(successes.into_iter().filter(|success| *success).count())
+}
+
+fn audit_write_fields(finding: &AuditFinding) -> Option<TrackPatch> {
+    if let Some(corrected) = &finding.corrected {
+        let fields = TrackPatch {
+            title: corrected.title.clone(),
+            artist: corrected.artist.clone(),
+            artists: list_patch(&corrected.artists),
+            album: corrected.album.clone(),
+            album_artist: corrected.album_artist.clone(),
+            album_artists: list_patch(&corrected.album_artists),
+            year: corrected.year.clone(),
+            genre: corrected.genre.clone(),
+            track_number: corrected.track_number.clone(),
+            track_total: corrected.track_total.clone(),
+            disc_number: corrected.disc_number.clone(),
+            disc_total: corrected.disc_total.clone(),
+            ..Default::default()
+        };
+        return track_patch_has_field(&fields).then_some(fields);
+    }
+
+    let suggestion = finding.suggestion.as_ref()?;
+    let mut fields = TrackPatch::default();
+    match finding.field.as_str() {
+        "title" => fields.title = Patch::Value(suggestion.clone()),
+        "artist" => fields.artist = Patch::Value(suggestion.clone()),
+        "artists" => fields.artists = Patch::Value(StringList::One(suggestion.clone())),
+        "album" => fields.album = Patch::Value(suggestion.clone()),
+        "album_artist" | "albumArtist" => {
+            fields.album_artist = Patch::Value(suggestion.clone());
+        }
+        "albumArtists" => {
+            fields.album_artists = Patch::Value(StringList::One(suggestion.clone()));
+        }
+        "year" => fields.year = Patch::Value(suggestion.clone()),
+        "genre" => fields.genre = Patch::Value(suggestion.clone()),
+        "trackNumber" => fields.track_number = parsed_number_patch(suggestion),
+        "trackTotal" => fields.track_total = parsed_number_patch(suggestion),
+        "discNumber" => fields.disc_number = parsed_number_patch(suggestion),
+        "discTotal" => fields.disc_total = parsed_number_patch(suggestion),
+        _ => return None,
+    }
+    track_patch_has_field(&fields).then_some(fields)
+}
+
+fn list_patch(values: &Patch<Vec<String>>) -> Patch<StringList> {
+    match values {
+        Patch::Omitted => Patch::Omitted,
+        Patch::Null => Patch::Null,
+        Patch::Value(values) => Patch::Value(StringList::Many(values.clone())),
+    }
+}
+
+fn parsed_number_patch(value: &str) -> Patch<u32> {
+    value.parse().map_or(Patch::Omitted, Patch::Value)
+}
+
+fn track_patch_has_field(fields: &TrackPatch) -> bool {
+    !fields.title.is_omitted()
+        || !fields.artist.is_omitted()
+        || !fields.artists.is_omitted()
+        || !fields.album.is_omitted()
+        || !fields.album_artist.is_omitted()
+        || !fields.album_artists.is_omitted()
+        || !fields.year.is_omitted()
+        || !fields.genre.is_omitted()
+        || !fields.track_number.is_omitted()
+        || !fields.track_total.is_omitted()
+        || !fields.disc_number.is_omitted()
+        || !fields.disc_total.is_omitted()
+}
+
+fn merge_track_patch(target: &mut TrackPatch, incoming: TrackPatch) {
+    macro_rules! merge {
+        ($field:ident) => {
+            if !incoming.$field.is_omitted() {
+                target.$field = incoming.$field;
+            }
+        };
+    }
+    merge!(title);
+    merge!(artist);
+    merge!(artists);
+    merge!(album);
+    merge!(album_artist);
+    merge!(album_artists);
+    merge!(year);
+    merge!(genre);
+    merge!(track_number);
+    merge!(track_total);
+    merge!(disc_number);
+    merge!(disc_total);
+}
+
+#[tauri::command]
+pub async fn audit_apply_fixes(
+    album_results: Vec<AuditAlbumResult>,
+    queue: State<'_, WriteQueue>,
+) -> Result<AuditApplyFixesSummary, ApiError> {
+    apply_audit_fixes_for_album_results(&queue, album_results).await
+}
+
 #[tauri::command]
 pub fn audit_cancel(state: State<'_, AuditState>) {
     state.cancel();
@@ -795,7 +1004,6 @@ pub fn audit_cancel(state: State<'_, AuditState>) {
 #[cfg(test)]
 mod deterministic_contract_tests {
     use super::*;
-    use crate::commands::mutations::{write_track_dispatch, TrackPatch};
     use std::fs;
     use std::path::PathBuf;
     use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
@@ -848,7 +1056,7 @@ mod deterministic_contract_tests {
                 && finding
                     .corrected
                     .as_ref()
-                    .and_then(|value| value.title.as_deref())
+                    .and_then(|value| value.title.value().map(String::as_str))
                     == Some("Song")
         }));
         assert!(findings.iter().any(|finding| {
@@ -857,7 +1065,7 @@ mod deterministic_contract_tests {
                 && finding
                     .corrected
                     .as_ref()
-                    .and_then(|value| value.album.as_deref())
+                    .and_then(|value| value.album.value().map(String::as_str))
                     == Some("Album")
         }));
         assert!(findings.iter().any(|finding| {
@@ -922,7 +1130,7 @@ mod deterministic_contract_tests {
                 && finding
                     .corrected
                     .as_ref()
-                    .and_then(|value| value.artists.as_ref())
+                    .and_then(|value| value.artists.value())
                     == Some(&vec!["A".to_string(), "B".to_string()])
         }));
         assert!(findings.iter().any(|finding| {
@@ -930,7 +1138,7 @@ mod deterministic_contract_tests {
                 && finding
                     .corrected
                     .as_ref()
-                    .and_then(|value| value.disc_number)
+                    .and_then(|value| value.disc_number.value().copied())
                     == Some(2)
         }));
     }
@@ -999,13 +1207,133 @@ mod deterministic_contract_tests {
                 && finding
                     .corrected
                     .as_ref()
-                    .and_then(|value| value.title.as_deref())
+                    .and_then(|value| value.title.value().map(String::as_str))
                     == Some("Song")
         }));
         assert!(findings
             .iter()
             .any(|finding| finding.field == "genre" && !finding.auto_fix_eligible));
         assert_eq!(fs::read(&path).unwrap(), before);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn approval_applies_only_eligible_fixes_and_preserves_omitted_fields() {
+        let root = temp_dir("audit-apply");
+        let album = root.join("Artist").join("Album");
+        fs::create_dir_all(&album).unwrap();
+        let path = album.join("01. Song.mp3");
+        fs::copy(media_fixture("minimal.mp3"), &path).unwrap();
+        let initial: TrackPatch = serde_json::from_value(serde_json::json!({
+            "title": "Wrong",
+            "artist": "Keep Artist",
+            "album": "Keep Album",
+            "genre": "Remove Me"
+        }))
+        .unwrap();
+        write_track_dispatch(&path, &initial).unwrap();
+        let results: Vec<AuditFinding> = serde_json::from_value(serde_json::json!([
+            {
+                "index": 0,
+                "field": "title",
+                "status": "error",
+                "message": "Title mismatch",
+                "corrected": { "title": "Song" },
+                "source": "deterministic",
+                "confidence": 0.98,
+                "autoFixEligible": true,
+                "autoFixed": false
+            },
+            {
+                "index": 0,
+                "field": "genre",
+                "status": "error",
+                "message": "Clear genre",
+                "corrected": { "genre": null },
+                "source": "llm",
+                "confidence": 0.95,
+                "autoFixEligible": true,
+                "autoFixed": false
+            },
+            {
+                "index": 0,
+                "field": "album",
+                "status": "warning",
+                "message": "Do not apply",
+                "corrected": { "album": "Wrongly Applied" },
+                "source": "llm",
+                "confidence": 0.5,
+                "autoFixEligible": false,
+                "autoFixed": false
+            }
+        ]))
+        .unwrap();
+
+        let summary = apply_audit_fixes_for_album_results(
+            &WriteQueue::default(),
+            vec![AuditAlbumResult {
+                album_path: album.to_string_lossy().into_owned(),
+                results,
+            }],
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(summary.fixed, 1);
+        assert!(summary.album_results[0].results[0].auto_fixed);
+        assert!(summary.album_results[0].results[1].auto_fixed);
+        assert!(!summary.album_results[0].results[2].auto_fixed);
+        let track = read_track_metadata(&path).unwrap();
+        assert_eq!(track.title.as_deref(), Some("Song"));
+        assert_eq!(track.artist.as_deref(), Some("Keep Artist"));
+        assert_eq!(track.album.as_deref(), Some("Keep Album"));
+        assert_eq!(track.genre, None);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn approval_marks_only_successful_file_jobs_and_continues_after_failure() {
+        let root = temp_dir("audit-apply-partial");
+        let album = root.join("Artist").join("Album");
+        fs::create_dir_all(&album).unwrap();
+        let good = album.join("01. Good.mp3");
+        let bad = album.join("02. Bad.mp3");
+        fs::copy(media_fixture("minimal.mp3"), &good).unwrap();
+        fs::write(&bad, b"not an mp3").unwrap();
+        let results: Vec<AuditFinding> = serde_json::from_value(serde_json::json!([
+            {
+                "index": 0, "field": "title", "status": "error",
+                "message": "good", "corrected": { "title": "Good" },
+                "source": "deterministic", "confidence": 0.98,
+                "autoFixEligible": true, "autoFixed": false
+            },
+            {
+                "index": 1, "field": "title", "status": "error",
+                "message": "bad", "corrected": { "title": "Bad" },
+                "source": "deterministic", "confidence": 0.98,
+                "autoFixEligible": true, "autoFixed": false
+            }
+        ]))
+        .unwrap();
+
+        let summary = apply_audit_fixes_for_album_results(
+            &WriteQueue::default(),
+            vec![AuditAlbumResult {
+                album_path: album.to_string_lossy().into_owned(),
+                results,
+            }],
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(summary.fixed, 1);
+        assert!(summary.album_results[0].results[0].auto_fixed);
+        assert!(!summary.album_results[0].results[1].auto_fixed);
+        assert_eq!(
+            read_track_metadata(&good).unwrap().title.as_deref(),
+            Some("Good")
+        );
+        assert_eq!(fs::read(&bad).unwrap(), b"not an mp3");
         fs::remove_dir_all(root).unwrap();
     }
 

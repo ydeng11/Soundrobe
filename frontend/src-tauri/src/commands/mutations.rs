@@ -47,6 +47,32 @@ where
     }
 }
 
+impl<T> Patch<T> {
+    pub(crate) fn is_omitted(&self) -> bool {
+        matches!(self, Self::Omitted)
+    }
+
+    #[cfg(test)]
+    pub(crate) fn value(&self) -> Option<&T> {
+        match self {
+            Self::Value(value) => Some(value),
+            Self::Omitted | Self::Null => None,
+        }
+    }
+}
+
+impl<T: Serialize> Serialize for Patch<T> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        match self {
+            Self::Omitted | Self::Null => serializer.serialize_none(),
+            Self::Value(value) => value.serialize(serializer),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(untagged)]
 pub enum StringList {

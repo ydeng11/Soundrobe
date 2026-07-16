@@ -145,6 +145,7 @@ pub fn run() {
             commands::assistant::assistant_clear,
             commands::assistant::assistant_reject_actions,
             commands::assistant::assistant_get_batches,
+            commands::audit::audit_apply_fixes,
             commands::audit::audit_cancel,
         ])
         .build(tauri::generate_context!())
