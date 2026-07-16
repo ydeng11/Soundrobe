@@ -39,6 +39,7 @@ use crate::state::config::ConfigState;
 use crate::state::conversation::ConversationState;
 use crate::state::providers::ProviderState;
 use crate::state::quit_guard::QuitGuard;
+use crate::state::sqlite::CacheState;
 use crate::state::tasks::TaskRegistry;
 use crate::state::window_state::{DisplayWorkArea, PositionAction, WindowState};
 use crate::state::write_queue::WriteQueue;
@@ -70,9 +71,13 @@ pub fn run() {
             // port lands in a later slice; config is the first managed state).
             if let Some(home) = dirs::home_dir() {
                 let config = ConfigState::init(home.clone());
-                let debug_enabled = config.raw().debug.unwrap_or(false);
+                let raw_config = config.raw();
+                let debug_enabled = raw_config.debug.unwrap_or(false);
+                let cache = CacheState::new(home.clone());
+                let _ = cache.initialize(raw_config.cache_path.as_deref());
                 app.manage(DebugState::new(home.clone(), debug_enabled));
                 app.manage(ConversationState::new(home));
+                app.manage(cache);
                 app.manage(config);
             }
             app.manage(ContextMenuState::default());

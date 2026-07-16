@@ -42,6 +42,7 @@ encoding_rs = "0.8"
 uuid = { version = "1", features = ["v4"] }
 unicode-normalization = "0.1"
 opencc-fmmseg = "0.11"
+sha2 = "0.10"
 
 # Infrastructure crates — pinned to the versions locked by `Cargo.lock` and
 # introduced per migration slice. Listed here so the toolchain is recorded;
