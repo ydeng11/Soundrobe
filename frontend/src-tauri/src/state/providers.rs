@@ -7,9 +7,9 @@ use opencc_fmmseg::OpenCC;
 use regex::Regex;
 use reqwest::Client;
 use serde::Deserialize;
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, HashMap};
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::{Arc, OnceLock};
+use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant};
 use unicode_normalization::{char::is_combining_mark, UnicodeNormalization};
 
@@ -68,6 +68,9 @@ impl DiscogsRateLimiter {
 
 pub struct ProviderState {
     http: Client,
+    musicbrainz_base: String,
+    discogs_base: String,
+    artist_cache: Mutex<HashMap<String, CachedArtistIdentity>>,
 }
 
 impl ProviderState {
@@ -77,11 +80,77 @@ impl ProviderState {
             .user_agent(USER_AGENT)
             .build()
             .expect("reqwest RustLS client configuration is valid");
-        Self { http }
+        Self {
+            http,
+            musicbrainz_base: "https://musicbrainz.org/ws/2".to_string(),
+            discogs_base: DISCOGS_BASE.to_string(),
+            artist_cache: Mutex::new(HashMap::new()),
+        }
+    }
+
+    #[cfg(test)]
+    fn at(http: Client, musicbrainz_base: &str, discogs_base: &str) -> Self {
+        Self {
+            http,
+            musicbrainz_base: musicbrainz_base.trim_end_matches('/').to_string(),
+            discogs_base: discogs_base.trim_end_matches('/').to_string(),
+            artist_cache: Mutex::new(HashMap::new()),
+        }
     }
 
     pub fn http(&self) -> Client {
         self.http.clone()
+    }
+
+    pub async fn resolve_artist_identity(
+        &self,
+        artist: &str,
+        discogs_token: Option<String>,
+        use_musicbrainz: bool,
+        use_discogs: bool,
+    ) -> ArtistIdentity {
+        let key = format!(
+            "{}|mb={use_musicbrainz}|discogs={use_discogs}",
+            artist.trim().to_lowercase()
+        );
+        let cached = self
+            .artist_cache
+            .lock()
+            .unwrap_or_else(|poisoned| {
+                tracing::error!("artist identity cache mutex poisoned");
+                poisoned.into_inner()
+            })
+            .get(&key)
+            .filter(|entry| entry.stored.elapsed() < Duration::from_secs(24 * 60 * 60))
+            .map(|entry| entry.identity.clone());
+        if let Some(cached) = cached {
+            return cached;
+        }
+
+        let musicbrainz = MusicBrainzClient::at(self.http(), &self.musicbrainz_base);
+        let discogs = DiscogsClient::at(self.http(), discogs_token, &self.discogs_base);
+        let identity = resolve_artist_identity_with_clients(
+            &musicbrainz,
+            &discogs,
+            artist,
+            use_musicbrainz,
+            use_discogs,
+        )
+        .await;
+        self.artist_cache
+            .lock()
+            .unwrap_or_else(|poisoned| {
+                tracing::error!("artist identity cache mutex poisoned");
+                poisoned.into_inner()
+            })
+            .insert(
+                key,
+                CachedArtistIdentity {
+                    identity: identity.clone(),
+                    stored: Instant::now(),
+                },
+            );
+        identity
     }
 }
 
@@ -89,6 +158,25 @@ impl Default for ProviderState {
     fn default() -> Self {
         Self::new()
     }
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct ArtistIdentity {
+    pub musicbrainz_artist_id: Option<String>,
+    pub discogs_artist_id: Option<String>,
+    pub english_aliases: Vec<String>,
+}
+
+struct CachedArtistIdentity {
+    identity: ArtistIdentity,
+    stored: Instant,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ProviderArtist {
+    pub id: String,
+    pub name: String,
+    pub aliases: Vec<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, serde::Serialize, Deserialize)]
@@ -269,6 +357,97 @@ impl MusicBrainzClient {
                 })
             })
             .collect()
+    }
+
+    pub async fn search_artist_by_name(&self, artist: &str) -> Option<ProviderArtist> {
+        if artist.trim().is_empty() {
+            return None;
+        }
+        wait_for_musicbrainz().await;
+        let query = format!("artist:\"{}\"", escape_musicbrainz_query(artist));
+        let response = self
+            .http
+            .get(format!("{}/artist/", self.base_url))
+            .query(&[
+                ("query", query),
+                ("fmt", "json".into()),
+                ("limit", "5".into()),
+            ])
+            .send()
+            .await
+            .ok()?
+            .error_for_status()
+            .ok()?
+            .json::<serde_json::Value>()
+            .await
+            .ok()?;
+        let artists = response.get("artists")?.as_array()?;
+        let candidate = artists
+            .iter()
+            .find(|candidate| {
+                candidate.get("name").and_then(serde_json::Value::as_str) == Some(artist)
+                    || candidate
+                        .get("sort-name")
+                        .and_then(serde_json::Value::as_str)
+                        == Some(artist)
+            })
+            .or_else(|| artists.first())?;
+        let id = candidate.get("id")?.as_str()?.to_string();
+        let name = candidate.get("name")?.as_str()?.to_string();
+        let aliases = candidate
+            .get("aliases")
+            .and_then(serde_json::Value::as_array)
+            .into_iter()
+            .flatten()
+            .filter_map(|alias| alias.get("name").and_then(serde_json::Value::as_str))
+            .filter(|alias| alias.is_ascii())
+            .map(str::to_string)
+            .collect();
+        Some(ProviderArtist { id, name, aliases })
+    }
+}
+
+pub async fn resolve_artist_identity_with_clients(
+    musicbrainz: &MusicBrainzClient,
+    discogs: &DiscogsClient,
+    artist: &str,
+    use_musicbrainz: bool,
+    use_discogs: bool,
+) -> ArtistIdentity {
+    if artist.trim().is_empty() {
+        return ArtistIdentity::default();
+    }
+    if use_discogs {
+        if let Some(id) = discogs.search_artist_exact(artist).await {
+            return ArtistIdentity {
+                discogs_artist_id: Some(id),
+                ..ArtistIdentity::default()
+            };
+        }
+    }
+    let Some(musicbrainz_artist) = (if use_musicbrainz {
+        musicbrainz.search_artist_by_name(artist).await
+    } else {
+        None
+    }) else {
+        return ArtistIdentity::default();
+    };
+    let discogs_artist_id = if use_discogs {
+        let mut found = None;
+        for alias in &musicbrainz_artist.aliases {
+            if let Some(id) = discogs.search_artist_exact(alias).await {
+                found = Some(id);
+                break;
+            }
+        }
+        found
+    } else {
+        None
+    };
+    ArtistIdentity {
+        musicbrainz_artist_id: Some(musicbrainz_artist.id),
+        discogs_artist_id,
+        english_aliases: musicbrainz_artist.aliases,
     }
 }
 
@@ -2365,6 +2544,49 @@ mod tests {
         assert!(paths[4].contains("artist=Alias"));
         assert!(paths[5].contains("/discogs/artists/7"));
         assert!(paths[6].contains("/artist-image"));
+    }
+
+    #[tokio::test]
+    async fn artist_identity_uses_musicbrainz_id_and_validated_discogs_alias() {
+        let (base, requests) = server(4, artist_provider_route);
+        let http = ProviderState::new().http();
+        let musicbrainz = MusicBrainzClient::at(http.clone(), &format!("{base}/mb"));
+        let discogs = DiscogsClient::at(http, None, &format!("{base}/discogs"));
+
+        let identity =
+            resolve_artist_identity_with_clients(&musicbrainz, &discogs, "原名", true, true).await;
+
+        assert_eq!(identity.musicbrainz_artist_id.as_deref(), Some("mb"));
+        assert_eq!(identity.discogs_artist_id.as_deref(), Some("7"));
+        assert_eq!(identity.english_aliases, vec!["Alias"]);
+        let paths = (0..4)
+            .map(|_| requests.recv().unwrap().lines().next().unwrap().to_string())
+            .collect::<Vec<_>>();
+        assert!(paths[0].contains("artist=%E5%8E%9F%E5%90%8D"));
+        assert!(paths[1].contains("q=%E5%8E%9F%E5%90%8D"));
+        assert!(paths[2].contains("/mb/artist/?"));
+        assert!(paths[3].contains("artist=Alias"));
+    }
+
+    #[tokio::test]
+    async fn provider_state_caches_artist_identity_without_holding_network_state() {
+        let (base, _requests) = server(4, artist_provider_route);
+        let state = ProviderState::at(
+            ProviderState::new().http(),
+            &format!("{base}/mb"),
+            &format!("{base}/discogs"),
+        );
+
+        let first = state
+            .resolve_artist_identity("原名", None, true, true)
+            .await;
+        let cached = state
+            .resolve_artist_identity("原名", None, true, true)
+            .await;
+
+        assert_eq!(cached, first);
+        assert_eq!(cached.musicbrainz_artist_id.as_deref(), Some("mb"));
+        assert_eq!(cached.discogs_artist_id.as_deref(), Some("7"));
     }
 
     #[tokio::test]

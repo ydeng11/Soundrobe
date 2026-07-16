@@ -16,12 +16,16 @@ use crate::{
         tracks::read_album,
     },
     error::ApiError,
-    infra::openrouter::{ChatMessage, OpenRouterClient},
+    infra::{
+        aliases::save_alias,
+        openrouter::{ChatMessage, OpenRouterClient},
+    },
     state::{
         config::AutoTagConfig,
         providers::{
-            album_names_match, convert_chinese_text, DiscogsClient, MusicBrainzClient,
-            ProviderAlbum, ProviderReleaseSummary, ProviderState, RemoteArtworkClient,
+            album_names_match, convert_chinese_text, ArtistIdentity, DiscogsClient,
+            MusicBrainzClient, ProviderAlbum, ProviderReleaseSummary, ProviderState,
+            RemoteArtworkClient,
         },
         sqlite::CacheState,
         tasks::{TaskRegistry, TaskStatus},
@@ -427,6 +431,25 @@ pub fn apply_canonical_artist_name(
         }
     }
     candidate
+}
+
+fn fill_request_artist_identity(request: &mut LookupRequest, identity: &ArtistIdentity) {
+    fill_option(
+        &mut request.musicbrainz_artist_id,
+        &identity.musicbrainz_artist_id,
+    );
+    fill_option(&mut request.discogs_artist_id, &identity.discogs_artist_id);
+}
+
+fn fill_candidate_artist_identity(candidate: &mut AlbumCandidate, identity: &ArtistIdentity) {
+    fill_option(
+        &mut candidate.musicbrainz_artist_id,
+        &identity.musicbrainz_artist_id,
+    );
+    fill_option(
+        &mut candidate.discogs_artist_id,
+        &identity.discogs_artist_id,
+    );
 }
 
 fn clean_provider_artist_name(name: Option<&str>) -> Option<String> {
@@ -900,6 +923,13 @@ pub struct AutoTagRunResult {
     pub written: usize,
 }
 
+pub struct AutoTagServices<'a> {
+    pub providers: &'a ProviderState,
+    pub cache: &'a CacheState,
+    pub queue: &'a WriteQueue,
+    pub alias_file: &'a Path,
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AutoTagEvent {
@@ -1171,9 +1201,7 @@ async fn fill_genre_if_missing(
 pub async fn resolve_and_apply_album(
     album_path: &Path,
     config: &AutoTagConfig,
-    providers: &ProviderState,
-    cache: &CacheState,
-    queue: &WriteQueue,
+    services: AutoTagServices<'_>,
     cancelled: &AtomicBool,
     mut progress: impl FnMut(u64, &str),
 ) -> Result<AutoTagRunResult, ApiError> {
@@ -1183,14 +1211,15 @@ pub async fn resolve_and_apply_album(
 
     progress(3, "Checking cache...");
     let hash = query_hash(&request);
-    let cached = cache
+    let cached = services
+        .cache
         .lookup(&hash)
         .and_then(|value| serde_json::from_value::<Vec<AlbumCandidate>>(value).ok())
         .unwrap_or_default();
     let mut fresh = Vec::new();
 
     progress(4, "Direct provider ID lookup...");
-    let musicbrainz = MusicBrainzClient::new(providers.http());
+    let musicbrainz = MusicBrainzClient::new(services.providers.http());
     if let Some(release_id) = request.musicbrainz_album_id.as_deref() {
         if let Some(album) = musicbrainz.release_by_id(release_id).await {
             fresh.push(musicbrainz_candidate(album));
@@ -1200,7 +1229,7 @@ pub async fn resolve_and_apply_album(
         candidate.source == LookupSource::Musicbrainz
             && candidate.musicbrainz_album_id == request.musicbrainz_album_id
     });
-    let discogs = DiscogsClient::new(providers.http(), config.discogs_token.clone());
+    let discogs = DiscogsClient::new(services.providers.http(), config.discogs_token.clone());
     if let Some(release_id) = request.discogs_release_id.as_deref() {
         if let Some(album) = discogs.release_metadata(release_id).await {
             fresh.push(discogs_candidate(album));
@@ -1222,9 +1251,41 @@ pub async fn resolve_and_apply_album(
         }
     }
 
+    let needs_musicbrainz_identity =
+        request.musicbrainz_artist_id.is_none() && config.remote_lookup_enabled != Some(false);
+    let needs_discogs_identity =
+        request.discogs_artist_id.is_none() && config.discogs_enabled != Some(false);
+    let resolved_identity = if (needs_musicbrainz_identity || needs_discogs_identity)
+        && request
+            .artist_hint
+            .as_deref()
+            .is_some_and(|artist| !is_compilation_folder(artist))
+    {
+        let artist = request.artist_hint.as_deref().unwrap_or_default();
+        let identity = services
+            .providers
+            .resolve_artist_identity(
+                artist,
+                config.discogs_token.clone(),
+                needs_musicbrainz_identity,
+                needs_discogs_identity,
+            )
+            .await;
+        for alias in &identity.english_aliases {
+            if let Err(error) = save_alias(services.alias_file, artist, alias) {
+                tracing::warn!(%error, "failed to persist resolved artist alias");
+            }
+        }
+        fill_request_artist_identity(&mut request, &identity);
+        Some(identity)
+    } else {
+        None
+    };
+    check_cancelled(cancelled)?;
+
     if !has_direct_musicbrainz && config.remote_lookup_enabled != Some(false) {
         progress(5, "Searching MusicBrainz...");
-        let scoped = musicbrainz_artist_candidates(&musicbrainz, cache, &request).await;
+        let scoped = musicbrainz_artist_candidates(&musicbrainz, services.cache, &request).await;
         if scoped.is_empty() {
             if let (Some(artist), Some(album)) = (
                 request.artist_hint.as_deref(),
@@ -1246,7 +1307,7 @@ pub async fn resolve_and_apply_album(
 
     if !has_direct_musicbrainz && config.discogs_enabled != Some(false) {
         progress(6, "Searching Discogs releases...");
-        let scoped = discogs_artist_candidates(&discogs, cache, &request).await;
+        let scoped = discogs_artist_candidates(&discogs, services.cache, &request).await;
         if scoped.is_empty() {
             if let (Some(artist), Some(album)) = (
                 request.artist_hint.as_deref(),
@@ -1292,7 +1353,12 @@ pub async fn resolve_and_apply_album(
                 .map(|candidate| candidate.source)
                 .unwrap_or(LookupSource::Folder);
             let write_hash = query_hash(&request);
-            let _ = cache.set_lookup(&write_hash, &query, &response, lookup_source_name(source));
+            let _ = services.cache.set_lookup(
+                &write_hash,
+                &query,
+                &response,
+                lookup_source_name(source),
+            );
         }
     }
     let fresh = fresh
@@ -1304,10 +1370,13 @@ pub async fn resolve_and_apply_album(
         .map(|candidate| protect_candidate_tracks(&request, &candidate))
         .collect();
     let candidates = combine_candidate_sources(fresh, cached, folder);
-    let candidate = candidates
+    let mut candidate = candidates
         .into_iter()
         .next()
         .ok_or_else(|| ApiError::Message("No auto-tag candidate available".to_string()))?;
+    if let Some(identity) = &resolved_identity {
+        fill_candidate_artist_identity(&mut candidate, identity);
+    }
     check_cancelled(cancelled)?;
     progress(8, "Resolving genre...");
     let candidate = protect_candidate_tracks(&request, &candidate);
@@ -1315,17 +1384,17 @@ pub async fn resolve_and_apply_album(
     check_cancelled(cancelled)?;
     progress(9, "Applying tags...");
     let candidate = convert_candidate_chinese(&candidate, config.chinese_script.as_deref());
-    let written = apply_candidate_tags(album_path, &candidate, queue).await?;
+    let written = apply_candidate_tags(album_path, &candidate, services.queue).await?;
     if config.remote_lookup_enabled != Some(false)
         || config.discogs_enabled != Some(false)
         || config.theaudiodb_api_key.is_some()
     {
         let remote = RemoteArtworkClient::new(
-            providers.http(),
+            services.providers.http(),
             config.discogs_token.clone(),
             config.theaudiodb_api_key.clone(),
         );
-        let _ = download_album_artwork_at(album_path, &remote, queue).await;
+        let _ = download_album_artwork_at(album_path, &remote, services.queue).await;
     }
     check_cancelled(cancelled)?;
     let lyrics_url = if config.lyrics_download_enabled == Some(true) {
@@ -1333,7 +1402,7 @@ pub async fn resolve_and_apply_album(
     } else {
         None
     };
-    let _ = apply_album_lyrics_at(album_path, lyrics_url, queue).await;
+    let _ = apply_album_lyrics_at(album_path, lyrics_url, services.queue).await;
     Ok(AutoTagRunResult { candidate, written })
 }
 
@@ -1356,7 +1425,9 @@ pub fn album_auto_tag(
         let Some(cancelled) = tasks.cancellation(&spawned_task_id) else {
             return;
         };
-        let config = app.state::<crate::state::config::ConfigState>().raw();
+        let config_state = app.state::<crate::state::config::ConfigState>();
+        let alias_file = config_state.alias_file_path();
+        let config = config_state.raw();
         let providers = app.state::<ProviderState>();
         let cache = app.state::<CacheState>();
         let queue = app.state::<WriteQueue>();
@@ -1365,9 +1436,12 @@ pub fn album_auto_tag(
         let operation = resolve_and_apply_album(
             &path,
             &config,
-            &providers,
-            &cache,
-            &queue,
+            AutoTagServices {
+                providers: &providers,
+                cache: &cache,
+                queue: &queue,
+                alias_file: &alias_file,
+            },
             &cancelled,
             move |step, message| {
                 let tasks = progress_app.state::<TaskRegistry>();
@@ -1638,6 +1712,27 @@ mod tests {
             updated.tracks[1].artist.as_deref(),
             Some("林俊傑 feat. MC HotDog")
         );
+    }
+
+    #[test]
+    fn artist_identity_only_fills_missing_provider_ids() {
+        let mut request = LookupRequest {
+            musicbrainz_artist_id: Some("existing-mb".into()),
+            ..LookupRequest::default()
+        };
+        let identity = crate::state::providers::ArtistIdentity {
+            musicbrainz_artist_id: Some("new-mb".into()),
+            discogs_artist_id: Some("discogs-7".into()),
+            english_aliases: vec!["Alias".into()],
+        };
+
+        fill_request_artist_identity(&mut request, &identity);
+
+        assert_eq!(
+            request.musicbrainz_artist_id.as_deref(),
+            Some("existing-mb")
+        );
+        assert_eq!(request.discogs_artist_id.as_deref(), Some("discogs-7"));
     }
 
     #[test]
@@ -2285,9 +2380,12 @@ mod tests {
         let result = resolve_and_apply_album(
             &album,
             &config,
-            &ProviderState::new(),
-            &cache,
-            &queue,
+            AutoTagServices {
+                providers: &ProviderState::new(),
+                cache: &cache,
+                queue: &queue,
+                alias_file: &root.join("artist-aliases.json"),
+            },
             &cancelled,
             |step, message| updates.push((step, message.to_string())),
         )
