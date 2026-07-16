@@ -66,8 +66,8 @@ Legend:
 | `cover:data-url`            | `getCoverDataUrl`     | cover.ts  | Rust cover tests + `cover.test.ts` | wired: suppression → ordered external names → embedded artwork; decode/resize JPEG data URL, malformed/missing returns null |
 | `cover:set`                 | `setCover`            | cover.ts  | Rust cover tests + `cover.test.ts` | wired: native image picker, max-500 JPEG quality 90 `cover.jpg`, clears suppression, returns quality-85 data URL; real-display cancel/error distinction pending |
 | `cover:remove`              | `removeCover`         | cover.ts  | Rust cover tests | wired: remove first ordered external cover, write `.auto-tagger-cover-removed`, hide remaining external/embedded sources; missing/write failure returns false |
-| `cover:download`            | `downloadCoverArt`    | cover.ts  | `cover.test.ts`, `cover-download.test.ts`     | resolver chain local→cover-art-archive→discogs→theaudiodb→google |
-| `cover:download-artist-art` | `downloadArtistArt`  | cover.ts  | `cover-download.test.ts`, `ArtworkResolverService.test.ts` | local→wikimedia→google |
+| `cover:download`            | `downloadCoverArt`    | cover.ts  | Rust routed-provider/local-write tests + `cover.test.ts`, `cover-download.test.ts` | ✅ metadata prerequisite; local→CAA→Discogs direct/artist/validated-search→TheAudioDB, per-provider invalid-image fallthrough, CAA transport retry once, double 1000px quality-90 JPEG normalization, queued `cover.jpg`, suppression clear, data URL |
+| `cover:download-artist-art` | `downloadArtistArt`  | cover.ts  | Rust routed-provider/local-write tests + `cover-download.test.ts`, `ArtworkResolverService.test.ts` | ✅ metadata/artist prerequisite; local→Discogs direct/exact/MB-alias identity→Wikidata P18/Wikimedia, retry policy, queued parent `artist.jpg`, `{path,source}`, album suppression unchanged |
 
 ### Lyrics
 

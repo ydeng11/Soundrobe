@@ -113,6 +113,8 @@ pub fn run() {
             commands::covers::cover_data_url,
             commands::covers::cover_set,
             commands::covers::cover_remove,
+            commands::covers::cover_download,
+            commands::covers::cover_download_artist_art,
             commands::organizer::files_sort_by_album,
             commands::debug::debug_subscribe,
             commands::debug::debug_set_mode,
