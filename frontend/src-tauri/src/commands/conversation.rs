@@ -1,5 +1,6 @@
 //! Assistant runtime initialization and conversation-history query commands.
 
+use crate::error::ApiError;
 use crate::state::config::ConfigState;
 use crate::state::conversation::{
     ConversationEntry, ConversationState, CurrentSession, SessionSummary,
@@ -10,9 +11,14 @@ use tauri::State;
 pub fn assistant_init_runtime(
     conversation: State<'_, ConversationState>,
     config: State<'_, ConfigState>,
-) {
+) -> Result<(), ApiError> {
     let cache_path = config.raw().cache_path;
-    let _ = conversation.initialize(cache_path.as_deref());
+    conversation
+        .initialize(cache_path.as_deref())
+        .then_some(())
+        .ok_or_else(|| {
+            ApiError::Message("Failed to initialize assistant session storage".to_string())
+        })
 }
 
 #[tauri::command]

@@ -169,7 +169,7 @@ fn session_number() -> String {
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
         .as_millis();
-    let suffix = u128::from(std::process::id()) * 997 % 1_000_000;
+    let suffix = Uuid::new_v4().as_u128() % 1_000_000;
     format!("{millis}-{suffix}")
 }
 
@@ -250,6 +250,17 @@ mod tests {
     #[test]
     fn relative_cache_path_requires_no_parent_directory() {
         assert!(ensure_parent(Path::new("cache.db")).is_ok());
+    }
+
+    #[test]
+    fn session_numbers_use_fresh_random_suffixes() {
+        let first = session_number();
+        let second = session_number();
+        assert_ne!(first, second);
+        for number in [first, second] {
+            let (_, suffix) = number.split_once('-').unwrap();
+            assert!(suffix.parse::<u32>().is_ok());
+        }
     }
 
     #[test]
