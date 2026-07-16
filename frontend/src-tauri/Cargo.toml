@@ -27,7 +27,7 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 thiserror = "2"
 anyhow = "1"
-tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "fs", "io-util"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time", "fs", "io-util"] }
 dirs = "6"
 # Reader plus format-by-format writer cores, enabled only behind differential
 # media-safety tests before command exposure.
@@ -40,11 +40,13 @@ reqwest = { version = "=0.12.28", default-features = false, features = ["json", 
 chardetng = "0.1"
 encoding_rs = "0.8"
 uuid = { version = "1", features = ["v4"] }
+unicode-normalization = "0.1"
+opencc-fmmseg = "0.11"
 
 # Infrastructure crates — pinned to the versions locked by `Cargo.lock` and
 # introduced per migration slice. Listed here so the toolchain is recorded;
 # each slice enables only what it needs to keep SLOC change review bounded.
-#   opencc-rust= "2"                                             # SC/TC chinese_script
+#   opencc-fmmseg = "0.11"                                      # pure Rust OpenCC SC/TC conversion
 #   futures    = "0.3"                                           # provider/blocking task orchestration
 
 [target.'cfg(windows)'.dependencies]

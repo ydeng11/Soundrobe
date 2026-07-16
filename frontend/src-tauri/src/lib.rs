@@ -37,6 +37,7 @@ use crate::commands::shell::ContextMenuState;
 use crate::infra::logging::DebugState;
 use crate::state::config::ConfigState;
 use crate::state::conversation::ConversationState;
+use crate::state::providers::ProviderState;
 use crate::state::quit_guard::QuitGuard;
 use crate::state::tasks::TaskRegistry;
 use crate::state::window_state::{DisplayWorkArea, PositionAction, WindowState};
@@ -75,6 +76,7 @@ pub fn run() {
                 app.manage(config);
             }
             app.manage(ContextMenuState::default());
+            app.manage(ProviderState::default());
             app.manage(WriteQueue::default());
             app.manage(QuitGuard::default());
             app.manage(TaskRegistry::default());
