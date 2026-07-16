@@ -1,4 +1,4 @@
-import type { TrackData, AlbumInfo, AuditTrackResult } from "../../electron/preload";
+import type { TrackData, AlbumInfo, AuditTrackResult } from "../shared/desktop-api";
 import { UndoManager, type TrackSnapshot } from "./UndoManager";
 
 export interface AuditResultEntry {

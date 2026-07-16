@@ -5,7 +5,7 @@
 /// native runtime backs `window.api` (Electron vs Tauri) during migration.
 #[derive(serde::Serialize)]
 pub struct AppInfo {
-    /// Tauri shell identifier (`com.auto-tagger.app`).
+    /// Tauri shell identifier (`com.ihelio.autotagger`).
     pub identifier: &'static str,
     /// Crate version (kept in lockstep with `package.json`).
     pub version: &'static str,
@@ -21,7 +21,7 @@ pub struct AppInfo {
 #[tauri::command]
 pub async fn app_info() -> Result<AppInfo, crate::error::ApiError> {
     Ok(AppInfo {
-        identifier: "com.auto-tagger.app",
+        identifier: "com.ihelio.autotagger",
         version: env!("CARGO_PKG_VERSION"),
         runtime: "tauri",
         dev: cfg!(debug_assertions),

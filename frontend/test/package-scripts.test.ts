@@ -16,29 +16,29 @@ function readPackageJson(): PackageJson {
 }
 
 describe("package scripts", () => {
-  it("starts dev behind the Electron native ABI guard", () => {
+  it("uses Tauri as the desktop development and distribution runtime", () => {
     const { scripts } = readPackageJson();
 
-    expect(scripts.dev).toBe("npm run ensure:electron-abi && vite");
+    expect(scripts.dev).toBe("tauri dev");
+    expect(scripts.build).toBe("tauri build");
+    expect(scripts.dist).toBe("tauri build");
   });
 
-  it("keeps explicit Electron native rebuild commands available", () => {
+  it("keeps the renderer build separate for Tauri lifecycle hooks", () => {
     const { scripts } = readPackageJson();
 
-    expect(scripts["dev:rebuild"]).toBe("npm run rebuild:electron && npm run dev");
-    expect(scripts["ensure:electron-abi"]).toBe("node scripts/ensure-electron-abi.mjs");
-    expect(scripts["rebuild:electron"]).toBe("electron-rebuild -f -w better-sqlite3");
-    expect(scripts.postinstall).toBe("npm run rebuild:electron");
+    expect(scripts["dev:web"]).toBe("vite");
+    expect(scripts["build:web"]).toBe("tsc && vite build");
+    expect(scripts["ensure:electron-abi"]).toBeUndefined();
+    expect(scripts["rebuild:electron"]).toBeUndefined();
+    expect(scripts.postinstall).toBeUndefined();
   });
 
-  it("does not rebuild better-sqlite3 for shell Node in the normal test flow", () => {
+  it("runs both renderer and Rust tests without native Node rebuilds", () => {
     const { scripts } = readPackageJson();
 
-    expect(scripts.test).toBe("node scripts/run-vitest-with-electron-restore.mjs run");
-    expect(scripts.test).not.toContain("rebuild:node");
-    expect(scripts.test).not.toContain("npm rebuild better-sqlite3");
-    expect(scripts["test:native-node"]).toBe(
-      "npm run rebuild:node && node scripts/run-vitest-with-electron-restore.mjs run test/handlers/cache.test.ts test/handlers/dataset.test.ts test/handlers/conversation-logger.test.ts",
-    );
+    expect(scripts.test).toBe("npm run test:web && npm run test:rust");
+    expect(scripts["test:rust"]).toBe("cargo test --manifest-path src-tauri/Cargo.toml");
+    expect(scripts["test:native-node"]).toBeUndefined();
   });
 });

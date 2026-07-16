@@ -4,9 +4,7 @@ import App from "./App";
 import { installDesktopApi } from "./shared/install-desktop-api";
 import "./index.css";
 
-// Install `window.api` for the Tauri runtime before React renders. Under
-// Electron the preload already exposes a frozen context-bridged `window.api`,
-// so this is a no-op there.
+// Install the Tauri-backed `window.api` contract before React renders.
 installDesktopApi();
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
