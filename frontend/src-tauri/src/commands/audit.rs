@@ -8,6 +8,7 @@ use crate::{
         tracks::read_track_metadata,
     },
     error::ApiError,
+    infra::openrouter::{ChatMessage, OpenRouterClient},
     state::write_queue::WriteQueue,
 };
 use regex::Regex;
@@ -98,13 +99,17 @@ pub struct AuditFinding {
     pub message: String,
     pub suggestion: Option<String>,
     pub corrected: Option<AuditCorrectedFields>,
+    #[serde(default)]
     pub source: String,
     pub confidence: f64,
+    #[serde(default)]
     pub auto_fix_eligible: bool,
+    #[serde(default)]
     pub auto_fixed: bool,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AuditReviewTarget {
     pub index: usize,
     pub field: String,
@@ -112,6 +117,189 @@ pub struct AuditReviewTarget {
     pub expected: Option<String>,
     pub evidence: String,
     pub reason: String,
+}
+
+struct AuditAlbumContext {
+    filenames: Vec<String>,
+    tracks: Vec<AuditTrackMeta>,
+    artist_hint: String,
+    album_hint: String,
+    deterministic_findings: Vec<AuditFinding>,
+    review_targets: Vec<AuditReviewTarget>,
+}
+
+#[derive(Deserialize)]
+struct AuditLlmResponse {
+    #[serde(default)]
+    tracks: Vec<AuditFinding>,
+}
+
+const LLM_AUTO_FIX_CONFIDENCE: f64 = 0.92;
+
+fn corrected_only_touches_field(corrected: &AuditCorrectedFields, field: &str) -> bool {
+    let fields = [
+        ("title", !corrected.title.is_omitted()),
+        ("artist", !corrected.artist.is_omitted()),
+        ("artists", !corrected.artists.is_omitted()),
+        ("album", !corrected.album.is_omitted()),
+        ("albumArtist", !corrected.album_artist.is_omitted()),
+        ("albumArtists", !corrected.album_artists.is_omitted()),
+        ("year", !corrected.year.is_omitted()),
+        ("genre", !corrected.genre.is_omitted()),
+        ("trackNumber", !corrected.track_number.is_omitted()),
+        ("trackTotal", !corrected.track_total.is_omitted()),
+        ("discNumber", !corrected.disc_number.is_omitted()),
+        ("discTotal", !corrected.disc_total.is_omitted()),
+    ];
+    let allowed = if field == "album_artist" {
+        "albumArtist"
+    } else {
+        field
+    };
+    fields
+        .into_iter()
+        .all(|(name, present)| !present || name == allowed)
+}
+
+fn correction_for_field(
+    corrected: Option<&AuditCorrectedFields>,
+    field: &str,
+) -> Option<AuditCorrectedFields> {
+    let corrected = corrected?;
+    let mut picked = AuditCorrectedFields::default();
+    match field {
+        "title" => picked.title = corrected.title.clone(),
+        "artist" => picked.artist = corrected.artist.clone(),
+        "artists" => picked.artists = corrected.artists.clone(),
+        "album" => picked.album = corrected.album.clone(),
+        "albumArtist" | "album_artist" => {
+            picked.album_artist = corrected.album_artist.clone();
+        }
+        "albumArtists" => picked.album_artists = corrected.album_artists.clone(),
+        "year" => picked.year = corrected.year.clone(),
+        "genre" => picked.genre = corrected.genre.clone(),
+        "trackNumber" => picked.track_number = corrected.track_number.clone(),
+        "trackTotal" => picked.track_total = corrected.track_total.clone(),
+        "discNumber" => picked.disc_number = corrected.disc_number.clone(),
+        "discTotal" => picked.disc_total = corrected.disc_total.clone(),
+        _ => return None,
+    }
+    (![
+        picked.title.is_omitted(),
+        picked.artist.is_omitted(),
+        picked.artists.is_omitted(),
+        picked.album.is_omitted(),
+        picked.album_artist.is_omitted(),
+        picked.album_artists.is_omitted(),
+        picked.year.is_omitted(),
+        picked.genre.is_omitted(),
+        picked.track_number.is_omitted(),
+        picked.track_total.is_omitted(),
+        picked.disc_number.is_omitted(),
+        picked.disc_total.is_omitted(),
+    ]
+    .into_iter()
+    .all(|omitted| omitted))
+    .then_some(picked)
+}
+
+pub fn normalize_llm_audit_results(
+    results: Vec<AuditFinding>,
+    review_targets: &[AuditReviewTarget],
+) -> Vec<AuditFinding> {
+    let target_keys = review_targets
+        .iter()
+        .map(|target| (target.index, target.field.as_str()))
+        .collect::<HashSet<_>>();
+    results
+        .into_iter()
+        .filter(|finding| finding.status != AuditStatus::Correct)
+        .map(|mut finding| {
+            finding.confidence = if finding.confidence.is_nan() {
+                0.0
+            } else {
+                finding.confidence.clamp(0.0, 1.0)
+            };
+            let has_target = target_keys.contains(&(finding.index, finding.field.as_str()));
+            let only_target = finding
+                .corrected
+                .as_ref()
+                .is_some_and(|corrected| corrected_only_touches_field(corrected, &finding.field));
+            finding.corrected = correction_for_field(finding.corrected.as_ref(), &finding.field);
+            finding.auto_fix_eligible = has_target
+                && only_target
+                && finding.status == AuditStatus::Error
+                && finding.confidence >= LLM_AUTO_FIX_CONFIDENCE
+                && finding.corrected.is_some();
+            finding.source = "llm".into();
+            finding.auto_fixed = false;
+            finding
+        })
+        .collect()
+}
+
+pub fn merge_audit_findings(
+    deterministic: Vec<AuditFinding>,
+    llm: Vec<AuditFinding>,
+) -> Vec<AuditFinding> {
+    let llm_keys = llm
+        .iter()
+        .map(|finding| (finding.index, finding.field.clone()))
+        .collect::<HashSet<_>>();
+    deterministic
+        .into_iter()
+        .filter(|finding| {
+            finding.auto_fix_eligible || !llm_keys.contains(&(finding.index, finding.field.clone()))
+        })
+        .chain(llm)
+        .collect()
+}
+
+pub fn build_audit_messages(
+    artist_hint: &str,
+    album_hint: &str,
+    tracks: &[AuditTrackMeta],
+    filenames: &[String],
+    discogs_alias: Option<&str>,
+    review_targets: &[AuditReviewTarget],
+) -> Vec<ChatMessage> {
+    let track_data = tracks
+        .iter()
+        .enumerate()
+        .map(|(index, track)| {
+            serde_json::json!({
+                "index": index,
+                "path": filenames.get(index).cloned().unwrap_or_default(),
+                "title": track.title.clone().unwrap_or_default(),
+                "artist": track.artist.clone().unwrap_or_default(),
+                "album": track.album.clone().unwrap_or_default(),
+                "album_artist": track.album_artist.clone().unwrap_or_default(),
+                "album_artists": track.album_artists.join(", "),
+                "artists": track.artists.join(", "),
+                "year": track.year.clone().unwrap_or_default(),
+                "genre": track.genre.clone().unwrap_or_default(),
+                "track_number": track.track_number,
+                "track_total": track.track_total,
+                "disc_number": track.disc_number,
+                "disc_total": track.disc_total,
+            })
+        })
+        .collect::<Vec<_>>();
+    let mut payload = serde_json::json!({
+        "album_folder": album_hint,
+        "artist_folder": artist_hint,
+        "preferred_artist_name": artist_hint,
+        "tracks": track_data,
+        "review_targets": review_targets,
+    });
+    if let Some(alias) = discogs_alias {
+        payload["discogs_lookup_alias"] = serde_json::Value::String(alias.into());
+    }
+    let system = "You audit music track metadata. Deterministic code has already checked obvious path/tag mismatches, so you only review `review_targets`.\n\nPrimary principle: file path evidence must match metadata. The album folder is evidence for album/year, the parent artist folder is evidence for album artist, and each filename is evidence for title, artist, and track/disc numbers.\n\nRules:\n1. Review only fields listed in `review_targets`; do not invent findings for other fields.\n2. Return one field at a time. Each result's `corrected` object may contain only that result's field.\n3. Include `confidence` from 0.0 to 1.0 for every warning or error.\n4. 'error' means the correction is clearly right; 'warning' means manual review is needed.\n5. If evidence is ambiguous, return warning with no `corrected` value.\n6. For genre, use Discogs-style comma-separated terms only when confident; otherwise warn.\n7. **Chinese name preference**: When the `preferred_artist_name` (from folder/tags) is in Chinese and a `discogs_lookup_alias` is provided, prefer the Chinese name in corrected metadata. The English alias is only a search aid, not a replacement tag value.\n8. For Chinese tracks, judge Simplified vs Traditional script from the filename.\n\nOutput examples:\n{ \"index\": 0, \"field\": \"genre\", \"status\": \"warning\", \"message\": \"Genre is missing and cannot be inferred confidently from path evidence\", \"confidence\": 0.4 }\n{ \"index\": 1, \"field\": \"title\", \"status\": \"error\", \"message\": \"Title has a clear typo compared with filename\", \"suggestion\": \"Karma Police\", \"confidence\": 0.95, \"corrected\": { \"title\": \"Karma Police\" } }\n\nReturn only valid JSON. No markdown, no code fences, no extra text.";
+    vec![
+        ChatMessage::system(system),
+        ChatMessage::user(payload.to_string()),
+    ]
 }
 
 #[derive(Default)]
@@ -698,9 +886,19 @@ pub fn audit_album_deterministic(
     album_path: &Path,
     cancelled: &AtomicBool,
 ) -> Result<Vec<AuditFinding>, ApiError> {
+    let Some(context) = build_audit_album_context(album_path, cancelled)? else {
+        return Ok(Vec::new());
+    };
+    Ok(unresolved_audit_findings(context))
+}
+
+fn build_audit_album_context(
+    album_path: &Path,
+    cancelled: &AtomicBool,
+) -> Result<Option<AuditAlbumContext>, ApiError> {
     let audio_files = collect_audio_files_for_audit(album_path);
     if audio_files.is_empty() {
-        return Ok(Vec::new());
+        return Ok(None);
     }
     check_audit_cancelled(cancelled)?;
 
@@ -725,7 +923,7 @@ pub fn audit_album_deterministic(
         .flatten()
         .any(|track| track.title.is_some() || track.artist.is_some())
     {
-        return Ok(Vec::new());
+        return Ok(None);
     }
 
     let folder_name = album_path.file_name().unwrap_or_default().to_string_lossy();
@@ -750,35 +948,122 @@ pub fn audit_album_deterministic(
         .into_iter()
         .map(|track| track.unwrap_or_default())
         .collect::<Vec<_>>();
-    let mut findings = build_deterministic_audit_findings(
+    let deterministic_findings = build_deterministic_audit_findings(
         Some(&artist_hint),
         Some(&album_hint),
         &valid_tracks,
         &filenames,
         disc_hint.as_deref(),
     );
-    let existing = findings
+    let review_targets = build_llm_review_targets(&valid_tracks, &deterministic_findings);
+    Ok(Some(AuditAlbumContext {
+        filenames,
+        tracks: valid_tracks,
+        artist_hint,
+        album_hint,
+        deterministic_findings,
+        review_targets,
+    }))
+}
+
+fn unresolved_audit_findings(context: AuditAlbumContext) -> Vec<AuditFinding> {
+    let existing = context
+        .deterministic_findings
         .iter()
         .map(|finding| (finding.index, finding.field.clone()))
         .collect::<HashSet<_>>();
-    findings.extend(
-        build_llm_review_targets(&valid_tracks, &findings)
-            .into_iter()
-            .filter(|target| !existing.contains(&(target.index, target.field.clone())))
-            .map(|target| AuditFinding {
-                index: target.index,
-                field: target.field,
-                status: AuditStatus::Warning,
-                message: target.evidence,
-                suggestion: target.expected,
-                corrected: None,
-                source: "deterministic".into(),
-                confidence: 0.5,
-                auto_fix_eligible: false,
-                auto_fixed: false,
-            }),
+    let unresolved = context
+        .review_targets
+        .into_iter()
+        .filter(|target| !existing.contains(&(target.index, target.field.clone())))
+        .map(|target| AuditFinding {
+            index: target.index,
+            field: target.field,
+            status: AuditStatus::Warning,
+            message: target.evidence,
+            suggestion: target.expected,
+            corrected: None,
+            source: "deterministic".into(),
+            confidence: 0.5,
+            auto_fix_eligible: false,
+            auto_fixed: false,
+        });
+    context
+        .deterministic_findings
+        .into_iter()
+        .chain(unresolved)
+        .collect()
+}
+
+pub async fn audit_album_with_client(
+    album_path: &Path,
+    cancelled: &AtomicBool,
+    client: Option<&OpenRouterClient>,
+    discogs_alias: Option<&str>,
+) -> Result<Vec<AuditFinding>, ApiError> {
+    let Some(context) = build_audit_album_context(album_path, cancelled)? else {
+        return Ok(Vec::new());
+    };
+    let Some(client) = client.filter(|_| !context.review_targets.is_empty()) else {
+        return Ok(unresolved_audit_findings(context));
+    };
+    let messages = build_audit_messages(
+        &context.artist_hint,
+        &context.album_hint,
+        &context.tracks,
+        &context.filenames,
+        discogs_alias,
+        &context.review_targets,
     );
-    Ok(findings)
+    let response = client
+        .complete_json(messages, "AuditResponse", audit_schema(), cancelled)
+        .await
+        .map_err(|error| ApiError::Message(error.to_string()))?;
+    let parsed: AuditLlmResponse = serde_json::from_value(response.data)
+        .map_err(|error| ApiError::Message(format!("Invalid audit response: {error}")))?;
+    let llm = normalize_llm_audit_results(parsed.tracks, &context.review_targets);
+    Ok(merge_audit_findings(context.deterministic_findings, llm))
+}
+
+fn audit_schema() -> serde_json::Value {
+    serde_json::json!({
+        "type": "object",
+        "properties": {
+            "tracks": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "index": { "type": "integer", "minimum": 0 },
+                        "field": { "type": "string" },
+                        "status": { "type": "string", "enum": ["correct", "warning", "error"] },
+                        "message": { "type": "string" },
+                        "suggestion": { "type": "string" },
+                        "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+                        "corrected": {
+                            "type": "object",
+                            "properties": {
+                                "title": { "type": "string" },
+                                "artist": { "type": "string" },
+                                "artists": { "type": "array", "items": { "type": "string" } },
+                                "album": { "type": "string" },
+                                "albumArtist": { "type": "string" },
+                                "albumArtists": { "type": "array", "items": { "type": "string" } },
+                                "year": { "type": "string" },
+                                "genre": { "type": "string" },
+                                "trackNumber": { "type": "integer", "minimum": 0 },
+                                "trackTotal": { "type": "integer", "minimum": 0 },
+                                "discNumber": { "type": "integer", "minimum": 0 },
+                                "discTotal": { "type": "integer", "minimum": 0 }
+                            }
+                        }
+                    },
+                    "required": ["index", "field", "status", "message", "confidence"]
+                }
+            }
+        },
+        "required": ["tracks"]
+    })
 }
 
 fn track_meta_from_data(track: crate::commands::tracks::TrackData) -> AuditTrackMeta {
@@ -1108,6 +1393,127 @@ mod deterministic_contract_tests {
         let targets = build_llm_review_targets(&[base_track(), rock], &[]);
         assert_eq!(targets.len(), 2);
         assert!(targets.iter().all(|target| target.field == "genre"));
+    }
+
+    #[test]
+    fn llm_results_are_limited_to_reviewed_fields_and_confident_single_field_fixes() {
+        let targets = vec![AuditReviewTarget {
+            index: 0,
+            field: "genre".into(),
+            current: String::new(),
+            expected: None,
+            evidence: "Genre tag is empty.".into(),
+            reason: "Genre needs semantic review.".into(),
+        }];
+        let raw: Vec<AuditFinding> = serde_json::from_value(serde_json::json!([
+            {
+                "index": 0, "field": "genre", "status": "error",
+                "message": "Genre is clear", "confidence": 1.4,
+                "corrected": { "genre": "Rock", "title": "Do not touch" }
+            },
+            {
+                "index": 0, "field": "genre", "status": "error",
+                "message": "Genre is clear", "confidence": 0.95,
+                "corrected": { "genre": "Rock" }
+            },
+            {
+                "index": 0, "field": "title", "status": "error",
+                "message": "Invented target", "confidence": 0.99,
+                "corrected": { "title": "Other" }
+            },
+            {
+                "index": 0, "field": "genre", "status": "correct",
+                "message": "No issue", "confidence": 0.9
+            }
+        ]))
+        .unwrap();
+
+        let normalized = normalize_llm_audit_results(raw, &targets);
+
+        assert_eq!(normalized.len(), 3);
+        assert_eq!(normalized[0].confidence, 1.0);
+        assert!(!normalized[0].auto_fix_eligible);
+        assert_eq!(
+            normalized[0]
+                .corrected
+                .as_ref()
+                .and_then(|value| value.genre.value().map(String::as_str)),
+            Some("Rock")
+        );
+        assert!(normalized[0]
+            .corrected
+            .as_ref()
+            .is_some_and(|value| value.title.is_omitted()));
+        assert!(normalized[1].auto_fix_eligible);
+        assert!(!normalized[2].auto_fix_eligible);
+        assert!(normalized
+            .iter()
+            .all(|finding| { finding.source == "llm" && !finding.auto_fixed }));
+    }
+
+    #[test]
+    fn llm_findings_replace_only_non_fixable_deterministic_findings_for_same_target() {
+        let deterministic_fix = make_finding(
+            0,
+            "title",
+            AuditStatus::Error,
+            "Safe filename correction".into(),
+            Some(AuditCorrectedFields {
+                title: Patch::Value("Song".into()),
+                ..Default::default()
+            }),
+            Some("Song".into()),
+            true,
+        );
+        let deterministic_warning = make_finding(
+            0,
+            "genre",
+            AuditStatus::Warning,
+            "Needs review".into(),
+            None,
+            None,
+            false,
+        );
+        let mut llm_genre = deterministic_warning.clone();
+        llm_genre.source = "llm".into();
+        llm_genre.message = "Reviewed".into();
+
+        let merged = merge_audit_findings(
+            vec![deterministic_fix.clone(), deterministic_warning],
+            vec![llm_genre.clone()],
+        );
+
+        assert_eq!(merged, vec![deterministic_fix, llm_genre]);
+    }
+
+    #[test]
+    fn audit_prompt_contains_only_explicit_review_targets_and_chinese_alias_context() {
+        let tracks = vec![base_track()];
+        let targets = vec![AuditReviewTarget {
+            index: 0,
+            field: "genre".into(),
+            current: "Pop".into(),
+            expected: None,
+            evidence: "Genre differs.".into(),
+            reason: "Semantic field.".into(),
+        }];
+
+        let messages = build_audit_messages(
+            "周杰倫",
+            "葉惠美",
+            &tracks,
+            &["01. 以父之名.flac".into()],
+            Some("Jay Chou"),
+            &targets,
+        );
+
+        assert_eq!(messages.len(), 2);
+        let payload: serde_json::Value = serde_json::from_str(&messages[1].content).unwrap();
+        assert_eq!(payload["preferred_artist_name"], "周杰倫");
+        assert_eq!(payload["discogs_lookup_alias"], "Jay Chou");
+        assert_eq!(payload["review_targets"][0]["field"], "genre");
+        assert_eq!(payload["tracks"][0]["album_artist"], "Artist");
+        assert!(messages[0].content.contains("only review `review_targets`"));
     }
 
     #[test]
