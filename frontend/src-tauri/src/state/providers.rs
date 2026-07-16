@@ -108,6 +108,17 @@ pub struct ProviderAlbum {
     pub tracks: Vec<ProviderTrack>,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProviderReleaseSummary {
+    pub id: String,
+    pub title: String,
+    pub year: Option<u32>,
+    #[serde(rename = "type")]
+    pub kind: Option<String>,
+    pub artist_name: Option<String>,
+}
+
 pub struct MusicBrainzClient {
     base_url: String,
     http: Client,
@@ -141,6 +152,148 @@ impl MusicBrainzClient {
             .ok()?;
         parse_musicbrainz_release(&response, release_id)
     }
+
+    pub async fn search_album(
+        &self,
+        artist: &str,
+        album: &str,
+        max_candidates: usize,
+    ) -> Vec<ProviderAlbum> {
+        if artist.is_empty() || album.is_empty() || max_candidates == 0 {
+            return Vec::new();
+        }
+        wait_for_musicbrainz().await;
+        let query = format!(
+            "artist:\"{}\" AND release:\"{}\"",
+            escape_musicbrainz_query(artist),
+            escape_musicbrainz_query(album)
+        );
+        let response = self
+            .http
+            .get(format!("{}/release", self.base_url))
+            .query(&[
+                ("query", query),
+                ("fmt", "json".to_string()),
+                ("limit", max_candidates.min(25).to_string()),
+            ])
+            .send()
+            .await;
+        let Ok(response) = response.and_then(reqwest::Response::error_for_status) else {
+            return Vec::new();
+        };
+        let Ok(body) = response.json::<serde_json::Value>().await else {
+            return Vec::new();
+        };
+        let releases = body
+            .get("releases")
+            .and_then(serde_json::Value::as_array)
+            .into_iter()
+            .flatten()
+            .take(max_candidates)
+            .filter_map(|release| {
+                let id = release.get("id")?.as_str()?.to_string();
+                Some((id, parse_musicbrainz_search_release(release)))
+            })
+            .collect::<Vec<_>>();
+        let mut albums = Vec::new();
+        for (release_id, fallback) in releases {
+            if let Some(album) = self.release_by_id(&release_id).await.or(fallback) {
+                albums.push(album);
+            }
+        }
+        albums
+    }
+
+    pub async fn artist_release_page(
+        &self,
+        artist_id: &str,
+        page: u32,
+        limit: u32,
+    ) -> Vec<ProviderReleaseSummary> {
+        wait_for_musicbrainz().await;
+        let offset = page.saturating_sub(1).saturating_mul(limit);
+        let response = self
+            .http
+            .get(format!("{}/release", self.base_url))
+            .query(&[
+                ("artist", artist_id.to_string()),
+                ("limit", limit.to_string()),
+                ("offset", offset.to_string()),
+                ("fmt", "json".to_string()),
+                ("inc", "artist-credits".to_string()),
+            ])
+            .send()
+            .await;
+        let Ok(response) = response.and_then(reqwest::Response::error_for_status) else {
+            return Vec::new();
+        };
+        let Ok(body) = response.json::<serde_json::Value>().await else {
+            return Vec::new();
+        };
+        body.get("releases")
+            .and_then(serde_json::Value::as_array)
+            .into_iter()
+            .flatten()
+            .filter_map(|release| {
+                let id = release.get("id")?.as_str()?.to_string();
+                let title = release.get("title")?.as_str()?.to_string();
+                let year = release
+                    .get("date")
+                    .and_then(serde_json::Value::as_str)
+                    .filter(|date| date.len() >= 4)
+                    .and_then(|date| date[..4].parse().ok());
+                let artist_name = release
+                    .get("artist-credit")
+                    .and_then(serde_json::Value::as_array)
+                    .and_then(|credit| credit.first())
+                    .and_then(|credit| credit.get("name"))
+                    .and_then(serde_json::Value::as_str)
+                    .map(str::to_string);
+                Some(ProviderReleaseSummary {
+                    id,
+                    title,
+                    year,
+                    kind: Some("release".to_string()),
+                    artist_name,
+                })
+            })
+            .collect()
+    }
+}
+
+fn escape_musicbrainz_query(value: &str) -> String {
+    value.replace('\\', "\\\\").replace('"', "\\\"")
+}
+
+fn parse_musicbrainz_search_release(value: &serde_json::Value) -> Option<ProviderAlbum> {
+    let id = value.get("id")?.as_str()?.to_string();
+    let title = value.get("title")?.as_str()?.to_string();
+    let credit = value
+        .get("artist-credit")
+        .and_then(serde_json::Value::as_array)
+        .and_then(|credit| credit.first());
+    let artist = credit
+        .and_then(|credit| credit.get("name"))
+        .and_then(serde_json::Value::as_str)
+        .map(str::to_string);
+    Some(ProviderAlbum {
+        id,
+        title,
+        artists: artist.iter().cloned().collect(),
+        artist,
+        artist_id: credit
+            .and_then(|credit| credit.get("artist"))
+            .and_then(|artist| artist.get("id"))
+            .and_then(serde_json::Value::as_str)
+            .map(str::to_string),
+        year: value
+            .get("date")
+            .and_then(serde_json::Value::as_str)
+            .filter(|date| date.len() >= 4)
+            .map(|date| date[..4].to_string()),
+        genre: None,
+        tracks: Vec::new(),
+    })
 }
 
 fn parse_musicbrainz_release(
@@ -624,6 +777,142 @@ impl DiscogsClient {
         parse_discogs_release(&release, release_id)
     }
 
+    pub async fn search_album(
+        &self,
+        artist: &str,
+        album: &str,
+        max_candidates: usize,
+    ) -> Vec<ProviderAlbum> {
+        if (artist.is_empty() && album.is_empty()) || max_candidates == 0 {
+            return Vec::new();
+        }
+        let releases = self
+            .search_album_type(artist, album, max_candidates, "release")
+            .await;
+        if releases.is_empty() {
+            self.search_album_type(artist, album, max_candidates, "master")
+                .await
+        } else {
+            releases
+        }
+    }
+
+    async fn search_album_type(
+        &self,
+        artist: &str,
+        album: &str,
+        max_candidates: usize,
+        search_type: &str,
+    ) -> Vec<ProviderAlbum> {
+        let Some(body) = self
+            .get_json_with_query::<serde_json::Value>(
+                "database/search",
+                &[
+                    ("q", format!("{artist} {album}").trim().to_string()),
+                    ("type", search_type.to_string()),
+                    ("per_page", max_candidates.saturating_mul(3).to_string()),
+                ],
+            )
+            .await
+        else {
+            return Vec::new();
+        };
+        let results = body
+            .get("results")
+            .and_then(serde_json::Value::as_array)
+            .map(Vec::as_slice)
+            .unwrap_or_default();
+        let mut albums = Vec::new();
+        for result in results.iter().take(max_candidates) {
+            let title = result
+                .get("title")
+                .and_then(serde_json::Value::as_str)
+                .unwrap_or_default();
+            let (result_artist, result_album) = title
+                .split_once(" - ")
+                .map(|(artist, album)| (artist.trim(), album.trim()))
+                .unwrap_or((artist, title));
+            if !artist.is_empty() && !artist_search_matches(result_artist, artist) {
+                continue;
+            }
+            let release_id = result.get("id").and_then(serde_json::Value::as_u64);
+            if let Some(release_id) = release_id {
+                let path = format!("{search_type}s/{release_id}");
+                if let Some(detail) = self
+                    .get_json::<serde_json::Value>(&path)
+                    .await
+                    .and_then(|detail| parse_discogs_release(&detail, &release_id.to_string()))
+                {
+                    albums.push(detail);
+                    continue;
+                }
+            }
+            let artists = split_artist_names(&[result_artist.to_string()]);
+            albums.push(ProviderAlbum {
+                id: release_id.map(|id| id.to_string()).unwrap_or_default(),
+                title: result_album.to_string(),
+                artist: artist_display_name(&artists, Some(result_artist)),
+                artists,
+                artist_id: None,
+                year: result.get("year").and_then(|year| {
+                    year.as_u64()
+                        .map(|year| year.to_string())
+                        .or_else(|| year.as_str().map(str::to_string))
+                }),
+                genre: merge_genre_style(result.get("genre"), result.get("style")),
+                tracks: Vec::new(),
+            });
+        }
+        albums
+    }
+
+    pub async fn artist_release_page(
+        &self,
+        artist_id: &str,
+        page: u32,
+        per_page: u32,
+    ) -> Vec<ProviderReleaseSummary> {
+        let Some(body) = self
+            .get_json::<serde_json::Value>(&format!(
+                "artists/{artist_id}/releases?per_page={per_page}&page={page}&sort=year&sort_order=desc"
+            ))
+            .await
+        else {
+            return Vec::new();
+        };
+        body.get("releases")
+            .and_then(serde_json::Value::as_array)
+            .into_iter()
+            .flatten()
+            .filter_map(|release| {
+                let id = release
+                    .get("main_release")
+                    .and_then(serde_json::Value::as_u64)
+                    .or_else(|| release.get("id").and_then(serde_json::Value::as_u64))?
+                    .to_string();
+                let title = release.get("title")?.as_str()?.to_string();
+                let kind = release
+                    .get("type")
+                    .and_then(serde_json::Value::as_str)
+                    .filter(|kind| matches!(*kind, "master" | "release"))
+                    .map(str::to_string);
+                Some(ProviderReleaseSummary {
+                    id,
+                    title,
+                    year: release
+                        .get("year")
+                        .and_then(serde_json::Value::as_u64)
+                        .and_then(|year| u32::try_from(year).ok()),
+                    kind,
+                    artist_name: release
+                        .get("artist")
+                        .and_then(serde_json::Value::as_str)
+                        .map(str::to_string),
+                })
+            })
+            .collect()
+    }
+
     pub async fn search_artist_exact(&self, name: &str) -> Option<String> {
         for key in ["artist", "q"] {
             let Some(response) = self
@@ -771,6 +1060,12 @@ impl DiscogsClient {
             url: url.to_string(),
         })
     }
+}
+
+fn artist_search_matches(candidate: &str, hint: &str) -> bool {
+    let candidate = candidate.to_lowercase();
+    let hint = hint.to_lowercase();
+    candidate.contains(hint.trim()) || hint.contains(candidate.trim())
 }
 
 fn preferred_image_url(images: &[DiscogsImage]) -> Option<String> {
@@ -1628,6 +1923,183 @@ mod tests {
             .to_string(),
             "application/json",
         )
+    }
+
+    fn musicbrainz_search_route(path: &str, _base: &str) -> (&'static str, String, &'static str) {
+        if path.starts_with("/release?query=") {
+            return (
+                "200 OK",
+                r#"{"releases":[{"id":"wrong"},{"id":"best"}]}"#.to_string(),
+                "application/json",
+            );
+        }
+        let (id, title) = if path.starts_with("/release/wrong?") {
+            ("wrong", "Wrong Album")
+        } else {
+            assert!(path.starts_with("/release/best?"));
+            ("best", "Right Album")
+        };
+        (
+            "200 OK",
+            format!(
+                r#"{{"id":"{id}","title":"{title}","artist-credit":[{{"name":"Artist","artist":{{"id":"artist-id"}}}}],"media":[]}}"#
+            ),
+            "application/json",
+        )
+    }
+
+    fn musicbrainz_search_detail_failure_route(
+        path: &str,
+        _base: &str,
+    ) -> (&'static str, String, &'static str) {
+        if path.starts_with("/release?query=") {
+            return (
+                "200 OK",
+                r#"{"releases":[{"id":"fallback","title":"Search Album","date":"2003-01-01","artist-credit":[{"name":"Search Artist","artist":{"id":"artist-id"}}]}]}"#.to_string(),
+                "application/json",
+            );
+        }
+        ("503 Unavailable", "{}".to_string(), "application/json")
+    }
+
+    fn musicbrainz_artist_page_route(
+        path: &str,
+        _base: &str,
+    ) -> (&'static str, String, &'static str) {
+        assert!(path.starts_with(
+            "/release?artist=artist-id&limit=100&offset=100&fmt=json&inc=artist-credits"
+        ));
+        (
+            "200 OK",
+            r#"{"releases":[
+              {"id":"one","title":"Album One","date":"2001-02-03","artist-credit":[{"name":"Artist"}]},
+              {"id":"two","title":"Album Two","artist-credit":[]}
+            ]}"#
+            .to_string(),
+            "application/json",
+        )
+    }
+
+    fn discogs_artist_page_route(path: &str, _base: &str) -> (&'static str, String, &'static str) {
+        assert_eq!(
+            path,
+            "/artists/7/releases?per_page=100&page=2&sort=year&sort_order=desc"
+        );
+        (
+            "200 OK",
+            r#"{"releases":[
+              {"id":11,"main_release":42,"title":"Master Album","artist":"Artist","year":2004,"type":"master"},
+              {"id":12,"title":"Release Album","type":"release"},
+              {"id":13,"title":"Invalid Kind","type":"label"}
+            ]}"#
+            .to_string(),
+            "application/json",
+        )
+    }
+
+    fn discogs_search_metadata_route(
+        path: &str,
+        _base: &str,
+    ) -> (&'static str, String, &'static str) {
+        if path.starts_with("/database/search?") {
+            return (
+                "200 OK",
+                r#"{"results":[
+                  {"id":1,"title":"Other - Album"},
+                  {"id":42,"title":"Artist - Album","year":2004}
+                ]}"#
+                .to_string(),
+                "application/json",
+            );
+        }
+        assert_eq!(path, "/releases/42");
+        (
+            "200 OK",
+            r#"{"id":42,"title":"Album","artists":[{"name":"Artist"}],"tracklist":[]}"#.to_string(),
+            "application/json",
+        )
+    }
+
+    #[tokio::test]
+    async fn discogs_name_search_rejects_artist_mismatch_and_loads_release_detail() {
+        let (base, requests) = server(2, discogs_search_metadata_route);
+        let client = DiscogsClient::at(ProviderState::new().http(), None, &base);
+
+        let albums = client.search_album("Artist", "Album", 3).await;
+
+        assert_eq!(albums.len(), 1);
+        assert_eq!(albums[0].id, "42");
+        assert_eq!(albums[0].artist.as_deref(), Some("Artist"));
+        let search = requests.recv().unwrap();
+        assert!(search.contains("q=Artist+Album"));
+        assert!(search.contains("type=release"));
+        assert!(requests.recv().unwrap().contains("GET /releases/42 "));
+    }
+
+    #[tokio::test]
+    async fn discogs_artist_release_page_prefers_main_release_and_sanitizes_type() {
+        let (base, _requests) = server(1, discogs_artist_page_route);
+        let client = DiscogsClient::at(ProviderState::new().http(), None, &base);
+
+        let releases = client.artist_release_page("7", 2, 100).await;
+
+        assert_eq!(releases.len(), 3);
+        assert_eq!(releases[0].id, "42");
+        assert_eq!(releases[0].year, Some(2004));
+        assert_eq!(releases[0].kind.as_deref(), Some("master"));
+        assert_eq!(releases[0].artist_name.as_deref(), Some("Artist"));
+        assert_eq!(releases[1].id, "12");
+        assert_eq!(releases[2].kind, None);
+    }
+
+    #[tokio::test]
+    async fn musicbrainz_artist_release_page_matches_electron_cache_shape() {
+        let (base, _requests) = server(1, musicbrainz_artist_page_route);
+        let client = MusicBrainzClient::at(ProviderState::new().http(), &base);
+
+        let releases = client.artist_release_page("artist-id", 2, 100).await;
+
+        assert_eq!(releases.len(), 2);
+        assert_eq!(releases[0].id, "one");
+        assert_eq!(releases[0].year, Some(2001));
+        assert_eq!(releases[0].kind.as_deref(), Some("release"));
+        assert_eq!(releases[0].artist_name.as_deref(), Some("Artist"));
+        assert_eq!(releases[1].year, None);
+    }
+
+    #[tokio::test]
+    async fn musicbrainz_name_search_loads_release_details_in_api_order() {
+        let (base, requests) = server(3, musicbrainz_search_route);
+        let client = MusicBrainzClient::at(ProviderState::new().http(), &base);
+
+        let albums = client.search_album("Artist", "Right Album", 2).await;
+
+        assert_eq!(albums.len(), 2);
+        assert_eq!(albums[0].id, "wrong");
+        assert_eq!(albums[1].id, "best");
+        let search = requests.recv().unwrap();
+        assert!(search
+            .contains("GET /release?query=artist%3A%22Artist%22+AND+release%3A%22Right+Album%22"));
+        assert!(requests.recv().unwrap().contains("GET /release/wrong?"));
+        assert!(requests.recv().unwrap().contains("GET /release/best?"));
+    }
+
+    #[tokio::test]
+    async fn musicbrainz_name_search_keeps_search_metadata_when_track_detail_fails() {
+        let (base, _requests) = server(2, musicbrainz_search_detail_failure_route);
+        let client = MusicBrainzClient::at(ProviderState::new().http(), &base);
+
+        let albums = client
+            .search_album("Search Artist", "Search Album", 1)
+            .await;
+
+        assert_eq!(albums.len(), 1);
+        assert_eq!(albums[0].id, "fallback");
+        assert_eq!(albums[0].title, "Search Album");
+        assert_eq!(albums[0].artist.as_deref(), Some("Search Artist"));
+        assert_eq!(albums[0].artist_id.as_deref(), Some("artist-id"));
+        assert_eq!(albums[0].year.as_deref(), Some("2003"));
+        assert!(albums[0].tracks.is_empty());
     }
 
     #[tokio::test]
