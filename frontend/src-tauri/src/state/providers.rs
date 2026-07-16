@@ -82,7 +82,8 @@ impl Default for ProviderState {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ProviderTrack {
     pub title: Option<String>,
     pub match_titles: Vec<String>,
@@ -96,7 +97,8 @@ pub struct ProviderTrack {
     pub length: Option<f64>,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ProviderAlbum {
     pub id: String,
     pub title: String,

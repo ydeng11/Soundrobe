@@ -18,7 +18,8 @@ use crate::{
     state::{
         config::AutoTagConfig,
         providers::{
-            album_names_match, DiscogsClient, MusicBrainzClient, ProviderAlbum, ProviderState,
+            album_names_match, DiscogsClient, MusicBrainzClient, ProviderAlbum,
+            ProviderReleaseSummary, ProviderState,
         },
         sqlite::CacheState,
         tasks::{TaskRegistry, TaskStatus},
@@ -608,6 +609,141 @@ pub fn filter_candidates_for_album(
         .collect()
 }
 
+pub fn rank_artist_releases(
+    releases: Vec<ProviderReleaseSummary>,
+    album_hint: Option<&str>,
+    year_hint: Option<&str>,
+) -> Vec<ProviderReleaseSummary> {
+    let mut ranked = releases
+        .into_iter()
+        .filter(|release| album_hint.is_none_or(|hint| album_names_match(hint, &release.title)))
+        .map(|release| {
+            let year_score = match (year_hint, release.year) {
+                (Some(hint), Some(year)) if hint == year.to_string() => 1,
+                _ => 0,
+            };
+            (year_score, release)
+        })
+        .collect::<Vec<_>>();
+    ranked.sort_by(|(left_score, left), (right_score, right)| {
+        right_score
+            .cmp(left_score)
+            .then_with(|| right.year.cmp(&left.year))
+            .then_with(|| left.title.cmp(&right.title))
+    });
+    ranked.into_iter().map(|(_, release)| release).collect()
+}
+
+async fn musicbrainz_artist_candidates(
+    client: &MusicBrainzClient,
+    cache: &CacheState,
+    request: &LookupRequest,
+) -> Vec<AlbumCandidate> {
+    let Some(artist_id) = request.musicbrainz_artist_id.as_deref() else {
+        return Vec::new();
+    };
+    let releases = cached_artist_releases(cache, "musicbrainz", artist_id).unwrap_or_default();
+    let releases = if releases.is_empty() {
+        let fetched = client.artist_release_page(artist_id, 1, 100).await;
+        if let Ok(value) = serde_json::to_value(&fetched) {
+            let _ = cache.set_artist_releases("musicbrainz", artist_id, 1, &value);
+        }
+        fetched
+    } else {
+        releases
+    };
+    let mut candidates = Vec::new();
+    for release in rank_artist_releases(
+        releases,
+        request.album_hint.as_deref(),
+        request.year_hint.as_deref(),
+    )
+    .into_iter()
+    .take(3)
+    {
+        let album = cached_release_detail(cache, "musicbrainz-v3", &release.id);
+        let album = match album {
+            Some(album) => Some(album),
+            None => {
+                let fetched = client.release_by_id(&release.id).await;
+                if let Some(album) = &fetched {
+                    if let Ok(value) = serde_json::to_value(album) {
+                        let _ = cache.set_release_detail("musicbrainz-v3", &release.id, &value);
+                    }
+                }
+                fetched
+            }
+        };
+        if let Some(album) = album {
+            candidates.push(musicbrainz_candidate(album));
+        }
+    }
+    candidates
+}
+
+async fn discogs_artist_candidates(
+    client: &DiscogsClient,
+    cache: &CacheState,
+    request: &LookupRequest,
+) -> Vec<AlbumCandidate> {
+    let Some(artist_id) = request.discogs_artist_id.as_deref() else {
+        return Vec::new();
+    };
+    let releases = cached_artist_releases(cache, "discogs", artist_id).unwrap_or_default();
+    let releases = if releases.is_empty() {
+        let fetched = client.artist_release_page(artist_id, 1, 100).await;
+        if let Ok(value) = serde_json::to_value(&fetched) {
+            let _ = cache.set_artist_releases("discogs", artist_id, 1, &value);
+        }
+        fetched
+    } else {
+        releases
+    };
+    let mut candidates = Vec::new();
+    for release in rank_artist_releases(
+        releases,
+        request.album_hint.as_deref(),
+        request.year_hint.as_deref(),
+    )
+    .into_iter()
+    .take(3)
+    {
+        let album = cached_release_detail(cache, "discogs-v2", &release.id);
+        let album = match album {
+            Some(album) => Some(album),
+            None => {
+                let fetched = client.release_metadata(&release.id).await;
+                if let Some(album) = &fetched {
+                    if let Ok(value) = serde_json::to_value(album) {
+                        let _ = cache.set_release_detail("discogs-v2", &release.id, &value);
+                    }
+                }
+                fetched
+            }
+        };
+        if let Some(album) = album {
+            candidates.push(discogs_candidate(album));
+        }
+    }
+    candidates
+}
+
+fn cached_artist_releases(
+    cache: &CacheState,
+    provider: &str,
+    artist_id: &str,
+) -> Option<Vec<ProviderReleaseSummary>> {
+    serde_json::from_value(cache.artist_releases(provider, artist_id, 1)?).ok()
+}
+
+fn cached_release_detail(
+    cache: &CacheState,
+    provider: &str,
+    release_id: &str,
+) -> Option<ProviderAlbum> {
+    serde_json::from_value(cache.release_detail(provider, release_id)?).ok()
+}
+
 pub fn should_replace_lookup_cache(fresh: &[AlbumCandidate], had_cached: bool) -> bool {
     !fresh.is_empty()
         && (!had_cached
@@ -950,34 +1086,44 @@ pub async fn resolve_and_apply_album(
 
     if !has_direct_musicbrainz && config.remote_lookup_enabled != Some(false) {
         progress(5, "Searching MusicBrainz...");
-        if let (Some(artist), Some(album)) = (
-            request.artist_hint.as_deref(),
-            request.album_hint.as_deref(),
-        ) {
-            fresh.extend(
-                musicbrainz
-                    .search_album(artist, album, 5)
-                    .await
-                    .into_iter()
-                    .map(musicbrainz_candidate),
-            );
+        let scoped = musicbrainz_artist_candidates(&musicbrainz, cache, &request).await;
+        if scoped.is_empty() {
+            if let (Some(artist), Some(album)) = (
+                request.artist_hint.as_deref(),
+                request.album_hint.as_deref(),
+            ) {
+                fresh.extend(
+                    musicbrainz
+                        .search_album(artist, album, 5)
+                        .await
+                        .into_iter()
+                        .map(musicbrainz_candidate),
+                );
+            }
+        } else {
+            fresh.extend(scoped);
         }
     }
     check_cancelled(cancelled)?;
 
     if !has_direct_musicbrainz && config.discogs_enabled != Some(false) {
         progress(6, "Searching Discogs releases...");
-        if let (Some(artist), Some(album)) = (
-            request.artist_hint.as_deref(),
-            request.album_hint.as_deref(),
-        ) {
-            fresh.extend(
-                discogs
-                    .search_album(artist, album, 3)
-                    .await
-                    .into_iter()
-                    .map(discogs_candidate),
-            );
+        let scoped = discogs_artist_candidates(&discogs, cache, &request).await;
+        if scoped.is_empty() {
+            if let (Some(artist), Some(album)) = (
+                request.artist_hint.as_deref(),
+                request.album_hint.as_deref(),
+            ) {
+                fresh.extend(
+                    discogs
+                        .search_album(artist, album, 3)
+                        .await
+                        .into_iter()
+                        .map(discogs_candidate),
+                );
+            }
+        } else {
+            fresh.extend(scoped);
         }
     }
     check_cancelled(cancelled)?;
@@ -1562,6 +1708,43 @@ mod tests {
 
         assert_eq!(filtered.len(), 1);
         assert_eq!(filtered[0].album.as_deref(), Some("无限"));
+    }
+
+    #[test]
+    fn artist_release_ranking_filters_title_and_prefers_requested_year() {
+        let releases = vec![
+            ProviderReleaseSummary {
+                id: "wrong".into(),
+                title: "Different Album".into(),
+                year: Some(2024),
+                kind: Some("release".into()),
+                artist_name: Some("Artist".into()),
+            },
+            ProviderReleaseSummary {
+                id: "old".into(),
+                title: "無限".into(),
+                year: Some(2004),
+                kind: Some("release".into()),
+                artist_name: Some("Artist".into()),
+            },
+            ProviderReleaseSummary {
+                id: "requested".into(),
+                title: "无限".into(),
+                year: Some(2005),
+                kind: Some("release".into()),
+                artist_name: Some("Artist".into()),
+            },
+        ];
+
+        let ranked = rank_artist_releases(releases, Some("無限"), Some("2005"));
+
+        assert_eq!(
+            ranked
+                .iter()
+                .map(|release| release.id.as_str())
+                .collect::<Vec<_>>(),
+            vec!["requested", "old"]
+        );
     }
 
     #[test]
