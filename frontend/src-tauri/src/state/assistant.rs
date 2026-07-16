@@ -24,6 +24,126 @@ pub struct AssistantServicesSnapshot {
     pub initialized: bool,
 }
 
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AssistantAction {
+    pub tag_kind: Option<String>,
+    pub track_path: Option<String>,
+    pub field: Option<String>,
+    pub old_value: Option<String>,
+    pub new_value: Option<String>,
+    pub operation: Option<String>,
+    pub destination_path: Option<String>,
+    pub source_path: Option<String>,
+    pub skip_reason: Option<String>,
+    pub description: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AssistantActionBatch {
+    pub id: String,
+    pub created_at: String,
+    pub session_id: String,
+    pub kind: String,
+    pub title: String,
+    pub summary: String,
+    pub risk_level: String,
+    pub actions: Vec<AssistantAction>,
+    pub reversible: bool,
+    pub status: String,
+}
+
+#[derive(Default)]
+struct AssistantRuntimeInner {
+    active: bool,
+    cancelled: bool,
+    batches: Vec<AssistantActionBatch>,
+}
+
+#[derive(Default)]
+pub struct AssistantRuntimeState {
+    inner: Mutex<AssistantRuntimeInner>,
+}
+
+impl AssistantRuntimeState {
+    pub fn initialize(&self) -> bool {
+        let Ok(mut state) = self.inner.lock() else {
+            return false;
+        };
+        state.active = true;
+        state.cancelled = false;
+        true
+    }
+
+    pub fn cancel(&self) -> bool {
+        let Ok(mut state) = self.inner.lock() else {
+            return false;
+        };
+        if !state.active {
+            return false;
+        }
+        state.cancelled = true;
+        true
+    }
+
+    pub fn reset(&self) -> bool {
+        let Ok(mut state) = self.inner.lock() else {
+            return false;
+        };
+        if !state.active {
+            return false;
+        }
+        state.cancelled = false;
+        true
+    }
+
+    pub fn reject_batch(&self, batch_id: &str) -> Option<String> {
+        let mut state = self.inner.lock().ok()?;
+        if !state.active {
+            return None;
+        }
+        let batch = state
+            .batches
+            .iter_mut()
+            .find(|batch| batch.id == batch_id)?;
+        batch.status = "rejected".to_string();
+        Some(batch.title.clone())
+    }
+
+    pub fn pending_batches(&self) -> Vec<AssistantActionBatch> {
+        self.inner
+            .lock()
+            .ok()
+            .filter(|state| state.active)
+            .map(|state| {
+                state
+                    .batches
+                    .iter()
+                    .filter(|batch| batch.status == "pending")
+                    .cloned()
+                    .collect()
+            })
+            .unwrap_or_default()
+    }
+
+    pub fn add_batch(&self, batch: AssistantActionBatch) -> bool {
+        let Ok(mut state) = self.inner.lock() else {
+            return false;
+        };
+        if !state.active {
+            return false;
+        }
+        state.batches.push(batch);
+        true
+    }
+
+    #[cfg(test)]
+    fn is_cancelled(&self) -> bool {
+        self.inner.lock().is_ok_and(|state| state.cancelled)
+    }
+}
+
 #[derive(Default)]
 pub struct AssistantServicesState {
     inner: Mutex<AssistantServicesSnapshot>,
@@ -57,6 +177,39 @@ impl AssistantServicesState {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn batch(id: &str) -> AssistantActionBatch {
+        AssistantActionBatch {
+            id: id.to_string(),
+            created_at: "2026-01-01T00:00:00.000Z".to_string(),
+            session_id: "session-1-abcdefg".to_string(),
+            kind: "tag-update".to_string(),
+            title: "Update".to_string(),
+            summary: "One update".to_string(),
+            risk_level: "low".to_string(),
+            actions: Vec::new(),
+            reversible: true,
+            status: "pending".to_string(),
+        }
+    }
+
+    #[test]
+    fn runtime_cancel_reset_and_pending_batch_transitions_are_gated_by_init() {
+        let state = AssistantRuntimeState::default();
+        assert!(!state.add_batch(batch("before")));
+        assert!(state.pending_batches().is_empty());
+        assert!(!state.cancel());
+        assert!(!state.is_cancelled());
+        assert!(state.initialize());
+        assert!(state.add_batch(batch("one")));
+        assert_eq!(state.pending_batches().len(), 1);
+        assert_eq!(state.reject_batch("one").as_deref(), Some("Update"));
+        assert!(state.pending_batches().is_empty());
+        assert!(state.cancel());
+        assert!(state.is_cancelled());
+        assert!(state.reset());
+        assert!(!state.is_cancelled());
+    }
 
     #[test]
     fn initializes_credentials_paths_and_replaces_service_options() {

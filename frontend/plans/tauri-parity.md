@@ -107,11 +107,11 @@ Legend:
 | Ch                        | Renderer method          | Owner        | Parity tests                                                                 | Notes |
 |---------------------------|--------------------------|--------------|------------------------------------------------------------------------------|-------|
 | `assistant:send`           | `assistantSend`         | assistant.ts | `assistant.test.ts`, `AssistantRuntime.test.ts`, `assistant-paths.test.ts`   | routing + tools + previews |
-| `assistant:cancel`         | `assistantCancel`        | assistant.ts | `assistant.test.ts`                                                          | |
-| `assistant:clear`         | `assistantClear`         | assistant.ts | `assistant.test.ts`                                                          | |
+| `assistant:cancel`         | `assistantCancel`        | assistant.ts | Rust runtime/conversation tests + `assistant.test.ts` | ✅ no-op before runtime; sets cancellation, persists system entry, emits exact cancelled event |
+| `assistant:clear`         | `assistantClear`         | assistant.ts | Rust runtime/conversation tests + `assistant.test.ts` | ✅ no-op before runtime; resets cancellation and creates new `session-{epoch}-{base36}` ID/number; pending batch map preserved like Electron |
 | `assistant:apply-actions`  | `assistantApplyActions` | assistant.ts | `assistant.test.ts`, `assistant-folder-group.integration.test.ts`, `assistant-organize-files.integration.test.ts` | returns undo snapshots + optional task trigger |
-| `assistant:reject-actions` | `assistantRejectActions`| assistant.ts | `assistant.test.ts`                                                          | |
-| `assistant:get-batches`    | `assistantGetBatches`   | assistant.ts | `assistant.test.ts`                                                          | |
+| `assistant:reject-actions` | `assistantRejectActions`| assistant.ts | Rust batch-transition tests + `assistant.test.ts` | ✅ no-op missing/no-runtime; pending→rejected and exact event payload |
+| `assistant:get-batches`    | `assistantGetBatches`   | assistant.ts | Rust batch-transition tests + `assistant.test.ts` | ✅ [] before runtime; insertion-order pending-only DTOs |
 | `assistant:init-runtime`    | `assistantInitRuntime`  | assistant.ts | Rust session/schema tests; LLM runtime tests pending | 🟡 initializes idempotent UUID/session-number + configured/default compatible cache.db; LLM runner/tool registry enhancement remains pending |
 | `assistant:init-services`   | `assistantInitServices` | assistant.ts | Rust managed-state tests + `assistant.test.ts` | ✅ stores unredacted apiKey/model, recreates optional Discogs/lyrics/library service configuration on every call, preserves prior key/model for empty/redacted values, rejects unavailable state |
 | `assistant:list-sessions`   | `listSessions`          | assistant.ts | Rust existing-Electron-schema query tests + `conversation-logger.test.ts` | ✅ runtime-gated; default/explicit limit, newest first, first user message truncated to 200 characters, API entry count/cost |

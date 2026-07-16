@@ -6,6 +6,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
+use time::OffsetDateTime;
 use uuid::Uuid;
 
 const SCHEMA: &str = r#"
@@ -101,12 +102,43 @@ impl ConversationState {
         };
         *guard = Some(ConversationInner {
             connection,
-            current: CurrentSession {
-                session_id: Uuid::new_v4().to_string(),
-                session_number: session_number(),
-            },
+            current: new_current_session(),
         });
         true
+    }
+
+    pub fn reset_session(&self) -> bool {
+        let Ok(mut guard) = self.inner.lock() else {
+            return false;
+        };
+        let Some(inner) = guard.as_mut() else {
+            return false;
+        };
+        inner.current = new_current_session();
+        true
+    }
+
+    pub fn record_system(&self, content: &str) -> bool {
+        let Ok(guard) = self.inner.lock() else {
+            return false;
+        };
+        let Some(inner) = guard.as_ref() else {
+            return false;
+        };
+        inner
+            .connection
+            .execute(
+                "INSERT INTO conversation_log
+                 (session_uuid, session_number, timestamp, entry_type, content)
+                 VALUES (?1, ?2, ?3, 'system', ?4)",
+                params![
+                    inner.current.session_id,
+                    inner.current.session_number,
+                    iso_now(),
+                    content,
+                ],
+            )
+            .is_ok()
     }
 
     pub fn current(&self) -> Option<CurrentSession> {
@@ -162,6 +194,38 @@ fn open_database(path: &Path) -> rusqlite::Result<Connection> {
     connection.pragma_update(None, "journal_mode", "WAL")?;
     connection.execute_batch(SCHEMA)?;
     Ok(connection)
+}
+
+fn new_current_session() -> CurrentSession {
+    let millis = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis();
+    let mut random = Uuid::new_v4().as_u128();
+    let mut suffix = String::with_capacity(7);
+    const BASE36: &[u8] = b"0123456789abcdefghijklmnopqrstuvwxyz";
+    for _ in 0..7 {
+        suffix.push(BASE36[(random % 36) as usize] as char);
+        random /= 36;
+    }
+    CurrentSession {
+        session_id: format!("session-{millis}-{suffix}"),
+        session_number: session_number(),
+    }
+}
+
+fn iso_now() -> String {
+    let value = OffsetDateTime::now_utc();
+    format!(
+        "{:04}-{:02}-{:02}T{:02}:{:02}:{:02}.{:03}Z",
+        value.year(),
+        u8::from(value.month()),
+        value.day(),
+        value.hour(),
+        value.minute(),
+        value.second(),
+        value.millisecond(),
+    )
 }
 
 fn session_number() -> String {
@@ -271,12 +335,20 @@ mod tests {
         assert!(state.sessions(50).is_empty());
         assert!(state.initialize(None));
         let current = state.current().unwrap();
-        assert!(Uuid::parse_str(&current.session_id).is_ok());
+        assert!(current.session_id.starts_with("session-"));
+        assert_eq!(current.session_id.rsplit('-').next().unwrap().len(), 7);
         assert!(current.session_number.contains('-'));
         assert!(root.join(".auto-tagger/cache.db").exists());
         let repeated = state.current().unwrap();
         assert!(state.initialize(None));
         assert_eq!(repeated, state.current().unwrap());
+        assert!(state.record_system("Session cancelled"));
+        let entries = state.conversation(&repeated.session_id);
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].entry_type, "system");
+        assert_eq!(entries[0].content, "Session cancelled");
+        assert!(state.reset_session());
+        assert_ne!(repeated, state.current().unwrap());
         fs::remove_dir_all(root).unwrap();
     }
 
