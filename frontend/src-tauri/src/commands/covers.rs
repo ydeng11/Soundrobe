@@ -32,7 +32,11 @@ pub fn cover_data_url(album_path: String) -> Option<String> {
 }
 
 #[tauri::command]
-pub fn cover_set(app: AppHandle, album_path: String) -> Option<String> {
+pub async fn cover_set(
+    app: AppHandle,
+    album_path: String,
+    queue: State<'_, WriteQueue>,
+) -> Result<Option<String>, ApiError> {
     let picked = app
         .dialog()
         .file()
@@ -40,13 +44,18 @@ pub fn cover_set(app: AppHandle, album_path: String) -> Option<String> {
         .set_directory(&album_path)
         .add_filter("Images", &["jpg", "jpeg", "png", "webp"])
         .blocking_pick_file();
-    let source = picked.as_ref().and_then(FilePath::as_path)?;
-    set_cover_from_path(Path::new(&album_path), source)
+    let Some(source) = picked.as_ref().and_then(FilePath::as_path) else {
+        return Ok(None);
+    };
+    Ok(set_cover_from_path_queued(&queue, PathBuf::from(album_path), source.to_path_buf()).await)
 }
 
 #[tauri::command]
-pub fn cover_remove(album_path: String) -> bool {
-    remove_cover_at(Path::new(&album_path))
+pub async fn cover_remove(
+    album_path: String,
+    queue: State<'_, WriteQueue>,
+) -> Result<bool, ApiError> {
+    Ok(remove_cover_queued(&queue, PathBuf::from(album_path)).await)
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -310,6 +319,21 @@ pub fn set_cover_from_path(album_path: &Path, source: &Path) -> Option<String> {
     image_data_url(&jpeg, 500, 85)
 }
 
+async fn set_cover_from_path_queued(
+    queue: &WriteQueue,
+    album_path: PathBuf,
+    source: PathBuf,
+) -> Option<String> {
+    queue
+        .run(async move {
+            tokio::task::spawn_blocking(move || set_cover_from_path(&album_path, &source))
+                .await
+                .ok()
+                .flatten()
+        })
+        .await
+}
+
 pub fn remove_cover_at(album_path: &Path) -> bool {
     let result = (|| -> std::io::Result<()> {
         if let Some(path) = find_external_cover(album_path) {
@@ -319,6 +343,16 @@ pub fn remove_cover_at(album_path: &Path) -> bool {
         Ok(())
     })();
     result.is_ok()
+}
+
+async fn remove_cover_queued(queue: &WriteQueue, album_path: PathBuf) -> bool {
+    queue
+        .run(async move {
+            tokio::task::spawn_blocking(move || remove_cover_at(&album_path))
+                .await
+                .unwrap_or(false)
+        })
+        .await
 }
 
 fn find_external_cover(album_path: &Path) -> Option<PathBuf> {
@@ -383,6 +417,8 @@ mod tests {
     use lofty::tag::TagExt;
     use std::io::Cursor;
     use std::sync::atomic::{AtomicU64, Ordering};
+    use std::sync::Arc;
+    use tokio::sync::{Barrier, Notify};
 
     static SEQUENCE: AtomicU64 = AtomicU64::new(0);
 
@@ -434,6 +470,84 @@ mod tests {
         assert!(root.join("front.png").exists());
         assert!(root.join(COVER_REMOVED_MARKER).exists());
         assert_eq!(cover_data_url_at(&root), None);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn manual_cover_set_waits_for_the_shared_write_queue() {
+        let root = root();
+        let album = root.join("album");
+        fs::create_dir_all(&album).unwrap();
+        let source = root.join("source.png");
+        fs::write(&source, png(10, 10)).unwrap();
+        let queue = Arc::new(WriteQueue::default());
+        let entered = Arc::new(Barrier::new(2));
+        let release = Arc::new(Notify::new());
+
+        let blocker_queue = Arc::clone(&queue);
+        let blocker_entered = Arc::clone(&entered);
+        let blocker_release = Arc::clone(&release);
+        let blocker = tokio::spawn(async move {
+            blocker_queue
+                .run(async move {
+                    blocker_entered.wait().await;
+                    blocker_release.notified().await;
+                })
+                .await;
+        });
+        entered.wait().await;
+
+        let mutation_queue = Arc::clone(&queue);
+        let mutation_album = album.clone();
+        let mutation_source = source.clone();
+        let mutation = tokio::spawn(async move {
+            set_cover_from_path_queued(&mutation_queue, mutation_album, mutation_source).await
+        });
+        tokio::task::yield_now().await;
+        assert!(!album.join("cover.jpg").exists());
+
+        release.notify_one();
+        blocker.await.unwrap();
+        assert!(mutation.await.unwrap().is_some());
+        assert!(album.join("cover.jpg").exists());
+        assert!(!queue.is_active());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn manual_cover_remove_waits_for_the_shared_write_queue() {
+        let root = root();
+        fs::write(root.join("cover.jpg"), png(10, 10)).unwrap();
+        let queue = Arc::new(WriteQueue::default());
+        let entered = Arc::new(Barrier::new(2));
+        let release = Arc::new(Notify::new());
+
+        let blocker_queue = Arc::clone(&queue);
+        let blocker_entered = Arc::clone(&entered);
+        let blocker_release = Arc::clone(&release);
+        let blocker = tokio::spawn(async move {
+            blocker_queue
+                .run(async move {
+                    blocker_entered.wait().await;
+                    blocker_release.notified().await;
+                })
+                .await;
+        });
+        entered.wait().await;
+
+        let mutation_queue = Arc::clone(&queue);
+        let mutation_root = root.clone();
+        let mutation =
+            tokio::spawn(async move { remove_cover_queued(&mutation_queue, mutation_root).await });
+        tokio::task::yield_now().await;
+        assert!(root.join("cover.jpg").exists());
+
+        release.notify_one();
+        blocker.await.unwrap();
+        assert!(mutation.await.unwrap());
+        assert!(!root.join("cover.jpg").exists());
+        assert!(root.join(COVER_REMOVED_MARKER).exists());
+        assert!(!queue.is_active());
         fs::remove_dir_all(root).unwrap();
     }
 
