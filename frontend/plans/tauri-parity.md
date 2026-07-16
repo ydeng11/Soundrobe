@@ -100,7 +100,7 @@ Legend:
 | `audit:run-specified`     | `runAuditOnTracks` / `runAuditOnAlbums` | audit.ts | `audit.test.ts` | body `{trackPaths}` or `{albumPaths}` |
 | `audit:run-album`         | `runAlbumAudit`     | audit.ts | `audit.test.ts`                                      | single-album results |
 | `audit:apply-fixes`       | `applyAuditFixes`   | audit.ts | `audit.test.ts`                                      | approval-gated writes |
-| `audit:cancel`            | `cancelAudit`       | audit.ts | `audit.test.ts`                                      | |
+| `audit:cancel`            | `cancelAudit`       | audit.ts | Rust current-token tests + `audit.test.ts` | ✅ no-op without run; atomically aborts and clears only current token; runner owns cancelled event/zero-summary emission |
 
 ### Assistant (LLM)
 

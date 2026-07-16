@@ -36,6 +36,7 @@ use tracing_subscriber::EnvFilter;
 use crate::commands::shell::ContextMenuState;
 use crate::infra::logging::DebugState;
 use crate::state::assistant::{AssistantRuntimeState, AssistantServicesState};
+use crate::state::audit::AuditState;
 use crate::state::config::ConfigState;
 use crate::state::conversation::ConversationState;
 use crate::state::providers::ProviderState;
@@ -83,6 +84,7 @@ pub fn run() {
             }
             app.manage(AssistantRuntimeState::default());
             app.manage(AssistantServicesState::default());
+            app.manage(AuditState::default());
             app.manage(ContextMenuState::default());
             app.manage(ProviderState::default());
             app.manage(WriteQueue::default());
@@ -143,6 +145,7 @@ pub fn run() {
             commands::assistant::assistant_clear,
             commands::assistant::assistant_reject_actions,
             commands::assistant::assistant_get_batches,
+            commands::audit::audit_cancel,
         ])
         .build(tauri::generate_context!())
         .expect("error while building the Auto Tagger Tauri shell");
