@@ -119,6 +119,18 @@ impl ConversationState {
     }
 
     pub fn record_system(&self, content: &str) -> bool {
+        self.record("system", content, None, 0, 0, 0)
+    }
+
+    pub fn record(
+        &self,
+        entry_type: &str,
+        content: &str,
+        model: Option<&str>,
+        prompt_tokens: u64,
+        completion_tokens: u64,
+        total_tokens: u64,
+    ) -> bool {
         let Ok(guard) = self.inner.lock() else {
             return false;
         };
@@ -129,13 +141,19 @@ impl ConversationState {
             .connection
             .execute(
                 "INSERT INTO conversation_log
-                 (session_uuid, session_number, timestamp, entry_type, content)
-                 VALUES (?1, ?2, ?3, 'system', ?4)",
+                 (session_uuid, session_number, timestamp, entry_type, content,
+                  model, prompt_tokens, completion_tokens, total_tokens)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
                 params![
                     inner.current.session_id,
                     inner.current.session_number,
                     iso_now(),
+                    entry_type,
                     content,
+                    model,
+                    i64::try_from(prompt_tokens).unwrap_or(i64::MAX),
+                    i64::try_from(completion_tokens).unwrap_or(i64::MAX),
+                    i64::try_from(total_tokens).unwrap_or(i64::MAX),
                 ],
             )
             .is_ok()

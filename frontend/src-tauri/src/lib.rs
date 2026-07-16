@@ -142,6 +142,7 @@ pub fn run() {
             commands::conversation::assistant_get_session,
             commands::conversation::assistant_current_session,
             commands::assistant::assistant_init_services,
+            commands::assistant::assistant_send,
             commands::assistant::assistant_cancel,
             commands::assistant::assistant_clear,
             commands::assistant::assistant_apply_actions,

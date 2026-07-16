@@ -8,24 +8,389 @@ use crate::commands::{
     tracks::{read_extra_tags, read_track_metadata},
 };
 use crate::error::ApiError;
+use crate::infra::openrouter::{ChatMessage, OpenRouterClient};
 use crate::state::assistant::{
     AssistantActionBatch, AssistantRuntimeState, AssistantServicesConfig, AssistantServicesState,
 };
+use crate::state::config::ConfigState;
 use crate::state::conversation::ConversationState;
 use crate::state::write_queue::WriteQueue;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::collections::HashSet;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::Ordering;
 use tauri::{AppHandle, Emitter, State};
 
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
-struct AssistantEvent {
+pub struct AssistantEvent {
     session_id: String,
     #[serde(rename = "type")]
     event_type: &'static str,
     message: String,
     data: Option<Value>,
+}
+
+#[tauri::command]
+pub async fn assistant_send(
+    input: AssistantSendInput,
+    app: AppHandle,
+    runtime: State<'_, AssistantRuntimeState>,
+    services: State<'_, AssistantServicesState>,
+    config: State<'_, ConfigState>,
+    conversation: State<'_, ConversationState>,
+) -> Result<AssistantEvent, ApiError> {
+    let raw_config = config.raw();
+    let snapshot = services.snapshot().unwrap_or_default();
+    let api_key = (!snapshot.api_key.is_empty())
+        .then_some(snapshot.api_key)
+        .or(raw_config.llm_api_key)
+        .filter(|key| !key.is_empty());
+    let model = (!snapshot.model.is_empty())
+        .then_some(snapshot.model)
+        .or(raw_config.llm_model)
+        .filter(|model| !model.is_empty());
+    let Some(api_key) = api_key else {
+        return assistant_error_event(
+            &app,
+            conversation.current().map(|current| current.session_id),
+            "LLM API key is not configured. Set it in Settings or via the LLM_API_KEY environment variable.",
+        );
+    };
+    let Some(model) = model else {
+        return assistant_error_event(
+            &app,
+            conversation.current().map(|current| current.session_id),
+            "LLM model is not configured. Set it in Settings or via the LLM_MODEL environment variable.",
+        );
+    };
+    if !conversation.initialize(raw_config.cache_path.as_deref()) || !runtime.initialize() {
+        return Err(ApiError::Message(
+            "Assistant runtime could not be initialized".into(),
+        ));
+    }
+    let current = conversation
+        .current()
+        .ok_or_else(|| ApiError::Message("No active assistant session".into()))?;
+    let cancelled = runtime
+        .begin_request()
+        .ok_or_else(|| ApiError::Message("Assistant runtime is unavailable".into()))?;
+    conversation.record("user_message", &input.message, None, 0, 0, 0);
+    let step = AssistantEvent {
+        session_id: current.session_id.clone(),
+        event_type: "step",
+        message: "Step 1/1".into(),
+        data: None,
+    };
+    let _ = app.emit("assistant:event", step);
+
+    let context = serde_json::json!({
+        "libraryPath": input.library_path,
+        "activeAlbumPath": input.active_album_path,
+        "selectedTrackPaths": input.selected_track_paths,
+        "tracks": input.tracks.iter().take(200).collect::<Vec<_>>(),
+        "albums": input.albums.iter().take(100).collect::<Vec<_>>(),
+        "autonomous": input.autonomous,
+    });
+    let messages = vec![
+        ChatMessage::system(concat!(
+            "You are the Auto Tagger desktop assistant. Answer music-library questions directly. ",
+            "For any mutation, return an actionBatch preview; never claim a write already happened. ",
+            "Allowed batch kinds: tag-update, extra-tag-update, metadata-update, auto-tag-run, audit-run. ",
+            "Every action must use an exact trackPath from the supplied active scope. ",
+            "Standard metadata actions use tagKind=standard, field, and newValue (null removes). ",
+            "Custom tags use tagKind=extra. Auto-tag/audit actions need only trackPath. ",
+            "Keep riskLevel low, medium, or high. Return concise user-facing text in message."
+        )),
+        ChatMessage::user(format!("App context:\n{context}\n\nUser request:\n{}", input.message)),
+    ];
+    let response = OpenRouterClient::new(&api_key, &model)
+        .with_generation(0.2, 1400)
+        .complete_json(
+            messages,
+            "AssistantResponse",
+            assistant_response_schema(),
+            &cancelled,
+        )
+        .await;
+    if cancelled.load(Ordering::Acquire) {
+        let event = AssistantEvent {
+            session_id: current.session_id,
+            event_type: "cancelled",
+            message: "Cancelled".into(),
+            data: None,
+        };
+        let _ = app.emit("assistant:event", &event);
+        return Ok(event);
+    }
+    let response = match response {
+        Ok(response) => response,
+        Err(error) => {
+            conversation.record_system(&error.to_string());
+            return assistant_error_event(&app, Some(current.session_id), &error.to_string());
+        }
+    };
+    conversation.record(
+        "api_response",
+        &response.data.to_string(),
+        Some(&response.model),
+        response.usage.prompt_tokens,
+        response.usage.completion_tokens,
+        response.usage.total_tokens,
+    );
+    let draft: AssistantDraft = match serde_json::from_value(response.data) {
+        Ok(draft) => draft,
+        Err(error) => {
+            return assistant_error_event(
+                &app,
+                Some(current.session_id),
+                &format!("Invalid assistant response: {error}"),
+            );
+        }
+    };
+    let event = if let Some(batch) = draft.action_batch {
+        let batch = match validated_assistant_batch(&current.session_id, &input, batch) {
+            Ok(batch) => batch,
+            Err(error) => {
+                return assistant_error_event(&app, Some(current.session_id), &error.to_string());
+            }
+        };
+        if !runtime.add_batch(batch.clone()) {
+            return Err(ApiError::Message(
+                "Failed to store assistant action preview".into(),
+            ));
+        }
+        AssistantEvent {
+            session_id: current.session_id,
+            event_type: "action_batch_created",
+            message: draft.message,
+            data: Some(serde_json::json!({
+                "actionBatchId": batch.id,
+                "actionBatch": batch
+            })),
+        }
+    } else {
+        AssistantEvent {
+            session_id: current.session_id,
+            event_type: "message",
+            message: draft.message,
+            data: None,
+        }
+    };
+    conversation.record("assistant_message", &event.message, Some(&model), 0, 0, 0);
+    let _ = app.emit("assistant:event", &event);
+    Ok(event)
+}
+
+fn assistant_error_event(
+    app: &AppHandle,
+    session_id: Option<String>,
+    message: &str,
+) -> Result<AssistantEvent, ApiError> {
+    let event = AssistantEvent {
+        session_id: session_id.unwrap_or_else(|| "none".into()),
+        event_type: "error",
+        message: message.to_string(),
+        data: None,
+    };
+    let _ = app.emit("assistant:event", &event);
+    Ok(event)
+}
+
+fn assistant_response_schema() -> Value {
+    serde_json::json!({
+        "type": "object",
+        "properties": {
+            "message": {"type": "string"},
+            "actionBatch": {
+                "type": ["object", "null"],
+                "properties": {
+                    "kind": {"type": "string"},
+                    "title": {"type": "string"},
+                    "summary": {"type": "string"},
+                    "riskLevel": {"type": "string", "enum": ["low", "medium", "high"]},
+                    "actions": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "tagKind": {"type": ["string", "null"]},
+                                "trackPath": {"type": "string"},
+                                "field": {"type": ["string", "null"]},
+                                "newValue": {"type": ["string", "null"]},
+                                "description": {"type": ["string", "null"]}
+                            },
+                            "required": ["trackPath"]
+                        }
+                    }
+                },
+                "required": ["kind", "title", "summary", "riskLevel", "actions"]
+            }
+        },
+        "required": ["message", "actionBatch"]
+    })
+}
+
+#[derive(Clone, Debug, Default, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AssistantSendInput {
+    pub message: String,
+    #[serde(default)]
+    pub library_path: Option<String>,
+    #[serde(default)]
+    pub active_album_path: Option<String>,
+    #[serde(default)]
+    pub selected_track_paths: Vec<String>,
+    #[serde(default)]
+    pub tracks: Vec<Value>,
+    #[serde(default)]
+    pub albums: Vec<Value>,
+    #[serde(default)]
+    pub autonomous: bool,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct AssistantDraft {
+    message: String,
+    #[serde(default)]
+    action_batch: Option<AssistantDraftBatch>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct AssistantDraftBatch {
+    kind: String,
+    title: String,
+    summary: String,
+    risk_level: String,
+    #[serde(default)]
+    actions: Vec<crate::state::assistant::AssistantAction>,
+}
+
+fn allowed_assistant_paths(input: &AssistantSendInput) -> HashSet<String> {
+    if !input.selected_track_paths.is_empty() {
+        return input.selected_track_paths.iter().cloned().collect();
+    }
+    input
+        .tracks
+        .iter()
+        .filter_map(|track| track.get("path").and_then(Value::as_str))
+        .filter(|path| {
+            input
+                .active_album_path
+                .as_deref()
+                .is_none_or(|album| Path::new(path).parent() == Some(Path::new(album)))
+        })
+        .map(str::to_string)
+        .collect()
+}
+
+fn validated_assistant_batch(
+    session_id: &str,
+    input: &AssistantSendInput,
+    draft: AssistantDraftBatch,
+) -> Result<AssistantActionBatch, ApiError> {
+    const KINDS: &[&str] = &[
+        "tag-update",
+        "extra-tag-update",
+        "metadata-update",
+        "auto-tag-run",
+        "audit-run",
+    ];
+    const STANDARD_FIELDS: &[&str] = &[
+        "title",
+        "artist",
+        "artists",
+        "album",
+        "albumArtist",
+        "albumArtists",
+        "year",
+        "genre",
+        "composer",
+        "comment",
+        "description",
+        "trackNumber",
+        "trackTotal",
+        "discNumber",
+        "discTotal",
+        "lyrics",
+        "compilation",
+        "musicbrainzTrackId",
+        "musicbrainzAlbumId",
+        "musicbrainzArtistId",
+        "discogsArtistId",
+        "discogsReleaseId",
+    ];
+    if !KINDS.contains(&draft.kind.as_str()) {
+        return Err(ApiError::Message(format!(
+            "Assistant proposed unsupported action kind: {}",
+            draft.kind
+        )));
+    }
+    if !matches!(draft.risk_level.as_str(), "low" | "medium" | "high") {
+        return Err(ApiError::Message(format!(
+            "Assistant proposed unsupported risk level: {}",
+            draft.risk_level
+        )));
+    }
+    let allowed_paths = allowed_assistant_paths(input);
+    if draft.actions.is_empty() {
+        return Err(ApiError::Message(
+            "Assistant proposed an empty action batch".into(),
+        ));
+    }
+    for action in &draft.actions {
+        let path = action
+            .track_path
+            .as_deref()
+            .ok_or_else(|| ApiError::Message("Assistant action is missing trackPath".into()))?;
+        if !allowed_paths.contains(path) {
+            return Err(ApiError::Message(format!(
+                "Assistant action is outside the active scope: {path}"
+            )));
+        }
+        if matches!(draft.kind.as_str(), "auto-tag-run" | "audit-run") {
+            continue;
+        }
+        let tag_kind = action.tag_kind.as_deref().unwrap_or("standard");
+        if !matches!(tag_kind, "standard" | "extra") {
+            return Err(ApiError::Message(format!(
+                "Assistant proposed unsupported tag kind: {tag_kind}"
+            )));
+        }
+        let field = action.field.as_deref().ok_or_else(|| {
+            ApiError::Message("Assistant metadata action is missing field".into())
+        })?;
+        if tag_kind == "standard" && !STANDARD_FIELDS.contains(&field) {
+            return Err(ApiError::Message(format!(
+                "Assistant proposed unsupported metadata field: {field}"
+            )));
+        }
+        if draft.kind == "tag-update" && tag_kind == "extra" {
+            return Err(ApiError::Message(
+                "Assistant proposed an extra tag in a standard tag batch".into(),
+            ));
+        }
+        if draft.kind == "extra-tag-update" && tag_kind != "extra" {
+            return Err(ApiError::Message(
+                "Assistant proposed a standard tag in an extra tag batch".into(),
+            ));
+        }
+    }
+    Ok(AssistantActionBatch {
+        id: format!("batch-{}", uuid::Uuid::new_v4()),
+        created_at: time::OffsetDateTime::now_utc().to_string(),
+        session_id: session_id.to_string(),
+        kind: draft.kind,
+        title: draft.title,
+        summary: draft.summary,
+        risk_level: draft.risk_level,
+        actions: draft.actions,
+        reversible: true,
+        status: "pending".into(),
+    })
 }
 
 #[tauri::command]
@@ -509,6 +874,83 @@ mod apply_contract_tests {
     use std::fs;
     use std::path::PathBuf;
     use std::sync::atomic::{AtomicU64, Ordering};
+
+    #[test]
+    fn assistant_preview_rejects_paths_outside_selected_scope() {
+        let input = AssistantSendInput {
+            message: "change title".into(),
+            selected_track_paths: vec!["/music/selected.mp3".into()],
+            tracks: vec![serde_json::json!({"path": "/music/other.mp3"})],
+            ..Default::default()
+        };
+        let draft = AssistantDraftBatch {
+            kind: "tag-update".into(),
+            title: "Change title".into(),
+            summary: "one change".into(),
+            risk_level: "low".into(),
+            actions: vec![AssistantAction {
+                tag_kind: Some("standard".into()),
+                track_path: Some("/music/other.mp3".into()),
+                field: Some("title".into()),
+                new_value: Some("New".into()),
+                ..Default::default()
+            }],
+        };
+
+        let error = validated_assistant_batch("session", &input, draft).unwrap_err();
+
+        assert!(error.to_string().contains("outside the active scope"));
+    }
+
+    #[test]
+    fn assistant_preview_accepts_supported_field_for_active_track() {
+        let input = AssistantSendInput {
+            message: "change title".into(),
+            selected_track_paths: vec!["/music/selected.mp3".into()],
+            ..Default::default()
+        };
+        let draft = AssistantDraftBatch {
+            kind: "tag-update".into(),
+            title: "Change title".into(),
+            summary: "one change".into(),
+            risk_level: "low".into(),
+            actions: vec![AssistantAction {
+                tag_kind: Some("standard".into()),
+                track_path: Some("/music/selected.mp3".into()),
+                field: Some("title".into()),
+                new_value: Some("New".into()),
+                ..Default::default()
+            }],
+        };
+
+        let batch = validated_assistant_batch("session", &input, draft).unwrap();
+
+        assert_eq!(batch.kind, "tag-update");
+        assert_eq!(batch.actions[0].field.as_deref(), Some("title"));
+        assert_eq!(batch.status, "pending");
+    }
+
+    #[test]
+    fn assistant_preview_rejects_metadata_action_without_field() {
+        let input = AssistantSendInput {
+            selected_track_paths: vec!["/music/selected.mp3".into()],
+            ..Default::default()
+        };
+        let draft = AssistantDraftBatch {
+            kind: "tag-update".into(),
+            title: "Broken preview".into(),
+            summary: "missing field".into(),
+            risk_level: "low".into(),
+            actions: vec![AssistantAction {
+                track_path: Some("/music/selected.mp3".into()),
+                ..Default::default()
+            }],
+        };
+
+        let error = validated_assistant_batch("session", &input, draft).unwrap_err();
+
+        assert!(error.to_string().contains("missing field"));
+    }
 
     #[tokio::test]
     async fn approved_standard_batch_returns_undo_and_uses_safe_writer() {

@@ -2,7 +2,8 @@
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::sync::Mutex;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -58,7 +59,7 @@ pub struct AssistantActionBatch {
 #[derive(Default)]
 struct AssistantRuntimeInner {
     active: bool,
-    cancelled: bool,
+    cancellation: Arc<AtomicBool>,
     batches: Vec<AssistantActionBatch>,
     batch_errors: HashMap<String, String>,
 }
@@ -78,30 +79,39 @@ impl AssistantRuntimeState {
             return false;
         };
         state.active = true;
-        state.cancelled = false;
+        state.cancellation.store(false, Ordering::Release);
         true
     }
 
     pub fn cancel(&self) -> bool {
-        let Ok(mut state) = self.inner.lock() else {
+        let Ok(state) = self.inner.lock() else {
             return false;
         };
         if !state.active {
             return false;
         }
-        state.cancelled = true;
+        state.cancellation.store(true, Ordering::Release);
         true
     }
 
     pub fn reset(&self) -> bool {
-        let Ok(mut state) = self.inner.lock() else {
+        let Ok(state) = self.inner.lock() else {
             return false;
         };
         if !state.active {
             return false;
         }
-        state.cancelled = false;
+        state.cancellation.store(false, Ordering::Release);
         true
+    }
+
+    pub fn begin_request(&self) -> Option<Arc<AtomicBool>> {
+        let state = self.inner.lock().ok()?;
+        if !state.active {
+            return None;
+        }
+        state.cancellation.store(false, Ordering::Release);
+        Some(Arc::clone(&state.cancellation))
     }
 
     pub fn reject_batch(&self, batch_id: &str) -> Option<String> {
@@ -186,7 +196,9 @@ impl AssistantRuntimeState {
 
     #[cfg(test)]
     fn is_cancelled(&self) -> bool {
-        self.inner.lock().is_ok_and(|state| state.cancelled)
+        self.inner
+            .lock()
+            .is_ok_and(|state| state.cancellation.load(Ordering::Acquire))
     }
 }
 
