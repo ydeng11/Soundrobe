@@ -560,6 +560,7 @@ pub fn discogs_candidate(album: ProviderAlbum) -> AlbumCandidate {
         album_artists: album.artists,
         year: album.year,
         genre: album.genre,
+        discogs_artist_id: album.artist_id,
         discogs_release_id: Some(album.id),
         tracks: album
             .tracks
@@ -621,6 +622,55 @@ pub fn convert_candidate_chinese(
         })
         .collect();
     converted
+}
+
+pub fn protect_candidate_tracks(
+    request: &LookupRequest,
+    candidate: &AlbumCandidate,
+) -> AlbumCandidate {
+    if !matches!(
+        candidate.source,
+        LookupSource::Musicbrainz | LookupSource::Discogs
+    ) || candidate.tracks.is_empty()
+    {
+        return candidate.clone();
+    }
+    let mut protected = candidate.clone();
+    let same_count = request.tracks.len() == candidate.tracks.len();
+    for (remote, local) in protected.tracks.iter_mut().zip(&request.tracks) {
+        if !same_count || !track_titles_compatible(local, remote) {
+            remote.title = local.title.clone();
+            remote.artist = local.artist.clone();
+            remote.artists = local.artists.clone();
+            remote.musicbrainz_track_id = local.musicbrainz_track_id.clone();
+        }
+    }
+    protected
+}
+
+fn track_titles_compatible(local: &TrackCandidate, remote: &TrackCandidate) -> bool {
+    let Some(local) = local.title.as_deref() else {
+        return true;
+    };
+    remote
+        .title
+        .iter()
+        .chain(remote.match_titles.iter())
+        .any(|remote| {
+            let local = normalized_track_title(local);
+            let remote = normalized_track_title(remote);
+            !local.is_empty()
+                && !remote.is_empty()
+                && (local == remote || local.contains(&remote) || remote.contains(&local))
+        })
+}
+
+fn normalized_track_title(value: &str) -> String {
+    value
+        .to_lowercase()
+        .chars()
+        .filter(|character| character.is_alphanumeric())
+        .collect()
 }
 
 pub fn combine_candidate_sources(
@@ -1208,6 +1258,7 @@ pub async fn resolve_and_apply_album(
         .ok_or_else(|| ApiError::Message("No auto-tag candidate available".to_string()))?;
     check_cancelled(cancelled)?;
     progress(8, "Resolving genre...");
+    let candidate = protect_candidate_tracks(&request, &candidate);
     let candidate = fill_genre_if_missing(&candidate, &request, config, cancelled).await;
     check_cancelled(cancelled)?;
     progress(9, "Applying tags...");
@@ -1619,7 +1670,7 @@ mod tests {
             title: "Album".into(),
             artist: Some("Artist".into()),
             artists: vec!["Artist".into()],
-            artist_id: None,
+            artist_id: Some("7".into()),
             year: Some("2004".into()),
             genre: Some("Rock, Indie Rock".into()),
             tracks: vec![crate::state::providers::ProviderTrack {
@@ -1637,6 +1688,7 @@ mod tests {
 
         assert_eq!(candidate.source, LookupSource::Discogs);
         assert_eq!(candidate.discogs_release_id.as_deref(), Some("42"));
+        assert_eq!(candidate.discogs_artist_id.as_deref(), Some("7"));
         assert_eq!(candidate.genre.as_deref(), Some("Rock, Indie Rock"));
         assert_eq!(candidate.tracks[0].track_total, Some(1));
         assert_eq!(candidate.tracks[0].length, Some(202.0));
@@ -1835,6 +1887,38 @@ mod tests {
         assert_eq!(
             converted.musicbrainz_album_id.as_deref(),
             Some("release-id")
+        );
+    }
+
+    #[test]
+    fn track_protection_rejects_unrelated_provider_titles_but_allows_polluted_match() {
+        let request = LookupRequest {
+            tracks: vec![track("01 - Local Song (Remastered)", "Local Artist")],
+            ..Default::default()
+        };
+        let unrelated = AlbumCandidate {
+            source: LookupSource::Musicbrainz,
+            tracks: vec![track("Different Song", "Wrong Artist")],
+            ..Default::default()
+        };
+        let matching = AlbumCandidate {
+            source: LookupSource::Musicbrainz,
+            tracks: vec![track("Local Song", "Canonical Artist")],
+            ..Default::default()
+        };
+
+        let protected = protect_candidate_tracks(&request, &unrelated);
+        let accepted = protect_candidate_tracks(&request, &matching);
+
+        assert_eq!(
+            protected.tracks[0].title.as_deref(),
+            Some("01 - Local Song (Remastered)")
+        );
+        assert_eq!(protected.tracks[0].artist.as_deref(), Some("Local Artist"));
+        assert_eq!(accepted.tracks[0].title.as_deref(), Some("Local Song"));
+        assert_eq!(
+            accepted.tracks[0].artist.as_deref(),
+            Some("Canonical Artist")
         );
     }
 

@@ -528,7 +528,16 @@ fn parse_discogs_release(value: &serde_json::Value, fallback_id: &str) -> Option
         title,
         artist,
         artists,
-        artist_id: None,
+        artist_id: value
+            .get("artists")
+            .and_then(serde_json::Value::as_array)
+            .and_then(|artists| artists.first())
+            .and_then(|artist| artist.get("id"))
+            .and_then(|id| {
+                id.as_u64()
+                    .map(|id| id.to_string())
+                    .or_else(|| id.as_str().map(str::to_string))
+            }),
         year: value.get("year").and_then(|year| {
             year.as_u64()
                 .map(|year| year.to_string())
