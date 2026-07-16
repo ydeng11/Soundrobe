@@ -13,6 +13,7 @@ use crate::{
         tracks::read_album,
     },
     error::ApiError,
+    infra::openrouter::{ChatMessage, OpenRouterClient},
     state::{
         config::AutoTagConfig,
         providers::{
@@ -623,6 +624,183 @@ pub struct AutoTagRunResult {
     pub written: usize,
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub struct LlmTagResolution {
+    pub corrected_request: LookupRequest,
+    pub fallback: AlbumCandidate,
+}
+
+pub fn llm_resolution_from_value(
+    request: &LookupRequest,
+    value: &serde_json::Value,
+) -> LlmTagResolution {
+    let corrected_artist = llm_string(value.get("artist")).or_else(|| request.artist_hint.clone());
+    let corrected_album = llm_string(value.get("album")).or_else(|| request.album_hint.clone());
+    let corrected_year = llm_string(value.get("year")).or_else(|| request.year_hint.clone());
+    let album_artist = llm_string(value.get("albumArtist")).or_else(|| corrected_artist.clone());
+    let llm_tracks = normalize_llm_tracks(value.get("tracks"), request.tracks.len());
+    let tracks: Vec<TrackCandidate> = request
+        .tracks
+        .iter()
+        .enumerate()
+        .map(|(index, track)| {
+            let correction = llm_tracks.get(index).copied();
+            let mut track = track.clone();
+            if let Some(title) = correction.and_then(|track| llm_string(track.get("title"))) {
+                track.title = Some(title);
+            }
+            if let Some(artist) = correction
+                .and_then(|track| llm_string(track.get("artist")))
+                .or_else(|| track.artist.clone())
+                .or_else(|| corrected_artist.clone())
+            {
+                track.artist = Some(artist);
+            }
+            track
+        })
+        .collect();
+    let mut corrected_request = request.clone();
+    corrected_request.artist_hint = corrected_artist.clone();
+    corrected_request.album_hint = corrected_album.clone();
+    corrected_request.year_hint = corrected_year.clone();
+    corrected_request.tracks = tracks.clone();
+    let album_artists = album_artist.iter().cloned().collect::<Vec<_>>();
+
+    LlmTagResolution {
+        corrected_request,
+        fallback: AlbumCandidate {
+            artist: corrected_artist.clone(),
+            artists: corrected_artist.iter().cloned().collect(),
+            album: corrected_album,
+            album_artist,
+            album_artists,
+            year: corrected_year,
+            genre: llm_string(value.get("genre")),
+            musicbrainz_album_id: request.musicbrainz_album_id.clone(),
+            musicbrainz_artist_id: request.musicbrainz_artist_id.clone(),
+            discogs_release_id: request.discogs_release_id.clone(),
+            discogs_artist_id: request.discogs_artist_id.clone(),
+            tracks,
+            source: LookupSource::Llm,
+            ..AlbumCandidate::default()
+        },
+    }
+}
+
+fn llm_string(value: Option<&serde_json::Value>) -> Option<String> {
+    let value = value?.as_str()?.trim();
+    if value.is_empty()
+        || Regex::new(r"(?i)^(?:null|none|undefined|n/a|unknown)$")
+            .expect("valid LLM null sentinel regex")
+            .is_match(value)
+    {
+        None
+    } else {
+        Some(value.to_string())
+    }
+}
+
+fn normalize_llm_tracks(
+    value: Option<&serde_json::Value>,
+    expected_count: usize,
+) -> Vec<&serde_json::Map<String, serde_json::Value>> {
+    let mut tracks = value
+        .and_then(serde_json::Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(serde_json::Value::as_object)
+        .collect::<Vec<_>>();
+    let indices = tracks
+        .iter()
+        .filter_map(|track| track.get("index").and_then(serde_json::Value::as_i64))
+        .collect::<Vec<_>>();
+    let unique = indices
+        .iter()
+        .collect::<std::collections::HashSet<_>>()
+        .len();
+    let contiguous_one_based = indices.iter().min() == Some(&1)
+        && indices.iter().max() == i64::try_from(expected_count).ok().as_ref()
+        && unique == expected_count;
+    let contiguous_zero_based =
+        indices.iter().min() == Some(&0) && unique >= tracks.len().min(expected_count);
+    if contiguous_one_based || contiguous_zero_based {
+        tracks.sort_by_key(|track| {
+            track
+                .get("index")
+                .and_then(serde_json::Value::as_i64)
+                .unwrap_or(i64::MAX)
+        });
+    }
+    tracks.truncate(expected_count);
+    tracks
+}
+
+async fn resolve_tags_via_llm(
+    request: &LookupRequest,
+    config: &AutoTagConfig,
+    cancelled: &AtomicBool,
+) -> Option<LlmTagResolution> {
+    let api_key = config
+        .llm_api_key
+        .as_deref()
+        .filter(|key| !key.is_empty())?;
+    let model = config
+        .llm_model
+        .as_deref()
+        .filter(|model| !model.is_empty())
+        .unwrap_or("deepseek/deepseek-chat");
+    let album_path = Path::new(&request.path);
+    let payload = serde_json::json!({
+        "folder_name": album_path.file_name().and_then(|name| name.to_str()),
+        "parent_name": album_path.parent().and_then(Path::file_name).and_then(|name| name.to_str()),
+        "full_path": request.path,
+        "parsed_hints": {
+            "artist": request.artist_hint,
+            "album": request.album_hint,
+            "year": request.year_hint,
+        },
+        "current_tracks": request.tracks.iter().enumerate().map(|(index, track)| serde_json::json!({
+            "index": index,
+            "title": track.title,
+            "artist": track.artist,
+            "track_number": track.track_number,
+            "genre": track.genre,
+        })).collect::<Vec<_>>(),
+    });
+    let messages = vec![
+        ChatMessage::system(concat!(
+            "Resolve correct music metadata from folder structure, parser hints, and existing tags. ",
+            "Return only JSON with artist, albumArtist, album, year, genre, tracks, and confidence. ",
+            "Strip year and format annotations from album names. Preserve uncertain fields as null. ",
+            "Use Various Artists only for true compilations. Per-track entries use index, title, artist. ",
+            "Do not invent provider IDs. Genre should use conservative Discogs-style comma-separated tags."
+        )),
+        ChatMessage::user(payload.to_string()),
+    ];
+    let schema = serde_json::json!({
+        "type": "object",
+        "properties": {
+            "artist": {"type": ["string", "null"]},
+            "albumArtist": {"type": ["string", "null"]},
+            "album": {"type": ["string", "null"]},
+            "year": {"type": ["string", "null"]},
+            "genre": {"type": ["string", "null"]},
+            "tracks": {"type": "array", "items": {"type": "object", "properties": {
+                "index": {"type": "number"},
+                "title": {"type": ["string", "null"]},
+                "artist": {"type": ["string", "null"]}
+            }}},
+            "confidence": {"type": "number"}
+        },
+        "required": ["artist", "albumArtist", "album", "year", "genre", "tracks", "confidence"]
+    });
+    OpenRouterClient::new(api_key, model)
+        .complete_json(messages, "TagCorrectionResponse", schema, cancelled)
+        .await
+        .ok()
+        .map(|response| llm_resolution_from_value(request, &response.data))
+}
+
 pub async fn resolve_and_apply_album(
     album_path: &Path,
     config: &AutoTagConfig,
@@ -633,7 +811,7 @@ pub async fn resolve_and_apply_album(
     mut progress: impl FnMut(u64, &str),
 ) -> Result<AutoTagRunResult, ApiError> {
     progress(1, "Parsing folder hints...");
-    let request = build_lookup_request(album_path)?;
+    let mut request = build_lookup_request(album_path)?;
     check_cancelled(cancelled)?;
 
     progress(3, "Checking cache...");
@@ -662,6 +840,20 @@ pub async fn resolve_and_apply_album(
         }
     }
     check_cancelled(cancelled)?;
+
+    let ambiguous = hints_are_ambiguous(
+        request.album_hint.as_deref(),
+        request.artist_hint.as_deref(),
+        &request.path,
+        request.year_hint.as_deref(),
+    );
+    let mut llm_fallback = None;
+    if !has_direct_musicbrainz && ambiguous {
+        if let Some(resolution) = resolve_tags_via_llm(&request, config, cancelled).await {
+            request = resolution.corrected_request;
+            llm_fallback = Some(resolution.fallback);
+        }
+    }
 
     if !has_direct_musicbrainz && config.remote_lookup_enabled != Some(false) {
         progress(5, "Searching MusicBrainz...");
@@ -697,7 +889,17 @@ pub async fn resolve_and_apply_album(
     }
     check_cancelled(cancelled)?;
 
+    if !has_direct_musicbrainz && !ambiguous && fresh.is_empty() && cached.is_empty() {
+        if let Some(resolution) = resolve_tags_via_llm(&request, config, cancelled).await {
+            request = resolution.corrected_request;
+            llm_fallback = Some(resolution.fallback);
+        }
+    }
+
     progress(7, "Building fallback...");
+    if let Some(fallback) = llm_fallback {
+        fresh.push(fallback);
+    }
     let folder = folder_candidate(&request);
     fresh = filter_candidates_for_album(request.album_hint.as_deref(), fresh);
     let cached = filter_candidates_for_album(request.album_hint.as_deref(), cached);
@@ -712,7 +914,8 @@ pub async fn resolve_and_apply_album(
                 .first()
                 .map(|candidate| candidate.source)
                 .unwrap_or(LookupSource::Folder);
-            let _ = cache.set_lookup(&hash, &query, &response, lookup_source_name(source));
+            let write_hash = query_hash(&request);
+            let _ = cache.set_lookup(&write_hash, &query, &response, lookup_source_name(source));
         }
     }
     let candidates = combine_candidate_sources(fresh, cached, folder);
@@ -1174,6 +1377,68 @@ mod tests {
 
         assert_eq!(filtered.len(), 1);
         assert_eq!(filtered[0].album.as_deref(), Some("无限"));
+    }
+
+    #[test]
+    fn llm_resolution_normalizes_one_based_tracks_and_null_sentinels() {
+        let request = LookupRequest {
+            artist_hint: Some("Parsed Artist".into()),
+            album_hint: Some("Parsed Album".into()),
+            year_hint: Some("2000".into()),
+            tracks: vec![
+                track("Old One", "Parsed Artist"),
+                track("Old Two", "Parsed Artist"),
+            ],
+            ..LookupRequest::default()
+        };
+        let value = serde_json::json!({
+            "artist": "Correct Artist",
+            "albumArtist": "Correct Artist",
+            "album": "Correct Album",
+            "year": "unknown",
+            "genre": "Rock, Indie Rock",
+            "tracks": [
+                {"index": 2, "title": "Second", "artist": "Correct Artist feat. Guest"},
+                {"index": 1, "title": "First", "artist": null}
+            ],
+            "confidence": 0.9
+        });
+
+        let resolution = llm_resolution_from_value(&request, &value);
+
+        assert_eq!(
+            resolution.corrected_request.artist_hint.as_deref(),
+            Some("Correct Artist")
+        );
+        assert_eq!(
+            resolution.corrected_request.year_hint.as_deref(),
+            Some("2000")
+        );
+        assert_eq!(
+            resolution.corrected_request.tracks[0].title.as_deref(),
+            Some("First")
+        );
+        assert_eq!(resolution.fallback.source, LookupSource::Llm);
+        assert_eq!(
+            resolution.fallback.genre.as_deref(),
+            Some("Rock, Indie Rock")
+        );
+        assert_eq!(
+            resolution.fallback.tracks[0].title.as_deref(),
+            Some("First")
+        );
+        assert_eq!(
+            resolution.fallback.tracks[0].artist.as_deref(),
+            Some("Parsed Artist")
+        );
+        assert_eq!(
+            resolution.fallback.tracks[1].title.as_deref(),
+            Some("Second")
+        );
+        assert_eq!(
+            resolution.fallback.tracks[1].artist.as_deref(),
+            Some("Correct Artist feat. Guest")
+        );
     }
 
     #[tokio::test]
