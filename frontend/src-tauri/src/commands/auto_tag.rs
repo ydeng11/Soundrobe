@@ -3,8 +3,9 @@
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+use std::path::Path;
 
-use crate::state::providers::ProviderAlbum;
+use crate::{commands::tracks::read_album, error::ApiError, state::providers::ProviderAlbum};
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -73,6 +74,196 @@ pub struct LookupRequest {
     pub discogs_release_id: Option<String>,
     pub discogs_artist_id: Option<String>,
     pub tracks: Vec<TrackCandidate>,
+}
+
+pub fn build_lookup_request(album_path: &Path) -> Result<LookupRequest, ApiError> {
+    let detail = read_album(album_path)?;
+    let supplied_folder = album_path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or_default();
+    let cd_subfolder = Regex::new(r"(?i)^(?:cd|disc|disk|ディスク)\s*\d+\s*$")
+        .expect("valid CD subfolder regex")
+        .is_match(supplied_folder);
+    let identity_album_path = if cd_subfolder {
+        album_path.parent().unwrap_or(album_path)
+    } else {
+        album_path
+    };
+    let folder_name = identity_album_path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or_default();
+    let parent_name = identity_album_path
+        .parent()
+        .and_then(Path::file_name)
+        .and_then(|name| name.to_str())
+        .unwrap_or_default();
+    let folder_artist = clean_folder_name(parent_name);
+    let folder_album = clean_folder_name(folder_name);
+    let year_hint = extract_folder_year(folder_name);
+    let tagged_artist = detail
+        .tracks
+        .iter()
+        .find_map(|track| track.artist.clone().or_else(|| track.album_artist.clone()));
+    let tagged_album = detail.tracks.iter().find_map(|track| track.album.clone());
+    let tagged_year = detail.tracks.iter().find_map(|track| track.year.clone());
+    let musicbrainz_album_id = detail
+        .tracks
+        .iter()
+        .find_map(|track| track.musicbrainz_album_id.clone());
+    let musicbrainz_artist_id = detail
+        .tracks
+        .iter()
+        .find_map(|track| track.musicbrainz_artist_id.clone());
+    let discogs_release_id = detail
+        .tracks
+        .iter()
+        .find_map(|track| track.discogs_release_id.clone());
+    let discogs_artist_id = detail
+        .tracks
+        .iter()
+        .find_map(|track| track.discogs_artist_id.clone());
+    let artist_hint = if is_compilation_folder(&folder_artist) {
+        Some("Various Artists".to_string())
+    } else if tagged_artist
+        .as_deref()
+        .is_some_and(|artist| !artist.eq_ignore_ascii_case(&folder_artist))
+    {
+        non_empty(folder_artist)
+    } else {
+        tagged_artist.or_else(|| non_empty(folder_artist))
+    };
+    let total = u32::try_from(detail.tracks.len()).ok();
+    let tracks = detail
+        .tracks
+        .into_iter()
+        .enumerate()
+        .map(|(index, track)| {
+            let filename_number = Path::new(&track.path)
+                .file_stem()
+                .and_then(|stem| stem.to_str())
+                .and_then(filename_track_number);
+            TrackCandidate {
+                title: track.title,
+                artist: track.artist.clone(),
+                artists: if track.artists.is_empty() {
+                    track.artist.into_iter().collect()
+                } else {
+                    track.artists
+                },
+                track_number: filename_number
+                    .or(track.track_number)
+                    .or_else(|| u32::try_from(index + 1).ok()),
+                track_total: total,
+                disc_number: track.disc_number,
+                disc_total: track.disc_total,
+                musicbrainz_track_id: track.musicbrainz_track_id,
+                length: Some(track.duration),
+                genre: track.genre,
+                ..TrackCandidate::default()
+            }
+        })
+        .collect();
+
+    Ok(LookupRequest {
+        path: album_path.to_string_lossy().into_owned(),
+        artist_hint,
+        album_hint: non_empty(folder_album).or(tagged_album),
+        year_hint: year_hint.or(tagged_year),
+        musicbrainz_album_id,
+        musicbrainz_artist_id,
+        discogs_release_id,
+        discogs_artist_id,
+        tracks,
+    })
+}
+
+fn non_empty(value: String) -> Option<String> {
+    (!value.trim().is_empty()).then_some(value)
+}
+
+fn extract_folder_year(name: &str) -> Option<String> {
+    Regex::new(r"^((?:19|20)\d{2})(?:\s*[-.]|[^\d]|$)")
+        .expect("valid folder year regex")
+        .captures(name)
+        .and_then(|captures| captures.get(1))
+        .map(|year| year.as_str().to_string())
+}
+
+fn clean_folder_name(name: &str) -> String {
+    let mut cleaned = name.to_string();
+    cleaned = Regex::new(r"^\d{4}\s*[.-]\s*")
+        .expect("valid folder year prefix regex")
+        .replace(&cleaned, "")
+        .to_string();
+    cleaned = cleaned.replace(['《', '》', '「', '」', '【', '】', '[', ']'], "");
+    cleaned = Regex::new(
+        r"(?i)\s*(?:香港首版|台湾首版|引进版|日本版|欧版|美版|内地版|中国大陆版|大陆版|德国版|澳洲版|新加坡版|马来西亚版|韩版)\s*",
+    )
+    .expect("valid edition regex")
+    .replace_all(&cleaned, " ")
+    .to_string();
+    cleaned = Regex::new(r"(?i)\s*(?:flac|mp3|wav|aac|ogg|m4a|wma|ape)(?:\s*分轨)?\s*$")
+        .expect("valid format suffix regex")
+        .replace(&cleaned, "")
+        .trim()
+        .to_string();
+    cleaned
+}
+
+fn is_compilation_folder(name: &str) -> bool {
+    let normalized = Regex::new(r"[ _]+")
+        .expect("valid compilation whitespace regex")
+        .replace_all(name.trim(), " ")
+        .to_lowercase();
+    matches!(
+        normalized.as_str(),
+        "compilations"
+            | "compilation"
+            | "various artists"
+            | "various"
+            | "va"
+            | "soundtracks"
+            | "soundtrack"
+            | "ost"
+            | "samplers"
+            | "sampler"
+            | "christmas"
+    )
+}
+
+fn filename_track_number(stem: &str) -> Option<u32> {
+    Regex::new(r"^(\d{1,3})\s*[.\-_\s]+")
+        .expect("valid filename track number regex")
+        .captures(stem)
+        .and_then(|captures| captures.get(1))
+        .and_then(|number| number.as_str().parse().ok())
+}
+
+pub fn folder_candidate(request: &LookupRequest) -> AlbumCandidate {
+    let artist = request.artist_hint.clone();
+    let album_artist = if artist.as_deref().is_some_and(is_compilation_folder) {
+        Some("Various Artists".to_string())
+    } else {
+        artist
+    };
+    let album_artists = album_artist.iter().cloned().collect::<Vec<_>>();
+    AlbumCandidate {
+        artist: album_artist.clone(),
+        artists: album_artists.clone(),
+        album: request.album_hint.clone(),
+        album_artist,
+        album_artists,
+        year: request.year_hint.clone(),
+        musicbrainz_album_id: request.musicbrainz_album_id.clone(),
+        musicbrainz_artist_id: request.musicbrainz_artist_id.clone(),
+        discogs_release_id: request.discogs_release_id.clone(),
+        discogs_artist_id: request.discogs_artist_id.clone(),
+        tracks: request.tracks.clone(),
+        source: LookupSource::Folder,
+        ..AlbumCandidate::default()
+    }
 }
 
 fn candidate_priority(candidate: &AlbumCandidate) -> i8 {
@@ -370,6 +561,26 @@ pub fn discogs_candidate(album: ProviderAlbum) -> AlbumCandidate {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs;
+    use std::path::PathBuf;
+    use std::sync::atomic::{AtomicU64, Ordering};
+
+    static SEQUENCE: AtomicU64 = AtomicU64::new(0);
+
+    fn temp_root() -> PathBuf {
+        let root = std::env::temp_dir().join(format!(
+            "auto-tagger-auto-tag-{}-{}",
+            std::process::id(),
+            SEQUENCE.fetch_add(1, Ordering::Relaxed)
+        ));
+        fs::create_dir_all(&root).unwrap();
+        root
+    }
+
+    fn corpus_mp3() -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../test/fixtures/tauri/media-corpus/minimal.mp3")
+    }
 
     fn track(title: &str, artist: &str) -> TrackCandidate {
         TrackCandidate {
@@ -555,5 +766,72 @@ mod tests {
         assert_eq!(candidate.genre.as_deref(), Some("Rock, Indie Rock"));
         assert_eq!(candidate.tracks[0].track_total, Some(1));
         assert_eq!(candidate.tracks[0].length, Some(202.0));
+    }
+
+    #[test]
+    fn lookup_request_reads_real_tags_but_keeps_mismatching_folder_identity() {
+        let root = temp_root();
+        let album = root.join("Folder Artist/2004 - Folder Album [FLAC]");
+        fs::create_dir_all(&album).unwrap();
+        fs::copy(corpus_mp3(), album.join("01.mp3")).unwrap();
+        fs::copy(corpus_mp3(), album.join("02.mp3")).unwrap();
+
+        let request = build_lookup_request(&album).unwrap();
+
+        assert_eq!(request.artist_hint.as_deref(), Some("Folder Artist"));
+        assert_eq!(request.album_hint.as_deref(), Some("Folder Album"));
+        assert_eq!(request.year_hint.as_deref(), Some("2004"));
+        assert_eq!(
+            request.musicbrainz_album_id.as_deref(),
+            Some("corpus-mb-album")
+        );
+        assert_eq!(request.discogs_release_id.as_deref(), Some("67890"));
+        assert_eq!(request.tracks.len(), 2);
+        assert_eq!(request.tracks[0].title.as_deref(), Some("Corpus MP3"));
+        assert_eq!(request.tracks[0].track_total, Some(2));
+        assert_eq!(
+            request.tracks[0].musicbrainz_track_id.as_deref(),
+            Some("corpus-mb-track")
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn lookup_request_uses_album_and_artist_above_cd_subfolder() {
+        let root = temp_root();
+        let disc = root.join("Folder Artist/2004 - Folder Album/CD 2");
+        fs::create_dir_all(&disc).unwrap();
+        fs::copy(corpus_mp3(), disc.join("01.mp3")).unwrap();
+
+        let request = build_lookup_request(&disc).unwrap();
+
+        assert_eq!(request.artist_hint.as_deref(), Some("Folder Artist"));
+        assert_eq!(request.album_hint.as_deref(), Some("Folder Album"));
+        assert_eq!(request.year_hint.as_deref(), Some("2004"));
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn folder_candidate_normalizes_compilation_album_artist_and_keeps_ids() {
+        let request = LookupRequest {
+            artist_hint: Some("Various Artists".into()),
+            album_hint: Some("Sampler".into()),
+            musicbrainz_album_id: Some("mbid".into()),
+            discogs_release_id: Some("42".into()),
+            tracks: vec![track("Song", "Per-track Artist")],
+            ..LookupRequest::default()
+        };
+
+        let candidate = folder_candidate(&request);
+
+        assert_eq!(candidate.source, LookupSource::Folder);
+        assert_eq!(candidate.album_artist.as_deref(), Some("Various Artists"));
+        assert_eq!(candidate.album_artists, vec!["Various Artists"]);
+        assert_eq!(candidate.musicbrainz_album_id.as_deref(), Some("mbid"));
+        assert_eq!(candidate.discogs_release_id.as_deref(), Some("42"));
+        assert_eq!(
+            candidate.tracks[0].artist.as_deref(),
+            Some("Per-track Artist")
+        );
     }
 }
