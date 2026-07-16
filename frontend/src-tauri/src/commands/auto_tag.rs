@@ -29,6 +29,8 @@ use crate::{
     },
 };
 
+use super::track_matcher::{match_remote_candidate_tracks, MatchEvidence};
+
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum LookupSource {
@@ -635,42 +637,36 @@ pub fn protect_candidate_tracks(
     {
         return candidate.clone();
     }
-    let mut protected = candidate.clone();
-    let same_count = request.tracks.len() == candidate.tracks.len();
-    for (remote, local) in protected.tracks.iter_mut().zip(&request.tracks) {
-        if !same_count || !track_titles_compatible(local, remote) {
-            remote.title = local.title.clone();
-            remote.artist = local.artist.clone();
-            remote.artists = local.artists.clone();
-            remote.musicbrainz_track_id = local.musicbrainz_track_id.clone();
-        }
-    }
-    protected
-}
-
-fn track_titles_compatible(local: &TrackCandidate, remote: &TrackCandidate) -> bool {
-    let Some(local) = local.title.as_deref() else {
-        return true;
-    };
-    remote
-        .title
+    let filenames = collect_audio_files(Path::new(&request.path))
+        .into_iter()
+        .filter_map(|path| Path::new(&path).file_name()?.to_str().map(str::to_string))
+        .collect::<Vec<_>>();
+    let artist_hints = request
+        .artist_hint
         .iter()
-        .chain(remote.match_titles.iter())
-        .any(|remote| {
-            let local = normalized_track_title(local);
-            let remote = normalized_track_title(remote);
-            !local.is_empty()
-                && !remote.is_empty()
-                && (local == remote || local.contains(&remote) || remote.contains(&local))
-        })
-}
-
-fn normalized_track_title(value: &str) -> String {
-    value
-        .to_lowercase()
-        .chars()
-        .filter(|character| character.is_alphanumeric())
-        .collect()
+        .chain(candidate.artist.iter())
+        .chain(candidate.album_artist.iter())
+        .chain(candidate.artists.iter())
+        .chain(candidate.album_artists.iter())
+        .filter(|artist| !artist.trim().is_empty())
+        .cloned()
+        .collect::<Vec<_>>();
+    let source = match candidate.source {
+        LookupSource::Musicbrainz => "musicbrainz",
+        LookupSource::Discogs => "discogs",
+        _ => unreachable!("remote sources checked above"),
+    };
+    let matched = match_remote_candidate_tracks(
+        &request.tracks,
+        &filenames,
+        &candidate.tracks,
+        source,
+        &artist_hints,
+        &[],
+    );
+    let mut protected = candidate.clone();
+    protected.tracks = matched.tracks;
+    protected
 }
 
 pub fn combine_candidate_sources(
@@ -728,6 +724,54 @@ pub fn rank_artist_releases(
     ranked.into_iter().map(|(_, release)| release).collect()
 }
 
+fn rank_candidate_details(
+    candidates: Vec<AlbumCandidate>,
+    request: &LookupRequest,
+    source: &str,
+) -> Vec<AlbumCandidate> {
+    let filenames = collect_audio_files(Path::new(&request.path))
+        .into_iter()
+        .filter_map(|path| Path::new(&path).file_name()?.to_str().map(str::to_string))
+        .collect::<Vec<_>>();
+    let artist_hints = request.artist_hint.iter().cloned().collect::<Vec<_>>();
+    let mut scored = candidates
+        .into_iter()
+        .enumerate()
+        .map(|(order, candidate)| {
+            let matched = match_remote_candidate_tracks(
+                &request.tracks,
+                &filenames,
+                &candidate.tracks,
+                source,
+                &artist_hints,
+                &[],
+            );
+            let title_matches = matched
+                .evidence
+                .iter()
+                .filter(|evidence| {
+                    evidence.is_some() && **evidence != Some(MatchEvidence::Position)
+                })
+                .count();
+            let track_delta = candidate.tracks.len().abs_diff(request.tracks.len());
+            (title_matches, track_delta, order, candidate)
+        })
+        .collect::<Vec<_>>();
+    scored.sort_by(
+        |(left_matches, left_delta, left_order, _),
+         (right_matches, right_delta, right_order, _)| {
+            right_matches
+                .cmp(left_matches)
+                .then_with(|| left_delta.cmp(right_delta))
+                .then_with(|| left_order.cmp(right_order))
+        },
+    );
+    scored
+        .into_iter()
+        .map(|(_, _, _, candidate)| candidate)
+        .collect()
+}
+
 async fn musicbrainz_artist_candidates(
     client: &MusicBrainzClient,
     cache: &CacheState,
@@ -772,7 +816,7 @@ async fn musicbrainz_artist_candidates(
             candidates.push(musicbrainz_candidate(album));
         }
     }
-    candidates
+    rank_candidate_details(candidates, request, "musicbrainz")
 }
 
 async fn discogs_artist_candidates(
@@ -819,7 +863,7 @@ async fn discogs_artist_candidates(
             candidates.push(discogs_candidate(album));
         }
     }
-    candidates
+    rank_candidate_details(candidates, request, "discogs")
 }
 
 fn cached_artist_releases(
@@ -1251,6 +1295,14 @@ pub async fn resolve_and_apply_album(
             let _ = cache.set_lookup(&write_hash, &query, &response, lookup_source_name(source));
         }
     }
+    let fresh = fresh
+        .into_iter()
+        .map(|candidate| protect_candidate_tracks(&request, &candidate))
+        .collect();
+    let cached = cached
+        .into_iter()
+        .map(|candidate| protect_candidate_tracks(&request, &candidate))
+        .collect();
     let candidates = combine_candidate_sources(fresh, cached, folder);
     let candidate = candidates
         .into_iter()
@@ -1439,6 +1491,7 @@ pub async fn apply_candidate_tags(
     );
 
     let mut written = 0;
+    let mut failures = Vec::new();
     for (index, file_path) in collect_audio_files(album_path).into_iter().enumerate() {
         let mut fields = album_fields.clone();
         if let Some(track) = candidate.tracks.get(index) {
@@ -1459,10 +1512,21 @@ pub async fn apply_candidate_tags(
             .map_err(|error| ApiError::WriteTask(error.to_string()))?;
         match write_track_queued(queue, file_path.clone().into(), patch).await {
             Ok(()) => written += 1,
-            Err(error) => tracing::warn!(path = %file_path, %error, "auto-tag write failed"),
+            Err(error) => {
+                tracing::warn!(path = %file_path, %error, "auto-tag write failed");
+                failures.push(format!("{file_path}: {error}"));
+            }
         }
     }
-    Ok(written)
+    if failures.is_empty() {
+        Ok(written)
+    } else {
+        Err(ApiError::WriteTask(format!(
+            "auto-tag wrote {written} file(s), but {} file(s) failed: {}",
+            failures.len(),
+            failures.join("; ")
+        )))
+    }
 }
 
 fn insert_option(
@@ -1505,6 +1569,11 @@ mod tests {
     fn corpus_mp3() -> PathBuf {
         PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("../test/fixtures/tauri/media-corpus/minimal.mp3")
+    }
+
+    fn corpus_aiff() -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../test/fixtures/tauri/media-corpus/minimal.aiff")
     }
 
     fn track(title: &str, artist: &str) -> TrackCandidate {
@@ -1863,6 +1932,33 @@ mod tests {
     }
 
     #[test]
+    fn detailed_release_ranking_prefers_track_identity_over_list_order() {
+        let request = LookupRequest {
+            tracks: vec![track("First", "Artist"), track("Second", "Artist")],
+            ..LookupRequest::default()
+        };
+        let wrong = AlbumCandidate {
+            album: Some("Album".into()),
+            tracks: vec![
+                track("Unrelated A", "Artist"),
+                track("Unrelated B", "Artist"),
+            ],
+            source: LookupSource::Musicbrainz,
+            ..AlbumCandidate::default()
+        };
+        let matching = AlbumCandidate {
+            album: Some("Album".into()),
+            tracks: vec![track("First", "Artist"), track("Second", "Artist")],
+            source: LookupSource::Musicbrainz,
+            ..AlbumCandidate::default()
+        };
+
+        let ranked = rank_candidate_details(vec![wrong, matching.clone()], &request, "musicbrainz");
+
+        assert_eq!(ranked[0], matching);
+    }
+
+    #[test]
     fn chinese_write_conversion_updates_album_and_per_track_text_only() {
         let candidate = AlbumCandidate {
             artist: Some("音乐".into()),
@@ -1920,6 +2016,68 @@ mod tests {
             accepted.tracks[0].artist.as_deref(),
             Some("Canonical Artist")
         );
+    }
+
+    #[test]
+    fn track_protection_aligns_reordered_provider_tracks_by_title() {
+        let request = LookupRequest {
+            tracks: vec![track("First", "Local One"), track("Second", "Local Two")],
+            ..Default::default()
+        };
+        let candidate = AlbumCandidate {
+            source: LookupSource::Musicbrainz,
+            tracks: vec![
+                TrackCandidate {
+                    musicbrainz_track_id: Some("second-id".into()),
+                    ..track("Second", "Remote Two")
+                },
+                TrackCandidate {
+                    musicbrainz_track_id: Some("first-id".into()),
+                    ..track("First", "Remote One")
+                },
+            ],
+            ..Default::default()
+        };
+
+        let protected = protect_candidate_tracks(&request, &candidate);
+
+        assert_eq!(protected.tracks[0].title.as_deref(), Some("First"));
+        assert_eq!(protected.tracks[0].artist.as_deref(), Some("Remote One"));
+        assert_eq!(
+            protected.tracks[0].musicbrainz_track_id.as_deref(),
+            Some("first-id")
+        );
+        assert_eq!(protected.tracks[1].title.as_deref(), Some("Second"));
+        assert_eq!(protected.tracks[1].artist.as_deref(), Some("Remote Two"));
+        assert_eq!(
+            protected.tracks[1].musicbrainz_track_id.as_deref(),
+            Some("second-id")
+        );
+    }
+
+    #[test]
+    fn track_protection_rejects_same_title_with_incompatible_duration() {
+        let request = LookupRequest {
+            tracks: vec![TrackCandidate {
+                length: Some(200.0),
+                ..track("Song", "Local Artist")
+            }],
+            ..Default::default()
+        };
+        let candidate = AlbumCandidate {
+            source: LookupSource::Musicbrainz,
+            tracks: vec![TrackCandidate {
+                length: Some(300_000.0),
+                musicbrainz_track_id: Some("wrong-recording".into()),
+                ..track("Song", "Wrong Artist")
+            }],
+            ..Default::default()
+        };
+
+        let protected = protect_candidate_tracks(&request, &candidate);
+
+        assert_eq!(protected.tracks[0].artist.as_deref(), Some("Local Artist"));
+        assert_eq!(protected.tracks[0].musicbrainz_track_id, None);
     }
 
     #[test]
@@ -2070,6 +2228,31 @@ mod tests {
         assert_eq!(first.title.as_deref(), Some("First"));
         assert_eq!(second.title.as_deref(), Some("Second"));
         assert_eq!(second.artist.as_deref(), Some("Album Artist feat. Guest"));
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn candidate_apply_reports_partial_write_failure_after_attempting_all_tracks() {
+        let root = temp_root();
+        let album = root.join("Artist/Album");
+        fs::create_dir_all(&album).unwrap();
+        fs::copy(corpus_mp3(), album.join("01.mp3")).unwrap();
+        fs::copy(corpus_aiff(), album.join("02.aiff")).unwrap();
+        let candidate = AlbumCandidate {
+            album: Some("Canonical Album".into()),
+            album_artists: vec!["Artist".into()],
+            tracks: vec![track("First", "Artist"), track("Second", "Artist")],
+            source: LookupSource::Musicbrainz,
+            ..AlbumCandidate::default()
+        };
+
+        let error = apply_candidate_tags(&album, &candidate, &WriteQueue::default())
+            .await
+            .unwrap_err();
+
+        assert!(error.to_string().contains("02.aiff"));
+        let first = crate::commands::tracks::read_track_metadata(&album.join("01.mp3")).unwrap();
+        assert_eq!(first.title.as_deref(), Some("First"));
         fs::remove_dir_all(root).unwrap();
     }
 

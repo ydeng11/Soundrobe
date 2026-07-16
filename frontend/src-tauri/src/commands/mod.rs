@@ -40,5 +40,7 @@ pub mod mutations;
 pub mod organizer;
 /// `task:progress`, `task:cancel`, `album:auto-tag` — `electron/handlers/auto-tag.ts`.
 pub mod tasks;
+/// Deterministic provider-track alignment used by auto-tag.
+mod track_matcher;
 /// `album:read`, `track:write`, `tracks:batch-write`, extra-tags, rename, exists.
 pub mod tracks;
