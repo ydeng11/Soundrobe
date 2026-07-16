@@ -197,6 +197,22 @@ async fn download_artwork_at(
     written.then_some((bytes, source, destination))
 }
 
+pub async fn download_album_artwork_at(
+    album_path: &Path,
+    remote: &RemoteArtworkClient,
+    queue: &WriteQueue,
+) -> Option<PathBuf> {
+    if is_cover_suppressed(album_path) {
+        return None;
+    }
+    if let Some(path) = find_external_cover(album_path) {
+        return Some(path);
+    }
+    download_artwork_at(ArtworkKind::Album, album_path, remote, queue)
+        .await
+        .map(|(_, _, path)| path)
+}
+
 struct CoverMetadata {
     artist: Option<String>,
     album: Option<String>,
@@ -418,6 +434,23 @@ mod tests {
         assert!(root.join("front.png").exists());
         assert!(root.join(COVER_REMOVED_MARKER).exists());
         assert_eq!(cover_data_url_at(&root), None);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn auto_tag_cover_keeps_existing_sidecar_without_provider_lookup() {
+        let root = root();
+        let sidecar = root.join("folder.png");
+        let original = png(2, 2);
+        fs::write(&sidecar, &original).unwrap();
+        let providers = ProviderState::new();
+        let remote = RemoteArtworkClient::new(providers.http(), None, None);
+
+        let resolved = download_album_artwork_at(&root, &remote, &WriteQueue::default()).await;
+
+        assert_eq!(resolved.as_deref(), Some(sidecar.as_path()));
+        assert_eq!(fs::read(&sidecar).unwrap(), original);
+        assert!(!root.join("cover.jpg").exists());
         fs::remove_dir_all(root).unwrap();
     }
 

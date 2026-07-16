@@ -9,7 +9,9 @@ use tauri::{AppHandle, Emitter, Manager, State};
 
 use crate::{
     commands::{
+        covers::download_album_artwork_at,
         library::collect_audio_files,
+        lyrics::{apply_album_lyrics_at, DEFAULT_BASE_URL},
         mutations::{write_track_queued, TrackPatch},
         tracks::read_album,
     },
@@ -18,8 +20,8 @@ use crate::{
     state::{
         config::AutoTagConfig,
         providers::{
-            album_names_match, DiscogsClient, MusicBrainzClient, ProviderAlbum,
-            ProviderReleaseSummary, ProviderState,
+            album_names_match, convert_chinese_text, DiscogsClient, MusicBrainzClient,
+            ProviderAlbum, ProviderReleaseSummary, ProviderState, RemoteArtworkClient,
         },
         sqlite::CacheState,
         tasks::{TaskRegistry, TaskStatus},
@@ -577,6 +579,48 @@ pub fn discogs_candidate(album: ProviderAlbum) -> AlbumCandidate {
         source: LookupSource::Discogs,
         ..AlbumCandidate::default()
     }
+}
+
+pub fn convert_candidate_chinese(
+    candidate: &AlbumCandidate,
+    target: Option<&str>,
+) -> AlbumCandidate {
+    let Some(target) = target.filter(|target| matches!(*target, "traditional" | "simplified"))
+    else {
+        return candidate.clone();
+    };
+    let convert = |value: &Option<String>| {
+        value
+            .as_deref()
+            .map(|value| convert_chinese_text(value, target))
+    };
+    let convert_many = |values: &[String]| {
+        values
+            .iter()
+            .map(|value| convert_chinese_text(value, target))
+            .collect()
+    };
+    let mut converted = candidate.clone();
+    converted.artist = convert(&candidate.artist);
+    converted.artists = convert_many(&candidate.artists);
+    converted.album = convert(&candidate.album);
+    converted.album_artist = convert(&candidate.album_artist);
+    converted.album_artists = convert_many(&candidate.album_artists);
+    converted.year = convert(&candidate.year);
+    converted.genre = convert(&candidate.genre);
+    converted.tracks = candidate
+        .tracks
+        .iter()
+        .map(|track| {
+            let mut track = track.clone();
+            track.title = convert(&track.title);
+            track.artist = convert(&track.artist);
+            track.artists = convert_many(&track.artists);
+            track.genre = convert(&track.genre);
+            track
+        })
+        .collect();
+    converted
 }
 
 pub fn combine_candidate_sources(
@@ -1167,7 +1211,26 @@ pub async fn resolve_and_apply_album(
     let candidate = fill_genre_if_missing(&candidate, &request, config, cancelled).await;
     check_cancelled(cancelled)?;
     progress(9, "Applying tags...");
+    let candidate = convert_candidate_chinese(&candidate, config.chinese_script.as_deref());
     let written = apply_candidate_tags(album_path, &candidate, queue).await?;
+    if config.remote_lookup_enabled != Some(false)
+        || config.discogs_enabled != Some(false)
+        || config.theaudiodb_api_key.is_some()
+    {
+        let remote = RemoteArtworkClient::new(
+            providers.http(),
+            config.discogs_token.clone(),
+            config.theaudiodb_api_key.clone(),
+        );
+        let _ = download_album_artwork_at(album_path, &remote, queue).await;
+    }
+    check_cancelled(cancelled)?;
+    let lyrics_url = if config.lyrics_download_enabled == Some(true) {
+        Some(config.lyrics_api_url.as_deref().unwrap_or(DEFAULT_BASE_URL))
+    } else {
+        None
+    };
+    let _ = apply_album_lyrics_at(album_path, lyrics_url, queue).await;
     Ok(AutoTagRunResult { candidate, written })
 }
 
@@ -1744,6 +1807,34 @@ mod tests {
                 .map(|release| release.id.as_str())
                 .collect::<Vec<_>>(),
             vec!["requested", "old"]
+        );
+    }
+
+    #[test]
+    fn chinese_write_conversion_updates_album_and_per_track_text_only() {
+        let candidate = AlbumCandidate {
+            artist: Some("音乐".into()),
+            artists: vec!["音乐".into()],
+            album: Some("无限".into()),
+            musicbrainz_album_id: Some("release-id".into()),
+            tracks: vec![TrackCandidate {
+                title: Some("后来".into()),
+                artist: Some("音乐".into()),
+                track_number: Some(1),
+                ..Default::default()
+            }],
+            ..Default::default()
+        };
+
+        let converted = convert_candidate_chinese(&candidate, Some("traditional"));
+
+        assert_eq!(converted.artist.as_deref(), Some("音樂"));
+        assert_eq!(converted.album.as_deref(), Some("無限"));
+        assert_eq!(converted.tracks[0].title.as_deref(), Some("後來"));
+        assert_eq!(converted.tracks[0].track_number, Some(1));
+        assert_eq!(
+            converted.musicbrainz_album_id.as_deref(),
+            Some("release-id")
         );
     }
 

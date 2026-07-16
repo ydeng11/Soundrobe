@@ -19,6 +19,15 @@ static OPENCC: OnceLock<OpenCC> = OnceLock::new();
 static DISCOGS_LIMITER: OnceLock<Arc<DiscogsRateLimiter>> = OnceLock::new();
 static MUSICBRAINZ_LAST_REQUEST: OnceLock<tokio::sync::Mutex<Option<Instant>>> = OnceLock::new();
 
+pub fn convert_chinese_text(value: &str, target: &str) -> String {
+    let converter = OPENCC.get_or_init(OpenCC::new);
+    match target {
+        "traditional" => converter.convert(value, "s2t", false),
+        "simplified" => converter.convert(value, "t2s", false),
+        _ => value.to_string(),
+    }
+}
+
 struct DiscogsRateLimiter {
     timestamps: tokio::sync::Mutex<Vec<Instant>>,
     maximum: AtomicUsize,

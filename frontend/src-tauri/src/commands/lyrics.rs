@@ -12,7 +12,7 @@ use std::path::Path;
 use std::time::Duration;
 use tauri::State;
 
-const DEFAULT_BASE_URL: &str = "https://lrclib.net/api";
+pub const DEFAULT_BASE_URL: &str = "https://lrclib.net/api";
 const USER_AGENT: &str = "auto-tagger/0.1.0 (https://github.com/auto-tagger)";
 const AUDIO_EXTENSIONS: &[&str] = &[
     "mp3", "flac", "m4a", "mp4", "wav", "ogg", "opus", "aiff", "ape",
@@ -62,6 +62,14 @@ pub async fn download_album_lyrics_at(
     base_url: &str,
     queue: &WriteQueue,
 ) -> usize {
+    apply_album_lyrics_at(album_path, Some(base_url), queue).await
+}
+
+pub async fn apply_album_lyrics_at(
+    album_path: &Path,
+    base_url: Option<&str>,
+    queue: &WriteQueue,
+) -> usize {
     let Ok(entries) = fs::read_dir(album_path) else {
         return 0;
     };
@@ -88,7 +96,7 @@ pub async fn download_album_lyrics_at(
     for path in audio_files {
         let mut lyrics = read_local_lyrics(&path);
         if lyrics.is_none() {
-            if let Ok(metadata) = read_track_metadata(&path) {
+            if let (Some(base_url), Ok(metadata)) = (base_url, read_track_metadata(&path)) {
                 if let (Some(title), Some(artist)) = (metadata.title, metadata.artist) {
                     lyrics = fetch_lyrics_at(
                         base_url,
@@ -287,10 +295,7 @@ mod tests {
         fs::write(mp3.with_extension("lrc"), "MP3 lyrics").unwrap();
         fs::write(wav.with_extension("txt"), "WAV lyrics").unwrap();
         let queue = WriteQueue::default();
-        assert_eq!(
-            download_album_lyrics_at(&root, "http://unused", &queue).await,
-            2
-        );
+        assert_eq!(apply_album_lyrics_at(&root, None, &queue).await, 2);
         assert_eq!(
             read_track_metadata(&mp3).unwrap().lyrics.as_deref(),
             Some("MP3 lyrics")
