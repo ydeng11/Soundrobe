@@ -93,6 +93,45 @@ impl CacheState {
         true
     }
 
+    pub fn lookup(&self, query_hash: &str) -> Option<Value> {
+        let guard = self.inner.lock().ok()?;
+        let connection = guard.as_ref()?;
+        let response: String = connection
+            .query_row(
+                "SELECT response_json FROM lookup_cache WHERE query_hash = ?1",
+                [query_hash],
+                |row| row.get(0),
+            )
+            .ok()?;
+        serde_json::from_str(&response).ok()
+    }
+
+    pub fn set_lookup(
+        &self,
+        query_hash: &str,
+        query: &Value,
+        response: &Value,
+        source: &str,
+    ) -> Result<(), String> {
+        let guard = self.inner.lock().map_err(|_| "cache state unavailable")?;
+        let connection = guard.as_ref().ok_or("cache state not initialized")?;
+        connection
+            .execute(
+                "INSERT OR REPLACE INTO lookup_cache
+                 (query_hash, query_json, response_json, created_at, source)
+                 VALUES (?1, ?2, ?3, ?4, ?5)",
+                params![
+                    query_hash,
+                    query.to_string(),
+                    response.to_string(),
+                    now(),
+                    source,
+                ],
+            )
+            .map(|_| ())
+            .map_err(|error| error.to_string())
+    }
+
     pub fn album_state(&self, album_path: &Path) -> Option<AlbumState> {
         let guard = self.inner.lock().ok()?;
         let connection = guard.as_ref()?;
@@ -341,6 +380,27 @@ mod tests {
             .unwrap();
         assert!(state.clear_album_state(&album));
         assert_eq!(state.album_state(&album), None);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn lookup_cache_round_trips_electron_json_and_replaces_by_query_hash() {
+        let root = root();
+        let state = CacheState::new(root.clone());
+        assert!(state.initialize(None));
+        let query = serde_json::json!({"artist_hint": "Artist", "tracks": []});
+        let first = serde_json::json!([{"source": "folder", "album": "First"}]);
+        state
+            .set_lookup("stable-hash", &query, &first, "folder")
+            .unwrap();
+        assert_eq!(state.lookup("stable-hash"), Some(first));
+
+        let replacement = serde_json::json!([{"source": "musicbrainz", "album": "Canonical"}]);
+        state
+            .set_lookup("stable-hash", &query, &replacement, "musicbrainz")
+            .unwrap();
+        assert_eq!(state.lookup("stable-hash"), Some(replacement));
+        assert_eq!(state.lookup("missing"), None);
         fs::remove_dir_all(root).unwrap();
     }
 }

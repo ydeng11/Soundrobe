@@ -16,6 +16,8 @@ pub mod shell;
 pub mod assistant;
 /// `audit:*` — `electron/handlers/audit.ts`.
 pub mod audit;
+/// `album:auto-tag` candidate normalization and orchestration.
+pub mod auto_tag;
 /// `config:get`/`config:set` (redacted) — `electron/handlers/auto-tag.ts`.
 pub mod configuration;
 /// `assistant:list-sessions` / `get-conversation` / `get-session` / `current-session`.
