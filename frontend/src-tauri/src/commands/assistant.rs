@@ -1,8 +1,11 @@
 //! Assistant runtime and tool-service commands.
 
 use crate::commands::{
-    mutations::{write_track_queued, TrackPatch},
-    tracks::read_track_metadata,
+    mutations::{
+        rename_track_queued, write_extra_tags_queued, write_track_queued, ExtraTagUpdate,
+        TrackPatch,
+    },
+    tracks::{read_extra_tags, read_track_metadata},
 };
 use crate::error::ApiError;
 use crate::state::assistant::{
@@ -140,20 +143,24 @@ async fn apply_standard_actions(
     batch: &AssistantActionBatch,
     batch_id: &str,
     metadata_only: bool,
+    mark_status: bool,
 ) -> Value {
-    let actions = batch.actions.iter().filter(|action| {
-        action.track_path.is_some()
-            && action.field.is_some()
-            && (!metadata_only || action.tag_kind.as_deref() == Some("standard"))
-    });
     let mut updates: Vec<(String, TrackPatch)> = Vec::new();
-    for action in actions {
-        let path = action.track_path.as_ref().expect("filtered").clone();
-        let field = action.field.as_deref().expect("filtered");
+    for action in &batch.actions {
+        let (Some(path), Some(field)) = (action.track_path.as_ref(), action.field.as_deref())
+        else {
+            continue;
+        };
+        if metadata_only && action.tag_kind.as_deref() != Some("standard") {
+            continue;
+        }
+        let path = path.clone();
         let patch = match action_patch(field, action.new_value.as_deref()) {
             Ok(patch) => patch,
             Err(error) => {
-                runtime.mark_batch_failed(batch_id, &error.to_string());
+                if mark_status {
+                    runtime.mark_batch_failed(batch_id, &error.to_string());
+                }
                 return serde_json::json!({ "success": false, "error": error.to_string() });
             }
         };
@@ -166,9 +173,13 @@ async fn apply_standard_actions(
     let mut undo = Vec::new();
     for (path, _) in &updates {
         match read_track_metadata(Path::new(path)) {
-            Ok(track) => undo.push(serde_json::json!({ "path": path, "metadata": track })),
+            Ok(track) => {
+                undo.push(serde_json::json!({ "path": path, "metadata": undo_metadata(&track) }))
+            }
             Err(error) => {
-                runtime.mark_batch_failed(batch_id, &error.to_string());
+                if mark_status {
+                    runtime.mark_batch_failed(batch_id, &error.to_string());
+                }
                 return serde_json::json!({ "success": false, "error": error.to_string(), "undoSnapshots": undo });
             }
         }
@@ -176,7 +187,10 @@ async fn apply_standard_actions(
     let mut results = Vec::new();
     for (path, patch) in updates {
         match write_track_queued(queue, PathBuf::from(&path), patch).await {
-            Ok(()) => results.push(serde_json::json!({ "trackPath": path, "success": true, "updatedTrack": read_track_metadata(Path::new(&path)).ok() })),
+            Ok(()) => match read_track_metadata(Path::new(&path)) {
+                Ok(track) => results.push(serde_json::json!({ "trackPath": path, "success": true, "updatedTrack": track })),
+                Err(error) => results.push(serde_json::json!({ "trackPath": path, "success": false, "error": error.to_string() })),
+            },
             Err(error) => results.push(serde_json::json!({ "trackPath": path, "success": false, "error": error.to_string() })),
         }
     }
@@ -186,11 +200,160 @@ async fn apply_standard_actions(
         .count();
     if failed > 0 {
         let error = format!("Failed to update {failed} track(s)");
-        runtime.mark_batch_failed(batch_id, &error);
+        if mark_status {
+            runtime.mark_batch_failed(batch_id, &error);
+        }
         serde_json::json!({ "success": false, "error": error, "results": results.into_iter().filter(|result| result["success"] == false).collect::<Vec<_>>(), "undoSnapshots": undo })
     } else {
-        runtime.mark_batch_applied(batch_id);
+        if mark_status {
+            runtime.mark_batch_applied(batch_id);
+        }
         serde_json::json!({ "success": true, "results": results, "undoSnapshots": undo })
+    }
+}
+
+fn undo_metadata(track: &crate::commands::tracks::TrackData) -> Value {
+    serde_json::json!({
+        "title": track.title,
+        "artist": track.artist,
+        "artists": track.artists,
+        "album": track.album,
+        "albumArtist": track.album_artist,
+        "albumArtists": track.album_artists,
+        "year": track.year,
+        "genre": track.genre,
+        "composer": track.composer,
+        "comment": track.comment,
+        "description": track.description,
+        "trackNumber": track.track_number,
+        "trackTotal": track.track_total,
+        "discNumber": track.disc_number,
+        "discTotal": track.disc_total,
+        "lyrics": track.lyrics,
+        "compilation": track.compilation,
+        "musicbrainzTrackId": track.musicbrainz_track_id,
+        "musicbrainzAlbumId": track.musicbrainz_album_id,
+        "musicbrainzArtistId": track.musicbrainz_artist_id,
+    })
+}
+
+async fn apply_extra_actions(
+    runtime: &AssistantRuntimeState,
+    queue: &WriteQueue,
+    batch: &AssistantActionBatch,
+    batch_id: &str,
+    mark_status: bool,
+) -> Value {
+    let mut paths = Vec::<String>::new();
+    for action in &batch.actions {
+        if action.tag_kind.as_deref() == Some("extra")
+            && action.track_path.is_some()
+            && action.field.is_some()
+        {
+            let Some(path) = action.track_path.as_ref() else {
+                continue;
+            };
+            if !paths.contains(path) {
+                paths.push(path.clone());
+            }
+        }
+    }
+    let mut undo = Vec::new();
+    let mut results = Vec::new();
+    for path in paths {
+        let current = read_extra_tags(Path::new(&path));
+        undo.push(serde_json::json!({ "path": path, "extraTags": current }));
+        let mut final_tags = current
+            .iter()
+            .map(|tag| ExtraTagUpdate {
+                key: tag.key.clone(),
+                value: tag.value.clone(),
+            })
+            .collect::<Vec<_>>();
+        for action in batch.actions.iter().filter(|action| {
+            action.tag_kind.as_deref() == Some("extra")
+                && action.track_path.as_deref() == Some(path.as_str())
+                && action.field.is_some()
+        }) {
+            let Some(key) = action.field.as_deref() else {
+                continue;
+            };
+            let key = key.trim();
+            final_tags.retain(|tag| !tag.key.trim().eq_ignore_ascii_case(key));
+            if action.operation.as_deref() != Some("remove") {
+                if let Some(value) = action.new_value.as_deref() {
+                    final_tags.push(ExtraTagUpdate {
+                        key: key.into(),
+                        value: value.trim().into(),
+                    });
+                }
+            }
+        }
+        match write_extra_tags_queued(queue, PathBuf::from(&path), final_tags).await {
+            Ok(()) => results.push(serde_json::json!({ "trackPath": path, "success": true })),
+            Err(error) => results.push(serde_json::json!({ "trackPath": path, "success": false, "error": error.to_string() })),
+        }
+    }
+    let failed = results
+        .iter()
+        .filter(|result| result["success"] == false)
+        .count();
+    if failed > 0 {
+        let error = format!("Failed to update {failed} track(s)");
+        if mark_status {
+            runtime.mark_batch_failed(batch_id, &error);
+        }
+        serde_json::json!({ "success": false, "error": error, "results": results.into_iter().filter(|result| result["success"] == false).collect::<Vec<_>>(), "extraUndoSnapshots": undo })
+    } else {
+        if mark_status {
+            runtime.mark_batch_applied(batch_id);
+        }
+        serde_json::json!({ "success": true, "results": results, "extraUndoSnapshots": undo })
+    }
+}
+
+async fn apply_folder_moves(
+    runtime: &AssistantRuntimeState,
+    queue: &WriteQueue,
+    batch: &AssistantActionBatch,
+    batch_id: &str,
+) -> Value {
+    let mut results = Vec::new();
+    for action in &batch.actions {
+        let (Some(source), Some(destination)) = (
+            action.source_path.as_ref(),
+            action.destination_path.as_ref(),
+        ) else {
+            continue;
+        };
+        if action.skip_reason.is_some() {
+            continue;
+        }
+        let source = source.clone();
+        let destination = destination.clone();
+        match rename_track_queued(
+            queue,
+            PathBuf::from(&source),
+            PathBuf::from(&destination),
+        )
+        .await
+        {
+            Ok(_) => results.push(serde_json::json!({ "sourcePath": source, "destinationPath": destination, "success": true })),
+            Err(error) => results.push(serde_json::json!({ "sourcePath": source, "destinationPath": destination, "success": false, "error": error.to_string() })),
+        }
+    }
+    let failed = results
+        .iter()
+        .filter(|result| result["success"] == false)
+        .count();
+    if failed > 0 {
+        let error = format!("Failed to move {failed} file(s)");
+        runtime.mark_batch_failed(batch_id, &error);
+        serde_json::json!({ "success": false, "error": error, "results": results.into_iter().filter(|result| result["success"] == false).collect::<Vec<_>>() })
+    } else {
+        runtime.mark_batch_applied(batch_id);
+        let manifest = results.iter().map(|result| serde_json::json!({ "from": result["sourcePath"], "to": result["destinationPath"] })).collect::<Vec<_>>();
+        serde_json::json!({ "success": true, "results": results, "manifest": manifest })
     }
 }
 
@@ -241,20 +404,36 @@ async fn apply_action_batch(
         return serde_json::json!({ "success": false, "error": format!("Batch already {}", batch.status) });
     }
     match batch.kind.as_str() {
-        "tag-update" => apply_standard_actions(runtime, queue, &batch, batch_id, false).await,
+        "tag-update" => apply_standard_actions(runtime, queue, &batch, batch_id, false, true).await,
+        "extra-tag-update" => apply_extra_actions(runtime, queue, &batch, batch_id, true).await,
         "metadata-update" => {
-            let has_extra = batch
-                .actions
-                .iter()
-                .any(|action| action.tag_kind.as_deref() == Some("extra"));
-            if has_extra {
-                let error = "Metadata batch includes extra tags; combined apply is not implemented";
-                runtime.mark_batch_failed(batch_id, error);
-                serde_json::json!({ "success": false, "error": error })
+            let standard =
+                apply_standard_actions(runtime, queue, &batch, batch_id, true, false).await;
+            let extra = apply_extra_actions(runtime, queue, &batch, batch_id, false).await;
+            let standard_failed = standard["success"] == false;
+            let extra_failed = extra["success"] == false;
+            if standard_failed || extra_failed {
+                let failed_standard = if standard_failed {
+                    standard["results"].clone()
+                } else {
+                    serde_json::json!([])
+                };
+                let failed_extra = if extra_failed {
+                    extra["results"].clone()
+                } else {
+                    serde_json::json!([])
+                };
+                let failed = failed_standard.as_array().map_or(0, Vec::len)
+                    + failed_extra.as_array().map_or(0, Vec::len);
+                let error = format!("Failed to update {failed} track(s)");
+                runtime.mark_batch_failed(batch_id, &error);
+                serde_json::json!({ "success": false, "error": error, "results": { "standard": failed_standard, "extra": failed_extra }, "undoSnapshots": standard["undoSnapshots"], "extraUndoSnapshots": extra["extraUndoSnapshots"] })
             } else {
-                apply_standard_actions(runtime, queue, &batch, batch_id, true).await
+                runtime.mark_batch_applied(batch_id);
+                serde_json::json!({ "success": true, "results": { "standard": standard["results"], "extra": extra["results"] }, "undoSnapshots": standard["undoSnapshots"], "extraUndoSnapshots": extra["extraUndoSnapshots"] })
             }
         }
+        "folder-move" => apply_folder_moves(runtime, queue, &batch, batch_id).await,
         "auto-tag-run" | "audit-run" => {
             runtime.mark_batch_applied(batch_id);
             let task = if batch.kind == "auto-tag-run" {
@@ -374,6 +553,167 @@ mod apply_contract_tests {
             Some("After")
         );
         assert_eq!(runtime.get_batch("batch-1").unwrap().status, "applied");
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn approved_metadata_batch_applies_standard_and_extra_with_both_undo_shapes() {
+        let root = temp_dir();
+        let path = root.join("track.mp3");
+        fs::copy(media_fixture(), &path).unwrap();
+        let queue = WriteQueue::default();
+        write_track_dispatch(
+            &path,
+            &TrackPatch {
+                title: Patch::Value("Before".into()),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        crate::commands::mutations::write_extra_tags_queued(
+            &queue,
+            path.clone(),
+            vec![crate::commands::mutations::ExtraTagUpdate {
+                key: "MOOD".into(),
+                value: "Calm".into(),
+            }],
+        )
+        .await
+        .unwrap();
+        let runtime = AssistantRuntimeState::default();
+        assert!(runtime.initialize());
+        assert!(runtime.add_batch(AssistantActionBatch {
+            id: "batch-mixed".into(),
+            created_at: "now".into(),
+            session_id: "session".into(),
+            kind: "metadata-update".into(),
+            title: "Mixed".into(),
+            summary: "two".into(),
+            risk_level: "low".into(),
+            reversible: true,
+            status: "pending".into(),
+            actions: vec![
+                AssistantAction {
+                    tag_kind: Some("standard".into()),
+                    track_path: Some(path.to_string_lossy().into_owned()),
+                    field: Some("title".into()),
+                    new_value: Some("After".into()),
+                    ..Default::default()
+                },
+                AssistantAction {
+                    tag_kind: Some("extra".into()),
+                    track_path: Some(path.to_string_lossy().into_owned()),
+                    field: Some("MOOD".into()),
+                    new_value: Some("Energetic".into()),
+                    operation: Some("upsert".into()),
+                    ..Default::default()
+                },
+            ],
+        }));
+
+        let result = apply_action_batch(&runtime, &queue, "batch-mixed").await;
+
+        assert_eq!(result["success"], true);
+        assert_eq!(result["undoSnapshots"][0]["metadata"]["title"], "Before");
+        assert_eq!(
+            result["extraUndoSnapshots"][0]["extraTags"][0]["value"],
+            "Calm"
+        );
+        assert_eq!(
+            read_track_metadata(&path).unwrap().title.as_deref(),
+            Some("After")
+        );
+        assert!(crate::commands::tracks::read_extra_tags(&path)
+            .iter()
+            .any(|tag| tag.key == "MOOD" && tag.value == "Energetic"));
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn approved_folder_move_creates_parent_and_returns_manifest() {
+        let root = temp_dir();
+        let source = root.join("source.mp3");
+        let destination = root.join("nested").join("destination.mp3");
+        fs::copy(media_fixture(), &source).unwrap();
+        let runtime = AssistantRuntimeState::default();
+        assert!(runtime.initialize());
+        assert!(runtime.add_batch(AssistantActionBatch {
+            id: "batch-move".into(),
+            created_at: "now".into(),
+            session_id: "session".into(),
+            kind: "folder-move".into(),
+            title: "Move".into(),
+            summary: "one".into(),
+            risk_level: "medium".into(),
+            reversible: true,
+            status: "pending".into(),
+            actions: vec![AssistantAction {
+                source_path: Some(source.to_string_lossy().into_owned()),
+                destination_path: Some(destination.to_string_lossy().into_owned()),
+                ..Default::default()
+            }],
+        }));
+
+        let result = apply_action_batch(&runtime, &WriteQueue::default(), "batch-move").await;
+
+        assert_eq!(result["success"], true);
+        assert_eq!(
+            result["manifest"][0]["from"],
+            source.to_string_lossy().as_ref()
+        );
+        assert!(destination.exists());
+        assert!(!source.exists());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn mixed_batch_reports_only_failed_side_and_retains_partial_undo() {
+        let root = temp_dir();
+        let good = root.join("good.mp3");
+        let unsupported = root.join("bad.aiff");
+        fs::copy(media_fixture(), &good).unwrap();
+        fs::write(&unsupported, b"FORM").unwrap();
+        let runtime = AssistantRuntimeState::default();
+        assert!(runtime.initialize());
+        assert!(runtime.add_batch(AssistantActionBatch {
+            id: "batch-partial".into(),
+            created_at: "now".into(),
+            session_id: "session".into(),
+            kind: "metadata-update".into(),
+            title: "Partial".into(),
+            summary: "two".into(),
+            risk_level: "medium".into(),
+            reversible: true,
+            status: "pending".into(),
+            actions: vec![
+                AssistantAction {
+                    tag_kind: Some("standard".into()),
+                    track_path: Some(good.to_string_lossy().into_owned()),
+                    field: Some("title".into()),
+                    new_value: Some("Updated".into()),
+                    ..Default::default()
+                },
+                AssistantAction {
+                    tag_kind: Some("extra".into()),
+                    track_path: Some(unsupported.to_string_lossy().into_owned()),
+                    field: Some("MOOD".into()),
+                    new_value: Some("Calm".into()),
+                    ..Default::default()
+                },
+            ],
+        }));
+
+        let result = apply_action_batch(&runtime, &WriteQueue::default(), "batch-partial").await;
+
+        assert_eq!(result["success"], false);
+        assert_eq!(result["error"], "Failed to update 1 track(s)");
+        assert_eq!(result["results"]["standard"], serde_json::json!([]));
+        assert_eq!(result["results"]["extra"].as_array().map(Vec::len), Some(1));
+        assert_eq!(
+            read_track_metadata(&good).unwrap().title.as_deref(),
+            Some("Updated")
+        );
+        assert_eq!(runtime.get_batch("batch-partial").unwrap().status, "failed");
         fs::remove_dir_all(root).unwrap();
     }
 
