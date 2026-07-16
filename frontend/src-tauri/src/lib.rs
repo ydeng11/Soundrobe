@@ -31,6 +31,7 @@ use std::time::Duration;
 
 use tauri::{Manager, PhysicalPosition, PhysicalSize, RunEvent, WindowEvent};
 use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
+use tracing_subscriber::fmt::writer::MakeWriterExt;
 use tracing_subscriber::EnvFilter;
 
 use crate::commands::shell::ContextMenuState;
@@ -46,16 +47,23 @@ use crate::state::tasks::TaskRegistry;
 use crate::state::window_state::{DisplayWorkArea, PositionAction, WindowState};
 use crate::state::write_queue::WriteQueue;
 
-/// Initialise structured logging. Debug forwarding to the renderer's
-/// `debug:log` stream is wired in the debug slice; until then logs land in
-/// `~/.auto-tagger/auto-tagger.log` via the ` AUTOTAGGER_LOG` env filter.
+/// Initialise structured logging to stderr and append the same records to the
+/// existing `~/.auto-tagger/auto-tagger.log`. `AUTOTAGGER_LOG` controls the
+/// filter without changing the persisted path.
 pub fn init_logging() {
     let filter =
         EnvFilter::try_from_env("AUTOTAGGER_LOG").unwrap_or_else(|_| EnvFilter::new("info"));
-    let _ = tracing_subscriber::fmt()
+    let builder = tracing_subscriber::fmt()
         .with_env_filter(filter)
         .with_target(false)
-        .try_init();
+        .with_ansi(false);
+    if let Some((_, writer)) =
+        dirs::home_dir().and_then(|home| crate::infra::logging::general_log_writer(&home).ok())
+    {
+        let _ = builder.with_writer(writer.and(std::io::stderr)).try_init();
+    } else {
+        let _ = builder.with_writer(std::io::stderr).try_init();
+    }
 }
 
 /// Build and launch the Tauri application. Stays the single entry point for

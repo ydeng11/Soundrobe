@@ -3,14 +3,67 @@
 use serde::Serialize;
 use serde_json::Value;
 use std::collections::HashSet;
-use std::fs::{self, OpenOptions};
-use std::io::Write;
+use std::fs::{self, File, OpenOptions};
+use std::io::{self, Write};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex, MutexGuard};
 use tauri::{AppHandle, Emitter};
 use time::format_description::well_known::Rfc3339;
 use time::OffsetDateTime;
+use tracing_subscriber::fmt::MakeWriter;
+
+#[derive(Clone)]
+pub(crate) struct GeneralLogWriter {
+    file: Arc<Mutex<File>>,
+}
+
+pub(crate) struct GeneralLogHandle {
+    file: Arc<Mutex<File>>,
+}
+
+impl GeneralLogHandle {
+    fn lock(&self) -> io::Result<MutexGuard<'_, File>> {
+        self.file
+            .lock()
+            .map_err(|_| io::Error::other("general log mutex poisoned"))
+    }
+}
+
+impl Write for GeneralLogHandle {
+    fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
+        self.lock()?.write(bytes)
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        self.lock()?.flush()
+    }
+}
+
+impl<'a> MakeWriter<'a> for GeneralLogWriter {
+    type Writer = GeneralLogHandle;
+
+    fn make_writer(&'a self) -> Self::Writer {
+        GeneralLogHandle {
+            file: Arc::clone(&self.file),
+        }
+    }
+}
+
+pub(crate) fn general_log_writer(
+    home: &std::path::Path,
+) -> io::Result<(PathBuf, GeneralLogWriter)> {
+    let directory = home.join(".auto-tagger");
+    fs::create_dir_all(&directory)?;
+    let path = directory.join("auto-tagger.log");
+    let file = OpenOptions::new().create(true).append(true).open(&path)?;
+    Ok((
+        path,
+        GeneralLogWriter {
+            file: Arc::new(Mutex::new(file)),
+        },
+    ))
+}
 
 #[derive(Debug, Clone, Serialize)]
 pub struct LogEntry {
@@ -168,6 +221,27 @@ mod tests {
         let state = DebugState::new(home.clone(), true);
         assert!(state.enabled());
         assert!(state.log_file().unwrap().exists());
+        fs::remove_dir_all(home).unwrap();
+    }
+
+    #[test]
+    fn general_log_writer_appends_in_place_without_truncating() {
+        let home = home();
+        let directory = home.join(".auto-tagger");
+        fs::create_dir_all(&directory).unwrap();
+        let path = directory.join("auto-tagger.log");
+        fs::write(&path, b"previous session\n").unwrap();
+
+        let (actual_path, writer) = general_log_writer(&home).unwrap();
+        let mut handle = writer.make_writer();
+        handle.write_all(b"current session\n").unwrap();
+        handle.flush().unwrap();
+
+        assert_eq!(actual_path, path);
+        assert_eq!(
+            fs::read_to_string(path).unwrap(),
+            "previous session\ncurrent session\n"
+        );
         fs::remove_dir_all(home).unwrap();
     }
 }

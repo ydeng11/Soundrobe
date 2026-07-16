@@ -178,7 +178,7 @@ Unsubscribe contract: each `on*` returns a disposer `() => void` that calls
 | Cache DB | `~/.auto-tagger/cache.db` | auto-tag.ts (configurable `cachePath`) | SQLite — `lookup_cache`, `album_state`, `conversation_log` (names/ns/hashes unchanged) |
 | Dataset index | `~/.auto-tagger/dataset-index.sqlite` | dataset.ts `DEFAULT_DB_PATH` | SQLite |
 | Debug log | `~/.auto-tagger/auto-tag-debug-YYYY-MM-DD.log` (truncated per session) | debug.ts | JSON lines |
-| General log | `~/.auto-tagger/auto-tagger.log` | — | |
+| General log | `~/.auto-tagger/auto-tagger.log` | Rust tracing subscriber | append-only in-place writer mirrored to stderr; `AUTOTAGGER_LOG` controls filtering |
 | Window state | `~/.auto-tagger/window-state.json` | main.ts | JSON |
 
 ## E. Packaging targets (electron-builder.yml → Tauri bundles)
