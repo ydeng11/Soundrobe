@@ -69,6 +69,10 @@ pub struct AssistantRuntimeState {
 }
 
 impl AssistantRuntimeState {
+    pub fn is_active(&self) -> bool {
+        self.inner.lock().is_ok_and(|state| state.active)
+    }
+
     pub fn initialize(&self) -> bool {
         let Ok(mut state) = self.inner.lock() else {
             return false;

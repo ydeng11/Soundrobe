@@ -264,7 +264,7 @@ async fn delete_files_queued(queue: &WriteQueue, file_paths: Vec<String>) -> Vec
     }
 }
 
-async fn rename_track_queued(
+pub(crate) async fn rename_track_queued(
     queue: &WriteQueue,
     old_path: PathBuf,
     new_path: PathBuf,
@@ -351,7 +351,7 @@ pub(crate) fn write_track_dispatch(
     }
 }
 
-async fn write_track_queued(
+pub(crate) async fn write_track_queued(
     queue: &WriteQueue,
     path: PathBuf,
     patch: TrackPatch,
@@ -382,7 +382,7 @@ async fn batch_write_queued(queue: &WriteQueue, updates: Vec<TrackUpdate>) -> Re
         .await
 }
 
-async fn write_extra_tags_queued(
+pub(crate) async fn write_extra_tags_queued(
     queue: &WriteQueue,
     path: PathBuf,
     tags: Vec<ExtraTagUpdate>,
