@@ -312,6 +312,7 @@ pub fn musicbrainz_candidate(album: ProviderAlbum) -> AlbumCandidate {
         album_artist: artist,
         album_artists: album.artists,
         year: album.year,
+        genre: album.genre,
         musicbrainz_album_id: Some(album.id),
         musicbrainz_artist_id: album.artist_id,
         tracks: album
@@ -323,6 +324,7 @@ pub fn musicbrainz_candidate(album: ProviderAlbum) -> AlbumCandidate {
                 artist: track.artist,
                 artists: track.artists,
                 track_number: track.track_number,
+                track_total: track.track_total,
                 disc_number: track.disc_number,
                 musicbrainz_track_id: track.recording_id,
                 length: track.length,
@@ -330,6 +332,37 @@ pub fn musicbrainz_candidate(album: ProviderAlbum) -> AlbumCandidate {
             })
             .collect(),
         source: LookupSource::Musicbrainz,
+        ..AlbumCandidate::default()
+    }
+}
+
+pub fn discogs_candidate(album: ProviderAlbum) -> AlbumCandidate {
+    let artist = album.artist.clone();
+    AlbumCandidate {
+        artist: artist.clone(),
+        artists: album.artists.clone(),
+        album: Some(album.title),
+        album_artist: artist,
+        album_artists: album.artists,
+        year: album.year,
+        genre: album.genre,
+        discogs_release_id: Some(album.id),
+        tracks: album
+            .tracks
+            .into_iter()
+            .map(|track| TrackCandidate {
+                title: track.title,
+                match_titles: track.match_titles,
+                artist: track.artist,
+                artists: track.artists,
+                track_number: track.track_number,
+                track_total: track.track_total,
+                disc_number: track.disc_number,
+                length: track.length,
+                ..TrackCandidate::default()
+            })
+            .collect(),
+        source: LookupSource::Discogs,
         ..AlbumCandidate::default()
     }
 }
@@ -460,12 +493,14 @@ mod tests {
             artists: vec!["Artist".into()],
             artist_id: Some("artist-id".into()),
             year: Some("2004".into()),
+            genre: None,
             tracks: vec![crate::state::providers::ProviderTrack {
                 title: Some("Track".into()),
                 match_titles: vec!["Recording title".into()],
                 artist: Some("Artist feat. Guest".into()),
                 artists: vec!["Artist".into(), "Guest".into()],
                 track_number: Some(1),
+                track_total: None,
                 disc_number: Some(2),
                 recording_id: Some("recording-id".into()),
                 length: Some(123000.0),
@@ -490,5 +525,35 @@ mod tests {
             candidate.tracks[0].artist.as_deref(),
             Some("Artist feat. Guest")
         );
+    }
+
+    #[test]
+    fn discogs_provider_album_maps_release_genre_and_track_totals() {
+        let candidate = discogs_candidate(ProviderAlbum {
+            id: "42".into(),
+            title: "Album".into(),
+            artist: Some("Artist".into()),
+            artists: vec!["Artist".into()],
+            artist_id: None,
+            year: Some("2004".into()),
+            genre: Some("Rock, Indie Rock".into()),
+            tracks: vec![crate::state::providers::ProviderTrack {
+                title: Some("Track".into()),
+                match_titles: Vec::new(),
+                artist: Some("Artist".into()),
+                artists: vec!["Artist".into()],
+                track_number: Some(1),
+                track_total: Some(1),
+                disc_number: None,
+                recording_id: None,
+                length: Some(202.0),
+            }],
+        });
+
+        assert_eq!(candidate.source, LookupSource::Discogs);
+        assert_eq!(candidate.discogs_release_id.as_deref(), Some("42"));
+        assert_eq!(candidate.genre.as_deref(), Some("Rock, Indie Rock"));
+        assert_eq!(candidate.tracks[0].track_total, Some(1));
+        assert_eq!(candidate.tracks[0].length, Some(202.0));
     }
 }

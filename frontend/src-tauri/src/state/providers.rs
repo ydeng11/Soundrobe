@@ -4,6 +4,7 @@
 //! so no state lock is held while a request is in flight.
 
 use opencc_fmmseg::OpenCC;
+use regex::Regex;
 use reqwest::Client;
 use serde::Deserialize;
 use std::collections::BTreeSet;
@@ -88,6 +89,7 @@ pub struct ProviderTrack {
     pub artist: Option<String>,
     pub artists: Vec<String>,
     pub track_number: Option<u32>,
+    pub track_total: Option<u32>,
     pub disc_number: Option<u32>,
     pub recording_id: Option<String>,
     /// Raw provider duration, preserving Electron's provider-specific units.
@@ -102,6 +104,7 @@ pub struct ProviderAlbum {
     pub artists: Vec<String>,
     pub artist_id: Option<String>,
     pub year: Option<String>,
+    pub genre: Option<String>,
     pub tracks: Vec<ProviderTrack>,
 }
 
@@ -206,6 +209,7 @@ fn parse_musicbrainz_release(
                 artists: track_artists,
                 track_number: positive_integer(track.get("number"))
                     .or_else(|| positive_integer(track.get("position"))),
+                track_total: None,
                 disc_number,
                 recording_id: recording
                     .and_then(|recording| recording.get("id"))
@@ -233,6 +237,7 @@ fn parse_musicbrainz_release(
             .and_then(serde_json::Value::as_str)
             .filter(|date| date.len() >= 4)
             .map(|date| date[..4].to_string()),
+        genre: None,
         tracks,
     })
 }
@@ -284,6 +289,219 @@ fn positive_integer(value: Option<&serde_json::Value>) -> Option<u32> {
             .filter(|number| *number > 0),
         _ => None,
     }
+}
+
+fn parse_discogs_release(value: &serde_json::Value, fallback_id: &str) -> Option<ProviderAlbum> {
+    let title = value.get("title")?.as_str()?.to_string();
+    let artists = discogs_artists(value.get("artists"), None);
+    let artist = artist_display_name(&artists, None);
+    let raw_tracks = value
+        .get("tracklist")
+        .and_then(serde_json::Value::as_array)
+        .map(Vec::as_slice)
+        .unwrap_or_default();
+    let track_total = u32::try_from(
+        raw_tracks
+            .iter()
+            .filter(|track| {
+                track
+                    .get("position")
+                    .and_then(serde_json::Value::as_str)
+                    .is_some_and(|position| !position.trim().is_empty())
+            })
+            .count(),
+    )
+    .ok();
+    let mut tracks = Vec::new();
+    for (index, track) in raw_tracks
+        .iter()
+        .filter(|track| {
+            track
+                .get("position")
+                .and_then(serde_json::Value::as_str)
+                .is_some_and(|position| !position.trim().is_empty())
+        })
+        .enumerate()
+    {
+        let position = track
+            .get("position")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or_default();
+        let (disc_number, parsed_track_number) = parse_discogs_position(position);
+        let track_artists = discogs_artists(track.get("artists"), artist.as_deref());
+        tracks.push(ProviderTrack {
+            title: track
+                .get("title")
+                .and_then(serde_json::Value::as_str)
+                .map(str::to_string),
+            match_titles: Vec::new(),
+            artist: artist_display_name(&track_artists, artist.as_deref()),
+            artists: if track_artists.is_empty() {
+                artists.clone()
+            } else {
+                track_artists
+            },
+            track_number: parsed_track_number.or_else(|| u32::try_from(index + 1).ok()),
+            track_total,
+            disc_number,
+            recording_id: None,
+            length: track
+                .get("duration")
+                .and_then(serde_json::Value::as_str)
+                .and_then(parse_discogs_duration),
+        });
+    }
+
+    Some(ProviderAlbum {
+        id: value
+            .get("id")
+            .and_then(|id| {
+                id.as_u64()
+                    .map(|id| id.to_string())
+                    .or_else(|| id.as_str().map(str::to_string))
+            })
+            .unwrap_or_else(|| fallback_id.to_string()),
+        title,
+        artist,
+        artists,
+        artist_id: None,
+        year: value.get("year").and_then(|year| {
+            year.as_u64()
+                .map(|year| year.to_string())
+                .or_else(|| year.as_str().map(str::to_string))
+        }),
+        genre: merge_genre_style(value.get("genres"), value.get("styles")),
+        tracks,
+    })
+}
+
+fn discogs_artists(value: Option<&serde_json::Value>, fallback: Option<&str>) -> Vec<String> {
+    let raw_names = value
+        .and_then(serde_json::Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(|artist| artist.get("name").and_then(serde_json::Value::as_str))
+        .map(clean_discogs_artist)
+        .filter(|name| !name.is_empty())
+        .collect::<Vec<_>>();
+    let names = if raw_names.is_empty() {
+        fallback.into_iter().map(str::to_string).collect()
+    } else {
+        raw_names
+    };
+    split_artist_names(&names)
+}
+
+fn clean_discogs_artist(name: &str) -> String {
+    Regex::new(r"\s+\(\d+\)$")
+        .expect("valid Discogs artist suffix regex")
+        .replace(name, "")
+        .trim()
+        .to_string()
+}
+
+fn split_artist_names(names: &[String]) -> Vec<String> {
+    let separator = Regex::new(r"(?i)\s+(?:feat\.?|ft\.?|featuring)\s+|\s*[&/;,＋+、，；·‧]\s*")
+        .expect("valid multi-artist regex");
+    let mut output = Vec::new();
+    for name in names {
+        let name = replace_cjk_dots(name);
+        for part in separator.split(&name) {
+            let part = part.trim();
+            if !part.is_empty()
+                && !output
+                    .iter()
+                    .any(|existing: &String| existing.eq_ignore_ascii_case(part))
+            {
+                output.push(part.to_string());
+            }
+        }
+    }
+    output
+}
+
+fn replace_cjk_dots(value: &str) -> String {
+    let characters = value.chars().collect::<Vec<_>>();
+    characters
+        .iter()
+        .enumerate()
+        .map(|(index, character)| {
+            if *character == '.'
+                && index > 0
+                && index + 1 < characters.len()
+                && is_cjk(characters[index - 1])
+                && is_cjk(characters[index + 1])
+            {
+                ';'
+            } else {
+                *character
+            }
+        })
+        .collect()
+}
+
+fn artist_display_name(artists: &[String], fallback: Option<&str>) -> Option<String> {
+    if artists.is_empty() {
+        return fallback.map(str::to_string);
+    }
+    Some(artists.join(" & "))
+}
+
+fn parse_discogs_position(position: &str) -> (Option<u32>, Option<u32>) {
+    let compact = position.trim();
+    let cd = Regex::new(r"(?i)^CD\s*(\d+)[-. ]*(\d+)$").expect("valid Discogs CD position regex");
+    if let Some(captures) = cd.captures(compact) {
+        return (
+            captures
+                .get(1)
+                .and_then(|value| value.as_str().parse().ok()),
+            captures
+                .get(2)
+                .and_then(|value| value.as_str().parse().ok()),
+        );
+    }
+    let trailing = Regex::new(r"(\d+)$").expect("valid Discogs position regex");
+    (
+        None,
+        trailing
+            .captures(compact)
+            .and_then(|captures| captures.get(1))
+            .and_then(|value| value.as_str().parse().ok()),
+    )
+}
+
+fn parse_discogs_duration(duration: &str) -> Option<f64> {
+    let parts = duration
+        .split(':')
+        .map(str::parse::<f64>)
+        .collect::<Result<Vec<_>, _>>()
+        .ok()?;
+    match parts.as_slice() {
+        [minutes, seconds] => Some(minutes * 60.0 + seconds),
+        [hours, minutes, seconds] => Some(hours * 3600.0 + minutes * 60.0 + seconds),
+        _ => None,
+    }
+}
+
+fn merge_genre_style(
+    genres: Option<&serde_json::Value>,
+    styles: Option<&serde_json::Value>,
+) -> Option<String> {
+    let mut values = Vec::new();
+    for value in [genres, styles]
+        .into_iter()
+        .flatten()
+        .filter_map(serde_json::Value::as_array)
+        .flatten()
+        .filter_map(serde_json::Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    {
+        if !values.contains(&value) {
+            values.push(value);
+        }
+    }
+    (!values.is_empty()).then(|| values.join(", "))
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -399,6 +617,11 @@ impl DiscogsClient {
         let artist: ArtistDetail = self.get_json(&format!("artists/{artist_id}")).await?;
         let image_url = preferred_image_url(&artist.images)?;
         self.fetch_image("discogs", &image_url).await
+    }
+
+    pub async fn release_metadata(&self, release_id: &str) -> Option<ProviderAlbum> {
+        let release: serde_json::Value = self.get_json(&format!("releases/{release_id}")).await?;
+        parse_discogs_release(&release, release_id)
     }
 
     pub async fn search_artist_exact(&self, name: &str) -> Option<String> {
@@ -1386,6 +1609,52 @@ mod tests {
             .to_string(),
             "application/json",
         )
+    }
+
+    fn discogs_metadata_route(path: &str, _base: &str) -> (&'static str, String, &'static str) {
+        assert_eq!(path, "/releases/42");
+        (
+            "200 OK",
+            r#"{
+              "id":42,"title":"Canonical Album","year":2004,
+              "artists":[{"name":"Album Artist (2)"}],
+              "genres":["Rock","Pop"],"styles":["Pop","Indie Rock"],
+              "tracklist":[
+                {"position":"CD1-01","title":"Solo","duration":"3:01"},
+                {"position":"CD2-03","title":"Featured","duration":"3:22",
+                 "artists":[{"name":"Album Artist (2)"},{"name":"Guest"}]}
+              ]
+            }"#
+            .to_string(),
+            "application/json",
+        )
+    }
+
+    #[tokio::test]
+    async fn discogs_direct_release_parses_genres_positions_and_clean_artists() {
+        let (base, requests) = server(1, discogs_metadata_route);
+        let client = DiscogsClient::at(ProviderState::new().http(), Some("secret".into()), &base);
+
+        let album = client.release_metadata("42").await.unwrap();
+
+        assert_eq!(album.title, "Canonical Album");
+        assert_eq!(album.artist.as_deref(), Some("Album Artist"));
+        assert_eq!(album.year.as_deref(), Some("2004"));
+        assert_eq!(album.genre.as_deref(), Some("Rock, Pop, Indie Rock"));
+        assert_eq!(album.tracks[0].track_number, Some(1));
+        assert_eq!(album.tracks[0].disc_number, Some(1));
+        assert_eq!(album.tracks[1].track_number, Some(3));
+        assert_eq!(album.tracks[1].disc_number, Some(2));
+        assert_eq!(album.tracks[1].length, Some(202.0));
+        assert_eq!(
+            album.tracks[1].artist.as_deref(),
+            Some("Album Artist & Guest")
+        );
+        assert!(requests
+            .recv()
+            .unwrap()
+            .to_ascii_lowercase()
+            .contains("authorization: discogs token=secret"));
     }
 
     #[tokio::test]
