@@ -42,6 +42,38 @@ pub async fn assistant_send(
     conversation: State<'_, ConversationState>,
 ) -> Result<AssistantEvent, ApiError> {
     let raw_config = config.raw();
+    let contract = derive_assistant_task_contract(&input.message);
+    if !conversation.initialize(raw_config.cache_path.as_deref()) || !runtime.initialize() {
+        return Err(ApiError::Message(
+            "Assistant runtime could not be initialized".into(),
+        ));
+    }
+    let current = conversation
+        .current()
+        .ok_or_else(|| ApiError::Message("No active assistant session".into()))?;
+    conversation.record("user_message", &input.message, None, 0, 0, 0);
+    if let Some(route) = contract.route {
+        let batch = deterministic_task_batch(&current.session_id, &input, route)?;
+        if !runtime.add_batch(batch.clone()) {
+            return Err(ApiError::Message(
+                "Failed to store assistant action preview".into(),
+            ));
+        }
+        let event = AssistantEvent {
+            session_id: current.session_id,
+            event_type: "action_batch_created",
+            message: batch.summary.clone(),
+            data: Some(serde_json::json!({
+                "actionBatchId": batch.id,
+                "actionBatch": batch,
+                "routeSource": "deterministic",
+                "contractReason": contract.reason,
+            })),
+        };
+        conversation.record("assistant_message", &event.message, None, 0, 0, 0);
+        let _ = app.emit("assistant:event", &event);
+        return Ok(event);
+    }
     let snapshot = services.snapshot().unwrap_or_default();
     let api_key = (!snapshot.api_key.is_empty())
         .then_some(snapshot.api_key)
@@ -65,18 +97,9 @@ pub async fn assistant_send(
             "LLM model is not configured. Set it in Settings or via the LLM_MODEL environment variable.",
         );
     };
-    if !conversation.initialize(raw_config.cache_path.as_deref()) || !runtime.initialize() {
-        return Err(ApiError::Message(
-            "Assistant runtime could not be initialized".into(),
-        ));
-    }
-    let current = conversation
-        .current()
-        .ok_or_else(|| ApiError::Message("No active assistant session".into()))?;
     let cancelled = runtime
         .begin_request()
         .ok_or_else(|| ApiError::Message("Assistant runtime is unavailable".into()))?;
-    conversation.record("user_message", &input.message, None, 0, 0, 0);
     let step = AssistantEvent {
         session_id: current.session_id.clone(),
         event_type: "step",
@@ -149,6 +172,7 @@ pub async fn assistant_send(
             );
         }
     };
+    validate_completion_evidence(&contract, draft.action_batch.is_some(), &draft.message)?;
     let event = if let Some(batch) = draft.action_batch {
         let batch = match validated_assistant_batch(&current.session_id, &input, batch) {
             Ok(batch) => batch,
@@ -250,6 +274,185 @@ pub struct AssistantSendInput {
     pub autonomous: bool,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum AssistantTaskContractKind {
+    ReadOnlyAnswer,
+    ActionPreviewRequired,
+    ClarificationRequired,
+    ChatOnly,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum AssistantTaskRoute {
+    AutoTag,
+    Audit,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct AssistantTaskContract {
+    kind: AssistantTaskContractKind,
+    route: Option<AssistantTaskRoute>,
+    reason: &'static str,
+    requires_completion_evidence: bool,
+}
+
+fn derive_assistant_task_contract(message: &str) -> AssistantTaskContract {
+    let text = message.trim().to_lowercase();
+    if text.is_empty() {
+        return AssistantTaskContract {
+            kind: AssistantTaskContractKind::ClarificationRequired,
+            route: None,
+            reason: "empty_user_message",
+            requires_completion_evidence: false,
+        };
+    }
+    if text.contains("auto-tag")
+        || text.contains("auto tag")
+        || text.contains("fill tags")
+        || text.contains("fill missing tags")
+        || text.contains("tag this")
+    {
+        return AssistantTaskContract {
+            kind: AssistantTaskContractKind::ActionPreviewRequired,
+            route: Some(AssistantTaskRoute::AutoTag),
+            reason: "auto_tag_intent",
+            requires_completion_evidence: true,
+        };
+    }
+    if text.contains("audit")
+        || text.contains("check missing")
+        || text.contains("check metadata")
+        || text.contains("scan metadata")
+    {
+        return AssistantTaskContract {
+            kind: AssistantTaskContractKind::ActionPreviewRequired,
+            route: Some(AssistantTaskRoute::Audit),
+            reason: "audit_intent",
+            requires_completion_evidence: true,
+        };
+    }
+    let read_only = [
+        "summarize",
+        "summary",
+        "find",
+        "search",
+        "list",
+        "show",
+        "inspect",
+        "what ",
+        "which ",
+        "how many",
+        "count",
+        "missing",
+        "duplicate",
+    ]
+    .iter()
+    .any(|needle| text.contains(needle));
+    let mutation = [
+        "apply", "change", "fix", "update", "edit", "set ", "write", "number", "renumber", "infer",
+        "parse", "strip", "organize", "organise", "move", "run ",
+    ]
+    .iter()
+    .any(|needle| text.contains(needle))
+        || text.starts_with("tag ");
+    if mutation {
+        return AssistantTaskContract {
+            kind: AssistantTaskContractKind::ActionPreviewRequired,
+            route: None,
+            reason: "general_action_intent",
+            requires_completion_evidence: true,
+        };
+    }
+    if read_only {
+        return AssistantTaskContract {
+            kind: AssistantTaskContractKind::ReadOnlyAnswer,
+            route: None,
+            reason: "read_only_intent",
+            requires_completion_evidence: false,
+        };
+    }
+    AssistantTaskContract {
+        kind: AssistantTaskContractKind::ChatOnly,
+        route: None,
+        reason: "no_action_or_read_only_intent",
+        requires_completion_evidence: false,
+    }
+}
+
+fn active_scope_paths(input: &AssistantSendInput) -> Vec<String> {
+    if !input.selected_track_paths.is_empty() {
+        return input.selected_track_paths.clone();
+    }
+    input
+        .tracks
+        .iter()
+        .filter_map(|track| track.get("path").and_then(Value::as_str))
+        .filter(|path| {
+            input
+                .active_album_path
+                .as_deref()
+                .is_none_or(|album| Path::new(path).parent() == Some(Path::new(album)))
+        })
+        .map(str::to_string)
+        .collect()
+}
+
+fn deterministic_task_batch(
+    session_id: &str,
+    input: &AssistantSendInput,
+    route: AssistantTaskRoute,
+) -> Result<AssistantActionBatch, ApiError> {
+    let paths = active_scope_paths(input);
+    if paths.is_empty() {
+        return Err(ApiError::Message(
+            "No tracks are available in the current assistant scope".into(),
+        ));
+    }
+    let (kind, title, summary) = match route {
+        AssistantTaskRoute::AutoTag => (
+            "auto-tag-run",
+            "Run auto-tag",
+            format!("Preview auto-tag for {} track(s)", paths.len()),
+        ),
+        AssistantTaskRoute::Audit => (
+            "audit-run",
+            "Run metadata audit",
+            format!("Preview metadata audit for {} track(s)", paths.len()),
+        ),
+    };
+    Ok(AssistantActionBatch {
+        id: format!("batch-{}", uuid::Uuid::new_v4()),
+        created_at: time::OffsetDateTime::now_utc().to_string(),
+        session_id: session_id.to_string(),
+        kind: kind.into(),
+        title: title.into(),
+        summary,
+        risk_level: "low".into(),
+        actions: paths
+            .into_iter()
+            .map(|track_path| crate::state::assistant::AssistantAction {
+                track_path: Some(track_path),
+                ..Default::default()
+            })
+            .collect(),
+        reversible: true,
+        status: "pending".into(),
+    })
+}
+
+fn validate_completion_evidence(
+    contract: &AssistantTaskContract,
+    has_action_batch: bool,
+    response_message: &str,
+) -> Result<(), ApiError> {
+    if contract.requires_completion_evidence && !has_action_batch {
+        return Err(ApiError::Message(format!(
+            "No action was performed. This request requires a preview batch, but the assistant only replied: {response_message}"
+        )));
+    }
+    Ok(())
+}
+
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct AssistantDraft {
@@ -270,21 +473,7 @@ struct AssistantDraftBatch {
 }
 
 fn allowed_assistant_paths(input: &AssistantSendInput) -> HashSet<String> {
-    if !input.selected_track_paths.is_empty() {
-        return input.selected_track_paths.iter().cloned().collect();
-    }
-    input
-        .tracks
-        .iter()
-        .filter_map(|track| track.get("path").and_then(Value::as_str))
-        .filter(|path| {
-            input
-                .active_album_path
-                .as_deref()
-                .is_none_or(|album| Path::new(path).parent() == Some(Path::new(album)))
-        })
-        .map(str::to_string)
-        .collect()
+    active_scope_paths(input).into_iter().collect()
 }
 
 fn validated_assistant_batch(
@@ -874,6 +1063,61 @@ mod apply_contract_tests {
     use std::fs;
     use std::path::PathBuf;
     use std::sync::atomic::{AtomicU64, Ordering};
+
+    #[test]
+    fn task_contract_routes_known_library_tasks_without_model_judgment() {
+        let auto_tag = derive_assistant_task_contract("fill missing tags for this album");
+        assert_eq!(
+            auto_tag.kind,
+            AssistantTaskContractKind::ActionPreviewRequired
+        );
+        assert_eq!(auto_tag.route, Some(AssistantTaskRoute::AutoTag));
+        assert!(auto_tag.requires_completion_evidence);
+
+        let audit = derive_assistant_task_contract("audit the selected tracks");
+        assert_eq!(audit.kind, AssistantTaskContractKind::ActionPreviewRequired);
+        assert_eq!(audit.route, Some(AssistantTaskRoute::Audit));
+        assert!(audit.requires_completion_evidence);
+    }
+
+    #[test]
+    fn task_contract_distinguishes_read_only_and_chat_requests() {
+        let inspect = derive_assistant_task_contract("show tracks missing a title");
+        assert_eq!(inspect.kind, AssistantTaskContractKind::ReadOnlyAnswer);
+        assert!(!inspect.requires_completion_evidence);
+
+        let chat = derive_assistant_task_contract("hello there");
+        assert_eq!(chat.kind, AssistantTaskContractKind::ChatOnly);
+        assert!(!chat.requires_completion_evidence);
+    }
+
+    #[test]
+    fn deterministic_library_task_batch_uses_only_active_scope_paths() {
+        let input = AssistantSendInput {
+            message: "auto tag this".into(),
+            selected_track_paths: vec!["/music/selected.mp3".into()],
+            tracks: vec![serde_json::json!({"path": "/music/other.mp3"})],
+            ..Default::default()
+        };
+
+        let batch =
+            deterministic_task_batch("session", &input, AssistantTaskRoute::AutoTag).unwrap();
+
+        assert_eq!(batch.kind, "auto-tag-run");
+        assert_eq!(batch.actions.len(), 1);
+        assert_eq!(
+            batch.actions[0].track_path.as_deref(),
+            Some("/music/selected.mp3")
+        );
+    }
+
+    #[test]
+    fn mutating_contract_rejects_model_reply_without_preview_evidence() {
+        let contract = derive_assistant_task_contract("change the album title");
+        let error = validate_completion_evidence(&contract, false, "I can do that").unwrap_err();
+
+        assert!(error.to_string().contains("requires a preview batch"));
+    }
 
     #[test]
     fn assistant_preview_rejects_paths_outside_selected_scope() {
