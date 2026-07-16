@@ -4,6 +4,7 @@ use regex::Regex;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::path::Path;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use crate::{
     commands::{
@@ -12,7 +13,14 @@ use crate::{
         tracks::read_album,
     },
     error::ApiError,
-    state::{providers::ProviderAlbum, write_queue::WriteQueue},
+    state::{
+        config::AutoTagConfig,
+        providers::{
+            album_names_match, DiscogsClient, MusicBrainzClient, ProviderAlbum, ProviderState,
+        },
+        sqlite::CacheState,
+        write_queue::WriteQueue,
+    },
 };
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -71,7 +79,8 @@ pub struct AlbumCandidate {
     pub verification: Option<String>,
 }
 
-#[derive(Clone, Debug, Default, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub struct LookupRequest {
     pub path: String,
     pub artist_hint: Option<String>,
@@ -581,6 +590,21 @@ pub fn combine_candidate_sources(
     merge_candidate_fields(fresh)
 }
 
+pub fn filter_candidates_for_album(
+    album_hint: Option<&str>,
+    candidates: Vec<AlbumCandidate>,
+) -> Vec<AlbumCandidate> {
+    candidates
+        .into_iter()
+        .filter(|candidate| {
+            let (Some(hint), Some(album)) = (album_hint, candidate.album.as_deref()) else {
+                return true;
+            };
+            album_names_match(hint, album)
+        })
+        .collect()
+}
+
 pub fn should_replace_lookup_cache(fresh: &[AlbumCandidate], had_cached: bool) -> bool {
     !fresh.is_empty()
         && (!had_cached
@@ -590,6 +614,135 @@ pub fn should_replace_lookup_cache(fresh: &[AlbumCandidate], had_cached: bool) -
                     LookupSource::Musicbrainz | LookupSource::Discogs
                 )
             }))
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AutoTagRunResult {
+    pub candidate: AlbumCandidate,
+    pub written: usize,
+}
+
+pub async fn resolve_and_apply_album(
+    album_path: &Path,
+    config: &AutoTagConfig,
+    providers: &ProviderState,
+    cache: &CacheState,
+    queue: &WriteQueue,
+    cancelled: &AtomicBool,
+    mut progress: impl FnMut(u64, &str),
+) -> Result<AutoTagRunResult, ApiError> {
+    progress(1, "Parsing folder hints...");
+    let request = build_lookup_request(album_path)?;
+    check_cancelled(cancelled)?;
+
+    progress(3, "Checking cache...");
+    let hash = query_hash(&request);
+    let cached = cache
+        .lookup(&hash)
+        .and_then(|value| serde_json::from_value::<Vec<AlbumCandidate>>(value).ok())
+        .unwrap_or_default();
+    let mut fresh = Vec::new();
+
+    progress(4, "Direct provider ID lookup...");
+    let musicbrainz = MusicBrainzClient::new(providers.http());
+    if let Some(release_id) = request.musicbrainz_album_id.as_deref() {
+        if let Some(album) = musicbrainz.release_by_id(release_id).await {
+            fresh.push(musicbrainz_candidate(album));
+        }
+    }
+    let has_direct_musicbrainz = fresh.iter().any(|candidate| {
+        candidate.source == LookupSource::Musicbrainz
+            && candidate.musicbrainz_album_id == request.musicbrainz_album_id
+    });
+    let discogs = DiscogsClient::new(providers.http(), config.discogs_token.clone());
+    if let Some(release_id) = request.discogs_release_id.as_deref() {
+        if let Some(album) = discogs.release_metadata(release_id).await {
+            fresh.push(discogs_candidate(album));
+        }
+    }
+    check_cancelled(cancelled)?;
+
+    if !has_direct_musicbrainz && config.remote_lookup_enabled != Some(false) {
+        progress(5, "Searching MusicBrainz...");
+        if let (Some(artist), Some(album)) = (
+            request.artist_hint.as_deref(),
+            request.album_hint.as_deref(),
+        ) {
+            fresh.extend(
+                musicbrainz
+                    .search_album(artist, album, 5)
+                    .await
+                    .into_iter()
+                    .map(musicbrainz_candidate),
+            );
+        }
+    }
+    check_cancelled(cancelled)?;
+
+    if !has_direct_musicbrainz && config.discogs_enabled != Some(false) {
+        progress(6, "Searching Discogs releases...");
+        if let (Some(artist), Some(album)) = (
+            request.artist_hint.as_deref(),
+            request.album_hint.as_deref(),
+        ) {
+            fresh.extend(
+                discogs
+                    .search_album(artist, album, 3)
+                    .await
+                    .into_iter()
+                    .map(discogs_candidate),
+            );
+        }
+    }
+    check_cancelled(cancelled)?;
+
+    progress(7, "Building fallback...");
+    let folder = folder_candidate(&request);
+    fresh = filter_candidates_for_album(request.album_hint.as_deref(), fresh);
+    let cached = filter_candidates_for_album(request.album_hint.as_deref(), cached);
+    let mut cache_payload = fresh.clone();
+    cache_payload.push(folder.clone());
+    if should_replace_lookup_cache(&cache_payload, !cached.is_empty()) {
+        if let (Ok(query), Ok(response)) = (
+            serde_json::to_value(&request),
+            serde_json::to_value(&cache_payload),
+        ) {
+            let source = cache_payload
+                .first()
+                .map(|candidate| candidate.source)
+                .unwrap_or(LookupSource::Folder);
+            let _ = cache.set_lookup(&hash, &query, &response, lookup_source_name(source));
+        }
+    }
+    let candidates = combine_candidate_sources(fresh, cached, folder);
+    let candidate = candidates
+        .into_iter()
+        .next()
+        .ok_or_else(|| ApiError::Message("No auto-tag candidate available".to_string()))?;
+    check_cancelled(cancelled)?;
+    progress(9, "Applying tags...");
+    let written = apply_candidate_tags(album_path, &candidate, queue).await?;
+    Ok(AutoTagRunResult { candidate, written })
+}
+
+fn check_cancelled(cancelled: &AtomicBool) -> Result<(), ApiError> {
+    if cancelled.load(Ordering::Acquire) {
+        Err(ApiError::Message("Cancelled".to_string()))
+    } else {
+        Ok(())
+    }
+}
+
+fn lookup_source_name(source: LookupSource) -> &'static str {
+    match source {
+        LookupSource::Beets => "beets",
+        LookupSource::Dataset => "dataset",
+        LookupSource::Discogs => "discogs",
+        LookupSource::Folder => "folder",
+        LookupSource::Llm => "llm",
+        LookupSource::Musicbrainz => "musicbrainz",
+    }
 }
 
 pub async fn apply_candidate_tags(
@@ -1002,6 +1155,27 @@ mod tests {
         ));
     }
 
+    #[test]
+    fn album_filter_rejects_unrelated_provider_result_but_accepts_chinese_variant() {
+        let candidates = vec![
+            AlbumCandidate {
+                album: Some("无限".into()),
+                source: LookupSource::Musicbrainz,
+                ..AlbumCandidate::default()
+            },
+            AlbumCandidate {
+                album: Some("Unrelated".into()),
+                source: LookupSource::Discogs,
+                ..AlbumCandidate::default()
+            },
+        ];
+
+        let filtered = filter_candidates_for_album(Some("無限"), candidates);
+
+        assert_eq!(filtered.len(), 1);
+        assert_eq!(filtered[0].album.as_deref(), Some("无限"));
+    }
+
     #[tokio::test]
     async fn candidate_apply_writes_album_and_per_track_fields_through_safe_queue() {
         let root = temp_root();
@@ -1040,6 +1214,57 @@ mod tests {
         assert_eq!(first.title.as_deref(), Some("First"));
         assert_eq!(second.title.as_deref(), Some("Second"));
         assert_eq!(second.artist.as_deref(), Some("Album Artist feat. Guest"));
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn folder_only_runner_updates_progress_caches_and_writes_without_network() {
+        let root = temp_root();
+        let album = root.join("Folder Artist/Folder Album");
+        fs::create_dir_all(&album).unwrap();
+        let track_path = album.join("01.mp3");
+        fs::copy(corpus_mp3(), &track_path).unwrap();
+        let clear_ids: TrackPatch = serde_json::from_value(serde_json::json!({
+            "musicbrainzAlbumId": null,
+            "musicbrainzArtistId": null,
+            "discogsReleaseId": null,
+            "discogsArtistId": null
+        }))
+        .unwrap();
+        crate::commands::mutations::write_track_dispatch(&track_path, &clear_ids).unwrap();
+        let cache = CacheState::new(root.clone());
+        assert!(cache.initialize(Some(root.join("cache.db").to_str().unwrap())));
+        let queue = WriteQueue::default();
+        let cancelled = AtomicBool::new(false);
+        let config = AutoTagConfig {
+            remote_lookup_enabled: Some(false),
+            discogs_enabled: Some(false),
+            ..AutoTagConfig::default()
+        };
+        let mut updates = Vec::new();
+
+        let result = resolve_and_apply_album(
+            &album,
+            &config,
+            &ProviderState::new(),
+            &cache,
+            &queue,
+            &cancelled,
+            |step, message| updates.push((step, message.to_string())),
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(result.candidate.source, LookupSource::Folder);
+        assert_eq!(result.written, 1);
+        assert_eq!(updates.first().unwrap().0, 1);
+        assert_eq!(updates.last().unwrap().0, 9);
+        let request = build_lookup_request(&album).unwrap();
+        assert!(cache.lookup(&query_hash(&request)).is_some());
+        let written = crate::commands::tracks::read_track_metadata(&track_path).unwrap();
+        assert_eq!(written.artist.as_deref(), Some("Corpus Artist"));
+        assert_eq!(written.album_artist.as_deref(), Some("Folder Artist"));
+        assert_eq!(written.album.as_deref(), Some("Folder Album"));
         fs::remove_dir_all(root).unwrap();
     }
 }

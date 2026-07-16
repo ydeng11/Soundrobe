@@ -1127,6 +1127,20 @@ fn album_matches(candidate: &str, query: &str, query_artist: Option<&str>) -> bo
         && query_artist.is_some_and(|artist| normalize(query) == normalize(artist))
 }
 
+pub fn album_names_match(hint: &str, candidate: &str) -> bool {
+    let hint_forms = lookup_variants(hint);
+    let candidate_forms = lookup_variants(candidate);
+    hint_forms.iter().any(|hint| {
+        candidate_forms.iter().any(|candidate| {
+            hint == candidate
+                || hint.contains(candidate)
+                || candidate.contains(hint)
+                || ((contains_cjk(hint) || contains_cjk(candidate))
+                    && fuzzy_similarity(hint, candidate) >= 80)
+        })
+    })
+}
+
 fn album_title_score(local: &str, remote: &str) -> u32 {
     let local_forms = lookup_variants(local);
     let remote_forms = lookup_variants(remote);
