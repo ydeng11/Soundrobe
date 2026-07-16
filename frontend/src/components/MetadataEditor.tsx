@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useId, useRef, useCallback, useMemo } from "react";
-import type { TrackData } from "../../electron/preload";
+import type { TrackData } from "../shared/desktop-api";
 import { basename } from "../utils/path";
 
 interface MetadataEditorProps {

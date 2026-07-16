@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from "react";
-import type { DirEntry } from "../../electron/preload";
+import type { DirEntry } from "../shared/desktop-api";
 import { basename } from "../utils/path";
 
 interface FolderTreeProps {

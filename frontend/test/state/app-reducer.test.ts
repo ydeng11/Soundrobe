@@ -6,7 +6,7 @@ import {
   getVisibleAuditResult,
   initialAppState,
 } from "../../src/state/AppState";
-import type { TrackData } from "../../electron/preload";
+import type { TrackData } from "../../src/shared/desktop-api";
 import { UndoManager } from "../../src/state/UndoManager";
 
 function makeTrack(path: string, overrides?: Partial<TrackData>): TrackData {

@@ -5,7 +5,7 @@ import { render, screen, fireEvent, cleanup } from "@testing-library/react";
 
 afterEach(() => cleanup());
 import { MetadataEditor } from "../../src/components/MetadataEditor";
-import type { TrackData } from "../../electron/preload";
+import type { TrackData } from "../../src/shared/desktop-api";
 
 function makeTrack(overrides?: Partial<TrackData>): TrackData {
   return {

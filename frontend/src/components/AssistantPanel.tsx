@@ -5,7 +5,7 @@ import type {
   TrackData,
   TrackUndoSnapshot,
   ExtraTagUndoSnapshot,
-} from "../../electron/preload";
+} from "../shared/desktop-api";
 
 interface StatusDetail {
   icon: string;

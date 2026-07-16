@@ -30,12 +30,12 @@ import {
   buildFilenameFromConvertPattern,
   getConvertSourceValue,
   type ConvertTrackData,
-} from "../electron/services/ConvertService";
-import type { ExtraTagUndoSnapshot, TrackData, AlbumInfo, AlbumDetail, AuditRunSummary, AuditTrackResult } from "../electron/preload";
+} from "./shared/convert";
+import type { ExtraTagUndoSnapshot, TrackData, AlbumInfo, AlbumDetail, AuditRunSummary, AuditTrackResult } from "./shared/desktop-api";
 import {
   computeNumberedTracks,
   type OrderingRule,
-} from "../electron/services/TrackNumberingService";
+} from "./shared/track-numbering";
 
 const EXTRA_TAG_UNDO_FIELD = "__assistantExtraTags";
 
@@ -202,7 +202,7 @@ export default function App() {
   const handleOpenLibrary = useCallback(async () => {
     try {
       if (!window.api) {
-        throw new Error("Electron preload bridge is unavailable");
+        throw new Error("Tauri desktop bridge is unavailable");
       }
 
       const selectedPath = await window.api.openFolderDialog();

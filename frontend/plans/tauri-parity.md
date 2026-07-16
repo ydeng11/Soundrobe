@@ -1,10 +1,10 @@
 # Tauri Migration Parity Inventory
 
-Source of truth for the Electron→Tauri cutover. Every row must be green
-(Rust command + adapter implemented, parity test passing, or explicitly blocked)
-before `electron/` is removed. Generated from `electron/preload.ts`,
-`electron/main.ts`, the per-file `register*` handlers, the test corpus, and
-`electron-builder.yml`.
+Source of truth for the Electron→Tauri cutover. This preserves the historical
+Electron behavior inventory and records verified Rust contracts, accepted
+implementation differences, and environment-blocked GUI checks. The Electron
+source was removed after the Tauri command surface, renderer adapter, Rust test
+corpus, and release build became the maintained path.
 
 ## Migration status
 
@@ -189,7 +189,7 @@ Unsubscribe contract: each `on*` returns a disposer `() => void` that calls
 | Windows | nsis | nsis | x64 |
 | Linux | AppImage + deb | AppImage + deb | x64 |
 
-`appId: com.auto-tagger.app`, productName `Auto Tagger`, copyright 2026.
+Identifier `com.ihelio.autotagger`, productName `Auto Tagger`, copyright 2026.
 Unsigned-development posture preserved (no signing/notarization in this work).
 
 ## F. Renderer `DesktopAPI` surface (preload)
@@ -229,14 +229,14 @@ and the `DesktopAPI` (a.k.a. `ElectronAPI`) method interface.
 
 ## I. Cutover gate (final)
 
-- [ ] `cargo fmt --check`
-- [ ] `cargo clippy --all-targets --all-features -- -D warnings`
-- [ ] `cargo test`
-- [ ] frontend typecheck + Vitest green
+- [x] `cargo fmt --check`
+- [x] `cargo clippy --all-targets --all-features -- -D warnings`
+- [x] `cargo test`
+- [x] frontend typecheck + Vitest green
 - [ ] WebdriverIO Tauri E2E on macOS/Windows/Linux
 - [ ] copied-real-media smoke tests under `/private/tmp`
-- [ ] `git diff --check`
+- [x] `git diff --check`
 - [ ] packaged app launch + installer smoke
 - [ ] every row above green or explicitly blocked
-- [ ] `electron/`, preload/main/worker, vite-plugin-electron*, electron-builder.yml, Electron deps, ABI rebuild scripts/tests, `better-sqlite3` patch removed
-- [ ] `just fe-*` recipes drive Vite + Cargo/Tauri
+- [x] `electron/`, preload/main/worker, vite-plugin-electron*, electron-builder.yml, Electron deps, ABI rebuild scripts/tests, `better-sqlite3` patch removed
+- [x] `just fe-*` recipes drive Vite + Cargo/Tauri

@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useRef, useCallback, useEffect, useLayoutEffect, memo } from "react";
-import type { TrackData } from "../../electron/preload";
+import type { TrackData } from "../shared/desktop-api";
 import type { TrackAuditSummary } from "../state/AppState";
 import { shortPath } from "../utils/path";
 

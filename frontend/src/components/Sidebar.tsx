@@ -1,5 +1,5 @@
 import React from "react";
-import type { AlbumInfo } from "../../electron/preload";
+import type { AlbumInfo } from "../shared/desktop-api";
 
 interface SidebarProps {
   albums: AlbumInfo[];

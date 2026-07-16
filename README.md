@@ -1,6 +1,24 @@
 # Auto Tagger
 
-Intelligent audio file tagging CLI tool for Navidrome-oriented libraries.
+Intelligent audio metadata editor for Navidrome-oriented libraries. The maintained desktop app uses Tauri 2, Rust, React, and TypeScript. A legacy Python CLI remains available for batch workflows.
+
+## Desktop app
+
+Prerequisites: Node.js, npm, Rust, and the platform dependencies required by Tauri 2.
+
+```bash
+just fe-install
+just fe-dev
+```
+
+Quality gate and production build:
+
+```bash
+just fe-check
+just fe-build
+```
+
+The Tauri backend is in `frontend/src-tauri`; the React renderer is in `frontend/src`. Electron and native Node modules are not used.
 
 ## Installation
 
@@ -73,7 +91,7 @@ AUTO_TAG_REPLAYGAIN_COMMAND=rgain3
 AUTO_TAG_DATA_DIR=~/.auto-tagger
 ```
 
-## Development
+## Legacy CLI development
 
 ```bash
 python -m venv .venv

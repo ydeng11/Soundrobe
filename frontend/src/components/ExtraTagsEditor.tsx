@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { ExtraTag, TrackData } from "../../electron/preload";
+import type { ExtraTag, TrackData } from "../shared/desktop-api";
 import { basename } from "../utils/path";
 
 // Tag keys that are shared across Vorbis and ID3v2 formats

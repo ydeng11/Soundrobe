@@ -5,7 +5,7 @@ import { render, screen, fireEvent, cleanup, waitFor } from "@testing-library/re
 
 afterEach(() => cleanup());
 import { FileGrid } from "../../src/components/FileGrid";
-import type { TrackData } from "../../electron/preload";
+import type { TrackData } from "../../src/shared/desktop-api";
 
 function makeTrack(
   path: string,

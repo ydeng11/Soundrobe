@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
-import type { ExtraTag, TrackData } from "../../electron/preload";
+import type { ExtraTag, TrackData } from "../shared/desktop-api";
 
 interface BatchExtraTagsEditorProps {
   tracks: TrackData[];

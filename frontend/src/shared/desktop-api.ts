@@ -1,10 +1,9 @@
 /**
  * Renderer-neutral desktop API contract.
  *
- * Shared between the Electron preload adapter and the Tauri adapter so the
- * renderer (and its tests) depend on one stable `window.api` surface regardless
- * of the native runtime. Method names, signatures, task IDs, payloads, event
- * shapes, error semantics, and config-redaction behavior must not diverge.
+ * The Tauri adapter and renderer tests depend on this single stable
+ * `window.api` surface. Method names, signatures, task IDs, payloads, event
+ * shapes, error semantics, and config-redaction behavior are contractual.
  */
 
 export interface AlbumInfo {

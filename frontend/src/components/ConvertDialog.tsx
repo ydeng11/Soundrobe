@@ -11,7 +11,7 @@ import {
   type ConvertFieldMap,
   type ConvertSourceTag,
   type ConvertTrackData,
-} from "../../electron/services/ConvertService";
+} from "../shared/convert";
 
 export type { ConvertDirection, ConvertFieldMap, ConvertTrackData as TrackPreviewData };
 

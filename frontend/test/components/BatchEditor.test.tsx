@@ -3,7 +3,7 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 import React from "react";
 import { render, screen, fireEvent, cleanup } from "@testing-library/react";
 import { BatchEditor } from "../../src/components/BatchEditor";
-import type { TrackData } from "../../electron/preload";
+import type { TrackData } from "../../src/shared/desktop-api";
 
 afterEach(() => cleanup());
 

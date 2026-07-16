@@ -1,14 +1,12 @@
 /**
  * Tauri adapter for the renderer-neutral `DesktopAPI` contract.
  *
- * Mirrors the Electron channel mapping in `electron/preload.ts` so that every
- * method wires to its canonical Tauri command (`<group>:<action>` ->
+ * Maps each renderer method to its canonical Tauri command (`<group>:<action>` ->
  * `<group>_<action>`), and the pushed event streams subscribe via `listen`.
  *
  * Structured Rust command errors (see `src-tauri/src/error.rs`) serialize to a
  * display string; `invokeCommand` converts any rejection back into a rejected
- * JavaScript `Error`, preserving the renderer try/catch behavior established by
- * the Electron handlers.
+ * JavaScript `Error`, preserving the renderer try/catch contract.
  *
  * Request/response commands resolve once the matching Rust command is wired
  * (`generate_handler!`). Until a slice is green, an unregistered command rejects
@@ -19,7 +17,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import type { DesktopAPI } from "./desktop-api";
 
-/** Map an Electron IPC channel to a Tauri command name.
+/** Map a desktop API channel to a Tauri command name.
  *
  * Every non-identifier character (`:`, `-`) is normalized to `_` so the
  * resulting name is a valid Rust command (e.g. `tracks:batch-write` ->
@@ -54,9 +52,8 @@ async function invokeCommand<T>(
 
 /**
  * Subscribe to a pushed Tauri event stream, returning the synchronous disposer
- * the `DesktopAPI` on* methods promise. Mirrors the Electron
- * `() => ipcRenderer.removeListener(...)` contract: the returned function is
- * safe to call immediately and asynchronously detaches the listener.
+ * the `DesktopAPI` on* methods promise. The returned function is safe to call
+ * immediately and asynchronously detaches the listener.
  */
 function subscribe<T>(channel: string, callback: (payload: T) => void): () => void {
   // A failed attach never throws out of subscribe (the renderer's on* methods

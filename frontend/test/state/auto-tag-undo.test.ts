@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { buildAutoTagUndoSnapshots } from "../../src/App";
-import type { AlbumDetail, TrackData } from "../../electron/preload";
+import type { AlbumDetail, TrackData } from "../../src/shared/desktop-api";
 
 function makeTrack(path: string, title: string): TrackData {
   return {

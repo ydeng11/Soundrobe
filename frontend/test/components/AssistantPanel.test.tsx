@@ -3,7 +3,7 @@ import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
 import React from "react";
 import { render, screen, fireEvent, cleanup, waitFor } from "@testing-library/react";
 import { AssistantPanel } from "../../src/components/AssistantPanel";
-import type { AssistantEvent } from "../../electron/preload";
+import type { AssistantEvent } from "../../src/shared/desktop-api";
 
 afterEach(() => {
   cleanup();

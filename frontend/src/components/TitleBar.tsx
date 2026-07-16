@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
-import type { OrderingRule } from "../../electron/services/TrackNumberingService";
-import { ORDERING_RULE_LABELS } from "../../electron/services/TrackNumberingService";
+import type { OrderingRule } from "../shared/track-numbering";
+import { ORDERING_RULE_LABELS } from "../shared/track-numbering";
 
 /** All ordering rules, derived from the canonical label map. */
 const NUMBERING_RULES = Object.keys(ORDERING_RULE_LABELS) as OrderingRule[];

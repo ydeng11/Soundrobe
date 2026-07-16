@@ -17,9 +17,8 @@ vi.mock("@tauri-apps/api/event", () => ({
 import { createTauriDesktopApi } from "../../src/shared/tauri-adapter";
 
 /** Every request/response method mapped to its canonical command + arg layout.
- *  The command name is the Electron IPC channel (`:<action>`) with `:` -> `_`.
- *  This table is the Electron-vs-Tauri parity contract: it fails loudly the
- *  moment the adapter diverges from the channel mapping in `electron/preload.ts`.
+ *  This table is the desktop API parity contract: it fails loudly the moment
+ *  the renderer adapter diverges from the Rust command surface.
  */
 const CHANNEL_PARITY: Array<{
   method: string;

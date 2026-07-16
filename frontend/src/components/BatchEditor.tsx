@@ -1,5 +1,5 @@
 import React, { useCallback, useId, useMemo, useState, useRef, useEffect } from "react";
-import type { TrackData } from "../../electron/preload";
+import type { TrackData } from "../shared/desktop-api";
 
 interface BatchEditorProps {
   tracks: TrackData[];
