@@ -133,6 +133,7 @@ pub fn run() {
             commands::dataset::dataset_status,
             commands::tasks::task_progress,
             commands::tasks::task_cancel,
+            commands::auto_tag::album_auto_tag,
             commands::lyrics::lyrics_fetch,
             commands::lyrics::album_download_lyrics,
             commands::conversation::assistant_init_runtime,

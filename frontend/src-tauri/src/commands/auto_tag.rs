@@ -3,8 +3,9 @@
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
+use tauri::{AppHandle, Emitter, Manager, State};
 
 use crate::{
     commands::{
@@ -20,6 +21,7 @@ use crate::{
             album_names_match, DiscogsClient, MusicBrainzClient, ProviderAlbum, ProviderState,
         },
         sqlite::CacheState,
+        tasks::{TaskRegistry, TaskStatus},
         write_queue::WriteQueue,
     },
 };
@@ -624,6 +626,36 @@ pub struct AutoTagRunResult {
     pub written: usize,
 }
 
+#[derive(Clone, Debug, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AutoTagEvent {
+    pub task_id: String,
+    #[serde(rename = "type")]
+    pub kind: &'static str,
+    pub message: String,
+    pub progress: u64,
+    pub total: u64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub data: Option<serde_json::Value>,
+}
+
+fn auto_tag_event(
+    task_id: &str,
+    kind: &'static str,
+    message: impl Into<String>,
+    progress: u64,
+    data: Option<serde_json::Value>,
+) -> AutoTagEvent {
+    AutoTagEvent {
+        task_id: task_id.to_string(),
+        kind,
+        message: message.into(),
+        progress,
+        total: 9,
+        data,
+    }
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct LlmTagResolution {
     pub corrected_request: LookupRequest,
@@ -991,6 +1023,95 @@ pub async fn resolve_and_apply_album(
     progress(9, "Applying tags...");
     let written = apply_candidate_tags(album_path, &candidate, queue).await?;
     Ok(AutoTagRunResult { candidate, written })
+}
+
+#[tauri::command]
+pub fn album_auto_tag(
+    album_path: String,
+    app: AppHandle,
+    tasks: State<'_, TaskRegistry>,
+) -> Result<String, ApiError> {
+    if !Path::new(&album_path).is_dir() {
+        return Err(ApiError::Message(format!(
+            "Album directory does not exist: {album_path}"
+        )));
+    }
+    let task_id = tasks.create("auto-tag", 9, "Starting...");
+    let spawned_task_id = task_id.clone();
+    tauri::async_runtime::spawn(async move {
+        let path = PathBuf::from(album_path);
+        let tasks = app.state::<TaskRegistry>();
+        let Some(cancelled) = tasks.cancellation(&spawned_task_id) else {
+            return;
+        };
+        let config = app.state::<crate::state::config::ConfigState>().raw();
+        let providers = app.state::<ProviderState>();
+        let cache = app.state::<CacheState>();
+        let queue = app.state::<WriteQueue>();
+        let progress_app = app.clone();
+        let progress_task_id = spawned_task_id.clone();
+        let operation = resolve_and_apply_album(
+            &path,
+            &config,
+            &providers,
+            &cache,
+            &queue,
+            &cancelled,
+            move |step, message| {
+                let tasks = progress_app.state::<TaskRegistry>();
+                if tasks.update(&progress_task_id, step, message) {
+                    let _ = progress_app.emit(
+                        "auto-tag:event",
+                        auto_tag_event(&progress_task_id, "progress", message, step, None),
+                    );
+                }
+            },
+        )
+        .await;
+
+        match operation {
+            Ok(result) => {
+                let data = serde_json::to_value(&result.candidate).unwrap_or_default();
+                tasks.finish(
+                    &spawned_task_id,
+                    TaskStatus::Completed,
+                    "Complete",
+                    data.clone(),
+                );
+                let _ = app.emit(
+                    "auto-tag:event",
+                    auto_tag_event(&spawned_task_id, "completed", "Complete", 9, Some(data)),
+                );
+            }
+            Err(error) if cancelled.load(Ordering::Acquire) => {
+                let progress = tasks
+                    .get(&spawned_task_id)
+                    .map(|task| task.progress)
+                    .unwrap_or(0);
+                tasks.finish(
+                    &spawned_task_id,
+                    TaskStatus::Cancelled,
+                    "Cancelled",
+                    serde_json::Value::Null,
+                );
+                let _ = app.emit(
+                    "auto-tag:event",
+                    auto_tag_event(&spawned_task_id, "cancelled", "Cancelled", progress, None),
+                );
+                tracing::debug!(%error, "auto-tag task cancelled");
+            }
+            Err(error) => {
+                let message = error.to_string();
+                let data = serde_json::json!({"error": message});
+                tasks.finish(&spawned_task_id, TaskStatus::Failed, &message, data.clone());
+                let _ = app.emit(
+                    "auto-tag:event",
+                    auto_tag_event(&spawned_task_id, "failed", message, 0, Some(data)),
+                );
+            }
+        }
+    });
+    Ok(task_id)
 }
 
 fn check_cancelled(cancelled: &AtomicBool) -> Result<(), ApiError> {
@@ -1527,6 +1648,29 @@ mod tests {
                 "confidence": 0.99
             })),
             None
+        );
+    }
+
+    #[test]
+    fn auto_tag_event_matches_renderer_contract() {
+        let event = auto_tag_event(
+            "auto-tag-1",
+            "completed",
+            "Complete",
+            9,
+            Some(serde_json::json!({"artist": "Artist"})),
+        );
+
+        assert_eq!(
+            serde_json::to_value(event).unwrap(),
+            serde_json::json!({
+                "taskId": "auto-tag-1",
+                "type": "completed",
+                "message": "Complete",
+                "progress": 9,
+                "total": 9,
+                "data": {"artist": "Artist"}
+            })
         );
     }
 
