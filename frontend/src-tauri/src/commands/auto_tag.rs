@@ -5,7 +5,15 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::path::Path;
 
-use crate::{commands::tracks::read_album, error::ApiError, state::providers::ProviderAlbum};
+use crate::{
+    commands::{
+        library::collect_audio_files,
+        mutations::{write_track_queued, TrackPatch},
+        tracks::read_album,
+    },
+    error::ApiError,
+    state::{providers::ProviderAlbum, write_queue::WriteQueue},
+};
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -558,6 +566,122 @@ pub fn discogs_candidate(album: ProviderAlbum) -> AlbumCandidate {
     }
 }
 
+pub fn combine_candidate_sources(
+    mut fresh: Vec<AlbumCandidate>,
+    cached: Vec<AlbumCandidate>,
+    folder: AlbumCandidate,
+) -> Vec<AlbumCandidate> {
+    fresh.retain(|candidate| candidate.source != LookupSource::Dataset);
+    fresh.push(folder);
+    fresh.extend(
+        cached
+            .into_iter()
+            .filter(|candidate| candidate.source != LookupSource::Dataset),
+    );
+    merge_candidate_fields(fresh)
+}
+
+pub fn should_replace_lookup_cache(fresh: &[AlbumCandidate], had_cached: bool) -> bool {
+    !fresh.is_empty()
+        && (!had_cached
+            || fresh.iter().any(|candidate| {
+                matches!(
+                    candidate.source,
+                    LookupSource::Musicbrainz | LookupSource::Discogs
+                )
+            }))
+}
+
+pub async fn apply_candidate_tags(
+    album_path: &Path,
+    candidate: &AlbumCandidate,
+    queue: &WriteQueue,
+) -> Result<usize, ApiError> {
+    let fallback_artist = album_path
+        .parent()
+        .and_then(Path::file_name)
+        .and_then(|name| name.to_str())
+        .unwrap_or_default();
+    let album_artists = if candidate.album_artists.is_empty() {
+        vec![fallback_artist.to_string()]
+    } else {
+        candidate.album_artists.clone()
+    };
+    let album_artist = album_artists.join(" & ");
+    let mut album_fields = serde_json::Map::new();
+    insert_option(&mut album_fields, "album", &candidate.album);
+    album_fields.insert("albumArtist".into(), album_artist.into());
+    album_fields.insert("albumArtists".into(), serde_json::json!(album_artists));
+    insert_option(&mut album_fields, "year", &candidate.year);
+    if let Some(genre) = &candidate.genre {
+        album_fields.insert("genre".into(), genre.clone().into());
+    }
+    insert_option(
+        &mut album_fields,
+        "musicbrainzAlbumId",
+        &candidate.musicbrainz_album_id,
+    );
+    insert_option(
+        &mut album_fields,
+        "musicbrainzArtistId",
+        &candidate.musicbrainz_artist_id,
+    );
+    insert_option(
+        &mut album_fields,
+        "discogsReleaseId",
+        &candidate.discogs_release_id,
+    );
+    insert_option(
+        &mut album_fields,
+        "discogsArtistId",
+        &candidate.discogs_artist_id,
+    );
+
+    let mut written = 0;
+    for (index, file_path) in collect_audio_files(album_path).into_iter().enumerate() {
+        let mut fields = album_fields.clone();
+        if let Some(track) = candidate.tracks.get(index) {
+            insert_option(&mut fields, "title", &track.title);
+            insert_option(&mut fields, "artist", &track.artist);
+            if !track.artists.is_empty() {
+                fields.insert("artists".into(), serde_json::json!(track.artists));
+            }
+            insert_number(&mut fields, "trackNumber", track.track_number);
+            insert_number(&mut fields, "trackTotal", track.track_total);
+            insert_number(&mut fields, "discNumber", track.disc_number);
+            insert_number(&mut fields, "discTotal", track.disc_total);
+            if let Some(track_id) = &track.musicbrainz_track_id {
+                fields.insert("musicbrainzTrackId".into(), track_id.clone().into());
+            }
+        }
+        let patch: TrackPatch = serde_json::from_value(fields.into())
+            .map_err(|error| ApiError::WriteTask(error.to_string()))?;
+        match write_track_queued(queue, file_path.clone().into(), patch).await {
+            Ok(()) => written += 1,
+            Err(error) => tracing::warn!(path = %file_path, %error, "auto-tag write failed"),
+        }
+    }
+    Ok(written)
+}
+
+fn insert_option(
+    fields: &mut serde_json::Map<String, serde_json::Value>,
+    name: &str,
+    value: &Option<String>,
+) {
+    fields.insert(name.to_string(), serde_json::json!(value));
+}
+
+fn insert_number(
+    fields: &mut serde_json::Map<String, serde_json::Value>,
+    name: &str,
+    value: Option<u32>,
+) {
+    if let Some(value) = value {
+        fields.insert(name.to_string(), value.into());
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -833,5 +957,89 @@ mod tests {
             candidate.tracks[0].artist.as_deref(),
             Some("Per-track Artist")
         );
+    }
+
+    #[test]
+    fn fresh_provider_precedes_stale_cache_and_controls_cache_replacement() {
+        let cached = AlbumCandidate {
+            album: Some("Stale Album".into()),
+            musicbrainz_album_id: Some("stale-id".into()),
+            tracks: vec![track("Stale Title", "Stale Artist")],
+            source: LookupSource::Musicbrainz,
+            ..AlbumCandidate::default()
+        };
+        let fresh = AlbumCandidate {
+            album: Some("Canonical Album".into()),
+            musicbrainz_album_id: Some("fresh-id".into()),
+            tracks: vec![track("Canonical Title", "Canonical Artist")],
+            source: LookupSource::Musicbrainz,
+            ..AlbumCandidate::default()
+        };
+        let folder = AlbumCandidate {
+            album: Some("Folder Album".into()),
+            source: LookupSource::Folder,
+            ..AlbumCandidate::default()
+        };
+
+        let selected = combine_candidate_sources(vec![fresh.clone()], vec![cached], folder);
+
+        assert_eq!(selected[0].album.as_deref(), Some("Canonical Album"));
+        assert_eq!(
+            selected[0].musicbrainz_album_id.as_deref(),
+            Some("fresh-id")
+        );
+        assert_eq!(
+            selected[0].tracks[0].title.as_deref(),
+            Some("Canonical Title")
+        );
+        assert!(should_replace_lookup_cache(&[fresh], true));
+        assert!(!should_replace_lookup_cache(
+            &[AlbumCandidate {
+                source: LookupSource::Folder,
+                ..AlbumCandidate::default()
+            }],
+            true
+        ));
+    }
+
+    #[tokio::test]
+    async fn candidate_apply_writes_album_and_per_track_fields_through_safe_queue() {
+        let root = temp_root();
+        let album = root.join("Artist/Album");
+        fs::create_dir_all(&album).unwrap();
+        fs::copy(corpus_mp3(), album.join("01.mp3")).unwrap();
+        fs::copy(corpus_mp3(), album.join("02.mp3")).unwrap();
+        let candidate = AlbumCandidate {
+            artist: Some("Album Artist".into()),
+            artists: vec!["Album Artist".into()],
+            album: Some("Canonical Album".into()),
+            album_artist: Some("Album Artist".into()),
+            album_artists: vec!["Album Artist".into()],
+            year: Some("2004".into()),
+            genre: Some("Rock".into()),
+            musicbrainz_album_id: Some("release-id".into()),
+            tracks: vec![
+                track("First", "Album Artist"),
+                track("Second", "Album Artist feat. Guest"),
+            ],
+            source: LookupSource::Musicbrainz,
+            ..AlbumCandidate::default()
+        };
+        let queue = crate::state::write_queue::WriteQueue::default();
+
+        let written = apply_candidate_tags(&album, &candidate, &queue)
+            .await
+            .unwrap();
+
+        assert_eq!(written, 2);
+        let first = crate::commands::tracks::read_track_metadata(&album.join("01.mp3")).unwrap();
+        let second = crate::commands::tracks::read_track_metadata(&album.join("02.mp3")).unwrap();
+        assert_eq!(first.album.as_deref(), Some("Canonical Album"));
+        assert_eq!(first.album_artist.as_deref(), Some("Album Artist"));
+        assert_eq!(first.musicbrainz_album_id.as_deref(), Some("release-id"));
+        assert_eq!(first.title.as_deref(), Some("First"));
+        assert_eq!(second.title.as_deref(), Some("Second"));
+        assert_eq!(second.artist.as_deref(), Some("Album Artist feat. Guest"));
+        fs::remove_dir_all(root).unwrap();
     }
 }
