@@ -81,6 +81,211 @@ impl Default for ProviderState {
     }
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub struct ProviderTrack {
+    pub title: Option<String>,
+    pub match_titles: Vec<String>,
+    pub artist: Option<String>,
+    pub artists: Vec<String>,
+    pub track_number: Option<u32>,
+    pub disc_number: Option<u32>,
+    pub recording_id: Option<String>,
+    /// Raw provider duration, preserving Electron's provider-specific units.
+    pub length: Option<f64>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ProviderAlbum {
+    pub id: String,
+    pub title: String,
+    pub artist: Option<String>,
+    pub artists: Vec<String>,
+    pub artist_id: Option<String>,
+    pub year: Option<String>,
+    pub tracks: Vec<ProviderTrack>,
+}
+
+pub struct MusicBrainzClient {
+    base_url: String,
+    http: Client,
+}
+
+impl MusicBrainzClient {
+    pub fn new(http: Client) -> Self {
+        Self::at(http, "https://musicbrainz.org/ws/2")
+    }
+
+    pub fn at(http: Client, base_url: &str) -> Self {
+        Self {
+            base_url: base_url.trim_end_matches('/').to_string(),
+            http,
+        }
+    }
+
+    pub async fn release_by_id(&self, release_id: &str) -> Option<ProviderAlbum> {
+        wait_for_musicbrainz().await;
+        let response = self
+            .http
+            .get(format!("{}/release/{release_id}", self.base_url))
+            .query(&[("fmt", "json"), ("inc", "recordings+artist-credits")])
+            .send()
+            .await
+            .ok()?
+            .error_for_status()
+            .ok()?
+            .json::<serde_json::Value>()
+            .await
+            .ok()?;
+        parse_musicbrainz_release(&response, release_id)
+    }
+}
+
+fn parse_musicbrainz_release(
+    value: &serde_json::Value,
+    fallback_id: &str,
+) -> Option<ProviderAlbum> {
+    let title = value.get("title")?.as_str()?.to_string();
+    let release_credit = value
+        .get("artist-credit")
+        .and_then(serde_json::Value::as_array)
+        .map(Vec::as_slice);
+    let artist = release_credit
+        .and_then(|credit| credit.first())
+        .and_then(|credit| credit.get("name"))
+        .and_then(serde_json::Value::as_str)
+        .map(str::to_string);
+    let artists = artist.iter().cloned().collect::<Vec<_>>();
+    let artist_id = release_credit
+        .and_then(|credit| credit.first())
+        .and_then(|credit| credit.get("artist"))
+        .and_then(|artist| artist.get("id"))
+        .and_then(serde_json::Value::as_str)
+        .map(str::to_string);
+    let media = value
+        .get("media")
+        .and_then(serde_json::Value::as_array)
+        .map(Vec::as_slice)
+        .unwrap_or_default();
+    let mut tracks = Vec::new();
+    for medium in media {
+        let disc_number = positive_integer(medium.get("position"));
+        let medium_tracks = medium
+            .get("tracks")
+            .and_then(serde_json::Value::as_array)
+            .map(Vec::as_slice)
+            .unwrap_or_default();
+        for track in medium_tracks {
+            let recording = track.get("recording");
+            let recording_title = recording
+                .and_then(|recording| recording.get("title"))
+                .and_then(serde_json::Value::as_str);
+            let title = track
+                .get("title")
+                .and_then(serde_json::Value::as_str)
+                .or(recording_title)
+                .map(str::to_string);
+            let credit = non_empty_credit(track.get("artist-credit")).or_else(|| {
+                non_empty_credit(recording.and_then(|value| value.get("artist-credit")))
+            });
+            let track_artist = credit
+                .map(format_artist_credit)
+                .filter(|name| !name.is_empty())
+                .or_else(|| artist.clone());
+            let track_artists = if credit.is_some() {
+                artist_names(credit)
+            } else {
+                artists.clone()
+            };
+            tracks.push(ProviderTrack {
+                match_titles: recording_title
+                    .filter(|recording_title| Some(*recording_title) != title.as_deref())
+                    .map(|title| vec![title.to_string()])
+                    .unwrap_or_default(),
+                title,
+                artist: track_artist,
+                artists: track_artists,
+                track_number: positive_integer(track.get("number"))
+                    .or_else(|| positive_integer(track.get("position"))),
+                disc_number,
+                recording_id: recording
+                    .and_then(|recording| recording.get("id"))
+                    .and_then(serde_json::Value::as_str)
+                    .map(str::to_string),
+                length: recording
+                    .and_then(|recording| recording.get("length"))
+                    .and_then(serde_json::Value::as_f64),
+            });
+        }
+    }
+
+    Some(ProviderAlbum {
+        id: value
+            .get("id")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or(fallback_id)
+            .to_string(),
+        title,
+        artist,
+        artists,
+        artist_id,
+        year: value
+            .get("date")
+            .and_then(serde_json::Value::as_str)
+            .filter(|date| date.len() >= 4)
+            .map(|date| date[..4].to_string()),
+        tracks,
+    })
+}
+
+fn non_empty_credit(value: Option<&serde_json::Value>) -> Option<&[serde_json::Value]> {
+    value
+        .and_then(serde_json::Value::as_array)
+        .filter(|credit| !credit.is_empty())
+        .map(Vec::as_slice)
+}
+
+fn format_artist_credit(credit: &[serde_json::Value]) -> String {
+    credit
+        .iter()
+        .map(|item| {
+            format!(
+                "{}{}",
+                item.get("name")
+                    .and_then(serde_json::Value::as_str)
+                    .unwrap_or_default(),
+                item.get("joinphrase")
+                    .and_then(serde_json::Value::as_str)
+                    .unwrap_or_default()
+            )
+        })
+        .collect()
+}
+
+fn artist_names(credit: Option<&[serde_json::Value]>) -> Vec<String> {
+    credit
+        .into_iter()
+        .flatten()
+        .filter_map(|item| item.get("name").and_then(serde_json::Value::as_str))
+        .filter(|name| !name.is_empty())
+        .map(str::to_string)
+        .collect()
+}
+
+fn positive_integer(value: Option<&serde_json::Value>) -> Option<u32> {
+    match value? {
+        serde_json::Value::Number(number) => number
+            .as_u64()
+            .filter(|number| *number > 0)
+            .and_then(|number| u32::try_from(number).ok()),
+        serde_json::Value::String(number) => number
+            .trim()
+            .parse::<u32>()
+            .ok()
+            .filter(|number| *number > 0),
+        _ => None,
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RemoteImage {
     pub source: &'static str,
@@ -1156,6 +1361,56 @@ mod tests {
             commons_file: format!("{base}/wiki/file"),
             musicbrainz: format!("{base}/mb"),
         }
+    }
+
+    fn musicbrainz_release_route(path: &str, _base: &str) -> (&'static str, String, &'static str) {
+        assert!(path.starts_with("/release/release-id?"));
+        (
+            "200 OK",
+            r#"{
+              "id":"release-id","title":"Canonical Album","date":"2004-08-01",
+              "artist-credit":[{"name":"Album Artist","artist":{"id":"artist-id"}}],
+              "media":[
+                {"position":1,"track-count":1,"tracks":[{
+                  "position":1,
+                  "recording":{"id":"track-1","title":"Solo","length":181000,"artist-credit":[{"name":"Album Artist"}]}
+                }]},
+                {"position":2,"track-count":1,"tracks":[{
+                  "position":1,
+                  "recording":{"id":"track-2","title":"Featured","length":202000,"artist-credit":[
+                    {"name":"Album Artist","joinphrase":" feat. "},{"name":"Guest"}
+                  ]}
+                }]}
+              ]
+            }"#
+            .to_string(),
+            "application/json",
+        )
+    }
+
+    #[tokio::test]
+    async fn musicbrainz_direct_release_preserves_discs_and_recording_artist_credit() {
+        let (base, requests) = server(1, musicbrainz_release_route);
+        let client = MusicBrainzClient::at(ProviderState::new().http(), &base);
+
+        let album = client.release_by_id("release-id").await.unwrap();
+
+        assert_eq!(album.title, "Canonical Album");
+        assert_eq!(album.artist.as_deref(), Some("Album Artist"));
+        assert_eq!(album.artist_id.as_deref(), Some("artist-id"));
+        assert_eq!(album.year.as_deref(), Some("2004"));
+        assert_eq!(album.tracks.len(), 2);
+        assert_eq!(album.tracks[0].disc_number, Some(1));
+        assert_eq!(album.tracks[1].disc_number, Some(2));
+        assert_eq!(
+            album.tracks[1].artist.as_deref(),
+            Some("Album Artist feat. Guest")
+        );
+        assert_eq!(album.tracks[1].length, Some(202000.0));
+        let request = requests.recv().unwrap();
+        assert!(
+            request.contains("GET /release/release-id?fmt=json&inc=recordings%2Bartist-credits")
+        );
     }
 
     #[tokio::test]

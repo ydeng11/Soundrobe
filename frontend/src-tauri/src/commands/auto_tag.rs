@@ -4,6 +4,8 @@ use regex::Regex;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
+use crate::state::providers::ProviderAlbum;
+
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum LookupSource {
@@ -301,6 +303,37 @@ pub fn query_hash(request: &LookupRequest) -> String {
     format!("{:x}", Sha256::digest(payload))
 }
 
+pub fn musicbrainz_candidate(album: ProviderAlbum) -> AlbumCandidate {
+    let artist = album.artist.clone();
+    AlbumCandidate {
+        artist: artist.clone(),
+        artists: album.artists.clone(),
+        album: Some(album.title),
+        album_artist: artist,
+        album_artists: album.artists,
+        year: album.year,
+        musicbrainz_album_id: Some(album.id),
+        musicbrainz_artist_id: album.artist_id,
+        tracks: album
+            .tracks
+            .into_iter()
+            .map(|track| TrackCandidate {
+                title: track.title,
+                match_titles: track.match_titles,
+                artist: track.artist,
+                artists: track.artists,
+                track_number: track.track_number,
+                disc_number: track.disc_number,
+                musicbrainz_track_id: track.recording_id,
+                length: track.length,
+                ..TrackCandidate::default()
+            })
+            .collect(),
+        source: LookupSource::Musicbrainz,
+        ..AlbumCandidate::default()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -416,5 +449,46 @@ mod tests {
         );
         relocated.tracks[0].title = Some("Different".into());
         assert_ne!(query_hash(&request), query_hash(&relocated));
+    }
+
+    #[test]
+    fn musicbrainz_provider_album_maps_without_losing_track_identity() {
+        let candidate = musicbrainz_candidate(ProviderAlbum {
+            id: "release-id".into(),
+            title: "Album".into(),
+            artist: Some("Artist".into()),
+            artists: vec!["Artist".into()],
+            artist_id: Some("artist-id".into()),
+            year: Some("2004".into()),
+            tracks: vec![crate::state::providers::ProviderTrack {
+                title: Some("Track".into()),
+                match_titles: vec!["Recording title".into()],
+                artist: Some("Artist feat. Guest".into()),
+                artists: vec!["Artist".into(), "Guest".into()],
+                track_number: Some(1),
+                disc_number: Some(2),
+                recording_id: Some("recording-id".into()),
+                length: Some(123000.0),
+            }],
+        });
+
+        assert_eq!(candidate.source, LookupSource::Musicbrainz);
+        assert_eq!(
+            candidate.musicbrainz_album_id.as_deref(),
+            Some("release-id")
+        );
+        assert_eq!(
+            candidate.musicbrainz_artist_id.as_deref(),
+            Some("artist-id")
+        );
+        assert_eq!(candidate.tracks[0].disc_number, Some(2));
+        assert_eq!(
+            candidate.tracks[0].musicbrainz_track_id.as_deref(),
+            Some("recording-id")
+        );
+        assert_eq!(
+            candidate.tracks[0].artist.as_deref(),
+            Some("Artist feat. Guest")
+        );
     }
 }
