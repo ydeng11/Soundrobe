@@ -6,6 +6,7 @@
 //!
 //! Not yet ported — populated per slice.
 
+pub mod assistant;
 pub mod config;
 pub mod conversation;
 pub mod providers;

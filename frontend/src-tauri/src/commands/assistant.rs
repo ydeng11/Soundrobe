@@ -1,6 +1,16 @@
-//! Parity owner for the `assistant` behavioral group.
-//!
-//! Not yet ported: see `frontend/plans/tauri-parity.md`. The slice begins with
-//! a failing contract test encoding the current Electron intent, then the
-//! minimum Rust/adapter code; the command is wired into `generate_handler!`
-//! only when its parity row is green.
+//! Assistant runtime and tool-service commands.
+
+use crate::error::ApiError;
+use crate::state::assistant::{AssistantServicesConfig, AssistantServicesState};
+use tauri::State;
+
+#[tauri::command]
+pub fn assistant_init_services(
+    config: AssistantServicesConfig,
+    services: State<'_, AssistantServicesState>,
+) -> Result<(), ApiError> {
+    services
+        .initialize(config)
+        .then_some(())
+        .ok_or_else(|| ApiError::Message("Failed to initialize assistant services".to_string()))
+}
