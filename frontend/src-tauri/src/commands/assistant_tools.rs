@@ -229,7 +229,7 @@ fn prettify_tool(args: &Value) -> AssistantToolResult {
     tool_error("Provide either text or fields to prettify".into())
 }
 
-fn prettify_tag(text: &str) -> String {
+pub(crate) fn prettify_tag(text: &str) -> String {
     use std::sync::OnceLock;
     static LEADING_NUMBER: OnceLock<regex::Regex> = OnceLock::new();
     static LETTER_DIGIT: OnceLock<regex::Regex> = OnceLock::new();

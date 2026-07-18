@@ -1,7 +1,9 @@
 //! Assistant runtime and tool-service commands.
 
 use crate::commands::{
-    assistant_tools::{context_tool_catalog, execute_context_tool, AssistantToolResult},
+    assistant_tools::{
+        context_tool_catalog, execute_context_tool, prettify_tag, AssistantToolResult,
+    },
     dataset::dataset_status_at,
     lyrics::{fetch_lyrics_at, DEFAULT_BASE_URL},
     mutations::{
@@ -18,6 +20,7 @@ use crate::state::assistant::{
 };
 use crate::state::config::ConfigState;
 use crate::state::conversation::ConversationState;
+use crate::state::providers::convert_chinese_text;
 use crate::state::providers::{DiscogsClient, MusicBrainzClient, ProviderState};
 use crate::state::write_queue::WriteQueue;
 use serde::{Deserialize, Serialize};
@@ -243,7 +246,7 @@ pub async fn assistant_send(
             let event = AssistantEvent {
                 session_id: current.session_id,
                 event_type: "message",
-                message: "Track numbering is already correct. No changes are needed.".into(),
+                message: route.no_changes_message().into(),
                 data: Some(serde_json::json!({
                     "outcome": "no_changes",
                     "routeSource": "deterministic",
@@ -623,6 +626,32 @@ enum AssistantTaskRoute {
     AutoTag,
     Audit,
     AutoNumberTracks,
+    StripTrackTitlePrefixes,
+    StripFilenamePrefixes,
+    InferTagsFromFilenames,
+    ChineseToTraditional,
+    ChineseToSimplified,
+}
+
+impl AssistantTaskRoute {
+    fn no_changes_message(self) -> &'static str {
+        match self {
+            Self::AutoNumberTracks => "Track numbering is already correct. No changes are needed.",
+            Self::StripTrackTitlePrefixes => {
+                "No track-title number prefixes were found. No changes are needed."
+            }
+            Self::StripFilenamePrefixes => {
+                "No filename number prefixes were found. No changes are needed."
+            }
+            Self::InferTagsFromFilenames => {
+                "No filenames had a clear artist-title shape. No changes are needed."
+            }
+            Self::ChineseToTraditional | Self::ChineseToSimplified => {
+                "The selected metadata is already in the requested Chinese script. No changes are needed."
+            }
+            Self::AutoTag | Self::Audit => "No changes are needed.",
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -665,6 +694,68 @@ fn derive_assistant_task_contract(message: &str) -> AssistantTaskContract {
             kind: AssistantTaskContractKind::ActionPreviewRequired,
             route: Some(AssistantTaskRoute::Audit),
             reason: "audit_intent",
+            requires_completion_evidence: true,
+        };
+    }
+    if (text.contains("strip") || text.contains("remove"))
+        && text.contains("filename")
+        && (text.contains("prefix") || text.contains("number"))
+    {
+        return AssistantTaskContract {
+            kind: AssistantTaskContractKind::ActionPreviewRequired,
+            route: Some(AssistantTaskRoute::StripFilenamePrefixes),
+            reason: "strip_filename_prefixes_intent",
+            requires_completion_evidence: true,
+        };
+    }
+    if text.contains("filename")
+        && (text.contains("infer") || text.contains("parse") || text.contains("derive"))
+        && (text.contains("tag") || text.contains("title") || text.contains("artist"))
+    {
+        return AssistantTaskContract {
+            kind: AssistantTaskContractKind::ActionPreviewRequired,
+            route: Some(AssistantTaskRoute::InferTagsFromFilenames),
+            reason: "infer_tags_from_filenames_intent",
+            requires_completion_evidence: true,
+        };
+    }
+    let chinese_conversion = text.contains("chinese")
+        || text.contains("中文")
+        || text.contains("traditional")
+        || text.contains("simplified")
+        || text.contains("繁體")
+        || text.contains("繁体")
+        || text.contains("简体")
+        || text.contains("簡體");
+    if chinese_conversion
+        && (text.contains("convert") || text.contains("转换") || text.contains("轉換"))
+    {
+        let route =
+            if text.contains("traditional") || text.contains("繁體") || text.contains("繁体") {
+                Some(AssistantTaskRoute::ChineseToTraditional)
+            } else if text.contains("simplified") || text.contains("简体") || text.contains("簡體")
+            {
+                Some(AssistantTaskRoute::ChineseToSimplified)
+            } else {
+                None
+            };
+        return AssistantTaskContract {
+            kind: route.map_or(AssistantTaskContractKind::ClarificationRequired, |_| {
+                AssistantTaskContractKind::ActionPreviewRequired
+            }),
+            route,
+            reason: "chinese_convert_intent",
+            requires_completion_evidence: route.is_some(),
+        };
+    }
+    if (text.contains("strip") || text.contains("remove"))
+        && text.contains("title")
+        && (text.contains("prefix") || text.contains("number"))
+    {
+        return AssistantTaskContract {
+            kind: AssistantTaskContractKind::ActionPreviewRequired,
+            route: Some(AssistantTaskRoute::StripTrackTitlePrefixes),
+            reason: "strip_track_title_prefixes_intent",
             requires_completion_evidence: true,
         };
     }
@@ -753,11 +844,12 @@ fn deterministic_task_batch(
             "No tracks are available in the current assistant scope".into(),
         ));
     }
-    let (kind, title, summary, actions) = match route {
+    let (kind, title, summary, risk_level, actions) = match route {
         AssistantTaskRoute::AutoTag => (
             "auto-tag-run",
             "Run auto-tag",
             format!("Preview auto-tag for {} track(s)", paths.len()),
+            "low",
             paths
                 .into_iter()
                 .map(|track_path| AssistantAction {
@@ -770,6 +862,7 @@ fn deterministic_task_batch(
             "audit-run",
             "Run metadata audit",
             format!("Preview metadata audit for {} track(s)", paths.len()),
+            "low",
             paths
                 .into_iter()
                 .map(|track_path| AssistantAction {
@@ -787,6 +880,68 @@ fn deterministic_task_batch(
                 "metadata-update",
                 "Number tracks",
                 format!("Preview {} track-numbering update(s)", actions.len()),
+                "low",
+                actions,
+            )
+        }
+        AssistantTaskRoute::StripTrackTitlePrefixes => {
+            let actions = plan_strip_track_title_prefixes(input, &paths);
+            if actions.is_empty() {
+                return Ok(None);
+            }
+            (
+                "metadata-update",
+                "Strip track-title prefixes",
+                format!("Preview {} title update(s)", actions.len()),
+                "low",
+                actions,
+            )
+        }
+        AssistantTaskRoute::StripFilenamePrefixes => {
+            let actions = plan_strip_filename_prefixes(&paths);
+            if actions.is_empty() {
+                return Ok(None);
+            }
+            (
+                "folder-move",
+                "Strip filename prefixes",
+                format!("Preview {} file rename(s)", actions.len()),
+                "medium",
+                actions,
+            )
+        }
+        AssistantTaskRoute::InferTagsFromFilenames => {
+            let actions = plan_infer_tags_from_filenames(
+                input,
+                &paths,
+                input.message.to_lowercase().contains("prett"),
+            );
+            if actions.is_empty() {
+                return Ok(None);
+            }
+            (
+                "metadata-update",
+                "Infer tags from filenames",
+                format!("Preview {} inferred tag update(s)", actions.len()),
+                "low",
+                actions,
+            )
+        }
+        AssistantTaskRoute::ChineseToTraditional | AssistantTaskRoute::ChineseToSimplified => {
+            let target = if route == AssistantTaskRoute::ChineseToTraditional {
+                "traditional"
+            } else {
+                "simplified"
+            };
+            let actions = plan_chinese_conversion(input, &paths, target);
+            if actions.is_empty() {
+                return Ok(None);
+            }
+            (
+                "metadata-update",
+                "Convert Chinese metadata",
+                format!("Preview {} Chinese-script update(s)", actions.len()),
+                "low",
                 actions,
             )
         }
@@ -798,7 +953,7 @@ fn deterministic_task_batch(
         kind: kind.into(),
         title: title.into(),
         summary,
-        risk_level: "low".into(),
+        risk_level: risk_level.into(),
         actions,
         reversible: true,
         status: "pending".into(),
@@ -924,6 +1079,238 @@ fn push_numeric_action(
         description: Some(format!("Set {field} to {desired}")),
         ..Default::default()
     });
+}
+
+fn plan_strip_track_title_prefixes(
+    input: &AssistantSendInput,
+    scoped_paths: &[String],
+) -> Vec<AssistantAction> {
+    let scoped = scoped_paths
+        .iter()
+        .map(String::as_str)
+        .collect::<HashSet<_>>();
+    input
+        .tracks
+        .iter()
+        .filter_map(|track| {
+            let path = track_path(track);
+            let title = track.get("title").and_then(Value::as_str)?;
+            if !scoped.contains(path) {
+                return None;
+            }
+            let stripped = strip_track_title_prefix(title);
+            (stripped != title).then(|| AssistantAction {
+                tag_kind: Some("standard".into()),
+                track_path: Some(path.into()),
+                field: Some("title".into()),
+                old_value: Some(title.into()),
+                new_value: Some(stripped),
+                description: Some("Strip leading track number from title".into()),
+                ..Default::default()
+            })
+        })
+        .collect()
+}
+
+fn strip_track_title_prefix(title: &str) -> String {
+    use std::sync::OnceLock;
+    static PREFIX: OnceLock<regex::Regex> = OnceLock::new();
+    PREFIX
+        .get_or_init(|| {
+            regex::Regex::new(r"^(?:\d+[.)]\s+|\d+\s*[-–]\s+|\d{1,3}\s+)")
+                .expect("valid title-prefix regex")
+        })
+        .replace(title, "")
+        .into_owned()
+}
+
+fn plan_strip_filename_prefixes(paths: &[String]) -> Vec<AssistantAction> {
+    use std::sync::OnceLock;
+    static PREFIX: OnceLock<regex::Regex> = OnceLock::new();
+    let prefix = PREFIX
+        .get_or_init(|| regex::Regex::new(r"^\d+[\s.\\)-]+").expect("valid filename-prefix regex"));
+    paths
+        .iter()
+        .filter_map(|source| {
+            let path = Path::new(source);
+            let filename = path.file_name()?.to_str()?;
+            let stripped = prefix.replace(filename, "");
+            if stripped == filename || stripped.is_empty() {
+                return None;
+            }
+            let destination = path.with_file_name(stripped.as_ref());
+            Some(AssistantAction {
+                source_path: Some(source.clone()),
+                destination_path: Some(destination.to_string_lossy().into_owned()),
+                description: Some(format!("Rename {filename} to {stripped}")),
+                ..Default::default()
+            })
+        })
+        .collect()
+}
+
+fn plan_infer_tags_from_filenames(
+    input: &AssistantSendInput,
+    paths: &[String],
+    prettify: bool,
+) -> Vec<AssistantAction> {
+    let tracks = input
+        .tracks
+        .iter()
+        .map(|track| (track_path(track), track))
+        .collect::<BTreeMap<_, _>>();
+    let mut actions = Vec::new();
+    for path in paths {
+        let Some((artist, title)) = infer_artist_title_from_filename(path) else {
+            continue;
+        };
+        let artist = if prettify {
+            prettify_tag(&artist)
+        } else {
+            artist
+        };
+        let title = if prettify {
+            prettify_tag(&title)
+        } else {
+            title
+        };
+        let track = tracks.get(path.as_str()).copied();
+        push_string_action(&mut actions, track, path, "title", &title);
+        push_string_action(&mut actions, track, path, "artist", &artist);
+        let artists = split_artist_names(&artist).join("; ");
+        push_string_action(&mut actions, track, path, "artists", &artists);
+    }
+    actions
+}
+
+fn infer_artist_title_from_filename(path: &str) -> Option<(String, String)> {
+    use std::sync::OnceLock;
+    static LEADING_NUMBER: OnceLock<regex::Regex> = OnceLock::new();
+    static SPACED_DASH: OnceLock<regex::Regex> = OnceLock::new();
+    let leading_number = LEADING_NUMBER.get_or_init(|| {
+        regex::Regex::new(r"(?i)^\s*(?:disc\s*)?\d{1,3}(?:[._ -]+|\s+)")
+            .expect("valid filename track-number regex")
+    });
+    let spaced_dash = SPACED_DASH
+        .get_or_init(|| regex::Regex::new(r"\s[-–—]\s").expect("valid artist-title regex"));
+    let stem = Path::new(path).file_stem()?.to_str()?;
+    let had_number = leading_number.is_match(stem);
+    let clean = leading_number.replace(stem, "");
+    let (artist, title) = if let Some(separator) = spaced_dash.find(&clean) {
+        (&clean[..separator.start()], &clean[separator.end()..])
+    } else if had_number {
+        clean.split_once('-')?
+    } else {
+        return None;
+    };
+    let artist = artist.trim();
+    let title = title.trim();
+    (!artist.is_empty() && !title.is_empty()).then(|| (artist.into(), title.into()))
+}
+
+fn split_artist_names(artist: &str) -> Vec<String> {
+    use std::sync::OnceLock;
+    static DELIMITER: OnceLock<regex::Regex> = OnceLock::new();
+    let delimiter = DELIMITER.get_or_init(|| {
+        regex::Regex::new(r"(?i)\s+(?:feat\.?|ft\.?|featuring)\s+|\s*[&/;,＋+、，；·‧]\s*")
+            .expect("valid multi-artist delimiter regex")
+    });
+    let normalized = artist.replace(" _ ", " / ");
+    let mut seen = HashSet::new();
+    delimiter
+        .split(&normalized)
+        .filter_map(|name| {
+            let name = name.trim();
+            let key = name.to_lowercase();
+            (!name.is_empty() && seen.insert(key)).then(|| name.to_string())
+        })
+        .collect()
+}
+
+fn push_string_action(
+    actions: &mut Vec<AssistantAction>,
+    track: Option<&Value>,
+    path: &str,
+    field: &str,
+    desired: &str,
+) {
+    let current = track.and_then(|track| match field {
+        "artists" => track.get(field).and_then(Value::as_array).map(|values| {
+            values
+                .iter()
+                .filter_map(Value::as_str)
+                .collect::<Vec<_>>()
+                .join("; ")
+        }),
+        _ => track.get(field).and_then(Value::as_str).map(str::to_string),
+    });
+    if current.as_deref() == Some(desired) {
+        return;
+    }
+    actions.push(AssistantAction {
+        tag_kind: Some("standard".into()),
+        track_path: Some(path.into()),
+        field: Some(field.into()),
+        old_value: current,
+        new_value: Some(desired.into()),
+        description: Some(format!("Infer {field} from filename")),
+        ..Default::default()
+    });
+}
+
+fn plan_chinese_conversion(
+    input: &AssistantSendInput,
+    paths: &[String],
+    target: &str,
+) -> Vec<AssistantAction> {
+    const FIELDS: &[&str] = &[
+        "title",
+        "artist",
+        "artists",
+        "album",
+        "albumArtist",
+        "albumArtists",
+        "genre",
+        "composer",
+        "comment",
+        "description",
+        "lyrics",
+    ];
+    let scoped = paths.iter().map(String::as_str).collect::<HashSet<_>>();
+    let mut actions = Vec::new();
+    for track in &input.tracks {
+        let path = track_path(track);
+        if !scoped.contains(path) {
+            continue;
+        }
+        for field in FIELDS {
+            let original = match track.get(*field) {
+                Some(Value::String(value)) => value.clone(),
+                Some(Value::Array(values)) => values
+                    .iter()
+                    .filter_map(Value::as_str)
+                    .collect::<Vec<_>>()
+                    .join("; "),
+                _ => continue,
+            };
+            if original.is_empty() {
+                continue;
+            }
+            let converted = if matches!(*field, "artists" | "albumArtists") {
+                original
+                    .split(';')
+                    .map(|value| convert_chinese_text(value.trim(), target))
+                    .collect::<Vec<_>>()
+                    .join("; ")
+            } else {
+                convert_chinese_text(&original, target)
+            };
+            if converted != original {
+                push_string_action(&mut actions, Some(track), path, field, &converted);
+            }
+        }
+    }
+    actions
 }
 
 fn validate_completion_evidence(
@@ -1228,6 +1615,14 @@ fn action_patch(field: &str, new_value: Option<&str>) -> Result<TrackPatch, ApiE
         ("compilation", Some(value)) => Value::Bool(value.parse::<bool>().map_err(|_| {
             ApiError::Message(format!("Invalid boolean value for compilation: {value}"))
         })?),
+        ("artists" | "albumArtists", Some(value)) => Value::Array(
+            value
+                .split(';')
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .map(|value| Value::String(value.into()))
+                .collect(),
+        ),
         (_, Some(value)) => Value::String(value.into()),
     };
     serde_json::from_value(serde_json::json!({ field: value }))
@@ -1624,6 +2019,36 @@ mod apply_contract_tests {
 
         let numbering = derive_assistant_task_contract("fix track numbers within each album");
         assert_eq!(numbering.route, Some(AssistantTaskRoute::AutoNumberTracks));
+
+        let titles = derive_assistant_task_contract("strip number prefixes from track titles");
+        assert_eq!(
+            titles.route,
+            Some(AssistantTaskRoute::StripTrackTitlePrefixes)
+        );
+
+        let filenames = derive_assistant_task_contract("remove number prefixes from filenames");
+        assert_eq!(
+            filenames.route,
+            Some(AssistantTaskRoute::StripFilenamePrefixes)
+        );
+
+        let inference =
+            derive_assistant_task_contract("infer title and artist tags from filenames");
+        assert_eq!(
+            inference.route,
+            Some(AssistantTaskRoute::InferTagsFromFilenames)
+        );
+
+        let chinese = derive_assistant_task_contract("convert Chinese tags to Traditional");
+        assert_eq!(
+            chinese.route,
+            Some(AssistantTaskRoute::ChineseToTraditional)
+        );
+        let ambiguous_chinese = derive_assistant_task_contract("convert Chinese tags");
+        assert_eq!(
+            ambiguous_chinese.kind,
+            AssistantTaskContractKind::ClarificationRequired
+        );
     }
 
     #[test]
@@ -1718,6 +2143,146 @@ mod apply_contract_tests {
                 .unwrap();
 
         assert!(batch.is_none());
+    }
+
+    #[test]
+    fn deterministic_title_prefix_cleanup_emits_only_changed_titles() {
+        let input = AssistantSendInput {
+            message: "strip title prefixes".into(),
+            tracks: vec![
+                serde_json::json!({"path": "/music/01.mp3", "title": "01. First"}),
+                serde_json::json!({"path": "/music/02.mp3", "title": "02 - Second"}),
+                serde_json::json!({"path": "/music/03.mp3", "title": "Already Clean"}),
+            ],
+            ..Default::default()
+        };
+
+        let batch = deterministic_task_batch(
+            "session",
+            &input,
+            AssistantTaskRoute::StripTrackTitlePrefixes,
+        )
+        .unwrap()
+        .unwrap();
+
+        assert_eq!(batch.kind, "metadata-update");
+        assert_eq!(batch.actions.len(), 2);
+        assert_eq!(batch.actions[0].new_value.as_deref(), Some("First"));
+        assert_eq!(batch.actions[1].new_value.as_deref(), Some("Second"));
+        assert!(batch
+            .actions
+            .iter()
+            .all(|action| action.tag_kind.as_deref() == Some("standard")));
+    }
+
+    #[test]
+    fn deterministic_filename_prefix_cleanup_previews_renames_without_writing() {
+        let input = AssistantSendInput {
+            message: "strip filename prefixes".into(),
+            tracks: vec![
+                serde_json::json!({"path": "/music/01. First.mp3"}),
+                serde_json::json!({"path": "/music/02 - Second.flac"}),
+                serde_json::json!({"path": "/music/Already Clean.ogg"}),
+            ],
+            ..Default::default()
+        };
+
+        let batch =
+            deterministic_task_batch("session", &input, AssistantTaskRoute::StripFilenamePrefixes)
+                .unwrap()
+                .unwrap();
+
+        assert_eq!(batch.kind, "folder-move");
+        assert_eq!(batch.risk_level, "medium");
+        assert_eq!(batch.actions.len(), 2);
+        assert_eq!(
+            batch.actions[0].destination_path.as_deref(),
+            Some("/music/First.mp3")
+        );
+        assert_eq!(
+            batch.actions[1].destination_path.as_deref(),
+            Some("/music/Second.flac")
+        );
+    }
+
+    #[test]
+    fn deterministic_filename_inference_handles_spaced_and_structured_compact_names() {
+        let input = AssistantSendInput {
+            message: "infer and prettify tags from filenames".into(),
+            tracks: vec![
+                serde_json::json!({"path": "/music/01 Artist A & Artist B - first_song.flac"}),
+                serde_json::json!({"path": "/music/110-hedgehog-you_are_so_famous.flac"}),
+                serde_json::json!({"path": "/music/standalone-title.flac"}),
+            ],
+            ..Default::default()
+        };
+
+        let batch = deterministic_task_batch(
+            "session",
+            &input,
+            AssistantTaskRoute::InferTagsFromFilenames,
+        )
+        .unwrap()
+        .unwrap();
+
+        assert_eq!(batch.actions.len(), 6);
+        assert!(batch.actions.iter().any(|action| {
+            action.track_path.as_deref() == Some("/music/110-hedgehog-you_are_so_famous.flac")
+                && action.field.as_deref() == Some("title")
+                && action.new_value.as_deref() == Some("You Are So Famous")
+        }));
+        assert!(batch.actions.iter().any(|action| {
+            action.field.as_deref() == Some("artists")
+                && action.new_value.as_deref() == Some("Artist A; Artist B")
+        }));
+        assert!(!batch.actions.iter().any(|action| {
+            action.track_path.as_deref() == Some("/music/standalone-title.flac")
+        }));
+    }
+
+    #[test]
+    fn standard_array_actions_are_deserialized_as_separate_values() {
+        let patch = action_patch("artists", Some("Artist A; Artist B")).unwrap();
+        assert_eq!(
+            patch.artists.value(),
+            Some(&crate::commands::mutations::StringList::Many(vec![
+                "Artist A".into(),
+                "Artist B".into()
+            ]))
+        );
+    }
+
+    #[test]
+    fn deterministic_chinese_conversion_updates_only_changed_text_fields() {
+        let input = AssistantSendInput {
+            message: "convert Chinese tags to Traditional".into(),
+            tracks: vec![serde_json::json!({
+                "path": "/music/one.flac",
+                "title": "音乐与未来",
+                "artist": "Artist",
+                "artists": ["音乐人", "Artist"],
+                "album": "专辑"
+            })],
+            ..Default::default()
+        };
+
+        let batch =
+            deterministic_task_batch("session", &input, AssistantTaskRoute::ChineseToTraditional)
+                .unwrap()
+                .unwrap();
+
+        assert!(batch.actions.iter().any(|action| {
+            action.field.as_deref() == Some("title")
+                && action.new_value.as_deref() == Some("音樂與未來")
+        }));
+        assert!(batch.actions.iter().any(|action| {
+            action.field.as_deref() == Some("artists")
+                && action.new_value.as_deref() == Some("音樂人; Artist")
+        }));
+        assert!(!batch
+            .actions
+            .iter()
+            .any(|action| action.field.as_deref() == Some("artist")));
     }
 
     #[test]
