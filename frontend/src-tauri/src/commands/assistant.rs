@@ -1,6 +1,9 @@
 //! Assistant runtime and tool-service commands.
 
 use crate::commands::{
+    assistant_tools::{context_tool_catalog, execute_context_tool, AssistantToolResult},
+    dataset::dataset_status_at,
+    lyrics::{fetch_lyrics_at, DEFAULT_BASE_URL},
     mutations::{
         rename_track_queued, write_extra_tags_queued, write_track_queued, ExtraTagUpdate,
         TrackPatch,
@@ -10,14 +13,16 @@ use crate::commands::{
 use crate::error::ApiError;
 use crate::infra::openrouter::{ChatMessage, OpenRouterClient};
 use crate::state::assistant::{
-    AssistantActionBatch, AssistantRuntimeState, AssistantServicesConfig, AssistantServicesState,
+    AssistantAction, AssistantActionBatch, AssistantRuntimeState, AssistantServicesConfig,
+    AssistantServicesSnapshot, AssistantServicesState,
 };
 use crate::state::config::ConfigState;
 use crate::state::conversation::ConversationState;
+use crate::state::providers::{DiscogsClient, MusicBrainzClient, ProviderState};
 use crate::state::write_queue::WriteQueue;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::collections::HashSet;
+use std::collections::{BTreeMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::Ordering;
 use tauri::{AppHandle, Emitter, State};
@@ -32,12 +37,193 @@ pub struct AssistantEvent {
     data: Option<Value>,
 }
 
+struct NativeAssistantToolServices<'a> {
+    input: &'a AssistantSendInput,
+    providers: &'a ProviderState,
+    config: &'a crate::state::config::AutoTagConfig,
+    assistant: &'a AssistantServicesSnapshot,
+}
+
+async fn execute_native_assistant_tool(
+    name: &str,
+    args: &Value,
+    services: NativeAssistantToolServices<'_>,
+) -> AssistantToolResult {
+    if matches!(
+        name,
+        "library.summarize"
+            | "tracks.search"
+            | "tracks.inspect"
+            | "albums.inspect"
+            | "query.metadata"
+    ) {
+        return execute_context_tool(name, args, services.input);
+    }
+    match name {
+        "query.datasetStatus" => {
+            let path = services
+                .config
+                .dataset_path
+                .as_deref()
+                .map(PathBuf::from)
+                .or_else(|| {
+                    dirs::home_dir().map(|home| home.join(".auto-tagger/dataset-index.sqlite"))
+                });
+            let status = path
+                .as_deref()
+                .map(dataset_status_at)
+                .unwrap_or_else(|| dataset_status_at(Path::new("")));
+            AssistantToolResult {
+                ok: true,
+                summary: if status.available {
+                    format!("Dataset available with {} record(s).", status.total_records)
+                } else {
+                    "Local dataset is unavailable; online providers remain available.".into()
+                },
+                data: serde_json::to_value(status).ok(),
+                error: None,
+            }
+        }
+        "api.musicbrainzSearch" => {
+            let query = args
+                .get("query")
+                .and_then(Value::as_str)
+                .unwrap_or_default();
+            let (artist, album) = parse_musicbrainz_tool_query(query);
+            if artist.is_empty() || album.is_empty() {
+                return assistant_tool_error(
+                    "MusicBrainz query must include artist: and album: fields".into(),
+                );
+            }
+            let limit = tool_limit(args, 5);
+            let albums = MusicBrainzClient::new(services.providers.http())
+                .search_album(&artist, &album, limit)
+                .await;
+            AssistantToolResult {
+                ok: true,
+                summary: format!("MusicBrainz returned {} release(s).", albums.len()),
+                data: serde_json::to_value(albums).ok(),
+                error: None,
+            }
+        }
+        "api.discogsSearch" => {
+            let query = args
+                .get("query")
+                .and_then(Value::as_str)
+                .unwrap_or_default();
+            let token = services
+                .assistant
+                .discogs_token
+                .clone()
+                .or_else(|| services.config.discogs_token.clone());
+            if token.as_deref().is_none_or(str::is_empty) {
+                return assistant_tool_error("Discogs token is not configured".into());
+            }
+            let albums = DiscogsClient::new(services.providers.http(), token)
+                .search_album("", query, tool_limit(args, 5))
+                .await;
+            AssistantToolResult {
+                ok: true,
+                summary: format!("Discogs returned {} release(s).", albums.len()),
+                data: serde_json::to_value(albums).ok(),
+                error: None,
+            }
+        }
+        "api.lyricsSearch" => {
+            let artist = args
+                .get("artist")
+                .and_then(Value::as_str)
+                .unwrap_or_default();
+            let title = args
+                .get("title")
+                .and_then(Value::as_str)
+                .unwrap_or_default();
+            let host = services
+                .assistant
+                .lyrics_host
+                .as_deref()
+                .or(services.config.lyrics_api_url.as_deref())
+                .unwrap_or(DEFAULT_BASE_URL);
+            let lyrics = fetch_lyrics_at(host, title, artist, None, None).await;
+            AssistantToolResult {
+                ok: true,
+                summary: lyrics
+                    .as_ref()
+                    .map(|lyrics| format!("Found lyrics ({} characters).", lyrics.len()))
+                    .unwrap_or_else(|| "No lyrics found.".into()),
+                data: lyrics.map(|lyrics| serde_json::json!({"lyrics": lyrics})),
+                error: None,
+            }
+        }
+        _ => execute_context_tool(name, args, services.input),
+    }
+}
+
+fn assistant_tool_error(error: String) -> AssistantToolResult {
+    AssistantToolResult {
+        ok: false,
+        summary: error.clone(),
+        data: None,
+        error: Some(error),
+    }
+}
+
+fn tool_result_prompt(result: &AssistantToolResult) -> String {
+    let Some(data) = &result.data else {
+        return format!("Tool result: {}", result.summary);
+    };
+    let serialized = data.to_string();
+    let truncated = serialized.chars().count() > 8_000;
+    let evidence = serialized.chars().take(8_000).collect::<String>();
+    format!(
+        "Tool result: {}\nStructured evidence: {}{}",
+        result.summary,
+        evidence,
+        if truncated { "…[truncated]" } else { "" }
+    )
+}
+
+fn tool_limit(args: &Value, fallback: usize) -> usize {
+    args.get("limit")
+        .and_then(Value::as_u64)
+        .and_then(|limit| usize::try_from(limit).ok())
+        .unwrap_or(fallback)
+        .clamp(1, 25)
+}
+
+fn parse_musicbrainz_tool_query(query: &str) -> (String, String) {
+    (
+        query_field(query, "artist").unwrap_or_default(),
+        query_field(query, "album").unwrap_or_default(),
+    )
+}
+
+fn query_field(query: &str, field: &str) -> Option<String> {
+    let lower = query.to_lowercase();
+    let marker = format!("{field}:");
+    let start = lower.find(&marker)? + marker.len();
+    let tail = query[start..].trim_start();
+    if let Some(quoted) = tail.strip_prefix('"') {
+        return quoted.split_once('"').map(|(value, _)| value.to_string());
+    }
+    let lower_tail = tail.to_lowercase();
+    let end = [" artist:", " album:"]
+        .iter()
+        .filter(|candidate| !candidate.trim_start().starts_with(field))
+        .filter_map(|candidate| lower_tail.find(candidate))
+        .min()
+        .unwrap_or(tail.len());
+    let value = tail[..end].trim();
+    (!value.is_empty()).then(|| value.to_string())
+}
+
 #[tauri::command]
 pub async fn assistant_send(
     input: AssistantSendInput,
     app: AppHandle,
     runtime: State<'_, AssistantRuntimeState>,
     services: State<'_, AssistantServicesState>,
+    providers: State<'_, ProviderState>,
     config: State<'_, ConfigState>,
     conversation: State<'_, ConversationState>,
 ) -> Result<AssistantEvent, ApiError> {
@@ -53,7 +239,21 @@ pub async fn assistant_send(
         .ok_or_else(|| ApiError::Message("No active assistant session".into()))?;
     conversation.record("user_message", &input.message, None, 0, 0, 0);
     if let Some(route) = contract.route {
-        let batch = deterministic_task_batch(&current.session_id, &input, route)?;
+        let Some(batch) = deterministic_task_batch(&current.session_id, &input, route)? else {
+            let event = AssistantEvent {
+                session_id: current.session_id,
+                event_type: "message",
+                message: "Track numbering is already correct. No changes are needed.".into(),
+                data: Some(serde_json::json!({
+                    "outcome": "no_changes",
+                    "routeSource": "deterministic",
+                    "contractReason": contract.reason,
+                })),
+            };
+            conversation.record("assistant_message", &event.message, None, 0, 0, 0);
+            let _ = app.emit("assistant:event", &event);
+            return Ok(event);
+        };
         if !runtime.add_batch(batch.clone()) {
             return Err(ApiError::Message(
                 "Failed to store assistant action preview".into(),
@@ -76,12 +276,12 @@ pub async fn assistant_send(
     }
     let snapshot = services.snapshot().unwrap_or_default();
     let api_key = (!snapshot.api_key.is_empty())
-        .then_some(snapshot.api_key)
-        .or(raw_config.llm_api_key)
+        .then_some(snapshot.api_key.clone())
+        .or(raw_config.llm_api_key.clone())
         .filter(|key| !key.is_empty());
     let model = (!snapshot.model.is_empty())
-        .then_some(snapshot.model)
-        .or(raw_config.llm_model)
+        .then_some(snapshot.model.clone())
+        .or(raw_config.llm_model.clone())
         .filter(|model| !model.is_empty());
     let Some(api_key) = api_key else {
         return assistant_error_event(
@@ -100,14 +300,7 @@ pub async fn assistant_send(
     let cancelled = runtime
         .begin_request()
         .ok_or_else(|| ApiError::Message("Assistant runtime is unavailable".into()))?;
-    let step = AssistantEvent {
-        session_id: current.session_id.clone(),
-        event_type: "step",
-        message: "Step 1/1".into(),
-        data: None,
-    };
-    let _ = app.emit("assistant:event", step);
-
+    let session_id = current.session_id.clone();
     let context = serde_json::json!({
         "libraryPath": input.library_path,
         "activeAlbumPath": input.active_album_path,
@@ -116,68 +309,189 @@ pub async fn assistant_send(
         "albums": input.albums.iter().take(100).collect::<Vec<_>>(),
         "autonomous": input.autonomous,
     });
-    let messages = vec![
-        ChatMessage::system(concat!(
-            "You are the Auto Tagger desktop assistant. Answer music-library questions directly. ",
-            "For any mutation, return an actionBatch preview; never claim a write already happened. ",
-            "Allowed batch kinds: tag-update, extra-tag-update, metadata-update, auto-tag-run, audit-run. ",
-            "Every action must use an exact trackPath from the supplied active scope. ",
-            "Standard metadata actions use tagKind=standard, field, and newValue (null removes). ",
-            "Custom tags use tagKind=extra. Auto-tag/audit actions need only trackPath. ",
-            "Keep riskLevel low, medium, or high. Return concise user-facing text in message."
+    let tools = context_tool_catalog();
+    let mut messages = vec![
+        ChatMessage::system(format!(
+            concat!(
+                "You are the Auto Tagger desktop assistant. Answer music-library questions directly. ",
+                "For library facts, call one of the supplied read-only tools, then use its result. ",
+                "For any mutation, return an actionBatch preview; never claim a write already happened. ",
+                "Allowed batch kinds: tag-update, extra-tag-update, metadata-update, auto-tag-run, audit-run. ",
+                "Every action must use an exact trackPath from the supplied active scope. ",
+                "Standard metadata actions use tagKind=standard, field, and newValue (null removes). ",
+                "Custom tags use tagKind=extra. Auto-tag/audit actions need only trackPath. ",
+                "Keep riskLevel low, medium, or high. Return concise user-facing text in message. ",
+                "Available tools: {tools}"
+            ),
+            tools = tools
         )),
         ChatMessage::user(format!("App context:\n{context}\n\nUser request:\n{}", input.message)),
     ];
-    let response = OpenRouterClient::new(&api_key, &model)
-        .with_generation(0.2, 1400)
-        .complete_json(
-            messages,
-            "AssistantResponse",
-            assistant_response_schema(),
-            &cancelled,
-        )
-        .await;
-    if cancelled.load(Ordering::Acquire) {
-        let event = AssistantEvent {
-            session_id: current.session_id,
-            event_type: "cancelled",
-            message: "Cancelled".into(),
+    let client = OpenRouterClient::new(&api_key, &model).with_generation(0.2, 1400);
+    let mut signatures = Vec::new();
+    let mut repaired_invalid_args = false;
+    let mut final_draft = None;
+    for step_number in 1..=10 {
+        let step = AssistantEvent {
+            session_id: session_id.clone(),
+            event_type: "step",
+            message: format!("Step {step_number}/10"),
             data: None,
         };
-        let _ = app.emit("assistant:event", &event);
-        return Ok(event);
-    }
-    let response = match response {
-        Ok(response) => response,
-        Err(error) => {
-            conversation.record_system(&error.to_string());
-            return assistant_error_event(&app, Some(current.session_id), &error.to_string());
+        let _ = app.emit("assistant:event", step);
+        let response = client
+            .complete_json(
+                messages.clone(),
+                "AssistantResponse",
+                assistant_response_schema(),
+                &cancelled,
+            )
+            .await;
+        if cancelled.load(Ordering::Acquire) {
+            let event = AssistantEvent {
+                session_id,
+                event_type: "cancelled",
+                message: "Cancelled".into(),
+                data: None,
+            };
+            let _ = app.emit("assistant:event", &event);
+            return Ok(event);
         }
-    };
-    conversation.record(
-        "api_response",
-        &response.data.to_string(),
-        Some(&response.model),
-        response.usage.prompt_tokens,
-        response.usage.completion_tokens,
-        response.usage.total_tokens,
-    );
-    let draft: AssistantDraft = match serde_json::from_value(response.data) {
-        Ok(draft) => draft,
-        Err(error) => {
+        let response = match response {
+            Ok(response) => response,
+            Err(error) => {
+                conversation.record_system(&error.to_string());
+                return assistant_error_event(&app, Some(session_id), &error.to_string());
+            }
+        };
+        conversation.record(
+            "api_response",
+            &response.data.to_string(),
+            Some(&response.model),
+            response.usage.prompt_tokens,
+            response.usage.completion_tokens,
+            response.usage.total_tokens,
+        );
+        let draft: AssistantDraft = match serde_json::from_value(response.data) {
+            Ok(draft) => draft,
+            Err(error) => {
+                return assistant_error_event(
+                    &app,
+                    Some(session_id),
+                    &format!("Invalid assistant response: {error}"),
+                );
+            }
+        };
+        if draft.tool_call.is_some() && draft.action_batch.is_some() {
             return assistant_error_event(
                 &app,
-                Some(current.session_id),
-                &format!("Invalid assistant response: {error}"),
+                Some(session_id),
+                "Invalid assistant response: toolCall and actionBatch are mutually exclusive",
             );
         }
+        let Some(tool_call) = draft.tool_call else {
+            final_draft = Some(draft);
+            break;
+        };
+        if would_repeat_tool_call(&signatures, &tool_call.tool_name, &tool_call.args) {
+            return assistant_error_event(
+                &app,
+                Some(session_id),
+                &format!(
+                    "The assistant repeated \"{}\" with the same arguments 3 times, so I stopped instead of claiming the task was complete.",
+                    tool_call.tool_name
+                ),
+            );
+        }
+        signatures.push(tool_call_signature(&tool_call.tool_name, &tool_call.args));
+        let running = AssistantEvent {
+            session_id: session_id.clone(),
+            event_type: "tool_running",
+            message: format!("Running tool: {}", tool_call.tool_name),
+            data: Some(serde_json::json!({
+                "toolName": tool_call.tool_name,
+                "toolArgs": tool_call.args
+            })),
+        };
+        let _ = app.emit("assistant:event", &running);
+        conversation.record(
+            "tool_call",
+            &serde_json::json!({
+                "toolName": tool_call.tool_name,
+                "toolArgs": tool_call.args
+            })
+            .to_string(),
+            Some(&model),
+            0,
+            0,
+            0,
+        );
+        let result = execute_native_assistant_tool(
+            &tool_call.tool_name,
+            &tool_call.args,
+            NativeAssistantToolServices {
+                input: &input,
+                providers: &providers,
+                config: &raw_config,
+                assistant: &snapshot,
+            },
+        )
+        .await;
+        conversation.record("tool_result", &result.summary, None, 0, 0, 0);
+        let tool_result = AssistantEvent {
+            session_id: session_id.clone(),
+            event_type: "tool_result",
+            message: result.summary.clone(),
+            data: Some(serde_json::json!({
+                "ok": result.ok,
+                "summary": result.summary,
+                "data": result.data,
+                "error": result.error
+            })),
+        };
+        let _ = app.emit("assistant:event", &tool_result);
+        if !result.ok {
+            let validation_error = result
+                .error
+                .as_deref()
+                .is_some_and(|error| error.starts_with("Invalid arguments"));
+            if validation_error && !repaired_invalid_args {
+                repaired_invalid_args = true;
+                messages.push(ChatMessage::system(format!(
+                    "Tool argument validation failed for \"{}\": {}. Retry once using only fields allowed by that tool schema.",
+                    tool_call.tool_name,
+                    result.error.as_deref().unwrap_or_default()
+                )));
+                continue;
+            }
+            return assistant_error_event(&app, Some(session_id), &result.summary);
+        }
+        messages.push(ChatMessage {
+            role: "assistant".into(),
+            content: serde_json::json!({
+                "toolCall": {"toolName": tool_call.tool_name, "args": tool_call.args}
+            })
+            .to_string(),
+        });
+        messages.push(ChatMessage::user(tool_result_prompt(&result)));
+    }
+    let Some(draft) = final_draft else {
+        return assistant_error_event(
+            &app,
+            Some(session_id),
+            "I reached the maximum step limit (10) without a final response.",
+        );
     };
-    validate_completion_evidence(&contract, draft.action_batch.is_some(), &draft.message)?;
+    if let Err(error) =
+        validate_completion_evidence(&contract, draft.action_batch.is_some(), &draft.message)
+    {
+        return assistant_error_event(&app, Some(session_id), &error.to_string());
+    }
     let event = if let Some(batch) = draft.action_batch {
-        let batch = match validated_assistant_batch(&current.session_id, &input, batch) {
+        let batch = match validated_assistant_batch(&session_id, &input, batch) {
             Ok(batch) => batch,
             Err(error) => {
-                return assistant_error_event(&app, Some(current.session_id), &error.to_string());
+                return assistant_error_event(&app, Some(session_id), &error.to_string());
             }
         };
         if !runtime.add_batch(batch.clone()) {
@@ -186,7 +500,7 @@ pub async fn assistant_send(
             ));
         }
         AssistantEvent {
-            session_id: current.session_id,
+            session_id,
             event_type: "action_batch_created",
             message: draft.message,
             data: Some(serde_json::json!({
@@ -196,7 +510,7 @@ pub async fn assistant_send(
         }
     } else {
         AssistantEvent {
-            session_id: current.session_id,
+            session_id,
             event_type: "message",
             message: draft.message,
             data: None,
@@ -250,9 +564,31 @@ fn assistant_response_schema() -> Value {
                     }
                 },
                 "required": ["kind", "title", "summary", "riskLevel", "actions"]
+            },
+            "toolCall": {
+                "type": ["object", "null"],
+                "properties": {
+                    "toolName": {
+                        "type": "string",
+                        "enum": [
+                            "library.summarize",
+                            "tracks.search",
+                            "tracks.inspect",
+                            "albums.inspect",
+                            "query.metadata",
+                            "query.datasetStatus",
+                            "api.musicbrainzSearch",
+                            "api.discogsSearch",
+                            "api.lyricsSearch",
+                            "tags.prettify"
+                        ]
+                    },
+                    "args": {"type": "object"}
+                },
+                "required": ["toolName", "args"]
             }
         },
-        "required": ["message", "actionBatch"]
+        "required": ["message", "actionBatch", "toolCall"]
     })
 }
 
@@ -286,6 +622,7 @@ enum AssistantTaskContractKind {
 enum AssistantTaskRoute {
     AutoTag,
     Audit,
+    AutoNumberTracks,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -328,6 +665,14 @@ fn derive_assistant_task_contract(message: &str) -> AssistantTaskContract {
             kind: AssistantTaskContractKind::ActionPreviewRequired,
             route: Some(AssistantTaskRoute::Audit),
             reason: "audit_intent",
+            requires_completion_evidence: true,
+        };
+    }
+    if (text.contains("track") && text.contains("number")) || text.contains("renumber") {
+        return AssistantTaskContract {
+            kind: AssistantTaskContractKind::ActionPreviewRequired,
+            route: Some(AssistantTaskRoute::AutoNumberTracks),
+            reason: "auto_number_tracks_intent",
             requires_completion_evidence: true,
         };
     }
@@ -401,26 +746,52 @@ fn deterministic_task_batch(
     session_id: &str,
     input: &AssistantSendInput,
     route: AssistantTaskRoute,
-) -> Result<AssistantActionBatch, ApiError> {
+) -> Result<Option<AssistantActionBatch>, ApiError> {
     let paths = active_scope_paths(input);
     if paths.is_empty() {
         return Err(ApiError::Message(
             "No tracks are available in the current assistant scope".into(),
         ));
     }
-    let (kind, title, summary) = match route {
+    let (kind, title, summary, actions) = match route {
         AssistantTaskRoute::AutoTag => (
             "auto-tag-run",
             "Run auto-tag",
             format!("Preview auto-tag for {} track(s)", paths.len()),
+            paths
+                .into_iter()
+                .map(|track_path| AssistantAction {
+                    track_path: Some(track_path),
+                    ..Default::default()
+                })
+                .collect(),
         ),
         AssistantTaskRoute::Audit => (
             "audit-run",
             "Run metadata audit",
             format!("Preview metadata audit for {} track(s)", paths.len()),
+            paths
+                .into_iter()
+                .map(|track_path| AssistantAction {
+                    track_path: Some(track_path),
+                    ..Default::default()
+                })
+                .collect(),
         ),
+        AssistantTaskRoute::AutoNumberTracks => {
+            let actions = plan_track_numbering(input, &paths);
+            if actions.is_empty() {
+                return Ok(None);
+            }
+            (
+                "metadata-update",
+                "Number tracks",
+                format!("Preview {} track-numbering update(s)", actions.len()),
+                actions,
+            )
+        }
     };
-    Ok(AssistantActionBatch {
+    Ok(Some(AssistantActionBatch {
         id: format!("batch-{}", uuid::Uuid::new_v4()),
         created_at: time::OffsetDateTime::now_utc().to_string(),
         session_id: session_id.to_string(),
@@ -428,16 +799,131 @@ fn deterministic_task_batch(
         title: title.into(),
         summary,
         risk_level: "low".into(),
-        actions: paths
-            .into_iter()
-            .map(|track_path| crate::state::assistant::AssistantAction {
-                track_path: Some(track_path),
-                ..Default::default()
-            })
-            .collect(),
+        actions,
         reversible: true,
         status: "pending".into(),
+    }))
+}
+
+fn plan_track_numbering(
+    input: &AssistantSendInput,
+    scoped_paths: &[String],
+) -> Vec<AssistantAction> {
+    let scoped = scoped_paths
+        .iter()
+        .map(String::as_str)
+        .collect::<HashSet<_>>();
+    let mut albums: BTreeMap<String, Vec<&Value>> = BTreeMap::new();
+    for track in &input.tracks {
+        let Some(path) = track.get("path").and_then(Value::as_str) else {
+            continue;
+        };
+        if !scoped.contains(path) {
+            continue;
+        }
+        albums
+            .entry(numbering_album_key(track, path))
+            .or_default()
+            .push(track);
+    }
+
+    let mut actions = Vec::new();
+    for tracks in albums.into_values() {
+        let disc_total = tracks
+            .iter()
+            .filter_map(|track| numeric_field(track, "discNumber"))
+            .max();
+        let mut discs: BTreeMap<Option<u32>, Vec<&Value>> = BTreeMap::new();
+        for track in tracks {
+            discs
+                .entry(numeric_field(track, "discNumber"))
+                .or_default()
+                .push(track);
+        }
+        for (disc_number, mut tracks) in discs {
+            tracks.sort_by(|left, right| {
+                numeric_field(left, "trackNumber")
+                    .unwrap_or(u32::MAX)
+                    .cmp(&numeric_field(right, "trackNumber").unwrap_or(u32::MAX))
+                    .then_with(|| track_path(left).cmp(track_path(right)))
+            });
+            let track_total = u32::try_from(tracks.len()).unwrap_or(u32::MAX);
+            for (index, track) in tracks.into_iter().enumerate() {
+                let desired_track = u32::try_from(index + 1).unwrap_or(u32::MAX);
+                push_numeric_action(&mut actions, track, "trackNumber", Some(desired_track));
+                push_numeric_action(&mut actions, track, "trackTotal", Some(track_total));
+                push_numeric_action(&mut actions, track, "discNumber", disc_number);
+                push_numeric_action(&mut actions, track, "discTotal", disc_total);
+            }
+        }
+    }
+    actions
+}
+
+fn numbering_album_key(track: &Value, path: &str) -> String {
+    let artist = track
+        .get("albumArtist")
+        .and_then(Value::as_str)
+        .or_else(|| {
+            track
+                .get("albumArtists")
+                .and_then(Value::as_array)
+                .and_then(|artists| artists.first())
+                .and_then(Value::as_str)
+        });
+    let album = track.get("album").and_then(Value::as_str);
+    match (artist, album) {
+        (Some(artist), Some(album)) if !artist.trim().is_empty() && !album.trim().is_empty() => {
+            format!(
+                "{}\u{0}{}",
+                artist.trim().to_lowercase(),
+                album.trim().to_lowercase()
+            )
+        }
+        _ => Path::new(path)
+            .parent()
+            .unwrap_or_else(|| Path::new(path))
+            .to_string_lossy()
+            .to_lowercase(),
+    }
+}
+
+fn numeric_field(track: &Value, field: &str) -> Option<u32> {
+    track.get(field).and_then(|value| {
+        value
+            .as_u64()
+            .and_then(|number| u32::try_from(number).ok())
+            .or_else(|| value.as_str().and_then(|number| number.parse().ok()))
     })
+}
+
+fn track_path(track: &Value) -> &str {
+    track
+        .get("path")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+}
+
+fn push_numeric_action(
+    actions: &mut Vec<AssistantAction>,
+    track: &Value,
+    field: &str,
+    desired: Option<u32>,
+) {
+    let Some(desired) = desired else { return };
+    let current = numeric_field(track, field);
+    if current == Some(desired) {
+        return;
+    }
+    actions.push(AssistantAction {
+        tag_kind: Some("standard".into()),
+        track_path: Some(track_path(track).into()),
+        field: Some(field.into()),
+        old_value: current.map(|value| value.to_string()),
+        new_value: Some(desired.to_string()),
+        description: Some(format!("Set {field} to {desired}")),
+        ..Default::default()
+    });
 }
 
 fn validate_completion_evidence(
@@ -445,6 +931,11 @@ fn validate_completion_evidence(
     has_action_batch: bool,
     response_message: &str,
 ) -> Result<(), ApiError> {
+    if contract.kind == AssistantTaskContractKind::ReadOnlyAnswer && has_action_batch {
+        return Err(ApiError::Message(
+            "The assistant proposed a mutation preview for a read-only request".into(),
+        ));
+    }
     if contract.requires_completion_evidence && !has_action_batch {
         return Err(ApiError::Message(format!(
             "No action was performed. This request requires a preview batch, but the assistant only replied: {response_message}"
@@ -453,12 +944,64 @@ fn validate_completion_evidence(
     Ok(())
 }
 
+fn tool_call_signature(name: &str, args: &Value) -> String {
+    format!("{name}|{}", canonical_json(args))
+}
+
+fn canonical_json(value: &Value) -> String {
+    match value {
+        Value::Object(object) => {
+            let mut entries = object.iter().collect::<Vec<_>>();
+            entries.sort_by(|(left, _), (right, _)| left.cmp(right));
+            let body = entries
+                .into_iter()
+                .map(|(key, value)| {
+                    format!(
+                        "{}:{}",
+                        serde_json::to_string(key).unwrap_or_default(),
+                        canonical_json(value)
+                    )
+                })
+                .collect::<Vec<_>>()
+                .join(",");
+            format!("{{{body}}}")
+        }
+        Value::Array(values) => format!(
+            "[{}]",
+            values
+                .iter()
+                .map(canonical_json)
+                .collect::<Vec<_>>()
+                .join(",")
+        ),
+        _ => value.to_string(),
+    }
+}
+
+fn would_repeat_tool_call(signatures: &[String], name: &str, args: &Value) -> bool {
+    let signature = tool_call_signature(name, args);
+    signatures.len() >= 2
+        && signatures[signatures.len() - 2..]
+            .iter()
+            .all(|seen| seen == &signature)
+}
+
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct AssistantDraft {
     message: String,
     #[serde(default)]
     action_batch: Option<AssistantDraftBatch>,
+    #[serde(default)]
+    tool_call: Option<AssistantDraftToolCall>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct AssistantDraftToolCall {
+    tool_name: String,
+    #[serde(default)]
+    args: Value,
 }
 
 #[derive(Debug, Deserialize)]
@@ -1078,6 +1621,9 @@ mod apply_contract_tests {
         assert_eq!(audit.kind, AssistantTaskContractKind::ActionPreviewRequired);
         assert_eq!(audit.route, Some(AssistantTaskRoute::Audit));
         assert!(audit.requires_completion_evidence);
+
+        let numbering = derive_assistant_task_contract("fix track numbers within each album");
+        assert_eq!(numbering.route, Some(AssistantTaskRoute::AutoNumberTracks));
     }
 
     #[test]
@@ -1100,8 +1646,9 @@ mod apply_contract_tests {
             ..Default::default()
         };
 
-        let batch =
-            deterministic_task_batch("session", &input, AssistantTaskRoute::AutoTag).unwrap();
+        let batch = deterministic_task_batch("session", &input, AssistantTaskRoute::AutoTag)
+            .unwrap()
+            .unwrap();
 
         assert_eq!(batch.kind, "auto-tag-run");
         assert_eq!(batch.actions.len(), 1);
@@ -1112,11 +1659,153 @@ mod apply_contract_tests {
     }
 
     #[test]
+    fn deterministic_numbering_groups_by_album_and_emits_only_real_diffs() {
+        let input = AssistantSendInput {
+            message: "fix track numbers".into(),
+            tracks: vec![
+                serde_json::json!({
+                    "path": "/music/A/Album/02.mp3", "album": "Album", "albumArtist": "A",
+                    "trackNumber": 9, "trackTotal": 9, "discNumber": 1, "discTotal": 1
+                }),
+                serde_json::json!({
+                    "path": "/music/A/Album/01.mp3", "album": "Album", "albumArtist": "A",
+                    "trackNumber": 1, "trackTotal": 9, "discNumber": 1, "discTotal": 1
+                }),
+                serde_json::json!({
+                    "path": "/music/B/Other/01.mp3", "album": "Other", "albumArtist": "B",
+                    "trackNumber": 1, "trackTotal": 1
+                }),
+            ],
+            ..Default::default()
+        };
+
+        let batch =
+            deterministic_task_batch("session", &input, AssistantTaskRoute::AutoNumberTracks)
+                .unwrap()
+                .unwrap();
+
+        assert_eq!(batch.kind, "metadata-update");
+        assert!(batch.actions.iter().any(|action| {
+            action.track_path.as_deref() == Some("/music/A/Album/02.mp3")
+                && action.field.as_deref() == Some("trackNumber")
+                && action.new_value.as_deref() == Some("2")
+        }));
+        assert!(!batch
+            .actions
+            .iter()
+            .any(|action| { action.track_path.as_deref() == Some("/music/B/Other/01.mp3") }));
+    }
+
+    #[test]
+    fn deterministic_numbering_returns_no_change_for_correct_tracks() {
+        let input = AssistantSendInput {
+            message: "fix track numbers".into(),
+            tracks: vec![
+                serde_json::json!({
+                    "path": "/music/A/Album/01.mp3", "album": "Album", "albumArtist": "A",
+                    "trackNumber": 1, "trackTotal": 2, "discNumber": 1, "discTotal": 1
+                }),
+                serde_json::json!({
+                    "path": "/music/A/Album/02.mp3", "album": "Album", "albumArtist": "A",
+                    "trackNumber": 2, "trackTotal": 2, "discNumber": 1, "discTotal": 1
+                }),
+            ],
+            ..Default::default()
+        };
+
+        let batch =
+            deterministic_task_batch("session", &input, AssistantTaskRoute::AutoNumberTracks)
+                .unwrap();
+
+        assert!(batch.is_none());
+    }
+
+    #[test]
     fn mutating_contract_rejects_model_reply_without_preview_evidence() {
         let contract = derive_assistant_task_contract("change the album title");
         let error = validate_completion_evidence(&contract, false, "I can do that").unwrap_err();
 
         assert!(error.to_string().contains("requires a preview batch"));
+    }
+
+    #[test]
+    fn read_only_contract_rejects_a_model_authored_mutation_preview() {
+        let contract = derive_assistant_task_contract("show tracks missing a title");
+        let error = validate_completion_evidence(&contract, true, "Apply these fixes").unwrap_err();
+
+        assert!(error.to_string().contains("read-only request"));
+    }
+
+    #[test]
+    fn repeated_tool_guard_stops_third_identical_call_but_not_distinct_args() {
+        let mut signatures = vec![
+            tool_call_signature("tracks.search", &serde_json::json!({"artist": "A"})),
+            tool_call_signature("tracks.search", &serde_json::json!({"artist": "A"})),
+        ];
+        assert!(would_repeat_tool_call(
+            &signatures,
+            "tracks.search",
+            &serde_json::json!({"artist": "A"})
+        ));
+        assert!(!would_repeat_tool_call(
+            &signatures,
+            "tracks.search",
+            &serde_json::json!({"artist": "B"})
+        ));
+        signatures.push(tool_call_signature(
+            "tracks.search",
+            &serde_json::json!({"artist": "B"}),
+        ));
+        assert!(!would_repeat_tool_call(
+            &signatures,
+            "tracks.search",
+            &serde_json::json!({"artist": "A"})
+        ));
+    }
+
+    #[test]
+    fn tool_call_signature_is_stable_across_object_key_order() {
+        assert_eq!(
+            tool_call_signature(
+                "tracks.search",
+                &serde_json::json!({"artist": "A", "album": "B"})
+            ),
+            tool_call_signature(
+                "tracks.search",
+                &serde_json::json!({"album": "B", "artist": "A"})
+            )
+        );
+    }
+
+    #[test]
+    fn musicbrainz_tool_query_extracts_quoted_and_unquoted_fields() {
+        assert_eq!(
+            parse_musicbrainz_tool_query("artist:\"Radiohead\" album:\"OK Computer\""),
+            ("Radiohead".into(), "OK Computer".into())
+        );
+        assert_eq!(
+            parse_musicbrainz_tool_query("album:Blue Train artist:John Coltrane"),
+            ("John Coltrane".into(), "Blue Train".into())
+        );
+    }
+
+    #[test]
+    fn tool_result_prompt_includes_bounded_structured_evidence() {
+        let result = AssistantToolResult {
+            ok: true,
+            summary: "Found one track".into(),
+            data: Some(serde_json::json!({"paths": ["/music/one.mp3"]})),
+            error: None,
+        };
+        let prompt = tool_result_prompt(&result);
+        assert!(prompt.contains("Found one track"));
+        assert!(prompt.contains("/music/one.mp3"));
+
+        let large = AssistantToolResult {
+            data: Some(Value::String("x".repeat(20_000))),
+            ..result
+        };
+        assert!(tool_result_prompt(&large).len() < 13_000);
     }
 
     #[test]

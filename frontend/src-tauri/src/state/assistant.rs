@@ -1,6 +1,7 @@
 //! Assistant service configuration shared by runtime/tools.
 
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
@@ -230,6 +231,25 @@ impl AssistantServicesState {
     pub fn snapshot(&self) -> Option<AssistantServicesSnapshot> {
         self.inner.lock().ok().map(|state| state.clone())
     }
+
+    pub fn update_config_value(&self, key: &str, value: &Value) -> bool {
+        let Some(value) = value
+            .as_str()
+            .map(str::to_string)
+            .or_else(|| (!value.is_null()).then(|| value.to_string()))
+        else {
+            return false;
+        };
+        let Ok(mut state) = self.inner.lock() else {
+            return false;
+        };
+        match key {
+            "llmApiKey" => state.api_key = value,
+            "llmModel" => state.model = value,
+            _ => return false,
+        }
+        true
+    }
 }
 
 #[cfg(test)]
@@ -321,5 +341,24 @@ mod tests {
         assert_eq!(snapshot.model, "model-a");
         assert_eq!(snapshot.discogs_token, None);
         assert_eq!(snapshot.library_path, None);
+    }
+
+    #[test]
+    fn settings_updates_replace_only_the_changed_assistant_credential() {
+        let state = AssistantServicesState::default();
+        assert!(state.initialize(AssistantServicesConfig {
+            api_key: "old-key".into(),
+            model: Some("old-model".into()),
+            ..Default::default()
+        }));
+
+        assert!(state.update_config_value("llmApiKey", &serde_json::json!("new-key")));
+        assert!(state.update_config_value("llmModel", &serde_json::json!("new-model")));
+        assert!(!state.update_config_value("discogsToken", &serde_json::json!("ignored")));
+
+        let snapshot = state.snapshot().unwrap();
+        assert_eq!(snapshot.api_key, "new-key");
+        assert_eq!(snapshot.model, "new-model");
+        assert!(snapshot.initialized);
     }
 }

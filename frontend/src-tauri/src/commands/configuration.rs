@@ -9,17 +9,14 @@
 //!     rejects — Electron's handler catches and logs; the write/refresh failure
 //!     is logged inside [`ConfigState::set`], and the command returns `()`.
 //!
-//! DEFERRED cross-slice dependency: Electron's `config:set` additionally calls
-//! `setStoredConfig({ apiKey|model })` when `llmApiKey`/`llmModel` change, to
-//! keep the assistant runtime's cached key in sync. The assistant slice is not
-//! ported yet, so that notification is wired when [`crate::state`] gains an
-//! assistant state handle; until then the on-disk + live config are still
-//! correct and the assistant reads them on (re)init.
+//! `llmApiKey` and `llmModel` changes also refresh the assistant service's
+//! cached credentials from the resulting live config, matching Electron's
+//! `setStoredConfig` synchronization without exposing secrets to the renderer.
 
 use serde_json::Value;
 use tauri::State;
 
-use crate::state::config::ConfigState;
+use crate::state::{assistant::AssistantServicesState, config::ConfigState};
 
 /// `getConfig()` — redacted renderer view. Sync because `ConfigState` is a
 /// `Mutex` snapshot (no async work); never rejects so renderer `try/catch` is a
@@ -32,6 +29,20 @@ pub fn config_get(state: State<'_, ConfigState>) -> Value {
 /// `setConfig(key, value)` — persist a renderer camelCase key and refresh.
 /// Sync; never rejects — failures are logged inside `ConfigState::set`.
 #[tauri::command]
-pub fn config_set(state: State<'_, ConfigState>, key: String, value: Value) {
+pub fn config_set(
+    state: State<'_, ConfigState>,
+    assistant: State<'_, AssistantServicesState>,
+    key: String,
+    value: Value,
+) {
     state.set(&key, &value);
+    let live = state.raw();
+    let assistant_value = match key.as_str() {
+        "llmApiKey" => Some(Value::String(live.llm_api_key.unwrap_or_default())),
+        "llmModel" => Some(Value::String(live.llm_model.unwrap_or_default())),
+        _ => None,
+    };
+    if let Some(value) = assistant_value {
+        assistant.update_config_value(&key, &value);
+    }
 }
