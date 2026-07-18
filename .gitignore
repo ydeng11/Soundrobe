@@ -1,50 +1,9 @@
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-MANIFEST
-
-# Virtual environments
-venv/
-env/
-ENV/
-.venv
-
 # IDE
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
-
-# Testing
-.pytest_cache/
-.coverage
-htmlcov/
-.tox/
-.hypothesis/
-
-# Type checking
-.mypy_cache/
-.dmypy.json
-dmypy.json
 
 # OS
 .DS_Store
@@ -57,9 +16,8 @@ dmypy.json
 *.db
 reports/
 .rulesify/registry.toml
-
-# Test data
-tests/fixtures/data/coverage.json
+.claude/get-shit-done/bin/lib/
+.codex/get-shit-done/bin/lib/
 
 # Frontend (Tauri)
 node_modules/

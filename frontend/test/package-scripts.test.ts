@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 
@@ -16,6 +16,24 @@ function readPackageJson(): PackageJson {
 }
 
 describe("package scripts", () => {
+  it("keeps Tauri as the only application and packaging backend", () => {
+    const legacyPaths = [
+      "src",
+      "tests",
+      "pyproject.toml",
+      "uv.lock",
+      "packaging/homebrew",
+      "frontend/electron",
+      "frontend/electron-builder.yml",
+      "frontend/dist-electron",
+      "frontend/e2e",
+    ];
+
+    for (const legacyPath of legacyPaths) {
+      expect(existsSync(resolve(__dirname, "../..", legacyPath)), legacyPath).toBe(false);
+    }
+  });
+
   it("keeps the app version synchronized across Tauri, Rust, and npm", () => {
     const packageJson = readFileSync(resolve(__dirname, "../package.json"), "utf8");
     const { version } = JSON.parse(packageJson) as { version: string };

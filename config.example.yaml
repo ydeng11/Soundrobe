@@ -1,56 +1,25 @@
-# Auto Tagger Configuration Example
-# Copy to ~/.auto-tagger/config.yaml
+# Auto Tagger configuration
+# Copy to ~/.auto-tagger/config.yaml.
 
-# Output format: table, json, or plain
-output_format: table
-
-# Enable verbose logging
-verbose: false
-
-# Process directories recursively
-recursive: false
-recursive_depth: 10
-
-# Patterns to exclude from processing
-exclude_patterns:
-  - .git
-  - __pycache__
-  - "*.pyc"
-  - .DS_Store
-  - "*.tmp"
-
-# Auto-approve all changes (use with caution!)
-yolo: false
-
-# LLM Configuration (for Phase 4)
-llm_api_key: null  # Set via AUTO_TAG_LLM_API_KEY env var
-llm_endpoint: https://openrouter.ai/api/v1
+# OpenRouter credentials. Environment alternatives: LLM_API_KEY and LLM_MODEL.
+# llm_api_key: sk-or-v1-...
 llm_model: anthropic/claude-3.5-haiku
 
-# Caching Configuration
-cache_enabled: true
-cache_path: ~/.cache/auto-tagger/cache.db
-
-# Local MusicMoveArr dataset lookup
-# Setup stores downloads, state, and the SQLite index under this dot folder.
-data_dir: ~/.auto-tagger
-
-# Log file path
-# All log output is written here (in addition to stderr).
-log_path: ~/.auto-tagger/auto-tagger.log
-
-# Health report output directory
-# Per-album MD + JSON reports are written here automatically.
-health_report_dir: ~/.auto-tagger/health-reports
-dataset_lookup_enabled: true
-dataset_warn_when_unavailable: true
+# Provider configuration. Environment alternative: AUTO_TAG_DISCOGS_TOKEN.
+# discogs_token: ...
 remote_lookup_enabled: true
-dataset_services:
-  - musicbrainz
-dataset_max_candidates: 5
-dataset_downloader_command: aria2c
-dataset_extractor_command: 7z
+discogs_enabled: true
+# theaudiodb_api_key: ...
 
-# Enforce a specific Chinese script variant in tag text fields.
+# Optional local MusicMoveArr SQLite index. The app continues without it when
+# the path is absent or invalid.
+dataset_path: ~/.auto-tagger/dataset-index.sqlite
+
+# Debug and lyrics behavior.
+debug: false
+lyrics_download_enabled: true
+lyrics_api_url: https://lrclib.net/api/get
+
+# Enforce a Chinese script variant when writing tag text.
 # Accepts: simplified/sc, traditional/tc, or omit to disable.
 # chinese_script: simplified

@@ -26,7 +26,7 @@ Auto Tagger is a Tauri 2 + React desktop app for editing and enriching audio met
 - `frontend/test/` — renderer component/state/adapter tests and shared media fixtures.
 - `frontend/src-tauri` inline `#[cfg(test)]` modules — Rust unit and integration contracts.
 
-The Python CLI in `src/auto_tagger/`, root `tests/`, and `pyproject.toml` is legacy and must not be edited. Do not reintroduce Electron, native Node modules, an Electron preload, or a second desktop backend.
+Tauri is the only application backend. Do not reintroduce Python application code, Electron, native Node modules, an Electron preload, or a second desktop backend.
 
 ## Stack and boundaries
 

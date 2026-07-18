@@ -5,8 +5,6 @@ set dotenv-load := true
 set dotenv-path := ".env.local"
 
 project := "auto-tagger"
-python  := ".venv/bin/python"
-pip     := ".venv/bin/pip"
 
 # Show available commands (default — runs first when you type `just`)
 default:
@@ -28,11 +26,6 @@ default:
     @echo "Ship:"
     @echo "  just fe-dist <target>   build distributable (mac|win|linux)"
     @echo "  just fe-dist-mac-intel  cross-build deterministic Intel macOS bundles"
-    @echo ""
-    @echo "Dataset (one-time, requires Python venv):"
-    @echo "  just dataset-status     check dataset index status"
-    @echo "  just dataset-setup      download and build dataset index"
-    @echo "  just dataset-plan       preview dataset setup"
 
 # ============================================================================
 # Frontend (Tauri v2) — primary dev workflow
@@ -100,19 +93,3 @@ fe-dist target="":
 # rustup target add x86_64-apple-darwin
 fe-dist-mac-intel: _fe-deps-check
     cd frontend && CI=true npm run dist:mac -- --target x86_64-apple-darwin
-
-# ============================================================================
-# Dataset (Python CLI) — one-time setup, shared with Tauri v2
-# ============================================================================
-
-# Check local dataset index status
-dataset-status:
-    {{ python }} -m auto_tagger dataset status
-
-# Preview dataset setup plan without downloading
-dataset-plan:
-    {{ python }} -m auto_tagger dataset setup --dry-run
-
-# Download and build the local SQLite dataset index
-dataset-setup:
-    {{ python }} -m auto_tagger dataset setup
