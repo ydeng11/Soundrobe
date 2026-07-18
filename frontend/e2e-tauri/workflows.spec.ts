@@ -56,6 +56,14 @@ async function clickDialogButton(dialogLabel: string, buttonLabel: string): Prom
 }
 
 describe("Tauri desktop workflows", () => {
+  it("reveals the native main window after renderer boot", async () => {
+    const visible = await browser.tauri.execute((tauri) =>
+      tauri.core.invoke<boolean>("plugin:window|is_visible", { label: "main" }),
+    );
+
+    expect(visible).toBe(true);
+  });
+
   it("preserves absolute paths through the native library pipeline", async () => {
     const selectedPath = await browser.execute(() => window.api.openFolderDialog());
     expect(selectedPath).toBe(manifest.library);

@@ -98,6 +98,8 @@ jobs:
         run: npm ci
         working-directory: frontend
       - name: Build unsigned bundles
+        env:
+          CI: "true"
         run: ${{ matrix.command }}
         working-directory: frontend
       - name: Smoke macOS app bundle and DMG

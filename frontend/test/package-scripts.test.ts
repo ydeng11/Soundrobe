@@ -78,6 +78,9 @@ describe("package scripts", () => {
     expect(workflow).toContain("npm run dist:mac");
     expect(workflow).toContain("npm run dist:win");
     expect(workflow).toContain("npm run dist:linux");
+    expect(workflow).toMatch(
+      /name: Build unsigned bundles\n\s+env:\n\s+CI: "true"/,
+    );
   });
 
   it("runs test-only embedded WebdriverIO coverage on every desktop platform", () => {
@@ -97,6 +100,7 @@ describe("package scripts", () => {
     expect(wdioConfig).toContain("driverProvider: \"embedded\"");
     expect(wdioConfig).toContain('specs: ["./e2e-tauri/workflows.spec.ts"]');
     expect(wdioConfig).toContain("prepareE2eWorkspace");
+    expect(workflowSpec).toContain("reveals the native main window after renderer boot");
     expect(workflowSpec).toContain("preserves absolute paths through the native library pipeline");
     expect(workflowSpec).toContain("previews and applies deterministic assistant organization");
     expect(workflowSpec).toContain("audits and applies deterministic metadata fixes");
