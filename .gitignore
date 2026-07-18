@@ -55,14 +55,12 @@ dmypy.json
 .cache/
 *.db
 reports/
+.rulesify/registry.toml
 
 # Test data
 tests/fixtures/data/coverage.json
 
-# Frontend (Electron v2)
-frontend/node_modules/
+# Frontend (Tauri)
+node_modules/
 frontend/dist/
-frontend/dist-electron/
 frontend/test-results/
-frontend/playwright-report/
-frontend/release/
