@@ -1,5 +1,8 @@
 import path from "node:path";
 import type { Options } from "@wdio/types";
+import { cleanupE2eWorkspace, prepareE2eWorkspace } from "./e2e-tauri/fixtures";
+
+const workspace = prepareE2eWorkspace();
 
 const binary = path.resolve(
   "src-tauri/target/release",
@@ -35,4 +38,5 @@ export const config: Options.Testrunner = {
   framework: "mocha",
   reporters: ["spec"],
   mochaOpts: { ui: "bdd", timeout: 60_000 },
+  onComplete: () => cleanupE2eWorkspace(workspace.root),
 };

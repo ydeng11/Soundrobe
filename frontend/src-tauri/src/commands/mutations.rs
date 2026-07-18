@@ -182,16 +182,16 @@ pub async fn track_write(
     path: String,
     fields: TrackPatch,
     queue: State<'_, WriteQueue>,
-) -> Result<(), ApiError> {
-    write_track_queued(&queue, PathBuf::from(path), fields).await
+) -> Result<TrackData, ApiError> {
+    write_track_with_readback(&queue, PathBuf::from(path), fields).await
 }
 
 #[tauri::command]
 pub async fn tracks_batch_write(
     updates: Vec<TrackUpdate>,
     queue: State<'_, WriteQueue>,
-) -> Result<(), ApiError> {
-    batch_write_queued(&queue, updates).await
+) -> Result<Vec<TrackData>, ApiError> {
+    batch_write_with_readback(&queue, updates).await
 }
 
 #[tauri::command]
@@ -380,6 +380,42 @@ async fn batch_write_queued(queue: &WriteQueue, updates: Vec<TrackUpdate>) -> Re
             .map_err(|error| ApiError::WriteTask(error.to_string()))?
         })
         .await
+}
+
+fn read_track_with_fallback(path: &Path) -> Result<TrackData, ApiError> {
+    read_track_metadata(path).or_else(|_| {
+        let size = fs::metadata(path)?.len();
+        let title = path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or_default()
+            .to_string();
+        Ok(unreadable_track_data(path, size, title))
+    })
+}
+
+async fn write_track_with_readback(
+    queue: &WriteQueue,
+    path: PathBuf,
+    patch: TrackPatch,
+) -> Result<TrackData, ApiError> {
+    write_track_queued(queue, path.clone(), patch).await?;
+    read_track_with_fallback(&path)
+}
+
+async fn batch_write_with_readback(
+    queue: &WriteQueue,
+    updates: Vec<TrackUpdate>,
+) -> Result<Vec<TrackData>, ApiError> {
+    let paths = updates
+        .iter()
+        .map(|update| PathBuf::from(&update.path))
+        .collect::<Vec<_>>();
+    batch_write_queued(queue, updates).await?;
+    paths
+        .iter()
+        .map(|path| read_track_with_fallback(path))
+        .collect()
 }
 
 pub(crate) async fn write_extra_tags_queued(
@@ -2709,6 +2745,48 @@ mod tests {
             Some("Queued title")
         );
         assert!(!queue.is_active());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn renderer_write_contract_returns_fresh_single_and_batch_track_data() {
+        let (root, first) = copy_to_temp(&media_fixture("minimal.mp3"), "first.mp3");
+        let second = root.join("second.mp3");
+        fs::copy(media_fixture("minimal.mp3"), &second).unwrap();
+        let queue = WriteQueue::default();
+
+        let single = write_track_with_readback(
+            &queue,
+            first.clone(),
+            serde_json::from_value(serde_json::json!({"title": "Single readback"})).unwrap(),
+        )
+        .await
+        .unwrap();
+        assert_eq!(single.path, first.to_string_lossy());
+        assert_eq!(single.title.as_deref(), Some("Single readback"));
+
+        let batch = batch_write_with_readback(
+            &queue,
+            vec![
+                TrackUpdate {
+                    path: first.to_string_lossy().into_owned(),
+                    fields: serde_json::from_value(serde_json::json!({"title": "First readback"}))
+                        .unwrap(),
+                },
+                TrackUpdate {
+                    path: second.to_string_lossy().into_owned(),
+                    fields: serde_json::from_value(serde_json::json!({"title": "Second readback"}))
+                        .unwrap(),
+                },
+            ],
+        )
+        .await
+        .unwrap();
+        assert_eq!(batch.len(), 2);
+        assert_eq!(batch[0].path, first.to_string_lossy());
+        assert_eq!(batch[0].title.as_deref(), Some("First readback"));
+        assert_eq!(batch[1].path, second.to_string_lossy());
+        assert_eq!(batch[1].title.as_deref(), Some("Second readback"));
         fs::remove_dir_all(root).unwrap();
     }
 

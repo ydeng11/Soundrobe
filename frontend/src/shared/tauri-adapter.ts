@@ -87,7 +87,7 @@ export function createTauriDesktopApi(): DesktopAPI {
     // Tracks
     readAlbum: (albumPath) => invokeCommand("album:read", { albumPath }),
     writeTrack: (trackPath, fields) =>
-      invokeCommand("track:write", { trackPath, fields }),
+      invokeCommand("track:write", { path: trackPath, fields }),
     writeTracks: (updates) => invokeCommand("tracks:batch-write", { updates }),
     readExtraTags: (trackPath) =>
       invokeCommand("track:extra-tags:read", { trackPath }),

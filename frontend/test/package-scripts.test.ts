@@ -75,13 +75,28 @@ describe("package scripts", () => {
       "utf8",
     );
     const wdioConfig = readFileSync(resolve(__dirname, "../wdio.conf.ts"), "utf8");
+    const workflowSpec = readFileSync(
+      resolve(__dirname, "../e2e-tauri/workflows.spec.ts"),
+      "utf8",
+    );
 
     expect(scripts["build:e2e"]).toContain("--features wdio");
     expect(scripts["test:e2e"]).toBe("npm run build:e2e && wdio run wdio.conf.ts");
     expect(wdioConfig).toContain("driverProvider: \"embedded\"");
+    expect(wdioConfig).toContain("prepareE2eWorkspace");
+    expect(workflowSpec).toContain("preserves absolute paths through the native library pipeline");
+    expect(workflowSpec).toContain("previews and applies deterministic assistant organization");
+    expect(workflowSpec).toContain("audits and applies deterministic metadata fixes");
+    expect(workflowSpec).toContain("auto-tags an album through the offline native task pipeline");
+    expect(workflowSpec).toContain("converts a title into artist and title tags through the renderer");
+    expect(workflowSpec).toContain("numbers tracks through the renderer and native batch writer");
     expect(workflow).toContain("npm run test:e2e");
     expect(workflow).toContain("wdio-macos");
     expect(workflow).toContain("wdio-windows");
     expect(workflow).toContain("wdio-linux");
+    expect(workflow).toContain("Smoke macOS app bundle and DMG");
+    expect(workflow).toContain("Smoke Windows NSIS installer");
+    expect(workflow).toContain("Smoke Linux AppImage bundle");
+    expect(workflow).toContain("Smoke Linux deb installer");
   });
 });

@@ -93,13 +93,70 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - name: Install Linux build dependencies
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf
+        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf xvfb
       - name: Install frontend dependencies
         run: npm ci
         working-directory: frontend
       - name: Build unsigned bundles
         run: ${{ matrix.command }}
         working-directory: frontend
+      - name: Smoke macOS app bundle and DMG
+        if: runner.os == 'macOS'
+        shell: bash
+        working-directory: frontend
+        run: |
+          app="$(find src-tauri/target/release/bundle/macos -name '*.app' -print -quit)"
+          dmg="$(find src-tauri/target/release/bundle/dmg -name '*.dmg' -print -quit)"
+          test -n "$app"
+          test -n "$dmg"
+          hdiutil verify "$dmg"
+          "$app/Contents/MacOS/auto-tagger" &
+          pid=$!
+          sleep 5
+          kill -0 "$pid"
+          kill "$pid"
+          wait "$pid" || true
+      - name: Smoke Windows NSIS installer
+        if: runner.os == 'Windows'
+        shell: pwsh
+        working-directory: frontend
+        run: |
+          $installer = Get-ChildItem "src-tauri/target/release/bundle/nsis/*-setup.exe" | Select-Object -First 1
+          if (-not $installer) { throw "NSIS installer not found" }
+          $install = Start-Process $installer.FullName -ArgumentList "/S" -PassThru -Wait
+          if ($install.ExitCode -ne 0) { throw "NSIS installer exited with $($install.ExitCode)" }
+          $appPath = Join-Path $env:LOCALAPPDATA "Auto Tagger/auto-tagger.exe"
+          if (-not (Test-Path $appPath)) { throw "Installed application not found at $appPath" }
+          $app = Start-Process $appPath -PassThru
+          Start-Sleep -Seconds 5
+          if ($app.HasExited) { throw "Installed application exited with $($app.ExitCode)" }
+          Stop-Process -Id $app.Id -Force
+      - name: Smoke Linux AppImage bundle
+        if: runner.os == 'Linux'
+        shell: bash
+        working-directory: frontend
+        run: |
+          appimage="$(find src-tauri/target/release/bundle/appimage -name '*.AppImage' -print -quit)"
+          test -n "$appimage"
+          chmod +x "$appimage"
+          set +e
+          APPIMAGE_EXTRACT_AND_RUN=1 timeout 15s xvfb-run "$appimage"
+          status=$?
+          set -e
+          test "$status" -eq 124
+      - name: Smoke Linux deb installer
+        if: runner.os == 'Linux'
+        shell: bash
+        working-directory: frontend
+        run: |
+          deb="$(find src-tauri/target/release/bundle/deb -name '*.deb' -print -quit)"
+          test -n "$deb"
+          sudo dpkg -i "$deb"
+          set +e
+          timeout 15s xvfb-run /usr/bin/auto-tagger
+          status=$?
+          set -e
+          test "$status" -eq 124
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact }}

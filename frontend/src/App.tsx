@@ -1137,7 +1137,7 @@ export default function App() {
     async (rule: OrderingRule) => {
       if (!state.activeAlbumPath) return;
       const albumTracks = state.tracks.filter((t) =>
-        t.path.startsWith(state.activeAlbumPath + "/"),
+        dirPath(t.path) === state.activeAlbumPath,
       );
       if (albumTracks.length === 0) return;
 

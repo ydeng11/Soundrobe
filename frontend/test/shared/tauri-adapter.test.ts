@@ -30,7 +30,7 @@ const CHANNEL_PARITY: Array<{
   { method: "refreshAlbum", command: "album_refresh", args: { albumPath: "/a" } },
   { method: "openFolderDialog", command: "dialog_open_folder", args: {} },
   { method: "readAlbum", command: "album_read", args: { albumPath: "/a" } },
-  { method: "writeTrack", command: "track_write", args: { trackPath: "/t", fields: { x: 1 } } },
+  { method: "writeTrack", command: "track_write", args: { path: "/t", fields: { x: 1 } } },
   { method: "writeTracks", command: "tracks_batch_write", args: { updates: [{ path: "/t", fields: {} }] } },
   { method: "readExtraTags", command: "track_extra_tags_read", args: { trackPath: "/t" } },
   { method: "writeExtraTags", command: "track_extra_tags_write", args: { trackPath: "/t", tags: [] } },
