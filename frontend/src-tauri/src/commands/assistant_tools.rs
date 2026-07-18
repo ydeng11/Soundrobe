@@ -70,21 +70,6 @@ pub(crate) fn context_tool_catalog() -> Value {
     Value::Array(
         assistant_tool_definitions()
             .into_iter()
-            .filter(|definition| {
-                matches!(
-                    definition.name,
-                    "library.summarize"
-                        | "tracks.search"
-                        | "tracks.inspect"
-                        | "albums.inspect"
-                        | "query.metadata"
-                        | "query.datasetStatus"
-                        | "api.musicbrainzSearch"
-                        | "api.discogsSearch"
-                        | "api.lyricsSearch"
-                        | "tags.prettify"
-                )
-            })
             .map(|definition| {
                 serde_json::json!({
                     "name": definition.name,
@@ -108,6 +93,15 @@ fn operation_kind_name(kind: AssistantToolOperationKind) -> &'static str {
 }
 
 fn tool_schema(name: &str) -> Value {
+    let target_scope = || {
+        serde_json::json!({
+            "target_scope": {
+                "type": "string",
+                "enum": ["selected", "active_album", "library", "explicit_paths"]
+            },
+            "paths": {"type": "array", "items": {"type": "string"}}
+        })
+    };
     match name {
         "tracks.search" => serde_json::json!({
             "type": "object",
@@ -174,8 +168,154 @@ fn tool_schema(name: &str) -> Value {
             "properties": {"text": {"type": "string"}, "fields": {"type": "object"}},
             "required": []
         }),
+        "edit_metadata" => serde_json::json!({
+            "type": "object",
+            "properties": {
+                "target_scope": {"type": "string", "enum": ["selected", "active_album", "library", "explicit_paths"]},
+                "paths": {"type": "array", "items": {"type": "string"}},
+                "standard_updates": {"type": "object", "properties": standard_update_schema(), "required": []},
+                "standard_removes": {"type": "array", "items": {"type": "string", "enum": standard_field_values()}},
+                "extra_upserts": {"type": "array", "items": {
+                    "type": "object",
+                    "properties": {"key": {"type": "string"}, "value": {"type": "string"}},
+                    "required": ["key", "value"]
+                }},
+                "extra_removes": {"type": "array", "items": {"type": "string"}}
+            },
+            "required": ["target_scope"]
+        }),
+        "auto_numbering_tracks"
+        | "strip_track_title_prefixes"
+        | "strip_filename_prefixes"
+        | "group_by_album" => serde_json::json!({
+            "type": "object", "properties": target_scope(), "required": ["target_scope"]
+        }),
+        "extract_tag_value" => serde_json::json!({
+            "type": "object",
+            "properties": {
+                "target_scope": {"type": "string", "enum": ["selected", "active_album", "library", "explicit_paths"]},
+                "paths": {"type": "array", "items": {"type": "string"}},
+                "field": {"type": "string", "enum": standard_field_values()},
+                "pattern": {"type": "string"},
+                "group_index": {"type": "number"}
+            },
+            "required": ["target_scope", "field", "pattern"]
+        }),
+        "chinese_convert" => serde_json::json!({
+            "type": "object",
+            "properties": {
+                "target_scope": {"type": "string", "enum": ["selected", "active_album", "library", "explicit_paths"]},
+                "paths": {"type": "array", "items": {"type": "string"}},
+                "fields": {"type": "array", "items": {"type": "string", "enum": ["title", "artist", "artists", "album", "albumArtist", "albumArtists", "genre", "composer", "comment", "description", "lyrics"]}},
+                "direction": {"type": "string", "enum": ["s2t", "t2s"]}
+            },
+            "required": ["target_scope", "direction"]
+        }),
+        "infer_tags_from_filenames" => serde_json::json!({
+            "type": "object",
+            "properties": {
+                "target_scope": {"type": "string", "enum": ["selected", "active_album", "library", "explicit_paths"]},
+                "paths": {"type": "array", "items": {"type": "string"}},
+                "fields": {"type": "array", "items": {"type": "string", "enum": ["title", "artist", "artists"]}},
+                "prettify": {"type": "boolean"}
+            },
+            "required": ["target_scope"]
+        }),
+        "organize_files" => serde_json::json!({
+            "type": "object",
+            "properties": {
+                "source_dir": {"type": "string"},
+                "criterion": {"type": "string", "enum": ["extension", "pattern", "date_created", "size"]},
+                "pattern_string": {"type": "string"},
+                "target_dir_name": {"type": "string"}
+            },
+            "required": ["source_dir", "criterion", "target_dir_name"]
+        }),
+        "run_library_task" => serde_json::json!({
+            "type": "object",
+            "properties": {
+                "task": {"type": "string", "enum": ["auto_tag", "audit"]},
+                "target_scope": {"type": "string", "enum": ["selected", "active_album", "library", "explicit_paths"]},
+                "paths": {"type": "array", "items": {"type": "string"}}
+            },
+            "required": ["task", "target_scope"]
+        }),
+        "create_plan" => serde_json::json!({
+            "type": "object",
+            "properties": {
+                "plan_description": {"type": "string"},
+                "steps": {"type": "array", "items": {
+                    "type": "object",
+                    "properties": {
+                        "id": {"type": "string"},
+                        "label": {"type": "string"},
+                        "tool": {"type": "string"},
+                        "args": {"type": "object"},
+                        "depends_on": {"type": "array", "items": {"type": "string"}}
+                    },
+                    "required": ["id", "tool"]
+                }}
+            },
+            "required": ["steps"]
+        }),
         _ => serde_json::json!({"type": "object", "properties": {}, "required": []}),
     }
+}
+
+fn standard_field_values() -> Value {
+    serde_json::json!([
+        "title",
+        "artist",
+        "artists",
+        "album",
+        "albumArtist",
+        "albumArtists",
+        "year",
+        "trackNumber",
+        "trackTotal",
+        "discNumber",
+        "discTotal",
+        "genre",
+        "composer",
+        "comment",
+        "description",
+        "lyrics",
+        "compilation",
+        "musicbrainzTrackId",
+        "musicbrainzAlbumId",
+        "musicbrainzArtistId"
+    ])
+}
+
+fn standard_update_schema() -> Value {
+    serde_json::json!({
+        "title": {"type": "string"}, "artist": {"type": "string"},
+        "artists": {"type": "array", "items": {"type": "string"}},
+        "album": {"type": "string"}, "albumArtist": {"type": "string"},
+        "albumArtists": {"type": "array", "items": {"type": "string"}},
+        "year": {"type": "string"}, "trackNumber": {"type": "number"},
+        "trackTotal": {"type": "number"}, "discNumber": {"type": "number"},
+        "discTotal": {"type": "number"}, "genre": {"type": "string"},
+        "composer": {"type": "string"}, "comment": {"type": "string"},
+        "description": {"type": "string"}, "lyrics": {"type": "string"},
+        "compilation": {"type": "boolean"}, "musicbrainzTrackId": {"type": "string"},
+        "musicbrainzAlbumId": {"type": "string"}, "musicbrainzArtistId": {"type": "string"}
+    })
+}
+
+pub(crate) fn validate_registered_tool_args(name: &str, args: &Value) -> Result<(), String> {
+    let definition = assistant_tool_definitions()
+        .into_iter()
+        .find(|definition| definition.name == name)
+        .ok_or_else(|| format!("Unknown tool: {name}"))?;
+    validate_tool_args(&definition.input_schema, args)
+}
+
+pub(crate) fn registered_tool_is_read_only(name: &str) -> Option<bool> {
+    assistant_tool_definitions()
+        .into_iter()
+        .find(|definition| definition.name == name)
+        .map(|definition| definition.read_only)
 }
 
 pub(crate) fn execute_context_tool(
@@ -852,6 +992,40 @@ mod tests {
         assert!(definitions[10..]
             .iter()
             .all(|definition| !definition.read_only));
+        assert_eq!(context_tool_catalog().as_array().map(Vec::len), Some(21));
+    }
+
+    #[test]
+    fn mutating_tool_schemas_validate_nested_arguments_and_reject_invented_fields() {
+        validate_registered_tool_args(
+            "edit_metadata",
+            &serde_json::json!({
+                "target_scope": "selected",
+                "standard_updates": {"album": "Album", "artists": ["A", "B"]},
+                "extra_upserts": [{"key": "MOOD", "value": "Calm"}]
+            }),
+        )
+        .unwrap();
+        let error = validate_registered_tool_args(
+            "edit_metadata",
+            &serde_json::json!({
+                "target_scope": "selected",
+                "standard_updates": {"madeUpTag": "value"}
+            }),
+        )
+        .unwrap_err();
+        assert_eq!(error, "Unknown field: standard_updates.madeUpTag");
+
+        validate_registered_tool_args(
+            "create_plan",
+            &serde_json::json!({
+                "steps": [{
+                    "id": "inspect", "tool": "tracks.search",
+                    "args": {"missingGenre": true}, "depends_on": []
+                }]
+            }),
+        )
+        .unwrap();
     }
 
     fn input() -> AssistantSendInput {

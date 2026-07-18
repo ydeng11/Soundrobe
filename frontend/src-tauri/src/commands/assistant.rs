@@ -2,7 +2,8 @@
 
 use crate::commands::{
     assistant_tools::{
-        context_tool_catalog, execute_context_tool, prettify_tag, AssistantToolResult,
+        context_tool_catalog, execute_context_tool, prettify_tag, registered_tool_is_read_only,
+        validate_registered_tool_args, AssistantToolResult,
     },
     dataset::dataset_status_at,
     lyrics::{fetch_lyrics_at, DEFAULT_BASE_URL},
@@ -27,6 +28,7 @@ use crate::state::write_queue::WriteQueue;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::{BTreeMap, HashSet};
+use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::Ordering;
 use tauri::{AppHandle, Emitter, State};
@@ -41,6 +43,7 @@ pub struct AssistantEvent {
     data: Option<Value>,
 }
 
+#[derive(Clone, Copy)]
 struct NativeAssistantToolServices<'a> {
     input: &'a AssistantSendInput,
     providers: &'a ProviderState,
@@ -319,8 +322,8 @@ pub async fn assistant_send(
             concat!(
                 "You are the Auto Tagger desktop assistant. Answer music-library questions directly. ",
                 "For library facts, call one of the supplied read-only tools, then use its result. ",
-                "For any mutation, return an actionBatch preview; never claim a write already happened. ",
-                "Allowed batch kinds: tag-update, extra-tag-update, metadata-update, auto-tag-run, audit-run. ",
+                "For mutations, call the supplied mutating tool so the app creates a native preview; never claim a write already happened. ",
+                "Allowed batch kinds: tag-update, extra-tag-update, metadata-update, folder-move, auto-tag-run, audit-run. ",
                 "Every action must use an exact trackPath from the supplied active scope. ",
                 "Standard metadata actions use tagKind=standard, field, and newValue (null removes). ",
                 "Custom tags use tagKind=extra. Auto-tag/audit actions need only trackPath. ",
@@ -335,6 +338,8 @@ pub async fn assistant_send(
     let mut signatures = Vec::new();
     let mut repaired_invalid_args = false;
     let mut final_draft = None;
+    let mut pending_tool_batches = Vec::new();
+    let mut tool_completion_evidence = false;
     for step_number in 1..=10 {
         let step = AssistantEvent {
             session_id: session_id.clone(),
@@ -430,17 +435,44 @@ pub async fn assistant_send(
             0,
             0,
         );
-        let result = execute_native_assistant_tool(
-            &tool_call.tool_name,
-            &tool_call.args,
-            NativeAssistantToolServices {
-                input: &input,
-                providers: &providers,
-                config: &raw_config,
-                assistant: &snapshot,
-            },
-        )
-        .await;
+        let native_services = NativeAssistantToolServices {
+            input: &input,
+            providers: &providers,
+            config: &raw_config,
+            assistant: &snapshot,
+        };
+        let execution = if tool_call.tool_name == "create_plan" {
+            execute_create_plan(&tool_call.args, &input, &session_id, native_services).await
+        } else if registered_tool_is_read_only(&tool_call.tool_name) == Some(false) {
+            execute_mutating_assistant_tool(
+                &tool_call.tool_name,
+                &tool_call.args,
+                &input,
+                &session_id,
+            )
+        } else {
+            MutatingToolExecution {
+                result: execute_native_assistant_tool(
+                    &tool_call.tool_name,
+                    &tool_call.args,
+                    native_services,
+                )
+                .await,
+                batches: Vec::new(),
+                completion_evidence: false,
+            }
+        };
+        tool_completion_evidence |= execution.completion_evidence;
+        let result = execution.result;
+        let created_batches = execution.batches;
+        for batch in &created_batches {
+            if !runtime.add_batch(batch.clone()) {
+                return Err(ApiError::Message(
+                    "Failed to store assistant action preview".into(),
+                ));
+            }
+            pending_tool_batches.push(batch.clone());
+        }
         conversation.record("tool_result", &result.summary, None, 0, 0, 0);
         let tool_result = AssistantEvent {
             session_id: session_id.clone(),
@@ -470,6 +502,21 @@ pub async fn assistant_send(
             }
             return assistant_error_event(&app, Some(session_id), &result.summary);
         }
+        if !input.autonomous && !created_batches.is_empty() {
+            let event = AssistantEvent {
+                session_id,
+                event_type: "action_batch_created",
+                message: result.summary,
+                data: Some(serde_json::json!({
+                    "actionBatchId": created_batches[0].id,
+                    "actionBatch": created_batches[0],
+                    "actionBatches": created_batches
+                })),
+            };
+            conversation.record("assistant_message", &event.message, Some(&model), 0, 0, 0);
+            let _ = app.emit("assistant:event", &event);
+            return Ok(event);
+        }
         messages.push(ChatMessage {
             role: "assistant".into(),
             content: serde_json::json!({
@@ -486,12 +533,34 @@ pub async fn assistant_send(
             "I reached the maximum step limit (10) without a final response.",
         );
     };
-    if let Err(error) =
-        validate_completion_evidence(&contract, draft.action_batch.is_some(), &draft.message)
-    {
+    if draft.action_batch.is_some() && !pending_tool_batches.is_empty() {
+        return assistant_error_event(
+            &app,
+            Some(session_id),
+            "The assistant returned both a native tool preview and a model-authored preview",
+        );
+    }
+    if let Err(error) = validate_completion_evidence(
+        &contract,
+        draft.action_batch.is_some()
+            || !pending_tool_batches.is_empty()
+            || tool_completion_evidence,
+        &draft.message,
+    ) {
         return assistant_error_event(&app, Some(session_id), &error.to_string());
     }
-    let event = if let Some(batch) = draft.action_batch {
+    let event = if let Some(batch) = pending_tool_batches.first().cloned() {
+        AssistantEvent {
+            session_id,
+            event_type: "action_batch_created",
+            message: draft.message,
+            data: Some(serde_json::json!({
+                "actionBatchId": batch.id,
+                "actionBatch": batch,
+                "actionBatches": pending_tool_batches
+            })),
+        }
+    } else if let Some(batch) = draft.action_batch {
         let batch = match validated_assistant_batch(&session_id, &input, batch) {
             Ok(batch) => batch,
             Err(error) => {
@@ -541,6 +610,12 @@ fn assistant_error_event(
 }
 
 fn assistant_response_schema() -> Value {
+    let tool_names = context_tool_catalog()
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(|tool| tool.get("name").cloned())
+        .collect::<Vec<_>>();
     serde_json::json!({
         "type": "object",
         "properties": {
@@ -574,18 +649,7 @@ fn assistant_response_schema() -> Value {
                 "properties": {
                     "toolName": {
                         "type": "string",
-                        "enum": [
-                            "library.summarize",
-                            "tracks.search",
-                            "tracks.inspect",
-                            "albums.inspect",
-                            "query.metadata",
-                            "query.datasetStatus",
-                            "api.musicbrainzSearch",
-                            "api.discogsSearch",
-                            "api.lyricsSearch",
-                            "tags.prettify"
-                        ]
+                        "enum": tool_names
                     },
                     "args": {"type": "object"}
                 },
@@ -987,6 +1051,938 @@ fn deterministic_task_batch(
     }))
 }
 
+struct MutatingToolExecution {
+    result: AssistantToolResult,
+    batches: Vec<AssistantActionBatch>,
+    completion_evidence: bool,
+}
+
+fn mutating_tool_execution(
+    summary: String,
+    data: Option<Value>,
+    batch: Option<AssistantActionBatch>,
+) -> MutatingToolExecution {
+    let completion_evidence = batch.is_some();
+    let batches = batch.clone().into_iter().collect::<Vec<_>>();
+    MutatingToolExecution {
+        result: AssistantToolResult {
+            ok: true,
+            summary,
+            data: Some(serde_json::json!({"data": data, "batch": batch})),
+            error: None,
+        },
+        batches,
+        completion_evidence,
+    }
+}
+
+fn mutating_tool_no_changes(summary: impl Into<String>) -> MutatingToolExecution {
+    let summary = summary.into();
+    MutatingToolExecution {
+        result: AssistantToolResult {
+            ok: true,
+            summary,
+            data: Some(serde_json::json!({"outcome": "no_changes"})),
+            error: None,
+        },
+        batches: Vec::new(),
+        completion_evidence: true,
+    }
+}
+
+fn mutating_tool_error(message: impl Into<String>) -> MutatingToolExecution {
+    let message = message.into();
+    MutatingToolExecution {
+        result: AssistantToolResult {
+            ok: false,
+            summary: message.clone(),
+            data: None,
+            error: Some(message),
+        },
+        batches: Vec::new(),
+        completion_evidence: false,
+    }
+}
+
+fn assistant_batch(
+    session_id: &str,
+    kind: &str,
+    title: impl Into<String>,
+    summary: impl Into<String>,
+    risk_level: &str,
+    actions: Vec<AssistantAction>,
+    reversible: bool,
+) -> AssistantActionBatch {
+    AssistantActionBatch {
+        id: format!("batch-{}", uuid::Uuid::new_v4()),
+        created_at: time::OffsetDateTime::now_utc().to_string(),
+        session_id: session_id.into(),
+        kind: kind.into(),
+        title: title.into(),
+        summary: summary.into(),
+        risk_level: risk_level.into(),
+        actions,
+        reversible,
+        status: "pending".into(),
+    }
+}
+
+fn tool_scope_paths(input: &AssistantSendInput, args: &Value) -> Result<Vec<String>, String> {
+    let scope = args
+        .get("target_scope")
+        .and_then(Value::as_str)
+        .ok_or_else(|| "Missing required field: target_scope".to_string())?;
+    let loaded_paths = input
+        .tracks
+        .iter()
+        .filter_map(|track| track.get("path").and_then(Value::as_str))
+        .collect::<Vec<_>>();
+    let loaded = loaded_paths.iter().copied().collect::<HashSet<_>>();
+    let paths = match scope {
+        "selected" => input.selected_track_paths.clone(),
+        "active_album" => input
+            .tracks
+            .iter()
+            .filter_map(|track| track.get("path").and_then(Value::as_str))
+            .filter(|path| {
+                input
+                    .active_album_path
+                    .as_deref()
+                    .is_some_and(|album| path_is_inside(Path::new(path), Path::new(album)))
+            })
+            .map(str::to_string)
+            .collect(),
+        "library" => loaded_paths
+            .iter()
+            .map(|path| (*path).to_string())
+            .collect(),
+        "explicit_paths" => args
+            .get("paths")
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten()
+            .filter_map(Value::as_str)
+            .filter(|path| loaded.contains(path))
+            .map(str::to_string)
+            .collect(),
+        _ => return Err(format!("Unsupported target_scope: {scope}")),
+    };
+    Ok(paths)
+}
+
+fn execute_mutating_assistant_tool(
+    name: &str,
+    args: &Value,
+    input: &AssistantSendInput,
+    session_id: &str,
+) -> MutatingToolExecution {
+    if let Err(error) = validate_registered_tool_args(name, args) {
+        return mutating_tool_error(format!("Invalid arguments for {name}: {error}"));
+    }
+    match name {
+        "edit_metadata" => execute_edit_metadata(args, input, session_id),
+        "extract_tag_value" => execute_extract_tag_value(args, input, session_id),
+        "organize_files" => execute_organize_files(args, input, session_id),
+        "run_library_task" => execute_run_library_task(args, input, session_id),
+        "auto_numbering_tracks"
+        | "strip_track_title_prefixes"
+        | "chinese_convert"
+        | "strip_filename_prefixes"
+        | "infer_tags_from_filenames"
+        | "group_by_album" => execute_existing_assistant_macro(name, args, input, session_id),
+        _ => mutating_tool_error(format!("Mutating tool {name} is not implemented")),
+    }
+}
+
+async fn execute_create_plan(
+    args: &Value,
+    input: &AssistantSendInput,
+    session_id: &str,
+    services: NativeAssistantToolServices<'_>,
+) -> MutatingToolExecution {
+    if let Err(error) = validate_registered_tool_args("create_plan", args) {
+        return mutating_tool_error(format!("Invalid arguments for create_plan: {error}"));
+    }
+    let Some(steps) = args.get("steps").and_then(Value::as_array) else {
+        return mutating_tool_error("Plan steps must be an array");
+    };
+    let order = match plan_dependency_order(steps) {
+        Ok(order) => order,
+        Err(error) => return mutating_tool_error(error),
+    };
+    let step_by_id = steps
+        .iter()
+        .filter_map(|step| Some((step.get("id")?.as_str()?.to_string(), step)))
+        .collect::<BTreeMap<_, _>>();
+    let mut scratchpad = BTreeMap::<String, Value>::new();
+    let mut outputs = Vec::new();
+    let mut batches = Vec::new();
+    let mut completion_evidence = false;
+    for step_id in order {
+        let Some(step) = step_by_id.get(&step_id).copied() else {
+            return mutating_tool_error(format!("Plan step not found: {step_id}"));
+        };
+        let tool = step.get("tool").and_then(Value::as_str).unwrap_or_default();
+        if tool == "create_plan" {
+            return mutating_tool_error("Nested create_plan calls are not supported");
+        }
+        let resolved_args = resolve_plan_args(
+            step.get("args")
+                .unwrap_or(&Value::Object(Default::default())),
+            &scratchpad,
+        );
+        let execution = if registered_tool_is_read_only(tool) == Some(true) {
+            MutatingToolExecution {
+                result: execute_native_assistant_tool(tool, &resolved_args, services).await,
+                batches: Vec::new(),
+                completion_evidence: false,
+            }
+        } else if registered_tool_is_read_only(tool) == Some(false) {
+            execute_mutating_assistant_tool(tool, &resolved_args, input, session_id)
+        } else {
+            return mutating_tool_error(format!("Unknown plan tool: {tool}"));
+        };
+        if !execution.result.ok {
+            return mutating_tool_error(format!(
+                "Plan step {step_id} failed: {}",
+                execution.result.summary
+            ));
+        }
+        completion_evidence |= execution.completion_evidence;
+        let scratch = execution
+            .result
+            .data
+            .clone()
+            .unwrap_or_else(|| Value::String(execution.result.summary.clone()));
+        scratchpad.insert(step_id.clone(), scratch.clone());
+        outputs.push(serde_json::json!({
+            "stepId": step_id,
+            "label": step.get("label").and_then(Value::as_str).unwrap_or(&step_id),
+            "ok": true,
+            "summary": execution.result.summary,
+            "data": scratch
+        }));
+        batches.extend(execution.batches);
+    }
+    let summary = format!(
+        "Plan executed ({} steps, {} pending batch(es)).",
+        outputs.len(),
+        batches.len()
+    );
+    MutatingToolExecution {
+        result: AssistantToolResult {
+            ok: true,
+            summary,
+            data: Some(serde_json::json!({"stepOutputs": outputs, "batchCount": batches.len()})),
+            error: None,
+        },
+        batches,
+        completion_evidence,
+    }
+}
+
+fn plan_dependency_order(steps: &[Value]) -> Result<Vec<String>, String> {
+    let mut step_by_id = BTreeMap::<String, &Value>::new();
+    for step in steps {
+        let id = step
+            .get("id")
+            .and_then(Value::as_str)
+            .ok_or_else(|| "Every plan step requires a string id".to_string())?;
+        if step_by_id.insert(id.into(), step).is_some() {
+            return Err(format!("Duplicate plan step id: {id}"));
+        }
+    }
+    fn visit(
+        id: &str,
+        steps: &BTreeMap<String, &Value>,
+        visiting: &mut HashSet<String>,
+        visited: &mut HashSet<String>,
+        order: &mut Vec<String>,
+    ) -> Result<(), String> {
+        if visited.contains(id) {
+            return Ok(());
+        }
+        if !visiting.insert(id.into()) {
+            return Err(format!("Circular dependency detected: {id}"));
+        }
+        let step = steps
+            .get(id)
+            .ok_or_else(|| format!("Plan step not found: {id}"))?;
+        for dependency in step
+            .get("depends_on")
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten()
+            .filter_map(Value::as_str)
+        {
+            if !steps.contains_key(dependency) {
+                return Err(format!(
+                    "Step \"{id}\" depends on unknown step \"{dependency}\""
+                ));
+            }
+            visit(dependency, steps, visiting, visited, order)?;
+        }
+        visiting.remove(id);
+        visited.insert(id.into());
+        order.push(id.into());
+        Ok(())
+    }
+    let mut visiting = HashSet::new();
+    let mut visited = HashSet::new();
+    let mut order = Vec::new();
+    for id in steps
+        .iter()
+        .filter_map(|step| step.get("id").and_then(Value::as_str))
+    {
+        visit(id, &step_by_id, &mut visiting, &mut visited, &mut order)?;
+    }
+    Ok(order)
+}
+
+fn resolve_plan_args(args: &Value, scratchpad: &BTreeMap<String, Value>) -> Value {
+    match args {
+        Value::String(value) if value.starts_with('$') => {
+            let reference = &value[1..];
+            let (step, field) = reference
+                .split_once('.')
+                .map_or((reference, None), |(step, field)| (step, Some(field)));
+            let Some(value) = scratchpad.get(step) else {
+                return Value::Null;
+            };
+            field
+                .and_then(|field| value.get(field))
+                .cloned()
+                .unwrap_or_else(|| value.clone())
+        }
+        Value::Array(values) => Value::Array(
+            values
+                .iter()
+                .map(|value| resolve_plan_args(value, scratchpad))
+                .collect(),
+        ),
+        Value::Object(object) => Value::Object(
+            object
+                .iter()
+                .map(|(key, value)| (key.clone(), resolve_plan_args(value, scratchpad)))
+                .collect(),
+        ),
+        _ => args.clone(),
+    }
+}
+
+fn execute_existing_assistant_macro(
+    name: &str,
+    args: &Value,
+    input: &AssistantSendInput,
+    session_id: &str,
+) -> MutatingToolExecution {
+    let Ok(paths) = tool_scope_paths(input, args) else {
+        return mutating_tool_error("Could not resolve macro target scope");
+    };
+    if paths.is_empty() {
+        return mutating_tool_no_changes("No tracks found for the requested scope.");
+    }
+    let (kind, title, risk, mut actions) = match name {
+        "auto_numbering_tracks" => (
+            "metadata-update",
+            "Auto-number tracks",
+            "low",
+            plan_track_numbering(input, &paths),
+        ),
+        "strip_track_title_prefixes" => (
+            "metadata-update",
+            "Strip track-title prefixes",
+            "low",
+            plan_strip_track_title_prefixes(input, &paths),
+        ),
+        "strip_filename_prefixes" => (
+            "folder-move",
+            "Strip filename prefixes",
+            "medium",
+            plan_strip_filename_prefixes(&paths),
+        ),
+        "infer_tags_from_filenames" => {
+            let fields = args.get("fields").and_then(Value::as_array).map(|fields| {
+                fields
+                    .iter()
+                    .filter_map(Value::as_str)
+                    .collect::<HashSet<_>>()
+            });
+            let mut actions = plan_infer_tags_from_filenames(
+                input,
+                &paths,
+                args.get("prettify").and_then(Value::as_bool) == Some(true),
+            );
+            if let Some(fields) = fields {
+                actions.retain(|action| {
+                    action
+                        .field
+                        .as_deref()
+                        .is_some_and(|field| fields.contains(field))
+                });
+            }
+            (
+                "metadata-update",
+                "Infer tags from filenames",
+                "low",
+                actions,
+            )
+        }
+        "chinese_convert" => {
+            let target = if args.get("direction").and_then(Value::as_str) == Some("s2t") {
+                "traditional"
+            } else {
+                "simplified"
+            };
+            let fields = args.get("fields").and_then(Value::as_array).map(|fields| {
+                fields
+                    .iter()
+                    .filter_map(Value::as_str)
+                    .collect::<HashSet<_>>()
+            });
+            let mut actions = plan_chinese_conversion(input, &paths, target);
+            if let Some(fields) = fields {
+                actions.retain(|action| {
+                    action
+                        .field
+                        .as_deref()
+                        .is_some_and(|field| fields.contains(field))
+                });
+            }
+            (
+                "metadata-update",
+                "Convert Chinese metadata",
+                "low",
+                actions,
+            )
+        }
+        "group_by_album" => {
+            let actions = match plan_group_by_album(input, &paths) {
+                Ok(actions) => actions,
+                Err(error) => return mutating_tool_error(error.to_string()),
+            };
+            ("folder-move", "Group files by album", "medium", actions)
+        }
+        _ => return mutating_tool_error(format!("Unknown macro: {name}")),
+    };
+    if actions.is_empty() {
+        return mutating_tool_no_changes("No changes are needed.");
+    }
+    let summary = format!("Preview {} action(s) from {name}", actions.len());
+    let batch = assistant_batch(
+        session_id,
+        kind,
+        title,
+        &summary,
+        risk,
+        std::mem::take(&mut actions),
+        true,
+    );
+    mutating_tool_execution(
+        format!("Preview created ({}): {summary}", batch.id),
+        None,
+        Some(batch),
+    )
+}
+
+fn execute_edit_metadata(
+    args: &Value,
+    input: &AssistantSendInput,
+    session_id: &str,
+) -> MutatingToolExecution {
+    let Ok(paths) = tool_scope_paths(input, args) else {
+        return mutating_tool_error("Could not resolve metadata target scope");
+    };
+    if paths.is_empty() {
+        return mutating_tool_no_changes("No tracks found for the requested scope.");
+    }
+    let updates = args
+        .get("standard_updates")
+        .and_then(Value::as_object)
+        .cloned()
+        .unwrap_or_default();
+    let removes = args
+        .get("standard_removes")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(Value::as_str)
+        .collect::<Vec<_>>();
+    let unique_fields = [
+        "title",
+        "artist",
+        "artists",
+        "trackNumber",
+        "trackTotal",
+        "discNumber",
+        "discTotal",
+    ];
+    if updates.iter().any(|(field, value)| {
+        unique_fields.contains(&field.as_str())
+            && match value {
+                Value::String(value) => value.trim().is_empty(),
+                Value::Array(values) => values.is_empty(),
+                _ => false,
+            }
+    }) {
+        return mutating_tool_execution(
+            "Blank title, artist, and track/disc values are not valid metadata fixes.".into(),
+            None,
+            None,
+        );
+    }
+    if paths.len() > 1
+        && updates
+            .keys()
+            .any(|field| unique_fields.contains(&field.as_str()))
+    {
+        return mutating_tool_execution(
+            "Per-track title, artist, and numbering values cannot be applied identically to multiple tracks. Use filename inference or auto-numbering instead.".into(),
+            None,
+            None,
+        );
+    }
+    let tracks = input
+        .tracks
+        .iter()
+        .map(|track| (track_path(track), track))
+        .collect::<BTreeMap<_, _>>();
+    let mut actions = Vec::new();
+    for path in &paths {
+        let track = tracks.get(path.as_str()).copied();
+        let current_extras = read_extra_tags(Path::new(path));
+        for (field, value) in &updates {
+            let Some(desired) = action_value_string(value) else {
+                continue;
+            };
+            push_string_action(&mut actions, track, path, field, &desired);
+        }
+        for field in &removes {
+            let old_value = track.and_then(|track| track_field_string(track, field));
+            if old_value.is_some() {
+                actions.push(AssistantAction {
+                    tag_kind: Some("standard".into()),
+                    track_path: Some(path.clone()),
+                    field: Some((*field).into()),
+                    old_value,
+                    new_value: None,
+                    operation: Some("remove".into()),
+                    description: Some(format!("Remove {field}")),
+                    ..Default::default()
+                });
+            }
+        }
+        for upsert in args
+            .get("extra_upserts")
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten()
+        {
+            let (Some(key), Some(value)) = (
+                upsert.get("key").and_then(Value::as_str),
+                upsert.get("value").and_then(Value::as_str),
+            ) else {
+                continue;
+            };
+            let matching = current_extras
+                .iter()
+                .filter(|tag| tag.key.trim().eq_ignore_ascii_case(key.trim()))
+                .collect::<Vec<_>>();
+            if matching.len() != 1 || matching[0].value != value {
+                actions.push(extra_action(path, key, Some(value), "upsert"));
+            }
+        }
+        for key in args
+            .get("extra_removes")
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten()
+            .filter_map(Value::as_str)
+        {
+            if current_extras
+                .iter()
+                .any(|tag| tag.key.trim().eq_ignore_ascii_case(key.trim()))
+            {
+                actions.push(extra_action(path, key, None, "remove"));
+            }
+        }
+    }
+    if actions.is_empty() {
+        return mutating_tool_no_changes("No metadata changes are needed.");
+    }
+    let summary = format!(
+        "Update {} metadata field(s) across {} track(s)",
+        actions.len(),
+        paths.len()
+    );
+    let batch = assistant_batch(
+        session_id,
+        "metadata-update",
+        "Edit metadata",
+        &summary,
+        "low",
+        actions,
+        true,
+    );
+    mutating_tool_execution(
+        format!("Preview created ({}): {summary}", batch.id),
+        None,
+        Some(batch),
+    )
+}
+
+fn action_value_string(value: &Value) -> Option<String> {
+    match value {
+        Value::String(value) => Some(value.clone()),
+        Value::Number(value) => Some(value.to_string()),
+        Value::Bool(value) => Some(value.to_string()),
+        Value::Array(values) => Some(
+            values
+                .iter()
+                .filter_map(Value::as_str)
+                .collect::<Vec<_>>()
+                .join("; "),
+        ),
+        Value::Null | Value::Object(_) => None,
+    }
+}
+
+fn track_field_string(track: &Value, field: &str) -> Option<String> {
+    track.get(field).and_then(action_value_string)
+}
+
+fn extra_action(path: &str, key: &str, value: Option<&str>, operation: &str) -> AssistantAction {
+    AssistantAction {
+        tag_kind: Some("extra".into()),
+        track_path: Some(path.into()),
+        field: Some(key.into()),
+        new_value: value.map(str::to_string),
+        operation: Some(operation.into()),
+        description: Some(format!("{operation} extra tag {key}")),
+        ..Default::default()
+    }
+}
+
+fn execute_extract_tag_value(
+    args: &Value,
+    input: &AssistantSendInput,
+    session_id: &str,
+) -> MutatingToolExecution {
+    let Ok(paths) = tool_scope_paths(input, args) else {
+        return mutating_tool_error("Could not resolve regex target scope");
+    };
+    let field = args
+        .get("field")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let pattern = args
+        .get("pattern")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let group_index = args
+        .get("group_index")
+        .and_then(Value::as_u64)
+        .and_then(|index| usize::try_from(index).ok())
+        .unwrap_or(1);
+    let regex = match regex::Regex::new(pattern) {
+        Ok(regex) => regex,
+        Err(error) => return mutating_tool_error(format!("Invalid regex pattern: {error}")),
+    };
+    let tracks = input
+        .tracks
+        .iter()
+        .map(|track| (track_path(track), track))
+        .collect::<BTreeMap<_, _>>();
+    let mut actions = Vec::new();
+    for path in &paths {
+        let Some(track) = tracks.get(path.as_str()).copied() else {
+            continue;
+        };
+        let Some(current) = track_field_string(track, field) else {
+            continue;
+        };
+        let Some(captures) = regex.captures(&current) else {
+            continue;
+        };
+        let Some(extracted) = captures.get(group_index).map(|capture| capture.as_str()) else {
+            continue;
+        };
+        if extracted != current {
+            push_string_action(&mut actions, Some(track), path, field, extracted);
+        }
+    }
+    if actions.is_empty() {
+        return mutating_tool_no_changes(format!(
+            "No {field} values matched the pattern; no changes are needed."
+        ));
+    }
+    let summary = format!("Extract {field} for {} track(s)", actions.len());
+    let batch = assistant_batch(
+        session_id,
+        "metadata-update",
+        format!("Extract tag value ({field})"),
+        &summary,
+        "low",
+        actions,
+        true,
+    );
+    mutating_tool_execution(
+        format!("Preview created ({}): {summary}", batch.id),
+        None,
+        Some(batch),
+    )
+}
+
+fn execute_run_library_task(
+    args: &Value,
+    input: &AssistantSendInput,
+    session_id: &str,
+) -> MutatingToolExecution {
+    let Ok(paths) = tool_scope_paths(input, args) else {
+        return mutating_tool_error("Could not resolve library-task target scope");
+    };
+    if paths.is_empty() {
+        return mutating_tool_no_changes("No tracks found for the requested scope.");
+    }
+    let task = args.get("task").and_then(Value::as_str).unwrap_or_default();
+    let auto_tag = task == "auto_tag";
+    let title = if auto_tag {
+        "Auto-tag tracks"
+    } else {
+        "Audit tracks"
+    };
+    let summary = format!(
+        "{} {} track(s)",
+        if auto_tag { "Auto-tag" } else { "Audit" },
+        paths.len()
+    );
+    let actions = paths
+        .iter()
+        .map(|path| AssistantAction {
+            track_path: Some(path.clone()),
+            description: Some(format!(
+                "{title}: {}",
+                Path::new(path)
+                    .file_name()
+                    .and_then(|name| name.to_str())
+                    .unwrap_or_default()
+            )),
+            ..Default::default()
+        })
+        .collect();
+    let batch = assistant_batch(
+        session_id,
+        if auto_tag {
+            "auto-tag-run"
+        } else {
+            "audit-run"
+        },
+        title,
+        &summary,
+        "medium",
+        actions,
+        auto_tag,
+    );
+    mutating_tool_execution(
+        format!("Preview created ({}): {summary}", batch.id),
+        None,
+        Some(batch),
+    )
+}
+
+fn execute_organize_files(
+    args: &Value,
+    input: &AssistantSendInput,
+    session_id: &str,
+) -> MutatingToolExecution {
+    let Some(library) = input.library_path.as_deref().map(Path::new) else {
+        return mutating_tool_error("Library path is required to organize files");
+    };
+    let source = Path::new(
+        args.get("source_dir")
+            .and_then(Value::as_str)
+            .unwrap_or_default(),
+    );
+    if !path_is_inside(source, library) {
+        return mutating_tool_error("Source directory is outside the library root");
+    }
+    if !source.is_dir() {
+        return mutating_tool_error("Source directory does not exist or is not a directory");
+    }
+    let criterion = args
+        .get("criterion")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let pattern = args
+        .get("pattern_string")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    if criterion == "pattern" && pattern.trim().is_empty() {
+        return mutating_tool_error("pattern_string is required when criterion is pattern");
+    }
+    let pattern_regex = if criterion == "pattern" {
+        match glob_regex(pattern) {
+            Ok(regex) => Some(regex),
+            Err(error) => return mutating_tool_error(error),
+        }
+    } else {
+        None
+    };
+    let extension_filters = if criterion == "extension" && !pattern.trim().is_empty() {
+        Some(
+            pattern
+                .split(|character: char| character == ',' || character.is_whitespace())
+                .map(|value| value.trim().trim_start_matches('.').to_lowercase())
+                .filter(|value| !value.is_empty())
+                .collect::<HashSet<_>>(),
+        )
+    } else {
+        None
+    };
+    let target_root = source.join(sanitize_dir_name(
+        args.get("target_dir_name")
+            .and_then(Value::as_str)
+            .unwrap_or_default(),
+    ));
+    let entries = match fs::read_dir(source) {
+        Ok(entries) => entries,
+        Err(error) => {
+            return mutating_tool_error(format!("Failed to scan source directory: {error}"))
+        }
+    };
+    let mut entries = entries.filter_map(Result::ok).collect::<Vec<_>>();
+    entries.sort_by_key(|entry| entry.file_name());
+    let mut reserved = HashSet::new();
+    let mut actions = Vec::new();
+    let mut skipped = 0usize;
+    for entry in entries {
+        let filename = entry.file_name();
+        let Some(filename_text) = filename.to_str() else {
+            skipped += 1;
+            continue;
+        };
+        let path = entry.path();
+        if filename_text.starts_with('.') || !path.is_file() {
+            skipped += 1;
+            continue;
+        }
+        let destination_dir = match organize_destination(
+            criterion,
+            &path,
+            &target_root,
+            pattern_regex.as_ref(),
+            extension_filters.as_ref(),
+        ) {
+            Ok(Some(destination)) => destination,
+            Ok(None) => {
+                skipped += 1;
+                continue;
+            }
+            Err(error) => return mutating_tool_error(error),
+        };
+        let destination =
+            unique_planned_destination(&path, destination_dir.join(&filename), &mut reserved);
+        actions.push(AssistantAction {
+            source_path: Some(path.to_string_lossy().into_owned()),
+            destination_path: Some(destination.to_string_lossy().into_owned()),
+            description: Some(format!("Organize by {criterion}")),
+            ..Default::default()
+        });
+    }
+    if actions.is_empty() {
+        return mutating_tool_no_changes(format!(
+            "No files matched the {criterion} criterion; {skipped} skipped."
+        ));
+    }
+    let summary = format!(
+        "Move {} file(s) by {criterion}; {skipped} skipped",
+        actions.len()
+    );
+    let batch = assistant_batch(
+        session_id,
+        "folder-move",
+        format!("Organize files by {criterion}"),
+        &summary,
+        "medium",
+        actions,
+        true,
+    );
+    mutating_tool_execution(
+        format!("Preview created ({}): {summary}", batch.id),
+        None,
+        Some(batch),
+    )
+}
+
+fn glob_regex(pattern: &str) -> Result<regex::Regex, String> {
+    let escaped = regex::escape(pattern.trim())
+        .replace(r"\*", ".*")
+        .replace(r"\?", ".");
+    regex::RegexBuilder::new(&format!("^{escaped}$"))
+        .case_insensitive(true)
+        .build()
+        .map_err(|error| format!("Invalid filename pattern: {error}"))
+}
+
+fn organize_destination(
+    criterion: &str,
+    path: &Path,
+    target_root: &Path,
+    pattern: Option<&regex::Regex>,
+    extension_filters: Option<&HashSet<String>>,
+) -> Result<Option<PathBuf>, String> {
+    match criterion {
+        "extension" => {
+            let extension = path
+                .extension()
+                .and_then(|extension| extension.to_str())
+                .unwrap_or("no-extension")
+                .to_lowercase();
+            if extension_filters.is_some_and(|filters| !filters.contains(&extension)) {
+                return Ok(None);
+            }
+            Ok(Some(target_root.join(extension)))
+        }
+        "pattern" => {
+            let filename = path
+                .file_name()
+                .and_then(|name| name.to_str())
+                .unwrap_or_default();
+            Ok(pattern
+                .filter(|pattern| pattern.is_match(filename))
+                .map(|_| target_root.to_path_buf()))
+        }
+        "date_created" => {
+            let metadata = fs::metadata(path).map_err(|error| error.to_string())?;
+            let timestamp = metadata
+                .created()
+                .or_else(|_| metadata.modified())
+                .map_err(|error| error.to_string())?;
+            let datetime = time::OffsetDateTime::from(timestamp);
+            Ok(Some(target_root.join(format!(
+                "{:04}-{:02}",
+                datetime.year(),
+                u8::from(datetime.month())
+            ))))
+        }
+        "size" => {
+            let size = fs::metadata(path).map_err(|error| error.to_string())?.len();
+            let mib = 1024 * 1024;
+            let bucket = if size < 10 * mib {
+                "small"
+            } else if size < 100 * mib {
+                "medium"
+            } else if size < 1024 * mib {
+                "large"
+            } else {
+                "huge"
+            };
+            Ok(Some(target_root.join(bucket)))
+        }
+        _ => Err(format!("Unsupported organize criterion: {criterion}")),
+    }
+}
+
 fn plan_track_numbering(
     input: &AssistantSendInput,
     scoped_paths: &[String],
@@ -1261,16 +2257,7 @@ fn push_string_action(
     field: &str,
     desired: &str,
 ) {
-    let current = track.and_then(|track| match field {
-        "artists" => track.get(field).and_then(Value::as_array).map(|values| {
-            values
-                .iter()
-                .filter_map(Value::as_str)
-                .collect::<Vec<_>>()
-                .join("; ")
-        }),
-        _ => track.get(field).and_then(Value::as_str).map(str::to_string),
-    });
+    let current = track.and_then(|track| track_field_string(track, field));
     if current.as_deref() == Some(desired) {
         return;
     }
@@ -2452,6 +3439,262 @@ mod apply_contract_tests {
             Some(existing_dir.join("song_1.mp3").to_string_lossy().as_ref())
         );
         fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn assistant_response_schema_advertises_the_complete_registry() {
+        let schema = assistant_response_schema();
+        let names = schema["properties"]["toolCall"]["properties"]["toolName"]["enum"]
+            .as_array()
+            .unwrap();
+        assert_eq!(names.len(), 21);
+        assert!(names.contains(&serde_json::json!("edit_metadata")));
+        assert!(names.contains(&serde_json::json!("create_plan")));
+    }
+
+    #[test]
+    fn edit_metadata_tool_builds_standard_and_extra_preview_actions() {
+        let input = AssistantSendInput {
+            selected_track_paths: vec!["/music/one.flac".into()],
+            tracks: vec![serde_json::json!({
+                "path": "/music/one.flac", "album": "Old", "genre": "Rock"
+            })],
+            ..Default::default()
+        };
+        let execution = execute_mutating_assistant_tool(
+            "edit_metadata",
+            &serde_json::json!({
+                "target_scope": "selected",
+                "standard_updates": {"album": "New"},
+                "standard_removes": ["genre"],
+                "extra_upserts": [{"key": "MOOD", "value": "Calm"}]
+            }),
+            &input,
+            "session",
+        );
+
+        assert!(execution.result.ok);
+        assert_eq!(execution.batches.len(), 1);
+        let actions = &execution.batches[0].actions;
+        assert_eq!(actions.len(), 3);
+        assert!(actions.iter().any(|action| {
+            action.field.as_deref() == Some("album")
+                && action.old_value.as_deref() == Some("Old")
+                && action.new_value.as_deref() == Some("New")
+        }));
+        assert!(actions.iter().any(|action| {
+            action.field.as_deref() == Some("genre") && action.new_value.is_none()
+        }));
+        assert!(actions.iter().any(|action| {
+            action.tag_kind.as_deref() == Some("extra") && action.field.as_deref() == Some("MOOD")
+        }));
+    }
+
+    #[test]
+    fn edit_metadata_reports_explicit_no_changes_for_equal_list_values() {
+        let input = AssistantSendInput {
+            selected_track_paths: vec!["/music/one.flac".into()],
+            tracks: vec![serde_json::json!({
+                "path": "/music/one.flac", "albumArtists": ["Artist A", "Artist B"]
+            })],
+            ..Default::default()
+        };
+        let execution = execute_mutating_assistant_tool(
+            "edit_metadata",
+            &serde_json::json!({
+                "target_scope": "selected",
+                "standard_updates": {"albumArtists": ["Artist A", "Artist B"]}
+            }),
+            &input,
+            "session",
+        );
+
+        assert!(execution.result.ok);
+        assert!(execution.batches.is_empty());
+        assert!(execution.completion_evidence);
+        assert_eq!(
+            execution.result.data.as_ref().unwrap()["outcome"],
+            "no_changes"
+        );
+    }
+
+    #[test]
+    fn library_scope_preserves_loaded_track_order() {
+        let input = AssistantSendInput {
+            tracks: vec![
+                serde_json::json!({"path": "/music/z.flac"}),
+                serde_json::json!({"path": "/music/a.flac"}),
+            ],
+            ..Default::default()
+        };
+
+        assert_eq!(
+            tool_scope_paths(&input, &serde_json::json!({"target_scope": "library"})).unwrap(),
+            vec!["/music/z.flac", "/music/a.flac"]
+        );
+    }
+
+    #[test]
+    fn regex_extract_tool_uses_requested_capture_group_and_real_diffs_only() {
+        let input = AssistantSendInput {
+            tracks: vec![
+                serde_json::json!({"path": "/music/one.flac", "album": "01 - Album"}),
+                serde_json::json!({"path": "/music/two.flac", "album": "Clean"}),
+            ],
+            ..Default::default()
+        };
+        let execution = execute_mutating_assistant_tool(
+            "extract_tag_value",
+            &serde_json::json!({
+                "target_scope": "library", "field": "album",
+                "pattern": "^\\d+[\\s.-]+(.+)$", "group_index": 1
+            }),
+            &input,
+            "session",
+        );
+
+        assert!(execution.result.ok);
+        let actions = &execution.batches[0].actions;
+        assert_eq!(actions.len(), 1);
+        assert_eq!(actions[0].new_value.as_deref(), Some("Album"));
+    }
+
+    #[test]
+    fn organize_files_tool_scans_direct_files_and_previews_extension_folders() {
+        let root = temp_dir();
+        let source = root.join("loose");
+        fs::create_dir_all(source.join("nested")).unwrap();
+        fs::write(source.join("one.flac"), b"one").unwrap();
+        fs::write(source.join("two.mp3"), b"two").unwrap();
+        fs::write(source.join(".hidden.mp3"), b"hidden").unwrap();
+        let input = AssistantSendInput {
+            library_path: Some(root.to_string_lossy().into_owned()),
+            ..Default::default()
+        };
+        let execution = execute_mutating_assistant_tool(
+            "organize_files",
+            &serde_json::json!({
+                "source_dir": source, "criterion": "extension",
+                "pattern_string": "flac", "target_dir_name": "By Type"
+            }),
+            &input,
+            "session",
+        );
+
+        assert!(execution.result.ok);
+        assert_eq!(execution.batches[0].actions.len(), 1);
+        assert_eq!(
+            execution.batches[0].actions[0].destination_path.as_deref(),
+            Some(
+                source
+                    .join("By Type/flac/one.flac")
+                    .to_string_lossy()
+                    .as_ref()
+            )
+        );
+        assert!(source.join("one.flac").exists());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn library_task_tool_creates_scoped_handoff_preview() {
+        let input = AssistantSendInput {
+            selected_track_paths: vec!["/music/one.flac".into()],
+            tracks: vec![serde_json::json!({"path": "/music/one.flac"})],
+            ..Default::default()
+        };
+        let execution = execute_mutating_assistant_tool(
+            "run_library_task",
+            &serde_json::json!({"task": "audit", "target_scope": "selected"}),
+            &input,
+            "session",
+        );
+
+        assert_eq!(execution.batches[0].kind, "audit-run");
+        assert_eq!(execution.batches[0].actions.len(), 1);
+        assert!(!execution.batches[0].reversible);
+    }
+
+    #[tokio::test]
+    async fn create_plan_resolves_prior_paths_and_collects_preview_batches() {
+        let input = AssistantSendInput {
+            tracks: vec![serde_json::json!({
+                "path": "/music/one.flac", "genre": null
+            })],
+            ..Default::default()
+        };
+        let providers = ProviderState::default();
+        let config = crate::state::config::AutoTagConfig::default();
+        let assistant = AssistantServicesSnapshot::default();
+        let execution = execute_create_plan(
+            &serde_json::json!({
+                "steps": [
+                    {"id": "find", "tool": "tracks.search", "args": {"missingGenre": true}},
+                    {"id": "edit", "tool": "edit_metadata", "depends_on": ["find"], "args": {
+                        "target_scope": "explicit_paths", "paths": "$find.paths",
+                        "standard_updates": {"genre": "Rock"}
+                    }}
+                ]
+            }),
+            &input,
+            "session",
+            NativeAssistantToolServices {
+                input: &input,
+                providers: &providers,
+                config: &config,
+                assistant: &assistant,
+            },
+        )
+        .await;
+
+        assert!(execution.result.ok);
+        assert_eq!(execution.batches.len(), 1);
+        assert_eq!(
+            execution.batches[0].actions[0].field.as_deref(),
+            Some("genre")
+        );
+        assert_eq!(
+            execution.batches[0].actions[0].new_value.as_deref(),
+            Some("Rock")
+        );
+    }
+
+    #[test]
+    fn plan_dependency_order_preserves_declaration_order_for_independent_steps() {
+        let steps = serde_json::json!([
+            {"id": "z-last-alphabetically", "tool": "library.summarize", "args": {}},
+            {"id": "a-first-alphabetically", "tool": "library.summarize", "args": {}}
+        ]);
+
+        assert_eq!(
+            plan_dependency_order(steps.as_array().unwrap()).unwrap(),
+            vec!["z-last-alphabetically", "a-first-alphabetically"]
+        );
+    }
+
+    #[tokio::test]
+    async fn read_only_plan_does_not_count_as_mutation_completion_evidence() {
+        let input = AssistantSendInput::default();
+        let providers = ProviderState::default();
+        let config = crate::state::config::AutoTagConfig::default();
+        let assistant = AssistantServicesSnapshot::default();
+        let execution = execute_create_plan(
+            &serde_json::json!({
+                "steps": [{"id": "inspect", "tool": "library.summarize", "args": {}}]
+            }),
+            &input,
+            "session",
+            NativeAssistantToolServices {
+                input: &input,
+                providers: &providers,
+                config: &config,
+                assistant: &assistant,
+            },
+        )
+        .await;
+
+        assert!(execution.result.ok);
+        assert!(!execution.completion_evidence);
     }
 
     #[test]
