@@ -558,6 +558,42 @@ mod tests {
         assert_eq!(repair.body["reasoning"], json!({ "enabled": false }));
     }
 
+    /// Manual release gate: loads credentials through the root `justfile` and
+    /// exercises the production endpoint, bearer auth, configured model,
+    /// schema-constrained response, usage parsing, and Rustls transport.
+    #[tokio::test]
+    #[ignore = "requires LLM_API_KEY, LLM_MODEL, and live OpenRouter access"]
+    async fn live_openrouter_returns_schema_constrained_json() {
+        let api_key = std::env::var("LLM_API_KEY").expect("LLM_API_KEY is required");
+        let model = std::env::var("LLM_MODEL").expect("LLM_MODEL is required");
+        let client = OpenRouterClient::new(api_key, model).with_generation(0.0, 128);
+        let schema = json!({
+            "type": "object",
+            "properties": { "ok": { "type": "boolean", "const": true } },
+            "required": ["ok"],
+            "additionalProperties": false
+        });
+
+        let response = client
+            .complete_json(
+                vec![
+                    ChatMessage::system(
+                        "Your entire response must be exactly {\"ok\":true} with no explanation.",
+                    ),
+                    ChatMessage::user("Return {\"ok\":true} and no other text."),
+                ],
+                "TauriMigrationSmoke",
+                schema,
+                &AtomicBool::new(false),
+            )
+            .await
+            .expect("OpenRouter release gate should return schema-constrained JSON");
+
+        assert_eq!(response.data, json!({ "ok": true }));
+        assert!(!response.model.is_empty());
+        assert!(response.usage.total_tokens > 0);
+    }
+
     #[derive(Clone)]
     struct CapturedRequest {
         headers: HashMap<String, String>,

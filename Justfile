@@ -21,6 +21,7 @@ default:
     @echo "  just fe-test            run all unit tests"
     @echo "  just fe-typecheck       run TypeScript type checker"
     @echo "  just fe-check           typecheck + test"
+    @echo "  just fe-smoke-openrouter run credentialed OpenRouter release gate"
     @echo ""
     @echo "Ship:"
     @echo "  just fe-dist <target>   build distributable (mac|win|linux)"
@@ -71,6 +72,11 @@ fe-typecheck: _fe-deps-check
 # Typecheck + test — full quality gate
 fe-check: fe-typecheck fe-test
     echo "✓ All frontend checks passed"
+
+# Exercise the production OpenRouter client with credentials from .env.local.
+# The ignored test never prints the API key or response content.
+fe-smoke-openrouter:
+    cd frontend/src-tauri && cargo test --all-features live_openrouter_returns_schema_constrained_json -- --ignored --nocapture
 
 # Build platform distributable (requires: fe-build)
 # Targets: mac, win, linux — e.g. just fe-dist mac

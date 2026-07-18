@@ -48,6 +48,49 @@ use crate::state::tasks::TaskRegistry;
 use crate::state::window_state::{DisplayWorkArea, PositionAction, WindowState};
 use crate::state::write_queue::WriteQueue;
 
+#[cfg(target_os = "macos")]
+const GUARDED_QUIT_MENU_ID: &str = "app.guarded-quit";
+
+#[cfg(target_os = "macos")]
+fn is_guarded_quit_menu_event(id: &str) -> bool {
+    id == GUARDED_QUIT_MENU_ID
+}
+
+#[cfg(target_os = "macos")]
+fn guarded_default_menu<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+) -> tauri::Result<tauri::menu::Menu<R>> {
+    use tauri::menu::{Menu, MenuItem, MenuItemKind};
+
+    let menu = Menu::default(app)?;
+    let top_level = menu.items()?;
+    let app_menu = match top_level.first() {
+        Some(MenuItemKind::Submenu(submenu)) => submenu,
+        _ => panic!("Tauri macOS default menu must begin with the application submenu"),
+    };
+    let quit_position = app_menu
+        .items()?
+        .len()
+        .checked_sub(1)
+        .expect("Tauri macOS application menu must contain Quit");
+    let removed = app_menu
+        .remove_at(quit_position)?
+        .expect("Tauri macOS application menu must contain Quit");
+    assert!(
+        matches!(removed, MenuItemKind::Predefined(_)),
+        "Tauri macOS application menu must end with predefined Quit"
+    );
+    let quit = MenuItem::with_id(
+        app,
+        GUARDED_QUIT_MENU_ID,
+        format!("Quit {}", app.package_info().name),
+        true,
+        Some("CmdOrCtrl+Q"),
+    )?;
+    app_menu.insert(&quit, quit_position)?;
+    Ok(menu)
+}
+
 /// Initialise structured logging to stderr and append the same records to the
 /// existing `~/.auto-tagger/auto-tagger.log`. `AUTOTAGGER_LOG` controls the
 /// filter without changing the persisted path.
@@ -87,6 +130,8 @@ pub fn run() {
                 }
             }
         });
+    #[cfg(target_os = "macos")]
+    let builder = builder.menu(guarded_default_menu);
     #[cfg(feature = "wdio")]
     let builder = builder
         .plugin(tauri_plugin_wdio::init())
@@ -122,6 +167,11 @@ pub fn run() {
             // cannot resolve a renderer context-menu promise.
             app.on_menu_event(|app, event| {
                 let id: &str = event.id().as_ref();
+                #[cfg(target_os = "macos")]
+                if is_guarded_quit_menu_event(id) {
+                    app.exit(0);
+                    return;
+                }
                 commands::shell::handle_context_menu_event(app, id);
             });
             wire_window_lifecycle(app.get_webview_window("main"));
@@ -321,5 +371,13 @@ mod tests {
         assert!(!should_reveal_window("main", PageLoadEvent::Started));
         assert!(!should_reveal_window("settings", PageLoadEvent::Finished));
         assert!(should_reveal_window("main", PageLoadEvent::Finished));
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn macos_guarded_quit_event_does_not_capture_other_menu_actions() {
+        assert!(is_guarded_quit_menu_event(GUARDED_QUIT_MENU_ID));
+        assert!(!is_guarded_quit_menu_event("app.quit"));
+        assert!(!is_guarded_quit_menu_event("context.copy-path"));
     }
 }

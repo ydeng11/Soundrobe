@@ -42,6 +42,14 @@ describe("package scripts", () => {
     expect(scripts["test:native-node"]).toBeUndefined();
   });
 
+  it("loads the local dotenv file for the credentialed OpenRouter release gate", () => {
+    const justfile = readFileSync(resolve(__dirname, "../../Justfile"), "utf8");
+
+    expect(justfile).toContain('set dotenv-path := ".env.local"');
+    expect(justfile).toContain("fe-smoke-openrouter:");
+    expect(justfile).toContain("live_openrouter_returns_schema_constrained_json");
+  });
+
   it("declares every required unsigned Tauri bundle target", () => {
     const { scripts } = readPackageJson();
     const tauriConfig = JSON.parse(
