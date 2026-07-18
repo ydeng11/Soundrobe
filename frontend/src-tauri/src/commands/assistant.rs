@@ -10,6 +10,7 @@ use crate::commands::{
         rename_track_queued, write_extra_tags_queued, write_track_queued, ExtraTagUpdate,
         TrackPatch,
     },
+    organizer::sanitize_dir_name,
     tracks::{read_extra_tags, read_track_metadata},
 };
 use crate::error::ApiError;
@@ -631,6 +632,7 @@ enum AssistantTaskRoute {
     InferTagsFromFilenames,
     ChineseToTraditional,
     ChineseToSimplified,
+    GroupByAlbum,
 }
 
 impl AssistantTaskRoute {
@@ -649,6 +651,7 @@ impl AssistantTaskRoute {
             Self::ChineseToTraditional | Self::ChineseToSimplified => {
                 "The selected metadata is already in the requested Chinese script. No changes are needed."
             }
+            Self::GroupByAlbum => "No files need to move into album folders.",
             Self::AutoTag | Self::Audit => "No changes are needed.",
         }
     }
@@ -746,6 +749,17 @@ fn derive_assistant_task_contract(message: &str) -> AssistantTaskContract {
             route,
             reason: "chinese_convert_intent",
             requires_completion_evidence: route.is_some(),
+        };
+    }
+    if text.contains("album")
+        && (text.contains("group") || text.contains("organize") || text.contains("organise"))
+        && (text.contains("folder") || text.contains("file"))
+    {
+        return AssistantTaskContract {
+            kind: AssistantTaskContractKind::ActionPreviewRequired,
+            route: Some(AssistantTaskRoute::GroupByAlbum),
+            reason: "group_by_album_intent",
+            requires_completion_evidence: true,
         };
     }
     if (text.contains("strip") || text.contains("remove"))
@@ -942,6 +956,19 @@ fn deterministic_task_batch(
                 "Convert Chinese metadata",
                 format!("Preview {} Chinese-script update(s)", actions.len()),
                 "low",
+                actions,
+            )
+        }
+        AssistantTaskRoute::GroupByAlbum => {
+            let actions = plan_group_by_album(input, &paths)?;
+            if actions.is_empty() {
+                return Ok(None);
+            }
+            (
+                "folder-move",
+                "Group files by album",
+                format!("Preview {} album-folder move(s)", actions.len()),
+                "medium",
                 actions,
             )
         }
@@ -1311,6 +1338,113 @@ fn plan_chinese_conversion(
         }
     }
     actions
+}
+
+fn plan_group_by_album(
+    input: &AssistantSendInput,
+    paths: &[String],
+) -> Result<Vec<AssistantAction>, ApiError> {
+    let library = input
+        .library_path
+        .as_deref()
+        .map(Path::new)
+        .ok_or_else(|| {
+            ApiError::Message("Library path is required to group files by album".into())
+        })?;
+    let tracks = input
+        .tracks
+        .iter()
+        .map(|track| (track_path(track), track))
+        .collect::<BTreeMap<_, _>>();
+    let mut destinations = HashSet::new();
+    let mut actions = Vec::new();
+    for source in paths {
+        let Some(track) = tracks.get(source.as_str()).copied() else {
+            continue;
+        };
+        let Some(album) = track
+            .get("album")
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|album| !album.is_empty())
+        else {
+            continue;
+        };
+        let source_path = Path::new(source);
+        if !path_is_inside(source_path, library) {
+            continue;
+        }
+        let destination_dir = library.join(sanitize_dir_name(album));
+        if source_path.parent() == Some(destination_dir.as_path()) {
+            continue;
+        }
+        let Some(filename) = source_path.file_name() else {
+            continue;
+        };
+        let destination = unique_planned_destination(
+            source_path,
+            destination_dir.join(filename),
+            &mut destinations,
+        );
+        actions.push(AssistantAction {
+            source_path: Some(source.clone()),
+            destination_path: Some(destination.to_string_lossy().into_owned()),
+            description: Some(format!("Move into album folder: {}", album.trim())),
+            ..Default::default()
+        });
+    }
+    Ok(actions)
+}
+
+fn path_is_inside(path: &Path, root: &Path) -> bool {
+    fn normalized(path: &Path) -> Option<PathBuf> {
+        let mut result = PathBuf::new();
+        for component in path.components() {
+            match component {
+                std::path::Component::ParentDir => {
+                    if !result.pop() {
+                        return None;
+                    }
+                }
+                std::path::Component::CurDir => {}
+                _ => result.push(component.as_os_str()),
+            }
+        }
+        Some(result)
+    }
+    match (normalized(path), normalized(root)) {
+        (Some(path), Some(root)) => path.starts_with(root),
+        _ => false,
+    }
+}
+
+fn unique_planned_destination(
+    source: &Path,
+    destination: PathBuf,
+    reserved: &mut HashSet<PathBuf>,
+) -> PathBuf {
+    if (!destination.exists() || source == destination) && reserved.insert(destination.clone()) {
+        return destination;
+    }
+    let parent = destination.parent().unwrap_or_else(|| Path::new(""));
+    let stem = destination
+        .file_stem()
+        .and_then(|stem| stem.to_str())
+        .unwrap_or("file");
+    let extension = destination
+        .extension()
+        .and_then(|extension| extension.to_str());
+    for index in 1.. {
+        let filename = extension.map_or_else(
+            || format!("{stem}_{index}"),
+            |extension| format!("{stem}_{index}.{extension}"),
+        );
+        let candidate = parent.join(filename);
+        if !candidate.exists() && reserved.insert(candidate.clone()) {
+            return candidate;
+        }
+    }
+    unreachable!()
 }
 
 fn validate_completion_evidence(
@@ -2049,6 +2183,9 @@ mod apply_contract_tests {
             ambiguous_chinese.kind,
             AssistantTaskContractKind::ClarificationRequired
         );
+
+        let grouping = derive_assistant_task_contract("group files into album folders");
+        assert_eq!(grouping.route, Some(AssistantTaskRoute::GroupByAlbum));
     }
 
     #[test]
@@ -2283,6 +2420,38 @@ mod apply_contract_tests {
             .actions
             .iter()
             .any(|action| action.field.as_deref() == Some("artist")));
+    }
+
+    #[test]
+    fn deterministic_album_grouping_stays_inside_library_and_avoids_collisions() {
+        let root = temp_dir();
+        let existing_dir = root.join("A B");
+        fs::create_dir_all(&existing_dir).unwrap();
+        fs::write(existing_dir.join("song.mp3"), b"existing").unwrap();
+        let source = root.join("loose/song.mp3");
+        let already_grouped = existing_dir.join("other.mp3");
+        let outside = root.parent().unwrap().join("outside.mp3");
+        let input = AssistantSendInput {
+            message: "group files into album folders".into(),
+            library_path: Some(root.to_string_lossy().into_owned()),
+            tracks: vec![
+                serde_json::json!({"path": source, "album": "A/B"}),
+                serde_json::json!({"path": already_grouped, "album": "A/B"}),
+                serde_json::json!({"path": outside, "album": "Outside"}),
+            ],
+            ..Default::default()
+        };
+
+        let batch = deterministic_task_batch("session", &input, AssistantTaskRoute::GroupByAlbum)
+            .unwrap()
+            .unwrap();
+
+        assert_eq!(batch.actions.len(), 1);
+        assert_eq!(
+            batch.actions[0].destination_path.as_deref(),
+            Some(existing_dir.join("song_1.mp3").to_string_lossy().as_ref())
+        );
+        fs::remove_dir_all(root).unwrap();
     }
 
     #[test]

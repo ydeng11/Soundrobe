@@ -149,7 +149,7 @@ fn collect_all_audio_files(path: &Path) -> Result<Vec<PathBuf>, ApiError> {
     Ok(results)
 }
 
-fn sanitize_dir_name(name: &str) -> String {
+pub(crate) fn sanitize_dir_name(name: &str) -> String {
     let mut value = name
         .chars()
         .filter(|character| !((*character as u32) <= 0x1f || *character == '\u{7f}'))
