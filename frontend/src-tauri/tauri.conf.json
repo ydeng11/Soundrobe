@@ -37,7 +37,7 @@
     "active": true,
     "targets": ["dmg", "nsis", "appimage", "deb"],
     "publisher": "Auto Tagger Contributors",
-    "category": "Audio",
+    "category": "Music",
     "copyright": "Copyright © 2026",
     "shortDescription": "Desktop audio file tag editor",
     "longDescription": "Auto Tagger is an intelligent audio file editor with auto-tagging via MusicBrainz, Discogs, and LLM assistance.",

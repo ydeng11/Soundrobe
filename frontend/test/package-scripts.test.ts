@@ -41,4 +41,30 @@ describe("package scripts", () => {
     expect(scripts["test:rust"]).toBe("cargo test --manifest-path src-tauri/Cargo.toml");
     expect(scripts["test:native-node"]).toBeUndefined();
   });
+
+  it("declares every required unsigned Tauri bundle target", () => {
+    const { scripts } = readPackageJson();
+    const tauriConfig = JSON.parse(
+      readFileSync(resolve(__dirname, "../src-tauri/tauri.conf.json"), "utf8"),
+    ) as { bundle: { category: string } };
+
+    expect(scripts["dist:mac"]).toBe("tauri build --bundles app,dmg");
+    expect(scripts["dist:win"]).toBe("tauri build --bundles nsis");
+    expect(scripts["dist:linux"]).toBe("tauri build --bundles appimage,deb");
+    expect(tauriConfig.bundle.category).toBe("Music");
+  });
+
+  it("builds each platform bundle in CI", () => {
+    const workflow = readFileSync(
+      resolve(__dirname, "../../.github/workflows/tauri.yml"),
+      "utf8",
+    );
+
+    expect(workflow).toContain("macos-latest");
+    expect(workflow).toContain("windows-latest");
+    expect(workflow).toContain("ubuntu-22.04");
+    expect(workflow).toContain("npm run dist:mac");
+    expect(workflow).toContain("npm run dist:win");
+    expect(workflow).toContain("npm run dist:linux");
+  });
 });
