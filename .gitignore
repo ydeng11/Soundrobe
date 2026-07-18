@@ -51,6 +51,7 @@ dmypy.json
 
 # Project specific
 .env
+.env.local
 *.log
 .cache/
 *.db
