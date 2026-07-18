@@ -26,6 +26,7 @@ const CHANNEL_PARITY: Array<{
   // sentinel arg keys expected in the single args object passed to `invoke`.
   args: Record<string, unknown>;
 }> = [
+  { method: "appInfo", command: "app_info", args: {} },
   { method: "scanLibrary", command: "library_scan", args: { dirPath: "/lib" } },
   { method: "refreshAlbum", command: "album_refresh", args: { albumPath: "/a" } },
   { method: "openFolderDialog", command: "dialog_open_folder", args: {} },

@@ -27,6 +27,7 @@ default:
     @echo ""
     @echo "Ship:"
     @echo "  just fe-dist <target>   build distributable (mac|win|linux)"
+    @echo "  just fe-dist-mac-intel  cross-build deterministic Intel macOS bundles"
     @echo ""
     @echo "Dataset (one-time, requires Python venv):"
     @echo "  just dataset-status     check dataset index status"
@@ -94,6 +95,11 @@ fe-smoke-cover-picker: _fe-deps-check
 # Targets: mac, win, linux — e.g. just fe-dist mac
 fe-dist target="":
     cd frontend && npm run dist:{{ target }}
+
+# Cross-build Intel macOS bundles from Apple Silicon. Requires:
+# rustup target add x86_64-apple-darwin
+fe-dist-mac-intel: _fe-deps-check
+    cd frontend && CI=true npm run dist:mac -- --target x86_64-apple-darwin
 
 # ============================================================================
 # Dataset (Python CLI) — one-time setup, shared with Tauri v2

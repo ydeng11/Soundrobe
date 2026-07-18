@@ -30,11 +30,20 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [appVersion, setAppVersion] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
     setLoading(true);
     setSaveError(null);
+    setAppVersion(null);
+
+    if (typeof window.api.appInfo === "function") {
+      void window.api
+        .appInfo()
+        .then((info) => setAppVersion(info.version))
+        .catch(() => setAppVersion(null));
+    }
 
     (async () => {
       try {
@@ -254,44 +263,49 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-2 px-5 py-3.5 border-t border-border/60 bg-surface-alt/30">
-          <button
-            onClick={onClose}
-            className="px-4 py-1.5 text-[11.5px] font-medium rounded-lg text-text-secondary hover:text-text-primary hover:bg-surface-hover transition-all"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleSave}
-            disabled={loading || saving}
-            className={`px-4 py-1.5 text-[11.5px] font-medium rounded-lg transition-all ${
-              loading || saving
-                ? "bg-accent/20 text-accent/60 cursor-not-allowed"
-                : "bg-accent text-white hover:bg-accent/90 shadow-sm active:scale-[0.97]"
-            }`}
-          >
-            {saving ? (
-              <span className="flex items-center gap-1.5">
-                <svg
-                  width="12"
-                  height="12"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="animate-spin"
-                >
-                  <line x1="12" y1="2" x2="12" y2="6" />
-                  <line x1="12" y1="18" x2="12" y2="22" />
-                </svg>
-                Saving…
-              </span>
-            ) : (
-              "Save"
-            )}
-          </button>
+        <div className="flex items-center justify-between gap-2 px-5 py-3.5 border-t border-border/60 bg-surface-alt/30">
+          <span className="text-[10.5px] text-text-muted">
+            {appVersion ? `Version ${appVersion}` : "Version unavailable"}
+          </span>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={onClose}
+              className="px-4 py-1.5 text-[11.5px] font-medium rounded-lg text-text-secondary hover:text-text-primary hover:bg-surface-hover transition-all"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={loading || saving}
+              className={`px-4 py-1.5 text-[11.5px] font-medium rounded-lg transition-all ${
+                loading || saving
+                  ? "bg-accent/20 text-accent/60 cursor-not-allowed"
+                  : "bg-accent text-white hover:bg-accent/90 shadow-sm active:scale-[0.97]"
+              }`}
+            >
+              {saving ? (
+                <span className="flex items-center gap-1.5">
+                  <svg
+                    width="12"
+                    height="12"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="animate-spin"
+                  >
+                    <line x1="12" y1="2" x2="12" y2="6" />
+                    <line x1="12" y1="18" x2="12" y2="22" />
+                  </svg>
+                  Saving…
+                </span>
+              ) : (
+                "Save"
+              )}
+            </button>
+          </div>
         </div>
       </div>
     </div>

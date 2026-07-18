@@ -35,8 +35,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - job: wdio-macos
+          - job: wdio-macos-arm64
             os: macos-latest
+          - job: wdio-macos-intel
+            os: macos-15-intel
           - job: wdio-windows
             os: windows-latest
           - job: wdio-linux

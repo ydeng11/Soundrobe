@@ -15,6 +15,12 @@ const defaultMockConfig = {
 
 beforeEach(() => {
   window.api = {
+    appInfo: vi.fn().mockResolvedValue({
+      identifier: "com.ihelio.autotagger",
+      version: "0.1.0",
+      runtime: "tauri",
+      dev: false,
+    }),
     getConfig: vi.fn().mockResolvedValue(defaultMockConfig),
     setConfig: vi.fn().mockResolvedValue(undefined),
     setDebugMode: vi.fn().mockResolvedValue(undefined),
@@ -55,6 +61,16 @@ describe("SettingsModal", () => {
         "(leave blank to keep current)",
       ).length,
     ).toBe(2); // Discogs Token + TheAudioDB API Key
+    expect(screen.getByText("Version 0.1.0")).toBeTruthy();
+  });
+
+  it("keeps settings usable when native version lookup fails", async () => {
+    window.api.appInfo = vi.fn().mockRejectedValue(new Error("unavailable"));
+
+    render(<SettingsModal open={true} onClose={() => {}} />);
+
+    expect(await screen.findByDisplayValue("mock-model")).toBeTruthy();
+    expect(screen.getByText("Version unavailable")).toBeTruthy();
   });
 
   it("shows loading state then fields", async () => {

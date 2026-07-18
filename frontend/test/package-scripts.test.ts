@@ -16,6 +16,34 @@ function readPackageJson(): PackageJson {
 }
 
 describe("package scripts", () => {
+  it("keeps the app version synchronized across Tauri, Rust, and npm", () => {
+    const packageJson = readFileSync(resolve(__dirname, "../package.json"), "utf8");
+    const { version } = JSON.parse(packageJson) as { version: string };
+    const tauriConfig = JSON.parse(
+      readFileSync(resolve(__dirname, "../src-tauri/tauri.conf.json"), "utf8"),
+    ) as { version: string };
+    const cargoToml = readFileSync(
+      resolve(__dirname, "../src-tauri/Cargo.toml"),
+      "utf8",
+    );
+    const providers = readFileSync(
+      resolve(__dirname, "../src-tauri/src/state/providers.rs"),
+      "utf8",
+    );
+    const lyrics = readFileSync(
+      resolve(__dirname, "../src-tauri/src/commands/lyrics.rs"),
+      "utf8",
+    );
+
+    expect(version).toMatch(/^\d+\.\d+\.\d+$/);
+    expect(tauriConfig.version).toBe(version);
+    expect(cargoToml).toMatch(
+      new RegExp(`^version = "${version.replaceAll(".", "\\.")}"$`, "m"),
+    );
+    expect(providers).toContain('env!("CARGO_PKG_VERSION")');
+    expect(lyrics).toContain('env!("CARGO_PKG_VERSION")');
+  });
+
   it("uses Tauri as the desktop development and distribution runtime", () => {
     const { scripts } = readPackageJson();
 
@@ -56,6 +84,7 @@ describe("package scripts", () => {
 
   it("declares every required unsigned Tauri bundle target", () => {
     const { scripts } = readPackageJson();
+    const justfile = readFileSync(resolve(__dirname, "../../Justfile"), "utf8");
     const tauriConfig = JSON.parse(
       readFileSync(resolve(__dirname, "../src-tauri/tauri.conf.json"), "utf8"),
     ) as { bundle: { category: string } };
@@ -63,6 +92,8 @@ describe("package scripts", () => {
     expect(scripts["dist:mac"]).toBe("tauri build --bundles app,dmg");
     expect(scripts["dist:win"]).toBe("tauri build --bundles nsis");
     expect(scripts["dist:linux"]).toBe("tauri build --bundles appimage,deb");
+    expect(justfile).toContain("fe-dist-mac-intel:");
+    expect(justfile).toContain("--target x86_64-apple-darwin");
     expect(tauriConfig.bundle.category).toBe("Music");
   });
 
@@ -108,7 +139,8 @@ describe("package scripts", () => {
     expect(workflowSpec).toContain("converts a title into artist and title tags through the renderer");
     expect(workflowSpec).toContain("numbers tracks through the renderer and native batch writer");
     expect(workflow).toContain("npm run test:e2e");
-    expect(workflow).toContain("wdio-macos");
+    expect(workflow).toContain("wdio-macos-arm64");
+    expect(workflow).toContain("wdio-macos-intel");
     expect(workflow).toContain("wdio-windows");
     expect(workflow).toContain("wdio-linux");
     expect(workflow).toContain("Smoke macOS app bundle and DMG");

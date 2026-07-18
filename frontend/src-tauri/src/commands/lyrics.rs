@@ -13,7 +13,11 @@ use std::time::Duration;
 use tauri::State;
 
 pub const DEFAULT_BASE_URL: &str = "https://lrclib.net/api";
-const USER_AGENT: &str = "auto-tagger/0.1.0 (https://github.com/auto-tagger)";
+const USER_AGENT: &str = concat!(
+    "auto-tagger/",
+    env!("CARGO_PKG_VERSION"),
+    " (https://github.com/ydeng11/Soundrobe)"
+);
 const AUDIO_EXTENSIONS: &[&str] = &[
     "mp3", "flac", "m4a", "mp4", "wav", "ogg", "opus", "aiff", "ape",
 ];
@@ -335,9 +339,10 @@ mod tests {
         assert!(request.contains("artist_name=Some+Artist"));
         assert!(request.contains("album_name=Album"));
         assert!(request.contains("duration=245"));
-        assert!(request
-            .to_ascii_lowercase()
-            .contains("user-agent: auto-tagger/0.1.0"));
+        assert!(request.to_ascii_lowercase().contains(concat!(
+            "user-agent: auto-tagger/",
+            env!("CARGO_PKG_VERSION")
+        )));
     }
 
     #[tokio::test]

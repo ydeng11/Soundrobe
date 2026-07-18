@@ -13,7 +13,7 @@ use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant};
 use unicode_normalization::{char::is_combining_mark, UnicodeNormalization};
 
-const USER_AGENT: &str = "auto-tagger/0.1.0";
+const USER_AGENT: &str = concat!("auto-tagger/", env!("CARGO_PKG_VERSION"));
 const DISCOGS_BASE: &str = "https://api.discogs.com";
 static OPENCC: OnceLock<OpenCC> = OnceLock::new();
 static DISCOGS_LIMITER: OnceLock<Arc<DiscogsRateLimiter>> = OnceLock::new();

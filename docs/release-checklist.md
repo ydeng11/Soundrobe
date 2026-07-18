@@ -1,5 +1,12 @@
 # Release Checklist
 
+## Version
+
+Set the same semantic version in `frontend/package.json`,
+`frontend/src-tauri/Cargo.toml`, and `frontend/src-tauri/tauri.conf.json`. The
+test suite rejects drift between these manifests, and the Settings footer reads
+the compiled Cargo version through the native `app_info` command.
+
 ## Tauri Desktop
 
 Run the local quality and credentialed production-client gates:
@@ -16,10 +23,13 @@ and DMG:
 ```bash
 just fe-smoke-cover-picker
 CI=true just fe-dist mac
+rustup target add x86_64-apple-darwin
+just fe-dist-mac-intel
 ```
 
 `CI=true` uses Tauri's deterministic DMG path and skips Finder-only cosmetic
 scripting; the app contents and disk image remain the same release artifacts.
+The Intel recipe cross-builds the x86_64 app and DMG from Apple Silicon.
 
 Windows NSIS and Linux AppImage/deb bundles are built and launch-smoked by the
 `tauri.yml` CI matrix. A desktop release is not complete until those platform

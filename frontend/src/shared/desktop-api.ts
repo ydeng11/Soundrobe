@@ -14,6 +14,13 @@ export interface AlbumInfo {
   trackCount: number;
 }
 
+export interface AppInfo {
+  identifier: string;
+  version: string;
+  runtime: "tauri";
+  dev: boolean;
+}
+
 export interface CoverInfo {
   path: string | null;
   source: "external" | "embedded" | "missing";
@@ -302,6 +309,9 @@ export interface ConversationEntry {
 }
 
 export interface DesktopAPI {
+  // App
+  appInfo: () => Promise<AppInfo>;
+
   // Library
   scanLibrary: (dirPath: string) => Promise<AlbumInfo[]>;
   refreshAlbum: (albumPath: string) => Promise<AlbumDetail>;

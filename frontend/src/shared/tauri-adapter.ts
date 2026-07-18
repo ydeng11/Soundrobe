@@ -77,6 +77,9 @@ function subscribe<T>(channel: string, callback: (payload: T) => void): () => vo
 /** Build the `DesktopAPI` facade backed by Tauri commands and events. */
 export function createTauriDesktopApi(): DesktopAPI {
   return {
+    // App
+    appInfo: () => invokeCommand("app:info"),
+
     // Library
     scanLibrary: (dirPath) => invokeCommand("library:scan", { dirPath }),
     refreshAlbum: (albumPath) => invokeCommand("album:refresh", { albumPath }),
