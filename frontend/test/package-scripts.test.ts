@@ -48,6 +48,10 @@ describe("package scripts", () => {
     expect(justfile).toContain('set dotenv-path := ".env.local"');
     expect(justfile).toContain("fe-smoke-openrouter:");
     expect(justfile).toContain("live_openrouter_returns_schema_constrained_json");
+    expect(justfile).toContain("fe-smoke-assistant:");
+    expect(justfile).toContain("live-openrouter.spec.ts");
+    expect(justfile).toContain("fe-smoke-cover-picker:");
+    expect(justfile).toContain("live-cover-picker.spec.ts");
   });
 
   it("declares every required unsigned Tauri bundle target", () => {
@@ -91,6 +95,7 @@ describe("package scripts", () => {
     expect(scripts["build:e2e"]).toContain("--features wdio");
     expect(scripts["test:e2e"]).toBe("npm run build:e2e && wdio run wdio.conf.ts");
     expect(wdioConfig).toContain("driverProvider: \"embedded\"");
+    expect(wdioConfig).toContain('specs: ["./e2e-tauri/workflows.spec.ts"]');
     expect(wdioConfig).toContain("prepareE2eWorkspace");
     expect(workflowSpec).toContain("preserves absolute paths through the native library pipeline");
     expect(workflowSpec).toContain("previews and applies deterministic assistant organization");

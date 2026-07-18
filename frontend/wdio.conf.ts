@@ -11,7 +11,9 @@ const binary = path.resolve(
 
 export const config: Options.Testrunner = {
   runner: "local",
-  specs: ["./e2e-tauri/**/*.spec.ts"],
+  // Credentialed and real-display smokes are selected explicitly by their
+  // `just` recipes; the default CI suite remains deterministic and offline.
+  specs: ["./e2e-tauri/workflows.spec.ts"],
   maxInstances: 1,
   services: [
     [
