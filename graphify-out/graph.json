@@ -11583,7 +11583,7 @@
       "norm_label": "create_plan assistant tool"
     },
     {
-      "label": "Auto Tagger Application",
+      "label": "Soundrobe Application",
       "file_type": "concept",
       "source_file": "frontend/electron-builder.yml",
       "source_location": null,
@@ -11591,9 +11591,9 @@
       "captured_at": null,
       "author": null,
       "contributor": null,
-      "id": "autotaggerapp",
+      "id": "soundrobeapp",
       "community": 60,
-      "norm_label": "auto tagger application"
+      "norm_label": "soundrobe application"
     },
     {
       "label": "Topological Sort for Step Ordering",
@@ -34009,7 +34009,7 @@
       "source_file": "frontend/electron-builder.yml",
       "source_location": null,
       "weight": 1.0,
-      "source": "autotaggerapp",
+      "source": "soundrobeapp",
       "target": "electron_builder_yml"
     },
     {
@@ -34129,7 +34129,7 @@
       "source_file": "frontend/electron-builder.yml",
       "source_location": null,
       "weight": 1.0,
-      "source": "autotaggerapp",
+      "source": "soundrobeapp",
       "target": "multiplatformbuild"
     },
     {

@@ -3,7 +3,7 @@
 //! the quit-during-write guard.
 //!
 //! Folder dialog parity with Electron's `dialog:open-folder`:
-//!   - `AUTO_TAGGER_E2E_LIBRARY_PATH` env override returns that path without a
+//!   - `SOUNDROBE_E2E_LIBRARY_PATH` env override returns that path without a
 //!     GUI prompt (the original Playwright E2E escape hatch; the WebdriverIO
 //!     Tauri E2E tests use the same hook).
 //!   - otherwise shows a native single-folder picker titled "Open Music Folder".
@@ -24,7 +24,7 @@ use tauri_plugin_dialog::{DialogExt, FilePath};
 
 /// The env override Electron's handler reads to skip the GUI folder picker in
 /// E2E/tests. Public so a contract test can set it and assert the no-GUI path.
-pub const E2E_LIBRARY_PATH_ENV: &str = "AUTO_TAGGER_E2E_LIBRARY_PATH";
+pub const E2E_LIBRARY_PATH_ENV: &str = "SOUNDROBE_E2E_LIBRARY_PATH";
 
 /// Resolve the folder-dialog result from the env override, if set. Pure and
 /// testable without a GUI: returns `Some(path)` when the override is present,
@@ -61,16 +61,16 @@ pub fn picked_to_string(picked: Option<FilePath>) -> Option<String> {
 }
 
 /// Electron's E2E hook for deterministic native context-menu selection.
-pub const E2E_TRACK_CONTEXT_ACTION_ENV: &str = "AUTO_TAGGER_E2E_TRACK_CONTEXT_ACTION";
+pub const E2E_TRACK_CONTEXT_ACTION_ENV: &str = "SOUNDROBE_E2E_TRACK_CONTEXT_ACTION";
 
-const MENU_EXTRA_TAGS: &str = "auto-tagger.track-context.extra-tags";
-const MENU_DELETE_FILES: &str = "auto-tagger.track-context.delete-files";
-const MENU_COPY_TITLE: &str = "auto-tagger.track-context.copy-title";
-const MENU_COPY_ARTIST: &str = "auto-tagger.track-context.copy-artist";
-const MENU_COPY_ALBUM_ARTIST: &str = "auto-tagger.track-context.copy-album-artist";
-const MENU_COPY_ALBUM: &str = "auto-tagger.track-context.copy-album";
-const MENU_COPY_PATH: &str = "auto-tagger.track-context.copy-path";
-const MENU_COPY_ALL: &str = "auto-tagger.track-context.copy-all";
+const MENU_EXTRA_TAGS: &str = "soundrobe.track-context.extra-tags";
+const MENU_DELETE_FILES: &str = "soundrobe.track-context.delete-files";
+const MENU_COPY_TITLE: &str = "soundrobe.track-context.copy-title";
+const MENU_COPY_ARTIST: &str = "soundrobe.track-context.copy-artist";
+const MENU_COPY_ALBUM_ARTIST: &str = "soundrobe.track-context.copy-album-artist";
+const MENU_COPY_ALBUM: &str = "soundrobe.track-context.copy-album";
+const MENU_COPY_PATH: &str = "soundrobe.track-context.copy-path";
+const MENU_COPY_ALL: &str = "soundrobe.track-context.copy-all";
 
 /// The only action values the renderer's `showTrackContextMenu()` contract
 /// accepts. Serializes exactly as Electron's `"extra-tags"` / `"delete-files"`.
@@ -295,7 +295,7 @@ mod tests {
 
     /// Intent: the E2E override short-circuits the GUI dialog so automated
     /// tests (Playwright/WebdriverIO) can pick a library folder without a
-    /// native prompt — matching Electron's `AUTO_TAGGER_E2E_LIBRARY_PATH` hook.
+    /// native prompt — matching Electron's `SOUNDROBE_E2E_LIBRARY_PATH` hook.
     #[test]
     fn override_path_returns_env_value_when_set() {
         let get = |_: &str| Some("/test/library".to_string());

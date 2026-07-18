@@ -1,7 +1,7 @@
 # Auto Tagging Context
 
 This context describes the language used to reason about album matching and tag
-writing decisions in Auto Tagger.
+writing decisions in Soundrobe.
 
 ## Language
 
@@ -28,7 +28,7 @@ provider evidence and should not guide release search or final writes.
 _Avoid_: Existing tag, local truth
 
 **Unattended Auto-Tagging**:
-The default mode where Auto Tagger proceeds without asking the user to resolve
+The default mode where Soundrobe proceeds without asking the user to resolve
 uncertainty during matching. It should tag what it can justify and leave the
 remaining uncertainty for later correction.
 _Avoid_: Interactive tagging, manual review flow

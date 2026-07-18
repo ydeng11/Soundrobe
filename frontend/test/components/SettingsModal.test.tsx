@@ -16,7 +16,7 @@ const defaultMockConfig = {
 beforeEach(() => {
   window.api = {
     appInfo: vi.fn().mockResolvedValue({
-      identifier: "com.ihelio.autotagger",
+      identifier: "com.ihelio.soundrobe",
       version: "0.1.0",
       runtime: "tauri",
       dev: false,

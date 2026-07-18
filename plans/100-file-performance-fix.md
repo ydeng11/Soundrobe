@@ -175,7 +175,7 @@ Expected result: bad saved window state cannot strand the app off-screen.
 Run focused tests, then the full frontend quality gate:
 
 ```bash
-cd /Users/ihelio/code/auto_tagger/frontend
+cd /Users/ihelio/code/soundrobe/frontend
 npm test -- test/handlers/tracks.test.ts
 npm test -- test/components/FileGrid.test.tsx
 npm test

@@ -40,7 +40,7 @@ function parseArgs(argv) {
 
   args.library = path.resolve(args.library);
   args.reportPath = path.resolve(args.reportPath);
-  args.workDir = path.resolve(args.workDir || path.join(os.tmpdir(), "auto-tagger-medium-flac-fix"));
+  args.workDir = path.resolve(args.workDir || path.join(os.tmpdir(), "soundrobe-medium-flac-fix"));
   return args;
 }
 

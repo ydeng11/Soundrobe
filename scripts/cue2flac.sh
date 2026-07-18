@@ -299,7 +299,7 @@ def process_cue(cue_path):
     print(f"✅  Done: {flac_count} tracks → {out_dir}")
 
     # Health check
-    doctor = os.path.join(SCRIPT_DIR, "..", "auto_tagger", "scripts", "fix-flac-metadata.js")
+    doctor = os.path.join(SCRIPT_DIR, "..", "soundrobe", "scripts", "fix-flac-metadata.js")
     if os.path.isfile(doctor) and os.access(doctor, os.X_OK):
         print()
         print("  🏥 Running health check...")

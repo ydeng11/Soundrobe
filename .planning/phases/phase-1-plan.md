@@ -27,7 +27,7 @@
 **Files to create**:
 ```
 src/
-  auto_tagger/
+  soundrobe/
     __init__.py
     __main__.py
     cli.py
@@ -47,16 +47,16 @@ tests/
 
 **Commands**:
 ```bash
-mkdir -p src/auto_tagger/{commands,core,config,utils}
+mkdir -p src/soundrobe/{commands,core,config,utils}
 mkdir -p tests
-touch src/auto_tagger/__init__.py
-touch src/auto_tagger/__main__.py
-touch src/auto_tagger/cli.py
-touch src/auto_tagger/exceptions.py
-touch src/auto_tagger/commands/__init__.py
-touch src/auto_tagger/core/__init__.py
-touch src/auto_tagger/config/__init__.py
-touch src/auto_tagger/utils/__init__.py
+touch src/soundrobe/__init__.py
+touch src/soundrobe/__main__.py
+touch src/soundrobe/cli.py
+touch src/soundrobe/exceptions.py
+touch src/soundrobe/commands/__init__.py
+touch src/soundrobe/core/__init__.py
+touch src/soundrobe/config/__init__.py
+touch src/soundrobe/utils/__init__.py
 touch tests/__init__.py
 touch tests/conftest.py
 ```
@@ -78,25 +78,25 @@ rm -rf src tests
 
 **Action**: Add version and package metadata
 
-**File**: `src/auto_tagger/__init__.py`
+**File**: `src/soundrobe/__init__.py`
 
 **Content**:
 ```python
-"""Auto Tagger - Intelligent audio file tagging CLI tool."""
+"""Soundrobe - Intelligent audio file tagging CLI tool."""
 
 __version__ = "0.1.0"
-__author__ = "Auto Tagger Team"
+__author__ = "Soundrobe Team"
 __license__ = "MIT"
 ```
 
 **Verification**:
 ```bash
-python -c "from src.auto_tagger import __version__; print(__version__)"
+python -c "from src.soundrobe import __version__; print(__version__)"
 ```
 
 **Rollback**:
 ```bash
-echo "" > src/auto_tagger/__init__.py
+echo "" > src/soundrobe/__init__.py
 ```
 
 ---
@@ -114,14 +114,14 @@ requires = ["hatchling>=1.26"]
 build-backend = "hatchling.build"
 
 [project]
-name = "auto-tagger"
+name = "soundrobe"
 version = "0.1.0"
 description = "Intelligent audio file tagging CLI tool"
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.10"
 authors = [
-    { name = "Auto Tagger Team" }
+    { name = "Soundrobe Team" }
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",
@@ -153,14 +153,14 @@ dev = [
 ]
 
 [project.scripts]
-auto-tag = "auto_tagger.cli:main"
+auto-tag = "soundrobe.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/yourusername/auto-tagger"
-Repository = "https://github.com/yourusername/auto-tagger.git"
+Homepage = "https://github.com/yourusername/soundrobe"
+Repository = "https://github.com/yourusername/soundrobe.git"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/auto_tagger"]
+packages = ["src/soundrobe"]
 
 [tool.hatch.build.targets.sdist]
 include = ["src/", "README.md", "LICENSE"]
@@ -280,22 +280,22 @@ rm .gitignore
 
 **Content**:
 ```markdown
-# Auto Tagger
+# Soundrobe
 
 Intelligent audio file tagging CLI tool.
 
 ## Installation
 
 ```bash
-pip install auto-tagger
+pip install soundrobe
 ```
 
 ## Development
 
 ```bash
 # Clone repository
-git clone https://github.com/yourusername/auto-tagger.git
-cd auto-tagger
+git clone https://github.com/yourusername/soundrobe.git
+cd soundrobe
 
 # Create virtual environment
 python -m venv .venv
@@ -351,7 +351,7 @@ rm README.md
 ```
 MIT License
 
-Copyright (c) 2026 Auto Tagger Team
+Copyright (c) 2026 Soundrobe Team
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -397,8 +397,8 @@ pip install -e ".[dev]"
 
 **Verification**:
 ```bash
-pip list | grep auto-tagger
-python -c "import auto_tagger; print(auto_tagger.__version__)"
+pip list | grep soundrobe
+python -c "import soundrobe; print(soundrobe.__version__)"
 ```
 
 **Rollback**:
@@ -418,46 +418,46 @@ rm -rf .venv
 
 **Action**: Define custom exception hierarchy
 
-**File**: `src/auto_tagger/exceptions.py`
+**File**: `src/soundrobe/exceptions.py`
 
 **Content**:
 ```python
-"""Custom exceptions for auto_tagger."""
+"""Custom exceptions for soundrobe."""
 
 
-class AutoTaggerError(Exception):
-    """Base exception for auto_tagger."""
+class SoundrobeError(Exception):
+    """Base exception for soundrobe."""
     exit_code = 1
 
 
-class ConfigError(AutoTaggerError):
+class ConfigError(SoundrobeError):
     """Configuration related errors."""
     exit_code = 2
 
 
-class FileProcessingError(AutoTaggerError):
+class FileProcessingError(SoundrobeError):
     """File processing errors."""
     exit_code = 3
 
 
-class ValidationError(AutoTaggerError):
+class ValidationError(SoundrobeError):
     """Validation errors."""
     exit_code = 4
 
 
-class TaggingError(AutoTaggerError):
+class TaggingError(SoundrobeError):
     """Tagging operation errors."""
     exit_code = 5
 ```
 
 **Verification**:
 ```bash
-python -c "from auto_tagger.exceptions import AutoTaggerError, ConfigError; print('OK')"
+python -c "from soundrobe.exceptions import SoundrobeError, ConfigError; print('OK')"
 ```
 
 **Rollback**:
 ```bash
-echo "" > src/auto_tagger/exceptions.py
+echo "" > src/soundrobe/exceptions.py
 ```
 
 ---
@@ -466,7 +466,7 @@ echo "" > src/auto_tagger/exceptions.py
 
 **Action**: Define Pydantic Settings for configuration
 
-**File**: `src/auto_tagger/config/settings.py`
+**File**: `src/soundrobe/config/settings.py`
 
 **Content**:
 ```python
@@ -543,7 +543,7 @@ class Settings(BaseSettings):
         description="Enable match caching",
     )
     cache_path: Path = Field(
-        default=Path.home() / ".cache" / "auto-tagger" / "cache.db",
+        default=Path.home() / ".cache" / "soundrobe" / "cache.db",
         description="Path to cache database",
     )
 
@@ -574,12 +574,12 @@ class Settings(BaseSettings):
 
 **Verification**:
 ```bash
-python -c "from auto_tagger.config.settings import Settings; s = Settings(); print(s.output_format)"
+python -c "from soundrobe.config.settings import Settings; s = Settings(); print(s.output_format)"
 ```
 
 **Rollback**:
 ```bash
-rm src/auto_tagger/config/settings.py
+rm src/soundrobe/config/settings.py
 ```
 
 ---
@@ -588,7 +588,7 @@ rm src/auto_tagger/config/settings.py
 
 **Action**: Implement YAML config file loading
 
-**File**: `src/auto_tagger/config/loader.py`
+**File**: `src/soundrobe/config/loader.py`
 
 **Content**:
 ```python
@@ -599,18 +599,18 @@ from typing import Any
 
 import yaml
 
-from auto_tagger.config.settings import Settings
-from auto_tagger.exceptions import ConfigError
+from soundrobe.config.settings import Settings
+from soundrobe.exceptions import ConfigError
 
 
 def find_config_file() -> Path | None:
     """Find config file in standard locations."""
     locations = [
-        Path.cwd() / "auto-tagger.yaml",
-        Path.cwd() / "auto-tagger.yml",
-        Path.cwd() / ".auto-tagger.yaml",
-        Path.home() / ".config" / "auto-tagger" / "config.yaml",
-        Path.home() / ".auto-tagger.yaml",
+        Path.cwd() / "soundrobe.yaml",
+        Path.cwd() / "soundrobe.yml",
+        Path.cwd() / ".soundrobe.yaml",
+        Path.home() / ".config" / "soundrobe" / "config.yaml",
+        Path.home() / ".soundrobe.yaml",
     ]
 
     for location in locations:
@@ -681,12 +681,12 @@ def load_settings(config_file: Path | None = None, **cli_overrides: Any) -> Sett
 
 **Verification**:
 ```bash
-python -c "from auto_tagger.config.loader import find_config_file; print(find_config_file())"
+python -c "from soundrobe.config.loader import find_config_file; print(find_config_file())"
 ```
 
 **Rollback**:
 ```bash
-rm src/auto_tagger/config/loader.py
+rm src/soundrobe/config/loader.py
 ```
 
 ---
@@ -695,14 +695,14 @@ rm src/auto_tagger/config/loader.py
 
 **Action**: Export config components
 
-**File**: `src/auto_tagger/config/__init__.py`
+**File**: `src/soundrobe/config/__init__.py`
 
 **Content**:
 ```python
-"""Configuration management for auto_tagger."""
+"""Configuration management for soundrobe."""
 
-from auto_tagger.config.loader import find_config_file, load_config_file, load_settings
-from auto_tagger.config.settings import Settings
+from soundrobe.config.loader import find_config_file, load_config_file, load_settings
+from soundrobe.config.settings import Settings
 
 __all__ = [
     "Settings",
@@ -714,12 +714,12 @@ __all__ = [
 
 **Verification**:
 ```bash
-python -c "from auto_tagger.config import Settings, load_settings; print('OK')"
+python -c "from soundrobe.config import Settings, load_settings; print('OK')"
 ```
 
 **Rollback**:
 ```bash
-echo "" > src/auto_tagger/config/__init__.py
+echo "" > src/soundrobe/config/__init__.py
 ```
 
 ---
@@ -732,8 +732,8 @@ echo "" > src/auto_tagger/config/__init__.py
 
 **Content**:
 ```yaml
-# Auto Tagger Configuration Example
-# Copy to ~/.config/auto-tagger/config.yaml or ./auto-tagger.yaml
+# Soundrobe Configuration Example
+# Copy to ~/.config/soundrobe/config.yaml or ./soundrobe.yaml
 
 # Output format: table, json, or plain
 output_format: table
@@ -765,7 +765,7 @@ llm:
 # Caching Configuration
 cache:
   enabled: true
-  path: ~/.cache/auto-tagger/cache.db
+  path: ~/.cache/soundrobe/cache.db
 ```
 
 **Verification**:
@@ -788,7 +788,7 @@ rm config.example.yaml
 
 **Content**:
 ```bash
-# Auto Tagger Environment Variables
+# Soundrobe Environment Variables
 # Copy to .env and fill in values
 
 # LLM API Configuration
@@ -832,8 +832,8 @@ from unittest.mock import patch
 
 import pytest
 
-from auto_tagger.config import Settings, find_config_file, load_config_file, load_settings
-from auto_tagger.exceptions import ConfigError
+from soundrobe.config import Settings, find_config_file, load_config_file, load_settings
+from soundrobe.exceptions import ConfigError
 
 
 def test_settings_defaults():
@@ -916,11 +916,11 @@ rm tests/test_config.py
 
 **Action**: Implement logging setup with Rich
 
-**File**: `src/auto_tagger/utils/logging.py`
+**File**: `src/soundrobe/utils/logging.py`
 
 **Content**:
 ```python
-"""Logging configuration for auto_tagger."""
+"""Logging configuration for soundrobe."""
 
 import logging
 import sys
@@ -976,7 +976,7 @@ def setup_logging(
         force=True,
     )
 
-    logger = logging.getLogger("auto_tagger")
+    logger = logging.getLogger("soundrobe")
     logger.setLevel(level)
 
     return logger
@@ -986,22 +986,22 @@ def get_logger(name: str | None = None) -> logging.Logger:
     """Get a logger instance.
 
     Args:
-        name: Optional logger name (default: auto_tagger)
+        name: Optional logger name (default: soundrobe)
 
     Returns:
         Logger instance
     """
-    return logging.getLogger(name or "auto_tagger")
+    return logging.getLogger(name or "soundrobe")
 ```
 
 **Verification**:
 ```bash
-python -c "from auto_tagger.utils.logging import setup_logging; logger = setup_logging(); logger.info('test')"
+python -c "from soundrobe.utils.logging import setup_logging; logger = setup_logging(); logger.info('test')"
 ```
 
 **Rollback**:
 ```bash
-rm src/auto_tagger/utils/logging.py
+rm src/soundrobe/utils/logging.py
 ```
 
 ---
@@ -1010,7 +1010,7 @@ rm src/auto_tagger/utils/logging.py
 
 **Action**: Implement Rich output helpers
 
-**File**: `src/auto_tagger/utils/output.py`
+**File**: `src/soundrobe/utils/output.py`
 
 **Content**:
 ```python
@@ -1097,12 +1097,12 @@ def print_panel(content: str, title: str | None = None, style: str = "blue") -> 
 
 **Verification**:
 ```bash
-python -c "from auto_tagger.utils.output import print_success; print_success('Test')"
+python -c "from soundrobe.utils.output import print_success; print_success('Test')"
 ```
 
 **Rollback**:
 ```bash
-rm src/auto_tagger/utils/output.py
+rm src/soundrobe/utils/output.py
 ```
 
 ---
@@ -1111,14 +1111,14 @@ rm src/auto_tagger/utils/output.py
 
 **Action**: Export utility functions
 
-**File**: `src/auto_tagger/utils/__init__.py`
+**File**: `src/soundrobe/utils/__init__.py`
 
 **Content**:
 ```python
-"""Utility functions for auto_tagger."""
+"""Utility functions for soundrobe."""
 
-from auto_tagger.utils.logging import get_logger, setup_logging
-from auto_tagger.utils.output import (
+from soundrobe.utils.logging import get_logger, setup_logging
+from soundrobe.utils.output import (
     console,
     print_error,
     print_info,
@@ -1145,12 +1145,12 @@ __all__ = [
 
 **Verification**:
 ```bash
-python -c "from auto_tagger.utils import print_success, setup_logging; print('OK')"
+python -c "from soundrobe.utils import print_success, setup_logging; print('OK')"
 ```
 
 **Rollback**:
 ```bash
-echo "" > src/auto_tagger/utils/__init__.py
+echo "" > src/soundrobe/utils/__init__.py
 ```
 
 ---
@@ -1159,11 +1159,11 @@ echo "" > src/auto_tagger/utils/__init__.py
 
 **Action**: Implement main CLI entry point
 
-**File**: `src/auto_tagger/cli.py`
+**File**: `src/soundrobe/cli.py`
 
 **Content**:
 ```python
-"""Main CLI entry point for auto_tagger."""
+"""Main CLI entry point for soundrobe."""
 
 import sys
 from pathlib import Path
@@ -1172,10 +1172,10 @@ from typing import Optional
 import click
 from rich.console import Console
 
-from auto_tagger import __version__
-from auto_tagger.config import Settings, load_settings
-from auto_tagger.exceptions import AutoTaggerError, ConfigError
-from auto_tagger.utils import console, setup_logging
+from soundrobe import __version__
+from soundrobe.config import Settings, load_settings
+from soundrobe.exceptions import SoundrobeError, ConfigError
+from soundrobe.utils import console, setup_logging
 
 CONTEXT_SETTINGS = {
     "help_option_names": ["-h", "--help"],
@@ -1205,7 +1205,7 @@ CONTEXT_SETTINGS = {
 @click.version_option(version=__version__, prog_name="auto-tag")
 @click.pass_context
 def cli(ctx: click.Context, config: Optional[Path], verbose: bool, output: Optional[str]) -> None:
-    """Auto Tagger - Intelligent audio file tagging CLI tool.
+    """Soundrobe - Intelligent audio file tagging CLI tool.
 
     Automatically tag audio files with metadata from MusicBrainz and LLM assistance.
     """
@@ -1246,7 +1246,7 @@ def tag(ctx: click.Context, path: Path, dry_run: bool, yolo: bool) -> None:
 
     PATH: Path to album directory or audio file
     """
-    from auto_tagger.commands.tag import execute
+    from soundrobe.commands.tag import execute
 
     settings: Settings = ctx.obj["settings"]
 
@@ -1273,7 +1273,7 @@ def batch(ctx: click.Context, path: Path, dry_run: bool, yolo: bool, parallel: i
 
     PATH: Path to music library root
     """
-    from auto_tagger.commands.batch import execute
+    from soundrobe.commands.batch import execute
 
     settings: Settings = ctx.obj["settings"]
 
@@ -1293,7 +1293,7 @@ def config(ctx: click.Context, key: Optional[str], value: Optional[str]) -> None
     KEY: Configuration key to view or set
     VALUE: New value to set (optional)
     """
-    from auto_tagger.commands.config_cmd import execute
+    from soundrobe.commands.config_cmd import execute
 
     settings: Settings = ctx.obj["settings"]
     execute(settings, key, value)
@@ -1310,7 +1310,7 @@ def main() -> None:
     """Main entry point."""
     try:
         cli()
-    except AutoTaggerError as e:
+    except SoundrobeError as e:
         console.print(f"[red]Error:[/red] {e}")
         sys.exit(e.exit_code)
     except KeyboardInterrupt:
@@ -1328,13 +1328,13 @@ if __name__ == "__main__":
 
 **Verification**:
 ```bash
-python -m auto_tagger --help
+python -m soundrobe --help
 auto-tag --help
 ```
 
 **Rollback**:
 ```bash
-echo "" > src/auto_tagger/cli.py
+echo "" > src/soundrobe/cli.py
 ```
 
 ---
@@ -1343,13 +1343,13 @@ echo "" > src/auto_tagger/cli.py
 
 **Action**: Enable running as module
 
-**File**: `src/auto_tagger/__main__.py`
+**File**: `src/soundrobe/__main__.py`
 
 **Content**:
 ```python
-"""Entry point for running as module: python -m auto_tagger"""
+"""Entry point for running as module: python -m soundrobe"""
 
-from auto_tagger.cli import main
+from soundrobe.cli import main
 
 if __name__ == "__main__":
     main()
@@ -1357,12 +1357,12 @@ if __name__ == "__main__":
 
 **Verification**:
 ```bash
-python -m auto_tagger --help
+python -m soundrobe --help
 ```
 
 **Rollback**:
 ```bash
-echo "" > src/auto_tagger/__main__.py
+echo "" > src/soundrobe/__main__.py
 ```
 
 ---
@@ -1371,7 +1371,7 @@ echo "" > src/auto_tagger/__main__.py
 
 **Action**: Create placeholder tag command
 
-**File**: `src/auto_tagger/commands/tag.py`
+**File**: `src/soundrobe/commands/tag.py`
 
 **Content**:
 ```python
@@ -1379,8 +1379,8 @@ echo "" > src/auto_tagger/__main__.py
 
 from pathlib import Path
 
-from auto_tagger.config import Settings
-from auto_tagger.utils import console, print_info, print_success
+from soundrobe.config import Settings
+from soundrobe.utils import console, print_info, print_success
 
 
 def execute(settings: Settings, path: Path, dry_run: bool) -> None:
@@ -1401,12 +1401,12 @@ def execute(settings: Settings, path: Path, dry_run: bool) -> None:
 
 **Verification**:
 ```bash
-python -m auto_tagger tag --help
+python -m soundrobe tag --help
 ```
 
 **Rollback**:
 ```bash
-rm src/auto_tagger/commands/tag.py
+rm src/soundrobe/commands/tag.py
 ```
 
 ---
@@ -1415,7 +1415,7 @@ rm src/auto_tagger/commands/tag.py
 
 **Action**: Create placeholder batch command
 
-**File**: `src/auto_tagger/commands/batch.py`
+**File**: `src/soundrobe/commands/batch.py`
 
 **Content**:
 ```python
@@ -1423,8 +1423,8 @@ rm src/auto_tagger/commands/tag.py
 
 from pathlib import Path
 
-from auto_tagger.config import Settings
-from auto_tagger.utils import console, print_info, print_success
+from soundrobe.config import Settings
+from soundrobe.utils import console, print_info, print_success
 
 
 def execute(settings: Settings, path: Path, dry_run: bool, parallel: int) -> None:
@@ -1447,12 +1447,12 @@ def execute(settings: Settings, path: Path, dry_run: bool, parallel: int) -> Non
 
 **Verification**:
 ```bash
-python -m auto_tagger batch --help
+python -m soundrobe batch --help
 ```
 
 **Rollback**:
 ```bash
-rm src/auto_tagger/commands/batch.py
+rm src/soundrobe/commands/batch.py
 ```
 
 ---
@@ -1461,7 +1461,7 @@ rm src/auto_tagger/commands/batch.py
 
 **Action**: Implement config view/set command
 
-**File**: `src/auto_tagger/commands/config_cmd.py`
+**File**: `src/soundrobe/commands/config_cmd.py`
 
 **Content**:
 ```python
@@ -1469,8 +1469,8 @@ rm src/auto_tagger/commands/batch.py
 
 from typing import Any
 
-from auto_tagger.config import Settings, find_config_file
-from auto_tagger.utils import console, print_info, print_json, print_table
+from soundrobe.config import Settings, find_config_file
+from soundrobe.utils import console, print_info, print_json, print_table
 
 
 def execute(settings: Settings, key: str | None, value: str | None) -> None:
@@ -1560,13 +1560,13 @@ def _set_config_key(settings: Settings, key: str, value: str) -> None:
 
 **Verification**:
 ```bash
-python -m auto_tagger config
-python -m auto_tagger config verbose
+python -m soundrobe config
+python -m soundrobe config verbose
 ```
 
 **Rollback**:
 ```bash
-rm src/auto_tagger/commands/config_cmd.py
+rm src/soundrobe/commands/config_cmd.py
 ```
 
 ---
@@ -1575,25 +1575,25 @@ rm src/auto_tagger/commands/config_cmd.py
 
 **Action**: Export commands
 
-**File**: `src/auto_tagger/commands/__init__.py`
+**File**: `src/soundrobe/commands/__init__.py`
 
 **Content**:
 ```python
-"""CLI commands for auto_tagger."""
+"""CLI commands for soundrobe."""
 
-from auto_tagger.commands import batch, config_cmd, tag
+from soundrobe.commands import batch, config_cmd, tag
 
 __all__ = ["batch", "config_cmd", "tag"]
 ```
 
 **Verification**:
 ```bash
-python -c "from auto_tagger.commands import tag, batch, config_cmd; print('OK')"
+python -c "from soundrobe.commands import tag, batch, config_cmd; print('OK')"
 ```
 
 **Rollback**:
 ```bash
-echo "" > src/auto_tagger/commands/__init__.py
+echo "" > src/soundrobe/commands/__init__.py
 ```
 
 ---
@@ -1611,7 +1611,7 @@ echo "" > src/auto_tagger/commands/__init__.py
 from click.testing import CliRunner
 import pytest
 
-from auto_tagger.cli import cli
+from soundrobe.cli import cli
 
 
 def test_cli_help():
@@ -1619,7 +1619,7 @@ def test_cli_help():
     runner = CliRunner()
     result = runner.invoke(cli, ["--help"])
     assert result.exit_code == 0
-    assert "Auto Tagger" in result.output
+    assert "Soundrobe" in result.output
     assert "tag" in result.output
     assert "batch" in result.output
 
@@ -1733,7 +1733,7 @@ rm tests/test_cli.py
 
 import pytest
 from pathlib import Path
-from auto_tagger.config import Settings
+from soundrobe.config import Settings
 
 
 @pytest.fixture
@@ -1807,19 +1807,19 @@ echo "" > tests/conftest.py
 pytest -v
 
 # Run with coverage
-pytest --cov=auto_tagger tests/
+pytest --cov=soundrobe tests/
 
 # Verify CLI works
 auto-tag --help
 auto-tag --version
 auto-tag config
-python -m auto_tagger --help
+python -m soundrobe --help
 
 # Verify imports work
-python -c "from auto_tagger import __version__; print(__version__)"
-python -c "from auto_tagger.config import Settings; print(Settings())"
-python -c "from auto_tagger.cli import main; print('OK')"
-python -c "from auto_tagger.utils import print_success; print_success('Test')"
+python -c "from soundrobe import __version__; print(__version__)"
+python -c "from soundrobe.config import Settings; print(Settings())"
+python -c "from soundrobe.cli import main; print('OK')"
+python -c "from soundrobe.utils import print_success; print_success('Test')"
 ```
 
 **Expected Output**:
@@ -1882,8 +1882,8 @@ tree tests -L 1
 
 ### 2. Package Installation
 ```bash
-pip show auto-tagger
-python -c "import auto_tagger; print(auto_tagger.__version__)"
+pip show soundrobe
+python -c "import soundrobe; print(soundrobe.__version__)"
 ```
 ✓ Package installs correctly
 ✓ Version is 0.1.0
@@ -1892,7 +1892,7 @@ python -c "import auto_tagger; print(auto_tagger.__version__)"
 ```bash
 auto-tag --help
 auto-tag --version
-python -m auto_tagger --help
+python -m soundrobe --help
 ```
 ✓ CLI shows help
 ✓ Version command works
@@ -1902,7 +1902,7 @@ python -m auto_tagger --help
 ```bash
 auto-tag config
 auto-tag config verbose
-python -c "from auto_tagger.config import Settings; s = Settings(verbose=True); print(s.verbose)"
+python -c "from soundrobe.config import Settings; s = Settings(verbose=True); print(s.verbose)"
 ```
 ✓ Config command displays settings
 ✓ Environment variables work
@@ -1910,7 +1910,7 @@ python -c "from auto_tagger.config import Settings; s = Settings(verbose=True); 
 
 ### 5. Logging Framework
 ```bash
-python -c "from auto_tagger.utils import setup_logging; import logging; logger = setup_logging(verbose=True); logger.debug('test')"
+python -c "from soundrobe.utils import setup_logging; import logging; logger = setup_logging(verbose=True); logger.debug('test')"
 ```
 ✓ Logging outputs to console
 ✓ Rich formatting works
@@ -1918,20 +1918,20 @@ python -c "from auto_tagger.utils import setup_logging; import logging; logger =
 ### 6. All Tests Pass
 ```bash
 pytest -v
-pytest --cov=auto_tagger
+pytest --cov=soundrobe
 ```
 ✓ All tests pass
 ✓ Coverage > 80%
 
 ### 7. Type Checking (Optional)
 ```bash
-mypy src/auto_tagger
+mypy src/soundrobe
 ```
 ✓ No type errors
 
 ### 8. Linting (Optional)
 ```bash
-ruff check src/auto_tagger
+ruff check src/soundrobe
 ```
 ✓ No linting errors
 

@@ -30,7 +30,7 @@ Phase 3 should keep beets behind an integration boundary. Core metadata services
 
 **New modules**:
 ```
-src/auto_tagger/integrations/
+src/soundrobe/integrations/
   __init__.py
   beets_client.py    # Beets config isolation and lookup wrapper
   cache.py           # SQLite candidate cache
@@ -71,7 +71,7 @@ tests/test_lookup.py
 
 ### Task 3.1.2: Create normalized candidate models
 
-**Action**: Add `src/auto_tagger/integrations/candidates.py`.
+**Action**: Add `src/soundrobe/integrations/candidates.py`.
 
 **Design**:
 - `LookupSource` enum: `BEETS`, `FOLDER`
@@ -114,7 +114,7 @@ tests/test_lookup.py
 
 ### Task 3.1.3: Create isolated beets configuration wrapper
 
-**Action**: Add setup helpers in `src/auto_tagger/integrations/beets_client.py`.
+**Action**: Add setup helpers in `src/soundrobe/integrations/beets_client.py`.
 
 **Design**:
 - Do not import or use `beets.ui`.
@@ -198,7 +198,7 @@ tests/test_lookup.py
 
 ### Task 3.3.1: Implement folder parser
 
-**Action**: Add `src/auto_tagger/integrations/fallback.py`.
+**Action**: Add `src/soundrobe/integrations/fallback.py`.
 
 **Design**:
 - `parse_album_path(path: Path) -> LookupRequest`
@@ -239,7 +239,7 @@ tests/test_lookup.py
 
 ### Task 3.4.1: Implement SQLite cache schema
 
-**Action**: Add `src/auto_tagger/integrations/cache.py`.
+**Action**: Add `src/soundrobe/integrations/cache.py`.
 
 **Design**:
 - `MatchCache(cache_path: Path)`
@@ -262,7 +262,7 @@ tests/test_lookup.py
 
 ### Task 3.4.2: Implement lookup orchestration
 
-**Action**: Add `src/auto_tagger/integrations/lookup.py`.
+**Action**: Add `src/soundrobe/integrations/lookup.py`.
 
 **Design**:
 - `LookupService.lookup_album(path: Path) -> list[AlbumCandidate]`
@@ -331,7 +331,7 @@ Run:
 ```bash
 .venv/bin/ruff check src tests
 .venv/bin/mypy src
-.venv/bin/pytest --cov=auto_tagger
+.venv/bin/pytest --cov=soundrobe
 auto-tag tag <sample-album-path> --dry-run
 ```
 

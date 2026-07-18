@@ -26,11 +26,11 @@
 
 ## Architecture Target
 
-Phase 2 creates the `auto_tagger.core` layer. The CLI should not manipulate mutagen objects directly; commands call a small service API that returns normalized project models.
+Phase 2 creates the `soundrobe.core` layer. The CLI should not manipulate mutagen objects directly; commands call a small service API that returns normalized project models.
 
 **New modules**:
 ```
-src/auto_tagger/core/
+src/soundrobe/core/
   audio.py          # AudioFile abstraction and supported-file detection
   metadata.py       # Normalized metadata and ReplayGain models
   reader.py         # Read tags from files into normalized metadata
@@ -70,7 +70,7 @@ python -c "import mutagen; print(mutagen.version_string)"
 
 ### Task 2.1.2: Create normalized audio types
 
-**Action**: Add `src/auto_tagger/core/audio.py`.
+**Action**: Add `src/soundrobe/core/audio.py`.
 
 **Design**:
 - `AudioFormat` enum: `MP3`, `FLAC`, `M4A`
@@ -110,7 +110,7 @@ pytest tests/test_audio.py
 
 ### Task 2.2.1: Create metadata models
 
-**Action**: Add `src/auto_tagger/core/metadata.py`.
+**Action**: Add `src/soundrobe/core/metadata.py`.
 
 **Design**:
 - `ReplayGainTags` dataclass:
@@ -146,7 +146,7 @@ pytest tests/test_metadata.py
 
 ### Task 2.2.2: Implement per-format read mappings
 
-**Action**: Add read helpers in `src/auto_tagger/core/formats.py`.
+**Action**: Add read helpers in `src/soundrobe/core/formats.py`.
 
 **Mapping targets**:
 - MP3 ID3:
@@ -174,7 +174,7 @@ pytest tests/test_reader.py
 
 ### Task 2.2.3: Implement tag reader service
 
-**Action**: Add `src/auto_tagger/core/reader.py`.
+**Action**: Add `src/soundrobe/core/reader.py`.
 
 **Design**:
 - `read_metadata(path: Path) -> TrackMetadata`
@@ -195,7 +195,7 @@ pytest tests/test_reader.py
 
 ### Task 2.3.1: Implement write mappings
 
-**Action**: Extend `src/auto_tagger/core/formats.py` with write helpers.
+**Action**: Extend `src/soundrobe/core/formats.py` with write helpers.
 
 **Rules**:
 - Do not write empty or `None` values.
@@ -214,7 +214,7 @@ pytest tests/test_writer.py
 
 ### Task 2.3.2: Implement writer service
 
-**Action**: Add `src/auto_tagger/core/writer.py`.
+**Action**: Add `src/soundrobe/core/writer.py`.
 
 **Design**:
 - `write_metadata(path: Path, metadata: TrackMetadata, dry_run: bool = False) -> TrackMetadata`
@@ -231,7 +231,7 @@ pytest tests/test_writer.py
 
 ### Task 2.3.3: Add a minimal CLI integration point
 
-**Action**: Update `src/auto_tagger/commands/tag.py`.
+**Action**: Update `src/soundrobe/commands/tag.py`.
 
 **Design**:
 - For Phase 2, `auto-tag tag PATH --dry-run` should read and print metadata for supported files.
@@ -332,7 +332,7 @@ Run:
 ```bash
 ruff check src tests
 mypy src
-pytest --cov=auto_tagger
+pytest --cov=soundrobe
 auto-tag --help
 auto-tag tag <sample-album-path> --dry-run
 ```

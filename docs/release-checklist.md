@@ -47,7 +47,7 @@ desktop application.
 
 ```bash
 python -m build
-python -m pip install --force-reinstall dist/auto_tagger-*.whl
+python -m pip install --force-reinstall dist/soundrobe-*.whl
 auto-tag --version
 ```
 
@@ -55,7 +55,7 @@ auto-tag --version
 
 ```bash
 python -m twine upload --repository testpypi dist/*
-python -m pip install --index-url https://test.pypi.org/simple/ auto-tagger
+python -m pip install --index-url https://test.pypi.org/simple/ soundrobe
 ```
 
 ### PyPI
@@ -68,7 +68,7 @@ Do not commit API tokens, PyPI tokens, Homebrew credentials, or `.pypirc`.
 
 ### Homebrew
 
-1. Update `packaging/homebrew/auto-tagger.rb` with the final PyPI source URL.
+1. Update `packaging/homebrew/soundrobe.rb` with the final PyPI source URL.
 2. Replace `UPDATE_AFTER_PYPI_RELEASE` with the source archive SHA256.
-3. Run `brew audit --strict --online auto-tagger`.
-4. Run `brew test auto-tagger`.
+3. Run `brew audit --strict --online soundrobe`.
+4. Run `brew test soundrobe`.

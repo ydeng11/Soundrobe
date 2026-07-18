@@ -6,8 +6,8 @@
 const fs = require("fs");
 const path = require("path");
 
-const reportFile = process.argv[2] || "/Users/ihelio/code/auto_tagger/reports/flac-metadata-report-2026-06-19T04-02-17-254Z.txt";
-const outputFile = process.argv[3] || "/Users/ihelio/code/auto_tagger/reports/flac-corruption-report.html";
+const reportFile = process.argv[2] || "/Users/ihelio/code/soundrobe/reports/flac-metadata-report-2026-06-19T04-02-17-254Z.txt";
+const outputFile = process.argv[3] || "/Users/ihelio/code/soundrobe/reports/flac-corruption-report.html";
 
 const reportText = fs.readFileSync(reportFile, "utf8");
 const lines = reportText.split("\n");

@@ -1,4 +1,4 @@
-# Auto Tagger configuration
+# Soundrobe configuration
 # Copy to ~/.auto-tagger/config.yaml.
 
 # OpenRouter credentials. Environment alternatives: LLM_API_KEY and LLM_MODEL.

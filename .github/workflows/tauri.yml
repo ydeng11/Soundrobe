@@ -114,7 +114,7 @@ jobs:
           test -n "$app"
           test -n "$dmg"
           hdiutil verify "$dmg"
-          "$app/Contents/MacOS/auto-tagger" &
+          "$app/Contents/MacOS/soundrobe" &
           pid=$!
           sleep 5
           kill -0 "$pid"
@@ -129,7 +129,7 @@ jobs:
           if (-not $installer) { throw "NSIS installer not found" }
           $install = Start-Process $installer.FullName -ArgumentList "/S" -PassThru -Wait
           if ($install.ExitCode -ne 0) { throw "NSIS installer exited with $($install.ExitCode)" }
-          $appPath = Join-Path $env:LOCALAPPDATA "Auto Tagger/auto-tagger.exe"
+          $appPath = Join-Path $env:LOCALAPPDATA "Soundrobe/soundrobe.exe"
           if (-not (Test-Path $appPath)) { throw "Installed application not found at $appPath" }
           $app = Start-Process $appPath -PassThru
           Start-Sleep -Seconds 5
@@ -157,7 +157,7 @@ jobs:
           test -n "$deb"
           sudo dpkg -i "$deb"
           set +e
-          timeout 15s xvfb-run /usr/bin/auto-tagger
+          timeout 15s xvfb-run /usr/bin/soundrobe
           status=$?
           set -e
           test "$status" -eq 124

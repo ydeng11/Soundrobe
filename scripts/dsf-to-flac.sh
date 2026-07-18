@@ -22,7 +22,7 @@ ARTIST="${2:-$(basename "$(dirname "$SOURCE_DIR")")}"
 OUTPUT_BASE="${HOME}/Music/${ARTIST}"
 ALBUM_NAME="$(basename "${SOURCE_DIR}")"
 ALBUM_OUTPUT="${OUTPUT_BASE}/${ALBUM_NAME}"
-LOG_FILE="${HOME}/code/auto_tagger/dsf-to-flac.log"
+LOG_FILE="${HOME}/code/soundrobe/dsf-to-flac.log"
 
 # DSD-to-PCM conversion settings
 TARGET_RATE="${TARGET_RATE:-88200}"

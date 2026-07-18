@@ -186,7 +186,7 @@ mod tests {
 
     fn home() -> PathBuf {
         std::env::temp_dir().join(format!(
-            "auto-tagger-debug-{}-{}",
+            "soundrobe-debug-{}-{}",
             std::process::id(),
             SEQUENCE.fetch_add(1, Ordering::Relaxed)
         ))

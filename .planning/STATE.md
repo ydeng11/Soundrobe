@@ -1,4 +1,4 @@
-# STATE.md - Auto Tagger Project Memory
+# STATE.md - Soundrobe Project Memory
 
 ## Project Status
 
@@ -10,7 +10,7 @@
 
 ## Project Overview
 
-**Name**: Auto Tagger
+**Name**: Soundrobe
 **Type**: Python CLI tool
 **Purpose**: Automate audio file tagging using beets + LLM (OpenRouter)
 **Distribution**: Homebrew, PyPI
@@ -142,8 +142,8 @@
 
 ## Configuration
 
-**Config File**: `~/.config/auto-tagger/config.yaml`
-**Environment Variables**: AUTO_TAGGER_OPENROUTER_KEY, etc.
+**Config File**: `~/.config/soundrobe/config.yaml`
+**Environment Variables**: SOUNDROBE_OPENROUTER_KEY, etc.
 **CLI Flags**: --yolo, --interactive, --config, etc.
 
 ---
@@ -169,7 +169,7 @@
 
 ### 2026-05-02: Phase 1 Execution (COMPLETE)
 - Wave 1.1: Project structure & build config (7 tasks)
-  - Created src layout with auto_tagger package
+  - Created src layout with soundrobe package
   - Set up pyproject.toml with hatchling backend
   - Added Click, Rich, Pydantic, PyYAML dependencies
   - Created README, LICENSE, .gitignore
@@ -208,7 +208,7 @@ Ready for Phase 2: Core Tagging Engine
 
 ### 2026-05-09: Phase 2 Planning
 - Created `.planning/phases/phase-2-plan.md`
-- Defined Phase 2 architecture target for `auto_tagger.core`
+- Defined Phase 2 architecture target for `soundrobe.core`
 - Broke work into 4 waves:
   - Wave 2.1: Audio file abstraction layer
   - Wave 2.2: Metadata model and tag reader
@@ -229,13 +229,13 @@ Ready for Phase 2: Core Tagging Engine
 **Verification Results**:
 ✓ `ruff check src tests`
 ✓ `mypy src`
-✓ `pytest --cov=auto_tagger` (34 passed, 83% coverage)
+✓ `pytest --cov=soundrobe` (34 passed, 83% coverage)
 
 Ready for Phase 3: Beets Integration
 
 ### 2026-05-09: Phase 3 Planning
 - Created `.planning/phases/phase-3-plan.md`
-- Defined an isolated Beets integration boundary under `auto_tagger.integrations`
+- Defined an isolated Beets integration boundary under `soundrobe.integrations`
 - Broke work into 4 waves:
   - Wave 3.1: Beets library setup and candidate models
   - Wave 3.2: MusicBrainz lookup implementation
@@ -256,7 +256,7 @@ Ready for Phase 3: Beets Integration
 **Verification Results**:
 ✓ `ruff check src tests`
 ✓ `mypy src`
-✓ `pytest --cov=auto_tagger` (48 passed, 84% coverage)
+✓ `pytest --cov=soundrobe` (48 passed, 84% coverage)
 ✓ `auto-tag tag "潘玮柏/2006-反转地球" --dry-run`
 
 Ready for Phase 4: LLM Integration
@@ -267,7 +267,7 @@ Ready for Phase 4: LLM Integration
   - `/api/v1/chat/completions`
   - `response_format` structured-output support
   - `usage` token statistics in responses
-- Defined an `auto_tagger.llm` layer for client, prompts, schemas, selection, fallback generation, and cost tracking
+- Defined an `soundrobe.llm` layer for client, prompts, schemas, selection, fallback generation, and cost tracking
 - Broke work into 4 waves:
   - Wave 4.1: OpenRouter client and cost models
   - Wave 4.2: Structured prompts and response schemas
@@ -290,14 +290,14 @@ Ready for Phase 4: LLM Integration
 **Verification Results**:
 ✓ `ruff check src tests`
 ✓ `mypy src`
-✓ `pytest --cov=auto_tagger` (66 passed, 86% coverage)
+✓ `pytest --cov=soundrobe` (66 passed, 86% coverage)
 ✓ `auto-tag tag "潘玮柏/2006-反转地球" --dry-run`
 
 Ready for Phase 5: Quality Assurance & Validation
 
 ### 2026-05-10: Phase 5 Planning
 - Created `.planning/phases/phase-5-plan.md`
-- Defined a quality validation layer under `auto_tagger.quality`
+- Defined a quality validation layer under `soundrobe.quality`
 - Broke work into 5 waves:
   - Wave 5.1: Audio file validation
   - Wave 5.2: LRC encoding and format validation
@@ -308,7 +308,7 @@ Ready for Phase 5: Quality Assurance & Validation
 - Next action: execute Phase 5
 
 ### 2026-05-10: Phase 5 Execution (COMPLETE)
-- Added `auto_tagger.quality` package for audio validation, LRC validation/conversion, metadata validation, health reporting, and ReplayGain orchestration
+- Added `soundrobe.quality` package for audio validation, LRC validation/conversion, metadata validation, health reporting, and ReplayGain orchestration
 - Implemented `FFProbeValidator` with injectable command runner and graceful missing-tool warnings
 - Implemented LRC discovery, strict UTF-8 validation, conservative legacy decode fallback, malformed timing-tag warnings, and safe UTF-8 conversion
 - Implemented track-level and album-level metadata validation for required Navidrome fields, track/disc numbering, album consistency, ReplayGain value shape, duplicates, and gaps
@@ -320,7 +320,7 @@ Ready for Phase 5: Quality Assurance & Validation
 **Verification Results**:
 ✓ `ruff check src tests`
 ✓ `mypy src`
-✓ `pytest --cov=auto_tagger` (89 passed, 88% coverage)
+✓ `pytest --cov=soundrobe` (89 passed, 88% coverage)
 ✓ `auto-tag tag "潘玮柏/2006-反转地球" --dry-run`
 
 Ready for Phase 6: Navidrome Features & Distribution
@@ -352,7 +352,7 @@ Ready for Phase 6: Navidrome Features & Distribution
 **Verification Results**:
 ✓ `ruff check src tests`
 ✓ `mypy src`
-✓ `pytest --cov=auto_tagger` (110 passed, 87% coverage)
+✓ `pytest --cov=soundrobe` (110 passed, 87% coverage)
 ✓ `auto-tag tag "潘玮柏/2006-反转地球" --dry-run`
 ✓ `auto-tag batch "潘玮柏" --dry-run`
 ✓ `python -m build` (built sdist and wheel)

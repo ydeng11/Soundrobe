@@ -91,7 +91,7 @@ The nested versions inside `_match_tracks_to_files()` were replaced with a comme
 
 | File | Change |
 |------|--------|
-| `src/auto_tagger/workflows/album.py` | + `_stem_track_number()`, `_clean_stem()` (module-level), + `_fix_duplicate_track_numbers()` method, + integration in `run()`, - nested duplicates of `_clean_stem`/`_stem_track_number` |
+| `src/soundrobe/workflows/album.py` | + `_stem_track_number()`, `_clean_stem()` (module-level), + `_fix_duplicate_track_numbers()` method, + integration in `run()`, - nested duplicates of `_clean_stem`/`_stem_track_number` |
 | `tests/test_album_workflow.py` | + 5 new test functions |
 
 ---

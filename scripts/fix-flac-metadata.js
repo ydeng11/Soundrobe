@@ -2,7 +2,7 @@
 /**
  * fix-flac-metadata — Detect and fix issues in FLAC files:
  *
- * 1. Vorbis comment block length mismatches (auto-tagger writer bug)
+ * 1. Vorbis comment block length mismatches (soundrobe writer bug)
  * 2. Audio frame sync corruption (first byte bit 7 cleared: 0x7f → 0xff)
  * 3. Metadata-audio gap (extra zero bytes between metadata and audio)
  * 4. Corrupted METADATA_BLOCK_PICTURE tags (raw image data instead of
@@ -647,7 +647,7 @@ function extractStreamInfo(filePath, layout) {
 
 /**
  * Check if a Vorbis comment contains a corrupted METADATA_BLOCK_PICTURE tag.
- * The auto-tagger stored raw JPEG/PNG data instead of the proper structure:
+ * The soundrobe stored raw JPEG/PNG data instead of the proper structure:
  *   Picture type (4) + MIME len (4) + MIME + Desc len (4) + Desc + ... + Data
  *
  * A corrupted tag starts with 0xff 0xd8 (JPEG) or 0x89 0x50 (PNG).
@@ -725,7 +725,7 @@ function writeFlacBuffer(filePath, buf) {
 
 /**
  * Fix audio frame sync corruption: restore bit 7 of the first audio byte.
- * The auto-tagger writer cleared it (0x7f → 0xff).
+ * The soundrobe writer cleared it (0x7f → 0xff).
  *
  * Returns true if the file was modified, false otherwise.
  */
@@ -918,7 +918,7 @@ function fixMetadataAudioGap(filePath) {
   // Absorb the entire gap into the PADDING block's length.
   // The gap may contain:
   // - All zeros (simple padding)
-  // - A hidden PADDING block header + zeros (auto-tagger wrote extra 64 KiB)
+  // - A hidden PADDING block header + zeros (soundrobe wrote extra 64 KiB)
   // Either way, extending the PADDING length is safe.
   const newPadLen = lastBlock.length + gap;
   buf[lastBlock.headerOffset + 1] = (newPadLen >> 16) & 0xff;

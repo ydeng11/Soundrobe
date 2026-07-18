@@ -12,14 +12,14 @@ This document consolidates research findings on common pitfalls, gotchas, and ch
 
 #### **Problem: "Can't Find Match" Errors**
 **Causes:**
-- No autotagger plugins enabled (musicbrainz, chroma, discogs)
+- No soundrobe plugins enabled (musicbrainz, chroma, discogs)
 - Album not in MusicBrainz database
 - Poor metadata quality in source files
 - Multi-disc albums in separate directories
 
 **Solutions:**
 ```yaml
-# Ensure autotagger extensions are enabled
+# Ensure soundrobe extensions are enabled
 plugins: musicbrainz chroma discogs
 
 # For multi-disc albums, use --flat flag or consolidate directories
@@ -1018,7 +1018,7 @@ class RateLimiter:
 
 ```python
 # CRITICAL: Must identify your application
-USER_AGENT = "AutoTagger/1.0.0 (https://github.com/user/auto-tagger)"
+USER_AGENT = "Soundrobe/1.0.0 (https://github.com/user/soundrobe)"
 
 # Configure in musicbrainzngs
 import musicbrainzngs

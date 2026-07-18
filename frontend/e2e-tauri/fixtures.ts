@@ -42,7 +42,7 @@ function createFlacWithComments(filePath: string, comments: string[]): void {
   streamInfoHeader[0] = 0;
   streamInfoHeader.writeUIntBE(streamInfo.length, 1, 3);
 
-  const vendor = Buffer.from("auto-tagger-tauri-e2e", "utf8");
+  const vendor = Buffer.from("soundrobe-tauri-e2e", "utf8");
   const vendorLength = Buffer.alloc(4);
   vendorLength.writeUInt32LE(vendor.length);
   const commentCount = Buffer.alloc(4);
@@ -76,13 +76,13 @@ function createFlacWithComments(filePath: string, comments: string[]): void {
 }
 
 export function prepareE2eWorkspace(): E2eWorkspace {
-  const inherited = process.env.AUTO_TAGGER_E2E_MANIFEST;
+  const inherited = process.env.SOUNDROBE_E2E_MANIFEST;
   if (inherited) {
     const manifest = JSON.parse(inherited) as E2eManifest;
     return { root: manifest.root, manifest };
   }
 
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), "auto-tagger-tauri-e2e-"));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "soundrobe-tauri-e2e-"));
   const home = path.join(root, "home");
   const library = path.join(root, "library");
   const workflowAlbum = path.join(library, "Workflow Artist", "Workflow Album");
@@ -208,9 +208,9 @@ export function prepareE2eWorkspace(): E2eWorkspace {
     LOCALAPPDATA: path.join(home, "AppData", "Local"),
     XDG_CONFIG_HOME: xdgConfig,
     XDG_CACHE_HOME: xdgCache,
-    AUTO_TAGGER_E2E_LIBRARY_PATH: library,
-    AUTO_TAGGER_E2E_TRACK_CONTEXT_ACTION: "extra-tags",
-    AUTO_TAGGER_E2E_MANIFEST: JSON.stringify(manifest),
+    SOUNDROBE_E2E_LIBRARY_PATH: library,
+    SOUNDROBE_E2E_TRACK_CONTEXT_ACTION: "extra-tags",
+    SOUNDROBE_E2E_MANIFEST: JSON.stringify(manifest),
   });
   return { root, manifest };
 }

@@ -50,8 +50,8 @@ export function installDesktopApi(): void {
     const entry = event.payload;
     const prefix = `[${entry.tag}] ${entry.level.toUpperCase()}`;
     const method = CONSOLE_METHOD[entry.level] ?? "log";
-    console[method](`[auto-tagger] ${prefix} ${entry.message}`, entry.data ?? "");
+    console[method](`[soundrobe] ${prefix} ${entry.message}`, entry.data ?? "");
   }).catch((err) => {
-    console.error('[auto-tagger] failed to attach Tauri "debug:log" listener:', err);
+    console.error('[soundrobe] failed to attach Tauri "debug:log" listener:', err);
   });
 }

@@ -37,7 +37,7 @@ from pathlib import Path
 
 import pytest
 
-from auto_tagger.config import Settings
+from soundrobe.config import Settings
 
 
 # ── existing fixtures (tmp_album, tmp_library, settings, etc.) remain unchanged ──
@@ -414,7 +414,7 @@ class FixtureFactory:
             f"[ti:{title}]",
             f"[ar:{_ARTIST}]",
             f"[al:{_ALBUM}]",
-            "[by:auto-tagger]",
+            "[by:soundrobe]",
             "[offset:0]",
         ]
         # Add a few timed lyric lines
@@ -469,7 +469,7 @@ class FixtureFactory:
 **Step 2: Verify factory works**
 
 ```bash
-cd /Users/ihelio/code/auto_tagger && .venv/bin/python -c "
+cd /Users/ihelio/code/soundrobe && .venv/bin/python -c "
 from tests.fixtures.factory import FixtureFactory
 from pathlib import Path
 import tempfile
@@ -512,8 +512,8 @@ from pathlib import Path
 import pytest
 from mutagen.flac import FLAC
 
-from auto_tagger.core.audio import detect_audio_format, iter_audio_files
-from auto_tagger.core.reader import read_metadata
+from soundrobe.core.audio import detect_audio_format, iter_audio_files
+from soundrobe.core.reader import read_metadata
 
 
 # ── album fixture ──────────────────────────────────────────────
@@ -681,8 +681,8 @@ from pathlib import Path
 
 import pytest
 
-from auto_tagger.integrations.beets_client import BeetsClient
-from auto_tagger.integrations.candidates import LookupRequest, LookupSource
+from soundrobe.integrations.beets_client import BeetsClient
+from soundrobe.integrations.candidates import LookupRequest, LookupSource
 
 pytestmark = pytest.mark.needs_beets
 
@@ -774,7 +774,7 @@ from pathlib import Path
 
 import pytest
 
-from auto_tagger.quality.audio_validation import FfprobeValidator, HealthIssue
+from soundrobe.quality.audio_validation import FfprobeValidator, HealthIssue
 
 pytestmark = pytest.mark.needs_ffmpeg
 
@@ -840,7 +840,7 @@ from pathlib import Path
 
 import pytest
 
-from auto_tagger.quality.replaygain import ReplayGainCalculator
+from soundrobe.quality.replaygain import ReplayGainCalculator
 
 pytestmark = pytest.mark.needs_rgain
 
@@ -906,7 +906,7 @@ from pathlib import Path
 
 from click.testing import CliRunner
 
-from auto_tagger.cli import cli
+from soundrobe.cli import cli
 
 
 def test_tag_dry_run_on_fixture_album_shows_metadata(album_fixture: Path):
@@ -1082,7 +1082,7 @@ from pathlib import Path
 
 from click.testing import CliRunner
 
-from auto_tagger.cli import cli
+from soundrobe.cli import cli
 
 
 def test_dataset_status_when_not_installed():
@@ -1152,8 +1152,8 @@ import csv
 import json
 from pathlib import Path
 
-from auto_tagger.integrations.candidates import LookupRequest, LookupSource
-from auto_tagger.integrations.dataset import (
+from soundrobe.integrations.candidates import LookupRequest, LookupSource
+from soundrobe.integrations.dataset import (
     DatasetIndexClient,
     DatasetIndexWriter,
     DatasetState,
@@ -1379,13 +1379,13 @@ git commit -m "test: add dataset write path and index building tests"
 
 from pathlib import Path
 
-from auto_tagger.commands.tag import execute as tag_execute
-from auto_tagger.config import Settings
+from soundrobe.commands.tag import execute as tag_execute
+from soundrobe.config import Settings
 
 
 def test_tag_execute_with_fixture_album(album_fixture: Path):
     """tag.execute() runs without raising on a valid album."""
-    settings = Settings(data_dir=Path("/tmp/auto-tagger-test"))
+    settings = Settings(data_dir=Path("/tmp/soundrobe-test"))
     # dry_run=True prevents writes
     tag_execute(
         settings=settings,
@@ -1401,7 +1401,7 @@ def test_tag_execute_with_empty_dir(tmp_path: Path):
     """tag.execute() handles empty directory gracefully."""
     empty = tmp_path / "empty"
     empty.mkdir()
-    settings = Settings(data_dir=Path("/tmp/auto-tagger-test"))
+    settings = Settings(data_dir=Path("/tmp/soundrobe-test"))
     # Should not raise
     tag_execute(
         settings=settings,
@@ -1415,7 +1415,7 @@ def test_tag_execute_with_empty_dir(tmp_path: Path):
 
 def test_tag_execute_yolo_mode(album_fixture: Path):
     """tag.execute() runs in yolo mode with dry-run (no mutation)."""
-    settings = Settings(data_dir=Path("/tmp/auto-tagger-test"), yolo=True)
+    settings = Settings(data_dir=Path("/tmp/soundrobe-test"), yolo=True)
     tag_execute(
         settings=settings,
         path=album_fixture,
@@ -1458,26 +1458,26 @@ git commit -m "test: add command entry point execute() tests"
 
 import logging
 
-from auto_tagger.utils.logging import setup_logging
+from soundrobe.utils.logging import setup_logging
 
 
 def test_setup_logging_verbose():
     """Verbose mode sets DEBUG level."""
     setup_logging(verbose=True)
-    logger = logging.getLogger("auto_tagger")
+    logger = logging.getLogger("soundrobe")
     assert logger.level == logging.DEBUG
 
 
 def test_setup_logging_default():
     """Default mode sets INFO level."""
     setup_logging(verbose=False)
-    logger = logging.getLogger("auto_tagger")
+    logger = logging.getLogger("soundrobe")
     assert logger.level <= logging.INFO
 
 
 def test_setup_logging_adds_handler():
     """setup_logging adds at least one handler."""
-    logger = logging.getLogger("auto_tagger")
+    logger = logging.getLogger("soundrobe")
     initial_handlers = len(logger.handlers)
     setup_logging(verbose=False)
     assert len(logger.handlers) > initial_handlers or logger.handlers
@@ -1495,11 +1495,11 @@ from pathlib import Path
 import pytest
 from click.testing import CliRunner
 
-from auto_tagger.cli import cli
-from auto_tagger.core.audio import detect_audio_format, iter_audio_files
-from auto_tagger.core.reader import read_metadata
-from auto_tagger.integrations.candidates import LookupSource
-from auto_tagger.integrations.fallback import candidate_from_folder, parse_album_path
+from soundrobe.cli import cli
+from soundrobe.core.audio import detect_audio_format, iter_audio_files
+from soundrobe.core.reader import read_metadata
+from soundrobe.integrations.candidates import LookupSource
+from soundrobe.integrations.fallback import candidate_from_folder, parse_album_path
 
 
 def test_iter_audio_files_skips_non_media_files(tmp_path: Path):
@@ -1591,7 +1591,7 @@ git commit -m "test: add logging and edge case tests"
 **Step 1: Run full test suite with coverage**
 
 ```bash
-pytest tests/ -v --cov=src/auto_tagger --cov-report=term-missing 2>&1 | tail -80
+pytest tests/ -v --cov=src/soundrobe --cov-report=term-missing 2>&1 | tail -80
 ```
 
 Expected: All tests pass. Coverage should be ≥90% (up from 85%). Key previously-untested files should show improved coverage:

@@ -1,6 +1,6 @@
 # Milestones
 
-## v1.0 - Auto Tagger MVP
+## v1.0 - Soundrobe MVP
 
 **Status:** Shipped 2026-05-10
 **Git range:** `7ae4d69..8be5a7e`

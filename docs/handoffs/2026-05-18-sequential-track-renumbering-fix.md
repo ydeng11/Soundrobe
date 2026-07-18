@@ -92,7 +92,7 @@ Key design:
 
 | File | Change |
 |------|--------|
-| `src/auto_tagger/workflows/album.py` | Moved `_fix_duplicate_track_numbers()` call before exclusion in `run()`; added Strategy 2 + `_fix_duplicate_tracks_sequential()`; moved `fix_messages` init earlier |
+| `src/soundrobe/workflows/album.py` | Moved `_fix_duplicate_track_numbers()` call before exclusion in `run()`; added Strategy 2 + `_fix_duplicate_tracks_sequential()`; moved `fix_messages` init earlier |
 | `tests/test_album_workflow.py` | Updated 2 existing tests to expect `True` (was `False`), added assertion for sequential renumbering values |
 
 ### Updated test coverage

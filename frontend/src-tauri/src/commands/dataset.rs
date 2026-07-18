@@ -70,7 +70,7 @@ mod tests {
 
     fn root() -> PathBuf {
         let path = std::env::temp_dir().join(format!(
-            "auto-tagger-dataset-{}-{}",
+            "soundrobe-dataset-{}-{}",
             std::process::id(),
             SEQUENCE.fetch_add(1, Ordering::Relaxed)
         ));

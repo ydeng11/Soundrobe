@@ -3,11 +3,11 @@ import type { AuditTrackResult } from "../src/shared/desktop-api";
 import type { E2eManifest } from "./fixtures";
 
 const manifest = JSON.parse(
-  process.env.AUTO_TAGGER_E2E_MANIFEST ?? "null",
+  process.env.SOUNDROBE_E2E_MANIFEST ?? "null",
 ) as E2eManifest | null;
 
 if (!manifest) {
-  throw new Error("AUTO_TAGGER_E2E_MANIFEST is required");
+  throw new Error("SOUNDROBE_E2E_MANIFEST is required");
 }
 
 async function clickButton(label: string, exact = true): Promise<void> {

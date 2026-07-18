@@ -58,11 +58,11 @@ All 4 services imported from the **22 Feb 2026** dataset:
 
 | File | Purpose |
 |------|---------|
-| `src/auto_tagger/integrations/dataset_raw.py` | SQL dump parser, table importer, lookup query engine, lookup table builder |
-| `src/auto_tagger/integrations/dataset.py` | `DatasetIndexWriter` (kept for CSV backward compat), `add_albums_bulk()`, state management |
-| `src/auto_tagger/commands/dataset.py` | `execute_setup()`, `execute_build()`, `execute_status()` |
-| `src/auto_tagger/integrations/lookup.py` | `LookupService._lookup_dataset()` — wired to `query_album()` |
-| `src/auto_tagger/cli.py` | `dataset build` and `dataset status` commands |
+| `src/soundrobe/integrations/dataset_raw.py` | SQL dump parser, table importer, lookup query engine, lookup table builder |
+| `src/soundrobe/integrations/dataset.py` | `DatasetIndexWriter` (kept for CSV backward compat), `add_albums_bulk()`, state management |
+| `src/soundrobe/commands/dataset.py` | `execute_setup()`, `execute_build()`, `execute_status()` |
+| `src/soundrobe/integrations/lookup.py` | `LookupService._lookup_dataset()` — wired to `query_album()` |
+| `src/soundrobe/cli.py` | `dataset build` and `dataset status` commands |
 
 ### Database schema
 

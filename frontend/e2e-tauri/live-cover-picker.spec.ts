@@ -12,7 +12,7 @@ describe("Native cover picker", () => {
             "-e",
             [
               'tell application "System Events"',
-              'tell application process "auto-tagger"',
+              'tell application process "soundrobe"',
               "set frontmost to true",
               "key code 53",
               "end tell",

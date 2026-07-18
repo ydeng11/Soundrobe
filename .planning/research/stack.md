@@ -1,8 +1,8 @@
-# Auto-Tagger Tech Stack Research
+# Soundrobe Tech Stack Research
 
 ## Executive Summary
 
-Recommended stack for an auto-tagger CLI using beets + LLM (OpenRouter):
+Recommended stack for an soundrobe CLI using beets + LLM (OpenRouter):
 - **Audio Metadata**: mutagen (primary), eyeD3 (MP3 fallback)
 - **ReplayGain**: rgain3
 - **CLI Framework**: Typer + Rich
@@ -300,7 +300,7 @@ def match_single_track(path):
 from beets.autotag import tag_item, Proposal
 
 def autotag_file(filepath):
-    """Tag a single file using beets autotagger."""
+    """Tag a single file using beets soundrobe."""
     candidates = match_track(filepath)
     
     if candidates:
@@ -321,7 +321,7 @@ def autotag_file(filepath):
 ```python
 from beets.plugins import BeetsPlugin
 
-class AutoTaggerPlugin(BeetsPlugin):
+class SoundrobePlugin(BeetsPlugin):
     def __init__(self):
         super().__init__()
         self.register_listener('import_task_apply', self.on_apply)
@@ -675,7 +675,7 @@ enabled = true
 album_mode = true
 
 [beets]
-library = "~/.config/auto-tagger/library.db"
+library = "~/.config/soundrobe/library.db"
 directory = "~/Music"
 ```
 
@@ -688,7 +688,7 @@ directory = "~/Music"
 ### 5.1 Complete Architecture
 
 ```
-auto_tagger/
+soundrobe/
 ├── __init__.py
 ├── cli.py              # Typer CLI entry point
 ├── config.py           # Configuration management

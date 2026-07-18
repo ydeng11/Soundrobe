@@ -33,7 +33,7 @@ verdict on correctness.
 
 ### 1. Enrich `LookupRequest` with existing tag data
 
-**File:** `src/auto_tagger/integrations/fallback.py`
+**File:** `src/soundrobe/integrations/fallback.py`
 
 Currently `parse_album_path()` only reads folder names. Add a new function
 that also reads existing tags from the first audio file and uses them as
@@ -68,7 +68,7 @@ file-system organization.
 
 ### 2. Add `LookupSource.DISCOGS` to the enum
 
-**File:** `src/auto_tagger/integrations/candidates.py`
+**File:** `src/soundrobe/integrations/candidates.py`
 
 ```python
 class LookupSource(Enum):
@@ -80,7 +80,7 @@ class LookupSource(Enum):
 
 ### 3. Add `DiscogsClient`
 
-**New file:** `src/auto_tagger/integrations/discogs_client.py`
+**New file:** `src/soundrobe/integrations/discogs_client.py`
 
 Thin wrapper around the free Discogs API:
 
@@ -98,12 +98,12 @@ Thin wrapper around the free Discogs API:
   Discogs candidates. MBIDs come from dataset and beets sources.
 
 **Rate limiter reuse:** The existing `RateLimiter` in `beets_client.py` can
-be extracted to `src/auto_tagger/integrations/rate_limiter.py` and shared.
+be extracted to `src/soundrobe/integrations/rate_limiter.py` and shared.
 Or, `DiscogsClient` can instantiate its own with a different interval.
 
 ### 4. Extend `LookupService` cascade
 
-**File:** `src/auto_tagger/integrations/lookup.py`
+**File:** `src/soundrobe/integrations/lookup.py`
 
 New cascade order:
 
@@ -139,7 +139,7 @@ def lookup_album(self, path: Path) -> list[AlbumCandidate]:
 
 ### 5. New config settings
 
-**File:** `src/auto_tagger/config/settings.py`
+**File:** `src/soundrobe/config/settings.py`
 
 ```python
 # New settings
@@ -151,7 +151,7 @@ discogs_token: str | None = None       # Optional: personal access token for 60 
 
 ### 6. Add `AlbumCandidate.verification_status` field
 
-**File:** `src/auto_tagger/integrations/candidates.py`
+**File:** `src/soundrobe/integrations/candidates.py`
 
 To support the "verify if the album name is correct" goal, add a field that
 indicates whether the candidate agrees with the hint:
@@ -195,7 +195,7 @@ existing tags as lookup hints in the candidate table.
 
 ### Phase 2: Discogs Client
 
-1. Create `src/auto_tagger/integrations/discogs_client.py`
+1. Create `src/soundrobe/integrations/discogs_client.py`
 2. Implement `DiscogsClient.search(artist, album) → list[dict]`
 3. Implement `DiscogsClient.get_release(release_id) → AlbumCandidate`
 4. Transform to `AlbumCandidate` with `LookupSource.DISCOGS`
@@ -260,11 +260,11 @@ candidates when beets returns nothing.
 
 | File | Change |
 |------|--------|
-| `src/auto_tagger/integrations/fallback.py` | Add `parse_album_with_tags()`, `_read_album_from_tags()` |
-| `src/auto_tagger/integrations/candidates.py` | Add `LookupSource.DISCOGS`, `verification` field, `verify_album_name()` |
-| `src/auto_tagger/integrations/discogs_client.py` | **NEW** — DiscogsClient with search + release lookup |
-| `src/auto_tagger/integrations/lookup.py` | Add `_lookup_discogs()`, update cascade, use tag-aware request |
-| `src/auto_tagger/config/settings.py` | Add `discogs_enabled`, `discogs_rate_limit`, etc. |
+| `src/soundrobe/integrations/fallback.py` | Add `parse_album_with_tags()`, `_read_album_from_tags()` |
+| `src/soundrobe/integrations/candidates.py` | Add `LookupSource.DISCOGS`, `verification` field, `verify_album_name()` |
+| `src/soundrobe/integrations/discogs_client.py` | **NEW** — DiscogsClient with search + release lookup |
+| `src/soundrobe/integrations/lookup.py` | Add `_lookup_discogs()`, update cascade, use tag-aware request |
+| `src/soundrobe/config/settings.py` | Add `discogs_enabled`, `discogs_rate_limit`, etc. |
 | `tests/test_discogs_client.py` | **NEW** — Discogs client tests (mocked + live) |
 | `tests/test_lookup.py` | Add Discogs cascade tests |
 | `tests/test_fallback.py` | Add tag-aware parsing tests |

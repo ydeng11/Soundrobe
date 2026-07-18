@@ -1784,26 +1784,28 @@ fn strip_trailing_apev2(bytes: &[u8]) -> Option<(&[u8], bool)> {
 }
 
 fn neutralize_ghost_vorbis(bytes: &mut [u8], audio_offset: usize) -> bool {
-    const VENDOR: &[u8] = b"auto-tagger";
-    let mut search = audio_offset;
     let mut found = false;
-    while search <= bytes.len().saturating_sub(VENDOR.len()) {
-        let Some(relative) = bytes[search..]
-            .windows(VENDOR.len())
-            .position(|window| window == VENDOR)
-        else {
-            break;
-        };
-        let position = search + relative;
-        if position >= 4 {
-            let claimed =
-                u32::from_le_bytes(bytes[position - 4..position].try_into().unwrap_or_default());
-            if claimed as usize == VENDOR.len() {
-                bytes[position - 4..position].fill(0);
-                found = true;
+    for vendor in [b"soundrobe".as_slice(), b"auto-tagger".as_slice()] {
+        let mut search = audio_offset;
+        while search <= bytes.len().saturating_sub(vendor.len()) {
+            let Some(relative) = bytes[search..]
+                .windows(vendor.len())
+                .position(|window| window == vendor)
+            else {
+                break;
+            };
+            let position = search + relative;
+            if position >= 4 {
+                let claimed = u32::from_le_bytes(
+                    bytes[position - 4..position].try_into().unwrap_or_default(),
+                );
+                if claimed as usize == vendor.len() {
+                    bytes[position - 4..position].fill(0);
+                    found = true;
+                }
             }
+            search = position + 1;
         }
-        search = position + 1;
     }
     found
 }
@@ -1988,7 +1990,7 @@ fn sibling_temp_path(path: &Path) -> PathBuf {
         .and_then(|extension| extension.to_str())
         .unwrap_or("tmp");
     path.with_file_name(format!(
-        ".{name}.auto-tagger-{}-{sequence}.tmp.{extension}",
+        ".{name}.soundrobe-{}-{sequence}.tmp.{extension}",
         std::process::id()
     ))
 }
@@ -2032,7 +2034,7 @@ mod tests {
 
     fn copy_to_temp(source: &Path, name: &str) -> (PathBuf, PathBuf) {
         let root = std::env::temp_dir().join(format!(
-            "auto-tagger-write-{}-{}",
+            "soundrobe-write-{}-{}",
             std::process::id(),
             TEMP_SEQUENCE.fetch_add(1, Ordering::Relaxed)
         ));
@@ -2962,7 +2964,7 @@ mod tests {
     #[tokio::test]
     async fn batch_extra_tags_aggregates_failures_and_continues() {
         let root = std::env::temp_dir().join(format!(
-            "auto-tagger-extra-batch-{}",
+            "soundrobe-extra-batch-{}",
             TEMP_SEQUENCE.fetch_add(1, Ordering::Relaxed)
         ));
         fs::create_dir_all(&root).unwrap();
@@ -3030,7 +3032,7 @@ mod tests {
     #[tokio::test]
     async fn extra_tag_queue_rejects_unsupported_without_mutation() {
         let root = std::env::temp_dir().join(format!(
-            "auto-tagger-extra-unsupported-{}",
+            "soundrobe-extra-unsupported-{}",
             TEMP_SEQUENCE.fetch_add(1, Ordering::Relaxed)
         ));
         fs::create_dir_all(&root).unwrap();
@@ -3049,7 +3051,7 @@ mod tests {
     #[test]
     fn file_exists_matches_files_directories_and_missing_paths() {
         let root = std::env::temp_dir().join(format!(
-            "auto-tagger-exists-{}",
+            "soundrobe-exists-{}",
             TEMP_SEQUENCE.fetch_add(1, Ordering::Relaxed)
         ));
         fs::create_dir_all(&root).unwrap();
@@ -3066,7 +3068,7 @@ mod tests {
     #[tokio::test]
     async fn delete_files_returns_ordered_per_path_results_and_continues() {
         let root = std::env::temp_dir().join(format!(
-            "auto-tagger-delete-{}",
+            "soundrobe-delete-{}",
             TEMP_SEQUENCE.fetch_add(1, Ordering::Relaxed)
         ));
         fs::create_dir_all(&root).unwrap();
@@ -3301,7 +3303,7 @@ mod tests {
     #[tokio::test]
     async fn queued_unsupported_write_fails_loudly_without_touching_file() {
         let root = std::env::temp_dir().join(format!(
-            "auto-tagger-pending-write-{}",
+            "soundrobe-pending-write-{}",
             TEMP_SEQUENCE.fetch_add(1, Ordering::Relaxed)
         ));
         fs::create_dir_all(&root).unwrap();
@@ -3320,7 +3322,7 @@ mod tests {
     #[test]
     fn malformed_ape_failure_leaves_original_untouched() {
         let root = std::env::temp_dir().join(format!(
-            "auto-tagger-bad-ape-{}",
+            "soundrobe-bad-ape-{}",
             TEMP_SEQUENCE.fetch_add(1, Ordering::Relaxed)
         ));
         fs::create_dir_all(&root).unwrap();
@@ -3335,7 +3337,7 @@ mod tests {
     #[test]
     fn malformed_wav_failure_leaves_original_untouched() {
         let root = std::env::temp_dir().join(format!(
-            "auto-tagger-bad-wav-{}",
+            "soundrobe-bad-wav-{}",
             TEMP_SEQUENCE.fetch_add(1, Ordering::Relaxed)
         ));
         fs::create_dir_all(&root).unwrap();
@@ -3350,7 +3352,7 @@ mod tests {
     #[test]
     fn malformed_mp4_failure_leaves_original_untouched() {
         let root = std::env::temp_dir().join(format!(
-            "auto-tagger-bad-mp4-{}",
+            "soundrobe-bad-mp4-{}",
             TEMP_SEQUENCE.fetch_add(1, Ordering::Relaxed)
         ));
         fs::create_dir_all(&root).unwrap();
@@ -3365,7 +3367,7 @@ mod tests {
     #[test]
     fn malformed_ogg_failure_leaves_original_untouched() {
         let root = std::env::temp_dir().join(format!(
-            "auto-tagger-bad-ogg-{}",
+            "soundrobe-bad-ogg-{}",
             TEMP_SEQUENCE.fetch_add(1, Ordering::Relaxed)
         ));
         fs::create_dir_all(&root).unwrap();
@@ -3380,7 +3382,7 @@ mod tests {
     #[test]
     fn malformed_flac_failure_leaves_original_untouched() {
         let root = std::env::temp_dir().join(format!(
-            "auto-tagger-bad-flac-{}",
+            "soundrobe-bad-flac-{}",
             TEMP_SEQUENCE.fetch_add(1, Ordering::Relaxed)
         ));
         fs::create_dir_all(&root).unwrap();
@@ -3395,7 +3397,7 @@ mod tests {
     #[test]
     fn malformed_mp3_failure_leaves_original_untouched() {
         let root = std::env::temp_dir().join(format!(
-            "auto-tagger-bad-mp3-{}",
+            "soundrobe-bad-mp3-{}",
             TEMP_SEQUENCE.fetch_add(1, Ordering::Relaxed)
         ));
         fs::create_dir_all(&root).unwrap();

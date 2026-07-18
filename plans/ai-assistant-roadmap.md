@@ -2,7 +2,7 @@
 
 ## Context
 
-Auto Tagger already has most of the primitives needed for an assistant:
+Soundrobe already has most of the primitives needed for an assistant:
 
 - OpenRouter client and app config
 - Electron IPC bridge between renderer and main process
@@ -690,7 +690,7 @@ Later add a model-backed smoke test only when API configuration is available.
 
 The assistant system prompt should say:
 
-- You are an assistant for Auto Tagger.
+- You are an assistant for Soundrobe.
 - Use tools only through the provided registry.
 - Default to the current selection, then active album, then current library.
 - For destructive or mutating work, create a preview action batch.

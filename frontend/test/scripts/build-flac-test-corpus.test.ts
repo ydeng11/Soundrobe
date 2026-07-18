@@ -29,7 +29,7 @@ describe("build-flac-test-corpus script", () => {
   beforeEach(() => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "build-flac-corpus-"));
     sourceDir = path.join(tmpDir, "source");
-    destDir = path.join(tmpDir, "auto-tagger-flac-corpus");
+    destDir = path.join(tmpDir, "soundrobe-flac-corpus");
     reportsDir = path.join(tmpDir, "reports");
   });
 
@@ -104,7 +104,7 @@ describe("build-flac-test-corpus script", () => {
 
   it("refuses to write the corpus inside the source tree", () => {
     writeFile(path.join(sourceDir, "Artist", "Album", "one.flac"));
-    const unsafeDest = path.join(sourceDir, "auto-tagger-flac-corpus");
+    const unsafeDest = path.join(sourceDir, "soundrobe-flac-corpus");
 
     expect(() => runBuilder([
       "--source", sourceDir,

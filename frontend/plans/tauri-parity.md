@@ -162,7 +162,7 @@ Unsubscribe contract: each `on*` returns a disposer `() => void` that calls
 | Min size | `minWidth:900, minHeight:600`, default `1200×800`, bg `#1a1a2e` | window config `tauri.conf.json` | build |
 | Title treatment | `titleBarStyle:"hiddenInset"` + `titleBarOverlay` (rgba 0.95, symbol #1d1d1f, height 38) | macOS hidden-inset equivalent; inset-compatible | build/launch |
 | First paint | `show:false` + `ready-to-show` → `show()` | wait for `window` event then show | smoke |
-| Dev vs prod load | dev: `VITE_DEV_SERVER_URL` (5173) or `AUTO_TAGGER_E2E_RENDERER_PATH`; prod: `../dist/index.html` | `frontendDist` + devUrl in `tauri.conf.json` | dev/build |
+| Dev vs prod load | dev: `VITE_DEV_SERVER_URL` (5173) or `SOUNDROBE_E2E_RENDERER_PATH`; prod: `../dist/index.html` | `frontendDist` + devUrl in `tauri.conf.json` | dev/build |
 | Quit-during-write guard | `before-quit` → `isBatchWriteInProgress()` → confirm dialog → `app.exit()` | guarded macOS Quit menu → `ExitRequested` + shared `WriteQueue` | state tests + live copied-media batch |
 | macOS reactivation | `window-all-closed` keeps app alive on darwin | standard Tauri macOS | smoke |
 | Native context menu + clipboard | `Menu.buildFromTemplate` + `clipboard.writeText` | `tauri-plugin-clipboard-manager` + menu | WDIO/E2E |
@@ -178,7 +178,7 @@ Unsubscribe contract: each `on*` returns a disposer `() => void` that calls
 | Cache DB | `~/.auto-tagger/cache.db` | auto-tag.ts (configurable `cachePath`) | SQLite — `lookup_cache`, `album_state`, `conversation_log` (names/ns/hashes unchanged) |
 | Dataset index | `~/.auto-tagger/dataset-index.sqlite` | dataset.ts `DEFAULT_DB_PATH` | SQLite |
 | Debug log | `~/.auto-tagger/auto-tag-debug-YYYY-MM-DD.log` (truncated per session) | debug.ts | JSON lines |
-| General log | `~/.auto-tagger/auto-tagger.log` | Rust tracing subscriber | append-only in-place writer mirrored to stderr; `AUTOTAGGER_LOG` controls filtering |
+| General log | `~/.auto-tagger/auto-tagger.log` | Rust tracing subscriber | append-only in-place writer mirrored to stderr; `SOUNDROBE_LOG` controls filtering |
 | Window state | `~/.auto-tagger/window-state.json` | main.ts | JSON |
 
 ## E. Packaging targets (electron-builder.yml → Tauri bundles)
@@ -189,7 +189,7 @@ Unsubscribe contract: each `on*` returns a disposer `() => void` that calls
 | Windows | nsis | nsis | x64 |
 | Linux | AppImage + deb | AppImage + deb | x64 |
 
-Identifier `com.ihelio.autotagger`, productName `Auto Tagger`, copyright 2026.
+Identifier `com.ihelio.soundrobe`, productName `Soundrobe`, copyright 2026.
 Unsigned-development posture preserved (no signing/notarization in this work).
 
 ## F. Renderer `DesktopAPI` surface (preload)

@@ -1,4 +1,4 @@
-# Auto Tagger — Handoff Document
+# Soundrobe — Handoff Document
 
 **Date:** 2026-05-14  
 **Branch:** (current)  
@@ -22,7 +22,7 @@ auto-tag batch "/Volumes/downloads/ARTIST" --yolo
 
 **Problem**: Albums under e.g. `/久石让/` would get `album_artist=久石譲` when MusicBrainz returned the Japanese kanji variant, or worse, get a completely different artist name from LLM fallback. Since the folder IS the authoritative source for the artist identity, album_artist should always match it.
 
-**Fix in `src/auto_tagger/workflows/album.py`**:
+**Fix in `src/soundrobe/workflows/album.py`**:
 
 - `_write_candidate_metadata()` now accepts `folder_artist` and **enforces** it as `album_artist` on every written track, overriding whatever the candidate provides.
 - `_fix_via_llm()` also enforces `folder_artist` as `album_artist`, and uses the folder name for MBID map lookups instead of the LLM-returned artist name.
@@ -34,7 +34,7 @@ This means: **all albums under an artist folder get the same album_artist**, reg
 
 **Problem**: The `artist_mbid_map` stored artist names under casefolded keys like `久石譲`, but when looking up for an album whose candidate had `artist=久石让` (simplified Chinese), the key didn't match. This meant MBIDs weren't propagating across albums that used different script variants of the same artist name.
 
-**Fix in `src/auto_tagger/workflows/album.py`**:
+**Fix in `src/soundrobe/workflows/album.py`**:
 
 Added three module-level helpers:
 
@@ -141,7 +141,7 @@ FLAC (Vorbis comments), MP3 (ID3), M4A/MP4 (MP4 atoms), WAV (ID3)
 ## Project Structure (Key Files)
 
 ```
-src/auto_tagger/workflows/
+src/soundrobe/workflows/
 ├── album.py          # AlbumWorkflow — single-album preview + YOLO apply
 │                     # Contains: _fix_metadata, _fix_via_llm,
 │                     #   _write_candidate_metadata, _enrich_genre_from_discogs,
@@ -152,7 +152,7 @@ src/auto_tagger/workflows/
 │                     # Creates and passes artist_mbid_map to AlbumWorkflow.run()
 └── interactive.py    # Interactive prompt mode
 
-src/auto_tagger/integrations/
+src/soundrobe/integrations/
 ├── aliases.py        # artist_matches_any(), save_alias(), get_aliases(),
 │                     #   _convert_script(), _characters_overlap()
 ├── beets_client.py   # MusicBrainz lookup via beets (artist_id extraction)
@@ -162,7 +162,7 @@ src/auto_tagger/integrations/
 ├── fallback.py       # Folder-name parsing
 └── cache.py          # SQLite match cache
 
-src/auto_tagger/llm/
+src/soundrobe/llm/
 ├── prompts.py        # build_fallback_messages() — prompt templates
 ├── schemas.py        # FallbackTagResponse — genre field included
 └── fallback.py       # FallbackTagGenerationService
@@ -238,7 +238,7 @@ auto-tag batch "/path/to/library" --yolo
 
 2. **Single-album YOLO fix** — route `auto-tag tag --yolo` through `AlbumWorkflow` so cover art + metadata fixes work in single-album mode. Currently only batch mode applies fixes.
 
-3. **Cache-aware versioning** — include a schema version hash in the cache so it auto-invalidates after code changes. See `src/auto_tagger/integrations/cache.py`.
+3. **Cache-aware versioning** — include a schema version hash in the cache so it auto-invalidates after code changes. See `src/soundrobe/integrations/cache.py`.
 
 4. **Japanese shinjitai mapping table** — add a small dict for common pairs OpenCC misses:
    ```python

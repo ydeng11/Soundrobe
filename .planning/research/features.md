@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document summarizes research on music tagging standards, Navidrome requirements, and best practices for an auto-tagger CLI tool.
+This document summarizes research on music tagging standards, Navidrome requirements, and best practices for an soundrobe CLI tool.
 
 ---
 

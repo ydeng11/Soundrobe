@@ -323,7 +323,7 @@ mod tests {
 
     fn root() -> PathBuf {
         std::env::temp_dir().join(format!(
-            "auto-tagger-conversation-{}-{}",
+            "soundrobe-conversation-{}-{}",
             std::process::id(),
             SEQUENCE.fetch_add(1, Ordering::Relaxed)
         ))

@@ -2,7 +2,7 @@
 
 ## Problem
 
-The auto-tagger writes `ARTIST` from the **release-level** artist credit, ignoring per-track credits. For tracks like 林俊杰 - 加油! (feat. MC HotDog), the file gets `ARTIST=林俊傑` but MusicBrainz has `林俊傑 feat. MC HotDog` on both the release-track and recording levels.
+The soundrobe writes `ARTIST` from the **release-level** artist credit, ignoring per-track credits. For tracks like 林俊杰 - 加油! (feat. MC HotDog), the file gets `ARTIST=林俊傑` but MusicBrainz has `林俊傑 feat. MC HotDog` on both the release-track and recording levels.
 
 ### Root cause
 

@@ -1,14 +1,14 @@
-# Auto Tagger — development commands
+# Soundrobe — development commands
 # Requires: just (https://github.com/casey/just)
 
 set dotenv-load := true
 set dotenv-path := ".env.local"
 
-project := "auto-tagger"
+project := "soundrobe"
 
 # Show available commands (default — runs first when you type `just`)
 default:
-    @echo "── Auto Tagger dev commands ──"
+    @echo "── Soundrobe dev commands ──"
     @echo ""
     @echo "Start the app:"
     @echo "  just fe-dev             start Tauri app with Vite HMR"

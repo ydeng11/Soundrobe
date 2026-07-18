@@ -6,7 +6,7 @@ const workspace = prepareE2eWorkspace();
 
 const binary = path.resolve(
   "src-tauri/target/release",
-  process.platform === "win32" ? "auto-tagger.exe" : "auto-tagger",
+  process.platform === "win32" ? "soundrobe.exe" : "soundrobe",
 );
 
 export const config: Options.Testrunner = {

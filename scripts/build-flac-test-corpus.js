@@ -3,17 +3,17 @@
  * Build a local, reproducible FLAC test corpus from a real music library.
  *
  * Copies files only into a disposable destination such as
- * /private/tmp/auto-tagger-flac-corpus, preserving artist/album paths.
+ * /private/tmp/soundrobe-flac-corpus, preserving artist/album paths.
  */
 const fs = require("fs");
 const path = require("path");
 
 const DEFAULT_SOURCE = "/Volumes/downloads/music";
-const DEFAULT_DEST = "/private/tmp/auto-tagger-flac-corpus";
+const DEFAULT_DEST = "/private/tmp/soundrobe-flac-corpus";
 const DEFAULT_COUNT = 200;
 const DEFAULT_SEED = "flac-bucket-v1";
 const DEFAULT_REPORTS_DIR = path.resolve(process.cwd(), "reports");
-const DEST_BASENAME = "auto-tagger-flac-corpus";
+const DEST_BASENAME = "soundrobe-flac-corpus";
 
 function parseArgs(argv) {
   const options = {

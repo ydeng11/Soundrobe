@@ -56,7 +56,7 @@
 
 ## Smoke Test Results
 
-**File**: `/private/tmp/auto-tagger-ape-smoke/10 - 我们最后的话.ape` (24,195,732 bytes, MAC 3.99, 2 ch, 44100 Hz, 16 bit)
+**File**: `/private/tmp/soundrobe-ape-smoke/10 - 我们最后的话.ape` (24,195,732 bytes, MAC 3.99, 2 ch, 44100 Hz, 16 bit)
 
 **Before**: 3 APETAGEX blocks (1 header+footer pair + 1 orphan footer), `tagTypes: []`, no tags visible.
 

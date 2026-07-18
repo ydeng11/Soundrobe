@@ -1,10 +1,10 @@
 {
-  "name": "auto-tagger",
+  "name": "soundrobe",
   "version": "0.1.0",
   "description": "Desktop audio tag editor",
-  "author": "Auto Tagger Contributors",
+  "author": "Soundrobe Contributors",
   "license": "MIT",
-  "homepage": "https://github.com/ihelio/auto-tagger",
+  "homepage": "https://github.com/ydeng11/Soundrobe",
   "type": "module",
   "scripts": {
     "dev": "tauri dev",

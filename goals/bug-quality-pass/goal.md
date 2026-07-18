@@ -1,6 +1,6 @@
 # Bug/Quality Fix Pass
 
-Systematically fix bugs and code quality issues in the Auto Tagger Electron app: Windows path handling in the renderer (10 sites), reducer mutation anti-pattern, cancel emission timing gap, and test setup duplication.
+Systematically fix bugs and code quality issues in the Soundrobe Electron app: Windows path handling in the renderer (10 sites), reducer mutation anti-pattern, cancel emission timing gap, and test setup duplication.
 
 - **Facts**: `goals/bug-quality-pass/facts.md`
 - **Plan**: `goals/bug-quality-pass/plan.md`

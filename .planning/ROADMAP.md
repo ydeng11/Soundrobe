@@ -1,8 +1,8 @@
-# Roadmap - Auto Tagger
+# Roadmap - Soundrobe
 
 ## Completed Milestones
 
-- [x] v1.0 Auto Tagger MVP — shipped 2026-05-10. Archive: [v1.0-ROADMAP.md](milestones/v1.0-ROADMAP.md)
+- [x] v1.0 Soundrobe MVP — shipped 2026-05-10. Archive: [v1.0-ROADMAP.md](milestones/v1.0-ROADMAP.md)
 
 ## Next Milestone
 

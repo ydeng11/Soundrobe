@@ -2260,7 +2260,7 @@ mod deterministic_contract_tests {
     fn temp_dir(label: &str) -> PathBuf {
         static SEQUENCE: AtomicU64 = AtomicU64::new(0);
         let path = std::env::temp_dir().join(format!(
-            "auto-tagger-{label}-{}-{}",
+            "soundrobe-{label}-{}-{}",
             std::process::id(),
             SEQUENCE.fetch_add(1, Ordering::Relaxed)
         ));

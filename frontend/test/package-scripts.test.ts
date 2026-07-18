@@ -7,6 +7,9 @@ import { dirname, resolve } from "node:path";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 interface PackageJson {
+  name: string;
+  author: string;
+  homepage: string;
   scripts: Record<string, string>;
 }
 
@@ -16,6 +19,35 @@ function readPackageJson(): PackageJson {
 }
 
 describe("package scripts", () => {
+  it("keeps the Soundrobe identity synchronized across app manifests", () => {
+    const packageJson = readPackageJson();
+    const tauriConfig = JSON.parse(
+      readFileSync(resolve(__dirname, "../src-tauri/tauri.conf.json"), "utf8"),
+    ) as {
+      productName: string;
+      identifier: string;
+      app: { windows: Array<{ title: string }> };
+      bundle: { publisher: string; longDescription: string };
+    };
+    const cargoToml = readFileSync(
+      resolve(__dirname, "../src-tauri/Cargo.toml"),
+      "utf8",
+    );
+
+    expect(packageJson.name).toBe("soundrobe");
+    expect(packageJson.author).toBe("Soundrobe Contributors");
+    expect(packageJson.homepage).toBe("https://github.com/ydeng11/Soundrobe");
+    expect(tauriConfig.productName).toBe("Soundrobe");
+    expect(tauriConfig.identifier).toBe("com.ihelio.soundrobe");
+    expect(tauriConfig.app.windows[0]?.title).toBe("Soundrobe");
+    expect(tauriConfig.bundle.publisher).toBe("Soundrobe Contributors");
+    expect(tauriConfig.bundle.longDescription).toMatch(/^Soundrobe is /);
+    expect(cargoToml).toMatch(/^name = "soundrobe"$/m);
+    expect(cargoToml).toMatch(/^name = "soundrobe_lib"$/m);
+    expect(cargoToml).toMatch(/^authors = \["Soundrobe Contributors"\]$/m);
+    expect(cargoToml).toMatch(/^homepage = "https:\/\/github\.com\/ydeng11\/Soundrobe"$/m);
+  });
+
   it("keeps Tauri as the only application and packaging backend", () => {
     const legacyPaths = [
       "src",

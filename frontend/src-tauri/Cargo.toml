@@ -1,16 +1,16 @@
 [package]
-name = "auto-tagger"
+name = "soundrobe"
 version = "0.1.0"
 description = "Desktop audio file tag editor — Tauri 2 shell (Electron migration)"
-authors = ["Auto Tagger Contributors"]
+authors = ["Soundrobe Contributors"]
 license = "MIT"
-homepage = "https://github.com/ihelio/auto-tagger"
+homepage = "https://github.com/ydeng11/Soundrobe"
 # Lofty 0.24 (the mandated Rust tag-I/O crate) requires Rust 1.85.
 rust-version = "1.85"
 edition = "2021"
 
 [lib]
-name = "auto_tagger_lib"
+name = "soundrobe_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]

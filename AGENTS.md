@@ -1,4 +1,4 @@
-# Auto Tagger — Agent Guide
+# Soundrobe — Agent Guide
 
 These rules apply to every task in this project unless explicitly overridden. Bias toward caution on non-trivial work.
 
@@ -17,7 +17,7 @@ These rules apply to every task in this project unless explicitly overridden. Bi
 
 ## Project overview
 
-Auto Tagger is a Tauri 2 + React desktop app for editing and enriching audio metadata. The maintained application is entirely under `frontend/`:
+Soundrobe is a Tauri 2 + React desktop app for editing and enriching audio metadata. The maintained application is entirely under `frontend/`:
 
 - `frontend/src/` — React renderer and the renderer-neutral `DesktopAPI` contract.
 - `frontend/src-tauri/src/commands/` — Tauri commands and orchestration.

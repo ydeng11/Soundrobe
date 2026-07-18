@@ -13,7 +13,7 @@ use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant};
 use unicode_normalization::{char::is_combining_mark, UnicodeNormalization};
 
-const USER_AGENT: &str = concat!("auto-tagger/", env!("CARGO_PKG_VERSION"));
+const USER_AGENT: &str = concat!("soundrobe/", env!("CARGO_PKG_VERSION"));
 const DISCOGS_BASE: &str = "https://api.discogs.com";
 static OPENCC: OnceLock<OpenCC> = OnceLock::new();
 static DISCOGS_LIMITER: OnceLock<Arc<DiscogsRateLimiter>> = OnceLock::new();
@@ -2640,10 +2640,10 @@ mod tests {
     /// supplied only for the explicit invocation and is never logged or read
     /// by the normal test suite.
     #[tokio::test]
-    #[ignore = "requires AUTO_TAGGER_LIVE_DISCOGS_TOKEN and live Discogs access"]
+    #[ignore = "requires SOUNDROBE_LIVE_DISCOGS_TOKEN and live Discogs access"]
     async fn live_discogs_provider_returns_structured_album() {
-        let token = std::env::var("AUTO_TAGGER_LIVE_DISCOGS_TOKEN")
-            .expect("AUTO_TAGGER_LIVE_DISCOGS_TOKEN is required");
+        let token = std::env::var("SOUNDROBE_LIVE_DISCOGS_TOKEN")
+            .expect("SOUNDROBE_LIVE_DISCOGS_TOKEN is required");
         let client = DiscogsClient::new(ProviderState::new().http(), Some(token));
 
         let albums = client.search_album("Radiohead", "OK Computer", 1).await;

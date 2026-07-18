@@ -51,6 +51,7 @@ const duplicate = withoutPadding.slice();
 duplicate.splice(duplicateAt + 1, 0, { type: 4, data: Buffer.from(vorbis.data) });
 fs.writeFileSync(path.join(root, "flac-duplicate-vc.flac"), serialize(duplicate, audio));
 
+// This fixture reproduces metadata emitted by pre-Soundrobe releases.
 const ghostVendor = Buffer.from("auto-tagger", "utf8");
 const ghostEntry = Buffer.from("TITLE=GhostTitle", "utf8");
 const ghost = Buffer.alloc(4 + ghostVendor.length + 4 + 4 + ghostEntry.length);

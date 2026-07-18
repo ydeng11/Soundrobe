@@ -27,13 +27,13 @@
 
 ## Architecture Target
 
-Phase 4 adds an `auto_tagger.llm` layer that consumes Phase 3 lookup candidates and produces validated decisions. It should not write tags directly; later workflow code can decide whether and how to apply selected/generated metadata.
+Phase 4 adds an `soundrobe.llm` layer that consumes Phase 3 lookup candidates and produces validated decisions. It should not write tags directly; later workflow code can decide whether and how to apply selected/generated metadata.
 
 OpenRouter's official API docs currently describe a Chat Completions endpoint at `/api/v1/chat/completions`, with OpenAI-compatible request/response shape, `response_format` support, and `usage` token statistics. Use direct HTTP via `httpx` so the project is not coupled to a third-party SDK surface.
 
 **New modules**:
 ```
-src/auto_tagger/llm/
+src/soundrobe/llm/
   __init__.py
   client.py        # OpenRouter HTTP client and retry/error handling
   cost.py          # Token usage and estimated cost models
@@ -88,7 +88,7 @@ tests/test_llm_fallback.py
 
 ### Task 4.1.2: Implement cost and usage models
 
-**Action**: Add `src/auto_tagger/llm/cost.py`.
+**Action**: Add `src/soundrobe/llm/cost.py`.
 
 **Design**:
 - `TokenUsage` dataclass:
@@ -112,7 +112,7 @@ tests/test_llm_fallback.py
 
 ### Task 4.1.3: Implement OpenRouter client
 
-**Action**: Add `src/auto_tagger/llm/client.py`.
+**Action**: Add `src/soundrobe/llm/client.py`.
 
 **Design**:
 - `OpenRouterClient(settings: Settings, http_client: optional injectable)`
@@ -152,7 +152,7 @@ tests/test_llm_fallback.py
 
 ### Task 4.2.1: Implement response schemas
 
-**Action**: Add `src/auto_tagger/llm/schemas.py`.
+**Action**: Add `src/soundrobe/llm/schemas.py`.
 
 **Models**:
 - `CandidateSelectionResponse`:
@@ -195,7 +195,7 @@ tests/test_llm_fallback.py
 
 ### Task 4.2.2: Implement match selection prompts
 
-**Action**: Add prompt builders in `src/auto_tagger/llm/prompts.py`.
+**Action**: Add prompt builders in `src/soundrobe/llm/prompts.py`.
 
 **Design**:
 - `build_selection_messages(request, candidates) -> list[dict]`
@@ -241,7 +241,7 @@ tests/test_llm_fallback.py
 
 ### Task 4.3.1: Implement selection service
 
-**Action**: Add `src/auto_tagger/llm/selection.py`.
+**Action**: Add `src/soundrobe/llm/selection.py`.
 
 **Design**:
 - `CandidateSelectionService(client, settings)`
@@ -304,7 +304,7 @@ tests/test_llm_fallback.py
 
 ### Task 4.4.1: Implement fallback generation service
 
-**Action**: Add `src/auto_tagger/llm/fallback.py`.
+**Action**: Add `src/soundrobe/llm/fallback.py`.
 
 **Design**:
 - `FallbackTagGenerationService(client, settings)`
@@ -395,7 +395,7 @@ Run:
 ```bash
 .venv/bin/ruff check src tests
 .venv/bin/mypy src
-.venv/bin/pytest --cov=auto_tagger
+.venv/bin/pytest --cov=soundrobe
 auto-tag tag <sample-album-path> --dry-run
 ```
 

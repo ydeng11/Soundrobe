@@ -1,6 +1,6 @@
-# Auto Tagger
+# Soundrobe
 
-Auto Tagger is a Tauri 2 desktop application for editing and enriching audio
+Soundrobe is a Tauri 2 desktop application for editing and enriching audio
 metadata in Navidrome-oriented libraries. The native backend is Rust; the
 renderer uses React and TypeScript.
 

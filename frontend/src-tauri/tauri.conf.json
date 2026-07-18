@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Auto Tagger",
+  "productName": "Soundrobe",
   "version": "0.1.0",
-  "identifier": "com.ihelio.autotagger",
+  "identifier": "com.ihelio.soundrobe",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:5173",
@@ -18,7 +18,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "Auto Tagger",
+        "title": "Soundrobe",
         "width": 1200,
         "height": 800,
         "minWidth": 900,
@@ -36,11 +36,11 @@
   "bundle": {
     "active": true,
     "targets": ["dmg", "nsis", "appimage", "deb"],
-    "publisher": "Auto Tagger Contributors",
+    "publisher": "Soundrobe Contributors",
     "category": "Music",
     "copyright": "Copyright © 2026",
     "shortDescription": "Desktop audio file tag editor",
-    "longDescription": "Auto Tagger is an intelligent audio file editor with auto-tagging via MusicBrainz, Discogs, and LLM assistance.",
+    "longDescription": "Soundrobe is an intelligent audio file editor with auto-tagging via MusicBrainz, Discogs, and LLM assistance.",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

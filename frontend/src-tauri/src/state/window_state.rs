@@ -364,7 +364,7 @@ mod tests {
 
     fn tempdir_state() -> PathBuf {
         let base =
-            std::env::temp_dir().join(format!("auto-tagger-window-state-{}", std::process::id()));
+            std::env::temp_dir().join(format!("soundrobe-window-state-{}", std::process::id()));
         let unique = base.join(format!(
             "{}",
             std::time::SystemTime::UNIX_EPOCH

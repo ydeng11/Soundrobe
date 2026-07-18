@@ -1,4 +1,4 @@
-//! Auto Tagger — Tauri 2 native shell (Electron migration).
+//! Soundrobe — Tauri 2 native shell (Electron migration).
 //!
 //! The renderer-neutral `window.api` contract lives in
 //! `frontend/src/shared/desktop-api.ts`. This crate implements the same
@@ -92,11 +92,11 @@ fn guarded_default_menu<R: tauri::Runtime>(
 }
 
 /// Initialise structured logging to stderr and append the same records to the
-/// existing `~/.auto-tagger/auto-tagger.log`. `AUTOTAGGER_LOG` controls the
+/// existing `~/.auto-tagger/auto-tagger.log`. `SOUNDROBE_LOG` controls the
 /// filter without changing the persisted path.
 pub fn init_logging() {
     let filter =
-        EnvFilter::try_from_env("AUTOTAGGER_LOG").unwrap_or_else(|_| EnvFilter::new("info"));
+        EnvFilter::try_from_env("SOUNDROBE_LOG").unwrap_or_else(|_| EnvFilter::new("info"));
     let builder = tracing_subscriber::fmt()
         .with_env_filter(filter)
         .with_target(false)
@@ -232,7 +232,7 @@ pub fn run() {
             commands::audit::audit_cancel,
         ])
         .build(tauri::generate_context!())
-        .expect("error while building the Auto Tagger Tauri shell");
+        .expect("error while building the Soundrobe Tauri shell");
 
     app.run(|app, event| {
         let RunEvent::ExitRequested { api, .. } = event else {

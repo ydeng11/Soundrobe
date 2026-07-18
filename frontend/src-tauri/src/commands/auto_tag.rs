@@ -1725,7 +1725,7 @@ mod tests {
 
     fn temp_root() -> PathBuf {
         let root = std::env::temp_dir().join(format!(
-            "auto-tagger-auto-tag-{}-{}",
+            "soundrobe-auto-tag-{}-{}",
             std::process::id(),
             SEQUENCE.fetch_add(1, Ordering::Relaxed)
         ));

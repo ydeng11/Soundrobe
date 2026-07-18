@@ -27,11 +27,11 @@
 
 ## Architecture Target
 
-Phase 5 adds an `auto_tagger.quality` layer that inspects albums and produces structured health issues. Validation code should be reusable by CLI flows and future batch processing. External tools must sit behind injectable runner boundaries so tests do not depend on local `ffprobe`, `rgain3`, or `loudgain` installations.
+Phase 5 adds an `soundrobe.quality` layer that inspects albums and produces structured health issues. Validation code should be reusable by CLI flows and future batch processing. External tools must sit behind injectable runner boundaries so tests do not depend on local `ffprobe`, `rgain3`, or `loudgain` installations.
 
 **New modules**:
 ```
-src/auto_tagger/quality/
+src/soundrobe/quality/
   __init__.py
   audio_validation.py      # ffprobe/mutagen integrity validation
   health.py                # issue/result/report models and JSON serialization
@@ -430,7 +430,7 @@ Before marking Phase 5 complete, run:
 ```bash
 .venv/bin/ruff check src tests
 .venv/bin/mypy src
-.venv/bin/pytest --cov=auto_tagger
+.venv/bin/pytest --cov=soundrobe
 .venv/bin/auto-tag tag "潘玮柏/2006-反转地球" --dry-run
 ```
 

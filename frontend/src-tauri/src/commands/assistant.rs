@@ -320,7 +320,7 @@ pub async fn assistant_send(
     let mut messages = vec![
         ChatMessage::system(format!(
             concat!(
-                "You are the Auto Tagger desktop assistant. Answer music-library questions directly. ",
+                "You are the Soundrobe desktop assistant. Answer music-library questions directly. ",
                 "For library facts, call one of the supplied read-only tools, then use its result. ",
                 "For mutations, call the supplied mutating tool so the app creates a native preview; never claim a write already happened. ",
                 "Allowed batch kinds: tag-update, extra-tag-update, metadata-update, folder-move, auto-tag-run, audit-run. ",
@@ -4077,7 +4077,7 @@ mod apply_contract_tests {
     fn temp_dir() -> PathBuf {
         static SEQUENCE: AtomicU64 = AtomicU64::new(0);
         let path = std::env::temp_dir().join(format!(
-            "auto-tagger-assistant-apply-{}-{}",
+            "soundrobe-assistant-apply-{}-{}",
             std::process::id(),
             SEQUENCE.fetch_add(1, Ordering::Relaxed)
         ));

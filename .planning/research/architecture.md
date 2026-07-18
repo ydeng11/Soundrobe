@@ -5,11 +5,11 @@
 ### Standard Python CLI Project Layout
 
 ```
-auto_tagger/
+soundrobe/
 ├── src/
-│   └── auto_tagger/
+│   └── soundrobe/
 │       ├── __init__.py          # Package init, version
-│       ├── __main__.py          # Entry point for `python -m auto_tagger`
+│       ├── __main__.py          # Entry point for `python -m soundrobe`
 │       ├── cli.py               # Main CLI definitions
 │       ├── commands/            # Subcommand implementations
 │       │   ├── __init__.py
@@ -58,9 +58,9 @@ auto_tagger/
 2. **Entry points pattern** (pyproject.toml):
    ```toml
    [project.scripts]
-   auto-tag = "auto_tagger.cli:main"
+   auto-tag = "soundrobe.cli:main"
    
-   [project.entry-points."auto_tagger.plugins"]
+   [project.entry-points."soundrobe.plugins"]
    # Future plugin extensions
    ```
 
@@ -109,7 +109,7 @@ console = Console()
 @click.option('--config', '-c', type=click.Path(), help='Config file path')
 @click.pass_context
 def cli(ctx: click.Context, verbose: bool, config: str):
-    """Auto Tagger - Intelligent file tagging CLI."""
+    """Soundrobe - Intelligent file tagging CLI."""
     ctx.ensure_object(dict)
     ctx.obj['verbose'] = verbose
     ctx.obj['config'] = config
@@ -202,7 +202,7 @@ def setup_logging(verbose: bool = False) -> logging.Logger:
         handlers=[RichHandler(rich_tracebacks=True, markup=True)]
     )
     
-    return logging.getLogger("auto_tagger")
+    return logging.getLogger("soundrobe")
 
 # utils/output.py
 from rich.console import Console
@@ -266,19 +266,19 @@ for file in track(files, description="Processing..."):
 
 ```python
 # exceptions.py
-class AutoTaggerError(Exception):
-    """Base exception for auto_tagger."""
+class SoundrobeError(Exception):
+    """Base exception for soundrobe."""
     exit_code = 1
 
-class ConfigError(AutoTaggerError):
+class ConfigError(SoundrobeError):
     """Configuration related errors."""
     exit_code = 2
 
-class FileNotFoundError(AutoTaggerError):
+class FileNotFoundError(SoundrobeError):
     """File processing errors."""
     exit_code = 3
 
-class ValidationError(AutoTaggerError):
+class ValidationError(SoundrobeError):
     """Validation errors."""
     exit_code = 4
 
@@ -296,7 +296,7 @@ def tag(ctx, files):
     try:
         from .commands.tag import execute
         execute(ctx.obj, files)
-    except AutoTaggerError as e:
+    except SoundrobeError as e:
         console.print(f"[red]Error:[/red] {e}")
         sys.exit(e.exit_code)
     except Exception as e:
@@ -388,7 +388,7 @@ requires = ["hatchling >= 1.26"]
 build-backend = "hatchling.build"
 
 [project]
-name = "auto-tagger"
+name = "soundrobe"
 version = "1.0.0"
 description = "Intelligent file tagging CLI tool"
 readme = "README.md"
@@ -429,16 +429,16 @@ dev = [
 ]
 
 [project.scripts]
-auto-tag = "auto_tagger.cli:main"
+auto-tag = "soundrobe.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/yourusername/auto-tagger"
-Documentation = "https://github.com/yourusername/auto-tagger#readme"
-Repository = "https://github.com/yourusername/auto-tagger.git"
-Issues = "https://github.com/yourusername/auto-tagger/issues"
+Homepage = "https://github.com/yourusername/soundrobe"
+Documentation = "https://github.com/yourusername/soundrobe#readme"
+Repository = "https://github.com/yourusername/soundrobe.git"
+Issues = "https://github.com/yourusername/soundrobe/issues"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/auto_tagger"]
+packages = ["src/soundrobe"]
 
 [tool.hatch.build.targets.sdist]
 include = ["src/", "README.md", "LICENSE"]
@@ -453,8 +453,8 @@ pip install build twine
 # Build distributions
 python -m build
 # Creates:
-#   dist/auto_tagger-1.0.0-py3-none-any.whl
-#   dist/auto_tagger-1.0.0.tar.gz
+#   dist/soundrobe-1.0.0-py3-none-any.whl
+#   dist/soundrobe-1.0.0.tar.gz
 
 # Check distribution
 twine check dist/*
@@ -463,7 +463,7 @@ twine check dist/*
 twine upload --repository testpypi dist/*
 
 # Test installation
-pip install --index-url https://test.pypi.org/simple/ auto-tagger
+pip install --index-url https://test.pypi.org/simple/ soundrobe
 
 # Upload to PyPI
 twine upload dist/*
@@ -474,14 +474,14 @@ twine upload dist/*
 #### Basic Formula Structure
 
 ```ruby
-# Formula/auto-tagger.rb
-class AutoTagger < Formula
+# Formula/soundrobe.rb
+class Soundrobe < Formula
   include Language::Python::Virtualenv
 
   desc "Intelligent file tagging CLI tool"
-  homepage "https://github.com/yourusername/auto-tagger"
-  url "https://files.pythonhosted.org/packages/source/a/auto-tagger/auto-tagger-1.0.0.tar.gz"
-  sha256 "..." # Calculate with: sha256sum dist/auto-tagger-1.0.0.tar.gz
+  homepage "https://github.com/yourusername/soundrobe"
+  url "https://files.pythonhosted.org/packages/source/a/soundrobe/soundrobe-1.0.0.tar.gz"
+  sha256 "..." # Calculate with: sha256sum dist/soundrobe-1.0.0.tar.gz
   license "MIT"
 
   # Python version requirement
@@ -520,7 +520,7 @@ class AutoTagger < Formula
 
   test do
     # Basic functionality test
-    assert_match "Auto Tagger", shell_output("#{bin}/auto-tag --help")
+    assert_match "Soundrobe", shell_output("#{bin}/auto-tag --help")
     
     # More comprehensive test
     test_file = testpath/"test.txt"
@@ -535,14 +535,14 @@ end
 
 ```bash
 # Use brew update-python-resources (recommended)
-brew update-python-resources auto-tagger
+brew update-python-resources soundrobe
 
 # Alternative: Use homebrew-pypi-poet
 cd "$(mktemp -d)"
 python3 -m venv venv
 source venv/bin/activate
-pip install auto-tagger homebrew-pypi-poet
-poet auto-tagger
+pip install soundrobe homebrew-pypi-poet
+poet soundrobe
 # Copy output to formula
 ```
 
@@ -562,23 +562,23 @@ git clone https://github.com/YOUR_USERNAME/homebrew-core.git
 cd homebrew-core
 
 # Create branch
-git checkout -b auto-tagger
+git checkout -b soundrobe
 
 # Add formula
-# Copy formula to Formula/auto-tagger.rb
+# Copy formula to Formula/soundrobe.rb
 
 # Test locally
-brew install --build-from-source Formula/auto-tagger.rb
-brew test auto-tagger
-brew audit --new-formula auto-tagger
+brew install --build-from-source Formula/soundrobe.rb
+brew test soundrobe
+brew audit --new-formula soundrobe
 
 # Commit and push
-git add Formula/auto-tagger.rb
-git commit -m "auto-tagger 1.0.0 (new formula)"
-git push origin auto-tagger
+git add Formula/soundrobe.rb
+git commit -m "soundrobe 1.0.0 (new formula)"
+git push origin soundrobe
 
 # Create PR on GitHub
-# Title: "auto-tagger 1.0.0 (new formula)"
+# Title: "soundrobe 1.0.0 (new formula)"
 # Include: description, usage examples, test results
 ```
 
@@ -586,15 +586,15 @@ git push origin auto-tagger
 
 ```ruby
 # Update formula for new version
-class AutoTagger < Formula
-  url "https://files.pythonhosted.org/packages/source/a/auto-tagger/auto-tagger-2.0.0.tar.gz"
+class Soundrobe < Formula
+  url "https://files.pythonhosted.org/packages/source/a/soundrobe/soundrobe-2.0.0.tar.gz"
   sha256 "NEW_SHA256..."
   # Update resource versions if needed
   
   # Use livecheck for automatic version detection
   livecheck do
     url :homepage
-    regex(/href=.*?auto-tagger[._-]v?(\d+(?:\.\d+)+)\.t/i)
+    regex(/href=.*?soundrobe[._-]v?(\d+(?:\.\d+)+)\.t/i)
   end
 end
 ```
@@ -701,7 +701,7 @@ def cp(source, destination):
 ```python
 # tests/test_cli.py
 from click.testing import CliRunner
-from auto_tagger.cli import cli
+from soundrobe.cli import cli
 
 def test_tag_command():
     runner = CliRunner()
@@ -744,7 +744,7 @@ dependencies = [
 # Optional functionality as extras
 [project.optional-dependencies]
 ai = ["anthropic>=0.18.0", "openai>=1.0.0"]
-full = ["auto-tagger[ai,dev]"]
+full = ["soundrobe[ai,dev]"]
 ```
 
 ### Version Management
@@ -764,7 +764,7 @@ def version():
 def get_version(ctx, param, value):
     if value:
         from . import __version__
-        click.echo(f"auto-tagger {__version__}")
+        click.echo(f"soundrobe {__version__}")
         ctx.exit()
 ```
 
@@ -772,7 +772,7 @@ def get_version(ctx, param, value):
 
 ## Summary Recommendations
 
-### For auto_tagger CLI:
+### For soundrobe CLI:
 
 1. **Framework**: Use Click with Rich for output
 2. **Config**: Pydantic Settings with YAML file + env vars

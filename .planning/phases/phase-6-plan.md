@@ -38,20 +38,20 @@ Phase 6 completes the v1 feature surface by adding media enrichment services and
 
 **New modules**:
 ```
-src/auto_tagger/features/
+src/soundrobe/features/
   __init__.py
   cover_art.py        # folder cover detection, CAA fetching, embedding plan
   compilations.py     # compilation detection and metadata transforms
   lyrics.py           # embedded lyrics/LRC mapping and tag application
 
-src/auto_tagger/workflows/
+src/soundrobe/workflows/
   __init__.py
   album.py            # single-album orchestration for preview/apply
   batch.py            # library album discovery, parallel execution, summaries
   interactive.py      # prompt abstraction and accept/skip/edit decisions
 
 packaging/
-  homebrew/auto-tagger.rb
+  homebrew/soundrobe.rb
 ```
 
 **New tests**:
@@ -434,7 +434,7 @@ tests/test_distribution.py
 
 ### Task 6.7.2: Add Homebrew formula template
 
-**Action**: Add `packaging/homebrew/auto-tagger.rb`.
+**Action**: Add `packaging/homebrew/soundrobe.rb`.
 
 **Design**:
 - Formula installs the PyPI sdist/wheel release using Homebrew Python virtualenv conventions.
@@ -500,7 +500,7 @@ tests/test_distribution.py
 ```bash
 .venv/bin/ruff check src tests
 .venv/bin/mypy src
-.venv/bin/pytest --cov=auto_tagger
+.venv/bin/pytest --cov=soundrobe
 .venv/bin/auto-tag tag "潘玮柏/2006-反转地球" --dry-run
 .venv/bin/auto-tag batch "潘玮柏" --dry-run
 .venv/bin/python -m build
@@ -539,7 +539,7 @@ Before marking Phase 6 complete, run:
 ```bash
 .venv/bin/ruff check src tests
 .venv/bin/mypy src
-.venv/bin/pytest --cov=auto_tagger
+.venv/bin/pytest --cov=soundrobe
 .venv/bin/auto-tag tag "潘玮柏/2006-反转地球" --dry-run
 .venv/bin/auto-tag batch "潘玮柏" --dry-run
 .venv/bin/python -m build

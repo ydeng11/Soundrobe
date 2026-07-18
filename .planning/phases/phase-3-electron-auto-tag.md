@@ -30,7 +30,7 @@ autoTagAlbum(albumPath)
   │     Returns instantly if previously looked up
   │
   ├─ 4. Local SQLite dataset (dataset.ts: query)
-  │     Reads `~/.auto-tagger/` SQLite index via better-sqlite3
+  │     Reads `~/.soundrobe/` SQLite index via better-sqlite3
   │     Fast, offline, zero cost
   │
   ├─ 5. MusicBrainz API (musicbrainz.ts: searchAlbum)
@@ -67,7 +67,7 @@ autoTagAlbum(albumPath)
 | `handlers/candidates.ts` | `integrations/candidates.py` | Types: AlbumCandidate, TrackCandidate, LookupRequest |
 | `handlers/cache.ts` | `integrations/cache.py` | SQLite cache via better-sqlite3 |
 | `handlers/fallback.ts` | `integrations/fallback.py` | Folder parsing + fallback candidate |
-| `handlers/dataset.ts` | `integrations/dataset_raw.py` | Read `~/.auto-tagger/` SQLite index |
+| `handlers/dataset.ts` | `integrations/dataset_raw.py` | Read `~/.soundrobe/` SQLite index |
 | `handlers/musicbrainz.ts` | `integrations/beets_client.py` | Raw fetch() to MusicBrainz API |
 | `handlers/discogs.ts` | `integrations/discogs_client.py` | Raw fetch() to Discogs API (artist album search) |
 | `handlers/openrouter.ts` | `llm/client.py` + `llm/selection.py` | OpenRouter API client |
@@ -98,7 +98,7 @@ autoTagAlbum(albumPath)
 ### Wave 3.2 — Fallback + Dataset readers
 
 1. **`handlers/fallback.ts`** — Port `parseAlbumPath()`, `parseAlbumWithTags()`, `candidateFromFolder()`, `extractYearFromName()`, `cleanFolderName()`, `trackHintsFromPath()`
-2. **`handlers/dataset.ts`** — Port `queryAlbum()`: read `~/.auto-tagger/` SQLite via `better-sqlite3`, SC/TC variant probing, progressive prefix fallback
+2. **`handlers/dataset.ts`** — Port `queryAlbum()`: read `~/.soundrobe/` SQLite via `better-sqlite3`, SC/TC variant probing, progressive prefix fallback
 3. **Tests:** Unit tests with fixture SQLite database
 
 ### Wave 3.3 — External API clients

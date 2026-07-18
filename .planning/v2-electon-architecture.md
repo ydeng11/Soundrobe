@@ -1,4 +1,4 @@
-# Auto Tagger v2 — Pure TypeScript Electron Architecture
+# Soundrobe v2 — Pure TypeScript Electron Architecture
 
 **Status:** Draft  
 **Created:** 2026-05-23
@@ -44,7 +44,7 @@ All music-library logic (tag read/write, MusicBrainz lookups, Discogs lookups, L
 │  │  fetch()     → Discogs API        │   │
 │  │  fetch()     → OpenRouter API     │   │
 │  │  better-sqlite3  → cache + local dataset │   │
-│  │  ~/.auto-tagger/ → first-priority SQLite │   │
+│  │  ~/.soundrobe/ → first-priority SQLite │   │
 │  │  sharp        → cover art resize         │   │
 │  │  opencc-js    → Chinese text             │   │
 │  │  child_process → ffprobe, rgain3         │   │
@@ -168,7 +168,7 @@ contextBridge.exposeInMainWorld("api", {
 - `taglib-ts` rebuild for Electron ABI: `@electron/rebuild` runs in `postinstall` script, or prebuilt binaries in CI
 
 ### 14. Configuration
-- Config file: `~/.config/auto-tagger/config.yaml` read via `yaml` npm package on startup
+- Config file: `~/.config/soundrobe/config.yaml` read via `yaml` npm package on startup
 - LLM API key, model, dataset paths — all in the YAML file
 - UI preferences: Electron `electron-store` package (JSON file in userData)
 - Settings modal in the UI calls `api.getConfig()` / `api.setConfig()`
@@ -188,7 +188,7 @@ No E2E framework. The Electron main process is ~150 lines of IPC wiring. The com
 ## Project Structure
 
 ```
-auto_tagger/
+soundrobe/
 ├── frontend/                          # Electron + React app
 │   ├── package.json
 │   ├── vite.config.ts
@@ -201,7 +201,7 @@ auto_tagger/
 │   │       ├── library.ts             # scanLibrary, refreshAlbum
 │   │       ├── tracks.ts              # readAlbum, writeTrack, batchWrite
 │   │       ├── auto-tag.ts            # Dataset → MusicBrainz → LLM auto-tag
-│   │       ├── dataset.ts             # Local SQLite lookups (~/.auto-tagger/)
+│   │       ├── dataset.ts             # Local SQLite lookups (~/.soundrobe/)
 │   │       ├── cover.ts               # cover art discovery
 │   │       ├── lyrics.ts              # LRC discovery + encoding fix
 │   │       ├── discogs.ts             # artist artwork from Discogs
@@ -227,7 +227,7 @@ auto_tagger/
 │   └── test/
 │       ├── handlers/                 # Main process handler tests
 │       └── components/               # React component tests
-├── src/auto_tagger/                   # Unchanged Python v1 (CLI)
+├── src/soundrobe/                   # Unchanged Python v1 (CLI)
 │   ├── cli.py
 │   ├── commands/
 │   ├── core/
@@ -278,7 +278,7 @@ auto_tagger/
 - `handlers/cache.ts` — MatchCache: SQLite lookup cache, album state ledger, LLM extraction
 - `handlers/aliases.ts` — saveAlias, getAliases, isChineseName
 - `handlers/fallback.ts` — folder name parsing, year extraction, folder fallback candidate
-- `handlers/dataset.ts` — DatasetReader: queries ~/.auto-tagger/ SQLite index
+- `handlers/dataset.ts` — DatasetReader: queries ~/.soundrobe/ SQLite index
 - `handlers/musicbrainz.ts` — MusicBrainzClient: raw fetch() to JSON API, 1 req/sec rate limit
 - `handlers/discogs.ts` — DiscogsClient: raw fetch() to Discogs API, sliding-window rate limiter
 - `handlers/openrouter.ts` — OpenRouterClient: chat completions with structured JSON, retries, cost estimation
@@ -293,7 +293,7 @@ auto_tagger/
 **Done:**
 - SettingsModal.tsx — modal with LLM API key, model, Discogs token, remote lookup toggle, Discogs toggle; loads/saves via IPC
 - AppState TOGGLE_SETTINGS action, TitleBar ⚙️ button wired
-- Window state persistence: saves position/size/maximized to `~/.auto-tagger/window-state.json`, restores on startup, validates against available displays
+- Window state persistence: saves position/size/maximized to `~/.soundrobe/window-state.json`, restores on startup, validates against available displays
 - File watching: `visibilitychange` listener calls `api.onFocus()` on focus
 
 **Tests:** 218 across 19 test files, all passing
@@ -363,7 +363,7 @@ All Phase 4 items are complete.
 | `integrations/discogs_client.py` | `handlers/discogs.ts` | Rewrite as raw `fetch()` for artist image lookup |
 | `integrations/lookup.py` | `handlers/auto-tag.ts` + `handlers/dataset.ts` | Orchestration: dataset → MusicBrainz → LLM |
 | `integrations/cache.py` | `better-sqlite3` | SQLite schema port |
-| `integrations/dataset.py` + `dataset_raw.py` | `handlers/dataset.ts` + `better-sqlite3` | Read existing SQLite index at `~/.auto-tagger/`. Query before any network call. |
+| `integrations/dataset.py` + `dataset_raw.py` | `handlers/dataset.ts` + `better-sqlite3` | Read existing SQLite index at `~/.soundrobe/`. Query before any network call. |
 | `llm/client.py` | `handlers/auto-tag.ts` | fetch() to OpenRouter |
 | `llm/prompts.py` | `handlers/auto-tag.ts` | Template strings |
 | `llm/selection.py` | `handlers/auto-tag.ts` | Logic port |

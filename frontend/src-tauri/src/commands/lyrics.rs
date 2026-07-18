@@ -14,7 +14,7 @@ use tauri::State;
 
 pub const DEFAULT_BASE_URL: &str = "https://lrclib.net/api";
 const USER_AGENT: &str = concat!(
-    "auto-tagger/",
+    "soundrobe/",
     env!("CARGO_PKG_VERSION"),
     " (https://github.com/ydeng11/Soundrobe)"
 );
@@ -246,7 +246,7 @@ mod tests {
 
     fn temp_root() -> PathBuf {
         let path = std::env::temp_dir().join(format!(
-            "auto-tagger-lyrics-{}-{}",
+            "soundrobe-lyrics-{}-{}",
             std::process::id(),
             SystemTime::now()
                 .duration_since(UNIX_EPOCH)
@@ -339,10 +339,9 @@ mod tests {
         assert!(request.contains("artist_name=Some+Artist"));
         assert!(request.contains("album_name=Album"));
         assert!(request.contains("duration=245"));
-        assert!(request.to_ascii_lowercase().contains(concat!(
-            "user-agent: auto-tagger/",
-            env!("CARGO_PKG_VERSION")
-        )));
+        assert!(request
+            .to_ascii_lowercase()
+            .contains(concat!("user-agent: soundrobe/", env!("CARGO_PKG_VERSION"))));
     }
 
     #[tokio::test]

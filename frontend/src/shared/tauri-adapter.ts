@@ -65,7 +65,7 @@ function subscribe<T>(channel: string, callback: (payload: T) => void): () => vo
   ).then(
     (fn) => fn,
     (err) => {
-      console.error(`[auto-tagger] failed to attach Tauri event listener for "${channel}":`, err);
+      console.error(`[soundrobe] failed to attach Tauri event listener for "${channel}":`, err);
       return noopUnlisten;
     },
   );

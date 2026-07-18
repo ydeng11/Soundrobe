@@ -1,6 +1,6 @@
 /**
  * Undo stack for reverting track edits.
- * Ported from auto_tagger/ui/undo.py
+ * Ported from soundrobe/ui/undo.py
  */
 
 export interface TrackSnapshot {
