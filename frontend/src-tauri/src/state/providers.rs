@@ -2611,4 +2611,49 @@ mod tests {
         assert!(paths[2].contains("/mb/artist/"));
         assert!(paths[3].contains("artist=Alias"));
     }
+
+    /// Manual release gate: exercises the production Rustls client, request
+    /// throttling, MusicBrainz search, release-detail fetch, and DTO parsing.
+    /// It stays ignored in normal suites because it depends on public network
+    /// availability; run it explicitly before a release cutover.
+    #[tokio::test]
+    #[ignore = "requires live MusicBrainz access"]
+    async fn live_musicbrainz_provider_returns_structured_album() {
+        let client = MusicBrainzClient::new(ProviderState::new().http());
+
+        let albums = client.search_album("Radiohead", "OK Computer", 1).await;
+
+        let album = albums
+            .first()
+            .expect("MusicBrainz should return an OK Computer release");
+        assert_eq!(album.title, "OK Computer");
+        assert_eq!(album.artist.as_deref(), Some("Radiohead"));
+        assert!(!album.id.is_empty());
+        assert!(!album.tracks.is_empty());
+        assert!(album.tracks.iter().all(|track| track
+            .recording_id
+            .as_deref()
+            .is_some_and(|id| !id.is_empty())));
+    }
+
+    /// Manual release gate for the configured Discogs client. The token is
+    /// supplied only for the explicit invocation and is never logged or read
+    /// by the normal test suite.
+    #[tokio::test]
+    #[ignore = "requires AUTO_TAGGER_LIVE_DISCOGS_TOKEN and live Discogs access"]
+    async fn live_discogs_provider_returns_structured_album() {
+        let token = std::env::var("AUTO_TAGGER_LIVE_DISCOGS_TOKEN")
+            .expect("AUTO_TAGGER_LIVE_DISCOGS_TOKEN is required");
+        let client = DiscogsClient::new(ProviderState::new().http(), Some(token));
+
+        let albums = client.search_album("Radiohead", "OK Computer", 1).await;
+
+        let album = albums
+            .first()
+            .expect("Discogs should return an OK Computer release");
+        assert_eq!(album.title, "OK Computer");
+        assert_eq!(album.artist.as_deref(), Some("Radiohead"));
+        assert!(!album.id.is_empty());
+        assert!(!album.tracks.is_empty());
+    }
 }

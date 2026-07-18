@@ -76,8 +76,15 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_clipboard_manager::init())
         .on_page_load(|webview, payload| {
+            tracing::debug!(
+                window = webview.label(),
+                event = ?payload.event(),
+                "webview page-load event"
+            );
             if should_reveal_window(webview.label(), payload.event()) {
-                let _ = webview.window().show();
+                if let Err(error) = webview.window().show() {
+                    tracing::error!(%error, "failed to reveal main window after page load");
+                }
             }
         });
     #[cfg(feature = "wdio")]
