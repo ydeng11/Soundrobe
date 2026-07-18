@@ -1,0 +1,30 @@
+{
+  "build": {
+    "beforeBuildCommand": "npm run build:web -- --mode wdio"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "security": {
+      "capabilities": [
+        {
+          "identifier": "wdio-main",
+          "description": "Test-only permissions for the embedded WebdriverIO build.",
+          "windows": ["main"],
+          "permissions": [
+            "core:default",
+            "core:window:allow-start-dragging",
+            "core:window:allow-show",
+            "core:window:allow-set-size",
+            "core:event:default",
+            "core:webview:default",
+            "core:app:default",
+            "dialog:default",
+            "clipboard-manager:default",
+            "wdio:default",
+            "wdio-webdriver:default"
+          ]
+        }
+      ]
+    }
+  }
+}

@@ -29,6 +29,42 @@ jobs:
         run: npm test && npm run typecheck
         working-directory: frontend
 
+  e2e:
+    name: ${{ matrix.job }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - job: wdio-macos
+            os: macos-latest
+          - job: wdio-windows
+            os: windows-latest
+          - job: wdio-linux
+            os: ubuntu-22.04
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install Linux build and display dependencies
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf xvfb
+      - name: Install frontend dependencies
+        run: npm ci
+        working-directory: frontend
+      - name: WebdriverIO desktop smoke
+        if: runner.os != 'Linux'
+        run: npm run test:e2e
+        working-directory: frontend
+      - name: WebdriverIO desktop smoke (Linux)
+        if: runner.os == 'Linux'
+        run: xvfb-run npm run test:e2e
+        working-directory: frontend
+
   bundle:
     strategy:
       fail-fast: false

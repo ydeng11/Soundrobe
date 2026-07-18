@@ -44,6 +44,8 @@ unicode-normalization = "0.1"
 opencc-fmmseg = "0.11"
 sha2 = "0.10"
 regex = "1"
+tauri-plugin-wdio = { version = "1", optional = true }
+tauri-plugin-wdio-webdriver = { version = "1", optional = true }
 
 # Infrastructure crates — pinned to the versions locked by `Cargo.lock` and
 # introduced per migration slice. Listed here so the toolchain is recorded;
@@ -58,3 +60,4 @@ windows-sys = { version = "0.61", features = ["Win32_Storage_FileSystem"] }
 # Production build hides the embedded dev server URL and ships the packaged
 # frontend from `frontendDist`. Default is the dev shell.
 default = []
+wdio = ["dep:tauri-plugin-wdio", "dep:tauri-plugin-wdio-webdriver"]

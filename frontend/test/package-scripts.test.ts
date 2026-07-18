@@ -67,4 +67,21 @@ describe("package scripts", () => {
     expect(workflow).toContain("npm run dist:win");
     expect(workflow).toContain("npm run dist:linux");
   });
+
+  it("runs test-only embedded WebdriverIO coverage on every desktop platform", () => {
+    const { scripts } = readPackageJson();
+    const workflow = readFileSync(
+      resolve(__dirname, "../../.github/workflows/tauri.yml"),
+      "utf8",
+    );
+    const wdioConfig = readFileSync(resolve(__dirname, "../wdio.conf.ts"), "utf8");
+
+    expect(scripts["build:e2e"]).toContain("--features wdio");
+    expect(scripts["test:e2e"]).toBe("npm run build:e2e && wdio run wdio.conf.ts");
+    expect(wdioConfig).toContain("driverProvider: \"embedded\"");
+    expect(workflow).toContain("npm run test:e2e");
+    expect(workflow).toContain("wdio-macos");
+    expect(workflow).toContain("wdio-windows");
+    expect(workflow).toContain("wdio-linux");
+  });
 });

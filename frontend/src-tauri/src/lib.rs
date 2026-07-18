@@ -29,6 +29,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
+use tauri::webview::PageLoadEvent;
 use tauri::{Manager, PhysicalPosition, PhysicalSize, RunEvent, WindowEvent};
 use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
 use tracing_subscriber::fmt::writer::MakeWriterExt;
@@ -71,9 +72,20 @@ pub fn init_logging() {
 pub fn run() {
     init_logging();
 
-    let app = tauri::Builder::default()
+    let builder = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_clipboard_manager::init())
+        .on_page_load(|webview, payload| {
+            if should_reveal_window(webview.label(), payload.event()) {
+                let _ = webview.window().show();
+            }
+        });
+    #[cfg(feature = "wdio")]
+    let builder = builder
+        .plugin(tauri_plugin_wdio::init())
+        .plugin(tauri_plugin_wdio_webdriver::init());
+
+    let app = builder
         .setup(|app| {
             // Managed config: load once from ~/.auto-tagger/config.yaml + env,
             // mirroring Electron's `initializeAssistantServices(getRawApi
@@ -201,8 +213,12 @@ pub fn run() {
     });
 }
 
-/// Apply saved startup geometry (with off-screen recovery), reveal the window
-/// once the shell is ready, and persist `~/.auto-tagger/window-state.json` on
+fn should_reveal_window(label: &str, event: PageLoadEvent) -> bool {
+    label == "main" && event == PageLoadEvent::Finished
+}
+
+/// Apply saved startup geometry (with off-screen recovery) and persist
+/// `~/.auto-tagger/window-state.json` on
 /// resize/move/maximize/close. Mirrors `electron/main.ts` createWindow + the
 /// debounced savers + save-on-close behavior, using the same file in place.
 fn wire_window_lifecycle(window: Option<tauri::WebviewWindow>) {
@@ -237,15 +253,6 @@ fn wire_window_lifecycle(window: Option<tauri::WebviewWindow>) {
     if bounds.is_maximized {
         let _ = window.maximize();
     }
-
-    // Reveal the window after geometry is applied. PENDING PARITY: Electron
-    // waits for the renderer `ready-to-show` event (first paint) before
-    // `show()`. Tauri 2's exact equivalent (`on_page_load(Finished)`) requires
-    // the `unstable` feature; without it we reveal immediately once geometry is
-    // applied. For a pre-rendered `frontendDist` build this is visually
-    // indistinguishable; the no-flash guarantee is verified separately under a
-    // real display session and tracked as a pending window-lifecycle row.
-    let _ = window.show();
 
     // WebviewWindow is a cheaply cloneable handle to the underlying window, so
     // we hand the event handler its own clone rather than borrowing the one we
@@ -296,4 +303,16 @@ fn save_window_state(window: &tauri::WebviewWindow) {
         is_maximized,
     };
     let _ = WindowState::save(&WindowState::path(&home), &state);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn reveals_only_the_main_window_after_page_load_finishes() {
+        assert!(!should_reveal_window("main", PageLoadEvent::Started));
+        assert!(!should_reveal_window("settings", PageLoadEvent::Finished));
+        assert!(should_reveal_window("main", PageLoadEvent::Finished));
+    }
 }
