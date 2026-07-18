@@ -1204,6 +1204,7 @@ pub async fn resolve_and_apply_album(
     services: AutoTagServices<'_>,
     cancelled: &AtomicBool,
     mut progress: impl FnMut(u64, &str),
+    mut report: impl FnMut(&'static str, String, Option<serde_json::Value>),
 ) -> Result<AutoTagRunResult, ApiError> {
     progress(1, "Parsing folder hints...");
     let mut request = build_lookup_request(album_path)?;
@@ -1216,6 +1217,13 @@ pub async fn resolve_and_apply_album(
         .lookup(&hash)
         .and_then(|value| serde_json::from_value::<Vec<AlbumCandidate>>(value).ok())
         .unwrap_or_default();
+    if !cached.is_empty() {
+        report(
+            "source",
+            format!("Cache: {} candidate(s)", cached.len()),
+            Some(serde_json::json!({"source": "cache", "count": cached.len()})),
+        );
+    }
     let mut fresh = Vec::new();
 
     progress(4, "Direct provider ID lookup...");
@@ -1234,6 +1242,13 @@ pub async fn resolve_and_apply_album(
         if let Some(album) = discogs.release_metadata(release_id).await {
             fresh.push(discogs_candidate(album));
         }
+    }
+    if !fresh.is_empty() {
+        report(
+            "source",
+            format!("Direct ID lookup: {} candidate(s)", fresh.len()),
+            Some(serde_json::json!({"source": "direct-id", "count": fresh.len()})),
+        );
     }
     check_cancelled(cancelled)?;
 
@@ -1285,6 +1300,7 @@ pub async fn resolve_and_apply_album(
 
     if !has_direct_musicbrainz && config.remote_lookup_enabled != Some(false) {
         progress(5, "Searching MusicBrainz...");
+        let before = fresh.len();
         let scoped = musicbrainz_artist_candidates(&musicbrainz, services.cache, &request).await;
         if scoped.is_empty() {
             if let (Some(artist), Some(album)) = (
@@ -1302,11 +1318,18 @@ pub async fn resolve_and_apply_album(
         } else {
             fresh.extend(scoped);
         }
+        let count = fresh.len().saturating_sub(before);
+        report(
+            "source",
+            format!("MusicBrainz: {count} candidate(s)"),
+            Some(serde_json::json!({"source": "musicbrainz", "count": count})),
+        );
     }
     check_cancelled(cancelled)?;
 
     if !has_direct_musicbrainz && config.discogs_enabled != Some(false) {
         progress(6, "Searching Discogs releases...");
+        let before = fresh.len();
         let scoped = discogs_artist_candidates(&discogs, services.cache, &request).await;
         if scoped.is_empty() {
             if let (Some(artist), Some(album)) = (
@@ -1324,6 +1347,12 @@ pub async fn resolve_and_apply_album(
         } else {
             fresh.extend(scoped);
         }
+        let count = fresh.len().saturating_sub(before);
+        report(
+            "source",
+            format!("Discogs releases: {count} candidate(s)"),
+            Some(serde_json::json!({"source": "discogs", "count": count})),
+        );
     }
     check_cancelled(cancelled)?;
 
@@ -1370,6 +1399,11 @@ pub async fn resolve_and_apply_album(
         .map(|candidate| protect_candidate_tracks(&request, &candidate))
         .collect();
     let candidates = combine_candidate_sources(fresh, cached, folder);
+    report(
+        "merge",
+        format!("Merged {} source candidate(s)", candidates.len()),
+        Some(serde_json::json!({"count": candidates.len()})),
+    );
     let mut candidate = candidates
         .into_iter()
         .next()
@@ -1381,10 +1415,31 @@ pub async fn resolve_and_apply_album(
     progress(8, "Resolving genre...");
     let candidate = protect_candidate_tracks(&request, &candidate);
     let candidate = fill_genre_if_missing(&candidate, &request, config, cancelled).await;
+    report(
+        "source",
+        format!(
+            "Selected {} candidate",
+            lookup_source_name(candidate.source)
+        ),
+        Some(serde_json::json!({"source": lookup_source_name(candidate.source)})),
+    );
     check_cancelled(cancelled)?;
     progress(9, "Applying tags...");
     let candidate = convert_candidate_chinese(&candidate, config.chinese_script.as_deref());
-    let written = apply_candidate_tags(album_path, &candidate, services.queue).await?;
+    let written = apply_candidate_tags_reported(album_path, &candidate, services.queue, |path| {
+        let path = Path::new(path);
+        report(
+            "write",
+            format!(
+                "Wrote tags: {}",
+                path.file_name()
+                    .and_then(|name| name.to_str())
+                    .unwrap_or_default()
+            ),
+            Some(serde_json::json!({"path": path.to_string_lossy()})),
+        );
+    })
+    .await?;
     if config.remote_lookup_enabled != Some(false)
         || config.discogs_enabled != Some(false)
         || config.theaudiodb_api_key.is_some()
@@ -1394,7 +1449,13 @@ pub async fn resolve_and_apply_album(
             config.discogs_token.clone(),
             config.theaudiodb_api_key.clone(),
         );
-        let _ = download_album_artwork_at(album_path, &remote, services.queue).await;
+        if let Some(path) = download_album_artwork_at(album_path, &remote, services.queue).await {
+            report(
+                "source",
+                format!("Cover art: {}", path.display()),
+                Some(serde_json::json!({"source": "cover", "path": path.to_string_lossy()})),
+            );
+        }
     }
     check_cancelled(cancelled)?;
     let lyrics_url = if config.lyrics_download_enabled == Some(true) {
@@ -1402,7 +1463,14 @@ pub async fn resolve_and_apply_album(
     } else {
         None
     };
-    let _ = apply_album_lyrics_at(album_path, lyrics_url, services.queue).await;
+    let lyrics_written = apply_album_lyrics_at(album_path, lyrics_url, services.queue).await;
+    if lyrics_written > 0 {
+        report(
+            "source",
+            format!("Applied lyrics to {lyrics_written} track(s)"),
+            Some(serde_json::json!({"source": "lyrics", "count": lyrics_written})),
+        );
+    }
     Ok(AutoTagRunResult { candidate, written })
 }
 
@@ -1433,6 +1501,8 @@ pub fn album_auto_tag(
         let queue = app.state::<WriteQueue>();
         let progress_app = app.clone();
         let progress_task_id = spawned_task_id.clone();
+        let report_app = app.clone();
+        let report_task_id = spawned_task_id.clone();
         let operation = resolve_and_apply_album(
             &path,
             &config,
@@ -1451,6 +1521,17 @@ pub fn album_auto_tag(
                         auto_tag_event(&progress_task_id, "progress", message, step, None),
                     );
                 }
+            },
+            move |kind, message, data| {
+                let progress = report_app
+                    .state::<TaskRegistry>()
+                    .get(&report_task_id)
+                    .map(|task| task.progress)
+                    .unwrap_or(0);
+                let _ = report_app.emit(
+                    "auto-tag:event",
+                    auto_tag_event(&report_task_id, kind, message, progress, data),
+                );
             },
         )
         .await;
@@ -1524,6 +1605,15 @@ pub async fn apply_candidate_tags(
     candidate: &AlbumCandidate,
     queue: &WriteQueue,
 ) -> Result<usize, ApiError> {
+    apply_candidate_tags_reported(album_path, candidate, queue, |_| {}).await
+}
+
+async fn apply_candidate_tags_reported(
+    album_path: &Path,
+    candidate: &AlbumCandidate,
+    queue: &WriteQueue,
+    mut report_write: impl FnMut(&str),
+) -> Result<usize, ApiError> {
     let fallback_artist = album_path
         .parent()
         .and_then(Path::file_name)
@@ -1585,7 +1675,10 @@ pub async fn apply_candidate_tags(
         let patch: TrackPatch = serde_json::from_value(fields.into())
             .map_err(|error| ApiError::WriteTask(error.to_string()))?;
         match write_track_queued(queue, file_path.clone().into(), patch).await {
-            Ok(()) => written += 1,
+            Ok(()) => {
+                written += 1;
+                report_write(&file_path);
+            }
             Err(error) => {
                 tracing::warn!(path = %file_path, %error, "auto-tag write failed");
                 failures.push(format!("{file_path}: {error}"));
@@ -2376,6 +2469,7 @@ mod tests {
             ..AutoTagConfig::default()
         };
         let mut updates = Vec::new();
+        let mut reports = Vec::new();
 
         let result = resolve_and_apply_album(
             &album,
@@ -2388,6 +2482,7 @@ mod tests {
             },
             &cancelled,
             |step, message| updates.push((step, message.to_string())),
+            |kind, message, data| reports.push((kind.to_string(), message, data)),
         )
         .await
         .unwrap();
@@ -2396,6 +2491,17 @@ mod tests {
         assert_eq!(result.written, 1);
         assert_eq!(updates.first().unwrap().0, 1);
         assert_eq!(updates.last().unwrap().0, 9);
+        assert!(reports.iter().any(|(kind, _, data)| {
+            kind == "source"
+                && data.as_ref().and_then(|data| data.get("source"))
+                    == Some(&serde_json::json!("folder"))
+        }));
+        assert!(reports.iter().any(|(kind, _, _)| kind == "merge"));
+        assert!(reports.iter().any(|(kind, _, data)| {
+            kind == "write"
+                && data.as_ref().and_then(|data| data.get("path"))
+                    == Some(&serde_json::json!(track_path.to_string_lossy()))
+        }));
         let request = build_lookup_request(&album).unwrap();
         assert!(cache.lookup(&query_hash(&request)).is_some());
         let written = crate::commands::tracks::read_track_metadata(&track_path).unwrap();
