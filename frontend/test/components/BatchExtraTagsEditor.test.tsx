@@ -160,6 +160,34 @@ describe("BatchExtraTagsEditor", () => {
     expect(remaining.length).toBe(1);
   });
 
+  it("switches delete visibility between rows without leaving a fading button behind", async () => {
+    window.api = {
+      readExtraTags: vi.fn().mockResolvedValue([
+        { key: "MOOD", value: "Bright", source: "vorbis" },
+        { key: "ISRC", value: "US-ABC-24-00001", source: "vorbis" },
+      ]),
+    } as unknown as Window["api"];
+
+    render(
+      <BatchExtraTagsEditor
+        tracks={[makeTrack()]}
+        saving={false}
+        onClose={vi.fn()}
+        onSave={vi.fn()}
+      />,
+    );
+
+    const deleteButtons = await screen.findAllByLabelText("Remove tag");
+    expect(deleteButtons).toHaveLength(2);
+    for (const button of deleteButtons) {
+      expect(button.classList.contains("opacity-0")).toBe(true);
+      expect(button.classList.contains("group-hover:opacity-100")).toBe(true);
+      expect(button.classList.contains("transition-colors")).toBe(true);
+      expect(button.classList.contains("transition-all")).toBe(false);
+      expect(button.classList.contains("transition-opacity")).toBe(false);
+    }
+  });
+
   it("calls onSave with per-track updates when Apply is clicked", async () => {
     const onSave = vi.fn().mockResolvedValue(undefined);
     render(
