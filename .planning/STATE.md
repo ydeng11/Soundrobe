@@ -374,6 +374,6 @@ Ready for v1 milestone audit and release readiness review
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
 | 260713-25w | Support Ctrl-click toggling of multiple track selection while preserving primary selection consistency | 2026-07-13 | 5810db4 | [260713-25w-support-ctrl-click-toggling-of-multiple-](./quick/260713-25w-support-ctrl-click-toggling-of-multiple-/) |
-| 260719-e1c | Fix Batch Extra Tags delete control hover lag so only one row shows it at a time | 2026-07-19 | e4b7683 | [260719-e1c-fix-batch-extra-tags-delete-control-hove](./quick/260719-e1c-fix-batch-extra-tags-delete-control-hove/) |
+| 260719-e1c | Fix Batch Extra Tags delete control hover lag so only one row shows it at a time | 2026-07-19 | 76b5565 | [260719-e1c-fix-batch-extra-tags-delete-control-hove](./quick/260719-e1c-fix-batch-extra-tags-delete-control-hove/) |
 
 Last activity: 2026-07-19 - Completed quick task 260719-e1c: Fix Batch Extra Tags delete control hover lag so only one row shows it at a time
