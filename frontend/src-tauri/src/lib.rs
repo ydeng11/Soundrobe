@@ -128,6 +128,10 @@ pub fn run() {
                 if let Err(error) = webview.window().show() {
                     tracing::error!(%error, "failed to reveal main window after page load");
                 }
+                // Open DevTools automatically in debug/dev builds so the
+                // developer can inspect the UI and see frontend console logs.
+                #[cfg(debug_assertions)]
+                webview.open_devtools();
             }
         });
     #[cfg(target_os = "macos")]
