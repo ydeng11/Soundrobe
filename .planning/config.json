@@ -1,8 +1,8 @@
 {
   "mode": "yolo",
-  "depth": "standard",
   "parallel": true,
   "workflow": {
     "_auto_chain_active": false
-  }
+  },
+  "granularity": "standard"
 }

@@ -38,6 +38,19 @@ async function clickTrack(trackPath: string): Promise<void> {
   if (!clicked) throw new Error(`Track row not found: ${trackPath}`);
 }
 
+async function rightClickTrack(trackPath: string): Promise<void> {
+  const opened = await browser.execute((targetPath) => {
+    const row = Array.from(
+      document.querySelectorAll<HTMLElement>("[data-testid^='file-row-']"),
+    ).find(
+      (candidate) => candidate.dataset.testid === `file-row-${targetPath}`,
+    );
+    row?.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true }));
+    return Boolean(row);
+  }, trackPath);
+  if (!opened) throw new Error(`Track row not found: ${trackPath}`);
+}
+
 async function clickDialogButton(dialogLabel: string, buttonLabel: string): Promise<void> {
   const clicked = await browser.execute(
     ({ dialogName, buttonName }) => {
@@ -86,6 +99,14 @@ describe("Tauri desktop workflows", () => {
 
     expect(trackPaths).toContain(manifest.workflowTrack);
     expect(trackPaths.every((trackPath) => path.isAbsolute(trackPath))).toBe(true);
+  });
+
+  it("opens the Extra Tags editor from the track context menu", async () => {
+    await rightClickTrack(manifest.workflowTrack);
+    const editor = await $("[role='dialog'][aria-label='Extra Tags']");
+    await editor.waitForDisplayed();
+    await clickDialogButton("Extra Tags", "Cancel");
+    await editor.waitForDisplayed({ reverse: true });
   });
 
   it("writes standard and extra metadata through the native safe writer", async () => {

@@ -356,6 +356,15 @@ export function MetadataEditor({
           />
         </div>
 
+        <button
+          type="button"
+          onClick={flushChanges}
+          disabled={!hasChanges || saving}
+          className="w-full rounded-lg bg-accent px-3 py-2 text-[12px] font-medium text-white transition-opacity disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          Save changes
+        </button>
+
         {/* Format Details */}
         <div className="pt-1">
           <SectionHeader title="Format Details" />

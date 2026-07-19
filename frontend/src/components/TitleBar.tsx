@@ -94,7 +94,10 @@ export function TitleBar({
   const numberDisabled = !libraryPath || !activeAlbumPath;
 
   return (
-    <div className="flex items-center h-[38px] px-3 bg-white/95 backdrop-blur-md border-b border-border drag-region select-none gap-2">
+    <div
+      data-tauri-drag-region="deep"
+      className="flex items-center h-[38px] px-3 bg-white/95 backdrop-blur-md border-b border-border drag-region select-none gap-2"
+    >
       {/* Spacer for traffic light controls (70px accounts for native red/yellow/green) */}
       <div className="w-[70px] shrink-0" />
 

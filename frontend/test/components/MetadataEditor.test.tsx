@@ -292,10 +292,16 @@ describe("MetadataEditor", () => {
     expect(onSave).toHaveBeenCalledWith({ composer: "New Composer" });
   });
 
-  it("does not show Save Changes or Discard buttons", () => {
-    render(<MetadataEditor {...baseProps} />);
-    expect(screen.queryByText(/Save Changes/i)).toBeNull();
-    expect(screen.queryByText(/Discard/i)).toBeNull();
+  it("saves an edited field explicitly", () => {
+    const onSave = vi.fn();
+    render(<MetadataEditor {...baseProps} onSave={onSave} />);
+
+    fireEvent.change(screen.getByDisplayValue("Rock"), {
+      target: { value: "Jazz" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+
+    expect(onSave).toHaveBeenCalledWith({ genre: "Jazz" });
   });
 
   describe("download buttons", () => {

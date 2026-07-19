@@ -41,6 +41,14 @@ function defaultProps(overrides?: Record<string, unknown>) {
 }
 
 describe("TitleBar — all buttons", () => {
+  it("marks the custom title bar as a Tauri window drag region", () => {
+    const { container } = render(<TitleBar {...defaultProps()} />);
+
+    expect(
+      container.firstElementChild?.getAttribute("data-tauri-drag-region"),
+    ).toBe("deep");
+  });
+
   // ── Open Library ──────────────────────────────────────────
 
   describe("Open Library button", () => {

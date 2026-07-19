@@ -208,18 +208,74 @@ describe("BatchEditor", () => {
     expect(img.getAttribute("src")).toBe("data:image/jpeg;base64,abc123");
   });
 
-  it("does not render Apply button", () => {
+  it("applies a genre edit explicitly to the selected tracks", () => {
     const tracks = [makeTrack("/music/a.mp3"), makeTrack("/music/b.mp3")];
+    const onSave = vi.fn();
     render(
       <BatchEditor
         tracks={tracks}
         coverDataUrl={null}
         saving={false}
-        onSave={vi.fn()}
+        onSave={onSave}
       />,
     );
 
-    expect(screen.queryByText(/Apply/i)).toBeNull();
+    fireEvent.change(screen.getByPlaceholderText("Common genre…"), {
+      target: { value: "Jazz" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Apply changes" }));
+
+    expect(onSave).toHaveBeenCalledWith({ genre: "Jazz" });
+  });
+
+  it("allows a batch field to be cleared explicitly", () => {
+    const tracks = [makeTrack("/music/a.mp3"), makeTrack("/music/b.mp3")];
+    const onSave = vi.fn();
+    render(
+      <BatchEditor
+        tracks={tracks}
+        coverDataUrl={null}
+        saving={false}
+        onSave={onSave}
+      />,
+    );
+
+    const genre = screen.getByPlaceholderText("Common genre…");
+    fireEvent.change(genre, { target: { value: "Jazz" } });
+    fireEvent.change(genre, { target: { value: "" } });
+    fireEvent.click(screen.getByRole("button", { name: "Apply changes" }));
+
+    expect(onSave).toHaveBeenCalledWith({ genre: "" });
+  });
+
+  it("exposes the normal artwork actions in batch mode", () => {
+    const tracks = [makeTrack("/music/a.mp3"), makeTrack("/music/b.mp3")];
+    const onChangeCover = vi.fn();
+    const onRemoveCover = vi.fn();
+    const onDownloadCover = vi.fn();
+    const onDownloadArtistArt = vi.fn();
+    render(
+      <BatchEditor
+        tracks={tracks}
+        coverDataUrl="data:image/jpeg;base64,abc123"
+        saving={false}
+        onSave={vi.fn()}
+        onChangeCover={onChangeCover}
+        onRemoveCover={onRemoveCover}
+        onDownloadCover={onDownloadCover}
+        onDownloadArtistArt={onDownloadArtistArt}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Change cover" }));
+    fireEvent.click(screen.getByRole("button", { name: "Download cover" }));
+    fireEvent.click(screen.getByRole("button", { name: "Download artist image" }));
+    fireEvent.click(screen.getByRole("button", { name: "Remove cover" }));
+
+    expect(onChangeCover).toHaveBeenCalledOnce();
+    expect(onDownloadCover).toHaveBeenCalledOnce();
+    expect(onDownloadArtistArt).toHaveBeenCalledOnce();
+    expect(onRemoveCover).toHaveBeenCalledOnce();
   });
 
   it("clears unsaved indicator after blur triggers save", () => {

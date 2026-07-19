@@ -2772,13 +2772,19 @@ mod tests {
             vec![
                 TrackUpdate {
                     path: first.to_string_lossy().into_owned(),
-                    fields: serde_json::from_value(serde_json::json!({"title": "First readback"}))
-                        .unwrap(),
+                    fields: serde_json::from_value(serde_json::json!({
+                        "title": "First readback",
+                        "genre": "Jazz"
+                    }))
+                    .unwrap(),
                 },
                 TrackUpdate {
                     path: second.to_string_lossy().into_owned(),
-                    fields: serde_json::from_value(serde_json::json!({"title": "Second readback"}))
-                        .unwrap(),
+                    fields: serde_json::from_value(serde_json::json!({
+                        "title": "Second readback",
+                        "genre": "Jazz"
+                    }))
+                    .unwrap(),
                 },
             ],
         )
@@ -2787,8 +2793,10 @@ mod tests {
         assert_eq!(batch.len(), 2);
         assert_eq!(batch[0].path, first.to_string_lossy());
         assert_eq!(batch[0].title.as_deref(), Some("First readback"));
+        assert_eq!(batch[0].genre.as_deref(), Some("Jazz"));
         assert_eq!(batch[1].path, second.to_string_lossy());
         assert_eq!(batch[1].title.as_deref(), Some("Second readback"));
+        assert_eq!(batch[1].genre.as_deref(), Some("Jazz"));
         fs::remove_dir_all(root).unwrap();
     }
 

@@ -192,6 +192,35 @@ describe("appReducer", () => {
     });
   });
 
+  describe("PATCH_TRACKS", () => {
+    it("updates every selected row immediately while preserving selection", () => {
+      const first = makeTrack("/music/s1.mp3", { genre: "Rock" });
+      const second = makeTrack("/music/s2.mp3", { genre: "Pop" });
+      const untouched = makeTrack("/music/s3.mp3", { genre: "Classical" });
+      const state = {
+        ...initialAppState,
+        tracks: [first, second, untouched],
+        selectedTrackPaths: [first.path, second.path],
+        selectedTrackPath: first.path,
+        selectedTrack: first,
+      };
+
+      const next = appReducer(state, {
+        type: "PATCH_TRACKS",
+        paths: state.selectedTrackPaths,
+        fields: { genre: "Jazz" },
+      });
+
+      expect(next.tracks.map((track) => track.genre)).toEqual([
+        "Jazz",
+        "Jazz",
+        "Classical",
+      ]);
+      expect(next.selectedTrackPaths).toEqual([first.path, second.path]);
+      expect(next.selectedTrack?.genre).toBe("Jazz");
+    });
+  });
+
   describe("PUSH_UNDO / POP_UNDO", () => {
     it("push adds to the undo stack", () => {
       const state = { ...initialAppState, undoManager: new UndoManager() };
