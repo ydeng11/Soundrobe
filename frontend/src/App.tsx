@@ -384,6 +384,7 @@ export default function App() {
           path: track.path,
           track: result,
         });
+        dispatch({ type: "PATCH_TRACKS", paths: [track.path], fields });
 
         // Refresh cover if album or title changed (clear cache so re-fetch is fresh)
         if (fields.album !== undefined || fields.title !== undefined) {
@@ -1518,28 +1519,34 @@ export default function App() {
       if (paths.length === 0) return;
 
       const snapshots: TrackSnapshot[] = [];
+      const originalTracks: TrackData[] = [];
       const updates: Array<{ path: string; fields: Record<string, unknown> }> = [];
+
+      // Build write fields once — same for all selected tracks
+      const writeFields: Record<string, unknown> = {};
+      for (const [key, value] of Object.entries(fields)) {
+        writeFields[key] = value || null;
+      }
 
       for (const path of paths) {
         const track = state.tracks.find((t) => t.path === path);
         if (!track) continue;
 
         snapshots.push(createTrackSnapshot(track));
-
-        const writeFields: Record<string, unknown> = {};
-        for (const [key, value] of Object.entries(fields)) {
-          writeFields[key] = value || null;
-        }
+        originalTracks.push(track);
         updates.push({ path, fields: writeFields });
       }
 
       dispatch({ type: "PUSH_UNDO", description: "Batch edit", snapshots });
+      dispatch({ type: "PATCH_TRACKS", paths, fields });
       dispatch({ type: "SET_SAVING", saving: true });
 
       try {
         const results = await window.api.writeTracks(updates);
         dispatch({ type: "UPDATE_TRACKS", tracks: results });
+        dispatch({ type: "PATCH_TRACKS", paths, fields });
       } catch (err: unknown) {
+        dispatch({ type: "UPDATE_TRACKS", tracks: originalTracks });
         const message = err instanceof Error ? err.message : "Batch save failed";
         dispatch({ type: "SET_ERROR", error: message });
       } finally {
@@ -1661,6 +1668,10 @@ export default function App() {
               coverDataUrl={state.coverDataUrl}
               saving={state.saving}
               onSave={handleBatchSave}
+              onChangeCover={handleChangeCover}
+              onRemoveCover={handleRemoveCover}
+              onDownloadCover={handleDownloadCover}
+              onDownloadArtistArt={handleDownloadArtistArt}
             />
           ) : state.selectedTrack ? (
             <>

@@ -6,6 +6,10 @@ interface BatchEditorProps {
   coverDataUrl: string | null;
   saving: boolean;
   onSave: (fields: Record<string, string>) => void;
+  onChangeCover?: () => void;
+  onRemoveCover?: () => void;
+  onDownloadCover?: () => Promise<void>;
+  onDownloadArtistArt?: () => Promise<void>;
 }
 
 const BATCH_FIELDS: { key: string; label: string; placeholder: string }[] = [
@@ -22,6 +26,10 @@ export function BatchEditor({
   coverDataUrl,
   saving,
   onSave,
+  onChangeCover,
+  onRemoveCover,
+  onDownloadCover,
+  onDownloadArtistArt,
 }: BatchEditorProps) {
   // Build suggestion lists from the selected tracks
   const suggestions = useMemo(() => {
@@ -58,21 +66,21 @@ export function BatchEditor({
   const panelRef = useRef<HTMLDivElement>(null);
   const valuesRef = useRef<Record<string, string>>({});
 
-  // Reset when tracks change
+  const selectionKey = tracks.map((track) => track.path).sort().join("\n");
+
+  // Reset only when the selection changes. Readback updates should not erase a draft.
   useEffect(() => {
     setValues({});
     valuesRef.current = {};
     setDirty(false);
-  }, [tracks]);
+  }, [selectionKey]);
 
   // Flush pending changes to disk
   const flushChanges = useCallback(() => {
     const currentValues = valuesRef.current;
     const fields: Record<string, string> = {};
     for (const [key, value] of Object.entries(currentValues)) {
-      if (value.trim()) {
-        fields[key] = value.trim();
-      }
+      fields[key] = value.trim();
     }
     if (Object.keys(fields).length > 0) {
       onSave(fields);
@@ -190,6 +198,46 @@ export function BatchEditor({
               </div>
             )}
           </div>
+          {(onChangeCover || onDownloadCover || onDownloadArtistArt || (coverDataUrl && onRemoveCover)) && (
+            <div className="flex gap-2 mt-2.5 justify-center flex-wrap">
+              {onChangeCover && (
+                <button
+                  aria-label="Change cover"
+                  onClick={onChangeCover}
+                  className="px-3 py-1.5 text-[11px] font-medium rounded-lg bg-accent text-white hover:bg-accent/90"
+                >
+                  Change
+                </button>
+              )}
+              {onDownloadCover && (
+                <button
+                  aria-label="Download cover"
+                  onClick={onDownloadCover}
+                  className="px-3 py-1.5 text-[11px] font-medium rounded-lg bg-[#34c759] text-white hover:bg-[#30b753]"
+                >
+                  Download
+                </button>
+              )}
+              {onDownloadArtistArt && (
+                <button
+                  aria-label="Download artist image"
+                  onClick={onDownloadArtistArt}
+                  className="px-3 py-1.5 text-[11px] font-medium rounded-lg bg-[#34c759] text-white hover:bg-[#30b753]"
+                >
+                  Artist
+                </button>
+              )}
+              {coverDataUrl && onRemoveCover && (
+                <button
+                  aria-label="Remove cover"
+                  onClick={onRemoveCover}
+                  className="px-3 py-1.5 text-[11px] font-medium rounded-lg text-[#ff3b30] hover:bg-red-50"
+                >
+                  Remove
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Selection summary */}
@@ -213,6 +261,15 @@ export function BatchEditor({
             />
           ))}
         </div>
+
+        <button
+          type="button"
+          onClick={flushChanges}
+          disabled={!dirty || saving}
+          className="w-full rounded-lg bg-accent px-3 py-2 text-[12px] font-medium text-white transition-opacity disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          Apply changes
+        </button>
       </div>
     </div>
   );
@@ -266,7 +323,7 @@ function BatchField({
         {suggestions.length > 0 && (
           <datalist id={listId}>
             {suggestions.map((s, i) => (
-              <option key={i} value={String(s)} />
+              <option key={i} value={s} />
             ))}
           </datalist>
         )}

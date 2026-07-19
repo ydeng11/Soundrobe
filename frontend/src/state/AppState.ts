@@ -262,6 +262,7 @@ export type AppAction =
   | { type: "SET_ERROR"; error: string | null }
   | { type: "UPDATE_TRACK"; path: string; track: TrackData }
   | { type: "UPDATE_TRACKS"; tracks: TrackData[] }
+  | { type: "PATCH_TRACKS"; paths: string[]; fields: Record<string, string> }
   | { type: "PUSH_UNDO"; description: string; snapshots: TrackSnapshot[] }
   | { type: "POP_UNDO" }
   | { type: "CLEAR_UNDO" }
@@ -423,6 +424,22 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       };
     }
 
+    case "PATCH_TRACKS": {
+      const paths = new Set(action.paths);
+      const tracks = state.tracks.map((track) =>
+        paths.has(track.path) ? patchTrackFields(track, action.fields) : track,
+      );
+      return {
+        ...state,
+        tracks,
+        selectedTrack:
+          state.selectedTrackPath && paths.has(state.selectedTrackPath)
+            ? tracks.find((track) => track.path === state.selectedTrackPath) ??
+              state.selectedTrack
+            : state.selectedTrack,
+      };
+    }
+
     case "PUSH_UNDO":
       return {
         ...state,
@@ -487,4 +504,28 @@ export function appReducer(state: AppState, action: AppAction): AppState {
     default:
       return state;
   }
+}
+
+function patchTrackFields(
+  track: TrackData,
+  fields: Record<string, string>,
+): TrackData {
+  const patched = { ...track };
+  for (const [field, value] of Object.entries(fields)) {
+    if (field === "track" || field === "disc") {
+      const [number, total] = value.split("/");
+      const numberKey = field === "track" ? "trackNumber" : "discNumber";
+      const totalKey = field === "track" ? "trackTotal" : "discTotal";
+      patched[numberKey] = parseEditorNumber(number);
+      if (total !== undefined) patched[totalKey] = parseEditorNumber(total);
+    } else {
+      (patched as unknown as Record<string, unknown>)[field] = value || null;
+    }
+  }
+  return patched;
+}
+
+function parseEditorNumber(value: string): number | null {
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
 }

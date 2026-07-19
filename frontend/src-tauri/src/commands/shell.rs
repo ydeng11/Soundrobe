@@ -8,8 +8,8 @@
 //!     Tauri E2E tests use the same hook).
 //!   - otherwise shows a native single-folder picker titled "Open Music Folder".
 //!   - returns the selected path, or `null` for cancellation **or a plugin GUI
-//!     failure**. `blocking_pick_folder()` exposes only `Option<FilePath>`, so
-//!     Tauri 2 cannot distinguish/reject a native-dialog failure here. Electron
+//!     failure**. The callback picker exposes only `Option<FilePath>`, so Tauri
+//!     2 cannot distinguish/reject a native-dialog failure here. Electron
 //!     rethrows those failures; that exact error parity is GUI-unobservable and
 //!     remains pending a real-display smoke test.
 
@@ -17,10 +17,12 @@ use crate::error::ApiError;
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Mutex;
+use std::time::Duration;
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
 use tauri::{AppHandle, Manager, State};
 use tauri_plugin_clipboard_manager::ClipboardExt;
 use tauri_plugin_dialog::{DialogExt, FilePath};
+use tokio::sync::oneshot;
 
 /// The env override Electron's handler reads to skip the GUI folder picker in
 /// E2E/tests. Public so a contract test can set it and assert the no-GUI path.
@@ -38,16 +40,18 @@ pub fn override_path(env_get: impl Fn(&str) -> Option<String>) -> Option<String>
 /// failure** because the plugin provides no error result; Electron’s distinct
 /// rejection path remains pending display validation.
 #[tauri::command]
-pub fn dialog_open_folder(app: AppHandle) -> Option<String> {
+pub async fn dialog_open_folder(app: AppHandle) -> Option<String> {
     if let Some(p) = override_path(|name| std::env::var(name).ok()) {
         return Some(p);
     }
-    let picked = app
-        .dialog()
+    let (sender, receiver) = tokio::sync::oneshot::channel();
+    app.dialog()
         .file()
         .set_title("Open Music Folder")
-        .blocking_pick_folder();
-    picked_to_string(picked)
+        .pick_folder(move |picked| {
+            let _ = sender.send(picked);
+        });
+    picked_to_string(receiver.await.ok().flatten())
 }
 
 /// Convert a picked [`FilePath`] to its display path (tests only; the GUI path
@@ -94,13 +98,13 @@ pub fn e2e_context_action(env_get: impl Fn(&str) -> Option<String>) -> Option<Co
 struct PendingContextMenu {
     track_path: String,
     labels: HashMap<String, String>,
-    action: Option<ContextMenuAction>,
+    selection: Option<oneshot::Sender<ContextMenuAction>>,
 }
 
-/// Shared native-menu state. The global Tauri menu-event listener records the
-/// clicked item here while `popup_menu()` is active; the command consumes it
-/// once the popup closes. One request at a time intentionally mirrors
-/// Electron's modal native popup and prevents labels/actions crossing requests.
+/// Shared native-menu state. The global Tauri menu-event listener completes the
+/// request after `popup_menu()` returns. One request at a time intentionally
+/// mirrors Electron's modal native popup and prevents labels/actions crossing
+/// requests.
 #[derive(Default)]
 pub struct ContextMenuState {
     pending: Mutex<Option<PendingContextMenu>>,
@@ -111,7 +115,7 @@ impl ContextMenuState {
         &self,
         track_path: String,
         labels: HashMap<String, String>,
-    ) -> Result<(), ApiError> {
+    ) -> Result<oneshot::Receiver<ContextMenuAction>, ApiError> {
         let mut pending = self
             .pending
             .lock()
@@ -119,17 +123,18 @@ impl ContextMenuState {
         if pending.is_some() {
             return Err(ApiError::ContextMenuAlreadyActive);
         }
+        let (sender, receiver) = oneshot::channel();
         *pending = Some(PendingContextMenu {
             track_path,
             labels,
-            action: None,
+            selection: Some(sender),
         });
-        Ok(())
+        Ok(receiver)
     }
 
     /// Handle a global Tauri menu event. Returns text that must be copied to the
-    /// system clipboard; modal selections are stored for `finish()` and return
-    /// `None` here (they do not copy text). Unknown IDs are unrelated menus.
+    /// system clipboard and completes the pending command for every recognized
+    /// item. Unknown IDs are unrelated menus.
     pub fn handle_menu_item(&self, id: &str) -> Option<String> {
         let mut pending = match self.pending.lock() {
             Ok(pending) => pending,
@@ -139,35 +144,34 @@ impl ContextMenuState {
             }
         };
         let request = pending.as_mut()?;
-        match id {
-            MENU_EXTRA_TAGS => {
-                request.action = Some(ContextMenuAction::ExtraTags);
-                None
+        let (selection, text) = match id {
+            MENU_EXTRA_TAGS => (Some(Some(ContextMenuAction::ExtraTags)), None),
+            MENU_DELETE_FILES => (Some(Some(ContextMenuAction::DeleteFiles)), None),
+            MENU_COPY_TITLE => (Some(None), copy_label(&request.labels, "title")),
+            MENU_COPY_ARTIST => (Some(None), copy_label(&request.labels, "artist")),
+            MENU_COPY_ALBUM_ARTIST => (Some(None), copy_label(&request.labels, "albumArtist")),
+            MENU_COPY_ALBUM => (Some(None), copy_label(&request.labels, "album")),
+            MENU_COPY_PATH => (Some(None), non_empty(&request.track_path)),
+            MENU_COPY_ALL => (Some(None), Some(copy_all_details(request))),
+            _ => (None, None),
+        };
+        if let Some(selection) = selection {
+            if let Some(sender) = request.selection.take() {
+                if let Some(action) = selection {
+                    let _ = sender.send(action);
+                }
             }
-            MENU_DELETE_FILES => {
-                request.action = Some(ContextMenuAction::DeleteFiles);
-                None
-            }
-            MENU_COPY_TITLE => copy_label(&request.labels, "title"),
-            MENU_COPY_ARTIST => copy_label(&request.labels, "artist"),
-            MENU_COPY_ALBUM_ARTIST => copy_label(&request.labels, "albumArtist"),
-            MENU_COPY_ALBUM => copy_label(&request.labels, "album"),
-            MENU_COPY_PATH => non_empty(&request.track_path),
-            MENU_COPY_ALL => Some(copy_all_details(request)),
-            _ => None,
         }
+        text
     }
 
-    /// Clear the active request after native popup closure and return its modal
-    /// action, or null for dismissal/copy. A poisoned state is logged and
-    /// degraded to null rather than panicking the renderer command.
-    pub fn finish(&self) -> Option<ContextMenuAction> {
-        match self.pending.lock() {
-            Ok(mut pending) => pending.take().and_then(|request| request.action),
-            Err(_) => {
-                tracing::error!("track context menu state poisoned; returning null");
-                None
-            }
+    /// Clear the active request after its selection is delivered or the native
+    /// popup is dismissed. A poisoned state is logged rather than panicking.
+    pub fn finish(&self) {
+        if let Ok(mut pending) = self.pending.lock() {
+            pending.take();
+        } else {
+            tracing::error!("track context menu state poisoned while clearing request");
         }
     }
 }
@@ -255,11 +259,11 @@ pub fn handle_context_menu_event(app: &AppHandle, id: &str) {
 
 /// `track:context-menu` / `showTrackContextMenu()`. Honors Electron's E2E
 /// override, otherwise shows the same native menu and returns the modal action
-/// or null for dismissal/copy. `muda`/Tauri dispatches selection through the
-/// global listener while the platform popup is active; real-display verification
-/// remains required for cross-platform dismissal timing.
+/// or null for dismissal/copy. Tauri queues the global menu event after
+/// `popup_menu()` returns, so the command waits briefly for that deferred event
+/// instead of clearing its request before the click can be delivered.
 #[tauri::command]
-pub fn track_context_menu(
+pub async fn track_context_menu(
     app: AppHandle,
     state: State<'_, ContextMenuState>,
     track_path: String,
@@ -272,14 +276,17 @@ pub fn track_context_menu(
         return Ok(None);
     };
 
-    state.begin(track_path, labels)?;
-    let popup = (|| -> Result<(), ApiError> {
-        let menu = build_track_context_menu(&app)?;
-        window.popup_menu(&menu)?;
-        Ok(())
-    })();
-    let action = state.finish();
-    popup?;
+    let selection = state.begin(track_path, labels)?;
+    let menu = build_track_context_menu(&app)?;
+    if let Err(error) = window.popup_menu(&menu) {
+        state.finish();
+        return Err(error.into());
+    }
+    let action = tokio::time::timeout(Duration::from_millis(500), selection)
+        .await
+        .ok()
+        .and_then(Result::ok);
+    state.finish();
     Ok(action)
 }
 
@@ -292,6 +299,22 @@ pub fn window_focused() {}
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::future::Future;
+
+    /// Intent: native folder selection must yield control while the operating
+    /// system dialog is open; a synchronous command can block Tauri's desktop
+    /// event loop and leave both the window and picker unresponsive.
+    #[test]
+    fn folder_dialog_command_is_async() {
+        fn assert_async_command<F, Fut>(_: F)
+        where
+            F: Fn(AppHandle) -> Fut,
+            Fut: Future<Output = Option<String>>,
+        {
+        }
+
+        assert_async_command(dialog_open_folder);
+    }
 
     /// Intent: the E2E override short-circuits the GUI dialog so automated
     /// tests (Playwright/WebdriverIO) can pick a library folder without a
@@ -352,18 +375,15 @@ mod tests {
             ("year".to_string(), "2024".to_string()),
             ("track".to_string(), "03".to_string()),
         ]);
-        state.begin("/music/Song.mp3".to_string(), labels).unwrap();
+        let receiver = state.begin("/music/Song.mp3".to_string(), labels).unwrap();
         assert_eq!(
             state.handle_menu_item(MENU_COPY_ALL).as_deref(),
             Some(
                 "Title: Song\nArtist: -\nAlbum Artist: Album Artist\nAlbum: -\nYear: 2024\nTrack: 03\nGenre: -\nPath: /music/Song.mp3"
             )
         );
-        assert_eq!(
-            state.finish(),
-            None,
-            "copy returns null, not a modal action"
-        );
+        assert!(receiver.blocking_recv().is_err());
+        state.finish();
     }
 
     /// Intent: only the two modal menu items resolve a renderer action; menu
@@ -372,12 +392,59 @@ mod tests {
     #[test]
     fn menu_state_returns_action_and_clears_after_finish() {
         let state = ContextMenuState::default();
-        state
+        let receiver = state
             .begin("/music/Song.mp3".to_string(), Default::default())
             .unwrap();
         assert_eq!(state.handle_menu_item(MENU_EXTRA_TAGS), None);
-        assert_eq!(state.finish(), Some(ContextMenuAction::ExtraTags));
-        assert_eq!(state.finish(), None);
+        assert_eq!(
+            receiver.blocking_recv().unwrap(),
+            ContextMenuAction::ExtraTags,
+            "the command must receive a menu selection delivered after popup_menu returns"
+        );
+        state.finish();
+    }
+
+    /// Intent: every selectable native item must complete the active request;
+    /// otherwise the command can remain stuck or clear the labels before the
+    /// renderer action / clipboard effect is observed.
+    #[test]
+    fn every_context_menu_item_completes_the_active_request() {
+        let labels = HashMap::from([
+            ("title".to_string(), "Title".to_string()),
+            ("artist".to_string(), "Artist".to_string()),
+            ("albumArtist".to_string(), "Album Artist".to_string()),
+            ("album".to_string(), "Album".to_string()),
+        ]);
+
+        let state = ContextMenuState::default();
+        let receiver = state
+            .begin("/music/Song.mp3".to_string(), labels.clone())
+            .unwrap();
+        assert_eq!(state.handle_menu_item(MENU_DELETE_FILES), None);
+        assert_eq!(
+            receiver.blocking_recv().unwrap(),
+            ContextMenuAction::DeleteFiles
+        );
+        state.finish();
+
+        let copy_cases = [
+            (MENU_COPY_TITLE, "Title"),
+            (MENU_COPY_ARTIST, "Artist"),
+            (MENU_COPY_ALBUM_ARTIST, "Album Artist"),
+            (MENU_COPY_ALBUM, "Album"),
+            (MENU_COPY_PATH, "/music/Song.mp3"),
+        ];
+        for (menu_id, expected_text) in copy_cases {
+            let receiver = state
+                .begin("/music/Song.mp3".to_string(), labels.clone())
+                .unwrap();
+            assert_eq!(
+                state.handle_menu_item(menu_id).as_deref(),
+                Some(expected_text)
+            );
+            assert!(receiver.blocking_recv().is_err());
+            state.finish();
+        }
     }
 
     /// Intent: concurrent popups must fail loud rather than overwrite labels /
@@ -385,13 +452,13 @@ mod tests {
     #[test]
     fn menu_state_rejects_overlapping_request() {
         let state = ContextMenuState::default();
-        state
+        let _receiver = state
             .begin("/music/one.mp3".to_string(), Default::default())
             .unwrap();
         let error = state
             .begin("/music/two.mp3".to_string(), Default::default())
             .unwrap_err();
         assert_eq!(error.to_string(), "track context menu already active");
-        assert_eq!(state.finish(), None);
+        state.finish();
     }
 }
