@@ -160,7 +160,7 @@ describe("BatchExtraTagsEditor", () => {
     expect(remaining.length).toBe(1);
   });
 
-  it("switches delete visibility between rows without leaving a fading button behind", async () => {
+  it("keeps only the active row's delete button visible and clears it on mouse leave", async () => {
     window.api = {
       readExtraTags: vi.fn().mockResolvedValue([
         { key: "MOOD", value: "Bright", source: "vorbis" },
@@ -179,13 +179,22 @@ describe("BatchExtraTagsEditor", () => {
 
     const deleteButtons = await screen.findAllByLabelText("Remove tag");
     expect(deleteButtons).toHaveLength(2);
-    for (const button of deleteButtons) {
-      expect(button.classList.contains("opacity-0")).toBe(true);
-      expect(button.classList.contains("group-hover:opacity-100")).toBe(true);
-      expect(button.classList.contains("transition-colors")).toBe(true);
-      expect(button.classList.contains("transition-all")).toBe(false);
-      expect(button.classList.contains("transition-opacity")).toBe(false);
-    }
+    const firstRow = deleteButtons[0].parentElement;
+    const secondRow = deleteButtons[1].parentElement;
+    expect(firstRow).not.toBeNull();
+    expect(secondRow).not.toBeNull();
+
+    fireEvent.mouseEnter(firstRow!);
+    expect(deleteButtons[0].classList.contains("opacity-100")).toBe(true);
+    expect(deleteButtons[1].classList.contains("opacity-0")).toBe(true);
+
+    fireEvent.mouseEnter(secondRow!);
+    expect(deleteButtons[0].classList.contains("opacity-0")).toBe(true);
+    expect(deleteButtons[1].classList.contains("opacity-100")).toBe(true);
+
+    fireEvent.mouseLeave(secondRow!);
+    expect(deleteButtons[0].classList.contains("opacity-0")).toBe(true);
+    expect(deleteButtons[1].classList.contains("opacity-0")).toBe(true);
   });
 
   it("calls onSave with per-track updates when Apply is clicked", async () => {

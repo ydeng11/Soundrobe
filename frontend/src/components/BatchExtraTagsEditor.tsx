@@ -26,6 +26,7 @@ export function BatchExtraTagsEditor({
   const [originalRows, setOriginalRows] = useState<DraftRow[]>([createNewRow()]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [activeRowId, setActiveRowId] = useState<string | null>(null);
   const newKeyRef = useRef<HTMLInputElement | null>(null);
 
   const trackCount = tracks.length;
@@ -214,7 +215,10 @@ export function BatchExtraTagsEditor({
           <div />
         </div>
 
-        <div className="flex-1 overflow-y-auto">
+        <div
+          className="flex-1 overflow-y-auto"
+          onMouseLeave={() => setActiveRowId(null)}
+        >
           {loading ? (
             <div className="h-32 flex items-center justify-center text-[12px] text-text-muted">
               Loading tags...
@@ -233,7 +237,12 @@ export function BatchExtraTagsEditor({
                 key={row.id}
                 row={row}
                 trackCount={trackCount}
+                active={activeRowId === row.id}
                 newKeyRef={row === rows[rows.length - 1] ? newKeyRef : undefined}
+                onActivate={() => setActiveRowId(row.id)}
+                onDeactivate={() =>
+                  setActiveRowId((current) => (current === row.id ? null : current))
+                }
                 onUpdate={(patch) => updateRow(row.id, patch)}
                 onRemove={() => removeRow(row.id)}
               />
@@ -279,13 +288,19 @@ export function BatchExtraTagsEditor({
 function BatchExtraTagRow({
   row,
   trackCount,
+  active,
   newKeyRef,
+  onActivate,
+  onDeactivate,
   onUpdate,
   onRemove,
 }: {
   row: DraftRow;
   trackCount: number;
+  active: boolean;
   newKeyRef?: React.Ref<HTMLInputElement>;
+  onActivate: () => void;
+  onDeactivate: () => void;
   onUpdate: (patch: Partial<DraftRow>) => void;
   onRemove: () => void;
 }) {
@@ -295,7 +310,11 @@ function BatchExtraTagRow({
   const hasOrigin = originCount > 0;
 
   return (
-    <div className="group grid grid-cols-[220px_1fr_44px] items-center gap-0 px-5 min-h-[42px] border-b border-border/40 bg-white">
+    <div
+      className="grid grid-cols-[220px_1fr_44px] items-center gap-0 px-5 min-h-[42px] border-b border-border/40 bg-white"
+      onMouseEnter={onActivate}
+      onMouseLeave={onDeactivate}
+    >
       <div className="flex items-center gap-1.5">
         <input
           ref={newKeyRef}
@@ -323,7 +342,7 @@ function BatchExtraTagRow({
       <button
         type="button"
         onClick={onRemove}
-        className="w-8 h-8 rounded-md flex items-center justify-center text-text-muted opacity-0 group-hover:opacity-100 hover:bg-red-50 hover:text-[#ff3b30] transition-colors focus:opacity-100"
+        className={`w-8 h-8 rounded-md flex items-center justify-center text-text-muted ${active ? "opacity-100" : "opacity-0"} hover:bg-red-50 hover:text-[#ff3b30] transition-colors focus:opacity-100`}
         aria-label="Remove tag"
         title="Remove tag"
       >
