@@ -386,7 +386,7 @@ fn choose_by_duration(
                 .is_some_and(|remote| durations_match(local_duration, remote))
         })
         .collect::<Vec<_>>();
-    (matches.len() == 1).then_some(matches[0])
+    if matches.len() == 1 { Some(matches[0]) } else { None }
 }
 
 #[allow(clippy::too_many_arguments)]
