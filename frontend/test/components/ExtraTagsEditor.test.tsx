@@ -150,4 +150,30 @@ describe("ExtraTagsEditor", () => {
     expect(window.confirm).toHaveBeenCalled();
     expect(onClose).toHaveBeenCalled();
   });
+
+  describe("delete button visibility", () => {
+    it("uses group-hover and focus-visible (not focus) to reveal the button", async () => {
+      render(
+        <ExtraTagsEditor
+          track={makeTrack()}
+          saving={false}
+          onClose={vi.fn()}
+          onSave={vi.fn()}
+        />,
+      );
+
+      await screen.findByDisplayValue("MOOD");
+      const btn = screen.getByLabelText("Delete tag");
+
+      // Default state: invisible
+      expect(btn.className).toContain("opacity-0");
+      // Visibility mechanism relies on parent group hover
+      expect(btn.className).toContain("group-hover:opacity-100");
+      // Uses focus-visible (keyboard-only focus indicator, not mouse click focus)
+      expect(btn.className).toContain("focus-visible:opacity-100");
+      // Must NOT use plain focus:opacity-100 — that is the root cause of the bug
+      // where the button stays visible after cursor moves away from the row
+      expect(btn.className).not.toContain("focus:opacity-100");
+    });
+  });
 });

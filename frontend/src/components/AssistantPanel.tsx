@@ -312,13 +312,22 @@ export function AssistantPanel({
     setApplying(true);
     try {
       const result = await window.api.assistantApplyActions(batchId);
+      const detail =
+        !result.success && Array.isArray(result.results)
+          ? result.results
+              .map(
+                (r: { trackPath?: string; error?: string }) =>
+                  `  • ${r.trackPath ?? "?"}: ${r.error ?? "unknown"}`,
+              )
+              .join("\n")
+          : "";
       setMessages((prev) => [
         ...prev,
         {
           role: "system",
           content: result.success
             ? `✅ Applied action batch`
-            : `⚠️ Failed to apply: ${result.error}`,
+            : `⚠️ Failed to apply: ${result.error}${detail ? `\n\nDetails:\n${detail}` : ""}`,
           type: result.success ? "text" : "error",
         },
       ]);

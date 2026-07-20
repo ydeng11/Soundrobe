@@ -160,6 +160,33 @@ describe("BatchExtraTagsEditor", () => {
     expect(remaining.length).toBe(1);
   });
 
+  it("uses focus-visible (not focus) to reveal the delete button on keyboard focus", async () => {
+    window.api = {
+      readExtraTags: vi.fn().mockResolvedValue([
+        { key: "MOOD", value: "Bright", source: "vorbis" },
+      ]),
+    } as unknown as Window["api"];
+
+    render(
+      <BatchExtraTagsEditor
+        tracks={[makeTrack()]}
+        saving={false}
+        onClose={vi.fn()}
+        onSave={vi.fn()}
+      />,
+    );
+
+    const btn = await screen.findByLabelText("Remove tag");
+
+    // Default state: invisible
+    expect(btn.className).toContain("opacity-0");
+    // Uses focus-visible (keyboard-only focus indicator)
+    expect(btn.className).toContain("focus-visible:opacity-100");
+    // Must NOT use plain focus:opacity-100 — that is the cause of the bug
+    // where the button stays visible after cursor moves away from the row
+    expect(btn.className).not.toContain("focus:opacity-100");
+  });
+
   it("keeps only the active row's delete button visible and clears it on mouse leave", async () => {
     window.api = {
       readExtraTags: vi.fn().mockResolvedValue([

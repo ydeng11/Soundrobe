@@ -359,6 +359,7 @@ fn find_external_cover(album_path: &Path) -> Option<PathBuf> {
     if !album_path.exists() {
         return None;
     }
+    // First try standard cover names
     for name in COVER_NAMES {
         for extension in COVER_EXTENSIONS {
             let candidate = album_path.join(format!("{name}.{extension}"));
@@ -367,7 +368,40 @@ fn find_external_cover(album_path: &Path) -> Option<PathBuf> {
             }
         }
     }
-    None
+    // Fallback: scan the album directory for any image file that looks
+    // like a cover (largest jpg/png, ignoring hidden files and artist.jpg).
+    // This catches non-standard-named covers like 狂想曲.jpg.
+    let mut best: Option<PathBuf> = None;
+    let mut best_size: u64 = 0;
+    if let Ok(entries) = fs::read_dir(album_path) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if !entry.file_type().map(|t| t.is_file()).unwrap_or(false) {
+                continue;
+            }
+            let name = entry.file_name();
+            let name_str = name.to_string_lossy();
+            if name_str.starts_with('.') || name_str.eq_ignore_ascii_case("artist.jpg") {
+                continue;
+            }
+            let ext = path
+                .extension()
+                .and_then(|e| e.to_str())
+                .unwrap_or_default()
+                .to_ascii_lowercase();
+            if !COVER_EXTENSIONS.contains(&ext.as_str()) {
+                continue;
+            }
+            if let Ok(meta) = fs::metadata(&path) {
+                let len = meta.len();
+                if len >= 1024 && len > best_size {
+                    best_size = len;
+                    best = Some(path);
+                }
+            }
+        }
+    }
+    best
 }
 
 fn is_cover_suppressed(album_path: &Path) -> bool {

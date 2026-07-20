@@ -8,9 +8,11 @@ use crate::state::write_queue::WriteQueue;
 use chardetng::EncodingDetector;
 use serde::Deserialize;
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use std::time::Duration;
 use tauri::State;
+use tokio::sync::Semaphore;
 
 pub const DEFAULT_BASE_URL: &str = "https://lrclib.net/api";
 const USER_AGENT: &str = concat!(
@@ -69,18 +71,15 @@ pub async fn download_album_lyrics_at(
     apply_album_lyrics_at(album_path, Some(base_url), queue).await
 }
 
-pub async fn apply_album_lyrics_at(
-    album_path: &Path,
-    base_url: Option<&str>,
-    queue: &WriteQueue,
-) -> usize {
+/// Collect audio files in a directory (shared helper for lyrics functions).
+fn collect_audio_files_in(album_path: &Path) -> Vec<PathBuf> {
     let Ok(entries) = fs::read_dir(album_path) else {
-        return 0;
+        return Vec::new();
     };
-    let mut audio_files = Vec::new();
+    let mut files = Vec::new();
     for entry in entries {
         let Ok(entry) = entry else {
-            return 0;
+            continue;
         };
         let path = entry.path();
         let extension = path
@@ -89,34 +88,88 @@ pub async fn apply_album_lyrics_at(
             .unwrap_or_default()
             .to_ascii_lowercase();
         let Ok(file_type) = entry.file_type() else {
-            return 0;
+            continue;
         };
         if file_type.is_file() && AUDIO_EXTENSIONS.contains(&extension.as_str()) {
-            audio_files.push(path);
+            files.push(path);
         }
     }
-    audio_files.sort();
-    let mut jobs = Vec::new();
+    files.sort();
+    files
+}
+
+/// Fetch lyrics for an album, returning (path, lyrics) pairs.
+///
+/// Checks local `.lrc` / `.txt` files first, then fetches from the remote
+/// lyrics API in parallel (up to 5 concurrent requests).
+pub async fn fetch_album_lyrics(
+    album_path: &Path,
+    base_url: Option<&str>,
+) -> Vec<(PathBuf, String)> {
+    let audio_files = collect_audio_files_in(album_path);
+    if audio_files.is_empty() {
+        return Vec::new();
+    }
+    const MAX_CONCURRENT: usize = 5;
+    let semaphore = Arc::new(Semaphore::new(MAX_CONCURRENT));
+    let mut handles = Vec::with_capacity(audio_files.len());
+
     for path in audio_files {
-        let mut lyrics = read_local_lyrics(&path);
-        if lyrics.is_none() {
-            if let (Some(base_url), Ok(metadata)) = (base_url, read_track_metadata(&path)) {
-                if let (Some(title), Some(artist)) = (metadata.title, metadata.artist) {
-                    lyrics = fetch_lyrics_at(
-                        base_url,
-                        &title,
-                        &artist,
-                        metadata.album.as_deref(),
-                        (metadata.duration > 0.0).then_some(metadata.duration.round()),
-                    )
-                    .await;
+        let permit = match Arc::clone(&semaphore).acquire_owned().await {
+            Ok(p) => p,
+            Err(_) => break,
+        };
+        let base_url = base_url.map(|s| s.to_string());
+
+        handles.push(tokio::spawn(async move {
+            let _permit = permit;
+            // Check local lyrics first (blocking I/O, spawn to avoid holding up
+            // the async runtime).
+            let local_path = path.clone();
+            let mut lyrics = tokio::task::spawn_blocking(move || {
+                read_local_lyrics(&local_path)
+            })
+            .await
+            .ok()
+            .flatten();
+
+            if lyrics.is_none() {
+                if let Some(ref base_url) = base_url {
+                    if let Ok(metadata) = read_track_metadata(&path) {
+                        if let (Some(title), Some(artist)) = (metadata.title, metadata.artist) {
+                            lyrics = fetch_lyrics_at(
+                                base_url,
+                                &title,
+                                &artist,
+                                metadata.album.as_deref(),
+                                (metadata.duration > 0.0)
+                                    .then_some(metadata.duration.round()),
+                            )
+                            .await;
+                        }
+                    }
                 }
             }
-        }
-        if let Some(lyrics) = lyrics.filter(|lyrics| !lyrics.is_empty()) {
-            jobs.push((path, lyrics));
+
+            lyrics.filter(|l| !l.is_empty()).map(|l| (path, l))
+        }));
+    }
+
+    let mut results = Vec::with_capacity(handles.len());
+    for handle in handles {
+        if let Ok(Some(pair)) = handle.await {
+            results.push(pair);
         }
     }
+    results
+}
+
+pub async fn apply_album_lyrics_at(
+    album_path: &Path,
+    base_url: Option<&str>,
+    queue: &WriteQueue,
+) -> usize {
+    let jobs = fetch_album_lyrics(album_path, base_url).await;
     if jobs.is_empty() {
         return 0;
     }

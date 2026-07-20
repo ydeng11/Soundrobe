@@ -342,7 +342,7 @@ function BatchExtraTagRow({
       <button
         type="button"
         onClick={onRemove}
-        className={`w-8 h-8 rounded-md flex items-center justify-center text-text-muted ${active ? "opacity-100" : "opacity-0"} hover:bg-red-50 hover:text-[#ff3b30] transition-colors focus:opacity-100`}
+        className={`w-8 h-8 rounded-md flex items-center justify-center text-text-muted ${active ? "opacity-100" : "opacity-0"} hover:bg-red-50 hover:text-[#ff3b30] transition-colors focus-visible:opacity-100`}
         aria-label="Remove tag"
         title="Remove tag"
       >

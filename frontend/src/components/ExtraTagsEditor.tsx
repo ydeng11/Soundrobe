@@ -357,7 +357,7 @@ export function ExtraTagsEditor({
                 <button
                   type="button"
                   onClick={() => markDeleted(row.id)}
-                  className="w-8 h-8 rounded-md flex items-center justify-center text-text-muted opacity-0 group-hover:opacity-100 hover:bg-red-50 hover:text-[#ff3b30] transition-all focus:opacity-100"
+                  className="w-8 h-8 rounded-md flex items-center justify-center text-text-muted opacity-0 group-hover:opacity-100 hover:bg-red-50 hover:text-[#ff3b30] transition-all focus-visible:opacity-100"
                   aria-label={row.deleted ? "Restore tag" : "Delete tag"}
                   title={row.deleted ? "Restore tag" : "Delete tag"}
                 >

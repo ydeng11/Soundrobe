@@ -7,7 +7,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 
 const OPENROUTER_BASE: &str = "https://openrouter.ai/api/v1";
-const DEFAULT_TIMEOUT: Duration = Duration::from_secs(30);
+const DEFAULT_TIMEOUT: Duration = Duration::from_secs(180);
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct ChatMessage {
@@ -116,6 +116,11 @@ impl OpenRouterClient {
     pub fn with_generation(mut self, temperature: f64, max_tokens: u32) -> Self {
         self.temperature = temperature;
         self.max_tokens = max_tokens;
+        self
+    }
+
+    pub fn with_timeout(mut self, timeout: Duration) -> Self {
+        self.timeout = timeout;
         self
     }
 

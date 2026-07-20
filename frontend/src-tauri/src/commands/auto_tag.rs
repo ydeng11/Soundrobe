@@ -3,6 +3,7 @@
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use tauri::{AppHandle, Emitter, Manager, State};
@@ -11,7 +12,7 @@ use crate::{
     commands::{
         covers::download_album_artwork_at,
         library::collect_audio_files,
-        lyrics::{apply_album_lyrics_at, DEFAULT_BASE_URL},
+        lyrics::{fetch_album_lyrics, DEFAULT_BASE_URL},
         mutations::{write_track_queued, TrackPatch},
         tracks::read_album,
     },
@@ -1426,20 +1427,44 @@ pub async fn resolve_and_apply_album(
     check_cancelled(cancelled)?;
     progress(9, "Applying tags...");
     let candidate = convert_candidate_chinese(&candidate, config.chinese_script.as_deref());
-    let written = apply_candidate_tags_reported(album_path, &candidate, services.queue, |path| {
-        let path = Path::new(path);
+
+    // Fetch lyrics before writing tags so both can be written in one pass,
+    // eliminating a separate file rewrite on the lyrics pass.
+    let lyrics_url = if config.lyrics_download_enabled == Some(true) {
+        Some(config.lyrics_api_url.as_deref().unwrap_or(DEFAULT_BASE_URL))
+    } else {
+        None
+    };
+    let fetched_lyrics = fetch_album_lyrics(album_path, lyrics_url).await;
+    if !fetched_lyrics.is_empty() {
         report(
-            "write",
-            format!(
-                "Wrote tags: {}",
-                path.file_name()
-                    .and_then(|name| name.to_str())
-                    .unwrap_or_default()
-            ),
-            Some(serde_json::json!({"path": path.to_string_lossy()})),
+            "source",
+            format!("Fetched lyrics for {} track(s)", fetched_lyrics.len()),
+            Some(serde_json::json!({"source": "lyrics", "count": fetched_lyrics.len()})),
         );
-    })
+    }
+
+    let written = apply_candidate_tags_reported(
+        album_path,
+        &candidate,
+        services.queue,
+        fetched_lyrics.into_iter().collect::<HashMap<_, _>>(),
+        |path| {
+            let path = Path::new(path);
+            report(
+                "write",
+                format!(
+                    "Wrote tags: {}",
+                    path.file_name()
+                        .and_then(|name| name.to_str())
+                        .unwrap_or_default()
+                ),
+                Some(serde_json::json!({"path": path.to_string_lossy()})),
+            );
+        },
+    )
     .await?;
+
     if config.remote_lookup_enabled != Some(false)
         || config.discogs_enabled != Some(false)
         || config.theaudiodb_api_key.is_some()
@@ -1458,19 +1483,6 @@ pub async fn resolve_and_apply_album(
         }
     }
     check_cancelled(cancelled)?;
-    let lyrics_url = if config.lyrics_download_enabled == Some(true) {
-        Some(config.lyrics_api_url.as_deref().unwrap_or(DEFAULT_BASE_URL))
-    } else {
-        None
-    };
-    let lyrics_written = apply_album_lyrics_at(album_path, lyrics_url, services.queue).await;
-    if lyrics_written > 0 {
-        report(
-            "source",
-            format!("Applied lyrics to {lyrics_written} track(s)"),
-            Some(serde_json::json!({"source": "lyrics", "count": lyrics_written})),
-        );
-    }
     Ok(AutoTagRunResult { candidate, written })
 }
 
@@ -1605,13 +1617,21 @@ pub async fn apply_candidate_tags(
     candidate: &AlbumCandidate,
     queue: &WriteQueue,
 ) -> Result<usize, ApiError> {
-    apply_candidate_tags_reported(album_path, candidate, queue, |_| {}).await
+    apply_candidate_tags_reported(
+        album_path,
+        candidate,
+        queue,
+        HashMap::new(),
+        |_| {},
+    )
+    .await
 }
 
 async fn apply_candidate_tags_reported(
     album_path: &Path,
     candidate: &AlbumCandidate,
     queue: &WriteQueue,
+    lyrics_map: HashMap<PathBuf, String>,
     mut report_write: impl FnMut(&str),
 ) -> Result<usize, ApiError> {
     let fallback_artist = album_path
@@ -1671,6 +1691,13 @@ async fn apply_candidate_tags_reported(
             if let Some(track_id) = &track.musicbrainz_track_id {
                 fields.insert("musicbrainzTrackId".into(), track_id.clone().into());
             }
+        }
+        // Include lyrics in the same write pass, avoiding a separate file rewrite.
+        if let Some(lyrics) = lyrics_map.get(Path::new(&file_path)) {
+            fields.insert("lyrics".into(), serde_json::json!(lyrics));
+        } else {
+            // Only omit if no lyrics at all; preserve any existing lyrics field
+            // by not inserting a lyrics key (serde default = Patch::Omitted).
         }
         let patch: TrackPatch = serde_json::from_value(fields.into())
             .map_err(|error| ApiError::WriteTask(error.to_string()))?;
