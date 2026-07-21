@@ -51,7 +51,7 @@ fe-install:
 # Start Tauri with Vite HMR — hot-reloads on save
 # .env vars (LLM_API_KEY, LLM_MODEL) loaded automatically via set dotenv-load
 fe-dev: _fe-deps-check
-    cd frontend && SOUNDROBE_LOG=debug npm run dev
+    cd frontend && SOUNDROBE_LOG=trace npm run dev
 
 # Build the Tauri application and platform bundle
 fe-build: _fe-deps-check
@@ -83,6 +83,55 @@ fe-smoke-assistant: _fe-deps-check
 # intentionally a local display smoke, separate from cross-platform CI E2E.
 fe-smoke-cover-picker: _fe-deps-check
     cd frontend && npm run build:e2e && npx wdio run wdio.conf.ts --spec e2e-tauri/live-cover-picker.spec.ts
+
+# View or set the LLM model used by the AI Assistant.
+# With no argument, shows the current model and key status.
+# With a model name, updates .env.local to use that model.
+# Examples:
+#   just fe-model                     # show current model/key status
+#   just fe-model openai/gpt-4o      # switch to GPT-4o
+#   just fe-model anthropic/claude-3  # switch to Claude 3
+fe-model model_name="":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    ENV_FILE="frontend/.env.local"
+    if [ -n "{{ model_name }}" ]; then
+        # Update — set or replace LLM_MODEL in .env.local
+        if [ -f "$ENV_FILE" ] && grep -q '^LLM_MODEL=' "$ENV_FILE" 2>/dev/null; then
+            if [[ "$(uname)" == "Darwin" ]]; then
+                sed -i '' -E "s|^LLM_MODEL=.*|LLM_MODEL={{ model_name }}|" "$ENV_FILE"
+            else
+                sed -i -E "s|^LLM_MODEL=.*|LLM_MODEL={{ model_name }}|" "$ENV_FILE"
+            fi
+            echo "✓ LLM_MODEL updated to {{ model_name }} in $ENV_FILE"
+        else
+            echo "LLM_MODEL={{ model_name }}" >> "$ENV_FILE"
+            echo "✓ LLM_MODEL={{ model_name }} appended to $ENV_FILE"
+        fi
+    else
+        # Show current state
+        if [ -f "$ENV_FILE" ]; then
+            current=$(grep '^LLM_MODEL=' "$ENV_FILE" | cut -d= -f2- || true)
+            api_key=$(grep '^LLM_API_KEY=' "$ENV_FILE" | cut -d= -f2- | cut -c1-12 || true)
+            echo "Model:  ${current:-not set}"
+            if [ -n "$api_key" ]; then
+                echo "API key: ${api_key}... (present)"
+            else
+                echo "API key: not set"
+            fi
+            echo ""
+            echo "Usage:  just fe-model <model-name>"
+            echo "        just fe-model openai/gpt-4o"
+            echo ""
+            echo "See: https://openrouter.ai/models for available models"
+        else
+            echo "No .env.local found. Create one with:"
+            echo '  LLM_API_KEY=sk-or-v1-...'
+            echo '  LLM_MODEL=openai/gpt-4o'
+            echo ""
+            echo "Then run:  just fe-model <model-name>"
+        fi
+    fi
 
 # Build platform distributable (requires: fe-build)
 # Targets: mac, win, linux — e.g. just fe-dist mac

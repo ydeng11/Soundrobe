@@ -8,7 +8,7 @@ use crate::error::ApiError;
 use crate::state::write_queue::WriteQueue;
 use lofty::ape::{ApeFile, ApeItem, ApeTag};
 use lofty::config::{ParseOptions, WriteOptions};
-use lofty::file::AudioFile;
+use lofty::file::{AudioFile, TaggedFileExt};
 use lofty::flac::FlacFile;
 use lofty::id3::v2::{Frame, FrameId, Id3v2Tag, TextInformationFrame, UnsynchronizedTextFrame};
 use lofty::iff::wav::WavFile;
@@ -16,6 +16,8 @@ use lofty::mp4::{Atom, AtomData, AtomIdent, Ilst, Mp4File};
 use lofty::mpeg::MpegFile;
 use lofty::ogg::{OpusFile, VorbisFile};
 use lofty::tag::{Accessor, ItemValue, TagExt};
+use lofty::probe::Probe;
+use lofty::tag::TagType;
 use lofty::TextEncoding;
 use serde::{Deserialize, Deserializer, Serialize};
 use std::borrow::Cow;
@@ -380,9 +382,100 @@ pub(crate) async fn write_track_queued(
     patch: TrackPatch,
 ) -> Result<(), ApiError> {
     validated_track_extension(&path)?;
+    let display_path = path.to_string_lossy().to_string();
     queue
         .run(async move {
-            tokio::task::spawn_blocking(move || write_track_dispatch(&path, &patch))
+            tokio::task::spawn_blocking(move || {
+                let write_start = std::time::Instant::now();
+                let result = write_track_dispatch(&path, &patch);
+                let elapsed = write_start.elapsed();
+                match &result {
+                    Ok(_) => tracing::debug!(
+                        path = %display_path,
+                        elapsed_us = elapsed.as_micros(),
+                        "track write done"
+                    ),
+                    Err(e) => tracing::warn!(
+                        path = %display_path,
+                        elapsed_us = elapsed.as_micros(),
+                        error = %e,
+                        "track write failed"
+                    ),
+                }
+                result
+            })
+                .await
+                .map_err(|error| ApiError::WriteTask(error.to_string()))?
+        })
+        .await?;
+    Ok(())
+}
+
+/// Remove all embedded cover art pictures from a single audio track file.
+/// Uses lofty's unified `Probe` + `TaggedFile` API to handle all formats.
+pub(crate) fn remove_embedded_cover_at(path: &Path) -> Result<(), ApiError> {
+    let mut tagged_file = Probe::open(path)
+        .map_err(|e| {
+            ApiError::WriteTask(format!("Failed to open track for cover removal: {e}"))
+        })?
+        .options(ParseOptions::new().read_properties(false))
+        .read()
+        .map_err(|e| {
+            ApiError::WriteTask(format!("Failed to read track for cover removal: {e}"))
+        })?;
+
+    // Collect tag types first to avoid borrow conflicts with tag_mut.
+    let tag_types: Vec<TagType> = tagged_file.tags().iter().map(|t| t.tag_type()).collect();
+    let mut removed_any = false;
+    for tag_type in &tag_types {
+        if let Some(tag) = tagged_file.tag_mut(*tag_type) {
+            while !tag.pictures().is_empty() {
+                tag.remove_picture(0);
+                removed_any = true;
+            }
+        }
+    }
+
+    if !removed_any {
+        return Err(ApiError::Message(
+            "No embedded cover art found in this track".into(),
+        ));
+    }
+
+    tagged_file
+        .save_to_path(path, WriteOptions::new())
+        .map_err(|e| ApiError::WriteTask(format!("Failed to save track after cover removal: {e}")))?;
+
+    Ok(())
+}
+
+/// Remove embedded cover art from a single track, queued through the global write lock.
+pub(crate) async fn remove_embedded_cover_queued(
+    queue: &WriteQueue,
+    path: PathBuf,
+) -> Result<(), ApiError> {
+    let display_path = path.to_string_lossy().to_string();
+    queue
+        .run(async move {
+            tokio::task::spawn_blocking(move || {
+                let write_start = std::time::Instant::now();
+                let result = remove_embedded_cover_at(&path);
+                let elapsed = write_start.elapsed();
+                match &result {
+                    Ok(_) => tracing::debug!(
+                        path = %display_path,
+                        elapsed_us = elapsed.as_micros(),
+                        "embedded cover removed"
+                    ),
+                    Err(e) => tracing::warn!(
+                        path = %display_path,
+                        elapsed_us = elapsed.as_micros(),
+                        error = %e,
+                        "embedded cover removal failed"
+                    ),
+                }
+                result
+            })
                 .await
                 .map_err(|error| ApiError::WriteTask(error.to_string()))?
         })
@@ -411,10 +504,16 @@ async fn batch_write_queued(queue: &WriteQueue, updates: Vec<TrackUpdate>) -> Re
                 tokio::task::spawn_blocking(move || {
                     for batch in folder_updates.chunks(SUBBATCH_SIZE) {
                         for update in batch {
+                            let write_start = std::time::Instant::now();
                             write_track_dispatch(
                                 Path::new(&update.path),
                                 &update.fields,
                             )?;
+                            tracing::debug!(
+                                path = %update.path,
+                                elapsed_us = write_start.elapsed().as_micros(),
+                                "batch track write done"
+                            );
                         }
                     }
                     Ok::<(), ApiError>(())
@@ -479,9 +578,28 @@ pub(crate) async fn write_extra_tags_queued(
     tags: Vec<ExtraTagUpdate>,
 ) -> Result<(), ApiError> {
     validate_extra_tag_extension(&path)?;
+    let display_path = path.to_string_lossy().to_string();
     queue
         .run(async move {
-            tokio::task::spawn_blocking(move || write_extra_tags_dispatch(&path, &tags))
+            tokio::task::spawn_blocking(move || {
+                let write_start = std::time::Instant::now();
+                let result = write_extra_tags_dispatch(&path, &tags);
+                let elapsed = write_start.elapsed();
+                match &result {
+                    Ok(_) => tracing::debug!(
+                        path = %display_path,
+                        elapsed_us = elapsed.as_micros(),
+                        "extra tags write done"
+                    ),
+                    Err(e) => tracing::warn!(
+                        path = %display_path,
+                        elapsed_us = elapsed.as_micros(),
+                        error = %e,
+                        "extra tags write failed"
+                    ),
+                }
+                result
+            })
                 .await
                 .map_err(|error| ApiError::WriteTask(error.to_string()))?
         })
@@ -498,10 +616,23 @@ async fn batch_write_extra_tags_queued(
             tokio::task::spawn_blocking(move || {
                 let mut failures = Vec::new();
                 for update in updates {
+                    let write_start = std::time::Instant::now();
                     if let Err(error) =
                         write_extra_tags_dispatch(Path::new(&update.path), &update.tags)
                     {
+                        tracing::warn!(
+                            path = %update.path,
+                            elapsed_us = write_start.elapsed().as_micros(),
+                            error = %error,
+                            "batch extra tags write failed"
+                        );
                         failures.push(format!("{}: {error}", update.path));
+                    } else {
+                        tracing::debug!(
+                            path = %update.path,
+                            elapsed_us = write_start.elapsed().as_micros(),
+                            "batch extra tags write done"
+                        );
                     }
                 }
                 if failures.is_empty() {

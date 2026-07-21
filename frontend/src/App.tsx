@@ -1632,6 +1632,12 @@ export default function App() {
         label={state.auditProgress?.message ?? null}
       />
 
+      <ScanProgressBar
+        scanning={state.saving}
+        progress={null}
+        label={state.saving ? "Saving tracks…" : null}
+      />
+
       <AuditBanner
         results={state.auditResults}
         onDismiss={() => dispatch({ type: "CLEAR_AUDIT_RESULTS" })}

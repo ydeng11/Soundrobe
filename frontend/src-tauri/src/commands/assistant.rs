@@ -8,13 +8,14 @@ use crate::commands::{
     dataset::dataset_status_at,
     lyrics::{fetch_lyrics_at, DEFAULT_BASE_URL},
     mutations::{
-        rename_track_queued, write_extra_tags_queued, write_track_queued, ExtraTagUpdate,
-        TrackPatch,
+        remove_embedded_cover_queued, rename_track_queued, write_extra_tags_queued,
+        write_track_queued, ExtraTagUpdate, TrackPatch,
     },
     organizer::sanitize_dir_name,
     tracks::{read_extra_tags, read_track_metadata},
 };
 use crate::error::ApiError;
+use lofty::file::TaggedFileExt;
 use crate::infra::openrouter::{ChatMessage, OpenRouterClient};
 use crate::state::assistant::{
     AssistantAction, AssistantActionBatch, AssistantRuntimeState, AssistantServicesConfig,
@@ -56,6 +57,8 @@ async fn execute_native_assistant_tool(
     args: &Value,
     services: NativeAssistantToolServices<'_>,
 ) -> AssistantToolResult {
+    let tool_start = std::time::Instant::now();
+    tracing::debug!(tool = %name, args = %args, "native assistant tool started");
     if matches!(
         name,
         "library.summarize"
@@ -66,7 +69,7 @@ async fn execute_native_assistant_tool(
     ) {
         return execute_context_tool(name, args, services.input);
     }
-    match name {
+    let result = match name {
         "query.datasetStatus" => {
             let path = services
                 .config
@@ -163,7 +166,13 @@ async fn execute_native_assistant_tool(
             }
         }
         _ => execute_context_tool(name, args, services.input),
-    }
+    };
+    tracing::debug!(
+        tool = %name,
+        elapsed_us = tool_start.elapsed().as_micros(),
+        "native assistant tool finished"
+    );
+    result
 }
 
 fn assistant_tool_error(error: String) -> AssistantToolResult {
@@ -234,6 +243,12 @@ pub async fn assistant_send(
     config: State<'_, ConfigState>,
     conversation: State<'_, ConversationState>,
 ) -> Result<AssistantEvent, ApiError> {
+    let session_start = std::time::Instant::now();
+    tracing::debug!(
+        message_preview = %input.message.chars().take(120).collect::<String>(),
+        track_count = input.tracks.len(),
+        "assistant_send started"
+    );
     let raw_config = config.raw();
     let contract = derive_assistant_task_contract(&input.message);
     if !conversation.initialize(raw_config.cache_path.as_deref()) || !runtime.initialize() {
@@ -371,6 +386,12 @@ pub async fn assistant_send(
         let response = match response {
             Ok(response) => response,
             Err(error) => {
+                tracing::warn!(
+                    elapsed_us = session_start.elapsed().as_micros(),
+                    error = %error,
+                    session_id = %session_id,
+                    "assistant LLM request failed"
+                );
                 conversation.record_system(&error.to_string());
                 return assistant_error_event(&app, Some(session_id), &error.to_string());
             }
@@ -1190,6 +1211,7 @@ fn execute_mutating_assistant_tool(
     input: &AssistantSendInput,
     session_id: &str,
 ) -> MutatingToolExecution {
+    tracing::debug!(tool = %name, "mutating assistant tool started");
     if let Err(error) = validate_registered_tool_args(name, args) {
         return mutating_tool_error(format!("Invalid arguments for {name}: {error}"));
     }
@@ -1204,6 +1226,7 @@ fn execute_mutating_assistant_tool(
         | "strip_filename_prefixes"
         | "infer_tags_from_filenames"
         | "group_by_album" => execute_existing_assistant_macro(name, args, input, session_id),
+        "remove_embedded_cover" => execute_remove_embedded_cover(args, input, session_id),
         _ => mutating_tool_error(format!("Mutating tool {name} is not implemented")),
     }
 }
@@ -1491,6 +1514,72 @@ fn execute_existing_assistant_macro(
         risk,
         std::mem::take(&mut actions),
         true,
+    );
+    mutating_tool_execution(
+        format!("Preview created ({}): {summary}", batch.id),
+        None,
+        Some(batch),
+    )
+}
+
+fn execute_remove_embedded_cover(
+    args: &Value,
+    input: &AssistantSendInput,
+    session_id: &str,
+) -> MutatingToolExecution {
+    let Ok(paths) = tool_scope_paths(input, args) else {
+        return mutating_tool_error("Could not resolve target scope");
+    };
+    if paths.is_empty() {
+        return mutating_tool_no_changes("No tracks found for the requested scope.");
+    }
+    let mut actions: Vec<AssistantAction> = Vec::new();
+    for path in &paths {
+        let has_cover = lofty::probe::Probe::open(Path::new(path))
+            .ok()
+            .and_then(|probe| {
+                probe
+                    .options(lofty::config::ParseOptions::new().read_properties(false))
+                    .read()
+                    .ok()
+            })
+            .map(|tagged| {
+                tagged
+                    .tags()
+                    .iter()
+                    .any(|tag: &lofty::tag::Tag| !tag.pictures().is_empty())
+            })
+            .unwrap_or(false);
+        if has_cover {
+            actions.push(AssistantAction {
+                tag_kind: None,
+                track_path: Some(path.clone()),
+                field: None,
+                old_value: None,
+                new_value: None,
+                operation: Some("remove_embedded_cover".into()),
+                destination_path: None,
+                source_path: None,
+                skip_reason: None,
+                description: Some("Remove embedded cover art".into()),
+            });
+        }
+    }
+    if actions.is_empty() {
+        return mutating_tool_no_changes("No tracks with embedded cover art found.");
+    }
+    let summary = format!(
+        "Remove embedded cover art from {} track(s)",
+        actions.len()
+    );
+    let batch = assistant_batch(
+        session_id,
+        "embedded-cover-remove",
+        "Remove embedded cover art",
+        &summary,
+        "low",
+        std::mem::take(&mut actions),
+        false,
     );
     mutating_tool_execution(
         format!("Preview created ({}): {summary}", batch.id),
@@ -2874,6 +2963,11 @@ async fn apply_extra_actions(
     batch_id: &str,
     mark_status: bool,
 ) -> Value {
+    tracing::debug!(
+        batch_id = %batch_id,
+        action_count = batch.actions.len(),
+        "applying extra tag actions"
+    );
     let mut paths = Vec::<String>::new();
     for action in &batch.actions {
         if action.tag_kind.as_deref() == Some("extra")
@@ -2919,6 +3013,7 @@ async fn apply_extra_actions(
                 }
             }
         }
+        tracing::debug!(path = %path, tag_count = final_tags.len(), "writing extra tags");
         match write_extra_tags_queued(queue, PathBuf::from(&path), final_tags).await {
             Ok(()) => results.push(serde_json::json!({ "trackPath": path, "success": true })),
             Err(error) => results.push(serde_json::json!({ "trackPath": path, "success": false, "error": error.to_string() })),
@@ -2948,6 +3043,11 @@ async fn apply_folder_moves(
     batch: &AssistantActionBatch,
     batch_id: &str,
 ) -> Value {
+    tracing::debug!(
+        batch_id = %batch_id,
+        action_count = batch.actions.len(),
+        "applying folder moves"
+    );
     let mut results = Vec::new();
     for action in &batch.actions {
         let (Some(source), Some(destination)) = (
@@ -2959,6 +3059,7 @@ async fn apply_folder_moves(
         if action.skip_reason.is_some() {
             continue;
         }
+        tracing::debug!(from = %source, to = %destination, "renaming track");
         let source = source.clone();
         let destination = destination.clone();
         match rename_track_queued(
@@ -2984,6 +3085,41 @@ async fn apply_folder_moves(
         runtime.mark_batch_applied(batch_id);
         let manifest = results.iter().map(|result| serde_json::json!({ "from": result["sourcePath"], "to": result["destinationPath"] })).collect::<Vec<_>>();
         serde_json::json!({ "success": true, "results": results, "manifest": manifest })
+    }
+}
+
+async fn apply_remove_embedded_cover(
+    runtime: &AssistantRuntimeState,
+    queue: &WriteQueue,
+    batch: &AssistantActionBatch,
+    batch_id: &str,
+) -> Value {
+    let mut results = Vec::new();
+    for action in &batch.actions {
+        let Some(path) = action.track_path.as_ref() else {
+            continue;
+        };
+        if action.skip_reason.is_some() {
+            continue;
+        }
+        let path = path.clone();
+        match remove_embedded_cover_queued(queue, PathBuf::from(&path)).await {
+            Ok(_) => results.push(serde_json::json!({
+                "trackPath": path, "success": true
+            })),
+            Err(error) => results.push(serde_json::json!({
+                "trackPath": path, "success": false, "error": format!("{error}")
+            })),
+        }
+    }
+    let failed = results.iter().filter(|r| r["success"] == false).count();
+    if failed > 0 {
+        let error = format!("Failed to remove embedded cover from {failed} file(s)");
+        runtime.mark_batch_failed(batch_id, &error);
+        serde_json::json!({ "success": false, "error": error, "results": results })
+    } else {
+        runtime.mark_batch_applied(batch_id);
+        serde_json::json!({ "success": true, "results": results })
     }
 }
 
@@ -3024,6 +3160,7 @@ async fn apply_action_batch(
     queue: &WriteQueue,
     batch_id: &str,
 ) -> Value {
+    tracing::debug!(batch_id = %batch_id, "action batch apply started");
     if !runtime.is_active() {
         return serde_json::json!({ "success": false, "error": "No active assistant session" });
     }
@@ -3033,6 +3170,12 @@ async fn apply_action_batch(
     if batch.status != "pending" {
         return serde_json::json!({ "success": false, "error": format!("Batch already {}", batch.status) });
     }
+    tracing::debug!(
+        batch_id = %batch_id,
+        kind = %batch.kind,
+        action_count = batch.actions.len(),
+        "applying action batch"
+    );
     match batch.kind.as_str() {
         "tag-update" => apply_standard_actions(runtime, queue, &batch, batch_id, false, true).await,
         "extra-tag-update" => apply_extra_actions(runtime, queue, &batch, batch_id, true).await,
@@ -3064,6 +3207,7 @@ async fn apply_action_batch(
             }
         }
         "folder-move" => apply_folder_moves(runtime, queue, &batch, batch_id).await,
+        "embedded-cover-remove" => apply_remove_embedded_cover(runtime, queue, &batch, batch_id).await,
         "auto-tag-run" | "audit-run" => {
             runtime.mark_batch_applied(batch_id);
             let task = if batch.kind == "auto-tag-run" {
@@ -3483,7 +3627,7 @@ mod apply_contract_tests {
         let names = schema["properties"]["toolCall"]["properties"]["toolName"]["enum"]
             .as_array()
             .unwrap();
-        assert_eq!(names.len(), 21);
+        assert_eq!(names.len(), 22);
         assert!(names.contains(&serde_json::json!("edit_metadata")));
         assert!(names.contains(&serde_json::json!("create_plan")));
     }

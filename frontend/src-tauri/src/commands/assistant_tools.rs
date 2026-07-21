@@ -50,6 +50,7 @@ pub(crate) fn assistant_tool_definitions() -> Vec<AssistantToolDefinition> {
         ("infer_tags_from_filenames", false, Kind::MetadataEdit),
         ("organize_files", false, Kind::FileMove),
         ("group_by_album", false, Kind::FileMove),
+        ("remove_embedded_cover", false, Kind::MetadataEdit),
         ("run_library_task", false, Kind::Planning),
         ("create_plan", false, Kind::Planning),
     ];
@@ -187,7 +188,8 @@ fn tool_schema(name: &str) -> Value {
         "auto_numbering_tracks"
         | "strip_track_title_prefixes"
         | "strip_filename_prefixes"
-        | "group_by_album" => serde_json::json!({
+        | "group_by_album"
+        | "remove_embedded_cover" => serde_json::json!({
             "type": "object", "properties": target_scope(), "required": ["target_scope"]
         }),
         "extract_tag_value" => serde_json::json!({
@@ -958,7 +960,7 @@ mod tests {
             .copied()
             .collect::<std::collections::HashSet<_>>();
 
-        assert_eq!(names.len(), 21);
+        assert_eq!(names.len(), 22);
         assert_eq!(unique.len(), names.len());
         assert_eq!(
             names,
@@ -982,6 +984,7 @@ mod tests {
                 "infer_tags_from_filenames",
                 "organize_files",
                 "group_by_album",
+                "remove_embedded_cover",
                 "run_library_task",
                 "create_plan",
             ]
@@ -992,7 +995,7 @@ mod tests {
         assert!(definitions[10..]
             .iter()
             .all(|definition| !definition.read_only));
-        assert_eq!(context_tool_catalog().as_array().map(Vec::len), Some(21));
+        assert_eq!(context_tool_catalog().as_array().map(Vec::len), Some(22));
     }
 
     #[test]

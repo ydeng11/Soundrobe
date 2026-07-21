@@ -1,13 +1,14 @@
 //! Shared OpenRouter structured-response client.
 
 use reqwest::{Client, StatusCode};
+use tracing;
 use serde::Serialize;
 use serde_json::{json, Value};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 
 const OPENROUTER_BASE: &str = "https://openrouter.ai/api/v1";
-const DEFAULT_TIMEOUT: Duration = Duration::from_secs(180);
+const DEFAULT_TIMEOUT: Duration = Duration::from_secs(30);
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct ChatMessage {
@@ -226,6 +227,13 @@ impl OpenRouterClient {
         deadline: Instant,
     ) -> Result<Value, OpenRouterError> {
         let attempts = self.retry_delays.len() + 1;
+        tracing::debug!(
+            model = %self.model,
+            timeout_ms = self.timeout.as_millis(),
+            schema = %request.schema_name,
+            attempts,
+            "OpenRouter request started"
+        );
         let mut last_error = None;
         for attempt in 0..attempts {
             let mut retry_delay = self.retry_delays.get(attempt).copied().unwrap_or_default();
@@ -236,6 +244,7 @@ impl OpenRouterClient {
             if remaining.is_zero() {
                 return Err(OpenRouterError::Timeout(self.timeout.as_millis()));
             }
+            tracing::debug!(attempt, remaining_ms = remaining.as_millis(), "OpenRouter attempt");
             match tokio::time::timeout(
                 remaining,
                 self.post(
@@ -249,7 +258,14 @@ impl OpenRouterClient {
             )
             .await
             {
-                Err(_) => return Err(OpenRouterError::Timeout(self.timeout.as_millis())),
+                Err(_) => {
+                    tracing::warn!(
+                        attempt,
+                        timeout_ms = self.timeout.as_millis(),
+                        "OpenRouter request timed out"
+                    );
+                    return Err(OpenRouterError::Timeout(self.timeout.as_millis()));
+                }
                 Ok(Ok(response)) => {
                     let status = response.status();
                     let body =
@@ -279,6 +295,7 @@ impl OpenRouterClient {
                     if attempt + 1 == attempts {
                         return Err(error);
                     }
+                    tracing::warn!(attempt, "OpenRouter retryable HTTP error — retrying");
                     last_error = Some(error);
                 }
             }
