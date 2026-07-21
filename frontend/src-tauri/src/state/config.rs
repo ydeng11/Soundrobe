@@ -19,7 +19,7 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
 /// Resolved app configuration. Fields mirror `AutoTagConfig`.
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AutoTagConfig {
     pub llm_api_key: Option<String>,
     pub llm_model: Option<String>,
@@ -33,6 +33,32 @@ pub struct AutoTagConfig {
     pub lyrics_api_url: Option<String>,
     pub theaudiodb_api_key: Option<String>,
     pub chinese_script: Option<String>,
+    /// Maximum concurrent folder workers during batch track writes.
+    /// Higher values (e.g. 8) speed up local SSD/NVMe writes;
+    /// lower values (default 2) avoid I/O thrashing on external/spinning
+    /// volumes where parallel reads+writes degrade per-file throughput.
+    /// Set to `0` or omit for the default (2).
+    pub write_concurrency: Option<usize>,
+}
+
+impl Default for AutoTagConfig {
+    fn default() -> Self {
+        Self {
+            llm_api_key: None,
+            llm_model: None,
+            dataset_path: None,
+            cache_path: None,
+            discogs_token: None,
+            remote_lookup_enabled: Some(true),
+            discogs_enabled: Some(true),
+            debug: None,
+            lyrics_download_enabled: None,
+            lyrics_api_url: None,
+            theaudiodb_api_key: None,
+            chinese_script: None,
+            write_concurrency: None,
+        }
+    }
 }
 
 /// Environment accessor used by [`load_from`] and [`ConfigState`]. Tests
@@ -137,6 +163,11 @@ pub fn load_from(text: &str, env: &dyn Env) -> AutoTagConfig {
     if let Some(v) = env.get("THEAUDIODB_API_KEY") {
         config.theaudiodb_api_key = Some(v);
     }
+    if let Some(v) = env.get("AUTO_TAG_WRITE_CONCURRENCY") {
+        if let Ok(n) = v.parse::<usize>() {
+            config.write_concurrency = Some(n);
+        }
+    }
 
     config
 }
@@ -178,8 +209,45 @@ fn apply_yaml_key(config: &mut AutoTagConfig, key: &str, value: &str) {
         "lyrics_api_url" => config.lyrics_api_url = Some(value.to_string()),
         "theaudiodb_api_key" => config.theaudiodb_api_key = Some(value.to_string()),
         "chinese_script" => config.chinese_script = Some(value.to_string()),
+        "write_concurrency" => {
+            if let Ok(n) = value.parse::<usize>() {
+                config.write_concurrency = Some(n);
+            }
+        }
         _ => {} // unknown keys ignored, never partially written
     }
+}
+
+/// Resolve the effective write concurrency from config + env.
+/// Returns `None` when neither the file nor the env specifies a value,
+/// meaning the caller should use its built-in default (currently 2).
+pub fn resolve_write_concurrency(home: &Path) -> Option<usize> {
+    // Env override (highest priority)
+    if let Ok(v) = std::env::var("AUTO_TAG_WRITE_CONCURRENCY") {
+        if let Ok(n) = v.parse::<usize>() {
+            return Some(n);
+        }
+    }
+    // File value
+    let text = std::fs::read_to_string(config_file_path(home)).unwrap_or_default();
+    for line in text.lines() {
+        let trimmed = line.trim();
+        if trimmed.is_empty() || trimmed.starts_with('#') {
+            continue;
+        }
+        let Some(colon) = trimmed.find(':') else {
+            continue;
+        };
+        let key = trimmed[..colon].trim();
+        if key != "write_concurrency" {
+            continue;
+        }
+        let value = trimmed[colon + 1..].trim();
+        if let Ok(n) = value.parse::<usize>() {
+            return Some(n);
+        }
+    }
+    None
 }
 
 /// Map a renderer camelCase config key to its YAML key (CONFIG_KEY_MAP).
@@ -195,6 +263,7 @@ pub fn yaml_key_for(camel_key: &str) -> Option<&'static str> {
         "lyricsApiUrl" => Some("lyrics_api_url"),
         "theAudioDbApiKey" => Some("theaudiodb_api_key"),
         "chineseScript" => Some("chinese_script"),
+        "writeConcurrency" => Some("write_concurrency"),
         _ => None,
     }
 }
@@ -315,6 +384,7 @@ pub fn redacted(config: &AutoTagConfig) -> Value {
         "lyricsApiUrl": config.lyrics_api_url.clone().map(Value::String).unwrap_or(Value::Null),
         "theAudioDbApiKey": mask(&config.theaudiodb_api_key),
         "chineseScript": config.chinese_script.clone().map(Value::String).unwrap_or(Value::Null),
+        "writeConcurrency": config.write_concurrency.map(Value::from).unwrap_or(Value::Null),
     })
 }
 
@@ -694,7 +764,8 @@ mod tests {
             "lyricsDownloadEnabled": false,
             "lyricsApiUrl": "https://lr.example/api",
             "theAudioDbApiKey": null,
-            "chineseScript": "traditional"
+            "chineseScript": "traditional",
+            "writeConcurrency": null
         });
         assert_eq!(state.redacted(), expected);
     }

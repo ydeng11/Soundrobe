@@ -518,12 +518,29 @@ async fn batch_write_queued(
     //    so writes to different album folders proceed in parallel.
     //    Within a folder, tracks are written in sub-batches of SUBBATCH_SIZE
     //    (sequential within the folder worker) to keep memory bounded.
+    //
+    //    Cap concurrent folder workers at 2 by default to avoid I/O
+    //    thrashing on external/spinning volumes. The user can override
+    //    via `write_concurrency` in ~/.auto-tagger/config.yaml or the
+    //    AUTO_TAG_WRITE_CONCURRENCY environment variable (e.g. 8 for
+    //    local NVMe).
+    let io_quota = {
+        let max = crate::state::config::resolve_write_concurrency(
+            &dirs::home_dir().unwrap_or_default(),
+        )
+        .unwrap_or(2);
+        Arc::new(tokio::sync::Semaphore::new(max))
+    };
     let mut handles = Vec::new();
     for (folder, folder_updates) in folder_groups {
         let q = queue.clone();
         let completed = Arc::clone(&completed);
         let app = progress_tracker.as_ref().map(|(a, _)| a.clone());
+        // acquire_owned only errors if the semaphore is dropped, which never
+        // happens since io_quota lives until all spawned tasks complete.
+        let permit = io_quota.clone().acquire_owned().await.unwrap_or_else(|_| unreachable!());
         handles.push(tokio::spawn(async move {
+            let _permit = permit;
             q.run_for_folder(&folder, async move {
                 tokio::task::spawn_blocking(move || {
                     for batch in folder_updates.chunks(SUBBATCH_SIZE) {
@@ -535,7 +552,7 @@ async fn batch_write_queued(
                             )?;
                             tracing::debug!(
                                 path = %update.path,
-                                elapsed_us = write_start.elapsed().as_micros(),
+                                elapsed_s = write_start.elapsed().as_secs_f64(),
                                 "batch track write done"
                             );
 
