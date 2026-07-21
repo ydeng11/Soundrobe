@@ -524,13 +524,11 @@ async fn batch_write_queued(
     //    via `write_concurrency` in ~/.auto-tagger/config.yaml or the
     //    AUTO_TAG_WRITE_CONCURRENCY environment variable (e.g. 8 for
     //    local NVMe).
-    let io_quota = {
-        let max = crate::state::config::resolve_write_concurrency(
-            &dirs::home_dir().unwrap_or_default(),
-        )
-        .unwrap_or(2);
-        Arc::new(tokio::sync::Semaphore::new(max))
-    };
+    let max_concurrency = crate::state::config::resolve_write_concurrency(
+        &dirs::home_dir().unwrap_or_default(),
+    )
+    .unwrap_or(2);
+    let io_quota = Arc::new(tokio::sync::Semaphore::new(max_concurrency));
     let mut handles = Vec::new();
     for (folder, folder_updates) in folder_groups {
         let q = queue.clone();
@@ -538,7 +536,7 @@ async fn batch_write_queued(
         let app = progress_tracker.as_ref().map(|(a, _)| a.clone());
         // acquire_owned only errors if the semaphore is dropped, which never
         // happens since io_quota lives until all spawned tasks complete.
-        let permit = io_quota.clone().acquire_owned().await.unwrap_or_else(|_| unreachable!());
+        let permit = io_quota.clone().acquire_owned().await.unwrap();
         handles.push(tokio::spawn(async move {
             let _permit = permit;
             q.run_for_folder(&folder, async move {

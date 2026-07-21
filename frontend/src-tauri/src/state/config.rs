@@ -19,7 +19,7 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
 /// Resolved app configuration. Fields mirror `AutoTagConfig`.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct AutoTagConfig {
     pub llm_api_key: Option<String>,
     pub llm_model: Option<String>,
@@ -39,26 +39,6 @@ pub struct AutoTagConfig {
     /// volumes where parallel reads+writes degrade per-file throughput.
     /// Set to `0` or omit for the default (2).
     pub write_concurrency: Option<usize>,
-}
-
-impl Default for AutoTagConfig {
-    fn default() -> Self {
-        Self {
-            llm_api_key: None,
-            llm_model: None,
-            dataset_path: None,
-            cache_path: None,
-            discogs_token: None,
-            remote_lookup_enabled: Some(true),
-            discogs_enabled: Some(true),
-            debug: None,
-            lyrics_download_enabled: None,
-            lyrics_api_url: None,
-            theaudiodb_api_key: None,
-            chinese_script: None,
-            write_concurrency: None,
-        }
-    }
 }
 
 /// Environment accessor used by [`load_from`] and [`ConfigState`]. Tests
@@ -222,32 +202,8 @@ fn apply_yaml_key(config: &mut AutoTagConfig, key: &str, value: &str) {
 /// Returns `None` when neither the file nor the env specifies a value,
 /// meaning the caller should use its built-in default (currently 2).
 pub fn resolve_write_concurrency(home: &Path) -> Option<usize> {
-    // Env override (highest priority)
-    if let Ok(v) = std::env::var("AUTO_TAG_WRITE_CONCURRENCY") {
-        if let Ok(n) = v.parse::<usize>() {
-            return Some(n);
-        }
-    }
-    // File value
     let text = std::fs::read_to_string(config_file_path(home)).unwrap_or_default();
-    for line in text.lines() {
-        let trimmed = line.trim();
-        if trimmed.is_empty() || trimmed.starts_with('#') {
-            continue;
-        }
-        let Some(colon) = trimmed.find(':') else {
-            continue;
-        };
-        let key = trimmed[..colon].trim();
-        if key != "write_concurrency" {
-            continue;
-        }
-        let value = trimmed[colon + 1..].trim();
-        if let Ok(n) = value.parse::<usize>() {
-            return Some(n);
-        }
-    }
-    None
+    load_from(&text, &ProcessEnv).write_concurrency
 }
 
 /// Map a renderer camelCase config key to its YAML key (CONFIG_KEY_MAP).
