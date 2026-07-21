@@ -192,6 +192,8 @@ export interface AppState {
 
   /** Currently saving flag */
   saving: boolean;
+  /** Track write progress (determinate bar) while saving */
+  saveProgress: { current: number; total: number } | null;
 
   /** Settings modal visibility */
   showSettings: boolean;
@@ -236,6 +238,7 @@ export const initialAppState: AppState = {
   error: null,
   undoManager: new UndoManager(),
   saving: false,
+  saveProgress: null,
   showSettings: false,
   autoTagging: false,
   lyricsGetting: false,
@@ -267,6 +270,7 @@ export type AppAction =
   | { type: "POP_UNDO" }
   | { type: "CLEAR_UNDO" }
   | { type: "SET_SAVING"; saving: boolean }
+  | { type: "SET_SAVE_PROGRESS"; progress: { current: number; total: number } | null }
   | { type: "TOGGLE_SETTINGS"; show: boolean }
   | { type: "SET_AUTO_TAGGING"; autoTagging: boolean }
   | {
@@ -459,6 +463,8 @@ export function appReducer(state: AppState, action: AppAction): AppState {
 
     case "SET_SAVING":
       return { ...state, saving: action.saving };
+    case "SET_SAVE_PROGRESS":
+      return { ...state, saveProgress: action.progress };
 
     case "TOGGLE_SETTINGS":
       return { ...state, showSettings: action.show };

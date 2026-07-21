@@ -138,6 +138,8 @@ export function createTauriDesktopApi(): DesktopAPI {
       invokeCommand("album:download-lyrics", { albumPath }),
     onAutoTagEvent: (callback) =>
       subscribe("auto-tag:event", callback),
+    onTrackWriteEvent: (callback) =>
+      subscribe("tracks:write-event", callback),
     getTaskProgress: (taskId) => invokeCommand("task:progress", { taskId }),
     cancelTask: (taskId) => invokeCommand("task:cancel", { taskId }),
     getDatasetStatus: () => invokeCommand("dataset:status", undefined),

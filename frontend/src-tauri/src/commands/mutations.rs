@@ -25,7 +25,8 @@ use std::collections::HashMap;
 use std::fs::{self, File};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
-use tauri::State;
+use std::sync::Arc;
+use tauri::{Emitter, State};
 
 static TEMP_SEQUENCE: AtomicU64 = AtomicU64::new(0);
 
@@ -174,6 +175,17 @@ pub struct TrackUpdate {
     pub fields: TrackPatch,
 }
 
+/// Progress event emitted from batch track writes so the renderer can show
+/// a determinate progress bar (completed / total) instead of an indeterminate
+/// "breath light" animation.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TrackWriteEvent {
+    pub current: u64,
+    pub total: u64,
+    pub message: String,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TrackWriteOutcome {
     Skipped,
@@ -213,10 +225,11 @@ pub async fn track_write(
 
 #[tauri::command]
 pub async fn tracks_batch_write(
+    app: tauri::AppHandle,
     updates: Vec<TrackUpdate>,
     queue: State<'_, WriteQueue>,
 ) -> Result<Vec<TrackData>, ApiError> {
-    batch_write_with_readback(&queue, updates).await
+    batch_write_with_readback(&queue, updates, Some(app)).await
 }
 
 #[tauri::command]
@@ -483,13 +496,22 @@ pub(crate) async fn remove_embedded_cover_queued(
     Ok(())
 }
 
-async fn batch_write_queued(queue: &WriteQueue, updates: Vec<TrackUpdate>) -> Result<(), ApiError> {
+async fn batch_write_queued(
+    queue: &WriteQueue,
+    updates: Vec<TrackUpdate>,
+    progress_tracker: Option<(tauri::AppHandle, u64)>,
+) -> Result<(), ApiError> {
     // 1. Partition by folder (Path::parent() — no syscall needed)
     let folder_groups = group_by_folder(updates);
 
     if folder_groups.is_empty() {
         return Ok(());
     }
+
+    let total = progress_tracker
+        .as_ref()
+        .map_or(0, |(_, t)| *t);
+    let completed = Arc::new(AtomicU64::new(0));
 
     // 2. Spawn one task per folder (concurrent across folders).
     //    Each task acquires only its folder-scoped lock via run_for_folder,
@@ -499,6 +521,8 @@ async fn batch_write_queued(queue: &WriteQueue, updates: Vec<TrackUpdate>) -> Re
     let mut handles = Vec::new();
     for (folder, folder_updates) in folder_groups {
         let q = queue.clone();
+        let completed = Arc::clone(&completed);
+        let app = progress_tracker.as_ref().map(|(a, _)| a.clone());
         handles.push(tokio::spawn(async move {
             q.run_for_folder(&folder, async move {
                 tokio::task::spawn_blocking(move || {
@@ -514,6 +538,20 @@ async fn batch_write_queued(queue: &WriteQueue, updates: Vec<TrackUpdate>) -> Re
                                 elapsed_us = write_start.elapsed().as_micros(),
                                 "batch track write done"
                             );
+
+                            // Emit progress after each track write so the
+                            // renderer can show a determinate progress bar.
+                            if let Some(ref app) = app {
+                                let c = completed.fetch_add(1, Ordering::Relaxed) + 1;
+                                let _ = app.emit(
+                                    "tracks:write-event",
+                                    TrackWriteEvent {
+                                        current: c,
+                                        total,
+                                        message: format!("Writing {}/{}", c, total),
+                                    },
+                                );
+                            }
                         }
                     }
                     Ok::<(), ApiError>(())
@@ -560,12 +598,14 @@ async fn write_track_with_readback(
 async fn batch_write_with_readback(
     queue: &WriteQueue,
     updates: Vec<TrackUpdate>,
+    app: Option<tauri::AppHandle>,
 ) -> Result<Vec<TrackData>, ApiError> {
+    let total = updates.len() as u64;
     let paths = updates
         .iter()
         .map(|update| PathBuf::from(&update.path))
         .collect::<Vec<_>>();
-    batch_write_queued(queue, updates).await?;
+    batch_write_queued(queue, updates, app.map(|a| (a, total))).await?;
     paths
         .iter()
         .map(|path| read_track_with_fallback(path))
@@ -2973,6 +3013,7 @@ mod tests {
                     .unwrap(),
                 },
             ],
+            None,
         )
         .await
         .unwrap();
@@ -3381,7 +3422,7 @@ mod tests {
             },
         ];
         let queue = WriteQueue::default();
-        batch_write_queued(&queue, updates).await.unwrap();
+        batch_write_queued(&queue, updates, None).await.unwrap();
         assert_eq!(
             read_track_metadata(&first).unwrap().title.as_deref(),
             Some("First batch title")
@@ -3390,7 +3431,7 @@ mod tests {
             read_track_metadata(&second).unwrap().title.as_deref(),
             Some("Second batch title")
         );
-        batch_write_queued(&queue, Vec::new()).await.unwrap();
+        batch_write_queued(&queue, Vec::new(), None).await.unwrap();
         assert!(!queue.is_active());
         fs::remove_dir_all(root).unwrap();
     }
@@ -3411,7 +3452,7 @@ mod tests {
                 fields: TrackPatch::default(),
             },
         ];
-        let error = batch_write_queued(&WriteQueue::default(), updates)
+        let error = batch_write_queued(&WriteQueue::default(), updates, None)
             .await
             .unwrap_err();
         assert!(error
@@ -3707,7 +3748,7 @@ mod tests {
             },
         ];
 
-        let results = batch_write_with_readback(&queue, updates).await.unwrap();
+        let results = batch_write_with_readback(&queue, updates, None).await.unwrap();
         assert_eq!(results.len(), 2);
         assert_eq!(results[0].title.as_deref(), Some("Album A Track"));
         assert_eq!(results[0].artist.as_deref(), Some("Artist A"));
@@ -3753,7 +3794,7 @@ mod tests {
             },
         ];
 
-        let results = batch_write_with_readback(&queue, updates).await.unwrap();
+        let results = batch_write_with_readback(&queue, updates, None).await.unwrap();
         assert_eq!(results.len(), 2);
         // Both entries point to the same file; after both writes complete
         // sequentially (same-folder lock), the on-disk state is the second
@@ -3797,7 +3838,7 @@ mod tests {
         }
 
         let queue = WriteQueue::default();
-        let results = batch_write_with_readback(&queue, updates).await.unwrap();
+        let results = batch_write_with_readback(&queue, updates, None).await.unwrap();
         assert_eq!(results.len(), track_count);
         for (i, track) in results.iter().enumerate() {
             assert_eq!(

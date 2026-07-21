@@ -1541,6 +1541,16 @@ export default function App() {
       dispatch({ type: "PATCH_TRACKS", paths, fields });
       dispatch({ type: "SET_SAVING", saving: true });
 
+      // Subscribe to real-time progress from the Rust batch writer
+      const unsubProgress = window.api.onTrackWriteEvent(
+        (event) => {
+          dispatch({
+            type: "SET_SAVE_PROGRESS",
+            progress: { current: event.current, total: event.total },
+          });
+        },
+      );
+
       try {
         const results = await window.api.writeTracks(updates);
         dispatch({ type: "UPDATE_TRACKS", tracks: results });
@@ -1550,6 +1560,8 @@ export default function App() {
         const message = err instanceof Error ? err.message : "Batch save failed";
         dispatch({ type: "SET_ERROR", error: message });
       } finally {
+        unsubProgress();
+        dispatch({ type: "SET_SAVE_PROGRESS", progress: null });
         dispatch({ type: "SET_SAVING", saving: false });
       }
     },
@@ -1634,7 +1646,7 @@ export default function App() {
 
       <ScanProgressBar
         scanning={state.saving}
-        progress={null}
+        progress={state.saveProgress}
         label={state.saving ? "Saving tracks…" : null}
       />
 

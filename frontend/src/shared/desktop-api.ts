@@ -151,6 +151,12 @@ export interface AuditApplyFixesSummary {
   }>;
 }
 
+export interface TrackWriteEvent {
+  current: number;
+  total: number;
+  message: string;
+}
+
 export interface AutoTagEvent {
   taskId: string;
   type:
@@ -356,6 +362,7 @@ export interface DesktopAPI {
   autoTagAlbum: (albumPath: string) => Promise<string>;
   downloadAlbumLyrics: (albumPath: string) => Promise<number>;
   onAutoTagEvent: (callback: (event: AutoTagEvent) => void) => () => void;
+  onTrackWriteEvent: (callback: (event: TrackWriteEvent) => void) => () => void;
   getTaskProgress: (taskId: string) => Promise<TaskProgress | null>;
   cancelTask: (taskId: string) => Promise<void>;
   getDatasetStatus: () => Promise<DatasetStatus>;

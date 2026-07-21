@@ -119,9 +119,9 @@ describe("tauri-adapter channel parity", () => {
 
   it("covers every DesktopAPI method (no drift)", () => {
     const covered = new Set(CHANNEL_PARITY.map((r) => r.method));
-    // The three event methods are exercised in the subscribe suite and are not
+    // The event methods are exercised in the subscribe suite and are not
     // request/response rows; every DesktopAPI method must be accounted for.
-    const eventMethods = ["onAutoTagEvent", "onAuditEvent", "onAssistantEvent"];
+    const eventMethods = ["onAutoTagEvent", "onTrackWriteEvent", "onAuditEvent", "onAssistantEvent"];
     const apiKeys = Object.keys(api).sort();
     const expected = [...covered, ...eventMethods].sort();
     expect(apiKeys).toEqual(expected);
@@ -172,6 +172,23 @@ describe("tauri-adapter event subscribe contract", () => {
     api = createTauriDesktopApi();
   });
 
+  it("onTrackWriteEvent subscribes to tracks:write-event and forwards event.payload", async () => {
+    const received: unknown[] = [];
+    const dispose = api.onTrackWriteEvent((event) => received.push(event));
+    expect(listenMock).toHaveBeenCalledTimes(1);
+    expect(listenMock.mock.calls[0][0]).toBe("tracks:write-event");
+    // The handler receives a Tauri Event<T> and unwraps .payload for the callback.
+    const registeredHandler = listenMock.mock.calls[0][1] as (e: { payload: unknown }) => void;
+    const payload = { current: 5, total: 100, message: "Writing 5/100" };
+    registeredHandler({ payload });
+    expect(received).toEqual([payload]);
+    // The returned sync disposer detaches the listener when called.
+    dispose();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(unlisten).toHaveBeenCalledTimes(1);
+  });
+
   it("onAutoTagEvent subscribes to auto-tag:event and forwards event.payload", async () => {
     const received: unknown[] = [];
     const dispose = api.onAutoTagEvent((event) => received.push(event));
@@ -190,6 +207,7 @@ describe("tauri-adapter event subscribe contract", () => {
   });
 
   it.each([
+    ["tracks:write-event", "onTrackWriteEvent"],
     ["audit:event", "onAuditEvent"],
     ["assistant:event", "onAssistantEvent"],
   ] as const)("subscribe %s via %s", async (channel, method) => {

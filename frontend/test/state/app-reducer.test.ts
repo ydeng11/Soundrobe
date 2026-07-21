@@ -256,6 +256,62 @@ describe("appReducer", () => {
       const next2 = appReducer(next, { type: "SET_SAVING", saving: false });
       expect(next2.saving).toBe(false);
     });
+
+    it("does not clear saveProgress when saving is set to false", () => {
+      // The app clears saveProgress explicitly in the finally block;
+      // SET_SAVING must not silently erase it, otherwise a race between
+      // a late progress event and the saving toggle would lose progress.
+      const state = {
+        ...initialAppState,
+        saving: true,
+        saveProgress: { current: 42, total: 100 },
+      };
+      const next = appReducer(state, { type: "SET_SAVING", saving: false });
+      expect(next.saving).toBe(false);
+      expect(next.saveProgress).toEqual({ current: 42, total: 100 });
+    });
+  });
+
+  describe("SET_SAVE_PROGRESS", () => {
+    it("sets saveProgress with current/total", () => {
+      const next = appReducer(initialAppState, {
+        type: "SET_SAVE_PROGRESS",
+        progress: { current: 10, total: 100 },
+      });
+      expect(next.saveProgress).toEqual({ current: 10, total: 100 });
+    });
+
+    it("clears saveProgress to null", () => {
+      const state = {
+        ...initialAppState,
+        saveProgress: { current: 99, total: 100 },
+      };
+      const next = appReducer(state, {
+        type: "SET_SAVE_PROGRESS",
+        progress: null,
+      });
+      expect(next.saveProgress).toBeNull();
+    });
+
+    it("preserves intermediate progress through sequential updates", () => {
+      // Simulates sequential progress events: 10% → 50% → 90%
+      const state = { ...initialAppState, saveProgress: null };
+      const a = appReducer(state, {
+        type: "SET_SAVE_PROGRESS",
+        progress: { current: 10, total: 100 },
+      });
+      expect(a.saveProgress).toEqual({ current: 10, total: 100 });
+      const b = appReducer(a, {
+        type: "SET_SAVE_PROGRESS",
+        progress: { current: 50, total: 100 },
+      });
+      expect(b.saveProgress).toEqual({ current: 50, total: 100 });
+      const c = appReducer(b, {
+        type: "SET_SAVE_PROGRESS",
+        progress: { current: 90, total: 100 },
+      });
+      expect(c.saveProgress).toEqual({ current: 90, total: 100 });
+    });
   });
 
   describe("SET_FILTER", () => {
