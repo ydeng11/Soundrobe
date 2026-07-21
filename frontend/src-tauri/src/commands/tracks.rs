@@ -21,7 +21,7 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::fs;
 use std::fs::File;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 /// Renderer-facing metadata DTO. Field names/null/default behavior match
 /// `src/shared/desktop-api.ts::TrackData` exactly.
@@ -259,6 +259,31 @@ fn detect_external_cover(album_path: &Path) -> Option<String> {
 #[tauri::command]
 pub fn album_read(album_path: String) -> Result<AlbumDetail, ApiError> {
     read_album(Path::new(&album_path))
+}
+
+/// Read multiple albums in parallel by spawning one blocking task per folder.
+/// Albums that fail to read (e.g. missing directory) return an error; partial
+/// failures inside a single album (malformed tracks) are contained in the
+/// `AlbumDetail.status` field, same as `read_album`.
+pub async fn read_albums(album_paths: &[PathBuf]) -> Vec<Result<AlbumDetail, ApiError>> {
+    let handles: Vec<_> = album_paths
+        .iter()
+        .map(|path| {
+            let p = path.clone();
+            tokio::task::spawn_blocking(move || read_album(&p))
+        })
+        .collect();
+
+    let mut results = Vec::with_capacity(handles.len());
+    for handle in handles {
+        match handle.await {
+            Ok(result) => results.push(result),
+            Err(join_error) => {
+                results.push(Err(ApiError::ReadTask(join_error.to_string())));
+            }
+        }
+    }
+    results
 }
 
 #[tauri::command]

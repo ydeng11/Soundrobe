@@ -34,6 +34,9 @@ pub enum ApiError {
     #[error("background write task failed: {0}")]
     WriteTask(String),
 
+    #[error("background read task failed: {0}")]
+    ReadTask(String),
+
     #[error("{0}")]
     UnsupportedFormat(String),
 

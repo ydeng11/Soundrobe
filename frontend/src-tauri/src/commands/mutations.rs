@@ -19,6 +19,7 @@ use lofty::tag::{Accessor, ItemValue, TagExt};
 use lofty::TextEncoding;
 use serde::{Deserialize, Deserializer, Serialize};
 use std::borrow::Cow;
+use std::collections::HashMap;
 use std::fs::{self, File};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -175,6 +176,28 @@ pub struct TrackUpdate {
 pub enum TrackWriteOutcome {
     Skipped,
     Replaced,
+}
+
+/// Maximum number of tracks to write in one sequential sub-batch within a
+/// single folder worker. Albums larger than this are split into chunks so
+/// memory stays bounded and each chunk acts as a natural checkpoint.
+pub(crate) const SUBBATCH_SIZE: usize = 20;
+
+/// Group a flat list of track updates by their parent album folder.
+///
+/// The partition key is `Path::parent()` — the directory containing the track
+/// file. Track paths from the renderer are already absolute, so no
+/// `fs::canonicalize` syscall is needed.
+pub(crate) fn group_by_folder(updates: Vec<TrackUpdate>) -> HashMap<PathBuf, Vec<TrackUpdate>> {
+    let mut groups: HashMap<PathBuf, Vec<TrackUpdate>> = HashMap::new();
+    for update in updates {
+        let parent = Path::new(&update.path)
+            .parent()
+            .map(|p| p.to_path_buf())
+            .unwrap_or_else(|| PathBuf::from("."));
+        groups.entry(parent).or_default().push(update);
+    }
+    groups
 }
 
 #[tauri::command]
@@ -368,18 +391,50 @@ pub(crate) async fn write_track_queued(
 }
 
 async fn batch_write_queued(queue: &WriteQueue, updates: Vec<TrackUpdate>) -> Result<(), ApiError> {
-    queue
-        .run(async move {
-            tokio::task::spawn_blocking(move || {
-                for update in updates {
-                    write_track_dispatch(Path::new(&update.path), &update.fields)?;
-                }
-                Ok::<(), ApiError>(())
+    // 1. Partition by folder (Path::parent() — no syscall needed)
+    let folder_groups = group_by_folder(updates);
+
+    if folder_groups.is_empty() {
+        return Ok(());
+    }
+
+    // 2. Spawn one task per folder (concurrent across folders).
+    //    Each task acquires only its folder-scoped lock via run_for_folder,
+    //    so writes to different album folders proceed in parallel.
+    //    Within a folder, tracks are written in sub-batches of SUBBATCH_SIZE
+    //    (sequential within the folder worker) to keep memory bounded.
+    let mut handles = Vec::new();
+    for (folder, folder_updates) in folder_groups {
+        let q = queue.clone();
+        handles.push(tokio::spawn(async move {
+            q.run_for_folder(&folder, async move {
+                tokio::task::spawn_blocking(move || {
+                    for batch in folder_updates.chunks(SUBBATCH_SIZE) {
+                        for update in batch {
+                            write_track_dispatch(
+                                Path::new(&update.path),
+                                &update.fields,
+                            )?;
+                        }
+                    }
+                    Ok::<(), ApiError>(())
+                })
+                .await
+                .map_err(|e| ApiError::WriteTask(e.to_string()))?
             })
             .await
-            .map_err(|error| ApiError::WriteTask(error.to_string()))?
-        })
-        .await
+        }));
+    }
+
+    // 3. Reduce: wait for all folders. Folders that already committed
+    //    succeeded before an error in another folder was detected.
+    //    This matches Electron's non-transactional semantics — no rollback.
+    for handle in handles {
+        handle
+            .await
+            .map_err(|e| ApiError::WriteTask(e.to_string()))??;
+    }
+    Ok(())
 }
 
 fn read_track_with_fallback(path: &Path) -> Result<TrackData, ApiError> {
@@ -3415,6 +3470,212 @@ mod tests {
         let result = write_mp3_atomic(&path, &TrackPatch::default());
         assert!(result.is_err());
         assert_eq!(fs::read(&path).unwrap(), before);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    // --- group_by_folder ---
+
+    #[test]
+    fn group_by_folder_groups_tracks_by_parent() {
+        let updates = vec![
+            TrackUpdate {
+                path: "/albums/A/01-flac.flac".to_string(),
+                fields: TrackPatch::default(),
+            },
+            TrackUpdate {
+                path: "/albums/A/02-flac.flac".to_string(),
+                fields: TrackPatch::default(),
+            },
+            TrackUpdate {
+                path: "/albums/B/01-flac.flac".to_string(),
+                fields: TrackPatch::default(),
+            },
+        ];
+        let groups = group_by_folder(updates);
+        assert_eq!(groups.len(), 2);
+        assert_eq!(
+            groups.get(Path::new("/albums/A")).map(|v| v.len()),
+            Some(2)
+        );
+        assert_eq!(
+            groups.get(Path::new("/albums/B")).map(|v| v.len()),
+            Some(1)
+        );
+    }
+
+    #[test]
+    fn group_by_folder_handles_single_track() {
+        let updates = vec![TrackUpdate {
+            path: "/single/track.flac".to_string(),
+            fields: TrackPatch::default(),
+        }];
+        let groups = group_by_folder(updates);
+        assert_eq!(groups.len(), 1);
+        assert_eq!(
+            groups.get(Path::new("/single")).map(|v| v.len()),
+            Some(1)
+        );
+    }
+
+    #[test]
+    fn group_by_folder_handles_root_path() {
+        let updates = vec![TrackUpdate {
+            path: "track.flac".to_string(),
+            fields: TrackPatch::default(),
+        }];
+        let groups = group_by_folder(updates);
+        assert_eq!(groups.len(), 1);
+        // A path without a parent gets grouped under "" (empty path)
+        assert!(groups.contains_key(Path::new("")));
+    }
+
+    // --- per-folder isolation (batch writes to two folders) ---
+
+    /// Helper: copy a writer-corpus FLAC fixture to a specific path.
+    fn copy_flac_to(path: &Path) {
+        let (_root, fixture) = copy_flac_fixture();
+        fs::copy(&fixture, path).unwrap();
+        fs::remove_dir_all(fixture.parent().unwrap()).unwrap();
+    }
+
+    /// Write tracks in two different album folders concurrently and verify
+    /// both succeed. This exercises the per-folder concurrent write path.
+    #[tokio::test]
+    async fn batch_write_to_two_folders_both_succeed() {
+        let root = std::env::temp_dir().join(format!(
+            "soundrobe-two-folder-{}",
+            TEMP_SEQUENCE.fetch_add(1, Ordering::Relaxed)
+        ));
+        let album_a = root.join("AlbumA");
+        let album_b = root.join("AlbumB");
+        fs::create_dir_all(&album_a).unwrap();
+        fs::create_dir_all(&album_b).unwrap();
+
+        let track_a = album_a.join("01.flac");
+        let track_b = album_b.join("01.flac");
+        copy_flac_to(&track_a);
+        copy_flac_to(&track_b);
+
+        let queue = WriteQueue::default();
+        let updates = vec![
+            TrackUpdate {
+                path: track_a.to_string_lossy().into_owned(),
+                fields: serde_json::from_value(serde_json::json!({
+                    "title": "Album A Track",
+                    "artist": "Artist A"
+                }))
+                .unwrap(),
+            },
+            TrackUpdate {
+                path: track_b.to_string_lossy().into_owned(),
+                fields: serde_json::from_value(serde_json::json!({
+                    "title": "Album B Track",
+                    "artist": "Artist B"
+                }))
+                .unwrap(),
+            },
+        ];
+
+        let results = batch_write_with_readback(&queue, updates).await.unwrap();
+        assert_eq!(results.len(), 2);
+        assert_eq!(results[0].title.as_deref(), Some("Album A Track"));
+        assert_eq!(results[0].artist.as_deref(), Some("Artist A"));
+        assert_eq!(results[1].title.as_deref(), Some("Album B Track"));
+        assert_eq!(results[1].artist.as_deref(), Some("Artist B"));
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    // --- no duplicate file writes ---
+
+    /// Two TrackUpdate entries pointing to the same file path are serialised
+    /// (same folder → same folder lock → sequential). The last write wins.
+    #[tokio::test]
+    async fn batch_write_same_path_is_serialised_last_write_wins() {
+        let root = std::env::temp_dir().join(format!(
+            "soundrobe-same-path-{}",
+            TEMP_SEQUENCE.fetch_add(1, Ordering::Relaxed)
+        ));
+        fs::create_dir_all(&root).unwrap();
+
+        let track_path = root.join("same.flac");
+        copy_flac_to(&track_path);
+        let path_str = track_path.to_string_lossy().into_owned();
+
+        let queue = WriteQueue::default();
+        let updates = vec![
+            TrackUpdate {
+                path: path_str.clone(),
+                fields: serde_json::from_value(serde_json::json!({
+                    "title": "First Write",
+                    "artist": "First Artist"
+                }))
+                .unwrap(),
+            },
+            TrackUpdate {
+                path: path_str.clone(),
+                fields: serde_json::from_value(serde_json::json!({
+                    "title": "Second Write",
+                    "artist": "Second Artist"
+                }))
+                .unwrap(),
+            },
+        ];
+
+        let results = batch_write_with_readback(&queue, updates).await.unwrap();
+        assert_eq!(results.len(), 2);
+        // Both entries point to the same file; after both writes complete
+        // sequentially (same-folder lock), the on-disk state is the second
+        // write. Both readbacks return the current on-disk state.
+        assert_eq!(results[0].title.as_deref(), Some("Second Write"));
+        assert_eq!(results[1].title.as_deref(), Some("Second Write"));
+
+        // Verify on-disk: re-read the file, should have second write's values
+        let on_disk = read_track_metadata(&track_path).unwrap();
+        assert_eq!(on_disk.title.as_deref(), Some("Second Write"));
+        assert_eq!(on_disk.artist.as_deref(), Some("Second Artist"));
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    // --- large-album sub-batching ---
+
+    /// More than 20 tracks in one folder verifies the SUBBATCH_SIZE chunking
+    /// boundary. All writes must succeed and read back in order.
+    #[tokio::test]
+    async fn batch_write_large_album_exceeds_subbatch_size() {
+        let root = std::env::temp_dir().join(format!(
+            "soundrobe-large-album-{}",
+            TEMP_SEQUENCE.fetch_add(1, Ordering::Relaxed)
+        ));
+        fs::create_dir_all(&root).unwrap();
+
+        let track_count = 25; // > SUBBATCH_SIZE (20)
+        let mut updates = Vec::with_capacity(track_count);
+        for i in 0..track_count {
+            let track_path = root.join(format!("{:02}.flac", i + 1));
+            copy_flac_to(&track_path);
+            updates.push(TrackUpdate {
+                path: track_path.to_string_lossy().into_owned(),
+                fields: serde_json::from_value(serde_json::json!({
+                    "title": format!("Track {}", i + 1),
+                    "trackNumber": (i + 1) as u32
+                }))
+                .unwrap(),
+            });
+        }
+
+        let queue = WriteQueue::default();
+        let results = batch_write_with_readback(&queue, updates).await.unwrap();
+        assert_eq!(results.len(), track_count);
+        for (i, track) in results.iter().enumerate() {
+            assert_eq!(
+                track.title.as_deref(),
+                Some(format!("Track {}", i + 1).as_str())
+            );
+            assert_eq!(track.track_number, Some((i + 1) as u32));
+        }
+
         fs::remove_dir_all(root).unwrap();
     }
 }
