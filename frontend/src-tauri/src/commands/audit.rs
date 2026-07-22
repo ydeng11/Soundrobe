@@ -648,7 +648,19 @@ pub fn build_deterministic_audit_findings(
             );
         }
 
-        let source_artist = facts.artist.as_deref().or(track.artist.as_deref());
+        // Prefer the source that clearly indicates multiple artists. When the
+        // filename says "Various Artists" (群星) but the metadata ARTIST tag has
+        // the actual collaborator list, use the metadata for the artists check.
+        let filename_artist = facts.artist.as_deref();
+        let metadata_artist = track.artist.as_deref();
+        let source_artist = filename_artist
+            .filter(|artist| split_artist_names(artist).len() >= 2)
+            .or_else(|| {
+                metadata_artist
+                    .filter(|artist| split_artist_names(artist).len() >= 2)
+            })
+            .or(filename_artist)
+            .or(metadata_artist);
         if let Some(source_artist) = source_artist {
             let expected = split_artist_names(source_artist);
             let characters = source_artist.chars().collect::<Vec<_>>();
@@ -1079,17 +1091,51 @@ async fn audit_album_with_services(
     client: Option<&OpenRouterClient>,
     remote: Option<&RemoteArtworkClient>,
     alias_file: &Path,
-) -> Result<Vec<AuditFinding>, ApiError> {
-    let Some(context) = build_audit_album_context(album_path, cancelled)? else {
-        return Ok(Vec::new());
+) -> Vec<AuditFinding> {
+    let Ok(Some(context)) = build_audit_album_context(album_path, cancelled) else {
+        return Vec::new();
     };
-    let alias = if let (Some(client), Some(remote)) = (client, remote) {
-        resolve_audit_discogs_alias(&context.artist_hint, client, remote, alias_file, cancelled)
-            .await?
+    // Skip Discogs alias resolution when there are no review targets — the
+    // deterministic findings are already complete. Also handle alias-resolution
+    // failures gracefully: log a warning and continue with no alias.
+    let alias = if context.review_targets.is_empty() {
+        None
+    } else if let (Some(client), Some(remote)) = (client, remote) {
+        match resolve_audit_discogs_alias(
+            &context.artist_hint,
+            client,
+            remote,
+            alias_file,
+            cancelled,
+        )
+        .await
+        {
+            Ok(alias) => alias,
+            Err(error) => {
+                tracing::warn!(
+                    path = %album_path.display(),
+                    %error,
+                    "Discogs alias resolution failed, continuing without alias"
+                );
+                None
+            }
+        }
     } else {
         None
     };
-    review_audit_context(context, cancelled, client, alias.as_deref()).await
+    // Handle LLM review failure gracefully: log a warning and return
+    // deterministic findings without semantic review.
+    match review_audit_context(context, cancelled, client, alias.as_deref()).await {
+        Ok(findings) => findings,
+        Err(error) => {
+            tracing::warn!(
+                path = %album_path.display(),
+                %error,
+                "LLM review failed, falling back to deterministic findings"
+            );
+            audit_album_deterministic(album_path, cancelled).unwrap_or_default()
+        }
+    }
 }
 
 fn audit_schema() -> serde_json::Value {
@@ -1251,16 +1297,13 @@ async fn apply_album_fixes(
         let Some(fields) = audit_write_fields(finding) else {
             continue;
         };
-        if let Some(job) = jobs.iter_mut().find(|job| job.path == *path) {
-            merge_track_patch(&mut job.fields, fields);
-            job.finding_indices.push(finding_index);
-        } else {
-            jobs.push(AuditWriteJob {
-                path: path.clone(),
-                fields,
-                finding_indices: vec![finding_index],
-            });
-        }
+        // Each finding is its own write job so the user can apply fixes
+        // individually per track per issue.
+        jobs.push(AuditWriteJob {
+            path: path.clone(),
+            fields,
+            finding_indices: vec![finding_index],
+        });
     }
     if jobs.is_empty() {
         return Ok(0);
@@ -1374,28 +1417,6 @@ fn track_patch_has_field(fields: &TrackPatch) -> bool {
         || !fields.disc_total.is_omitted()
 }
 
-fn merge_track_patch(target: &mut TrackPatch, incoming: TrackPatch) {
-    macro_rules! merge {
-        ($field:ident) => {
-            if !incoming.$field.is_omitted() {
-                target.$field = incoming.$field;
-            }
-        };
-    }
-    merge!(title);
-    merge!(artist);
-    merge!(artists);
-    merge!(album);
-    merge!(album_artist);
-    merge!(album_artists);
-    merge!(year);
-    merge!(genre);
-    merge!(track_number);
-    merge!(track_total);
-    merge!(disc_number);
-    merge!(disc_total);
-}
-
 fn emit_audit(app: &AppHandle, event: AuditEvent) {
     if let Err(error) = app.emit("audit:event", event) {
         tracing::warn!("failed to emit audit event: {error}");
@@ -1471,50 +1492,37 @@ async fn audit_pool_worker(pool: &AuditPool<'_>) {
             message: Some(format!("Auditing: {name}")),
             results: None,
         });
-        match audit_album_with_services(
+        let findings = audit_album_with_services(
             Path::new(path),
             pool.cancelled,
             pool.client,
             pool.remote,
             pool.alias_file,
         )
-        .await
-        {
-            Ok(findings) => {
-                let count = findings.len();
-                pool.issues.fetch_add(count, Ordering::AcqRel);
-                let mut results = pool.results.lock().unwrap_or_else(|poisoned| {
-                    tracing::error!("audit result mutex poisoned");
-                    poisoned.into_inner()
-                });
-                results.push(AuditAlbumResult {
-                    album_path: path.clone(),
-                    results: findings.clone(),
-                });
-                let current = pool.albums.fetch_add(1, Ordering::AcqRel) + 1;
-                (pool.emit)(AuditEvent {
-                    kind: "album-result",
-                    album_path: Some(path.clone()),
-                    current: Some(current),
-                    total: Some(pool.paths.len()),
-                    message: Some(if count == 0 {
-                        format!("{name}: OK")
-                    } else {
-                        format!("{name}: {count} issue(s)")
-                    }),
-                    results: Some(findings),
-                });
-            }
-            Err(_) if pool.cancelled.load(Ordering::Acquire) => return,
-            Err(error) => (pool.emit)(AuditEvent {
-                kind: "album-error",
-                album_path: Some(path.clone()),
-                current: Some(pool.albums.load(Ordering::Acquire) + 1),
-                total: Some(pool.paths.len()),
-                message: Some(format!("{name}: {error}")),
-                results: None,
+        .await;
+        let count = findings.len();
+        pool.issues.fetch_add(count, Ordering::AcqRel);
+        let mut results = pool.results.lock().unwrap_or_else(|poisoned| {
+            tracing::error!("audit result mutex poisoned");
+            poisoned.into_inner()
+        });
+        results.push(AuditAlbumResult {
+            album_path: path.clone(),
+            results: findings.clone(),
+        });
+        let current = pool.albums.fetch_add(1, Ordering::AcqRel) + 1;
+        (pool.emit)(AuditEvent {
+            kind: "album-result",
+            album_path: Some(path.clone()),
+            current: Some(current),
+            total: Some(pool.paths.len()),
+            message: Some(if count == 0 {
+                format!("{name}: OK")
+            } else {
+                format!("{name}: {count} issue(s)")
             }),
-        }
+            results: Some(findings),
+        });
     }
 }
 
@@ -1701,14 +1709,14 @@ pub async fn audit_run_album(
 ) -> Result<Vec<AuditFinding>, ApiError> {
     let cancelled = AtomicBool::new(false);
     let (client, remote) = audit_clients(&providers, &config);
-    audit_album_with_services(
+    Ok(audit_album_with_services(
         Path::new(&album_path),
         &cancelled,
         client.as_deref(),
         remote.as_deref(),
         &config.alias_file_path(),
     )
-    .await
+    .await)
 }
 
 #[tauri::command]
@@ -2193,7 +2201,8 @@ mod deterministic_contract_tests {
         .await
         .unwrap();
 
-        assert_eq!(summary.fixed, 1);
+        // No merge: two auto-fix-eligible findings → two independent writes.
+        assert_eq!(summary.fixed, 2);
         assert!(summary.album_results[0].results[0].auto_fixed);
         assert!(summary.album_results[0].results[1].auto_fixed);
         assert!(!summary.album_results[0].results[2].auto_fixed);

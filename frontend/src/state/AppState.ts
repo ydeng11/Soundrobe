@@ -492,14 +492,32 @@ export function appReducer(state: AppState, action: AppAction): AppState {
     case "SET_AUDIT_PROGRESS":
       return { ...state, auditProgress: action.progress };
 
-    case "ADD_AUDIT_RESULTS":
+    case "ADD_AUDIT_RESULTS": {
+      const existingResults = state.auditResults[action.albumPath];
+      const mergedResults = existingResults
+        ? existingResults.map((existing) => {
+            const updated = action.results.find(
+              (r) =>
+                r.trackIndex === existing.trackIndex &&
+                r.field === existing.field,
+            );
+            if (updated) {
+              return {
+                ...existing,
+                autoFixed: updated.autoFixed ?? existing.autoFixed,
+              };
+            }
+            return existing;
+          })
+        : action.results;
       return {
         ...state,
         auditResults: {
           ...state.auditResults,
-          [action.albumPath]: action.results,
+          [action.albumPath]: mergedResults,
         },
       };
+    }
 
     case "CLEAR_AUDIT_RESULTS":
       return { ...state, auditResults: {} };

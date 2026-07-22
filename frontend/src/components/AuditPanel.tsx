@@ -33,6 +33,7 @@ interface AuditPanelProps {
   results: AuditTrackResult[];
   albumName: string;
   onApplyFixes?: () => void;
+  onApplyFix?: (result: AuditTrackResult) => void;
   applying?: boolean;
 }
 
@@ -83,10 +84,12 @@ function plannedValue(result: AuditTrackResult): string | null {
 export function SelectedTrackAuditFindings({
   results,
   onApplyFixes,
+  onApplyFix,
   applying = false,
 }: {
   results: AuditTrackResult[];
   onApplyFixes?: () => void;
+  onApplyFix?: (result: AuditTrackResult) => void;
   applying?: boolean;
 }) {
   if (results.length === 0) return null;
@@ -132,6 +135,17 @@ export function SelectedTrackAuditFindings({
                   {stateLabel}
                 </span>
                 <span className="text-[10.5px] text-text-muted">{result.field}</span>
+                <div className="flex-1" />
+                {result.autoFixEligible && !result.autoFixed && onApplyFix && (
+                  <button
+                    type="button"
+                    onClick={() => onApplyFix(result)}
+                    disabled={applying}
+                    className="rounded border border-[#ff9f0a]/30 bg-[#ff9f0a]/10 px-1.5 py-0.5 text-[10px] font-medium text-[#b36200] disabled:opacity-50"
+                  >
+                    Apply
+                  </button>
+                )}
               </div>
               <div className="mt-1 text-[11px] leading-relaxed text-text-primary">
                 {result.message ?? `"${result.field}" field issue`}
@@ -154,7 +168,7 @@ export function SelectedTrackAuditFindings({
   );
 }
 
-export function AuditPanel({ results, albumName, onApplyFixes, applying = false }: AuditPanelProps) {
+export function AuditPanel({ results, albumName, onApplyFixes, onApplyFix, applying = false }: AuditPanelProps) {
   if (results.length === 0) return null;
   const groups = groupByTrack(results);
   const totalFixable = fixableCount(results);
@@ -223,6 +237,17 @@ export function AuditPanel({ results, albumName, onApplyFixes, applying = false 
                         {r.source}
                         {typeof r.confidence === "number" ? ` ${Math.round(r.confidence * 100)}%` : ""}
                       </span>
+                    )}
+                    <div className="flex-1" />
+                    {r.autoFixEligible && !r.autoFixed && onApplyFix && (
+                      <button
+                        type="button"
+                        onClick={() => onApplyFix(r)}
+                        disabled={applying}
+                        className="rounded border border-[#ff9f0a]/30 bg-[#ff9f0a]/10 px-1.5 py-0.5 text-[10px] font-medium text-[#b36200] disabled:opacity-50"
+                      >
+                        Apply
+                      </button>
                     )}
                   </div>
                   <div className="mt-1 text-[11.5px] text-text-primary leading-relaxed">

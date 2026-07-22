@@ -1,4 +1,10 @@
-import React, { useReducer, useCallback, useEffect, useMemo, useRef } from "react";
+import React, {
+  useReducer,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+} from "react";
 import {
   appReducer,
   buildAuditApplyAlbumResults,
@@ -18,7 +24,10 @@ import { MetadataEditor } from "./components/MetadataEditor";
 import { BatchEditor } from "./components/BatchEditor";
 import { ScanProgressBar } from "./components/ScanProgressBar";
 import { AuditBanner } from "./components/AuditBanner";
-import { AuditPanel, SelectedTrackAuditFindings } from "./components/AuditPanel";
+import {
+  AuditPanel,
+  SelectedTrackAuditFindings,
+} from "./components/AuditPanel";
 import { SettingsModal } from "./components/SettingsModal";
 import { ConvertDialog } from "./components/ConvertDialog";
 import { ExtraTagsEditor } from "./components/ExtraTagsEditor";
@@ -31,7 +40,14 @@ import {
   getConvertSourceValue,
   type ConvertTrackData,
 } from "./shared/convert";
-import type { ExtraTagUndoSnapshot, TrackData, AlbumInfo, AlbumDetail, AuditRunSummary, AuditTrackResult } from "./shared/desktop-api";
+import type {
+  ExtraTagUndoSnapshot,
+  TrackData,
+  AlbumInfo,
+  AlbumDetail,
+  AuditRunSummary,
+  AuditTrackResult,
+} from "./shared/desktop-api";
 import {
   computeNumberedTracks,
   type OrderingRule,
@@ -68,7 +84,9 @@ function mapAuditResultForState(r: {
 export default function App() {
   const [state, dispatch] = useReducer(appReducer, initialAppState);
   const [showConvertDialog, setShowConvertDialog] = React.useState(false);
-  const [extraTagsTrack, setExtraTagsTrack] = React.useState<TrackData | null>(null);
+  const [extraTagsTrack, setExtraTagsTrack] = React.useState<TrackData | null>(
+    null,
+  );
   const [batchExtraTagsOpen, setBatchExtraTagsOpen] = React.useState(false);
   const [showAssistant, setShowAssistant] = React.useState(false);
   const [assistantApiKey, setAssistantApiKey] = React.useState("");
@@ -84,31 +102,26 @@ export default function App() {
   const saveGenerationRef = useRef(0);
 
   /** Fetch cover data URL with caching and stale-response guarding. */
-  const fetchCover = useCallback(
-    (albumPath: string, signal?: AbortSignal) => {
-      const cached = coverUrlCacheRef.current.get(albumPath);
-      if (cached !== undefined) {
-        dispatch({ type: "SET_COVER_URL", url: cached });
-        return;
-      }
+  const fetchCover = useCallback((albumPath: string, signal?: AbortSignal) => {
+    const cached = coverUrlCacheRef.current.get(albumPath);
+    if (cached !== undefined) {
+      dispatch({ type: "SET_COVER_URL", url: cached });
+      return;
+    }
 
-      window.api
-        .getCoverDataUrl(albumPath)
-        .then(
-          (url) => {
-            if (signal?.aborted) return;
-            coverUrlCacheRef.current.set(albumPath, url);
-            dispatch({ type: "SET_COVER_URL", url });
-          },
-          () => {
-            if (signal?.aborted) return;
-            coverUrlCacheRef.current.set(albumPath, null);
-            dispatch({ type: "SET_COVER_URL", url: null });
-          },
-        );
-    },
-    [],
-  );
+    window.api.getCoverDataUrl(albumPath).then(
+      (url) => {
+        if (signal?.aborted) return;
+        coverUrlCacheRef.current.set(albumPath, url);
+        dispatch({ type: "SET_COVER_URL", url });
+      },
+      () => {
+        if (signal?.aborted) return;
+        coverUrlCacheRef.current.set(albumPath, null);
+        dispatch({ type: "SET_COVER_URL", url: null });
+      },
+    );
+  }, []);
 
   /** Debounced cover fetch — cancels previous in-flight request. */
   const debouncedFetchCover = useCallback(
@@ -138,46 +151,52 @@ export default function App() {
   }, []);
 
   /** Read track data for every album and dispatch results. */
-  const loadAlbumTracks = useCallback(
-    async (albums: AlbumInfo[]) => {
-      const trackGroups: TrackData[][] = Array.from({ length: albums.length }, () => []);
-      const concurrency = 4;
-      let nextIndex = 0;
-      let completed = 0;
+  const loadAlbumTracks = useCallback(async (albums: AlbumInfo[]) => {
+    const trackGroups: TrackData[][] = Array.from(
+      { length: albums.length },
+      () => [],
+    );
+    const concurrency = 4;
+    let nextIndex = 0;
+    let completed = 0;
 
-      const processAlbum = async (album: AlbumInfo) => {
-        try {
-          const detail = await window.api.readAlbum(album.path);
-          return detail.tracks;
-        } catch {
-          return [] as TrackData[];
-        }
-      };
+    const processAlbum = async (album: AlbumInfo) => {
+      try {
+        const detail = await window.api.readAlbum(album.path);
+        return detail.tracks;
+      } catch {
+        return [] as TrackData[];
+      }
+    };
 
-      // Process albums concurrently with a concurrency limit
-      const worker = async () => {
-        while (true) {
-          const idx = nextIndex++;
-          if (idx >= albums.length) break;
-          dispatch({
-            type: "SET_SCANNING_PROGRESS",
-            progress: { current: Math.min(completed + 1, albums.length), total: albums.length },
-          });
-          const tracks = await processAlbum(albums[idx]);
-          trackGroups[idx] = tracks;
-          completed += 1;
-        }
-      };
+    // Process albums concurrently with a concurrency limit
+    const worker = async () => {
+      while (true) {
+        const idx = nextIndex++;
+        if (idx >= albums.length) break;
+        dispatch({
+          type: "SET_SCANNING_PROGRESS",
+          progress: {
+            current: Math.min(completed + 1, albums.length),
+            total: albums.length,
+          },
+        });
+        const tracks = await processAlbum(albums[idx]);
+        trackGroups[idx] = tracks;
+        completed += 1;
+      }
+    };
 
-      const workers = Array.from({ length: Math.min(concurrency, albums.length) }, () => worker());
-      await Promise.all(workers);
+    const workers = Array.from(
+      { length: Math.min(concurrency, albums.length) },
+      () => worker(),
+    );
+    await Promise.all(workers);
 
-      dispatch({ type: "SET_SCANNING_PROGRESS", progress: null });
-      const allTracks = trackGroups.flat();
-      dispatch({ type: "SET_TRACKS", tracks: allTracks });
-    },
-    [],
-  );
+    dispatch({ type: "SET_SCANNING_PROGRESS", progress: null });
+    const allTracks = trackGroups.flat();
+    dispatch({ type: "SET_TRACKS", tracks: allTracks });
+  }, []);
 
   /** Full library re-scan — called on manual refresh. */
   const handleRefresh = useCallback(async () => {
@@ -235,13 +254,10 @@ export default function App() {
 
   // --- Album selection (in-memory filter, no disk reads) ---
 
-  const handleSelectAlbum = useCallback(
-    (albumPath: string | null) => {
-      // Just update the filter key — tracks are filtered at render time
-      dispatch({ type: "SET_ACTIVE_ALBUM", path: albumPath });
-    },
-    [],
-  );
+  const handleSelectAlbum = useCallback((albumPath: string | null) => {
+    // Just update the filter key — tracks are filtered at render time
+    dispatch({ type: "SET_ACTIVE_ALBUM", path: albumPath });
+  }, []);
 
   // --- Multi-track selection ---
 
@@ -302,17 +318,26 @@ export default function App() {
 
         const failed = results.filter((r) => !r.success);
         if (failed.length > 0) {
-          const messages = failed.map((r) => `${r.path}: ${r.error}`).join("; ");
-          dispatch({ type: "SET_ERROR", error: `Failed to delete ${failed.length} file(s): ${messages}` });
+          const messages = failed
+            .map((r) => `${r.path}: ${r.error}`)
+            .join("; ");
+          dispatch({
+            type: "SET_ERROR",
+            error: `Failed to delete ${failed.length} file(s): ${messages}`,
+          });
         }
 
         // Remove deleted paths from state
-        const deletedSet = new Set(results.filter((r) => r.success).map((r) => r.path));
+        const deletedSet = new Set(
+          results.filter((r) => r.success).map((r) => r.path),
+        );
         const remaining = state.tracks.filter((t) => !deletedSet.has(t.path));
         dispatch({ type: "SET_TRACKS", tracks: remaining });
 
         // Clear selection if selected files were deleted
-        const hadSelected = state.selectedTrackPaths.some((p) => deletedSet.has(p));
+        const hadSelected = state.selectedTrackPaths.some((p) =>
+          deletedSet.has(p),
+        );
         if (hadSelected) {
           dispatch({ type: "CLEAR_SELECTION" });
         }
@@ -417,8 +442,15 @@ export default function App() {
       dispatch({ type: "SET_ERROR", error: null });
 
       try {
-        const result = await window.api.writeExtraTags(extraTagsTrack.path, tags);
-        dispatch({ type: "UPDATE_TRACK", path: extraTagsTrack.path, track: result });
+        const result = await window.api.writeExtraTags(
+          extraTagsTrack.path,
+          tags,
+        );
+        dispatch({
+          type: "UPDATE_TRACK",
+          path: extraTagsTrack.path,
+          track: result,
+        });
         setExtraTagsTrack(result);
       } catch (err: unknown) {
         const message =
@@ -436,8 +468,7 @@ export default function App() {
 
   const handleChangeCover = useCallback(async () => {
     // Fall back to the first multi-selected track so this button works in batch mode.
-    const trackPath =
-      state.selectedTrack?.path ?? state.selectedTrackPaths[0];
+    const trackPath = state.selectedTrack?.path ?? state.selectedTrackPaths[0];
     if (!trackPath) return;
     const albumPath = dirPath(trackPath);
     try {
@@ -452,8 +483,7 @@ export default function App() {
 
   const handleRemoveCover = useCallback(async () => {
     // Fall back to the first multi-selected track so this button works in batch mode.
-    const trackPath =
-      state.selectedTrack?.path ?? state.selectedTrackPaths[0];
+    const trackPath = state.selectedTrack?.path ?? state.selectedTrackPaths[0];
     if (!trackPath) return;
     const albumPath = dirPath(trackPath);
     try {
@@ -474,8 +504,7 @@ export default function App() {
 
   const handleDownloadCover = useCallback(async () => {
     // Fall back to the first multi-selected track so this button works in batch mode.
-    const trackPath =
-      state.selectedTrack?.path ?? state.selectedTrackPaths[0];
+    const trackPath = state.selectedTrack?.path ?? state.selectedTrackPaths[0];
     if (!trackPath) return;
     const albumPath = dirPath(trackPath);
     dispatch({ type: "SET_SAVING", saving: true });
@@ -486,10 +515,14 @@ export default function App() {
         dispatch({ type: "SET_COVER_URL", url: dataUrl });
         coverUrlCacheRef.current.set(albumPath, dataUrl);
       } else {
-        dispatch({ type: "SET_ERROR", error: "No cover art found from any source" });
+        dispatch({
+          type: "SET_ERROR",
+          error: "No cover art found from any source",
+        });
       }
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Cover download failed";
+      const message =
+        err instanceof Error ? err.message : "Cover download failed";
       dispatch({ type: "SET_ERROR", error: message });
     } finally {
       dispatch({ type: "SET_SAVING", saving: false });
@@ -498,8 +531,7 @@ export default function App() {
 
   const handleDownloadArtistArt = useCallback(async () => {
     // Fall back to the first multi-selected track so this button works in batch mode.
-    const trackPath =
-      state.selectedTrack?.path ?? state.selectedTrackPaths[0];
+    const trackPath = state.selectedTrack?.path ?? state.selectedTrackPaths[0];
     if (!trackPath) return;
     const albumPath = dirPath(trackPath);
     dispatch({ type: "SET_SAVING", saving: true });
@@ -507,12 +539,19 @@ export default function App() {
     try {
       const result = await window.api.downloadArtistArt(albumPath);
       if (result) {
-        dispatch({ type: "SET_ERROR", error: `Artist image saved from ${result.source}` });
+        dispatch({
+          type: "SET_ERROR",
+          error: `Artist image saved from ${result.source}`,
+        });
       } else {
-        dispatch({ type: "SET_ERROR", error: "No artist image found from any source" });
+        dispatch({
+          type: "SET_ERROR",
+          error: "No artist image found from any source",
+        });
       }
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Artist image download failed";
+      const message =
+        err instanceof Error ? err.message : "Artist image download failed";
       dispatch({ type: "SET_ERROR", error: message });
     } finally {
       dispatch({ type: "SET_SAVING", saving: false });
@@ -525,7 +564,9 @@ export default function App() {
     const op = state.undoManager.pop();
     if (!op) return;
     if (op.snapshots.length === 0) {
-      console.warn("Undo popped an operation with 0 snapshots — nothing to revert");
+      console.warn(
+        "Undo popped an operation with 0 snapshots — nothing to revert",
+      );
       dispatch({ type: "POP_UNDO" });
       return;
     }
@@ -550,7 +591,11 @@ export default function App() {
           // Rename the file back to its original path
           try {
             const track = await window.api.renameTrack(snap.path, oldPath);
-            dispatch({ type: "UPDATE_TRACK", path: snap.path, track: { ...track, path: oldPath } });
+            dispatch({
+              type: "UPDATE_TRACK",
+              path: snap.path,
+              track: { ...track, path: oldPath },
+            });
           } catch {
             console.warn("Undo rename failed for:", snap.path);
           }
@@ -609,7 +654,11 @@ export default function App() {
         dispatch({
           type: "SET_AUTO_TAG_PROGRESS",
           progress: isBatch
-            ? { current: completed, total: targetPaths.length, message: `${albumName}` }
+            ? {
+                current: completed,
+                total: targetPaths.length,
+                message: `${albumName}`,
+              }
             : { current: 0, total: 9, message: `Auto-tagging: ${albumName}` },
         });
 
@@ -619,8 +668,16 @@ export default function App() {
           dispatch({
             type: "SET_AUTO_TAG_PROGRESS",
             progress: isBatch
-              ? { current: completed, total: targetPaths.length, message: event.message }
-            : { current: event.progress, total: event.total, message: event.message },
+              ? {
+                  current: completed,
+                  total: targetPaths.length,
+                  message: event.message,
+                }
+              : {
+                  current: event.progress,
+                  total: event.total,
+                  message: event.message,
+                },
           });
         });
 
@@ -636,8 +693,16 @@ export default function App() {
             dispatch({
               type: "SET_AUTO_TAG_PROGRESS",
               progress: isBatch
-                ? { current: completed, total: targetPaths.length, message: progress.message }
-                : { current: progress.progress, total: progress.total, message: progress.message },
+                ? {
+                    current: completed,
+                    total: targetPaths.length,
+                    message: progress.message,
+                  }
+                : {
+                    current: progress.progress,
+                    total: progress.total,
+                    message: progress.message,
+                  },
             });
 
             if (
@@ -648,7 +713,9 @@ export default function App() {
               done = true;
               if (progress.status === "failed") {
                 totalErrors++;
-                console.debug(`[auto-tag] Auto-tag failed for ${albumName}: ${progress.message}`);
+                console.debug(
+                  `[auto-tag] Auto-tag failed for ${albumName}: ${progress.message}`,
+                );
               }
             } else {
               await new Promise((resolve) => setTimeout(resolve, 300));
@@ -665,7 +732,11 @@ export default function App() {
       dispatch({
         type: "SET_AUTO_TAG_PROGRESS",
         progress: isBatch
-          ? { current: completed, total: targetPaths.length, message: "Refreshing tracks..." }
+          ? {
+              current: completed,
+              total: targetPaths.length,
+              message: "Refreshing tracks...",
+            }
           : { current: 9, total: 9, message: "Refreshing tracks..." },
       });
       const scannedAlbums = await window.api.scanLibrary(state.libraryPath);
@@ -714,7 +785,11 @@ export default function App() {
 
   const handleAudit = useCallback(async () => {
     if (!state.libraryPath || state.auditing) {
-      console.log("[audit] handleAudit skipped — libraryPath=%s auditing=%s", state.libraryPath, state.auditing);
+      console.log(
+        "[audit] handleAudit skipped — libraryPath=%s auditing=%s",
+        state.libraryPath,
+        state.auditing,
+      );
       return;
     }
 
@@ -735,7 +810,11 @@ export default function App() {
 
     try {
       unsubscribe = window.api.onAuditEvent((event) => {
-        console.log("[audit] event received — type=%s msg=%s", event.type, event.message ?? "");
+        console.log(
+          "[audit] event received — type=%s msg=%s",
+          event.type,
+          event.message ?? "",
+        );
         switch (event.type) {
           case "progress":
             dispatch({
@@ -770,7 +849,10 @@ export default function App() {
             break;
 
           case "failed":
-            dispatch({ type: "SET_ERROR", error: event.message ?? "Audit failed" });
+            dispatch({
+              type: "SET_ERROR",
+              error: event.message ?? "Audit failed",
+            });
             break;
 
           case "cancelled":
@@ -781,9 +863,13 @@ export default function App() {
       // Determine scope: selected tracks → active album → entire library
       let auditResult: AuditRunSummary;
       if (state.selectedTrackPaths.length > 0) {
-        auditResult = await window.api.runAuditOnTracks(state.selectedTrackPaths);
+        auditResult = await window.api.runAuditOnTracks(
+          state.selectedTrackPaths,
+        );
       } else if (state.activeAlbumPath) {
-        auditResult = await window.api.runAuditOnAlbums([state.activeAlbumPath]);
+        auditResult = await window.api.runAuditOnAlbums([
+          state.activeAlbumPath,
+        ]);
       } else {
         auditResult = await window.api.runAudit(state.libraryPath);
       }
@@ -839,7 +925,13 @@ export default function App() {
       dispatch({ type: "SET_AUDITING", auditing: false });
       dispatch({ type: "SET_AUDIT_PROGRESS", progress: null });
     }
-  }, [state.libraryPath, state.selectedTrackPaths, state.activeAlbumPath, state.auditing, loadAlbumTracks]);
+  }, [
+    state.libraryPath,
+    state.selectedTrackPaths,
+    state.activeAlbumPath,
+    state.auditing,
+    loadAlbumTracks,
+  ]);
 
   // --- Get Lyrics ---
 
@@ -883,7 +975,12 @@ export default function App() {
     } finally {
       dispatch({ type: "SET_LYRICS_GETTING", lyricsGetting: false });
     }
-  }, [state.libraryPath, state.activeAlbumPath, state.albums, state.lyricsGetting]);
+  }, [
+    state.libraryPath,
+    state.activeAlbumPath,
+    state.albums,
+    state.lyricsGetting,
+  ]);
 
   // --- Convert: prompt for direction + placeholder pattern, then apply ---
 
@@ -950,29 +1047,20 @@ export default function App() {
               ? filename
               : getConvertSourceValue(
                   convertTrack,
-                  result.sourceTag ?? "title"
+                  result.sourceTag ?? "title",
                 );
 
-          if (
-            result.direction === "tag-to-tags" &&
-            !sourceValue.trim()
-          ) {
+          if (result.direction === "tag-to-tags" && !sourceValue.trim()) {
             errors.push(
-              `${filename}: ${result.sourceTag ?? "title"} tag is empty`
+              `${filename}: ${result.sourceTag ?? "title"} tag is empty`,
             );
             continue;
           }
 
           const parsed =
             result.direction === "filename-to-tags"
-              ? parseFilenameWithConvertPattern(
-                  result.pattern,
-                  filename
-                )
-              : parseTextWithConvertPattern(
-                  result.pattern,
-                  sourceValue
-                );
+              ? parseFilenameWithConvertPattern(result.pattern, filename)
+              : parseTextWithConvertPattern(result.pattern, sourceValue);
 
           if ("error" in parsed) {
             errors.push(`${filename}: ${parsed.error}`);
@@ -1005,7 +1093,7 @@ export default function App() {
           try {
             const apiResult = await window.api.writeTrack(
               track.path,
-              writeFields
+              writeFields,
             );
             dispatch({
               type: "UPDATE_TRACK",
@@ -1017,7 +1105,7 @@ export default function App() {
             errors.push(
               `${filename}: ${
                 err instanceof Error ? err.message : "write failed"
-              }`
+              }`,
             );
           }
         }
@@ -1046,7 +1134,7 @@ export default function App() {
 
           const newFilename = buildFilenameFromConvertPattern(
             result.filenameTemplate,
-            convertTrack
+            convertTrack,
           );
 
           if (!newFilename || newFilename === filename) {
@@ -1056,7 +1144,7 @@ export default function App() {
 
           const oldDir = track.path.substring(
             0,
-            track.path.lastIndexOf("/") + 1
+            track.path.lastIndexOf("/") + 1,
           );
           const newPath = oldDir + newFilename;
 
@@ -1067,7 +1155,7 @@ export default function App() {
               // If same path (e.g. after prev rename), skip
               if (newPath !== track.path) {
                 errors.push(
-                  `${filename}: target already exists (${newFilename})`
+                  `${filename}: target already exists (${newFilename})`,
                 );
                 continue;
               }
@@ -1084,7 +1172,7 @@ export default function App() {
           try {
             const updatedTrack = await window.api.renameTrack(
               track.path,
-              newPath
+              newPath,
             );
             dispatch({
               type: "UPDATE_TRACK",
@@ -1096,7 +1184,7 @@ export default function App() {
             errors.push(
               `${filename}: ${
                 err instanceof Error ? err.message : "rename failed"
-              }`
+              }`,
             );
           }
         }
@@ -1114,8 +1202,8 @@ export default function App() {
           const albumPaths = [
             ...new Set(
               targetTracks.map((t) =>
-                t.path.substring(0, t.path.lastIndexOf("/"))
-              )
+                t.path.substring(0, t.path.lastIndexOf("/")),
+              ),
             ),
           ];
           for (const albumPath of albumPaths) {
@@ -1149,7 +1237,7 @@ export default function App() {
         dispatch({ type: "SET_ERROR", error: fullMessage });
       }
     },
-    [state.selectedTrackPaths, state.tracks]
+    [state.selectedTrackPaths, state.tracks],
   );
 
   // --- Number Tracks ---
@@ -1157,8 +1245,8 @@ export default function App() {
   const handleNumberTracks = useCallback(
     async (rule: OrderingRule) => {
       if (!state.activeAlbumPath) return;
-      const albumTracks = state.tracks.filter((t) =>
-        dirPath(t.path) === state.activeAlbumPath,
+      const albumTracks = state.tracks.filter(
+        (t) => dirPath(t.path) === state.activeAlbumPath,
       );
       if (albumTracks.length === 0) return;
 
@@ -1188,8 +1276,7 @@ export default function App() {
         const results = await window.api.writeTracks(updates);
         dispatch({ type: "UPDATE_TRACKS", tracks: results });
       } catch (err: unknown) {
-        const message =
-          err instanceof Error ? err.message : "Numbering failed";
+        const message = err instanceof Error ? err.message : "Numbering failed";
         dispatch({ type: "SET_ERROR", error: message });
       } finally {
         dispatch({ type: "SET_SAVING", saving: false });
@@ -1254,14 +1341,18 @@ export default function App() {
   const handleAssistantApplyUndo = useCallback(
     (
       description: string,
-      snapshots: Array<{ path: string; metadata?: Record<string, unknown> } | ExtraTagUndoSnapshot>,
+      snapshots: Array<
+        | { path: string; metadata?: Record<string, unknown> }
+        | ExtraTagUndoSnapshot
+      >,
       kind: "tag-update" | "extra-tag-update",
     ) => {
       const trackSnapshots = snapshots.map((s) => ({
         path: s.path,
-        fields: kind === "extra-tag-update"
-          ? { [EXTRA_TAG_UNDO_FIELD]: (s as ExtraTagUndoSnapshot).extraTags }
-          : ((s as { metadata?: Record<string, unknown> }).metadata ?? {}),
+        fields:
+          kind === "extra-tag-update"
+            ? { [EXTRA_TAG_UNDO_FIELD]: (s as ExtraTagUndoSnapshot).extraTags }
+            : ((s as { metadata?: Record<string, unknown> }).metadata ?? {}),
       }));
       dispatch({ type: "PUSH_UNDO", description, snapshots: trackSnapshots });
     },
@@ -1291,14 +1382,21 @@ export default function App() {
                   message: event.message ?? "Auditing...",
                 },
               });
-            } else if (event.type === "album-result" && event.albumPath && event.results) {
+            } else if (
+              event.type === "album-result" &&
+              event.albumPath &&
+              event.results
+            ) {
               dispatch({
                 type: "ADD_AUDIT_RESULTS",
                 albumPath: event.albumPath,
                 results: event.results.map(mapAuditResultForState),
               });
             } else if (event.type === "failed") {
-              dispatch({ type: "SET_ERROR", error: event.message ?? "Audit failed" });
+              dispatch({
+                type: "SET_ERROR",
+                error: event.message ?? "Audit failed",
+              });
             }
           });
 
@@ -1482,10 +1580,11 @@ export default function App() {
   );
 
   const auditByTrackPath = useMemo(
-    () => buildAuditByTrackPath({
-      auditResults: state.auditResults,
-      tracks: state.tracks,
-    }),
+    () =>
+      buildAuditByTrackPath({
+        auditResults: state.auditResults,
+        tracks: state.tracks,
+      }),
     [state.auditResults, state.tracks],
   );
 
@@ -1493,44 +1592,80 @@ export default function App() {
     ? auditByTrackPath[state.selectedTrackPath]
     : undefined;
 
-  const handleApplyAuditFixes = useCallback(async (albumResults: AuditApplyAlbumResult[]) => {
-    if (albumResults.length === 0) return;
+  /** Build a single-fix payload from an inline audit result entry. */
+  function singleAuditFixResult(
+    result: {
+      trackIndex: number;
+      field: string;
+      status: string;
+      message: string | null;
+      suggestion?: string | null;
+      corrected?: Record<string, unknown> | null;
+      source?: string;
+      confidence?: number;
+    },
+    albumPath: string,
+  ): AuditApplyAlbumResult[] {
+    const trackResult: AuditTrackResult = {
+      index: result.trackIndex,
+      field: result.field,
+      status: result.status as AuditTrackResult["status"],
+      message: result.message ?? "",
+      suggestion: result.suggestion,
+      corrected: result.corrected as AuditTrackResult["corrected"],
+      source: (result.source ?? "deterministic") as AuditTrackResult["source"],
+      confidence: result.confidence ?? 0,
+      autoFixEligible: true,
+      autoFixed: false,
+    };
+    return [{ albumPath, results: [trackResult] }];
+  }
 
-    dispatch({ type: "SET_SAVING", saving: true });
-    dispatch({ type: "SET_ERROR", error: null });
-    try {
-      const summary = await window.api.applyAuditFixes(albumResults);
-      for (const albumResult of summary.albumResults) {
-        dispatch({
-          type: "ADD_AUDIT_RESULTS",
-          albumPath: albumResult.albumPath,
-          results: albumResult.results.map(mapAuditResultForState),
-        });
-      }
+  const handleApplyAuditFixes = useCallback(
+    async (albumResults: AuditApplyAlbumResult[]) => {
+      if (albumResults.length === 0) return;
 
-      const refreshedTracks: TrackData[] = [];
-      for (const albumResult of summary.albumResults) {
-        try {
-          const detail = await window.api.readAlbum(albumResult.albumPath);
-          refreshedTracks.push(...detail.tracks);
-        } catch {
-          // Keep the fix result visible even if a post-write refresh fails.
+      dispatch({ type: "SET_SAVING", saving: true });
+      dispatch({ type: "SET_ERROR", error: null });
+      try {
+        const summary = await window.api.applyAuditFixes(albumResults);
+        for (const albumResult of summary.albumResults) {
+          dispatch({
+            type: "ADD_AUDIT_RESULTS",
+            albumPath: albumResult.albumPath,
+            results: albumResult.results.map(mapAuditResultForState),
+          });
         }
+
+        const refreshedTracks: TrackData[] = [];
+        for (const albumResult of summary.albumResults) {
+          try {
+            const detail = await window.api.readAlbum(albumResult.albumPath);
+            refreshedTracks.push(...detail.tracks);
+          } catch {
+            // Keep the fix result visible even if a post-write refresh fails.
+          }
+        }
+        if (refreshedTracks.length > 0) {
+          dispatch({ type: "UPDATE_TRACKS", tracks: refreshedTracks });
+        }
+        dispatch({
+          type: "SET_ERROR",
+          error:
+            summary.fixed > 0
+              ? `Applied ${summary.fixed} audit fix(es)`
+              : "No eligible audit fixes to apply",
+        });
+      } catch (err: unknown) {
+        const message =
+          err instanceof Error ? err.message : "Failed to apply audit fixes";
+        dispatch({ type: "SET_ERROR", error: message });
+      } finally {
+        dispatch({ type: "SET_SAVING", saving: false });
       }
-      if (refreshedTracks.length > 0) {
-        dispatch({ type: "UPDATE_TRACKS", tracks: refreshedTracks });
-      }
-      dispatch({
-        type: "SET_ERROR",
-        error: summary.fixed > 0 ? `Applied ${summary.fixed} audit fix(es)` : "No eligible audit fixes to apply",
-      });
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Failed to apply audit fixes";
-      dispatch({ type: "SET_ERROR", error: message });
-    } finally {
-      dispatch({ type: "SET_SAVING", saving: false });
-    }
-  }, []);
+    },
+    [],
+  );
 
   // Handle batch field save from BatchEditor — single IPC call
   const handleBatchSave = useCallback(
@@ -1540,7 +1675,8 @@ export default function App() {
 
       const snapshots: TrackSnapshot[] = [];
       const originalTracks: TrackData[] = [];
-      const updates: Array<{ path: string; fields: Record<string, unknown> }> = [];
+      const updates: Array<{ path: string; fields: Record<string, unknown> }> =
+        [];
 
       // Build write fields once — same for all selected tracks
       const writeFields: Record<string, unknown> = {};
@@ -1562,14 +1698,12 @@ export default function App() {
       dispatch({ type: "SET_SAVING", saving: true });
 
       // Subscribe to real-time progress from the Rust batch writer
-      const unsubProgress = window.api.onTrackWriteEvent(
-        (event) => {
-          dispatch({
-            type: "SET_SAVE_PROGRESS",
-            progress: { current: event.current, total: event.total },
-          });
-        },
-      );
+      const unsubProgress = window.api.onTrackWriteEvent((event) => {
+        dispatch({
+          type: "SET_SAVE_PROGRESS",
+          progress: { current: event.current, total: event.total },
+        });
+      });
 
       try {
         const results = await window.api.writeTracks(updates);
@@ -1577,7 +1711,8 @@ export default function App() {
         dispatch({ type: "PATCH_TRACKS", paths, fields });
       } catch (err: unknown) {
         dispatch({ type: "UPDATE_TRACKS", tracks: originalTracks });
-        const message = err instanceof Error ? err.message : "Batch save failed";
+        const message =
+          err instanceof Error ? err.message : "Batch save failed";
         dispatch({ type: "SET_ERROR", error: message });
       } finally {
         unsubProgress();
@@ -1590,7 +1725,12 @@ export default function App() {
 
   // Handle batch extra tags save with per-track origin-scoped updates
   const handleBatchExtraTagsSave = useCallback(
-    async (updates: Array<{ path: string; tags: Array<{ key: string; value: string }> }>) => {
+    async (
+      updates: Array<{
+        path: string;
+        tags: Array<{ key: string; value: string }>;
+      }>,
+    ) => {
       if (updates.length === 0) return;
 
       dispatch({ type: "SET_SAVING", saving: true });
@@ -1601,7 +1741,8 @@ export default function App() {
         dispatch({ type: "UPDATE_TRACKS", tracks: results });
         setBatchExtraTagsOpen(false);
       } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : "Batch extra tags save failed";
+        const message =
+          err instanceof Error ? err.message : "Batch extra tags save failed";
         dispatch({ type: "SET_ERROR", error: message });
       } finally {
         dispatch({ type: "SET_SAVING", saving: false });
@@ -1716,11 +1857,23 @@ export default function App() {
               {selectedTrackAudit && (
                 <SelectedTrackAuditFindings
                   results={selectedTrackAudit.results}
-                  onApplyFixes={() => handleApplyAuditFixes(buildAuditApplyAlbumResults({
-                    auditResults: state.auditResults,
-                    tracks: state.tracks,
-                    trackPath: state.selectedTrackPath,
-                  }))}
+                  onApplyFixes={() =>
+                    handleApplyAuditFixes(
+                      buildAuditApplyAlbumResults({
+                        auditResults: state.auditResults,
+                        tracks: state.tracks,
+                        trackPath: state.selectedTrackPath,
+                      }),
+                    )
+                  }
+                  onApplyFix={(result) =>
+                    handleApplyAuditFixes(
+                      singleAuditFixResult(
+                        result,
+                        dirPath(state.selectedTrackPath!),
+                      ),
+                    )
+                  }
                   applying={state.saving}
                 />
               )}
@@ -1740,11 +1893,23 @@ export default function App() {
             <AuditPanel
               results={visibleAuditResult.results}
               albumName={basename(visibleAuditResult.albumPath) ?? ""}
-              onApplyFixes={() => handleApplyAuditFixes(buildAuditApplyAlbumResults({
-                auditResults: state.auditResults,
-                tracks: state.tracks,
-                albumPath: visibleAuditResult.albumPath,
-              }))}
+              onApplyFixes={() =>
+                handleApplyAuditFixes(
+                  buildAuditApplyAlbumResults({
+                    auditResults: state.auditResults,
+                    tracks: state.tracks,
+                    albumPath: visibleAuditResult.albumPath,
+                  }),
+                )
+              }
+              onApplyFix={(result) =>
+                handleApplyAuditFixes(
+                  singleAuditFixResult(
+                    result,
+                    visibleAuditResult.albumPath,
+                  ),
+                )
+              }
               applying={state.saving}
             />
           ) : (
@@ -1795,10 +1960,7 @@ export default function App() {
         />
       </ErrorBoundary>
 
-      <SettingsModal
-        open={state.showSettings}
-        onClose={handleCloseSettings}
-      />
+      <SettingsModal open={state.showSettings} onClose={handleCloseSettings} />
 
       <ConvertDialog
         open={showConvertDialog}
@@ -1877,12 +2039,16 @@ export async function buildAutoTagUndoSnapshots(
     } catch (err) {
       if (tracks.length === 0) {
         const message = err instanceof Error ? err.message : String(err);
-        throw new Error(`Cannot auto-tag without undo snapshot for ${albumPath}: ${message}`);
+        throw new Error(
+          `Cannot auto-tag without undo snapshot for ${albumPath}: ${message}`,
+        );
       }
     }
 
     if (tracks.length === 0) {
-      throw new Error(`Cannot auto-tag without undo snapshot for ${albumPath}: no tracks found`);
+      throw new Error(
+        `Cannot auto-tag without undo snapshot for ${albumPath}: no tracks found`,
+      );
     }
 
     for (const track of tracks) {
