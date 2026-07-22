@@ -49,9 +49,11 @@ fe-install:
     npm install
 
 # Start Tauri with Vite HMR — hot-reloads on save
-# .env vars (LLM_API_KEY, LLM_MODEL) loaded automatically via set dotenv-load
+# .env vars (LLM_API_KEY, LLM_MODEL, AUTO_TAG_CHINESE_SCRIPT) loaded automatically
+# via set dotenv-load, but AUTO_TAG_CHINESE_SCRIPT is hard-coded here so dev mode
+# always uses simplified Chinese (override via .env.local or export).
 fe-dev: _fe-deps-check
-    cd frontend && SOUNDROBE_LOG=trace npm run dev
+    cd frontend && SOUNDROBE_LOG=trace AUTO_TAG_CHINESE_SCRIPT=simplified npm run dev
 
 # Build the Tauri application and platform bundle
 fe-build: _fe-deps-check

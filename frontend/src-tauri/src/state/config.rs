@@ -16,7 +16,7 @@ use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, MutexGuard};
 
 /// Resolved app configuration. Fields mirror `AutoTagConfig`.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -188,7 +188,13 @@ fn apply_yaml_key(config: &mut AutoTagConfig, key: &str, value: &str) {
         }
         "lyrics_api_url" => config.lyrics_api_url = Some(value.to_string()),
         "theaudiodb_api_key" => config.theaudiodb_api_key = Some(value.to_string()),
-        "chinese_script" => config.chinese_script = Some(value.to_string()),
+        "chinese_script" => {
+            if value == "null" || value.is_empty() {
+                config.chinese_script = None;
+            } else {
+                config.chinese_script = Some(value.to_string());
+            }
+        }
         "write_concurrency" => {
             if let Ok(n) = value.parse::<usize>() {
                 config.write_concurrency = Some(n);
@@ -361,6 +367,11 @@ pub struct ConfigState {
     home: PathBuf,
     env: Arc<dyn Env>,
     inner: Arc<Mutex<AutoTagConfig>>,
+    /// Serialises concurrent read-modify-write of the YAML file.
+    /// `Promise.all` in SettingsModal.handleSave fires every `config_set`
+    /// simultaneously; without this lock, independent read-modify-write
+    /// cycles in `set` overwrite one another, losing keys.
+    write_lock: Arc<Mutex<()>>,
 }
 
 impl ConfigState {
@@ -376,6 +387,7 @@ impl ConfigState {
             home,
             env,
             inner: Arc::new(Mutex::new(config)),
+            write_lock: Arc::new(Mutex::new(())),
         }
     }
 
@@ -435,13 +447,36 @@ impl ConfigState {
     /// returns an error to the caller — Electron's handler catches and logs — so
     /// the renderer's `setConfig` never rejects. A failed write is logged via
     /// `tracing` and the live config is left untouched.
+    ///
+    /// **Serialised**: holds `write_lock` across the read-modify-write **and**
+    /// the subsequent `refresh` so that concurrent `Promise.all` calls from the
+    /// renderer do not overwrite each other (each starts with `read_to_string`,
+    /// applies one key, and writes back — concurrent calls lose keys).
+    ///
+    /// The lock is held across `refresh()` too because otherwise an earlier
+    /// thread's `refresh` could interleave after a later thread's `save_config`
+    /// and produce a stale in-memory snapshot.  Since `refresh` acquires
+    /// `inner.lock()` independently there is no deadlock risk (no code path
+    /// acquires `write_lock` while holding `inner.lock()`).
     pub fn set(&self, camel_key: &str, value: &Value) {
+        let _guard: MutexGuard<'_, ()> = match self.write_lock.lock() {
+            Ok(g) => g,
+            Err(e) => {
+                tracing::warn!(
+                    "config write-lock poisoned, skipping save for {camel_key}: {e}"
+                );
+                return;
+            }
+        };
         if let Err(e) = save_config(&self.home, camel_key, value) {
             tracing::warn!("failed to save config key {camel_key}: {e}");
             return;
         }
         // `refresh` already handles a poisoned mutex without panicking.
         self.refresh();
+        // _guard dropped here — write-lock released after the in-memory state
+        // is updated, guaranteeing the live config reflects the write before
+        // the next queued writer starts.
     }
 }
 
@@ -766,5 +801,73 @@ mod tests {
             "poison is permanent for the instance; live config degraded (restart recovers)"
         );
         assert_eq!(state.redacted(), json!({}));
+    }
+
+    /// Intent: concurrent writes preserve every key (the `Promise.all` scenario
+    /// in SettingsModal.handleSave).  Without the write-lock in
+    /// [`ConfigState::set`], each `set` call does an independent
+    /// read-modify-write of the same file, so the last writer wins and earlier
+    /// keys are silently lost.
+    #[test]
+    fn concurrent_writes_preserve_all_keys() {
+        let home = cfg_home();
+        let state = ConfigState::init_with_env(home.clone(), Arc::new(EnvMap::new()));
+
+        // Use scoped threads so `&state` is accessible (the closure only needs
+        // a shared reference, not `'static + Send`). Scoped threads guarantee
+        // all spawned threads complete before the scope ends.
+        std::thread::scope(|s| {
+            s.spawn(|| {
+                state.set("llmModel", &json!("gpt-4"));
+            });
+            s.spawn(|| {
+                state.set("debug", &json!(true));
+            });
+            s.spawn(|| {
+                state.set("chineseScript", &json!("simplified"));
+            });
+        });
+
+        let raw = state.raw();
+        assert_eq!(
+            raw.llm_model.as_deref(),
+            Some("gpt-4"),
+            "llm_model must survive concurrent writes"
+        );
+        assert_eq!(
+            raw.debug,
+            Some(true),
+            "debug must survive concurrent writes"
+        );
+        assert_eq!(
+            raw.chinese_script.as_deref(),
+            Some("simplified"),
+            "chinese_script must survive concurrent writes"
+        );
+    }
+
+    /// Intent: when `chinese_script` in the YAML is `null` (written by the
+    /// renderer when the user selects "Default (no conversion)"), the parser
+    /// must produce `None` rather than `Some("null")` so that
+    /// `effective_chinese_target` returns `None` in release builds.
+    #[test]
+    fn chinese_script_null_is_parsed_as_none() {
+        let text = "chinese_script: null\n";
+        let c = load_from(text, &EnvMap::new());
+        assert_eq!(
+            c.chinese_script, None,
+            "chinese_script: null should yield None, not Some('null')"
+        );
+    }
+
+    /// Intent: empty-string chinese_script also yields None (defensive).
+    #[test]
+    fn chinese_script_empty_is_parsed_as_none() {
+        let text = "chinese_script: ''\n";
+        let c = load_from(text, &EnvMap::new());
+        assert_eq!(
+            c.chinese_script, None,
+            "chinese_script: '' should yield None"
+        );
     }
 }

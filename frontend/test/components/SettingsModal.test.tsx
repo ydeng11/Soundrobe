@@ -243,4 +243,50 @@ describe("SettingsModal", () => {
 
     expect(onClose).toHaveBeenCalledTimes(1);
   });
+
+  it("saves chineseScript as simplified when Simplified Chinese is selected", async () => {
+    const onClose = vi.fn();
+    const setConfig = vi.fn().mockResolvedValue(undefined);
+    window.api = {
+      getConfig: vi
+        .fn()
+        .mockResolvedValue({
+          llmModel: "model",
+          remoteLookupEnabled: true,
+          discogsEnabled: false,
+          chineseScript: null,
+        }),
+      setConfig,
+      setDebugMode: vi.fn().mockResolvedValue(undefined),
+      subscribeDebugLogs: vi.fn().mockResolvedValue(undefined),
+    } as any;
+
+    render(<SettingsModal open={true} onClose={onClose} />);
+
+    // Wait for load
+    await screen.findByDisplayValue("model");
+
+    // Switch to Metadata tab where Chinese Script lives
+    clickTab("Metadata");
+
+    // Select Simplified Chinese
+    const select = screen.getByDisplayValue(
+      "Default (no conversion)",
+    ) as HTMLSelectElement;
+    fireEvent.change(select, { target: { value: "simplified" } });
+
+    // Click Save
+    const saveBtn = screen.getByText("Save");
+    fireEvent.click(saveBtn);
+
+    // chineseScript should be saved as "simplified"
+    await waitFor(() => {
+      expect(setConfig).toHaveBeenCalledWith(
+        "chineseScript",
+        "simplified",
+      );
+    });
+
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
 });
