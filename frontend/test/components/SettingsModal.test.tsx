@@ -11,6 +11,7 @@ const defaultMockConfig = {
   llmModel: "mock-model",
   remoteLookupEnabled: true,
   discogsEnabled: true,
+  chineseScript: null,
 };
 
 beforeEach(() => {
@@ -107,6 +108,21 @@ describe("SettingsModal", () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
+  it("loads chineseScript from config", async () => {
+    window.api.getConfig = vi.fn().mockResolvedValue({
+      llmModel: "model",
+      remoteLookupEnabled: true,
+      discogsEnabled: false,
+      chineseScript: "simplified",
+    });
+
+    render(<SettingsModal open={true} onClose={() => {}} />);
+
+    const select = await screen.findByDisplayValue("Simplified Chinese");
+    expect(select).toBeTruthy();
+    expect((select as HTMLSelectElement).value).toBe("simplified");
+  });
+
   it("saves settings and closes", async () => {
     const onClose = vi.fn();
     const setConfig = vi.fn().mockResolvedValue(undefined);
@@ -115,6 +131,7 @@ describe("SettingsModal", () => {
         llmModel: "model",
         remoteLookupEnabled: true,
         discogsEnabled: false,
+        chineseScript: null,
       }),
       setConfig,
       setDebugMode: vi.fn().mockResolvedValue(undefined),
@@ -149,6 +166,11 @@ describe("SettingsModal", () => {
     // llmModel should also be saved (unchanged value is also written)
     await waitFor(() => {
       expect(setConfig).toHaveBeenCalledWith("llmModel", "model");
+    });
+
+    // chineseScript should be saved as null when unset
+    await waitFor(() => {
+      expect(setConfig).toHaveBeenCalledWith("chineseScript", null);
     });
 
     expect(onClose).toHaveBeenCalledTimes(1);

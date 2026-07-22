@@ -9,6 +9,7 @@ interface SettingsState {
   lyricsApiUrl: string;
   assistantAutonomous: boolean;
   theAudioDbApiKey: string;
+  chineseScript: string;
 }
 
 interface SettingsModalProps {
@@ -26,6 +27,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
     lyricsApiUrl: "",
     assistantAutonomous: false,
     theAudioDbApiKey: "",
+    chineseScript: "",
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -57,6 +59,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
           debug: (cfg.debug as boolean) ?? false,
           assistantAutonomous: (cfg.assistantAutonomous as boolean) ?? false,
           theAudioDbApiKey: "",
+          chineseScript: (cfg.chineseScript as string) ?? "",
         });
       } catch (err) {
         setSaveError(
@@ -93,6 +96,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
       promises.push(window.api.setConfig("debug", settings.debug));
       promises.push(window.api.setDebugMode(settings.debug));
       promises.push(window.api.setConfig("assistantAutonomous", settings.assistantAutonomous));
+      promises.push(window.api.setConfig("chineseScript", settings.chineseScript || null));
 
       await Promise.all(promises);
       onClose();
@@ -257,6 +261,21 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
                   checked={settings.debug}
                   onChange={(v) => setSettings({ ...settings, debug: v })}
                 />
+
+              <hr className="border-border/40 my-2" />
+              <h3 className="text-[11px] font-semibold text-text-primary tracking-wide uppercase">Metadata</h3>
+
+              <FieldRow label="Chinese Script" description="Enforce Simplified or Traditional Chinese when writing tag text">
+                <select
+                  value={settings.chineseScript}
+                  onChange={(e) => setSettings({ ...settings, chineseScript: e.target.value })}
+                  className={INPUT_CLASS}
+                >
+                  <option value="">Default (no conversion)</option>
+                  <option value="simplified">Simplified Chinese</option>
+                  <option value="traditional">Traditional Chinese</option>
+                </select>
+              </FieldRow>
               </div>
             </>
           )}

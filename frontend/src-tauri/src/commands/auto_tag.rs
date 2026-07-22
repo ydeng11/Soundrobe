@@ -2202,6 +2202,62 @@ mod tests {
     }
 
     #[test]
+    fn chinese_write_conversion_simplified_converts_traditional_to_simplified_only() {
+        let candidate = AlbumCandidate {
+            artist: Some("音樂".into()),
+            artists: vec!["音樂".into()],
+            album: Some("無限".into()),
+            musicbrainz_album_id: Some("release-id".into()),
+            tracks: vec![TrackCandidate {
+                title: Some("後來".into()),
+                artist: Some("音樂".into()),
+                track_number: Some(1),
+                ..Default::default()
+            }],
+            ..Default::default()
+        };
+
+        let converted = convert_candidate_chinese(&candidate, Some("simplified"));
+
+        assert_eq!(converted.artist.as_deref(), Some("音乐"));
+        assert_eq!(converted.album.as_deref(), Some("无限"));
+        assert_eq!(converted.tracks[0].title.as_deref(), Some("后来"));
+        // Non-text fields must be preserved unchanged
+        assert_eq!(converted.tracks[0].track_number, Some(1));
+        assert_eq!(
+            converted.musicbrainz_album_id.as_deref(),
+            Some("release-id")
+        );
+    }
+
+    #[test]
+    fn chinese_write_conversion_no_target_leaves_unchanged() {
+        let candidate = AlbumCandidate {
+            artist: Some("音樂".into()),
+            tracks: vec![TrackCandidate {
+                title: Some("後來".into()),
+                ..Default::default()
+            }],
+            ..Default::default()
+        };
+
+        let converted = convert_candidate_chinese(&candidate, Some("simplified"));
+
+        // Simplified should convert traditional characters
+        assert_eq!(converted.artist.as_deref(), Some("音乐"));
+        assert_eq!(converted.tracks[0].title.as_deref(), Some("后来"));
+
+        // With no target, no conversion happens
+        let unchanged = convert_candidate_chinese(&candidate, None);
+        assert_eq!(unchanged.artist.as_deref(), Some("音樂"));
+        assert_eq!(unchanged.tracks[0].title.as_deref(), Some("後來"));
+        let unchanged = convert_candidate_chinese(&candidate, Some(""));
+        assert_eq!(unchanged.artist.as_deref(), Some("音樂"));
+        let unchanged = convert_candidate_chinese(&candidate, Some("unknown"));
+        assert_eq!(unchanged.artist.as_deref(), Some("音樂"));
+    }
+
+    #[test]
     fn track_protection_rejects_unrelated_provider_titles_but_allows_polluted_match() {
         let request = LookupRequest {
             tracks: vec![track("01 - Local Song (Remastered)", "Local Artist")],
