@@ -339,4 +339,32 @@ describe("MetadataEditor", () => {
       expect(findButton("Artist")).toBeNull();
     });
   });
+
+  describe("cover remove button", () => {
+    it("does not render Remove button when cover is not present", () => {
+      render(<MetadataEditor {...baseProps} coverDataUrl={null} />);
+      expect(screen.queryByText(/Remove/)).toBeNull();
+    });
+
+    it("hides Remove button after cover is removed via re-render", () => {
+      const { rerender } = render(
+        <MetadataEditor
+          {...baseProps}
+          coverDataUrl="data:image/jpeg;base64,abc123"
+        />
+      );
+      expect(screen.getByText(/Remove/)).toBeTruthy();
+      expect(screen.getByAltText("Cover art")).toBeTruthy();
+
+      rerender(
+        <MetadataEditor
+          {...baseProps}
+          coverDataUrl={null}
+        />
+      );
+      expect(screen.getByText(/No cover/)).toBeTruthy();
+      expect(screen.queryByAltText("Cover art")).toBeNull();
+      expect(screen.queryByText(/Remove/)).toBeNull();
+    });
+  });
 });

@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import zlib from "node:zlib";
 
 export interface E2eManifest {
   root: string;
@@ -73,6 +74,65 @@ function createFlacWithComments(filePath: string, comments: string[]): void {
       vorbis,
     ]),
   );
+}
+
+/** Create a small valid PNG for e2e cover-art tests. */
+function createCoverPng(filePath: string): void {
+  const width = 100;
+  const height = 100;
+  const rawData = Buffer.alloc((width * 3 + 1) * height);
+  for (let y = 0; y < height; y++) {
+    rawData[y * (width * 3 + 1)] = 0; // filter: None
+    for (let x = 0; x < width; x++) {
+      const off = y * (width * 3 + 1) + 1 + x * 3;
+      rawData[off] = 128;
+      rawData[off + 1] = 200;
+      rawData[off + 2] = 255;
+    }
+  }
+  const compressed = zlib.deflateSync(rawData);
+
+  function crc32(buf: Buffer): number {
+    let crc = 0xffffffff;
+    const table = new Int32Array(256);
+    for (let i = 0; i < 256; i++) {
+      let c = i;
+      for (let j = 0; j < 8; j++)
+        c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+      table[i] = c;
+    }
+    for (let i = 0; i < buf.length; i++)
+      crc = table[(crc ^ buf[i]) & 0xff] ^ (crc >>> 8);
+    return (crc ^ 0xffffffff) >>> 0;
+  }
+
+  function pngChunk(type: string, data: Buffer): Buffer {
+    const typeB = Buffer.from(type, "ascii");
+    const len = Buffer.alloc(4);
+    len.writeUInt32BE(data.length);
+    const crcData = Buffer.concat([typeB, data]);
+    const c = Buffer.alloc(4);
+    c.writeUInt32BE(crc32(crcData));
+    return Buffer.concat([len, typeB, data, c]);
+  }
+
+  const sig = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(width, 0);
+  ihdr.writeUInt32BE(height, 4);
+  ihdr[8] = 8;  // bit depth
+  ihdr[9] = 2;  // colour type: RGB
+  ihdr[10] = 0; // compression
+  ihdr[11] = 0; // filter
+  ihdr[12] = 0; // interlace
+
+  const png = Buffer.concat([
+    sig,
+    pngChunk("IHDR", ihdr),
+    pngChunk("IDAT", compressed),
+    pngChunk("IEND", Buffer.alloc(0)),
+  ]);
+  fs.writeFileSync(filePath, png);
 }
 
 export function prepareE2eWorkspace(): E2eWorkspace {
@@ -180,6 +240,9 @@ export function prepareE2eWorkspace(): E2eWorkspace {
       return filePath;
     },
   );
+
+  // Write a cover image so the Remove button appears in the right panel
+  createCoverPng(path.join(workflowAlbum, "cover.png"));
 
   const manifest: E2eManifest = {
     root,

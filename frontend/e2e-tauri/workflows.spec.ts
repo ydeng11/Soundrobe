@@ -291,4 +291,51 @@ describe("Tauri desktop workflows", () => {
     expect(byFilename.get("02-second.flac")).toBe(2);
     expect(byFilename.get("03-third.flac")).toBe(3);
   });
+
+  it("removes an external cover from the right-panel editor", async () => {
+    // The library was opened in a previous test; select the workflow track
+    await clickTrack(manifest.workflowTrack);
+
+    // Wait for the cover image to appear (async fetch with 80ms debounce)
+    await browser.waitUntil(
+      async () =>
+        browser.execute(
+          () =>
+            document.querySelector("img[alt='Cover art']") !== null,
+        ),
+      {
+        timeout: 5_000,
+        timeoutMsg: "Cover image did not appear",
+      },
+    );
+
+    // Click the Remove button
+    await clickButton("Remove");
+
+    // Wait for the UI to update: Remove button gone, "No cover" placeholder shows
+    await browser.waitUntil(
+      async () =>
+        browser.execute(
+          () =>
+            document.body.innerText.includes("No cover") &&
+            !document.body.innerText.includes("Remove"),
+        ),
+      {
+        timeout: 5_000,
+        timeoutMsg: "Cover was not removed from the UI",
+      },
+    );
+
+    // Verify filesystem state: cover.png gone, suppression marker written
+    const coverExists = await browser.execute(
+      async (p) => window.api.checkFileExists(p),
+      path.join(manifest.workflowAlbum, "cover.png"),
+    );
+    const markerExists = await browser.execute(
+      async (p) => window.api.checkFileExists(p),
+      path.join(manifest.workflowAlbum, ".auto-tagger-cover-removed"),
+    );
+    expect(coverExists).toBe(false);
+    expect(markerExists).toBe(true);
+  });
 });

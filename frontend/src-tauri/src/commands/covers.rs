@@ -125,50 +125,69 @@ async fn download_artwork_at(
     if !album_path.exists() {
         return None;
     }
-    let album_path_owned = album_path.to_path_buf();
-    let metadata =
-        tokio::task::spawn_blocking(move || read_first_track_metadata(&album_path_owned))
-            .await
-            .ok()??;
-    if kind == ArtworkKind::Artist && metadata.artist.is_none() {
-        return None;
-    }
-    let local_album = album_path.to_path_buf();
-    let local = tokio::task::spawn_blocking(move || {
-        read_local_artwork(kind, &local_album).and_then(|bytes| {
-            normalize_jpeg(&bytes, 1000, 90).map(|bytes| RemoteImage {
-                source: "local",
-                bytes,
-                mime: "image/jpeg".to_string(),
-                url: String::new(),
+
+    // When the user has explicitly removed the cover (suppression marker
+    // exists) the Download action must skip leftover local files and go
+    // directly to remote providers.  If a remote provider succeeds it
+    // clears the marker and saves the new cover; if all fail the marker
+    // stays and the function returns None.
+    let suppressed = kind == ArtworkKind::Album && is_cover_suppressed(album_path);
+
+    let local = if suppressed {
+        None
+    } else {
+        let local_album = album_path.to_path_buf();
+        tokio::task::spawn_blocking(move || {
+            read_local_artwork(kind, &local_album).and_then(|bytes| {
+                normalize_jpeg(&bytes, 1000, 90).map(|bytes| RemoteImage {
+                    source: "local",
+                    bytes,
+                    mime: "image/jpeg".to_string(),
+                    url: String::new(),
+                })
             })
         })
-    })
-    .await
-    .ok()
-    .flatten();
-    let resolved = match local {
-        Some(image) => Some(image),
-        None if kind == ArtworkKind::Album => {
-            remote
-                .album_cover(
-                    metadata.artist.as_deref(),
-                    metadata.album.as_deref(),
-                    metadata.musicbrainz_album_id.as_deref(),
-                    metadata.discogs_artist_id.as_deref(),
-                    metadata.discogs_release_id.as_deref(),
-                )
-                .await
+        .await
+        .ok()
+        .flatten()
+    };
+
+    let resolved = if let Some(image) = local {
+        // Local artwork found — skip metadata and remote providers entirely.
+        image
+    } else {
+        // No local artwork — try remote providers, which need track metadata.
+        let album_path_owned = album_path.to_path_buf();
+        let metadata = tokio::task::spawn_blocking(move || {
+            read_first_track_metadata(&album_path_owned)
+        })
+        .await
+        .ok()??;
+        if kind == ArtworkKind::Artist && metadata.artist.is_none() {
+            return None;
         }
-        None => {
-            remote
-                .artist_image(
-                    metadata.artist.as_deref()?,
-                    metadata.discogs_artist_id.as_deref(),
-                )
-                .await
+        match kind {
+            ArtworkKind::Album => {
+                remote
+                    .album_cover(
+                        metadata.artist.as_deref(),
+                        metadata.album.as_deref(),
+                        metadata.musicbrainz_album_id.as_deref(),
+                        metadata.discogs_artist_id.as_deref(),
+                        metadata.discogs_release_id.as_deref(),
+                    )
+                    .await?
+            }
+            ArtworkKind::Artist => {
+                remote
+                    .artist_image(
+                        metadata.artist.as_deref()?,
+                        metadata.discogs_artist_id.as_deref(),
+                    )
+                    .await?
+            }
         }
-    }?;
+    };
     let source = resolved.source;
     let bytes = tokio::task::spawn_blocking(move || {
         let first = if source == "local" {
@@ -259,6 +278,8 @@ fn read_first_track_metadata(album_path: &Path) -> Option<CoverMetadata> {
 
 fn read_local_artwork(kind: ArtworkKind, album_path: &Path) -> Option<Vec<u8>> {
     match kind {
+        // Suppression is checked in the caller (download_artwork_at / download_album_artwork_at)
+        // — read_local_artwork is a pure file reader, not a policy decision.
         ArtworkKind::Album => fs::read(find_external_cover(album_path)?).ok(),
         ArtworkKind::Artist => {
             let parent = album_path.parent()?;
@@ -627,7 +648,100 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn downloads_local_album_and_artist_art_with_exact_paths_and_suppression_policy() {
+    async fn download_skips_local_artwork_when_cover_is_suppressed() {
+        // When the suppression marker exists, download_artwork_at must
+        // skip leftover local files and go through remote providers.
+        // The minimal.mp3 fixture carries MusicBrainz IDs so Cover Art
+        // Archive may return an image regardless of the marker — the key
+        // invariant is that source != "local".
+        let root = root();
+        let album = root.join("Album");
+        fs::create_dir_all(&album).unwrap();
+        fs::copy(
+            PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                .join("../test/fixtures/tauri/media-corpus/minimal.mp3"),
+            album.join("track.mp3"),
+        )
+        .unwrap();
+        fs::write(album.join("cover.png"), png(1500, 500)).unwrap();
+        fs::write(album.join(COVER_REMOVED_MARKER), []).unwrap();
+        let providers = ProviderState::new();
+        let remote = RemoteArtworkClient::new(providers.http(), None, None);
+        let queue = WriteQueue::default();
+
+        let result = download_artwork_at(ArtworkKind::Album, &album, &remote, &queue).await;
+        if let Some((_bytes, source, _path)) = &result {
+            assert_ne!(
+                *source, "local",
+                "suppressed download must not return local artwork"
+            );
+            assert!(!album.join(COVER_REMOVED_MARKER).exists());
+        } else {
+            assert!(album.join(COVER_REMOVED_MARKER).exists());
+        }
+        assert!(!queue.is_active());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn auto_tag_respects_suppression_marker() {
+        // The auto-tag background path (download_album_artwork_at) must
+        // respect the suppression marker and NOT re-use local artwork.
+        let root = root();
+        let album = root.join("Album");
+        fs::create_dir_all(&album).unwrap();
+        fs::copy(
+            PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                .join("../test/fixtures/tauri/media-corpus/minimal.mp3"),
+            album.join("track.mp3"),
+        )
+        .unwrap();
+        fs::write(album.join("cover.png"), png(1500, 500)).unwrap();
+        fs::write(album.join(COVER_REMOVED_MARKER), []).unwrap();
+        let providers = ProviderState::new();
+        let remote = RemoteArtworkClient::new(providers.http(), None, None);
+        let queue = WriteQueue::default();
+
+        let result = download_album_artwork_at(&album, &remote, &queue).await;
+        assert!(result.is_none(), "auto-tag must respect suppression marker");
+        // Marker is preserved (auto-tag does not clear it)
+        assert!(album.join(COVER_REMOVED_MARKER).exists());
+        assert!(!queue.is_active());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn explicit_download_succeeds_when_metadata_read_fails() {
+        // A corrupt or unreadable audio file must not prevent the explicit
+        // Download action from finding a local cover image.
+        let root = root();
+        let album = root.join("Album");
+        fs::create_dir_all(&album).unwrap();
+        // Write a non-audio file (no metadata can be read) to trigger
+        // read_first_track_metadata returning None in the remote path.
+        fs::write(album.join("谢安琪.jpg"), png(1500, 500)).unwrap();
+        fs::write(album.join("readme.txt"), b"hello").unwrap();
+        let providers = ProviderState::new();
+        let remote = RemoteArtworkClient::new(providers.http(), None, None);
+        let queue = WriteQueue::default();
+
+        // Local artwork is checked before metadata, so this succeeds.
+        let (album_bytes, album_source, album_path) =
+            download_artwork_at(ArtworkKind::Album, &album, &remote, &queue)
+                .await
+                .unwrap();
+        assert_eq!(album_source, "local");
+        assert_eq!(album_path, album.join("cover.jpg"));
+        assert_eq!(fs::read(&album_path).unwrap(), album_bytes);
+        assert!(!queue.is_active());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn artist_download_ignores_album_cover_suppression() {
+        // The artist-image download pipeline uses a different local path
+        // (parent/artist.jpg) and must NOT be blocked by the album cover
+        // suppression marker.
         let root = root();
         let artist_dir = root.join("Artist");
         let album = artist_dir.join("Album");
@@ -638,25 +752,12 @@ mod tests {
             album.join("track.mp3"),
         )
         .unwrap();
-        fs::write(album.join("cover.png"), png(1500, 500)).unwrap();
         fs::write(artist_dir.join("artist.png"), png(300, 900)).unwrap();
         fs::write(album.join(COVER_REMOVED_MARKER), []).unwrap();
         let providers = ProviderState::new();
         let remote = RemoteArtworkClient::new(providers.http(), None, None);
         let queue = WriteQueue::default();
 
-        let (album_bytes, album_source, album_path) =
-            download_artwork_at(ArtworkKind::Album, &album, &remote, &queue)
-                .await
-                .unwrap();
-        assert_eq!(album_source, "local");
-        assert_eq!(album_path, album.join("cover.jpg"));
-        assert_eq!(fs::read(&album_path).unwrap(), album_bytes);
-        let decoded = image::load_from_memory(&album_bytes).unwrap();
-        assert_eq!((decoded.width(), decoded.height()), (1000, 333));
-        assert!(!album.join(COVER_REMOVED_MARKER).exists());
-
-        fs::write(album.join(COVER_REMOVED_MARKER), []).unwrap();
         let (artist_bytes, artist_source, artist_path) =
             download_artwork_at(ArtworkKind::Artist, &album, &remote, &queue)
                 .await

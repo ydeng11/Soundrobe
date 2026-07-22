@@ -435,32 +435,49 @@ export default function App() {
   // --- Cover actions ---
 
   const handleChangeCover = useCallback(async () => {
-    if (!state.selectedTrack) return;
+    // Fall back to the first multi-selected track so this button works in batch mode.
+    const trackPath =
+      state.selectedTrack?.path ?? state.selectedTrackPaths[0];
+    if (!trackPath) return;
+    const albumPath = dirPath(trackPath);
     try {
-      const url = await window.api.setCover(dirPath(state.selectedTrack.path));
+      const url = await window.api.setCover(albumPath);
       if (url) {
         dispatch({ type: "SET_COVER_URL", url });
       }
     } catch {
       dispatch({ type: "SET_ERROR", error: "Failed to set cover art" });
     }
-  }, [state.selectedTrack]);
+  }, [state.selectedTrack, state.selectedTrackPaths]);
 
   const handleRemoveCover = useCallback(async () => {
-    if (!state.selectedTrack) return;
-    const albumPath = dirPath(state.selectedTrack.path);
+    // Fall back to the first multi-selected track so this button works in batch mode.
+    const trackPath =
+      state.selectedTrack?.path ?? state.selectedTrackPaths[0];
+    if (!trackPath) return;
+    const albumPath = dirPath(trackPath);
     try {
-      await window.api.removeCover(albumPath);
+      const removed = await window.api.removeCover(albumPath);
+      if (!removed) {
+        dispatch({
+          type: "SET_ERROR",
+          error: "Failed to remove cover art",
+        });
+        return;
+      }
       coverUrlCacheRef.current.set(albumPath, null);
       dispatch({ type: "SET_COVER_URL", url: null });
     } catch {
       dispatch({ type: "SET_ERROR", error: "Failed to remove cover art" });
     }
-  }, [state.selectedTrack]);
+  }, [state.selectedTrack, state.selectedTrackPaths]);
 
   const handleDownloadCover = useCallback(async () => {
-    if (!state.selectedTrack) return;
-    const albumPath = dirPath(state.selectedTrack.path);
+    // Fall back to the first multi-selected track so this button works in batch mode.
+    const trackPath =
+      state.selectedTrack?.path ?? state.selectedTrackPaths[0];
+    if (!trackPath) return;
+    const albumPath = dirPath(trackPath);
     dispatch({ type: "SET_SAVING", saving: true });
     dispatch({ type: "SET_ERROR", error: null });
     try {
@@ -477,11 +494,14 @@ export default function App() {
     } finally {
       dispatch({ type: "SET_SAVING", saving: false });
     }
-  }, [state.selectedTrack]);
+  }, [state.selectedTrack, state.selectedTrackPaths]);
 
   const handleDownloadArtistArt = useCallback(async () => {
-    if (!state.selectedTrack) return;
-    const albumPath = dirPath(state.selectedTrack.path);
+    // Fall back to the first multi-selected track so this button works in batch mode.
+    const trackPath =
+      state.selectedTrack?.path ?? state.selectedTrackPaths[0];
+    if (!trackPath) return;
+    const albumPath = dirPath(trackPath);
     dispatch({ type: "SET_SAVING", saving: true });
     dispatch({ type: "SET_ERROR", error: null });
     try {
@@ -497,7 +517,7 @@ export default function App() {
     } finally {
       dispatch({ type: "SET_SAVING", saving: false });
     }
-  }, [state.selectedTrack]);
+  }, [state.selectedTrack, state.selectedTrackPaths]);
 
   // --- Undo (triggered by Cmd+Z) ---
 

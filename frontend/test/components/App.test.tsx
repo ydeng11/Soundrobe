@@ -243,3 +243,150 @@ describe("App — batch save progress", () => {
     });
   });
 });
+
+describe("App — cover removal", () => {
+  beforeEach(() => {
+    // Override cover-related mocks for this block: show a cover so the
+    // Remove button renders, and make the remove API succeed by default.
+    (window.api.getCoverDataUrl as ReturnType<typeof vi.fn>).mockResolvedValue(
+      "data:image/jpeg;base64,cover123",
+    );
+    (window.api.removeCover as ReturnType<typeof vi.fn>).mockResolvedValue(true);
+  });
+
+  it("removes cover and updates UI when Remove is clicked", async () => {
+    render(<App />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    // Open library
+    await act(async () => {
+      fireEvent.click(screen.getByText("Open Library"));
+    });
+
+    // Wait for tracks to appear
+    let trackRows: HTMLElement[];
+    await waitFor(() => {
+      trackRows = screen.getAllByTestId(/^file-row-/);
+      expect(trackRows.length).toBe(2);
+    });
+
+    // Click a single track (no modifier key) to open MetadataEditor
+    await act(async () => {
+      fireEvent.click(trackRows![0]);
+    });
+
+    // Wait for cover fetch to resolve and cover image to appear
+    await waitFor(
+      () => {
+        expect(screen.getByAltText("Cover art")).toBeTruthy();
+      },
+      { timeout: 2000 },
+    );
+
+    // Remove button must be visible while cover is present
+    const removeButton = screen.getByText(/Remove/);
+    expect(removeButton).toBeTruthy();
+
+    // Click Remove
+    await act(async () => {
+      fireEvent.click(removeButton);
+    });
+
+    // After removal: IPC called, cover placeholder shows, Remove button gone
+    await waitFor(() => {
+      expect(window.api.removeCover).toHaveBeenCalledWith("/music/Test Album");
+      expect(screen.getByText(/No cover/)).toBeTruthy();
+      expect(screen.queryByText(/Remove/)).toBeNull();
+    });
+  });
+
+  it("shows error when remove cover returns false", async () => {
+    (window.api.removeCover as ReturnType<typeof vi.fn>).mockResolvedValue(false);
+
+    render(<App />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    // Open library
+    await act(async () => {
+      fireEvent.click(screen.getByText("Open Library"));
+    });
+
+    let trackRows: HTMLElement[];
+    await waitFor(() => {
+      trackRows = screen.getAllByTestId(/^file-row-/);
+      expect(trackRows.length).toBe(2);
+    });
+
+    // Click a single track
+    await act(async () => {
+      fireEvent.click(trackRows![0]);
+    });
+
+    // Wait for cover to appear
+    await waitFor(
+      () => {
+        expect(screen.getByAltText("Cover art")).toBeTruthy();
+      },
+      { timeout: 2000 },
+    );
+
+    // Click Remove
+    await act(async () => {
+      fireEvent.click(screen.getByText(/Remove/));
+    });
+
+    // Error message must appear from the return-value check (not the catch)
+    await waitFor(() => {
+      expect(screen.getByText("Failed to remove cover art")).toBeTruthy();
+    });
+  });
+
+  it("shows error when remove cover throws", async () => {
+    (window.api.removeCover as ReturnType<typeof vi.fn>).mockRejectedValue(
+      new Error("remove failed"),
+    );
+
+    render(<App />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    // Open library
+    await act(async () => {
+      fireEvent.click(screen.getByText("Open Library"));
+    });
+
+    let trackRows: HTMLElement[];
+    await waitFor(() => {
+      trackRows = screen.getAllByTestId(/^file-row-/);
+      expect(trackRows.length).toBe(2);
+    });
+
+    // Click a single track
+    await act(async () => {
+      fireEvent.click(trackRows![0]);
+    });
+
+    // Wait for cover to appear
+    await waitFor(
+      () => {
+        expect(screen.getByAltText("Cover art")).toBeTruthy();
+      },
+      { timeout: 2000 },
+    );
+
+    // Click Remove
+    await act(async () => {
+      fireEvent.click(screen.getByText(/Remove/));
+    });
+
+    // Error message must appear from the catch branch
+    await waitFor(() => {
+      expect(screen.getByText("Failed to remove cover art")).toBeTruthy();
+    });
+  });
+});
