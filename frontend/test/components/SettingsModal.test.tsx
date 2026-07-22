@@ -29,6 +29,10 @@ beforeEach(() => {
   } as any;
 });
 
+function clickTab(label: string) {
+  fireEvent.click(screen.getByRole("tab", { name: label }));
+}
+
 describe("SettingsModal", () => {
   it("renders nothing when closed", () => {
     const { container } = render(
@@ -37,48 +41,9 @@ describe("SettingsModal", () => {
     expect(container.innerHTML).toBe("");
   });
 
-  it("renders settings form when open (after loading)", async () => {
-    window.api.getConfig = vi.fn().mockResolvedValue({
-      llmModel: "test-model",
-      remoteLookupEnabled: true,
-      discogsEnabled: false,
-    });
-
-    render(<SettingsModal open={true} onClose={() => {}} />);
-
-    // Wait for loading to finish and fields to appear
-    expect(screen.getByText("Loading…")).toBeTruthy();
-    const llmField = await screen.findByDisplayValue("test-model");
-    expect(llmField).toBeTruthy();
-
-    // Labels use uppercase with tracking — use find by role or placeholder
-    expect(
-      screen.getByPlaceholderText(
-        "sk-or-v1-… (leave blank to keep current)",
-      ),
-    ).toBeTruthy();
-    expect(
-      screen.getAllByPlaceholderText(
-        "(leave blank to keep current)",
-      ).length,
-    ).toBe(2); // Discogs Token + TheAudioDB API Key
-    expect(screen.getByText("Version 0.1.0")).toBeTruthy();
-  });
-
-  it("keeps settings usable when native version lookup fails", async () => {
-    window.api.appInfo = vi.fn().mockRejectedValue(new Error("unavailable"));
-
-    render(<SettingsModal open={true} onClose={() => {}} />);
-
-    expect(await screen.findByDisplayValue("mock-model")).toBeTruthy();
-    expect(screen.getByText("Version unavailable")).toBeTruthy();
-  });
-
-  it("shows loading state then fields", async () => {
+  it("shows loading state then providers tab content", async () => {
     const mockGetConfig = vi.fn().mockResolvedValue({
       llmModel: "model-v1",
-      remoteLookupEnabled: true,
-      discogsEnabled: true,
     });
 
     window.api = {
@@ -97,18 +62,98 @@ describe("SettingsModal", () => {
     const llmField = await screen.findByDisplayValue("model-v1");
     expect(llmField).toBeTruthy();
     expect(mockGetConfig).toHaveBeenCalledTimes(1);
+
+    // Providers tab is active by default
+    expect(screen.getByRole("tab", { name: "Providers" }).getAttribute("aria-selected")).toBe("true");
   });
 
-  it("calls onClose when Cancel is clicked", async () => {
-    const onClose = vi.fn();
-    render(<SettingsModal open={true} onClose={onClose} />);
-    await screen.findByDisplayValue("mock-model");
-    const cancelBtn = screen.getByText("Cancel");
-    fireEvent.click(cancelBtn);
-    expect(onClose).toHaveBeenCalledTimes(1);
+  it("shows providers content by default with all provider fields", async () => {
+    window.api.getConfig = vi.fn().mockResolvedValue({
+      llmModel: "test-model",
+      remoteLookupEnabled: true,
+      discogsEnabled: false,
+    });
+
+    render(<SettingsModal open={true} onClose={() => {}} />);
+
+    // Wait for loading to finish
+    const llmField = await screen.findByDisplayValue("test-model");
+    expect(llmField).toBeTruthy();
+
+    // Providers fields visible
+    expect(
+      screen.getByPlaceholderText(
+        "sk-or-v1-… (leave blank to keep current)",
+      ),
+    ).toBeTruthy();
+    // Discogs Token + TheAudioDB API Key have the same placeholder, both on Providers tab
+    expect(
+      screen.getAllByPlaceholderText(
+        "(leave blank to keep current)",
+      ).length,
+    ).toBe(2);
+    expect(screen.getByText("Version 0.1.0")).toBeTruthy();
+
+    // Metadata fields should NOT be visible on the default Providers tab
+    expect(screen.queryByText("Auto-download Lyrics")).toBeNull();
   });
 
-  it("loads chineseScript from config", async () => {
+  it("switches to metadata tab and shows metadata fields", async () => {
+    window.api.getConfig = vi.fn().mockResolvedValue({
+      llmModel: "model",
+      lyricsDownloadEnabled: true,
+    });
+
+    render(<SettingsModal open={true} onClose={() => {}} />);
+
+    await screen.findByDisplayValue("model");
+
+    // Switch to Metadata tab
+    clickTab("Metadata");
+    expect(screen.getByRole("tab", { name: "Metadata" }).getAttribute("aria-selected")).toBe("true");
+
+    // Providers fields hidden, metadata visible
+    expect(screen.queryByPlaceholderText("sk-or-v1-… (leave blank to keep current)")).toBeNull();
+    expect(screen.getByText("Auto-download Lyrics")).toBeTruthy();
+  });
+
+  it("switches to advanced tab and shows advanced fields", async () => {
+    window.api.getConfig = vi.fn().mockResolvedValue({
+      llmModel: "model",
+      remoteLookupEnabled: true,
+      discogsEnabled: false,
+      debug: true,
+    });
+
+    render(<SettingsModal open={true} onClose={() => {}} />);
+
+    await screen.findByDisplayValue("model");
+
+    // Switch to Advanced tab
+    clickTab("Advanced");
+    expect(screen.getByRole("tab", { name: "Advanced" }).getAttribute("aria-selected")).toBe("true");
+
+    expect(screen.getByText("Debug Mode")).toBeTruthy();
+  });
+
+  it("preserves values when switching tabs and back", async () => {
+    window.api.getConfig = vi.fn().mockResolvedValue({
+      llmModel: "gpt-4",
+    });
+
+    render(<SettingsModal open={true} onClose={() => {}} />);
+
+    await screen.findByDisplayValue("gpt-4");
+
+    // Switch to Metadata and then back to Providers
+    clickTab("Metadata");
+    clickTab("Providers");
+
+    // Value should still be there
+    expect(screen.getByDisplayValue("gpt-4")).toBeTruthy();
+  });
+
+  it("loads chineseScript from config on metadata tab", async () => {
     window.api.getConfig = vi.fn().mockResolvedValue({
       llmModel: "model",
       remoteLookupEnabled: true,
@@ -118,9 +163,32 @@ describe("SettingsModal", () => {
 
     render(<SettingsModal open={true} onClose={() => {}} />);
 
+    await screen.findByDisplayValue("model");
+
+    // Switch to Metadata tab where Chinese Script lives
+    clickTab("Metadata");
+
     const select = await screen.findByDisplayValue("Simplified Chinese");
     expect(select).toBeTruthy();
     expect((select as HTMLSelectElement).value).toBe("simplified");
+  });
+
+  it("keeps settings usable when native version lookup fails", async () => {
+    window.api.appInfo = vi.fn().mockRejectedValue(new Error("unavailable"));
+
+    render(<SettingsModal open={true} onClose={() => {}} />);
+
+    expect(await screen.findByDisplayValue("mock-model")).toBeTruthy();
+    expect(screen.getByText("Version unavailable")).toBeTruthy();
+  });
+
+  it("calls onClose when Cancel is clicked", async () => {
+    const onClose = vi.fn();
+    render(<SettingsModal open={true} onClose={onClose} />);
+    await screen.findByDisplayValue("mock-model");
+    const cancelBtn = screen.getByText("Cancel");
+    fireEvent.click(cancelBtn);
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 
   it("saves settings and closes", async () => {
@@ -143,7 +211,7 @@ describe("SettingsModal", () => {
     // Wait for load
     await screen.findByDisplayValue("model");
 
-    // Enter new API key
+    // Enter new API key (on Providers tab, active by default)
     const apiKeyInput = screen.getByPlaceholderText(
       "sk-or-v1-… (leave blank to keep current)",
     );

@@ -1,5 +1,14 @@
 import React, { useState, useEffect } from "react";
 
+const TABS = ["providers", "metadata", "advanced"] as const;
+type TabId = (typeof TABS)[number];
+
+const TAB_LABELS: Record<TabId, string> = {
+  providers: "Providers",
+  metadata: "Metadata",
+  advanced: "Advanced",
+};
+
 interface SettingsState {
   llmApiKey: string;
   llmModel: string;
@@ -33,12 +42,14 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [appVersion, setAppVersion] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<TabId>("providers");
 
   useEffect(() => {
     if (!open) return;
     setLoading(true);
     setSaveError(null);
     setAppVersion(null);
+    setActiveTab("providers");
 
     if (typeof window.api.appInfo === "function") {
       void window.api
@@ -152,8 +163,27 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
           </button>
         </div>
 
+        {/* Tab bar */}
+        <div className="flex gap-0.5 p-1 mx-5 mt-4 bg-surface-alt/40 rounded-lg" role="tablist">
+          {TABS.map((id) => (
+            <button
+              key={id}
+              role="tab"
+              aria-selected={activeTab === id}
+              onClick={() => setActiveTab(id)}
+              className={`flex-1 px-3 py-1.5 text-[11px] font-medium rounded-md transition-all ${
+                activeTab === id
+                  ? "bg-white text-text-primary shadow-sm"
+                  : "text-text-muted hover:text-text-secondary"
+              }`}
+            >
+              {TAB_LABELS[id]}
+            </button>
+          ))}
+        </div>
+
         {/* Body */}
-        <div className="px-5 py-4 space-y-4">
+        <div className="px-5 py-4 min-h-[180px]">
           {loading ? (
             <div className="flex items-center justify-center py-8">
               <div className="flex items-center gap-2 text-text-muted text-[12px]">
@@ -184,99 +214,98 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
             <>
               {saveError && <ErrorBanner message={saveError} />}
 
-              <FieldRow label="LLM API Key" description="OpenRouter or compatible API key">
-                <InputField
-                  type="password"
-                  value={settings.llmApiKey}
-                  onChange={(v) => setSettings({ ...settings, llmApiKey: v })}
-                  placeholder="sk-or-v1-… (leave blank to keep current)"
-                />
-                <p className="text-[10px] text-text-muted/60 mt-1">
-                  Can also be set via the <code className="text-[10px] bg-surface-alt/50 px-1 rounded">LLM_API_KEY</code> env var
-                </p>
-              </FieldRow>
+              {activeTab === "providers" && (
+                <div className="space-y-4" role="tabpanel">
+                  <FieldRow label="LLM API Key" description="OpenRouter or compatible API key">
+                    <InputField
+                      type="password"
+                      value={settings.llmApiKey}
+                      onChange={(v) => setSettings({ ...settings, llmApiKey: v })}
+                      placeholder="sk-or-v1-… (leave blank to keep current)"
+                    />
+                    <p className="text-[10px] text-text-muted/60 mt-1">
+                      Can also be set via the <code className="text-[10px] bg-surface-alt/50 px-1 rounded">LLM_API_KEY</code> env var
+                    </p>
+                  </FieldRow>
 
-              <FieldRow label="LLM Model" description="Provider/model identifier (e.g. openrouter/owl-alpha)">
-                <InputField
-                  value={settings.llmModel}
-                  onChange={(v) => setSettings({ ...settings, llmModel: v })}
-                  placeholder="openrouter/owl-alpha"
-                />
-                <p className="text-[10px] text-text-muted/60 mt-1">
-                  Can also be set via the <code className="text-[10px] bg-surface-alt/50 px-1 rounded">LLM_MODEL</code> env var
-                </p>
-              </FieldRow>
+                  <FieldRow label="LLM Model" description="Provider/model identifier (e.g. openrouter/owl-alpha)">
+                    <InputField
+                      value={settings.llmModel}
+                      onChange={(v) => setSettings({ ...settings, llmModel: v })}
+                      placeholder="openrouter/owl-alpha"
+                    />
+                    <p className="text-[10px] text-text-muted/60 mt-1">
+                      Can also be set via the <code className="text-[10px] bg-surface-alt/50 px-1 rounded">LLM_MODEL</code> env var
+                    </p>
+                  </FieldRow>
 
-              <FieldRow label="Discogs Token" description="Personal access token for Discogs API">
-                <InputField
-                  type="password"
-                  value={settings.discogsToken}
-                  onChange={(v) => setSettings({ ...settings, discogsToken: v })}
-                  placeholder="(leave blank to keep current)"
-                />
-              </FieldRow>
+                  <FieldRow label="Discogs Token" description="Personal access token for Discogs API">
+                    <InputField
+                      type="password"
+                      value={settings.discogsToken}
+                      onChange={(v) => setSettings({ ...settings, discogsToken: v })}
+                      placeholder="(leave blank to keep current)"
+                    />
+                  </FieldRow>
 
-              <hr className="border-border/40 my-2" />
-              <h3 className="text-[11px] font-semibold text-text-primary tracking-wide uppercase">Artwork</h3>
+                  <FieldRow label="TheAudioDB API Key" description="Optional: theaudiodb.com API key for album art">
+                    <InputField
+                      type="password"
+                      value={settings.theAudioDbApiKey}
+                      onChange={(v) => setSettings({ ...settings, theAudioDbApiKey: v })}
+                      placeholder="(leave blank to keep current)"
+                    />
+                  </FieldRow>
+                </div>
+              )}
 
-              <FieldRow label="TheAudioDB API Key" description="Optional: theaudiodb.com API key for album art">
-                <InputField
-                  type="password"
-                  value={settings.theAudioDbApiKey}
-                  onChange={(v) => setSettings({ ...settings, theAudioDbApiKey: v })}
-                  placeholder="(leave blank to keep current)"
-                />
-              </FieldRow>
+              {activeTab === "metadata" && (
+                <div className="space-y-4" role="tabpanel">
+                  <FieldRow label="Lyrics API URL" description="Base URL for lyrics API (e.g. https://lrclib.net/api)">
+                    <InputField
+                      value={settings.lyricsApiUrl}
+                      onChange={(v) => setSettings({ ...settings, lyricsApiUrl: v })}
+                      placeholder="https://lrclib.net/api"
+                    />
+                  </FieldRow>
 
+                  <ToggleRow
+                    label="Auto-download Lyrics"
+                    description="Download lyrics from API when no local .lrc/.txt file exists"
+                    checked={settings.lyricsDownloadEnabled}
+                    onChange={(v) => setSettings({ ...settings, lyricsDownloadEnabled: v })}
+                  />
 
+                  <FieldRow label="Chinese Script" description="Enforce Simplified or Traditional Chinese when writing tag text">
+                    <select
+                      value={settings.chineseScript}
+                      onChange={(e) => setSettings({ ...settings, chineseScript: e.target.value })}
+                      className={INPUT_CLASS}
+                    >
+                      <option value="">Default (no conversion)</option>
+                      <option value="simplified">Simplified Chinese</option>
+                      <option value="traditional">Traditional Chinese</option>
+                    </select>
+                  </FieldRow>
+                </div>
+              )}
 
-              <hr className="border-border/40 my-2" />
-              <h3 className="text-[11px] font-semibold text-text-primary tracking-wide uppercase">Lyrics</h3>
-
-              <FieldRow label="Lyrics API URL" description="Base URL for lyrics API (e.g. https://lrclib.net/api)">
-                <InputField
-                  value={settings.lyricsApiUrl}
-                  onChange={(v) => setSettings({ ...settings, lyricsApiUrl: v })}
-                  placeholder="https://lrclib.net/api"
-                />
-              </FieldRow>
-
-              <div className="pt-1 space-y-3">
-                <ToggleRow
-                  label="Auto-download Lyrics"
-                  description="Download lyrics from API when no local .lrc/.txt file exists"
-                  checked={settings.lyricsDownloadEnabled}
-                  onChange={(v) => setSettings({ ...settings, lyricsDownloadEnabled: v })}
-                />
-
-                <ToggleRow
-                  label="Auto-apply Assistant Actions"
-                  description="When enabled, the assistant applies low-risk tag changes without manual approval. Medium/high risk actions still require confirmation."
-                  checked={settings.assistantAutonomous}
-                  onChange={(v) => setSettings({ ...settings, assistantAutonomous: v })}
-                />
-                <ToggleRow
-                  label="Debug Mode"
-                  description="Verbose logging to DevTools console and ~/.auto-tagger/auto-tag-debug-*.log"
-                  checked={settings.debug}
-                  onChange={(v) => setSettings({ ...settings, debug: v })}
-                />
-
-              <hr className="border-border/40 my-2" />
-              <h3 className="text-[11px] font-semibold text-text-primary tracking-wide uppercase">Metadata</h3>
-
-              <FieldRow label="Chinese Script" description="Enforce Simplified or Traditional Chinese when writing tag text">
-                <select
-                  value={settings.chineseScript}
-                  onChange={(e) => setSettings({ ...settings, chineseScript: e.target.value })}
-                  className={INPUT_CLASS}
-                >
-                  <option value="">Default (no conversion)</option>
-                  <option value="simplified">Simplified Chinese</option>
-                  <option value="traditional">Traditional Chinese</option>
-                </select>
-              </FieldRow>
-              </div>
+              {activeTab === "advanced" && (
+                <div className="space-y-4" role="tabpanel">
+                  <ToggleRow
+                    label="Auto-apply Assistant Actions"
+                    description="When enabled, the assistant applies low-risk tag changes without manual approval. Medium/high risk actions still require confirmation."
+                    checked={settings.assistantAutonomous}
+                    onChange={(v) => setSettings({ ...settings, assistantAutonomous: v })}
+                  />
+                  <ToggleRow
+                    label="Debug Mode"
+                    description="Verbose logging to DevTools console and ~/.auto-tagger/auto-tag-debug-*.log"
+                    checked={settings.debug}
+                    onChange={(v) => setSettings({ ...settings, debug: v })}
+                  />
+                </div>
+              )}
             </>
           )}
         </div>
