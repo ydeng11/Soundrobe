@@ -302,4 +302,216 @@ describe("BatchEditor", () => {
     // Indicator should be gone
     expect(screen.queryByText(/Unsaved/i)).toBeFalsy();
   });
+
+  // ── Custom listbox (replaces native <datalist>) ──────────────
+
+  it("does not render a native datalist or list attribute", () => {
+    const tracks = [makeTrack("/music/a.mp3"), makeTrack("/music/b.mp3")];
+    const { container } = render(
+      <BatchEditor
+        tracks={tracks}
+        coverDataUrl={null}
+        saving={false}
+        onSave={vi.fn()}
+      />,
+    );
+
+    expect(document.querySelector("datalist")).toBeNull();
+
+    const inputs = container.querySelectorAll('input[list]');
+    expect(inputs.length).toBe(0);
+  });
+
+  it("shows the suggestion listbox on focus when suggestions exist", () => {
+    const tracks = [makeTrack("/music/a.mp3", { artist: "Test Artist" })];
+    render(
+      <BatchEditor
+        tracks={tracks}
+        coverDataUrl={null}
+        saving={false}
+        onSave={vi.fn()}
+      />,
+    );
+
+    const artistInput = screen.getByPlaceholderText("Common artist…");
+    expect(screen.queryByRole("listbox")).toBeNull();
+
+    fireEvent.focus(artistInput);
+
+    const listbox = screen.getByRole("listbox");
+    expect(listbox).toBeTruthy();
+
+    const options = screen.getAllByRole("option");
+    expect(options.length).toBe(1);
+    expect(options[0].textContent).toBe("Test Artist");
+  });
+
+  it("listbox has black background and white text", () => {
+    const tracks = [makeTrack("/music/a.mp3", { artist: "Artist A" })];
+    render(
+      <BatchEditor
+        tracks={tracks}
+        coverDataUrl={null}
+        saving={false}
+        onSave={vi.fn()}
+      />,
+    );
+
+    const artistInput = screen.getByPlaceholderText("Common artist…");
+    fireEvent.focus(artistInput);
+
+    const listbox = screen.getByRole("listbox");
+    expect(listbox.classList.contains("bg-[#000]")).toBe(true);
+
+    const option = screen.getByRole("option");
+    expect(option.classList.contains("text-white")).toBe(true);
+  });
+
+  it("selects a suggestion on click", () => {
+    const tracks = [makeTrack("/music/a.mp3", { artist: "Selected Artist" })];
+    render(
+      <BatchEditor
+        tracks={tracks}
+        coverDataUrl={null}
+        saving={false}
+        onSave={vi.fn()}
+      />,
+    );
+
+    const artistInput = screen.getByPlaceholderText("Common artist…");
+    fireEvent.focus(artistInput);
+
+    const option = screen.getByRole("option");
+    fireEvent.mouseDown(option);
+
+    expect((artistInput as HTMLInputElement).value).toBe("Selected Artist");
+    // Listbox should close after selection
+    expect(screen.queryByRole("listbox")).toBeNull();
+  });
+
+  it("selects a suggestion on click with multiple suggestions", () => {
+    const tracks = [
+      makeTrack("/music/a.mp3", { artist: "First" }),
+      makeTrack("/music/b.mp3", { artist: "Second" }),
+    ];
+    render(
+      <BatchEditor
+        tracks={tracks}
+        coverDataUrl={null}
+        saving={false}
+        onSave={vi.fn()}
+      />,
+    );
+
+    const inputs = screen.getAllByRole("combobox");
+    const artistInput = inputs[0];
+    fireEvent.focus(artistInput);
+
+    const options = screen.getAllByRole("option");
+    fireEvent.mouseDown(options[1]);
+
+    expect((artistInput as HTMLInputElement).value).toBe("Second");
+    expect(screen.queryByRole("listbox")).toBeNull();
+  });
+
+  it("selects a suggestion on Enter", () => {
+    const tracks = [makeTrack("/music/a.mp3", { artist: "Entered Artist" })];
+    render(
+      <BatchEditor
+        tracks={tracks}
+        coverDataUrl={null}
+        saving={false}
+        onSave={vi.fn()}
+      />,
+    );
+
+    const artistInput = screen.getByPlaceholderText("Common artist…");
+    fireEvent.focus(artistInput);
+
+    // ArrowDown to activate the first option
+    fireEvent.keyDown(artistInput, { key: "ArrowDown" });
+    // Press Enter to select
+    fireEvent.keyDown(artistInput, { key: "Enter" });
+
+    expect((artistInput as HTMLInputElement).value).toBe("Entered Artist");
+    // Listbox should close after selection
+    expect(screen.queryByRole("listbox")).toBeNull();
+  });
+
+  it("closes listbox on Escape", () => {
+    const tracks = [makeTrack("/music/a.mp3", { artist: "Artist" })];
+    render(
+      <BatchEditor
+        tracks={tracks}
+        coverDataUrl={null}
+        saving={false}
+        onSave={vi.fn()}
+      />,
+    );
+
+    const artistInput = screen.getByPlaceholderText("Common artist…");
+    fireEvent.focus(artistInput);
+    expect(screen.getByRole("listbox")).toBeTruthy();
+
+    fireEvent.keyDown(artistInput, { key: "Escape" });
+
+    expect(screen.queryByRole("listbox")).toBeNull();
+  });
+
+  it("filters suggestions as the user types", () => {
+    // Same artist across tracks — avoids the "mixed" placeholder
+    const tracks = [
+      makeTrack("/music/a.mp3", { artist: "Alpha" }),
+      makeTrack("/music/b.mp3", { artist: "Beta" }),
+      makeTrack("/music/c.mp3", { artist: "Gamma" }),
+    ];
+    render(
+      <BatchEditor
+        tracks={tracks}
+        coverDataUrl={null}
+        saving={false}
+        onSave={vi.fn()}
+      />,
+    );
+
+    const inputs = screen.getAllByRole("combobox");
+    const artistInput = inputs[0];
+    fireEvent.focus(artistInput);
+    let options = screen.getAllByRole("option");
+    expect(options.length).toBe(3);
+
+    // Type "al" — should match "Alpha" only
+    fireEvent.change(artistInput, { target: { value: "al" } });
+    options = screen.getAllByRole("option");
+    expect(options.length).toBe(1);
+    expect(options[0].textContent).toBe("Alpha");
+  });
+
+  it("ArrowDown opens listbox and navigates", () => {
+    // Same artist across tracks — avoids the "mixed" placeholder
+    const tracks = [
+      makeTrack("/music/a.mp3", { artist: "Same Artist" }),
+      makeTrack("/music/b.mp3", { artist: "Same Artist" }),
+    ];
+    render(
+      <BatchEditor
+        tracks={tracks}
+        coverDataUrl={null}
+        saving={false}
+        onSave={vi.fn()}
+      />,
+    );
+
+    const inputs = screen.getAllByRole("combobox");
+    const artistInput = inputs[0];
+    // ArrowDown opens the listbox and activates first option
+    fireEvent.keyDown(artistInput, { key: "ArrowDown" });
+
+    const listbox = screen.getByRole("listbox");
+    expect(listbox).toBeTruthy();
+
+    const options = screen.getAllByRole("option");
+    expect(options.length).toBe(1);
+    expect(options[0].getAttribute("aria-selected")).toBe("true");
+  });
 });

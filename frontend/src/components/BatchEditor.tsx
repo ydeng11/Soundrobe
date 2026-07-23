@@ -275,7 +275,7 @@ export function BatchEditor({
   );
 }
 
-// ── Batch Field sub-component ──────────────────────────────────
+// ── Batch Field sub-component (custom listbox) ──────────────────
 
 function BatchField({
   label,
@@ -293,7 +293,98 @@ function BatchField({
   onChange: (v: string) => void;
 }) {
   const id = useId();
-  const listId = useId();
+  const listboxId = useId();
+  const [open, setOpen] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(-1);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const listboxRef = useRef<HTMLDivElement>(null);
+
+  const filtered = useMemo(() => {
+    if (!value) return suggestions;
+    const lower = value.toLowerCase();
+    return suggestions.filter((s) => s.toLowerCase().includes(lower));
+  }, [suggestions, value]);
+
+  // Close on click outside
+  useEffect(() => {
+    if (!open) return;
+    const handleClick = (e: MouseEvent) => {
+      if (
+        inputRef.current &&
+        !inputRef.current.contains(e.target as Node) &&
+        listboxRef.current &&
+        !listboxRef.current.contains(e.target as Node)
+      ) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [open]);
+
+  const selectSuggestion = useCallback(
+    (suggestion: string) => {
+      onChange(suggestion);
+      setOpen(false);
+      setActiveIndex(-1);
+    },
+    [onChange],
+  );
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (!open) {
+        if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+          e.preventDefault();
+          setOpen(true);
+          setActiveIndex(e.key === "ArrowDown" ? 0 : filtered.length - 1);
+        }
+        return;
+      }
+
+      switch (e.key) {
+        case "ArrowDown":
+          e.preventDefault();
+          setActiveIndex((prev) =>
+            prev < filtered.length - 1 ? prev + 1 : 0,
+          );
+          break;
+        case "ArrowUp":
+          e.preventDefault();
+          setActiveIndex((prev) =>
+            prev > 0 ? prev - 1 : filtered.length - 1,
+          );
+          break;
+        case "Enter":
+          e.preventDefault();
+          if (activeIndex >= 0 && activeIndex < filtered.length) {
+            selectSuggestion(filtered[activeIndex]);
+          }
+          break;
+        case "Escape":
+          e.preventDefault();
+          setOpen(false);
+          setActiveIndex(-1);
+          break;
+      }
+    },
+    [open, filtered, activeIndex, selectSuggestion],
+  );
+
+  const handleChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      onChange(e.target.value);
+      setOpen(true);
+      setActiveIndex(-1);
+    },
+    [onChange],
+  );
+
+  const handleFocus = useCallback(() => {
+    if (filtered.length > 0) {
+      setOpen(true);
+    }
+  }, [filtered.length]);
 
   return (
     <div>
@@ -312,20 +403,51 @@ function BatchField({
       </div>
       <div className="relative">
         <input
+          ref={inputRef}
           id={id}
           type="text"
+          role="combobox"
+          aria-expanded={open}
+          aria-controls={listboxId}
+          aria-autocomplete="list"
+          aria-activedescendant={
+            activeIndex >= 0 ? `${listboxId}-${activeIndex}` : undefined
+          }
           value={value}
-          onChange={(e) => onChange(e.target.value)}
+          onChange={handleChange}
+          onFocus={handleFocus}
+          onKeyDown={handleKeyDown}
           placeholder={hasDiffering ? `${placeholder} (mixed values)` : placeholder}
-          list={listId}
           className="w-full bg-white border border-border rounded-lg px-3 py-1.5 text-[12px] text-text-primary placeholder-text-muted/40 outline-none transition-all focus:border-accent/60 focus:shadow-[0_0_0_3px_rgba(0,122,255,0.2)]"
         />
-        {suggestions.length > 0 && (
-          <datalist id={listId}>
-            {suggestions.map((s, i) => (
-              <option key={i} value={s} />
+        {open && filtered.length > 0 && (
+          <div
+            ref={listboxRef}
+            id={listboxId}
+            role="listbox"
+            className="absolute top-full left-0 right-0 z-[100] max-h-40 overflow-y-auto rounded-lg border border-border shadow-lg bg-[#000]"
+          >
+            {filtered.map((s, i) => (
+              <div
+                key={i}
+                id={`${listboxId}-${i}`}
+                role="option"
+                aria-selected={i === activeIndex}
+                className={`px-3 py-1.5 text-[12px] cursor-pointer ${
+                  i === activeIndex
+                    ? "bg-[#2c2c2e] text-white"
+                    : "text-white"
+                }`}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  selectSuggestion(s);
+                }}
+                onMouseEnter={() => setActiveIndex(i)}
+              >
+                {s}
+              </div>
             ))}
-          </datalist>
+          </div>
         )}
       </div>
     </div>
