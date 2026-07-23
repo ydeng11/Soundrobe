@@ -38,6 +38,7 @@ const CHANNEL_PARITY: Array<{
   { method: "writeExtraTagsBatch", command: "tracks_batch_write_extra_tags", args: { updates: [] } },
   { method: "renameTrack", command: "track_rename", args: { oldPath: "/a", newPath: "/b" } },
   { method: "checkFileExists", command: "file_exists", args: { filePath: "/t" } },
+  { method: "probeWriteVolume", command: "volume_probe_write", args: { path: "/t" } },
   { method: "showTrackContextMenu", command: "track_context_menu", args: { trackPath: "/t", labels: {} } },
   { method: "deleteFiles", command: "track_delete_files", args: { filePaths: ["/t"] } },
   { method: "getCoverDataUrl", command: "cover_data_url", args: { albumPath: "/a" } },

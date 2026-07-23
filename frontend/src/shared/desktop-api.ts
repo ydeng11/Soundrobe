@@ -92,6 +92,19 @@ export interface TaskProgress {
   result: unknown;
 }
 
+export interface WriteProbePhase {
+  name: string;
+  success: boolean;
+  error: string | null;
+  osErrorCode: number | null;
+}
+
+export interface WriteProbeResult {
+  path: string;
+  phases: WriteProbePhase[];
+  allSuccessful: boolean;
+}
+
 export interface AuditTrackResult {
   index: number;
   field: string;
@@ -354,6 +367,7 @@ export interface DesktopAPI {
   ) => Promise<TrackData[]>;
   renameTrack: (oldPath: string, newPath: string) => Promise<TrackData>;
   checkFileExists: (filePath: string) => Promise<boolean>;
+  probeWriteVolume: (filePath: string) => Promise<WriteProbeResult>;
 
   showTrackContextMenu: (
     trackPath: string,

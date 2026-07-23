@@ -200,6 +200,7 @@ pub fn run() {
             commands::mutations::tracks_batch_write_extra_tags,
             commands::mutations::track_rename,
             commands::mutations::file_exists,
+            commands::mutations::volume_probe_write,
             commands::mutations::track_delete_files,
             commands::covers::cover_data_url,
             commands::covers::cover_set,
