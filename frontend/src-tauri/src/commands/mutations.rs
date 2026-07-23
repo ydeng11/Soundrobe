@@ -2225,8 +2225,8 @@ fn replace_file_atomic(source: &Path, destination: &Path) -> std::io::Result<()>
 /// `COPYFILE_ALL`. On SMB volumes the xattr copy fails with `EACCES`,
 /// so we use an explicit read/write that transfers only the data fork.
 fn copy_file_data(source: &Path, destination: &Path) -> std::io::Result<u64> {
-    let mut src = std::fs::File::open(source)?;
-    let mut dst = std::fs::File::create(destination)?;
+    let mut src = File::open(source)?;
+    let mut dst = File::create(destination)?;
     let n = std::io::copy(&mut src, &mut dst)?;
     dst.sync_all()?;
     Ok(n)
