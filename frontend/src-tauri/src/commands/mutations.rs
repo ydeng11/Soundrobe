@@ -351,9 +351,9 @@ pub async fn volume_probe_write(path: String) -> WriteProbeResult {
     })();
     phases.push(probe_phase("sibling_temp_create_write", &write_result));
 
-    // 4b. Sync the temp file
+    // 4b. Sync the temp file via a write handle (matching copy_file_data).
     let sync_result = (|| -> std::io::Result<()> {
-        let f = File::open(&temp)?;
+        let f = fs::OpenOptions::new().write(true).open(&temp)?;
         f.sync_all()?;
         Ok(())
     })();
