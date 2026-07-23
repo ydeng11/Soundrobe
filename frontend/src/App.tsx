@@ -1244,15 +1244,23 @@ export default function App() {
         fields: { trackNumber: t.trackNumber, trackTotal: t.trackTotal },
       }));
 
-      dispatch({
-        type: "PUSH_UNDO",
-        description: `Number tracks (${rule})`,
-        snapshots,
-      });
-
       dispatch({ type: "SET_SAVING", saving: true });
       try {
         const result = await window.api.writeTracks(updates);
+
+        // Push undo only for successfully numbered tracks
+        const successPaths = new Set(result.tracks.map((t) => t.path));
+        const successSnapshots = snapshots.filter((s) =>
+          successPaths.has(s.path),
+        );
+        if (successSnapshots.length > 0) {
+          dispatch({
+            type: "PUSH_UNDO",
+            description: `Number tracks (${rule})`,
+            snapshots: successSnapshots,
+          });
+        }
+
         dispatch({ type: "UPDATE_TRACKS", tracks: result.tracks });
         if (result.failures.length > 0) {
           const errorMsg = result.failures
@@ -1697,12 +1705,18 @@ export default function App() {
       try {
         const result = await window.api.writeTracks(updates);
 
-        // Push undo snapshot only after a successful write
-        dispatch({
-          type: "PUSH_UNDO",
-          description: "Batch edit",
-          snapshots,
-        });
+        // Push undo snapshot only for paths that were successfully written
+        const successPaths = new Set(result.tracks.map((t) => t.path));
+        const successSnapshots = snapshots.filter((s) =>
+          successPaths.has(s.path),
+        );
+        if (successSnapshots.length > 0) {
+          dispatch({
+            type: "PUSH_UNDO",
+            description: "Batch edit",
+            snapshots: successSnapshots,
+          });
+        }
 
         // Treat the readback from the API as authoritative
         dispatch({ type: "UPDATE_TRACKS", tracks: result.tracks });

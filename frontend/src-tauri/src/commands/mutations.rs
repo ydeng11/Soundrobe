@@ -689,11 +689,22 @@ async fn batch_write_with_readback(
     let successes = acc.successes.clone();
     let failures = acc.failures.clone();
     drop(acc);
-    let tracks: Vec<TrackData> = successes
-        .iter()
-        .filter_map(|path| read_track_with_fallback(Path::new(path)).ok())
-        .collect();
-    Ok(BatchWriteResult { tracks, failures })
+    // Separate readback failures so they don't silently drop from the result.
+    let mut tracks: Vec<TrackData> = Vec::new();
+    let mut all_failures: Vec<TrackWriteFailure> = failures;
+    for path in &successes {
+        match read_track_with_fallback(Path::new(path)) {
+            Ok(track) => tracks.push(track),
+            Err(e) => all_failures.push(TrackWriteFailure {
+                path: path.clone(),
+                error: format!("{e}"),
+            }),
+        }
+    }
+    Ok(BatchWriteResult {
+        tracks,
+        failures: all_failures,
+    })
 }
 
 pub(crate) async fn write_extra_tags_queued(
