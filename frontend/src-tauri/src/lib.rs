@@ -201,6 +201,7 @@ pub fn run() {
             commands::mutations::track_rename,
             commands::mutations::file_exists,
             commands::mutations::volume_probe_write,
+            commands::mutations::volume_probe_write_real,
             commands::mutations::track_delete_files,
             commands::covers::cover_data_url,
             commands::covers::cover_set,

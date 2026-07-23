@@ -393,56 +393,6 @@ pub async fn volume_probe_write(path: String) -> WriteProbeResult {
     })();
     phases.push(probe_phase("sibling_temp_remove", &remove_result));
 
-    // 5. Can we rename a temp file over the target (simulating the full
-    //    atomic write: copy_data -> tag_save -> rename)?
-    //    Uses a two-step safe probe: write original bytes to temp, rename
-    //    over target, then immediately restore by writing original bytes to
-    //    a new temp and renaming back. The file is restored to its original
-    //    state; if the restore itself fails a warning is logged but the
-    //    probe phase still reports the rename as successful (the rename over
-    //    an existing file, which is the actual diagnostic value, worked).
-    let restore_bytes = read_result.ok();
-    let replace_result = (|| -> std::io::Result<()> {
-        let restore = restore_bytes
-            .as_ref()
-            .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::NotFound, "no original bytes to restore"))?;
-        // Write original content to temp
-        fs::write(&temp, restore)?;
-        // Rename temp over target (this is the atomic replace we want to test)
-        fs::rename(&temp, &target)?;
-        Ok(())
-    })();
-    phases.push(match &replace_result {
-        Ok(_) => {
-            // Restore original - write to a temp, rename back
-            if let Err(e) = (|| -> std::io::Result<()> {
-                if let Some(bytes) = &restore_bytes {
-                    fs::write(&temp, bytes)?;
-                    fs::rename(&temp, &target)?;
-                }
-                Ok(())
-            })() {
-                tracing::warn!(
-                    path = %path,
-                    error = %e,
-                    "volume probe: replace succeeded but restore failed; file was replaced with its own content"
-                );
-            }
-            WriteProbePhase {
-                name: "rename_replace_target".to_string(),
-                success: true,
-                error: None,
-                os_error_code: None,
-            }
-        }
-        Err(e) => WriteProbePhase {
-            name: "rename_replace_target".to_string(),
-            success: false,
-            error: Some(e.to_string()),
-            os_error_code: e.raw_os_error(),
-        },
-    });
-
     // Clean up any leftover temp files
     let _ = fs::remove_file(&temp);
     let _ = fs::remove_file(&alt_temp);
@@ -452,6 +402,127 @@ pub async fn volume_probe_write(path: String) -> WriteProbeResult {
         path,
         phases,
         all_successful,
+    }
+}
+
+/// Run the real `write_track_dispatch` on a COPY of the target file.
+/// The original is never touched. The copy is removed after diagnostics.
+/// Reports the exact `TrackWriteOutcome`, a human-readable error if the
+/// write itself fails, and before/after metadata for the requested field.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RealWriteProbeResult {
+    pub path: String,
+    pub outcome: String, // "Skipped", "Replaced", or "Error"
+    pub error: Option<String>,
+    pub os_error_code: Option<i32>,
+    pub before_field: Option<String>,
+    pub after_field: Option<String>,
+    pub copy_removed: bool,
+}
+
+/// Diagnostic: copies `path` to a sibling `.probe-test.flac`, runs the real
+/// `write_track_dispatch` with the given JSON field patch on the copy, reads
+/// back before/after metadata, cleans up, and reports everything.
+#[tauri::command]
+pub async fn volume_probe_write_real(
+    path: String,
+    patch_json: serde_json::Value,
+) -> RealWriteProbeResult {
+    let target = PathBuf::from(&path);
+    let patch: TrackPatch = match serde_json::from_value(patch_json) {
+        Ok(p) => p,
+        Err(e) => {
+            return RealWriteProbeResult {
+                path,
+                outcome: "Error".to_string(),
+                error: Some(format!("patch deserialization: {e}")),
+                os_error_code: None,
+                before_field: None,
+                after_field: None,
+                copy_removed: true,
+            };
+        }
+    };
+
+    // Read original metadata before copy (for before_field)
+    let before_meta = read_track_metadata(&target).ok();
+    let before_field = before_meta
+        .as_ref()
+        .and_then(|t| t.album_artist.as_deref())
+        .map(|s| s.to_string());
+
+    // Create a sibling copy (e.g. "05 靠近一點.probe-test.flac")
+    let copy_path = target.with_file_name(
+        format!(
+            "{}.probe-test.{}",
+            target.file_stem().and_then(|s| s.to_str()).unwrap_or("track"),
+            target.extension().and_then(|s| s.to_str()).unwrap_or("flac")
+        )
+    );
+
+    // Ensure the copy is clean
+    let _ = fs::remove_file(&copy_path);
+
+    let copy_result = fs::copy(&target, &copy_path);
+    if let Err(e) = copy_result {
+        return RealWriteProbeResult {
+            path,
+            outcome: "Error".to_string(),
+            error: Some(format!("copy: {e}")),
+            os_error_code: e.raw_os_error(),
+            before_field,
+            after_field: None,
+            copy_removed: false,
+        };
+    }
+
+    // Run the real writer on the copy
+    let write_result = write_track_dispatch(&copy_path, &patch);
+    let outcome;
+    let after_field;
+    let error;
+    let os_error_code;
+    match write_result {
+        Ok(TrackWriteOutcome::Skipped) => {
+            outcome = "Skipped".to_string();
+            error = None;
+            os_error_code = None;
+            let after_meta = read_track_metadata(&copy_path).ok();
+            after_field = after_meta
+                .as_ref()
+                .and_then(|t| t.album_artist.as_deref())
+                .map(|s| s.to_string());
+        }
+        Ok(TrackWriteOutcome::Replaced) => {
+            outcome = "Replaced".to_string();
+            error = None;
+            os_error_code = None;
+            let after_meta = read_track_metadata(&copy_path).ok();
+            after_field = after_meta
+                .as_ref()
+                .and_then(|t| t.album_artist.as_deref())
+                .map(|s| s.to_string());
+        }
+        Err(e) => {
+            outcome = "Error".to_string();
+            error = Some(e.to_string());
+            os_error_code = None;
+            after_field = None;
+        }
+    }
+
+    // Clean up
+    let copy_removed = fs::remove_file(&copy_path).is_ok();
+
+    RealWriteProbeResult {
+        path,
+        outcome,
+        error,
+        os_error_code,
+        before_field,
+        after_field,
+        copy_removed,
     }
 }
 

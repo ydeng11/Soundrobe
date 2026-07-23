@@ -102,6 +102,11 @@ export function createTauriDesktopApi(): DesktopAPI {
       invokeCommand("track:rename", { oldPath, newPath }),
     checkFileExists: (filePath) => invokeCommand("file:exists", { filePath }),
     probeWriteVolume: (filePath) => invokeCommand("volume:probe-write", { path: filePath }),
+    probeWriteVolumeReal: (filePath, patch) =>
+      invokeCommand("volume:probe-write-real", {
+        path: filePath,
+        patch_json: patch,
+      }),
 
     showTrackContextMenu: (trackPath, labels) =>
       invokeCommand("track:context-menu", { trackPath, labels }),

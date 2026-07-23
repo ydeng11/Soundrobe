@@ -90,6 +90,7 @@ beforeEach(() => {
     renameTrack: vi.fn().mockRejectedValue(new Error("no-op")),
     checkFileExists: vi.fn().mockRejectedValue(new Error("no-op")),
     probeWriteVolume: vi.fn().mockRejectedValue(new Error("no-op")),
+    probeWriteVolumeReal: vi.fn().mockRejectedValue(new Error("no-op")),
     showTrackContextMenu: vi.fn().mockRejectedValue(new Error("no-op")),
     deleteFiles: vi.fn().mockRejectedValue(new Error("no-op")),
     listDirectory: vi.fn().mockRejectedValue(new Error("no-op")),

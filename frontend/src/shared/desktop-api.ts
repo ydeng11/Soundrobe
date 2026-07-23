@@ -105,6 +105,16 @@ export interface WriteProbeResult {
   allSuccessful: boolean;
 }
 
+export interface RealWriteProbeResult {
+  path: string;
+  outcome: "Skipped" | "Replaced" | "Error";
+  error: string | null;
+  osErrorCode: number | null;
+  beforeField: string | null;
+  afterField: string | null;
+  copyRemoved: boolean;
+}
+
 export interface AuditTrackResult {
   index: number;
   field: string;
@@ -368,6 +378,10 @@ export interface DesktopAPI {
   renameTrack: (oldPath: string, newPath: string) => Promise<TrackData>;
   checkFileExists: (filePath: string) => Promise<boolean>;
   probeWriteVolume: (filePath: string) => Promise<WriteProbeResult>;
+  probeWriteVolumeReal: (
+    filePath: string,
+    patch: Record<string, unknown>
+  ) => Promise<RealWriteProbeResult>;
 
   showTrackContextMenu: (
     trackPath: string,
