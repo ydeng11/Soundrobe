@@ -477,8 +477,21 @@ pub async fn volume_probe_write_real(
         };
     }
 
+    tracing::info!(
+        path = %path,
+        patch_album_artist = ?patch.album_artist,
+        patch_artist = ?patch.artist,
+        "volume probe real: running write_track_dispatch"
+    );
+
     // Run the real writer on the copy
     let write_result = write_track_dispatch(&copy_path, &patch);
+    tracing::info!(
+        path = %path,
+        write_result = ?write_result,
+        "volume probe real: write complete"
+    );
+
     let outcome;
     let after_field;
     let error;
@@ -1924,14 +1937,39 @@ fn apply_vorbis_patch(tag: &mut lofty::ogg::VorbisComments, patch: &TrackPatch) 
     apply_vorbis_string(tag, "ARTIST", &patch.artist);
     apply_vorbis_list(tag, "ARTISTS", &patch.artists);
     apply_vorbis_string(tag, "ALBUM", &patch.album);
-    apply_vorbis_string(tag, "ALBUMARTIST", &patch.album_artist);
+    // ALBUMARTIST / ALBUM ARTIST: Lofty maps both variants to ItemKey::AlbumArtist.
+    // When inserting or clearing, remove ALL known variants so no stale entry
+    // survives to shadow the new value during readback.
+    match &patch.album_artist {
+        Patch::Omitted => {}
+        Patch::Null => {
+            let _ = tag.remove("ALBUMARTIST");
+            let _ = tag.remove("ALBUM ARTIST");
+        }
+        Patch::Value(value) => {
+            let _ = tag.remove("ALBUMARTIST");
+            let _ = tag.remove("ALBUM ARTIST");
+            tag.insert("ALBUMARTIST".to_string(), value.clone());
+        }
+    }
+    // ALBUMARTISTS / ALBUM ARTISTS: same variant removal logic.
     if matches!(patch.album_artists, Patch::Omitted) {
         match &patch.album_artist {
             Patch::Omitted => {}
-            Patch::Null => drop(tag.remove("ALBUMARTISTS")),
-            Patch::Value(value) => tag.insert("ALBUMARTISTS".to_string(), value.clone()),
+            Patch::Null => {
+                let _ = tag.remove("ALBUMARTISTS");
+                let _ = tag.remove("ALBUM ARTISTS");
+            }
+            Patch::Value(value) => {
+                let _ = tag.remove("ALBUMARTISTS");
+                let _ = tag.remove("ALBUM ARTISTS");
+                tag.insert("ALBUMARTISTS".to_string(), value.clone());
+            }
         }
     } else {
+        // Clear both variants so no stale "ALBUM ARTISTS" (space) entry survives.
+        let _ = tag.remove("ALBUMARTISTS");
+        let _ = tag.remove("ALBUM ARTISTS");
         apply_vorbis_list(tag, "ALBUMARTISTS", &patch.album_artists);
     }
     apply_vorbis_string(tag, "DATE", &patch.year);
@@ -2659,6 +2697,18 @@ mod tests {
         assert_eq!(omitted.title, Patch::Omitted);
         assert_eq!(null.title, Patch::Null);
         assert_eq!(value.title, Patch::Value("Changed".to_string()));
+    }
+
+    #[test]
+    fn camelcase_deserialization_maps_album_artist() {
+        // Verify rename_all = "camelCase" maps albumArtist -> album_artist
+        let patch: TrackPatch = serde_json::from_value(serde_json::json!({
+            "albumArtist": "Diagnostic Test"
+        })).unwrap();
+        assert_eq!(
+            patch.album_artist,
+            Patch::Value("Diagnostic Test".to_string())
+        );
     }
 
     #[test]
