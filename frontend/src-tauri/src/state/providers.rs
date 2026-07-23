@@ -529,6 +529,7 @@ fn parse_musicbrainz_release(
         .map(Vec::as_slice)
         .unwrap_or_default();
     let mut tracks = Vec::new();
+    let mut seen_signatures: Vec<Vec<String>> = Vec::new();
     for medium in media {
         let disc_number = positive_integer(medium.get("position"));
         let medium_tracks = medium
@@ -536,6 +537,49 @@ fn parse_musicbrainz_release(
             .and_then(serde_json::Value::as_array)
             .map(Vec::as_slice)
             .unwrap_or_default();
+
+        // Skip empty mediums (no tracks to contribute).
+        if medium_tracks.is_empty() {
+            continue;
+        }
+
+        // Deduplicate: skip this medium if another earlier medium already has
+        // the same number of tracks with the same numbers and titles at the
+        // same positions (e.g., SACD + CD editions of an otherwise identical
+        // release).  Recording IDs are intentionally excluded from the
+        // signature because different formats often use different recordings
+        // for the same track.
+        let signature: Vec<String> = medium_tracks
+            .iter()
+            .map(|track| {
+                let number = track
+                    .get("number")
+                    .and_then(serde_json::Value::as_str)
+                    .map(str::to_string)
+                    .or_else(|| {
+                        track
+                            .get("position")
+                            .and_then(serde_json::Value::as_i64)
+                            .map(|p| p.to_string())
+                    })
+                    .unwrap_or_default();
+                let rec = track.get("recording");
+                let title = track
+                    .get("title")
+                    .and_then(serde_json::Value::as_str)
+                    .or_else(|| {
+                        rec.and_then(|r| r.get("title"))
+                            .and_then(serde_json::Value::as_str)
+                    })
+                    .unwrap_or_default();
+                format!("{}:{}", number, title)
+            })
+            .collect();
+        if seen_signatures.contains(&signature) {
+            continue;
+        }
+        seen_signatures.push(signature);
+
         for track in medium_tracks {
             let recording = track.get("recording");
             let recording_title = recording
@@ -2135,6 +2179,36 @@ mod tests {
         )
     }
 
+    fn musicbrainz_identical_media_route(
+        path: &str,
+        _base: &str,
+    ) -> (&'static str, String, &'static str) {
+        assert!(path.starts_with("/release/dedup-id?"));
+        (
+            "200 OK",
+            r#"{
+              "id":"dedup-id","title":"Best Of","date":"2004-01-01",
+              "artist-credit":[{"name":"Artist","artist":{"id":"artist-id"}}],
+              "media":[
+                {"position":1,"track-count":2,"tracks":[
+                  {"number":"1","position":1,"title":"Song A",
+                   "recording":{"id":"rec-a1","title":"Song A"}},
+                  {"number":"2","position":2,"title":"Song B",
+                   "recording":{"id":"rec-b1","title":"Song B"}}
+                ]},
+                {"position":2,"track-count":2,"tracks":[
+                  {"number":"1","position":1,"title":"Song A",
+                   "recording":{"id":"rec-a2","title":"Song A"}},
+                  {"number":"2","position":2,"title":"Song B",
+                   "recording":{"id":"rec-b2","title":"Song B"}}
+                ]}
+              ]
+            }"#
+            .to_string(),
+            "application/json",
+        )
+    }
+
     fn discogs_metadata_route(path: &str, _base: &str) -> (&'static str, String, &'static str) {
         assert_eq!(path, "/releases/42");
         (
@@ -2380,6 +2454,35 @@ mod tests {
         let request = requests.recv().unwrap();
         assert!(
             request.contains("GET /release/release-id?fmt=json&inc=recordings%2Bartist-credits")
+        );
+    }
+
+    #[tokio::test]
+    async fn musicbrainz_identical_media_deduplicates_tracklist() {
+        // Two media (SACD + CD) with the same track numbers and titles:
+        // only the first medium's tracks should appear.
+        let (base, _requests) = server(1, musicbrainz_identical_media_route);
+        let client = MusicBrainzClient::at(ProviderState::new().http(), &base);
+
+        let album = client.release_by_id("dedup-id").await.unwrap();
+
+        assert_eq!(album.title, "Best Of");
+        // 2 media × 2 tracks = 4 flat, but dedup collapses to 2.
+        assert_eq!(album.tracks.len(), 2);
+        assert_eq!(album.tracks[0].title.as_deref(), Some("Song A"));
+        assert_eq!(album.tracks[0].track_number, Some(1));
+        assert_eq!(album.tracks[0].disc_number, Some(1));
+        // Recording ID belongs to the first medium (SACD).
+        assert_eq!(
+            album.tracks[0].recording_id.as_deref(),
+            Some("rec-a1")
+        );
+        assert_eq!(album.tracks[1].title.as_deref(), Some("Song B"));
+        assert_eq!(album.tracks[1].track_number, Some(2));
+        assert_eq!(album.tracks[1].disc_number, Some(1));
+        assert_eq!(
+            album.tracks[1].recording_id.as_deref(),
+            Some("rec-b1")
         );
     }
 

@@ -318,14 +318,31 @@ pub fn match_remote_candidate_tracks(
         }
     }
 
-    if stats.matched == 0 && local_tracks.len() == remote_tracks.len() && local_tracks.len() >= 2 {
+    // After main matching: fill any remaining unmatched tracks by position
+    // when local and remote have the same number of tracks (>= 2).
+    // This handles cases where some tracks have placeholder titles (e.g., "-")
+    // that don't match by title/ID, while other tracks in the same album did
+    // match — position is unambiguous because the track counts match.
+    if stats.matched < local_tracks.len()
+        && local_tracks.len() == remote_tracks.len()
+        && local_tracks.len() >= 2
+    {
         for index in 0..local_tracks.len() {
-            matched_local[index] = Some(index);
-            matched_remote.insert(index);
-            evidence[index] = Some(MatchEvidence::Position);
+            if matched_local[index].is_none() && !matched_remote.contains(&index) {
+                accept_match(
+                    index,
+                    index,
+                    MatchEvidence::Position,
+                    &mut matched_local,
+                    &mut matched_remote,
+                    &mut evidence,
+                    &mut stats,
+                );
+            }
         }
-        stats.matched = local_tracks.len();
-        stats.skipped.clear();
+        stats
+            .skipped
+            .retain(|skip| matched_local[skip.local_index].is_none());
     }
 
     let full_match =
@@ -757,12 +774,15 @@ fn should_replace_polluted(current: &str, api: &str) -> bool {
 
 fn is_placeholder(value: Option<&str>) -> bool {
     static PLACEHOLDER: OnceLock<Regex> = OnceLock::new();
-    value.is_some_and(|value| {
-        PLACEHOLDER
-            .get_or_init(|| {
-                Regex::new(r"(?i)^\s*track\s*\d{1,3}\s*$").expect("valid placeholder regex")
-            })
-            .is_match(value)
+    value.is_none_or(|value| {
+        let trimmed = value.trim();
+        trimmed.is_empty()
+            || PLACEHOLDER
+                .get_or_init(|| {
+                    Regex::new(r"(?i)^\s*(?:track\s*\d{1,3}|-|n/?a|unknown|untitled)\s*$")
+                        .expect("valid placeholder regex")
+                })
+                .is_match(trimmed)
     })
 }
 
@@ -964,6 +984,73 @@ mod tests {
 
         assert_eq!(matched.tracks[0].title.as_deref(), Some("First"));
         assert_eq!(matched.tracks[1].title.as_deref(), Some("Second"));
+    }
+
+    #[test]
+    fn partial_positional_fill_fixes_dash_placeholder_titles() {
+        // Regression: when some tracks have valid titles that match by tag
+        // (e.g., "流浪的心") but others have "-" placeholder titles, the
+        // leftover "-" tracks should be filled positionally from the remote
+        // instead of staying as "-".
+        let local = vec![
+            TrackCandidate {
+                title: Some("-".into()),
+                artist: Some("王杰".into()),
+                ..TrackCandidate::default()
+            },
+            TrackCandidate {
+                title: Some("流浪的心".into()),
+                artist: Some("王杰".into()),
+                ..TrackCandidate::default()
+            },
+            TrackCandidate {
+                title: Some("-".into()),
+                artist: Some("王杰".into()),
+                ..TrackCandidate::default()
+            },
+        ];
+        let remote = vec![
+            TrackCandidate {
+                title: Some("今生无悔".into()),
+                artist: Some("王杰".into()),
+                ..TrackCandidate::default()
+            },
+            TrackCandidate {
+                title: Some("流浪的心".into()),
+                artist: Some("王杰".into()),
+                ..TrackCandidate::default()
+            },
+            TrackCandidate {
+                title: Some("可能".into()),
+                artist: Some("王杰".into()),
+                ..TrackCandidate::default()
+            },
+        ];
+
+        let matched = match_remote_candidate_tracks(
+            &local,
+            &["01 - 王杰.flac".into(), "02 - 王杰.flac".into(), "03 - 王杰.flac".into()],
+            &remote,
+            "musicbrainz",
+            &["王杰".into()],
+            &[],
+        );
+
+        // All 3 tracks should be matched
+        assert_eq!(matched.stats.matched, 3);
+        assert!(matched.is_full_ordered_match);
+
+        // Track 0 ("-") should get remote title "今生无悔"
+        assert_eq!(matched.tracks[0].title.as_deref(), Some("今生无悔"));
+        // Track 1 ("流浪的心") matched by tag title, keep local
+        assert_eq!(matched.tracks[1].title.as_deref(), Some("流浪的心"));
+        // Track 2 ("-") should get remote title "可能"
+        assert_eq!(matched.tracks[2].title.as_deref(), Some("可能"));
+
+        // Both dash tracks should use Position evidence
+        assert_eq!(matched.evidence[0], Some(MatchEvidence::Position));
+        assert_eq!(matched.evidence[1], Some(MatchEvidence::TagTitle));
+        assert_eq!(matched.evidence[2], Some(MatchEvidence::Position));
     }
 
     #[test]

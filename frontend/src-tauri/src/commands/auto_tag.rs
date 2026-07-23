@@ -711,10 +711,20 @@ pub fn combine_candidate_sources(
 pub fn filter_candidates_for_album(
     album_hint: Option<&str>,
     candidates: Vec<AlbumCandidate>,
+    request_mb_album_id: Option<&str>,
 ) -> Vec<AlbumCandidate> {
     candidates
         .into_iter()
         .filter(|candidate| {
+            // Trust candidates obtained via direct MB ID lookup — the user
+            // explicitly set this ID in the file tags so the album name on
+            // MusicBrainz may differ from the folder name (e.g. "SACD Best
+            // Collection" vs "精选 Collection").
+            if let Some(request_id) = request_mb_album_id {
+                if candidate.musicbrainz_album_id.as_deref() == Some(request_id) {
+                    return true;
+                }
+            }
             let (Some(hint), Some(album)) = (album_hint, candidate.album.as_deref()) else {
                 return true;
             };
@@ -1369,8 +1379,16 @@ pub async fn resolve_and_apply_album(
         fresh.push(fallback);
     }
     let folder = folder_candidate(&request);
-    fresh = filter_candidates_for_album(request.album_hint.as_deref(), fresh);
-    let cached = filter_candidates_for_album(request.album_hint.as_deref(), cached);
+    fresh = filter_candidates_for_album(
+        request.album_hint.as_deref(),
+        fresh,
+        request.musicbrainz_album_id.as_deref(),
+    );
+    let cached = filter_candidates_for_album(
+        request.album_hint.as_deref(),
+        cached,
+        request.musicbrainz_album_id.as_deref(),
+    );
     let mut cache_payload = fresh.clone();
     cache_payload.push(folder.clone());
     if should_replace_lookup_cache(&cache_payload, !cached.is_empty()) {
@@ -2103,10 +2121,53 @@ mod tests {
             },
         ];
 
-        let filtered = filter_candidates_for_album(Some("無限"), candidates);
+        let filtered = filter_candidates_for_album(Some("無限"), candidates, None);
 
         assert_eq!(filtered.len(), 1);
         assert_eq!(filtered[0].album.as_deref(), Some("无限"));
+    }
+
+    #[test]
+    fn album_filter_exempts_direct_mb_id_even_when_name_mismatches() {
+        // When a candidate's musicbrainz_album_id matches the request's
+        // requested ID, it should NOT be filtered by album name — the user
+        // explicitly set that ID in the file tags, so the MB album name
+        // (e.g. "SACD Best Collection") may differ from the folder name
+        // (e.g. "精选 Collection").
+        let candidates = vec![
+            AlbumCandidate {
+                album: Some("SACD Best Collection".into()),
+                musicbrainz_album_id: Some("1976db43-24bc-432f-8437-d0adf1de1b0d".into()),
+                source: LookupSource::Musicbrainz,
+                ..AlbumCandidate::default()
+            },
+            AlbumCandidate {
+                album: Some("Some Other Album".into()),
+                source: LookupSource::Discogs,
+                ..AlbumCandidate::default()
+            },
+        ];
+
+        // With the matched request ID, the SACD candidate survives.
+        let filtered = filter_candidates_for_album(
+            Some("精选 Collection"),
+            candidates.clone(),
+            Some("1976db43-24bc-432f-8437-d0adf1de1b0d"),
+        );
+        assert_eq!(filtered.len(), 1);
+        assert_eq!(
+            filtered[0].musicbrainz_album_id.as_deref(),
+            Some("1976db43-24bc-432f-8437-d0adf1de1b0d")
+        );
+
+        // Without the matched request ID (None), the SACD candidate is
+        // rejected by album name mismatch.
+        let filtered = filter_candidates_for_album(
+            Some("精选 Collection"),
+            candidates,
+            None,
+        );
+        assert_eq!(filtered.len(), 0);
     }
 
     #[test]
