@@ -25,7 +25,7 @@ use std::collections::HashMap;
 use std::fs::{self, File};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use tauri::{Emitter, State};
 
 static TEMP_SEQUENCE: AtomicU64 = AtomicU64::new(0);
@@ -529,10 +529,12 @@ async fn batch_write_queued(
     )
     .unwrap_or(2);
     let io_quota = Arc::new(tokio::sync::Semaphore::new(max_concurrency));
+    let write_errors: Arc<Mutex<Vec<String>>> = Arc::new(Mutex::new(Vec::new()));
     let mut handles = Vec::new();
     for (folder, folder_updates) in folder_groups {
         let q = queue.clone();
         let completed = Arc::clone(&completed);
+        let write_errors = Arc::clone(&write_errors);
         let app = progress_tracker.as_ref().map(|(a, _)| a.clone());
         // acquire_owned only errors if the semaphore is dropped, which never
         // happens since io_quota lives until all spawned tasks complete.
@@ -544,10 +546,22 @@ async fn batch_write_queued(
                     for batch in folder_updates.chunks(SUBBATCH_SIZE) {
                         for update in batch {
                             let write_start = std::time::Instant::now();
-                            write_track_dispatch(
+                            if let Err(e) = write_track_dispatch(
                                 Path::new(&update.path),
                                 &update.fields,
-                            )?;
+                            ) {
+                                tracing::warn!(
+                                    path = %update.path,
+                                    elapsed_us = write_start.elapsed().as_micros(),
+                                    error = %e,
+                                    "batch track write failed, continuing"
+                                );
+                                write_errors
+                                    .lock()
+                                    .expect("write_errors lock poisoned")
+                                    .push(format!("{}: {e}", update.path));
+                                continue;
+                            }
                             tracing::debug!(
                                 path = %update.path,
                                 elapsed_s = write_start.elapsed().as_secs_f64(),
@@ -586,7 +600,29 @@ async fn batch_write_queued(
             .await
             .map_err(|e| ApiError::WriteTask(e.to_string()))??;
     }
-    Ok(())
+
+    // 4. Report: if at least one track succeeded, return Ok so readback
+    //    proceeds. Only fail the entire batch when ALL tracks failed.
+    let errors = write_errors
+        .lock()
+        .expect("write_errors lock poisoned");
+    let failure_count = errors.len();
+    if failure_count == 0 {
+        Ok(())
+    } else if failure_count < (total as usize) {
+        tracing::warn!(
+            "batch write completed with {}/{} failures",
+            failure_count,
+            total
+        );
+        Ok(())
+    } else {
+        Err(ApiError::Message(format!(
+            "All {} write(s) failed. First error: {}",
+            failure_count,
+            errors.first().unwrap()
+        )))
+    }
 }
 
 fn read_track_with_fallback(path: &Path) -> Result<TrackData, ApiError> {
