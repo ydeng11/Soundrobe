@@ -236,6 +236,9 @@ export function FileGrid({
 
   // Right-click context menu state
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
+  // Guards against rapid right-clicks that would trigger the Rust backend's
+  // ContextMenuAlreadyActive rejection (one concurrent native popup at a time).
+  const contextMenuBusyRef = useRef(false);
 
   // Close context menu on any click outside
   useEffect(() => {
@@ -370,6 +373,7 @@ export function FileGrid({
       e.preventDefault();
       e.stopPropagation();
 
+      if (contextMenuBusyRef.current) return;
       const isMultiSelected = selectedTrackPaths.length > 1 && selectedTrackPaths.includes(track.path);
       const contextPaths = isMultiSelected ? selectedTrackPaths : [track.path];
 
@@ -378,12 +382,19 @@ export function FileGrid({
         onSelectTrack(track.path, track);
       }
 
-      const action = await showTrackMenu(track);
+      contextMenuBusyRef.current = true;
+      try {
+        const action = await showTrackMenu(track);
 
-      if (action === "extra-tags") {
-        onEditExtraTags?.(track, contextPaths);
-      } else if (action === "delete-files") {
-        onDeleteFiles?.(contextPaths);
+        if (action === "extra-tags") {
+          onEditExtraTags?.(track, contextPaths);
+        } else if (action === "delete-files") {
+          onDeleteFiles?.(contextPaths);
+        }
+      } catch {
+        // Backend rejected the request (e.g. ContextMenuAlreadyActive); user can retry.
+      } finally {
+        contextMenuBusyRef.current = false;
       }
     },
     [onEditExtraTags, onDeleteFiles, onMultiSelect, onSelectTrack, selectedTrackPaths, showTrackMenu],
@@ -393,21 +404,27 @@ export function FileGrid({
     async (e: React.MouseEvent) => {
       e.preventDefault();
 
-      if (selectedTrackPaths.length === 0) {
-        return;
-      }
+      if (selectedTrackPaths.length === 0) return;
+      if (contextMenuBusyRef.current) return;
 
       const primary = tracks.find((track) => track.path === selectedTrackPaths[0]);
       if (!primary) {
         return;
       }
 
-      const action = await showTrackMenu(primary);
+      contextMenuBusyRef.current = true;
+      try {
+        const action = await showTrackMenu(primary);
 
-      if (action === "extra-tags") {
-        onEditExtraTags?.(primary, selectedTrackPaths);
-      } else if (action === "delete-files") {
-        onDeleteFiles?.(selectedTrackPaths);
+        if (action === "extra-tags") {
+          onEditExtraTags?.(primary, selectedTrackPaths);
+        } else if (action === "delete-files") {
+          onDeleteFiles?.(selectedTrackPaths);
+        }
+      } catch {
+        // Backend rejected the request (e.g. ContextMenuAlreadyActive); user can retry.
+      } finally {
+        contextMenuBusyRef.current = false;
       }
     },
     [onEditExtraTags, onDeleteFiles, selectedTrackPaths, showTrackMenu, sorted, tracks],
