@@ -919,7 +919,7 @@ fn write_id3_extra_tags_atomic(
     apply_id3_extra_tags(&mut tag, updates);
     let temporary = sibling_temp_path(path);
     let result = (|| {
-        fs::copy(path, &temporary)?;
+        copy_file_data(path, &temporary)?;
         tag.save_to_path(&temporary, WriteOptions::new())?;
         let candidate = fs::read(&temporary)?;
         let payload_equal = if wav {
@@ -1010,7 +1010,7 @@ fn write_ogg_extra_tags_atomic(
         .ok_or_else(|| ApiError::MediaSafety("invalid OGG packet structure".to_string()))?;
     let temporary = sibling_temp_path(path);
     let result = (|| {
-        fs::copy(path, &temporary)?;
+        copy_file_data(path, &temporary)?;
         let mut file = File::open(path)?;
         if extension.eq_ignore_ascii_case("opus") {
             let mut parsed =
@@ -1130,7 +1130,7 @@ pub fn write_wav_atomic(path: &Path, patch: &TrackPatch) -> Result<TrackWriteOut
 
     let temporary = sibling_temp_path(path);
     let result = (|| {
-        fs::copy(path, &temporary)?;
+        copy_file_data(path, &temporary)?;
         tag.save_to_path(&temporary, WriteOptions::new())?;
         let candidate_bytes = fs::read(&temporary)?;
         let candidate_audio = wav_data_payloads(&candidate_bytes).ok_or_else(|| {
@@ -1170,7 +1170,7 @@ pub fn write_mp4_atomic(path: &Path, patch: &TrackPatch) -> Result<TrackWriteOut
 
     let temporary = sibling_temp_path(path);
     let result = (|| {
-        fs::copy(path, &temporary)?;
+        copy_file_data(path, &temporary)?;
         parsed.save_to_path(&temporary, WriteOptions::new())?;
         let candidate_bytes = fs::read(&temporary)?;
         let candidate_media = mp4_mdat_payloads(&candidate_bytes).ok_or_else(|| {
@@ -1209,7 +1209,7 @@ pub fn write_ogg_atomic(path: &Path, patch: &TrackPatch) -> Result<TrackWriteOut
     let before = read_track_metadata(path)?;
     let temporary = sibling_temp_path(path);
     let result = (|| {
-        fs::copy(path, &temporary)?;
+        copy_file_data(path, &temporary)?;
         let mut file = File::open(path)?;
         let options = ParseOptions::new().read_properties(false);
         if extension == "opus" {
@@ -1305,7 +1305,7 @@ pub fn write_mp3_atomic(path: &Path, patch: &TrackPatch) -> Result<TrackWriteOut
 
     let temporary = sibling_temp_path(path);
     let result = (|| {
-        fs::copy(path, &temporary)?;
+        copy_file_data(path, &temporary)?;
         tag.save_to_path(&temporary, WriteOptions::new())?;
 
         let candidate_bytes = fs::read(&temporary)?;
@@ -2218,6 +2218,18 @@ fn replace_file_atomic(source: &Path, destination: &Path) -> std::io::Result<()>
     } else {
         Ok(())
     }
+}
+
+/// Copy file data bytes only, without extended attributes or ACLs.
+/// macOS `fs::copy` wraps `copyfile()` which preserves xattrs/ACLs via
+/// `COPYFILE_ALL`. On SMB volumes the xattr copy fails with `EACCES`,
+/// so we use an explicit read/write that transfers only the data fork.
+fn copy_file_data(source: &Path, destination: &Path) -> std::io::Result<u64> {
+    let mut src = std::fs::File::open(source)?;
+    let mut dst = std::fs::File::create(destination)?;
+    let n = std::io::copy(&mut src, &mut dst)?;
+    dst.sync_all()?;
+    Ok(n)
 }
 
 fn sibling_temp_path(path: &Path) -> PathBuf {
@@ -3866,3 +3878,4 @@ mod tests {
         fs::remove_dir_all(root).unwrap();
     }
 }
+
