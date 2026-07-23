@@ -151,6 +151,16 @@ export interface AuditApplyFixesSummary {
   }>;
 }
 
+export interface TrackWriteFailure {
+  path: string;
+  error: string;
+}
+
+export interface BatchWriteResult {
+  tracks: TrackData[];
+  failures: TrackWriteFailure[];
+}
+
 export interface TrackWriteEvent {
   current: number;
   total: number;
@@ -333,7 +343,7 @@ export interface DesktopAPI {
   ) => Promise<TrackData>;
   writeTracks: (
     updates: Array<{ path: string; fields: Record<string, unknown> }>
-  ) => Promise<TrackData[]>;
+  ) => Promise<BatchWriteResult>;
   readExtraTags: (trackPath: string) => Promise<ExtraTag[]>;
   writeExtraTags: (
     trackPath: string,

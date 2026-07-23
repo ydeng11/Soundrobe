@@ -175,6 +175,22 @@ pub struct TrackUpdate {
     pub fields: TrackPatch,
 }
 
+/// Per-track failure reported in a batch write result.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TrackWriteFailure {
+    pub path: String,
+    pub error: String,
+}
+
+/// Structured batch write result returned to the renderer.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BatchWriteResult {
+    pub tracks: Vec<TrackData>,
+    pub failures: Vec<TrackWriteFailure>,
+}
+
 /// Progress event emitted from batch track writes so the renderer can show
 /// a determinate progress bar (completed / total) instead of an indeterminate
 /// "breath light" animation.
@@ -228,7 +244,7 @@ pub async fn tracks_batch_write(
     app: tauri::AppHandle,
     updates: Vec<TrackUpdate>,
     queue: State<'_, WriteQueue>,
-) -> Result<Vec<TrackData>, ApiError> {
+) -> Result<BatchWriteResult, ApiError> {
     batch_write_with_readback(&queue, updates, Some(app)).await
 }
 
@@ -496,10 +512,18 @@ pub(crate) async fn remove_embedded_cover_queued(
     Ok(())
 }
 
+/// Shared accumulator for batch write results across folder workers.
+#[derive(Default)]
+struct BatchAccumulator {
+    successes: Vec<String>,
+    failures: Vec<TrackWriteFailure>,
+}
+
 async fn batch_write_queued(
     queue: &WriteQueue,
     updates: Vec<TrackUpdate>,
     progress_tracker: Option<(tauri::AppHandle, u64)>,
+    accum: &Arc<Mutex<BatchAccumulator>>,
 ) -> Result<(), ApiError> {
     // 1. Partition by folder (Path::parent() — no syscall needed)
     let folder_groups = group_by_folder(updates);
@@ -511,7 +535,6 @@ async fn batch_write_queued(
     let total = progress_tracker
         .as_ref()
         .map_or(0, |(_, t)| *t);
-    let completed = Arc::new(AtomicU64::new(0));
 
     // 2. Spawn one task per folder (concurrent across folders).
     //    Each task acquires only its folder-scoped lock via run_for_folder,
@@ -529,12 +552,10 @@ async fn batch_write_queued(
     )
     .unwrap_or(2);
     let io_quota = Arc::new(tokio::sync::Semaphore::new(max_concurrency));
-    let write_errors: Arc<Mutex<Vec<String>>> = Arc::new(Mutex::new(Vec::new()));
     let mut handles = Vec::new();
     for (folder, folder_updates) in folder_groups {
         let q = queue.clone();
-        let completed = Arc::clone(&completed);
-        let write_errors = Arc::clone(&write_errors);
+        let accum = Arc::clone(accum);
         let app = progress_tracker.as_ref().map(|(a, _)| a.clone());
         // acquire_owned only errors if the semaphore is dropped, which never
         // happens since io_quota lives until all spawned tasks complete.
@@ -546,40 +567,52 @@ async fn batch_write_queued(
                     for batch in folder_updates.chunks(SUBBATCH_SIZE) {
                         for update in batch {
                             let write_start = std::time::Instant::now();
-                            if let Err(e) = write_track_dispatch(
+                            let path_str = update.path.clone();
+                            match write_track_dispatch(
                                 Path::new(&update.path),
                                 &update.fields,
                             ) {
-                                tracing::warn!(
-                                    path = %update.path,
-                                    elapsed_us = write_start.elapsed().as_micros(),
-                                    error = %e,
-                                    "batch track write failed, continuing"
-                                );
-                                write_errors
-                                    .lock()
-                                    .expect("write_errors lock poisoned")
-                                    .push(format!("{}: {e}", update.path));
-                                continue;
-                            }
-                            tracing::debug!(
-                                path = %update.path,
-                                elapsed_s = write_start.elapsed().as_secs_f64(),
-                                "batch track write done"
-                            );
+                                Ok(_) => {
+                                    tracing::debug!(
+                                        path = %update.path,
+                                        elapsed_s = write_start.elapsed().as_secs_f64(),
+                                        "batch track write done"
+                                    );
+                                    let mut acc = accum
+                                        .lock()
+                                        .expect("accum lock poisoned");
+                                    acc.successes.push(path_str);
 
-                            // Emit progress after each track write so the
-                            // renderer can show a determinate progress bar.
-                            if let Some(ref app) = app {
-                                let c = completed.fetch_add(1, Ordering::Relaxed) + 1;
-                                let _ = app.emit(
-                                    "tracks:write-event",
-                                    TrackWriteEvent {
-                                        current: c,
-                                        total,
-                                        message: format!("Writing {}/{}", c, total),
-                                    },
-                                );
+                                    // Emit progress after each track write so the
+                                    // renderer can show a determinate progress bar.
+                                    if let Some(ref app) = app {
+                                        let c = acc.successes.len() as u64;
+                                        let _ = app.emit(
+                                            "tracks:write-event",
+                                            TrackWriteEvent {
+                                                current: c,
+                                                total,
+                                                message: format!("Writing {}/{}", c, total),
+                                            },
+                                        );
+                                    }
+                                }
+                                Err(e) => {
+                                    tracing::warn!(
+                                        path = %update.path,
+                                        elapsed_us = write_start.elapsed().as_micros(),
+                                        error = %e,
+                                        "batch track write failed, continuing"
+                                    );
+                                    accum
+                                        .lock()
+                                        .expect("accum lock poisoned")
+                                        .failures
+                                        .push(TrackWriteFailure {
+                                            path: path_str,
+                                            error: e.to_string(),
+                                        });
+                                }
                             }
                         }
                     }
@@ -601,28 +634,24 @@ async fn batch_write_queued(
             .map_err(|e| ApiError::WriteTask(e.to_string()))??;
     }
 
-    // 4. Report: if at least one track succeeded, return Ok so readback
-    //    proceeds. Only fail the entire batch when ALL tracks failed.
-    let errors = write_errors
-        .lock()
-        .expect("write_errors lock poisoned");
-    let failure_count = errors.len();
-    if failure_count == 0 {
-        Ok(())
-    } else if failure_count < (total as usize) {
+    // 4. After all folder workers complete, check whether anything succeeded.
+    let acc = accum.lock().expect("accum lock poisoned");
+    if acc.successes.is_empty() {
+        return Err(ApiError::Message(format!(
+            "All {} write(s) failed. First error: {}",
+            acc.failures.len(),
+            acc.failures.first().map_or("unknown", |f| &f.error)
+        )));
+    }
+    // Partial success: log a warning but return Ok so readback proceeds
+    if !acc.failures.is_empty() {
         tracing::warn!(
             "batch write completed with {}/{} failures",
-            failure_count,
-            total
+            acc.failures.len(),
+            acc.successes.len() + acc.failures.len()
         );
-        Ok(())
-    } else {
-        Err(ApiError::Message(format!(
-            "All {} write(s) failed. First error: {}",
-            failure_count,
-            errors.first().unwrap()
-        )))
     }
+    Ok(())
 }
 
 fn read_track_with_fallback(path: &Path) -> Result<TrackData, ApiError> {
@@ -650,17 +679,21 @@ async fn batch_write_with_readback(
     queue: &WriteQueue,
     updates: Vec<TrackUpdate>,
     app: Option<tauri::AppHandle>,
-) -> Result<Vec<TrackData>, ApiError> {
+) -> Result<BatchWriteResult, ApiError> {
     let total = updates.len() as u64;
-    let paths = updates
+    let accum = Arc::new(Mutex::new(BatchAccumulator::default()));
+    batch_write_queued(queue, updates, app.map(|a| (a, total)), &accum).await?;
+    let acc = accum
+        .lock()
+        .expect("accum lock poisoned");
+    let successes = acc.successes.clone();
+    let failures = acc.failures.clone();
+    drop(acc);
+    let tracks: Vec<TrackData> = successes
         .iter()
-        .map(|update| PathBuf::from(&update.path))
-        .collect::<Vec<_>>();
-    batch_write_queued(queue, updates, app.map(|a| (a, total))).await?;
-    paths
-        .iter()
-        .map(|path| read_track_with_fallback(path))
-        .collect()
+        .filter_map(|path| read_track_with_fallback(Path::new(path)).ok())
+        .collect();
+    Ok(BatchWriteResult { tracks, failures })
 }
 
 pub(crate) async fn write_extra_tags_queued(
@@ -3080,13 +3113,14 @@ mod tests {
         )
         .await
         .unwrap();
-        assert_eq!(batch.len(), 2);
-        assert_eq!(batch[0].path, first.to_string_lossy());
-        assert_eq!(batch[0].title.as_deref(), Some("First readback"));
-        assert_eq!(batch[0].genre.as_deref(), Some("Jazz"));
-        assert_eq!(batch[1].path, second.to_string_lossy());
-        assert_eq!(batch[1].title.as_deref(), Some("Second readback"));
-        assert_eq!(batch[1].genre.as_deref(), Some("Jazz"));
+        assert_eq!(batch.tracks.len(), 2);
+        assert!(batch.failures.is_empty());
+        assert_eq!(batch.tracks[0].path, first.to_string_lossy());
+        assert_eq!(batch.tracks[0].title.as_deref(), Some("First readback"));
+        assert_eq!(batch.tracks[0].genre.as_deref(), Some("Jazz"));
+        assert_eq!(batch.tracks[1].path, second.to_string_lossy());
+        assert_eq!(batch.tracks[1].title.as_deref(), Some("Second readback"));
+        assert_eq!(batch.tracks[1].genre.as_deref(), Some("Jazz"));
         fs::remove_dir_all(root).unwrap();
     }
 
@@ -3485,7 +3519,8 @@ mod tests {
             },
         ];
         let queue = WriteQueue::default();
-        batch_write_queued(&queue, updates, None).await.unwrap();
+        let accum = Arc::new(Mutex::new(BatchAccumulator::default()));
+        batch_write_queued(&queue, updates, None, &accum).await.unwrap();
         assert_eq!(
             read_track_metadata(&first).unwrap().title.as_deref(),
             Some("First batch title")
@@ -3494,13 +3529,13 @@ mod tests {
             read_track_metadata(&second).unwrap().title.as_deref(),
             Some("Second batch title")
         );
-        batch_write_queued(&queue, Vec::new(), None).await.unwrap();
+        batch_write_queued(&queue, Vec::new(), None, &accum).await.unwrap();
         assert!(!queue.is_active());
         fs::remove_dir_all(root).unwrap();
     }
 
     #[tokio::test]
-    async fn batch_write_stops_at_first_error_after_prior_commits() {
+    async fn batch_write_continues_after_per_track_failure() {
         let (root, first) = copy_to_temp(&media_fixture("minimal.mp3"), "first.mp3");
         let unsupported = root.join("second.xyz");
         fs::write(&unsupported, b"untouched").unwrap();
@@ -3515,12 +3550,17 @@ mod tests {
                 fields: TrackPatch::default(),
             },
         ];
-        let error = batch_write_queued(&WriteQueue::default(), updates, None)
+        let accum = Arc::new(Mutex::new(BatchAccumulator::default()));
+        batch_write_queued(&WriteQueue::default(), updates, None, &accum)
             .await
-            .unwrap_err();
-        assert!(error
-            .to_string()
-            .contains("other than MP3/FLAC/OGG/Opus/M4A/MP4/WAV/APE"));
+            .unwrap();
+        // The first track was committed; the second failed (unsupported format)
+        // but the batch continues and returns Ok because at least one succeeded.
+        let acc = accum.lock().expect("accum lock poisoned");
+        assert_eq!(acc.successes.len(), 1);
+        assert_eq!(acc.failures.len(), 1);
+        assert!(acc.failures[0].error.contains("other than"));
+        drop(acc);
         assert_eq!(
             read_track_metadata(&first).unwrap().title.as_deref(),
             Some("Committed first")
@@ -3811,12 +3851,13 @@ mod tests {
             },
         ];
 
-        let results = batch_write_with_readback(&queue, updates, None).await.unwrap();
-        assert_eq!(results.len(), 2);
-        assert_eq!(results[0].title.as_deref(), Some("Album A Track"));
-        assert_eq!(results[0].artist.as_deref(), Some("Artist A"));
-        assert_eq!(results[1].title.as_deref(), Some("Album B Track"));
-        assert_eq!(results[1].artist.as_deref(), Some("Artist B"));
+        let result = batch_write_with_readback(&queue, updates, None).await.unwrap();
+        assert_eq!(result.tracks.len(), 2);
+        assert!(result.failures.is_empty());
+        assert_eq!(result.tracks[0].title.as_deref(), Some("Album A Track"));
+        assert_eq!(result.tracks[0].artist.as_deref(), Some("Artist A"));
+        assert_eq!(result.tracks[1].title.as_deref(), Some("Album B Track"));
+        assert_eq!(result.tracks[1].artist.as_deref(), Some("Artist B"));
 
         fs::remove_dir_all(root).unwrap();
     }
@@ -3857,13 +3898,14 @@ mod tests {
             },
         ];
 
-        let results = batch_write_with_readback(&queue, updates, None).await.unwrap();
-        assert_eq!(results.len(), 2);
+        let result = batch_write_with_readback(&queue, updates, None).await.unwrap();
+        assert_eq!(result.tracks.len(), 2);
+        assert!(result.failures.is_empty());
         // Both entries point to the same file; after both writes complete
         // sequentially (same-folder lock), the on-disk state is the second
         // write. Both readbacks return the current on-disk state.
-        assert_eq!(results[0].title.as_deref(), Some("Second Write"));
-        assert_eq!(results[1].title.as_deref(), Some("Second Write"));
+        assert_eq!(result.tracks[0].title.as_deref(), Some("Second Write"));
+        assert_eq!(result.tracks[1].title.as_deref(), Some("Second Write"));
 
         // Verify on-disk: re-read the file, should have second write's values
         let on_disk = read_track_metadata(&track_path).unwrap();
@@ -3901,9 +3943,10 @@ mod tests {
         }
 
         let queue = WriteQueue::default();
-        let results = batch_write_with_readback(&queue, updates, None).await.unwrap();
-        assert_eq!(results.len(), track_count);
-        for (i, track) in results.iter().enumerate() {
+        let result = batch_write_with_readback(&queue, updates, None).await.unwrap();
+        assert_eq!(result.tracks.len(), track_count);
+        assert!(result.failures.is_empty());
+        for (i, track) in result.tracks.iter().enumerate() {
             assert_eq!(
                 track.title.as_deref(),
                 Some(format!("Track {}", i + 1).as_str())

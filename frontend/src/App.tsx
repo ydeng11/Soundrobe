@@ -98,7 +98,6 @@ export default function App() {
   const coverAbortRef = useRef<AbortController | null>(null);
   // Debounce timer for rapid cover navigation
   const coverDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Monotonic generation counter for save-rollback freshness guard
 
   /** Fetch cover data URL with caching and stale-response guarding. */
   const fetchCover = useCallback((albumPath: string, signal?: AbortSignal) => {
@@ -1253,8 +1252,22 @@ export default function App() {
 
       dispatch({ type: "SET_SAVING", saving: true });
       try {
-        const results = await window.api.writeTracks(updates);
-        dispatch({ type: "UPDATE_TRACKS", tracks: results });
+        const result = await window.api.writeTracks(updates);
+        dispatch({ type: "UPDATE_TRACKS", tracks: result.tracks });
+        if (result.failures.length > 0) {
+          const errorMsg = result.failures
+            .slice(0, 3)
+            .map((f) => `${f.path}: ${f.error}`)
+            .join("; ");
+          const suffix =
+            result.failures.length > 3
+              ? ` (and ${result.failures.length - 3} more)`
+              : "";
+          dispatch({
+            type: "SET_ERROR",
+            error: `Numbering: ${result.failures.length} file(s) failed. ${errorMsg}${suffix}`,
+          });
+        }
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : "Numbering failed";
         dispatch({ type: "SET_ERROR", error: message });
@@ -1682,7 +1695,7 @@ export default function App() {
       });
 
       try {
-        const results = await window.api.writeTracks(updates);
+        const result = await window.api.writeTracks(updates);
 
         // Push undo snapshot only after a successful write
         dispatch({
@@ -1692,7 +1705,23 @@ export default function App() {
         });
 
         // Treat the readback from the API as authoritative
-        dispatch({ type: "UPDATE_TRACKS", tracks: results });
+        dispatch({ type: "UPDATE_TRACKS", tracks: result.tracks });
+
+        // Report per-track failures so the user knows which files failed
+        if (result.failures.length > 0) {
+          const errorMsg = result.failures
+            .slice(0, 3)
+            .map((f) => `${f.path}: ${f.error}`)
+            .join("; ");
+          const suffix =
+            result.failures.length > 3
+              ? ` (and ${result.failures.length - 3} more)`
+              : "";
+          dispatch({
+            type: "SET_ERROR",
+            error: `Batch save: ${result.failures.length} file(s) failed. ${errorMsg}${suffix}`,
+          });
+        }
       } catch (err: unknown) {
         // State was never optimistically updated, so no rollback needed
         const message =

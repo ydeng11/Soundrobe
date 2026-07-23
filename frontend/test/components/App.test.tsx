@@ -79,7 +79,10 @@ beforeEach(() => {
     writeTrack: vi.fn().mockRejectedValue(new Error("no-op")),
     writeTracks: vi.fn().mockImplementation(
       (updates: Array<{ path: string; fields: Record<string, unknown> }>) =>
-        Promise.resolve(updates.map((u) => makeTrack(u.path, { title: "Updated" }))),
+        Promise.resolve({
+          tracks: updates.map((u) => makeTrack(u.path, { title: "Updated" })),
+          failures: [],
+        }),
     ),
     readExtraTags: vi.fn().mockRejectedValue(new Error("no-op")),
     writeExtraTags: vi.fn().mockRejectedValue(new Error("no-op")),
