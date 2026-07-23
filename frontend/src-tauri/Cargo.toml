@@ -32,6 +32,8 @@ dirs = "6"
 # Reader plus format-by-format writer cores, enabled only behind differential
 # media-safety tests before command exposure.
 lofty = "0.24.0"
+libc = "0.2"
+memchr = "2"
 image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp"] }
 base64 = "0.22"
 time = { version = "0.3", features = ["formatting"] }
@@ -61,3 +63,10 @@ windows-sys = { version = "0.61", features = ["Win32_Storage_FileSystem"] }
 # frontend from `frontendDist`. Default is the dev shell.
 default = []
 wdio = ["dep:tauri-plugin-wdio", "dep:tauri-plugin-wdio-webdriver"]
+
+# memchr uses explicit SIMD intrinsics (SSE2/AVX2 on x86_64, NEON on aarch64)
+# that need at least -O1 to inline and eliminate loop overhead.  Compiling it
+# with opt-level 3 in debug mode keeps the rest of the crate fast to build
+# while making substring search fast in every profile.
+[profile.dev.package.memchr]
+opt-level = 3
