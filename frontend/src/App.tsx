@@ -99,7 +99,6 @@ export default function App() {
   // Debounce timer for rapid cover navigation
   const coverDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Monotonic generation counter for save-rollback freshness guard
-  const saveGenerationRef = useRef(0);
 
   /** Fetch cover data URL with caching and stale-response guarding. */
   const fetchCover = useCallback((albumPath: string, signal?: AbortSignal) => {
@@ -357,59 +356,47 @@ export default function App() {
       if (!state.selectedTrack) return;
       const track = state.selectedTrack;
 
-      const snapshot = createTrackSnapshot(track);
-      dispatch({
-        type: "PUSH_UNDO",
-        description: "Metadata save",
-        snapshots: [snapshot],
-      });
-
-      // Build write fields and optimistic local state
+      // Build write fields
       const writeFields: Record<string, unknown> = {};
-      const updatedTrack = { ...track };
 
       for (const [field, value] of Object.entries(fields)) {
         switch (field) {
           case "track": {
             const parts = value.split("/");
-            updatedTrack.trackNumber = parseNum(parts[0]);
-            updatedTrack.trackTotal = parseNum(parts[1]);
-            if (parts[0]) writeFields.trackNumber = updatedTrack.trackNumber;
-            if (parts[1]) writeFields.trackTotal = updatedTrack.trackTotal;
+            if (parts[0]) writeFields.trackNumber = parseNum(parts[0]);
+            if (parts[1]) writeFields.trackTotal = parseNum(parts[1]);
             break;
           }
           case "disc": {
             const parts = value.split("/");
-            updatedTrack.discNumber = parseNum(parts[0]);
-            updatedTrack.discTotal = parseNum(parts[1]);
-            if (parts[0]) writeFields.discNumber = updatedTrack.discNumber;
-            if (parts[1]) writeFields.discTotal = updatedTrack.discTotal;
+            if (parts[0]) writeFields.discNumber = parseNum(parts[0]);
+            if (parts[1]) writeFields.discTotal = parseNum(parts[1]);
             break;
           }
           default:
-            (updatedTrack as Record<string, unknown>)[field] = value || null;
             writeFields[field] = value || null;
         }
       }
 
-      dispatch({
-        type: "UPDATE_TRACK",
-        path: track.path,
-        track: updatedTrack,
-      });
       dispatch({ type: "SET_SAVING", saving: true });
-
-      // Capture save generation for rollback freshness guard
-      const thisGeneration = ++saveGenerationRef.current;
 
       try {
         const result = await window.api.writeTrack(track.path, writeFields);
+
+        // Push undo snapshot only after a successful write
+        const snapshot = createTrackSnapshot(track);
+        dispatch({
+          type: "PUSH_UNDO",
+          description: "Metadata save",
+          snapshots: [snapshot],
+        });
+
+        // Treat the readback from the API as authoritative
         dispatch({
           type: "UPDATE_TRACK",
           path: track.path,
           track: result,
         });
-        dispatch({ type: "PATCH_TRACKS", paths: [track.path], fields });
 
         // Refresh cover if album or title changed (clear cache so re-fetch is fresh)
         if (fields.album !== undefined || fields.title !== undefined) {
@@ -417,14 +404,7 @@ export default function App() {
           fetchCover(dirPath(track.path));
         }
       } catch (err: unknown) {
-        // Only roll back if no further save has been attempted since our optimistic write
-        if (saveGenerationRef.current === thisGeneration) {
-          dispatch({
-            type: "UPDATE_TRACK",
-            path: track.path,
-            track,
-          });
-        }
+        // State was never optimistically updated, so no rollback needed
         const message =
           err instanceof Error ? err.message : "Failed to save tags";
         dispatch({ type: "SET_ERROR", error: message });
@@ -1674,7 +1654,6 @@ export default function App() {
       if (paths.length === 0) return;
 
       const snapshots: TrackSnapshot[] = [];
-      const originalTracks: TrackData[] = [];
       const updates: Array<{ path: string; fields: Record<string, unknown> }> =
         [];
 
@@ -1689,12 +1668,9 @@ export default function App() {
         if (!track) continue;
 
         snapshots.push(createTrackSnapshot(track));
-        originalTracks.push(track);
         updates.push({ path, fields: writeFields });
       }
 
-      dispatch({ type: "PUSH_UNDO", description: "Batch edit", snapshots });
-      dispatch({ type: "PATCH_TRACKS", paths, fields });
       dispatch({ type: "SET_SAVING", saving: true });
 
       // Subscribe to real-time progress from the Rust batch writer
@@ -1707,10 +1683,18 @@ export default function App() {
 
       try {
         const results = await window.api.writeTracks(updates);
+
+        // Push undo snapshot only after a successful write
+        dispatch({
+          type: "PUSH_UNDO",
+          description: "Batch edit",
+          snapshots,
+        });
+
+        // Treat the readback from the API as authoritative
         dispatch({ type: "UPDATE_TRACKS", tracks: results });
-        dispatch({ type: "PATCH_TRACKS", paths, fields });
       } catch (err: unknown) {
-        dispatch({ type: "UPDATE_TRACKS", tracks: originalTracks });
+        // State was never optimistically updated, so no rollback needed
         const message =
           err instanceof Error ? err.message : "Batch save failed";
         dispatch({ type: "SET_ERROR", error: message });
