@@ -492,38 +492,20 @@ pub async fn volume_probe_write_real(
         "volume probe real: write complete"
     );
 
-    let outcome;
-    let after_field;
-    let error;
-    let os_error_code;
-    match write_result {
-        Ok(TrackWriteOutcome::Skipped) => {
-            outcome = "Skipped".to_string();
-            error = None;
-            os_error_code = None;
-            let after_meta = read_track_metadata(&copy_path).ok();
-            after_field = after_meta
-                .as_ref()
-                .and_then(|t| t.album_artist.as_deref())
-                .map(|s| s.to_string());
-        }
-        Ok(TrackWriteOutcome::Replaced) => {
-            outcome = "Replaced".to_string();
-            error = None;
-            os_error_code = None;
-            let after_meta = read_track_metadata(&copy_path).ok();
-            after_field = after_meta
-                .as_ref()
-                .and_then(|t| t.album_artist.as_deref())
-                .map(|s| s.to_string());
-        }
-        Err(e) => {
-            outcome = "Error".to_string();
-            error = Some(e.to_string());
-            os_error_code = None;
-            after_field = None;
-        }
-    }
+    let after_field = match &write_result {
+        Ok(_) => read_track_metadata(&copy_path)
+            .ok()
+            .and_then(|t| t.album_artist),
+        Err(_) => None,
+    };
+    let (outcome, error) = match write_result {
+        Ok(TrackWriteOutcome::Skipped) => ("Skipped".to_string(), None),
+        Ok(TrackWriteOutcome::Replaced) => ("Replaced".to_string(), None),
+        Err(e) => ("Error".to_string(), Some(e.to_string())),
+    };
+    // os_error_code is always None here; retained for structural consistency
+    // with WriteProbePhase which has os_error_code for I/O-origin errors.
+    let os_error_code: Option<i32> = None;
 
     // Clean up
     let copy_removed = fs::remove_file(&copy_path).is_ok();
