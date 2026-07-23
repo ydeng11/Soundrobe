@@ -503,10 +503,6 @@ pub async fn volume_probe_write_real(
         Ok(TrackWriteOutcome::Replaced) => ("Replaced".to_string(), None),
         Err(e) => ("Error".to_string(), Some(e.to_string())),
     };
-    // os_error_code is always None here; retained for structural consistency
-    // with WriteProbePhase which has os_error_code for I/O-origin errors.
-    let os_error_code: Option<i32> = None;
-
     // Clean up
     let copy_removed = fs::remove_file(&copy_path).is_ok();
 
@@ -514,7 +510,9 @@ pub async fn volume_probe_write_real(
         path,
         outcome,
         error,
-        os_error_code,
+        // os_error_code is always None here; WriteProbePhase (the raw-I/O probe)
+        // has it for I/O-origin errors, but write-path errors carry it in `error`.
+        os_error_code: None,
         before_field,
         after_field,
         copy_removed,
@@ -2691,6 +2689,72 @@ mod tests {
             patch.album_artist,
             Patch::Value("Diagnostic Test".to_string())
         );
+    }
+
+    /// Regression: when the FLAC file has album artist stored under the Vorbis key
+    /// "ALBUM ARTIST" (with space) instead of "ALBUMARTIST" (no space), writing
+    /// a new album artist via write_flac_atomic must clear both variants so the
+    /// stale space-variant does not shadow the new value on readback.
+    #[test]
+    fn flac_album_artist_clears_both_vorbis_key_variants() {
+        let (root, path) = copy_to_temp(&writer_fixture("flac-bare.flac"), "test.flac");
+        let before_bytes = fs::read(&path).unwrap();
+        let before_audio = flac_audio_payload(&before_bytes).unwrap().to_vec();
+
+        // Step 1: Seed the file with ALBUM ARTIST (with space) = "old"
+        {
+            let mut comments = lofty::ogg::VorbisComments::new();
+            comments.push("ALBUM ARTIST".to_string(), "old".to_string());
+            comments
+                .save_to_path(&path, WriteOptions::new())
+                .unwrap();
+        }
+        // Confirm the file has ALBUM ARTIST (space) and NOT ALBUMARTIST (no space).
+        // Lofty stores raw key-value pairs; "ALBUM ARTIST" and "ALBUMARTIST" are
+        // distinct keys at the VorbisComments level (they differ at the space
+        // character). The normalization to ItemKey::AlbumArtist only happens when
+        // converting to the format-agnostic Tag abstraction.
+        {
+            let flac = read_flac(&path).unwrap();
+            let comments = flac.vorbis_comments().unwrap();
+            assert_eq!(
+                comments.get("ALBUM ARTIST"),
+                Some("old"),
+                "seeded with ALBUM ARTIST (space)"
+            );
+            assert_eq!(
+                comments.get("ALBUMARTIST"),
+                None,
+                "file only has ALBUM ARTIST (space), not ALBUMARTIST (no space)"
+            );
+        }
+
+        // Step 2: Apply the album-artist patch
+        let patch: TrackPatch = serde_json::from_value(serde_json::json!({
+            "albumArtist": "new"
+        })).unwrap();
+        assert_eq!(
+            write_flac_atomic(&path, &patch).unwrap(),
+            TrackWriteOutcome::Replaced
+        );
+
+        // Step 3: Confirm readback returns the new value
+        let meta = read_track_metadata(&path).unwrap();
+        assert_eq!(meta.album_artist.as_deref(), Some("new"));
+
+        // Step 4: Confirm stale ALBUM ARTIST (space) is gone and canonical key holds new value
+        let flac = read_flac(&path).unwrap();
+        let comments = flac.vorbis_comments().unwrap();
+        assert_eq!(comments.get("ALBUM ARTIST"), None,
+            "stale ALBUM ARTIST (space) must be cleared");
+        assert_eq!(comments.get("ALBUMARTIST"), Some("new"),
+            "canonical ALBUMARTIST (no space) must hold new value");
+
+        // Step 5: Audio payload unchanged
+        let after_bytes = fs::read(&path).unwrap();
+        assert_eq!(flac_audio_payload(&after_bytes).unwrap(), before_audio);
+
+        fs::remove_dir_all(root).unwrap();
     }
 
     #[test]
