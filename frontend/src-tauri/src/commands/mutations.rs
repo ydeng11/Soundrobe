@@ -4024,7 +4024,6 @@ mod tests {
     }
 
     #[test]
-    #[test]
     fn flac_inplace_extra_tags_fits_with_padding() {
         // Extra-tag in-place is currently disabled (fallback full rewrite).
         // This test confirms the extra-tag fallback still preserves audio
@@ -4045,7 +4044,6 @@ mod tests {
         fs::remove_dir_all(root).unwrap();
     }
 
-    #[test]
     #[test]
     fn flac_inplace_restores_metadata_on_payload_mismatch() {
         // Verify that after a successful in-place write, the file is valid

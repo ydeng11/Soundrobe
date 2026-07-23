@@ -12,6 +12,8 @@ const TAB_LABELS: Record<TabId, string> = {
 interface SettingsState {
   llmApiKey: string;
   llmModel: string;
+  llmProvider: string;
+  llmBaseUrl: string;
   discogsToken: string;
   debug: boolean;
   lyricsDownloadEnabled: boolean;
@@ -30,6 +32,8 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
   const [settings, setSettings] = useState<SettingsState>({
     llmApiKey: "",
     llmModel: "",
+    llmProvider: "",
+    llmBaseUrl: "",
     discogsToken: "",
     debug: false,
     lyricsDownloadEnabled: false,
@@ -64,6 +68,8 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
         setSettings({
           llmApiKey: "",
           llmModel: (cfg.llmModel as string) ?? "",
+          llmProvider: (cfg.llmProvider as string) ?? "",
+          llmBaseUrl: (cfg.llmBaseUrl as string) ?? "",
           lyricsDownloadEnabled: (cfg.lyricsDownloadEnabled as boolean) ?? false,
           lyricsApiUrl: (cfg.lyricsApiUrl as string) ?? "",
           discogsToken: "",
@@ -102,6 +108,8 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
         );
       }
       promises.push(window.api.setConfig("llmModel", settings.llmModel));
+      promises.push(window.api.setConfig("llmProvider", settings.llmProvider || null));
+      promises.push(window.api.setConfig("llmBaseUrl", settings.llmBaseUrl || null));
       promises.push(window.api.setConfig("lyricsDownloadEnabled", settings.lyricsDownloadEnabled));
       promises.push(window.api.setConfig("lyricsApiUrl", settings.lyricsApiUrl || null));
       promises.push(window.api.setConfig("debug", settings.debug));
@@ -216,28 +224,71 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
 
               {activeTab === "providers" && (
                 <div className="space-y-4" role="tabpanel">
-                  <FieldRow label="LLM API Key" description="OpenRouter or compatible API key">
+                  <FieldRow label="Provider" description="LLM service provider">
+                    <select
+                      value={settings.llmProvider}
+                      onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
+                        const provider = e.target.value;
+                        const def = PROVIDER_DEFAULTS[provider];
+                        const baseUrl = def?.baseUrl ?? "";
+                        const defaultModel = def?.models[0] ?? "";
+                        setSettings({
+                          ...settings,
+                          llmProvider: provider,
+                          llmBaseUrl: baseUrl || settings.llmBaseUrl,
+                          llmModel: defaultModel || settings.llmModel,
+                        });
+                      }}
+                      className={INPUT_CLASS}
+                    >
+                      <option value="">— Select provider —</option>
+                      {PROVIDER_OPTIONS.map((p) => (
+                        <option key={p.value} value={p.value}>
+                          {p.label}
+                        </option>
+                      ))}
+                    </select>
+                  </FieldRow>
+
+                  <FieldRow label="API Key" description="Provider API key">
                     <InputField
                       type="password"
                       value={settings.llmApiKey}
                       onChange={(v) => setSettings({ ...settings, llmApiKey: v })}
-                      placeholder="sk-or-v1-… (leave blank to keep current)"
+                      placeholder="sk-… (leave blank to keep current)"
                     />
                     <p className="text-[10px] text-text-muted/60 mt-1">
                       Can also be set via the <code className="text-[10px] bg-surface-alt/50 px-1 rounded">LLM_API_KEY</code> env var
                     </p>
                   </FieldRow>
 
-                  <FieldRow label="LLM Model" description="Provider/model identifier (e.g. openrouter/owl-alpha)">
-                    <InputField
-                      value={settings.llmModel}
-                      onChange={(v) => setSettings({ ...settings, llmModel: v })}
-                      placeholder="openrouter/owl-alpha"
+                  <ModelSelector
+                    provider={settings.llmProvider}
+                    model={settings.llmModel}
+                    onChange={(model) => setSettings({ ...settings, llmModel: model })}
+                  />
+
+                  {(settings.llmProvider === "opencode_go" || settings.llmProvider === "opencode_zen") && (
+                    <FieldRow label="Base URL" description="Server endpoint (e.g. http://localhost:8080/v1)">
+                      <InputField
+                        value={settings.llmBaseUrl}
+                        onChange={(v) => setSettings({ ...settings, llmBaseUrl: v })}
+                        placeholder={PROVIDER_DEFAULTS[settings.llmProvider]?.baseUrl ?? ""}
+                      />
+                      <p className="text-[10px] text-text-muted/60 mt-1">
+                        Also set via <code className="text-[10px] bg-surface-alt/50 px-1 rounded">LLM_BASE_URL</code> env var
+                      </p>
+                    </FieldRow>
+                  )}
+
+                  <div className="pt-1">
+                    <TestConnectionButton
+                      apiKey={settings.llmApiKey}
+                      model={settings.llmModel}
+                      provider={settings.llmProvider}
+                      baseUrl={settings.llmBaseUrl}
                     />
-                    <p className="text-[10px] text-text-muted/60 mt-1">
-                      Can also be set via the <code className="text-[10px] bg-surface-alt/50 px-1 rounded">LLM_MODEL</code> env var
-                    </p>
-                  </FieldRow>
+                  </div>
 
                   <FieldRow label="Discogs Token" description="Personal access token for Discogs API">
                     <InputField
@@ -459,6 +510,186 @@ function ErrorBanner({ message }: { message: string }) {
         <line x1="12" y1="16" x2="12.01" y2="16" />
       </svg>
       {message}
+    </div>
+  );
+}
+
+// ── Provider definitions ─────────────────────────────────────────────
+
+interface ProviderDef {
+  label: string;
+  baseUrl: string;
+  models: string[];
+}
+
+const PROVIDER_OPTIONS = [
+  { value: "openai", label: "OpenAI" },
+  { value: "claude", label: "Claude (Anthropic)" },
+  { value: "openrouter", label: "OpenRouter" },
+  { value: "opencode_go", label: "OpenCode-Go" },
+  { value: "opencode_zen", label: "OpenCode-Zen" },
+];
+
+const PROVIDER_DEFAULTS: Record<string, ProviderDef> = {
+  openai: {
+    label: "OpenAI",
+    baseUrl: "https://api.openai.com/v1",
+    models: ["gpt-4o", "gpt-4o-mini", "gpt-4-turbo", "gpt-4", "gpt-3.5-turbo"],
+  },
+  claude: {
+    label: "Claude (Anthropic)",
+    baseUrl: "https://api.anthropic.com/v1",
+    models: [
+      "claude-3-5-sonnet-20241022",
+      "claude-3-opus-20240229",
+      "claude-3-sonnet-20240229",
+      "claude-3-haiku-20240307",
+    ],
+  },
+  openrouter: {
+    label: "OpenRouter",
+    baseUrl: "https://openrouter.ai/api/v1",
+    models: ["openai/gpt-4o", "openai/gpt-4o-mini", "anthropic/claude-3-5-sonnet", "google/gemini-2.0-flash-001", "deepseek/deepseek-chat", "meta-llama/llama-3.3-70b-instruct"],
+  },
+  opencode_go: {
+    label: "OpenCode-Go",
+    baseUrl: "http://localhost:8080/v1",
+    models: ["default"],
+  },
+  opencode_zen: {
+    label: "OpenCode-Zen",
+    baseUrl: "http://localhost:7070/v1",
+    models: ["default"],
+  },
+};
+
+// ── ModelSelector ────────────────────────────────────────────────────
+
+function ModelSelector({
+  provider,
+  model,
+  onChange,
+}: {
+  provider: string;
+  model: string;
+  onChange: (v: string) => void;
+}) {
+  const def = PROVIDER_DEFAULTS[provider];
+  const modelId = provider ? `model-input-${provider}` : "model-input";
+
+  return (
+    <FieldRow label="Model" description={def ? `${def.label} model — type or pick from suggestions` : "Select a provider first"}>
+      <div className="flex gap-1.5">
+        <input
+          id={modelId}
+          list={`${modelId}-list`}
+          type="text"
+          value={model}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={def?.models[0] ?? "gpt-4o, claude-3-5-sonnet, …"}
+          className={INPUT_CLASS}
+        />
+        {def && (
+          <datalist id={`${modelId}-list`}>
+            {def.models.map((m) => (
+              <option key={m} value={m} />
+            ))}
+          </datalist>
+        )}
+      </div>
+      <p className="text-[10px] text-text-muted/60 mt-1">
+        Also set via <code className="text-[10px] bg-surface-alt/50 px-1 rounded">LLM_MODEL</code> env var
+      </p>
+    </FieldRow>
+  );
+}
+
+// ── TestConnectionButton ────────────────────────────────────────────
+
+function TestConnectionButton({
+  apiKey,
+  model,
+  provider,
+  baseUrl,
+}: {
+  apiKey: string;
+  model: string;
+  provider: string;
+  baseUrl: string;
+}) {
+  const [testing, setTesting] = useState(false);
+  const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null);
+
+  if (!apiKey || !model) {
+    return (
+      <p className="text-[10px] text-text-muted/70 px-0.5">
+        {!apiKey ? "Set an API key above to test the connection." : "Select a model above to test the connection."}
+      </p>
+    );
+  }
+
+  const handleTest = async () => {
+    setTesting(true);
+    setResult(null);
+    try {
+      const resp = await window.api.testLlmConnection({
+        apiKey,
+        model,
+        provider: provider || undefined,
+        baseUrl: baseUrl || undefined,
+      });
+      setResult({ ok: true, message: `Connected via ${resp.model}` });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setResult({ ok: false, message: msg });
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <button
+        onClick={handleTest}
+        disabled={testing}
+        className={`self-start px-3 py-1.5 text-[11px] font-medium rounded-lg transition-all ${
+          testing
+            ? "bg-accent/20 text-accent/60 cursor-not-allowed"
+            : "bg-surface-alt border border-border/60 text-text-secondary hover:text-text-primary hover:bg-surface-hover active:scale-[0.97]"
+        }`}
+      >
+        {testing ? (
+          <span className="flex items-center gap-1.5">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="animate-spin">
+              <line x1="12" y1="2" x2="12" y2="6" />
+              <line x1="12" y1="18" x2="12" y2="22" />
+            </svg>
+            Testing…
+          </span>
+        ) : (
+          "Test Connection"
+        )}
+      </button>
+      {result && (
+        <div
+          className={`flex items-center gap-1.5 text-[11px] px-0.5 ${
+            result.ok ? "text-green-600" : "text-[#ff3b30]"
+          }`}
+        >
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="shrink-0">
+            {result.ok ? (
+              <polyline points="20 6 9 17 4 12" />
+            ) : (
+              <>
+                <circle cx="12" cy="12" r="10" />
+                <line x1="15" y1="9" x2="9" y2="15" />
+                <line x1="9" y1="9" x2="15" y2="15" />
+              </>
+            )}
+          </svg>
+          {result.message}
+        </div>
+      )}
     </div>
   );
 }

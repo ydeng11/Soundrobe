@@ -1098,7 +1098,15 @@ async fn resolve_tags_via_llm(
     let api_key = config
         .llm_api_key
         .as_deref()
-        .filter(|key| !key.is_empty())?;
+        .filter(|key| !key.is_empty());
+    if api_key.is_none() {
+        tracing::debug!(
+            hints_artist = ?request.artist_hint,
+            hints_album = ?request.album_hint,
+            "LLM resolution skipped: no API key configured",
+        );
+        return None;
+    }
     let model = config
         .llm_model
         .as_deref()
@@ -1149,11 +1157,15 @@ async fn resolve_tags_via_llm(
         },
         "required": ["artist", "albumArtist", "album", "year", "genre", "tracks", "confidence"]
     });
-    OpenRouterClient::new(api_key, model)
+    tracing::debug!(model, "calling auto-tag LLM");
+    let result = OpenRouterClient::new(api_key.unwrap(), model)
         .complete_json(messages, "TagCorrectionResponse", schema, cancelled)
-        .await
-        .ok()
-        .map(|response| llm_resolution_from_value(request, &response.data))
+        .await;
+    match &result {
+        Ok(_) => tracing::debug!("auto-tag LLM succeeded"),
+        Err(e) => tracing::warn!("auto-tag LLM failed: {e}"),
+    }
+    result.ok().map(|response| llm_resolution_from_value(request, &response.data))
 }
 
 async fn fill_genre_if_missing(

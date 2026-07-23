@@ -90,6 +90,18 @@ struct CompletionRequest<'a> {
     disable_reasoning: bool,
 }
 
+/// Default base URLs per provider, matching OpenAI-compatible /chat/completions endpoints.
+pub fn base_url_for_provider(provider: &str) -> &'static str {
+    match provider {
+        "openai" => "https://api.openai.com/v1",
+        "claude" => "https://api.anthropic.com/v1",
+        "openrouter" => "https://openrouter.ai/api/v1",
+        "opencode_go" => "http://localhost:8080/v1",
+        "opencode_zen" => "http://localhost:7070/v1",
+        _ => OPENROUTER_BASE,
+    }
+}
+
 impl OpenRouterClient {
     pub fn new(api_key: impl Into<String>, model: impl Into<String>) -> Self {
         Self::at(api_key, model, OPENROUTER_BASE)
@@ -120,9 +132,33 @@ impl OpenRouterClient {
         self
     }
 
+    pub fn with_model(mut self, model: impl Into<String>) -> Self {
+        self.model = model.into();
+        self
+    }
+
     pub fn with_timeout(mut self, timeout: Duration) -> Self {
         self.timeout = timeout;
         self
+    }
+
+    /// Send a minimal "respond with 'ok'" prompt to verify the provider,
+    /// model, and credentials work.  Returns the model name on success.
+    pub async fn test_connection(&self) -> Result<String, OpenRouterError> {
+        let messages = vec![
+            ChatMessage::system("Your entire response must be exactly the word: ok"),
+            ChatMessage::user("Say ok and nothing else"),
+        ];
+        let schema = serde_json::json!({
+            "type": "object",
+            "properties": { "response": { "type": "string", "const": "ok" } },
+            "required": ["response"],
+            "additionalProperties": false
+        });
+        let response = self
+            .complete_json(messages, "TestConnection", schema, &AtomicBool::new(false))
+            .await?;
+        Ok(response.model)
     }
 
     #[cfg(test)]

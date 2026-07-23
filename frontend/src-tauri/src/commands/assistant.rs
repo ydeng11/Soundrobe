@@ -297,14 +297,32 @@ pub async fn assistant_send(
         return Ok(event);
     }
     let snapshot = services.snapshot().unwrap_or_default();
-    let api_key = (!snapshot.api_key.is_empty())
-        .then_some(snapshot.api_key.clone())
+    // Priority: renderer-supplied (input) → services state → config file/env.
+    let api_key = input
+        .api_key
+        .clone()
+        .filter(|key| !key.is_empty())
+        .or_else(|| {
+            (!snapshot.api_key.is_empty()).then_some(snapshot.api_key.clone())
+        })
         .or(raw_config.llm_api_key.clone())
         .filter(|key| !key.is_empty());
-    let model = (!snapshot.model.is_empty())
-        .then_some(snapshot.model.clone())
+    let model = input
+        .llm_model
+        .clone()
+        .filter(|m| !m.is_empty())
+        .or_else(|| {
+            (!snapshot.model.is_empty()).then_some(snapshot.model.clone())
+        })
         .or(raw_config.llm_model.clone())
-        .filter(|model| !model.is_empty());
+        .filter(|m| !m.is_empty());
+    tracing::debug!(
+        has_input_key = input.api_key.as_deref().filter(|k| !k.is_empty()).is_some(),
+        has_service_key = !snapshot.api_key.is_empty(),
+        has_config_key = raw_config.llm_api_key.as_deref().filter(|k| !k.is_empty()).is_some(),
+        has_model = model.is_some(),
+        "assistant credential resolution"
+    );
     let Some(api_key) = api_key else {
         return assistant_error_event_with_conversation(
             &app,
@@ -711,6 +729,13 @@ pub struct AssistantSendInput {
     pub albums: Vec<Value>,
     #[serde(default)]
     pub autonomous: bool,
+    /// Renderer may supply the credentials directly instead of depending on
+    /// AssistantServicesState initialization.  When absent or empty the
+    /// backend falls back to AssistantServicesState, then to config.
+    #[serde(default)]
+    pub api_key: Option<String>,
+    #[serde(default)]
+    pub llm_model: Option<String>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -4319,6 +4344,8 @@ mod apply_contract_tests {
             tracks,
             albums: vec![],
             autonomous: false,
+            api_key: None,
+            llm_model: None,
         };
 
         let actions = plan_chinese_conversion(

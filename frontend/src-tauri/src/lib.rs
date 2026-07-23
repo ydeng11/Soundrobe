@@ -185,6 +185,7 @@ pub fn run() {
             commands::meta::app_info,
             commands::configuration::config_get,
             commands::configuration::config_set,
+            commands::configuration::test_llm_connection,
             commands::shell::dialog_open_folder,
             commands::shell::track_context_menu,
             commands::shell::window_focused,

@@ -13,10 +13,13 @@
 //! cached credentials from the resulting live config, matching Electron's
 //! `setStoredConfig` synchronization without exposing secrets to the renderer.
 
-use serde_json::Value;
+use serde_json::{json, Value};
 use tauri::State;
 
-use crate::state::{assistant::AssistantServicesState, config::ConfigState};
+use crate::infra::openrouter::{base_url_for_provider, OpenRouterClient};
+use crate::state::config::ConfigState;
+use crate::state::assistant::AssistantServicesState;
+use crate::error::ApiError;
 
 /// `getConfig()` — redacted renderer view. Sync because `ConfigState` is a
 /// `Mutex` snapshot (no async work); never rejects so renderer `try/catch` is a
@@ -40,9 +43,37 @@ pub fn config_set(
     let assistant_value = match key.as_str() {
         "llmApiKey" => Some(Value::String(live.llm_api_key.unwrap_or_default())),
         "llmModel" => Some(Value::String(live.llm_model.unwrap_or_default())),
+        "llmProvider" | "llmBaseUrl" => Some(value.clone()),
         _ => None,
     };
     if let Some(value) = assistant_value {
         assistant.update_config_value(&key, &value);
     }
+}
+
+/// Test an LLM connection by sending a minimal prompt to the specified
+/// provider/model combination.  Returns the responding model name on success.
+#[tauri::command]
+pub async fn test_llm_connection(
+    api_key: String,
+    model: String,
+    provider: Option<String>,
+    base_url: Option<String>,
+) -> Result<serde_json::Value, ApiError> {
+    let resolved_base = base_url
+        .filter(|u| !u.is_empty())
+        .unwrap_or_else(|| {
+            provider
+                .as_deref()
+                .map(base_url_for_provider)
+                .unwrap_or("https://openrouter.ai/api/v1")
+                .to_string()
+        });
+    let client = OpenRouterClient::at(&api_key, &model, &resolved_base)
+        .with_generation(0.0, 64)
+        .with_timeout(std::time::Duration::from_secs(15));
+    let responding_model = client.test_connection().await.map_err(|e| {
+        ApiError::Message(format!("LLM test failed: {e}"))
+    })?;
+    Ok(json!({"model": responding_model}))
 }

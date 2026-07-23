@@ -1310,8 +1310,13 @@ export default function App() {
   useEffect(() => {
     window.api.getConfig().then(
       (cfg) => {
-        setAssistantApiKey((cfg.llmApiKey as string) ?? "");
-        setAssistantModel((cfg.llmModel as string) ?? "");
+        const apiKey = (cfg.llmApiKey as string) ?? "";
+        const model = (cfg.llmModel as string) ?? "";
+        setAssistantApiKey(apiKey);
+        setAssistantModel(model);
+        // Keep backend services in sync so the assistant can see the key
+        // even if the user never opens Settings.
+        window.api.assistantInitServices({ apiKey, model: model || undefined });
       },
       () => {
         // Silently fail — assistant just won't work until API key is configured

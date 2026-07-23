@@ -23,6 +23,8 @@ use std::sync::{Arc, Mutex, MutexGuard};
 pub struct AutoTagConfig {
     pub llm_api_key: Option<String>,
     pub llm_model: Option<String>,
+    pub llm_provider: Option<String>,
+    pub llm_base_url: Option<String>,
     pub dataset_path: Option<String>,
     pub cache_path: Option<String>,
     pub discogs_token: Option<String>,
@@ -119,6 +121,12 @@ pub fn load_from(text: &str, env: &dyn Env) -> AutoTagConfig {
     if let Some(v) = env.get("LLM_MODEL") {
         config.llm_model = Some(v);
     }
+    if let Some(v) = env.get("LLM_PROVIDER") {
+        config.llm_provider = Some(v);
+    }
+    if let Some(v) = env.get("LLM_BASE_URL") {
+        config.llm_base_url = Some(v);
+    }
     if let Some(v) = env.get("AUTO_TAG_DISCOGS_TOKEN") {
         config.discogs_token = Some(v);
     }
@@ -164,6 +172,8 @@ fn apply_yaml_key(config: &mut AutoTagConfig, key: &str, value: &str) {
     match key {
         "llm_api_key" => config.llm_api_key = Some(value.to_string()),
         "llm_model" => config.llm_model = Some(value.to_string()),
+        "llm_provider" => config.llm_provider = Some(value.to_string()),
+        "llm_base_url" => config.llm_base_url = Some(value.to_string()),
         "discogs_token" => config.discogs_token = Some(value.to_string()),
         "dataset_path" => config.dataset_path = Some(value.to_string()),
         "remote_lookup_enabled" => {
@@ -217,6 +227,8 @@ pub fn yaml_key_for(camel_key: &str) -> Option<&'static str> {
     match camel_key {
         "llmApiKey" => Some("llm_api_key"),
         "llmModel" => Some("llm_model"),
+        "llmProvider" => Some("llm_provider"),
+        "llmBaseUrl" => Some("llm_base_url"),
         "discogsToken" => Some("discogs_token"),
         "remoteLookupEnabled" => Some("remote_lookup_enabled"),
         "discogsEnabled" => Some("discogs_enabled"),
@@ -338,6 +350,8 @@ pub fn redacted(config: &AutoTagConfig) -> Value {
     json!({
         "llmApiKey": mask(&config.llm_api_key),
         "llmModel": config.llm_model.clone().map(Value::String).unwrap_or(Value::Null),
+        "llmProvider": config.llm_provider.clone().map(Value::String).unwrap_or(Value::Null),
+        "llmBaseUrl": config.llm_base_url.clone().map(Value::String).unwrap_or(Value::Null),
         "discogsToken": mask(&config.discogs_token),
         "remoteLookupEnabled": config.remote_lookup_enabled.unwrap_or(true),
         "discogsEnabled": config.discogs_enabled.unwrap_or(true),
@@ -748,6 +762,8 @@ mod tests {
         let expected = json!({
             "llmApiKey": "****7890",
             "llmModel": "gpt-4",
+            "llmProvider": null,
+            "llmBaseUrl": null,
             "discogsToken": "****1234",
             "remoteLookupEnabled": true,
             "discogsEnabled": true,
