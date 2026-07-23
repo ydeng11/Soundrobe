@@ -105,7 +105,7 @@ export function createTauriDesktopApi(): DesktopAPI {
     probeWriteVolumeReal: (filePath, patch) =>
       invokeCommand("volume:probe-write-real", {
         path: filePath,
-        patch_json: patch,
+        patchJson: patch,
       }),
 
     showTrackContextMenu: (trackPath, labels) =>
