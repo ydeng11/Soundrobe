@@ -258,13 +258,23 @@ pub fn match_remote_candidate_tracks(
         }
 
         if !matched && is_api_title_source(source) {
+            // When the local tag has no title, try the cleaned filename as a
+            // fallback so "WOW！ feat.羅志祥" (from filename) can still be
+            // matched to "Wow!" (from MusicBrainz) via the pollution check.
+            let filename_fallback = local_track.title.is_none().then(|| {
+                let mut artists = artist_hints.to_vec();
+                artists.extend(local_track.artist.iter().cloned());
+                artists.extend(local_track.artists.iter().cloned());
+                clean_filename_title(&forms.filename_raw, &artists)
+            }).flatten();
+            let current_title = local_track.title.as_deref().or(filename_fallback.as_deref());
             let contained = remote_meta
                 .iter()
                 .enumerate()
                 .filter(|(index, _)| !matched_remote.contains(index))
                 .filter(|(_, remote)| {
                     replacement_title(
-                        local_track.title.as_deref(),
+                        current_title,
                         Some(&remote.primary),
                         &remote.variants,
                     )
@@ -432,7 +442,10 @@ fn aligned_track(
         artists.extend(local.artist.iter().cloned());
         artists.extend(local.artists.iter().cloned());
         clean_filename_title(&forms.filename_raw, &artists).or_else(|| local.title.clone())
-    } else if api_source && evidence == Some(MatchEvidence::FallbackTitle) {
+    } else if api_source && matches!(
+        evidence,
+        Some(MatchEvidence::FallbackTitle | MatchEvidence::ContainedTitle)
+    ) {
         remote.title.clone().or_else(|| local.title.clone())
     } else {
         local.title.clone()
@@ -951,5 +964,42 @@ mod tests {
 
         assert_eq!(matched.tracks[0].title.as_deref(), Some("First"));
         assert_eq!(matched.tracks[1].title.as_deref(), Some("Second"));
+    }
+
+    #[test]
+    fn filename_fallback_matches_feat_pollution_when_tag_title_is_missing() {
+        // Regression: tracks that have no title tag but a filename like
+        // "artist - Title feat. Guest.flac" should still be matched to
+        // the clean MusicBrainz title "Title" via the contained matching
+        // path, using the cleaned filename as fallback.
+        let local = vec![TrackCandidate {
+            title: None,  // no tag title
+            artist: Some("Artist".into()),  // has artist tag
+            length: Some(200.0),
+            ..TrackCandidate::default()
+        }];
+        let remote = vec![TrackCandidate {
+            title: Some("Title".into()),
+            artist: Some("Artist & Guest".into()),
+            artists: vec!["Artist".into(), "Guest".into()],
+            length: Some(200.0),
+            ..TrackCandidate::default()
+        }];
+
+        let matched = match_remote_candidate_tracks(
+            &local,
+            &["Artist - Title feat. Guest.flac".into()],
+            &remote,
+            "musicbrainz",
+            &["Artist".into()],
+            &[],
+        );
+
+        assert_eq!(matched.stats.matched, 1);
+        assert_eq!(matched.tracks[0].title.as_deref(), Some("Title"));
+        assert_eq!(
+            matched.tracks[0].artist.as_deref(),
+            Some("Artist & Guest")
+        );
     }
 }

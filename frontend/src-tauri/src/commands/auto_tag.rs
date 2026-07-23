@@ -2461,6 +2461,48 @@ mod tests {
         );
     }
 
+    #[test]
+    fn rank_artist_releases_filters_super_girl_releases() {
+        // Regression: when filtering 蕭亞軒's artist releases with the folder hint
+        // "Super Girl 爱无畏（精歌+精选）", both MusicBrainz releases must survive.
+        let releases = vec![
+            ProviderReleaseSummary {
+                id: "23058dc0-d399-447a-8c75-798fee8af9c4".into(),
+                title: "Super Girl 愛 無畏 新歌＋精選".into(),
+                year: Some(2012),
+                kind: Some("release".into()),
+                artist_name: Some("蕭亞軒".into()),
+            },
+            ProviderReleaseSummary {
+                id: "a9746022-a1f5-478f-9480-6ffe9e846b40".into(),
+                title: "Super Girl 爱无畏".into(),
+                year: Some(2012),
+                kind: Some("release".into()),
+                artist_name: Some("蕭亞軒".into()),
+            },
+            ProviderReleaseSummary {
+                id: "unrelated".into(),
+                title: "Unrelated Album".into(),
+                year: Some(2004),
+                kind: Some("release".into()),
+                artist_name: Some("蕭亞軒".into()),
+            },
+        ];
+
+        let ranked = rank_artist_releases(
+            releases,
+            Some("Super Girl 爱无畏（精歌+精选）"),
+            Some("2012"),
+        );
+
+        // Only the two Super Girl releases should pass the filter
+        assert_eq!(ranked.len(), 2);
+        assert!(ranked.iter().any(|r| r.id == "a9746022-a1f5-478f-9480-6ffe9e846b40"));
+        assert!(ranked
+            .iter()
+            .any(|r| r.id == "23058dc0-d399-447a-8c75-798fee8af9c4"));
+    }
+
     #[tokio::test]
     async fn candidate_apply_writes_album_and_per_track_fields_through_safe_queue() {
         let root = temp_root();

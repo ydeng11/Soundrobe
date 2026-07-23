@@ -262,10 +262,11 @@ impl MusicBrainzClient {
             return Vec::new();
         }
         wait_for_musicbrainz().await;
+        let stripped = strip_album_subtitle(album);
         let query = format!(
             "artist:\"{}\" AND release:\"{}\"",
             escape_musicbrainz_query(artist),
-            escape_musicbrainz_query(album)
+            escape_musicbrainz_query(&stripped)
         );
         let response = self
             .http
@@ -407,6 +408,13 @@ impl MusicBrainzClient {
     }
 }
 
+/// Escape value for a quoted MusicBrainz Lucene field term.
+/// Used by search_artist_by_name and search_album where exact
+/// name matching is critical (artist and title fields).
+fn escape_musicbrainz_query(value: &str) -> String {
+    value.replace('\\', "\\\\").replace('"', "\\\"")
+}
+
 pub async fn resolve_artist_identity_with_clients(
     musicbrainz: &MusicBrainzClient,
     discogs: &DiscogsClient,
@@ -451,8 +459,16 @@ pub async fn resolve_artist_identity_with_clients(
     }
 }
 
-fn escape_musicbrainz_query(value: &str) -> String {
-    value.replace('\\', "\\\\").replace('"', "\\\"")
+/// Strip common parenthesised subtitles and edition annotations from an
+/// album name so they do not poison MusicBrainz Lucene field searches.
+fn strip_album_subtitle(album: &str) -> String {
+    let re = Regex::new(
+        r"(?i)[（(][^）)]*(?:精選|精歌|精选|精选集|新歌|新曲|首張|經典|專輯|album|edition|version|disc|remaster)[^）)]*[）)]",
+    )
+    .expect("valid subtitle regex");
+    re.replace_all(album, "")
+        .trim()
+        .to_string()
 }
 
 fn parse_musicbrainz_search_release(value: &serde_json::Value) -> Option<ProviderAlbum> {
@@ -2656,4 +2672,42 @@ mod tests {
         assert!(!album.id.is_empty());
         assert!(!album.tracks.is_empty());
     }
+
+    #[test]
+    fn strip_album_subtitle_removes_parenthesized_annotation() {
+        // Regression: folder name with "（精歌+精选）" subtitle
+        // must be stripped so the MusicBrainz search query is not poisoned.
+        assert_eq!(
+            strip_album_subtitle("Super Girl 爱无畏（精歌+精选）"),
+            "Super Girl 爱无畏"
+        );
+        assert_eq!(
+            strip_album_subtitle("Super Girl 愛無畏（新歌＋精選）"),
+            "Super Girl 愛無畏"
+        );
+        // No parenthesized subtitle -> unchanged
+        assert_eq!(strip_album_subtitle("Super Girl 爱无畏"), "Super Girl 爱无畏");
+        // English-style parentheses
+        assert_eq!(
+            strip_album_subtitle("Greatest Hits (Deluxe Edition)"),
+            "Greatest Hits"
+        );
+    }
+
+    #[test]
+    fn album_names_match_super_girl_against_both_releases() {
+        // Regression: the folder hint "Super Girl 爱无畏（精歌+精选）" must match
+        // both the simplified China release and traditional Taiwan release.
+        let folder_hint = "Super Girl 爱无畏（精歌+精选）";
+
+        // China release: "Super Girl 爱无畏"
+        assert!(album_names_match(folder_hint, "Super Girl 爱无畏"));
+
+        // Taiwan release: "Super Girl 愛 無畏 新歌＋精選"
+        assert!(album_names_match(folder_hint, "Super Girl 愛 無畏 新歌＋精選"));
+
+        // Unrelated releases should not match
+        assert!(!album_names_match(folder_hint, "Unrelated Album"));
+    }
+
 }
