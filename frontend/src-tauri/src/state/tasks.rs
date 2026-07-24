@@ -131,6 +131,22 @@ impl TaskRegistry {
             entry.progress.message = "Cancelled".to_string();
         }
     }
+
+    /// Cancel every running task. Used when the page reloads so Rust does not
+    /// try to respond to invoke callbacks that the new JS context no longer owns.
+    pub fn cancel_all(&self) {
+        let Ok(mut tasks) = self.tasks.lock() else {
+            tracing::error!("task registry mutex poisoned; cancel_all unavailable");
+            return;
+        };
+        for entry in tasks.values_mut() {
+            if entry.progress.status == TaskStatus::Running {
+                entry.cancelled.store(true, Ordering::Release);
+                entry.progress.status = TaskStatus::Cancelled;
+                entry.progress.message = "Cancelled — page reloaded".to_string();
+            }
+        }
+    }
 }
 
 #[cfg(test)]

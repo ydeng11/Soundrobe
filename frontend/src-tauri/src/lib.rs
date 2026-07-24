@@ -124,6 +124,12 @@ pub fn run() {
                 event = ?payload.event(),
                 "webview page-load event"
             );
+            if payload.event() == PageLoadEvent::Started {
+                // Page is about to reload (e.g. HMR). Cancel all running
+                // operations so Rust does not try to respond to invoke callbacks
+                // that the old JS context owned and the new one cannot resolve.
+                cancel_pending_operations(&webview.window().app_handle());
+            }
             if should_reveal_window(webview.label(), payload.event()) {
                 if let Err(error) = webview.window().show() {
                     tracing::error!(%error, "failed to reveal main window after page load");
@@ -279,6 +285,16 @@ pub fn run() {
 
 fn should_reveal_window(label: &str, event: PageLoadEvent) -> bool {
     label == "main" && event == PageLoadEvent::Finished
+}
+
+/// Cancel every long-running operation so pending invoke callbacks do not
+/// outlive the JS context that registered them. Called when a page reload
+/// starts (e.g. dev HMR) to suppress "Couldn't find callback id" warnings.
+fn cancel_pending_operations(app: &tauri::AppHandle) {
+    app.state::<TaskRegistry>().cancel_all();
+    app.state::<AuditState>().cancel();
+    app.state::<AssistantRuntimeState>().cancel();
+    tracing::debug!("cancelled pending operations on page reload");
 }
 
 /// Apply saved startup geometry (with off-screen recovery) and persist
