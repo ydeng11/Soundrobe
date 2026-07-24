@@ -595,6 +595,40 @@ fn apply_wav_native_fields(path: &Path, track: &mut TrackData) {
     let Some(id3v2) = parsed.id3v2() else {
         return;
     };
+    // RIFF LIST INFO is returned first by Lofty and may contain garbled
+    // Unicode ("01 ???" instead of "从今以后").  Override with ID3v2 values
+    // which are stored as proper UTF-8/16 in the ID3 chunk.
+    use lofty::id3::v2::FrameId;
+    fn fid(name: &str) -> FrameId<'_> {
+        FrameId::new(name).expect("valid ID3v2 frame ID")
+    }
+    if let Some(title) = id3v2.get_text(&fid("TIT2")) {
+        track.title = Some(title.to_owned());
+    }
+    if let Some(artist) = id3v2.get_text(&fid("TPE1")) {
+        track.artist = Some(artist.to_owned());
+    }
+    if let Some(album) = id3v2.get_text(&fid("TALB")) {
+        track.album = Some(album.to_owned());
+    }
+    if let Some(album_artist) = id3v2.get_text(&fid("TPE2")) {
+        track.album_artist = Some(album_artist.to_owned());
+    }
+    if let Some(year) = id3v2.get_text(&fid("TDRC")) {
+        track.year = Some(year.chars().take(4).collect());
+    }
+    if let Some(genre) = id3v2.get_text(&fid("TCON")) {
+        track.genre = Some(genre.to_owned());
+    }
+    if let Some(mbid) = id3v2.get_user_text("MusicBrainz Release Id") {
+        track.musicbrainz_album_id = Some(mbid.to_owned());
+    }
+    if let Some(mbid) = id3v2.get_user_text("MusicBrainz Artist Id") {
+        track.musicbrainz_artist_id = Some(mbid.to_owned());
+    }
+    if let Some(mbid) = id3v2.get_user_text("MusicBrainz Track Id") {
+        track.musicbrainz_track_id = Some(mbid.to_owned());
+    }
     let artists = id3_user_text_values(path, "ARTISTS");
     if !artists.is_empty() {
         track.artists = artists;
