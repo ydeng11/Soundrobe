@@ -620,7 +620,10 @@ fn apply_wav_native_fields(path: &Path, track: &mut TrackData) {
     if let Some(genre) = id3v2.get_text(&fid("TCON")) {
         track.genre = Some(genre.to_owned());
     }
-    if let Some(mbid) = id3v2.get_user_text("MusicBrainz Release Id") {
+    if let Some(mbid) = id3v2
+        .get_user_text("MusicBrainz Release Id")
+        .or_else(|| id3v2.get_user_text("MusicBrainz Album Id"))
+    {
         track.musicbrainz_album_id = Some(mbid.to_owned());
     }
     if let Some(mbid) = id3v2.get_user_text("MusicBrainz Artist Id") {

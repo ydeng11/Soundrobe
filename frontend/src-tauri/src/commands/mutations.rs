@@ -2538,9 +2538,13 @@ fn strip_wav_list_chunk(bytes: &[u8]) -> Vec<u8> {
             .unwrap_or([0; 4]);
         let chunk_size = u32::from_le_bytes(chunk_size_bytes) as usize;
         if id == b"LIST" {
-            // Skip this chunk entirely
-            offset += 8 + chunk_size + (chunk_size % 2);
-            continue;
+            // Only strip LIST chunks with INFO type (metadata), preserving
+            // other LIST chunks such as adtl (cue labels).
+            let list_type = bytes.get(offset + 8..offset + 12).unwrap_or_default();
+            if list_type == b"INFO" {
+                offset += 8 + chunk_size + (chunk_size % 2);
+                continue;
+            }
         }
         out.extend_from_slice(bytes.get(offset..offset + 8 + chunk_size + (chunk_size % 2)).unwrap_or_default());
         offset += 8 + chunk_size + (chunk_size % 2);
@@ -3713,7 +3717,8 @@ mod tests {
             "album should come from ID3v2, not LIST IPRD"
         );
 
-        // Verify write strips the LIST chunk from the file.
+        // Verify write strips the LIST INFO chunk but preserves non-INFO
+        // LIST chunks (e.g. adtl cue labels).
         let patch: TrackPatch =
             serde_json::from_value(serde_json::json!({"title": "Updated After Write"})).unwrap();
         let original_audio = wav_data_payloads(&fs::read(&path).unwrap()).unwrap();
@@ -3724,31 +3729,58 @@ mod tests {
                 wav_data_payloads(&fs::read(&tmp).unwrap()).unwrap(),
                 original_audio
             );
-            // After write, the LIST chunk must be absent.
+            // After write, LIST INFO must be absent, but LIST adtl must survive.
             let written = fs::read(&tmp).unwrap();
+            let mut saw_adtl = false;
+            let mut saw_info = false;
             let mut off = 12_usize;
             while off + 8 <= written.len() {
                 let id = &written[off..off + 4];
-                assert_ne!(id, b"LIST", "LIST chunk must be stripped on write");
+                if id == b"LIST" {
+                    if off + 12 <= written.len() {
+                        let list_type = &written[off + 8..off + 12];
+                        if list_type == b"INFO" {
+                            saw_info = true;
+                        } else if list_type == b"adtl" {
+                            saw_adtl = true;
+                        }
+                    }
+                }
                 let size =
                     u32::from_le_bytes(written[off + 4..off + 8].try_into().unwrap()) as usize;
                 off += 8 + size + (size % 2);
             }
+            assert!(!saw_info, "LIST INFO must be stripped on write");
+            assert!(saw_adtl, "LIST adtl must survive on write");
             fs::remove_dir_all(root).unwrap();
         }
 
-        // Verify strip_wav_list_chunk directly.
+        // Verify strip_wav_list_chunk directly (INFO only, not adtl).
         let bytes = fs::read(&path).unwrap();
+        assert!(bytes.windows(4).any(|w| w == b"adtl"), "fixture must have adtl chunk");
         let cleaned = strip_wav_list_chunk(&bytes);
         assert!(cleaned.len() < bytes.len(), "stripped file should be smaller");
+        let mut saw_adtl = false;
+        let mut saw_info = false;
         let mut off = 12_usize;
         while off + 8 <= cleaned.len() {
             let id = &cleaned[off..off + 4];
-            assert_ne!(id, b"LIST", "strip_wav_list_chunk must remove LIST");
+            if id == b"LIST" {
+                if off + 12 <= cleaned.len() {
+                    let list_type = &cleaned[off + 8..off + 12];
+                    if list_type == b"INFO" {
+                        saw_info = true;
+                    } else if list_type == b"adtl" {
+                        saw_adtl = true;
+                    }
+                }
+            }
             let size =
                 u32::from_le_bytes(cleaned[off + 4..off + 8].try_into().unwrap()) as usize;
             off += 8 + size + (size % 2);
         }
+        assert!(!saw_info, "strip_wav_list_chunk must remove LIST INFO");
+        assert!(saw_adtl, "strip_wav_list_chunk must preserve LIST adtl");
     }
 
     #[test]

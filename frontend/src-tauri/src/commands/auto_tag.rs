@@ -106,6 +106,7 @@ pub struct LookupRequest {
     pub musicbrainz_artist_id: Option<String>,
     pub discogs_release_id: Option<String>,
     pub discogs_artist_id: Option<String>,
+    pub selected_disc_number: Option<u32>,
     pub tracks: Vec<TrackCandidate>,
 }
 
@@ -118,6 +119,12 @@ pub fn build_lookup_request(album_path: &Path) -> Result<LookupRequest, ApiError
     let cd_subfolder = Regex::new(r"(?i)^(?:cd|disc|disk|ディスク)\s*\d+\s*$|^.+(?:\s|\(|\[)(?:cd|disc|disk)\s*\d+\s*$")
         .expect("valid CD subfolder regex")
         .is_match(supplied_folder);
+    // Extract disc number from folder suffix like "CD1", "Disc 2", "(CD1)", "挑信 CD1".
+    let selected_disc_number = Regex::new(r"(?i)(?:cd|disc|disk)\s*(\d+)")
+        .expect("valid disc number regex")
+        .captures(supplied_folder)
+        .and_then(|c| c.get(1))
+        .and_then(|m| m.as_str().parse::<u32>().ok());
     let identity_album_path = if cd_subfolder {
         album_path.parent().unwrap_or(album_path)
     } else {
@@ -209,6 +216,7 @@ pub fn build_lookup_request(album_path: &Path) -> Result<LookupRequest, ApiError
         musicbrainz_artist_id,
         discogs_release_id,
         discogs_artist_id,
+        selected_disc_number,
         tracks,
     })
 }
@@ -529,19 +537,21 @@ struct HashQuery<'a> {
     musicbrainz_artist_id: &'a Option<String>,
     discogs_release_id: &'a Option<String>,
     discogs_artist_id: &'a Option<String>,
+    selected_disc_number: Option<u32>,
     tracks: Vec<HashTrack<'a>>,
     track_count: usize,
 }
 
 pub fn query_hash(request: &LookupRequest) -> String {
     let query = HashQuery {
-        cache_version: 3,
+        cache_version: 4,
         artist_hint: &request.artist_hint,
         album_hint: &request.album_hint,
         musicbrainz_album_id: &request.musicbrainz_album_id,
         musicbrainz_artist_id: &request.musicbrainz_artist_id,
         discogs_release_id: &request.discogs_release_id,
         discogs_artist_id: &request.discogs_artist_id,
+        selected_disc_number: request.selected_disc_number,
         tracks: request
             .tracks
             .iter()
@@ -695,10 +705,29 @@ pub fn protect_candidate_tracks(
         LookupSource::Discogs => "discogs",
         _ => unreachable!("remote sources checked above"),
     };
+    // If the user selected a specific disc (e.g. CD1 of a 2-CD set),
+    // scope the provider candidate tracks to that disc number.
+    // Only filter when provider tracks have disc numbers AND the filtered
+    // count equals the local track count (otherwise retain full candidate).
+    let candidate_tracks = if let Some(disc_number) = request.selected_disc_number {
+        let scoped: Vec<_> = candidate
+            .tracks
+            .iter()
+            .filter(|t| t.disc_number == Some(disc_number))
+            .cloned()
+            .collect();
+        if !scoped.is_empty() && scoped.len() == request.tracks.len() {
+            scoped
+        } else {
+            candidate.tracks.clone()
+        }
+    } else {
+        candidate.tracks.clone()
+    };
     let matched = match_remote_candidate_tracks(
         &request.tracks,
         &filenames,
-        &candidate.tracks,
+        &candidate_tracks,
         source,
         &artist_hints,
         &[],
@@ -1956,7 +1985,7 @@ mod tests {
         assert_eq!(query_hash(&request), query_hash(&relocated));
         assert_eq!(
             query_hash(&request),
-            "9c500ff3beebc2b3057c76ec6e97a04127e6e3c34fc4b91cc39f449ae3567939"
+            "2e982cf1c35eb73203ff226776dddf653b1fcfa216804fca0837d17e4ee05fca"
         );
         relocated.tracks[0].title = Some("Different".into());
         assert_ne!(query_hash(&request), query_hash(&relocated));
@@ -2101,6 +2130,212 @@ mod tests {
             candidate.tracks[0].artist.as_deref(),
             Some("Per-track Artist")
         );
+    }
+
+    #[test]
+    fn selected_disc_filters_multi_disc_provider_candidate() {
+        // Build a 28-track (2×14) provider candidate mimicking the 挑信 release.
+        let cd1_local: Vec<TrackCandidate> = (0..14u32)
+            .map(|i| TrackCandidate {
+                title: Some(format!("CD1 Track {}", i + 1)),
+                track_number: Some(i + 1),
+                disc_number: None,
+                ..TrackCandidate::default()
+            })
+            .collect();
+        let mut cd1_provider: Vec<TrackCandidate> = cd1_local
+            .iter()
+            .enumerate()
+            .map(|(i, _)| TrackCandidate {
+                title: Some(format!("CD1 Track {}", i + 1)),
+                musicbrainz_track_id: Some(format!("mb-cd1-{}", i + 1)),
+                track_number: Some(i as u32 + 1),
+                disc_number: Some(1),
+                ..TrackCandidate::default()
+            })
+            .collect();
+        let cd2_provider: Vec<TrackCandidate> = (0..14u32)
+            .map(|i| TrackCandidate {
+                title: Some(format!("CD2 Track {}", i + 1)),
+                musicbrainz_track_id: Some(format!("mb-cd2-{}", i + 1)),
+                track_number: Some(i + 1),
+                disc_number: Some(2),
+                ..TrackCandidate::default()
+            })
+            .collect();
+        let mut all_provider = cd1_provider.clone();
+        all_provider.extend(cd2_provider);
+
+        let request = LookupRequest {
+            selected_disc_number: Some(1),
+            tracks: cd1_local.clone(),
+            ..LookupRequest::default()
+        };
+        let candidate = AlbumCandidate {
+            artist: Some("Test Artist".into()),
+            tracks: all_provider,
+            source: LookupSource::Musicbrainz,
+            ..AlbumCandidate::default()
+        };
+
+        let protected = protect_candidate_tracks(&request, &candidate);
+        assert_eq!(protected.tracks.len(), 14, "should produce 14 CD1 tracks");
+        for (i, track) in protected.tracks.iter().enumerate() {
+            assert_eq!(
+                track.title,
+                Some(format!("CD1 Track {}", i + 1)),
+                "CD1 title at {}",
+                i
+            );
+            assert_eq!(
+                track.musicbrainz_track_id,
+                Some(format!("mb-cd1-{}", i + 1)),
+                "CD1 MB track ID at {}",
+                i
+            );
+        }
+    }
+
+    #[test]
+    fn selected_disc_cd2_produces_correct_tracks() {
+        let local_14: Vec<TrackCandidate> = (0..14u32)
+            .map(|i| TrackCandidate {
+                title: Some(format!("CD2 Track {}", i + 1)),
+                track_number: Some(i + 1),
+                ..TrackCandidate::default()
+            })
+            .collect();
+        let cd1_provider: Vec<TrackCandidate> = (0..14u32)
+            .map(|i| TrackCandidate {
+                title: Some(format!("CD1 Track {}", i + 1)),
+                disc_number: Some(1),
+                ..TrackCandidate::default()
+            })
+            .collect();
+        let cd2_provider: Vec<TrackCandidate> = (0..14u32)
+            .map(|i| TrackCandidate {
+                title: Some(format!("CD2 Track {}", i + 1)),
+                musicbrainz_track_id: Some(format!("mb-cd2-{}", i + 1)),
+                track_number: Some(i + 1),
+                disc_number: Some(2),
+                ..TrackCandidate::default()
+            })
+            .collect();
+        let mut all_provider = cd1_provider;
+        all_provider.extend(cd2_provider);
+
+        let request = LookupRequest {
+            selected_disc_number: Some(2),
+            tracks: local_14,
+            ..LookupRequest::default()
+        };
+        let candidate = AlbumCandidate {
+            tracks: all_provider,
+            source: LookupSource::Musicbrainz,
+            ..AlbumCandidate::default()
+        };
+
+        let protected = protect_candidate_tracks(&request, &candidate);
+        assert_eq!(protected.tracks.len(), 14);
+        for (i, track) in protected.tracks.iter().enumerate() {
+            assert_eq!(
+                track.musicbrainz_track_id,
+                Some(format!("mb-cd2-{}", i + 1))
+            );
+        }
+    }
+
+    #[test]
+    fn selected_disc_does_not_filter_when_provider_has_no_disc_numbers() {
+        let local: Vec<TrackCandidate> = (0..3u32)
+            .map(|i| TrackCandidate {
+                title: Some(format!("Track {}", i + 1)),
+                ..TrackCandidate::default()
+            })
+            .collect();
+        let provider: Vec<TrackCandidate> = (0..3u32)
+            .map(|i| TrackCandidate {
+                title: Some(format!("Remote Track {}", i + 1)),
+                disc_number: None, // no disc numbers
+                ..TrackCandidate::default()
+            })
+            .collect();
+
+        let request = LookupRequest {
+            selected_disc_number: Some(1),
+            tracks: local,
+            ..LookupRequest::default()
+        };
+        let candidate = AlbumCandidate {
+            tracks: provider,
+            source: LookupSource::Musicbrainz,
+            ..AlbumCandidate::default()
+        };
+        // Provider has no disc numbers → should not filter (keep all 3).
+        let protected = protect_candidate_tracks(&request, &candidate);
+        assert_eq!(protected.tracks.len(), 3);
+    }
+
+    #[test]
+    fn selected_disc_does_not_filter_on_count_mismatch() {
+        let local: Vec<TrackCandidate> = (0..3u32)
+            .map(|i| TrackCandidate {
+                title: Some(format!("Track {}", i + 1)),
+                ..TrackCandidate::default()
+            })
+            .collect();
+        // Provider has 5 CD1 tracks, but local has 3 → mismatch, don't filter.
+        let provider: Vec<TrackCandidate> = (0..5u32)
+            .map(|i| TrackCandidate {
+                title: Some(format!("CD1 Track {}", i + 1)),
+                disc_number: Some(1),
+                ..TrackCandidate::default()
+            })
+            .collect();
+
+        let request = LookupRequest {
+            selected_disc_number: Some(1),
+            tracks: local.clone(),
+            ..LookupRequest::default()
+        };
+        let candidate = AlbumCandidate {
+            tracks: provider,
+            source: LookupSource::Musicbrainz,
+            ..AlbumCandidate::default()
+        };
+        // Count doesn't match → discard scoping. Matching still runs,
+        // which anchors on the local track count.
+        let protected = protect_candidate_tracks(&request, &candidate);
+        assert_eq!(protected.tracks.len(), 3); // matching aligns to local
+    }
+
+    #[test]
+    fn build_lookup_request_parses_selected_disc_number() {
+        // "挑信 CD1" should produce selected_disc_number=1
+        let root = temp_root();
+        let disc = root.join("挑信 CD1");
+        fs::create_dir_all(&disc).unwrap();
+        fs::copy(corpus_mp3(), disc.join("01.mp3")).unwrap();
+        fs::copy(corpus_mp3(), disc.join("02.mp3")).unwrap();
+
+        let request = build_lookup_request(&disc).unwrap();
+        assert_eq!(request.selected_disc_number, Some(1));
+
+        // Bare "CD1" should also work.
+        let bare = root.join("CD2");
+        fs::create_dir_all(&bare).unwrap();
+        fs::copy(corpus_mp3(), bare.join("01.mp3")).unwrap();
+        let request2 = build_lookup_request(&bare).unwrap();
+        assert_eq!(request2.selected_disc_number, Some(2));
+
+        // No disc suffix → None.
+        let plain = root.join("Plain Album");
+        fs::create_dir_all(&plain).unwrap();
+        fs::copy(corpus_mp3(), plain.join("01.mp3")).unwrap();
+        let request3 = build_lookup_request(&plain).unwrap();
+        assert_eq!(request3.selected_disc_number, None);
+
+        fs::remove_dir_all(root).unwrap();
     }
 
     #[test]
