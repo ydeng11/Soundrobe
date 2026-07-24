@@ -13,10 +13,36 @@ use lofty::config::ParseOptions;
 use lofty::file::TaggedFileExt;
 use lofty::probe::Probe;
 use serde::Serialize;
+use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::LazyLock;
+use std::sync::Mutex;
 use tauri::{AppHandle, State};
 use tauri_plugin_dialog::{DialogExt, FilePath};
+
+/// In-memory cover data URL cache keyed by absolute album path.
+/// Populated lazily on first access per album; cleared on cover mutations.
+/// This avoids repeatedly scanning the album directory (which can take 2+
+/// seconds on network/slow volumes).
+static COVER_CACHE: LazyLock<Mutex<HashMap<String, String>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
+
+fn cover_cache_get(album_path: &str) -> Option<String> {
+    COVER_CACHE.lock().ok()?.get(album_path).cloned()
+}
+
+fn cover_cache_set(album_path: &str, data_url: &str) {
+    if let Ok(mut cache) = COVER_CACHE.lock() {
+        cache.insert(album_path.to_owned(), data_url.to_owned());
+    }
+}
+
+fn cover_cache_invalidate(album_path: &str) {
+    if let Ok(mut cache) = COVER_CACHE.lock() {
+        cache.remove(album_path);
+    }
+}
 
 const COVER_REMOVED_MARKER: &str = ".auto-tagger-cover-removed";
 const COVER_NAMES: &[&str] = &[
@@ -28,7 +54,15 @@ const AUDIO_EXTENSIONS: &[&str] = &["mp3", "flac", "m4a", "mp4", "wav", "ogg", "
 
 #[tauri::command]
 pub fn cover_data_url(album_path: String, preferred_track: Option<String>) -> Option<String> {
-    cover_data_url_at(Path::new(&album_path), preferred_track.as_deref())
+    // Fast path: return cached data URL without any filesystem access.
+    if let Some(url) = cover_cache_get(&album_path) {
+        return Some(url);
+    }
+
+    // Slow path: scan the album directory and cache the result.
+    let url = cover_data_url_at(Path::new(&album_path), preferred_track.as_deref())?;
+    cover_cache_set(&album_path, &url);
+    Some(url)
 }
 
 #[tauri::command]
@@ -83,10 +117,12 @@ pub async fn cover_download(
     else {
         return Ok(None);
     };
-    Ok(Some(format!(
+    let url = format!(
         "data:image/jpeg;base64,{}",
         base64::engine::general_purpose::STANDARD.encode(bytes)
-    )))
+    );
+    cover_cache_set(&album_path, &url);
+    Ok(Some(url))
 }
 
 #[tauri::command]
@@ -346,7 +382,7 @@ pub fn cover_data_url_at(album_path: &Path, preferred_track: Option<&str>) -> Op
     }
 
     // 3. Fallback: scan all audio files for embedded art
-    let fallback_start = std::time::Instant::now();
+    let _fallback_start = std::time::Instant::now();
     let mut probe_count: usize = 0;
     let entries = fs::read_dir(album_path).ok()?;
     for entry in entries.flatten() {
@@ -422,17 +458,23 @@ async fn set_cover_from_path_queued(
     album_path: PathBuf,
     source: PathBuf,
 ) -> Option<String> {
-    queue
+    let album_str = album_path.display().to_string();
+    let result = queue
         .run(async move {
             tokio::task::spawn_blocking(move || set_cover_from_path(&album_path, &source))
                 .await
                 .ok()
                 .flatten()
         })
-        .await
+        .await;
+    if result.is_some() {
+        cover_cache_invalidate(&album_str);
+    }
+    result
 }
 
 pub fn remove_cover_at(album_path: &Path) -> bool {
+    let album_str = album_path.display().to_string();
     let result = (|| -> std::io::Result<()> {
         if let Some(path) = find_external_cover(album_path) {
             fs::remove_file(path)?;
@@ -440,10 +482,13 @@ pub fn remove_cover_at(album_path: &Path) -> bool {
         fs::write(album_path.join(COVER_REMOVED_MARKER), [])?;
         Ok(())
     })();
+    cover_cache_invalidate(&album_str);
     result.is_ok()
 }
 
 async fn remove_cover_queued(queue: &WriteQueue, album_path: PathBuf) -> bool {
+    let album_str = album_path.display().to_string();
+    cover_cache_invalidate(&album_str);
     queue
         .run(async move {
             tokio::task::spawn_blocking(move || remove_cover_at(&album_path))
