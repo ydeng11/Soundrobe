@@ -4,6 +4,7 @@ use reqwest::{Client, StatusCode};
 use tracing;
 use serde::Serialize;
 use serde_json::{json, Value};
+use std::fmt;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 
@@ -79,6 +80,7 @@ pub struct OpenRouterClient {
     max_tokens: u32,
     timeout: Duration,
     retry_delays: Vec<Duration>,
+    provider: ProviderKind,
 }
 
 #[derive(Clone, Copy)]
@@ -90,15 +92,99 @@ struct CompletionRequest<'a> {
     disable_reasoning: bool,
 }
 
-/// Default base URLs per provider, matching OpenAI-compatible /chat/completions endpoints.
+/// Which API format this client uses.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ProviderKind {
+    /// OpenAI-compatible /chat/completions with Bearer auth.
+    OpenAi,
+    /// Anthropic /v1/messages with x-api-key auth and tool-use wrapping.
+    Anthropic,
+}
+
+impl ProviderKind {
+    pub fn from_str(s: &str) -> Self {
+        match s {
+            "claude" | "anthropic" => ProviderKind::Anthropic,
+            _ => ProviderKind::OpenAi,
+        }
+    }
+}
+
+impl fmt::Display for ProviderKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            ProviderKind::OpenAi => write!(f, "openai"),
+            ProviderKind::Anthropic => write!(f, "claude"),
+        }
+    }
+}
+
+/// Resolve the base URL for a provider.
+/// When `base_url` is set (non-empty) it takes priority, otherwise the
+/// provider default is returned.  Returns `None` for unresolvable providers
+/// so the caller can error explicitly.
+pub fn resolve_base_url(provider: &ProviderKind, base_url: &str) -> &'static str {
+    if !base_url.is_empty() {
+        return ""; // caller should use base_url directly — see LlmEndpoint
+    }
+    match provider {
+        ProviderKind::OpenAi => "https://openrouter.ai/api/v1",
+        ProviderKind::Anthropic => "https://api.anthropic.com/v1",
+    }
+}
+
+/// Default base URLs per provider.
+/// Used when no explicit base_url is configured.
 pub fn base_url_for_provider(provider: &str) -> &'static str {
     match provider {
         "openai" => "https://api.openai.com/v1",
-        "claude" => "https://api.anthropic.com/v1",
         "openrouter" => "https://openrouter.ai/api/v1",
+        "claude" | "anthropic" => "https://api.anthropic.com/v1",
         "opencode_go" => "http://localhost:8080/v1",
         "opencode_zen" => "http://localhost:7070/v1",
         _ => OPENROUTER_BASE,
+    }
+}
+
+/// Combined provider+base-url result with a displayable fallback for errors.
+#[derive(Debug, Clone)]
+pub struct LlmEndpoint {
+    pub provider: ProviderKind,
+    pub base_url: String,
+}
+
+impl LlmEndpoint {
+    /// Resolve from config fields (which may be empty).
+    /// Backward compat: when provider is absent/unknown -> OpenAi.
+    /// When base_url is set it takes priority over the provider default.
+    pub fn from_config(provider: Option<&str>, base_url: Option<&str>) -> Self {
+        let provider = provider.and_then(|p| if p.is_empty() { None } else { Some(p) });
+        let base_url = base_url.and_then(|u| if u.is_empty() { None } else { Some(u) });
+        match (provider, base_url) {
+            (Some(p), Some(u)) => Self {
+                provider: ProviderKind::from_str(p),
+                base_url: u.to_string(),
+            },
+            (Some(p), None) => Self {
+                provider: ProviderKind::from_str(p),
+                base_url: base_url_for_provider(p).to_string(),
+            },
+            (None, Some(u)) => Self {
+                provider: ProviderKind::OpenAi,
+                base_url: u.to_string(),
+            },
+            (None, None) => Self {
+                provider: ProviderKind::OpenAi,
+                base_url: OPENROUTER_BASE.to_string(),
+            },
+        }
+    }
+
+    pub fn openai(base_url: impl Into<String>) -> Self {
+        Self {
+            provider: ProviderKind::OpenAi,
+            base_url: base_url.into(),
+        }
     }
 }
 
@@ -112,17 +198,24 @@ impl OpenRouterClient {
         model: impl Into<String>,
         base_url: impl Into<String>,
     ) -> Self {
+        let base_url = base_url.into().trim_end_matches('/').to_string();
+        let provider = if base_url.contains("api.anthropic.com") {
+            ProviderKind::Anthropic
+        } else {
+            ProviderKind::OpenAi
+        };
         Self {
             http: Client::builder()
                 .build()
                 .expect("reqwest RustLS client configuration is valid"),
             api_key: api_key.into(),
             model: model.into(),
-            base_url: base_url.into().trim_end_matches('/').to_string(),
+            base_url,
             temperature: 0.7,
             max_tokens: 1024,
             timeout: DEFAULT_TIMEOUT,
             retry_delays: vec![Duration::from_millis(250), Duration::from_millis(500)],
+            provider,
         }
     }
 
@@ -142,19 +235,26 @@ impl OpenRouterClient {
         self
     }
 
-    /// Send a minimal "respond with 'ok'" prompt to verify the provider,
-    /// model, and credentials work.  Returns the model name on success.
+    pub fn with_provider(mut self, provider: ProviderKind) -> Self {
+        self.provider = provider;
+        self
+    }
+
+    /// Send a minimal prompt to verify the provider, model, and credentials
+    /// work.  Returns the responding model name on success.
     pub async fn test_connection(&self) -> Result<String, OpenRouterError> {
-        let messages = vec![
-            ChatMessage::system("Your entire response must be exactly the word: ok"),
-            ChatMessage::user("Say ok and nothing else"),
-        ];
         let schema = serde_json::json!({
             "type": "object",
             "properties": { "response": { "type": "string", "const": "ok" } },
             "required": ["response"],
             "additionalProperties": false
         });
+        let messages = vec![
+            ChatMessage::system(
+                "Return a JSON object with exactly one field 'response' set to the string 'ok'."
+            ),
+            ChatMessage::user("Say ok"),
+        ];
         let response = self
             .complete_json(messages, "TestConnection", schema, &AtomicBool::new(false))
             .await?;
@@ -202,17 +302,29 @@ impl OpenRouterClient {
                     deadline,
                 )
                 .await?;
-            let content = response
-                .pointer("/choices/0/message/content")
-                .and_then(Value::as_str)
-                .unwrap_or_default()
-                .to_string();
+            let content = extract_content(self.provider, &response);
             let current = &response;
-            if current
-                .get("choices")
-                .and_then(Value::as_array)
-                .is_none_or(Vec::is_empty)
-            {
+
+            // Validate response structure based on provider format.
+            let valid = match self.provider {
+                ProviderKind::OpenAi => current
+                    .get("choices")
+                    .and_then(Value::as_array)
+                    .is_some_and(|arr| !arr.is_empty()),
+                ProviderKind::Anthropic => {
+                    let has_tool_use = current
+                        .pointer("/content/0/type")
+                        .and_then(Value::as_str)
+                        == Some("tool_use");
+                    let stop_reason = current
+                        .get("stop_reason")
+                        .and_then(Value::as_str)
+                        .unwrap_or("");
+                    // Accept end_turn or stop_sequence as valid completion.
+                    has_tool_use && !stop_reason.is_empty()
+                }
+            };
+            if !valid {
                 let preview = current.to_string().chars().take(200).collect();
                 return Err(OpenRouterError::MissingChoices(preview));
             }
@@ -360,6 +472,24 @@ impl OpenRouterClient {
         if cancelled.load(Ordering::Acquire) {
             return Err(OpenRouterError::Cancelled);
         }
+        match self.provider {
+            ProviderKind::Anthropic => self.post_anthropic(messages, schema_name, schema, max_tokens, cancelled).await,
+            ProviderKind::OpenAi => self.post_openai(messages, schema_name, schema, max_tokens, disable_reasoning, cancelled).await,
+        }
+    }
+
+    async fn post_openai(
+        &self,
+        messages: &[ChatMessage],
+        schema_name: &str,
+        schema: &Value,
+        max_tokens: u32,
+        disable_reasoning: bool,
+        cancelled: &AtomicBool,
+    ) -> Result<reqwest::Response, OpenRouterError> {
+        if cancelled.load(Ordering::Acquire) {
+            return Err(OpenRouterError::Cancelled);
+        }
         let mut body = json!({
             "model": self.model,
             "messages": messages,
@@ -377,6 +507,64 @@ impl OpenRouterClient {
             .http
             .post(format!("{}/chat/completions", self.base_url))
             .bearer_auth(&self.api_key)
+            .json(&body)
+            .send();
+        tokio::pin!(request);
+        loop {
+            tokio::select! {
+                response = &mut request => {
+                    return response.map_err(|error| OpenRouterError::Network(error.to_string()));
+                }
+                () = tokio::time::sleep(Duration::from_millis(10)) => {
+                    if cancelled.load(Ordering::Acquire) {
+                        return Err(OpenRouterError::Cancelled);
+                    }
+                }
+            }
+        }
+    }
+
+    async fn post_anthropic(
+        &self,
+        messages: &[ChatMessage],
+        schema_name: &str,
+        schema: &Value,
+        max_tokens: u32,
+        cancelled: &AtomicBool,
+    ) -> Result<reqwest::Response, OpenRouterError> {
+        if cancelled.load(Ordering::Acquire) {
+            return Err(OpenRouterError::Cancelled);
+        }
+        // Wrap system message separately (Anthropic API puts it at top level).
+        let system_content: String = messages
+            .iter()
+            .filter(|m| m.role == "system")
+            .map(|m| m.content.clone())
+            .collect::<Vec<_>>()
+            .join("\n");
+        let anthropic_messages: Vec<Value> = messages
+            .iter()
+            .filter(|m| m.role != "system")
+            .map(|m| json!({"role": m.role, "content": m.content}))
+            .collect();
+        let body = json!({
+            "model": self.model,
+            "max_tokens": max_tokens,
+            "temperature": self.temperature,
+            "system": if system_content.is_empty() { Value::Null } else { Value::String(system_content) },
+            "messages": anthropic_messages,
+            "tool_choice": {"type": "tool", "name": schema_name},
+            "tools": [{
+                "name": schema_name,
+                "description": format!("Structured response for {}", schema_name),
+                "input_schema": schema,
+            }],
+        });
+        let request = self
+            .http
+            .post(format!("{}/messages", self.base_url))
+            .header("x-api-key", &self.api_key)
+            .header("anthropic-version", "2023-06-01")
             .json(&body)
             .send();
         tokio::pin!(request);
@@ -438,30 +626,46 @@ async fn cancellable_sleep(
     Ok(())
 }
 
+/// Extract the raw JSON string content from a provider response.
+fn extract_content(provider: ProviderKind, response: &Value) -> String {
+    match provider {
+        ProviderKind::Anthropic => response
+            .pointer("/content/0/input")
+            .map(|v| v.to_string())
+            .unwrap_or_default(),
+        ProviderKind::OpenAi => response
+            .pointer("/choices/0/message/content")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_string(),
+    }
+}
+
 fn finish_reason(payload: Option<&Value>) -> Option<String> {
     payload?
-        .pointer("/choices/0/finish_reason")?
-        .as_str()
+        .pointer("/choices/0/finish_reason")
+        .or_else(|| payload?.pointer("/stop_reason"))
+        .and_then(Value::as_str)
         .map(ToOwned::to_owned)
 }
 
 fn response_detail(payload: &Value, fallback_model: &str) -> String {
-    format!(
-        "model={} finish_reason={} completion_tokens={} reasoning_tokens={}",
-        payload
-            .get("model")
-            .and_then(Value::as_str)
-            .unwrap_or(fallback_model),
-        finish_reason(Some(payload)).unwrap_or_else(|| "?".into()),
-        payload
-            .pointer("/usage/completion_tokens")
-            .and_then(Value::as_u64)
-            .map_or_else(|| "?".into(), |value| value.to_string()),
-        payload
-            .pointer("/usage/reasoning_tokens")
-            .and_then(Value::as_u64)
-            .map_or_else(|| "?".into(), |value| value.to_string()),
-    )
+    let model = payload
+        .get("model")
+        .and_then(Value::as_str)
+        .unwrap_or(fallback_model);
+    let finish = finish_reason(Some(payload)).unwrap_or_else(|| "?".into());
+    // Anthropic uses input_tokens/output_tokens; OpenAI uses prompt_tokens/completion_tokens.
+    let completion = payload
+        .pointer("/usage/completion_tokens")
+        .or_else(|| payload.pointer("/usage/output_tokens"))
+        .and_then(Value::as_u64)
+        .map_or_else(|| "?".into(), |v| v.to_string());
+    let reasoning = payload
+        .pointer("/usage/reasoning_tokens")
+        .and_then(Value::as_u64)
+        .map_or_else(|| "?".into(), |v| v.to_string());
+    format!("model={model} finish_reason={finish} completion_tokens={completion} reasoning_tokens={reasoning}")
 }
 
 fn extract_json_object(content: &str) -> Option<&str> {
@@ -471,27 +675,34 @@ fn extract_json_object(content: &str) -> Option<&str> {
 }
 
 fn build_response(payload: &Value, data: Value, fallback_model: &str) -> OpenRouterResponse {
+    let model = payload
+        .get("model")
+        .and_then(Value::as_str)
+        .unwrap_or(fallback_model)
+        .to_string();
+    // Anthropic uses input_tokens/output_tokens; OpenAI uses prompt_tokens/completion_tokens.
+    let prompt_tokens = payload
+        .pointer("/usage/prompt_tokens")
+        .or_else(|| payload.pointer("/usage/input_tokens"))
+        .and_then(Value::as_u64)
+        .unwrap_or(0);
+    let completion_tokens = payload
+        .pointer("/usage/completion_tokens")
+        .or_else(|| payload.pointer("/usage/output_tokens"))
+        .and_then(Value::as_u64)
+        .unwrap_or(0);
+    let total_tokens = payload
+        .pointer("/usage/total_tokens")
+        .and_then(Value::as_u64)
+        .unwrap_or(prompt_tokens + completion_tokens);
     OpenRouterResponse {
         data,
         usage: TokenUsage {
-            prompt_tokens: payload
-                .pointer("/usage/prompt_tokens")
-                .and_then(Value::as_u64)
-                .unwrap_or(0),
-            completion_tokens: payload
-                .pointer("/usage/completion_tokens")
-                .and_then(Value::as_u64)
-                .unwrap_or(0),
-            total_tokens: payload
-                .pointer("/usage/total_tokens")
-                .and_then(Value::as_u64)
-                .unwrap_or(0),
+            prompt_tokens,
+            completion_tokens,
+            total_tokens,
         },
-        model: payload
-            .get("model")
-            .and_then(Value::as_str)
-            .unwrap_or(fallback_model)
-            .to_string(),
+        model,
     }
 }
 
@@ -504,6 +715,49 @@ mod tests {
     use std::net::TcpListener;
     use std::sync::{Arc, Mutex};
     use std::thread;
+
+    #[tokio::test]
+    async fn anthropic_response_format_is_parsed_correctly() {
+        let server = TestServer::start(vec![TestResponse::json(json!({
+            "id": "msg_01",
+            "model": "claude-3-5-sonnet-20241022",
+            "type": "message",
+            "role": "assistant",
+            "content": [{
+                "type": "tool_use",
+                "id": "toolu_01",
+                "name": "AssistantResponse",
+                "input": {"message": "Found 2 tracks", "actionBatch": null}
+            }],
+            "stop_reason": "end_turn",
+            "stop_sequence": null,
+            "usage": { "input_tokens": 10, "output_tokens": 5 }
+        }))]);
+        let client = OpenRouterClient::at("secret", "test/model", server.base_url())
+            .with_provider(ProviderKind::Anthropic);
+
+        let response = client
+            .complete_json(
+                vec![ChatMessage::user("list tracks")],
+                "AssistantResponse",
+                json!({"type": "object"}),
+                &AtomicBool::new(false),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.data["message"], "Found 2 tracks");
+        assert_eq!(response.usage.total_tokens, 15);
+        assert_eq!(response.model, "claude-3-5-sonnet-20241022");
+        // Verify the request was sent with x-api-key header (not Bearer).
+        let request = server.request(0);
+        assert_eq!(
+            request.headers.get("x-api-key").map(String::as_str),
+            Some("secret")
+        );
+        assert!(request.body["tool_choice"]["type"] == "tool");
+        assert!(request.body["tools"][0]["name"] == "AssistantResponse");
+    }
 
     #[tokio::test]
     async fn sends_schema_request_and_parses_json_message_content() {

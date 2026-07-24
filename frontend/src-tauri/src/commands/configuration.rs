@@ -16,7 +16,7 @@
 use serde_json::{json, Value};
 use tauri::State;
 
-use crate::infra::openrouter::{base_url_for_provider, OpenRouterClient};
+use crate::infra::openrouter::{LlmEndpoint, OpenRouterClient};
 use crate::state::config::ConfigState;
 use crate::state::assistant::AssistantServicesState;
 use crate::error::ApiError;
@@ -53,23 +53,50 @@ pub fn config_set(
 
 /// Test an LLM connection by sending a minimal prompt to the specified
 /// provider/model combination.  Returns the responding model name on success.
+///
+/// When `api_key` is empty the command resolves credentials from the
+/// persistent config (file/env).  When `provider` is absent the command
+/// falls back to the stored config value.  This lets users test an
+/// already-configured key without re-entering it in Settings.
 #[tauri::command]
 pub async fn test_llm_connection(
     api_key: String,
     model: String,
     provider: Option<String>,
     base_url: Option<String>,
+    config: State<'_, ConfigState>,
 ) -> Result<serde_json::Value, ApiError> {
-    let resolved_base = base_url
-        .filter(|u| !u.is_empty())
-        .unwrap_or_else(|| {
-            provider
-                .as_deref()
-                .map(base_url_for_provider)
-                .unwrap_or("https://openrouter.ai/api/v1")
-                .to_string()
-        });
-    let client = OpenRouterClient::at(&api_key, &model, &resolved_base)
+    let raw = config.raw();
+    // Resolve api_key: explicit (from renderer) → config file/env.
+    let effective_key = if api_key.is_empty() {
+        raw.llm_api_key.as_deref().filter(|k| !k.is_empty())
+            .ok_or_else(|| ApiError::Message(
+                "No API key provided and none configured. Set LLM_API_KEY in Settings or env.".into()
+            ))?
+            .to_string()
+    } else {
+        api_key
+    };
+    let effective_model = if model.is_empty() {
+        raw.llm_model.as_deref().filter(|m| !m.is_empty())
+            .ok_or_else(|| ApiError::Message(
+                "No model provided and none configured. Set LLM_MODEL in Settings or env.".into()
+            ))?
+            .to_string()
+    } else {
+        model
+    };
+    // Resolve provider + base_url: explicit → config → defaults.
+    let effective_provider = provider.as_deref().filter(|p| !p.is_empty()).or(
+        raw.llm_provider.as_deref()
+    );
+    let endpoint = LlmEndpoint::from_config(
+        effective_provider,
+        base_url.as_deref().filter(|u| !u.is_empty())
+            .or(raw.llm_base_url.as_deref()),
+    );
+    let client = OpenRouterClient::at(&effective_key, &effective_model, &endpoint.base_url)
+        .with_provider(endpoint.provider)
         .with_generation(0.0, 64)
         .with_timeout(std::time::Duration::from_secs(15));
     let responding_model = client.test_connection().await.map_err(|e| {

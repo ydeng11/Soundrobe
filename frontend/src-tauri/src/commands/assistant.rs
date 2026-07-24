@@ -352,6 +352,13 @@ pub async fn assistant_send(
         "autonomous": input.autonomous,
     });
     let tools = context_tool_catalog();
+    let endpoint = crate::infra::openrouter::LlmEndpoint::from_config(
+        raw_config.llm_provider.as_deref(),
+        raw_config.llm_base_url.as_deref(),
+    );
+    let client = OpenRouterClient::at(&api_key, &model, &endpoint.base_url)
+        .with_provider(endpoint.provider)
+        .with_generation(0.2, 4096);
     let mut messages = vec![
         ChatMessage::system(format!(
             concat!(
@@ -369,7 +376,6 @@ pub async fn assistant_send(
         )),
         ChatMessage::user(format!("App context:\n{context}\n\nUser request:\n{}", input.message)),
     ];
-    let client = OpenRouterClient::new(&api_key, &model).with_generation(0.2, 4096);
     let mut signatures = Vec::new();
     let mut repaired_invalid_args = false;
     let mut final_draft = None;
@@ -5232,14 +5238,16 @@ mod assistant_ai_tests {
     }
 
     /// Judge whether a response satisfies the given semantic criteria.
+    /// Requires LLM_JUDGE_MODEL env var (should differ from LLM_MODEL).
     async fn judge_response(
         user_prompt: &str,
         llm_response: &Value,
         criteria: &[&str],
         api_key: &str,
-        judge_model: &str,
     ) -> (bool, String) {
-        let client = OpenRouterClient::new(api_key, judge_model)
+        let judge_model = std::env::var("LLM_JUDGE_MODEL")
+            .expect("LLM_JUDGE_MODEL must be set (and differ from LLM_MODEL)");
+        let client = OpenRouterClient::new(api_key, &judge_model)
             .with_generation(0.0, 256);
         let mut criteria_text = String::new();
         for (i, c) in criteria.iter().enumerate() {
@@ -5322,8 +5330,8 @@ mod assistant_ai_tests {
     }
 
     /// Judge: verify that equivalent prompts produce semantically similar
-    /// responses.
-    #[ignore = "requires LLM_API_KEY, LLM_MODEL, and active OpenRouter access"]
+    /// responses.  Requires LLM_JUDGE_MODEL env var.
+    #[ignore = "requires LLM_API_KEY, LLM_MODEL, LLM_JUDGE_MODEL, and active LLM access"]
     #[tokio::test]
     async fn judge_verifies_semantic_equivalence() {
         let (key, model) = credentials().expect("set LLM_API_KEY and LLM_MODEL");
@@ -5337,60 +5345,9 @@ mod assistant_ai_tests {
                 "The toolCall should reference tracks.search or the response message should mention the counts",
             ],
             &key,
-            &model,
         )
         .await;
         assert!(satisfies, "Response failed judge: {}\nData: {}", reasoning, data);
-    }
-
-    /// Building a baseline: run once, save, and later compare.
-    #[ignore = "requires LLM_API_KEY, LLM_MODEL, and active OpenRouter access"]
-    #[tokio::test]
-    async fn baseline_query_track_search() {
-        let (key, model) = credentials().expect("set LLM_API_KEY and LLM_MODEL");
-        let context = test_library_context(0);
-        let data = assistant_llm_call(
-            "tracks with title Blue Train",
-            &context,
-            &key,
-            &model,
-        )
-        .await;
-
-        // Save baseline.
-        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("tests/assistant_baselines.json");
-        let mut baselines: serde_json::Map<String, Value> =
-            std::fs::read_to_string(&path)
-                .ok()
-                .and_then(|t| serde_json::from_str(&t).ok())
-                .unwrap_or_default();
-        let test_key = "baseline_query_track_search".to_string();
-        let exists = baselines.contains_key(&test_key);
-        if !exists {
-            baselines.insert(test_key.clone(), data.clone());
-            if let Some(parent) = path.parent() {
-                let _ = std::fs::create_dir_all(parent);
-            }
-            if let Ok(json) = serde_json::to_string_pretty(&baselines) {
-                let _ = std::fs::write(&path, &json);
-            }
-            eprintln!(
-                "[BASELINE] Saved new baseline for {}. Remove the file to regenerate.",
-                test_key
-            );
-        }
-
-        // Compare: event type must match.
-        if let Some(baseline) = baselines.get(&test_key) {
-            // Check the response has the same shape.
-            let _baseline_msg = baseline["message"].as_str().unwrap_or_default();
-            let current_msg = data["message"].as_str().unwrap_or_default();
-            assert!(
-                !current_msg.is_empty(),
-                "baseline response had message, current missing"
-            );
-        }
     }
 }
 

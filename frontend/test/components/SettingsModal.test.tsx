@@ -83,7 +83,7 @@ describe("SettingsModal", () => {
     // Providers fields visible
     expect(
       screen.getByPlaceholderText(
-        "sk-or-v1-… (leave blank to keep current)",
+        "sk-… (leave blank to keep current)",
       ),
     ).toBeTruthy();
     // Discogs Token + TheAudioDB API Key have the same placeholder, both on Providers tab
@@ -113,7 +113,7 @@ describe("SettingsModal", () => {
     expect(screen.getByRole("tab", { name: "Metadata" }).getAttribute("aria-selected")).toBe("true");
 
     // Providers fields hidden, metadata visible
-    expect(screen.queryByPlaceholderText("sk-or-v1-… (leave blank to keep current)")).toBeNull();
+    expect(screen.queryByPlaceholderText("sk-… (leave blank to keep current)")).toBeNull();
     expect(screen.getByText("Auto-download Lyrics")).toBeTruthy();
   });
 
@@ -213,7 +213,7 @@ describe("SettingsModal", () => {
 
     // Enter new API key (on Providers tab, active by default)
     const apiKeyInput = screen.getByPlaceholderText(
-      "sk-or-v1-… (leave blank to keep current)",
+      "sk-… (leave blank to keep current)",
     );
     fireEvent.change(apiKeyInput, {
       target: { value: "sk-or-v1-newkey" },

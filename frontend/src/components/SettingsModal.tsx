@@ -42,6 +42,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
     theAudioDbApiKey: "",
     chineseScript: "",
   });
+  const [keyConfigured, setKeyConfigured] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -65,6 +66,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
     (async () => {
       try {
         const cfg = await window.api.getConfig();
+        setKeyConfigured(!!(cfg.llmApiKeyConfigured as boolean));
         setSettings({
           llmApiKey: "",
           llmModel: (cfg.llmModel as string) ?? "",
@@ -287,6 +289,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
                       model={settings.llmModel}
                       provider={settings.llmProvider}
                       baseUrl={settings.llmBaseUrl}
+                      keyConfigured={keyConfigured}
                     />
                   </div>
 
@@ -611,19 +614,27 @@ function TestConnectionButton({
   model,
   provider,
   baseUrl,
+  keyConfigured,
 }: {
   apiKey: string;
   model: string;
   provider: string;
   baseUrl: string;
+  keyConfigured: boolean;
 }) {
   const [testing, setTesting] = useState(false);
   const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null);
 
-  if (!apiKey || !model) {
+  const canTest = apiKey || keyConfigured;
+
+  if (!canTest || !model) {
     return (
       <p className="text-[10px] text-text-muted/70 px-0.5">
-        {!apiKey ? "Set an API key above to test the connection." : "Select a model above to test the connection."}
+        {!canTest
+          ? keyConfigured
+            ? "Enter a model above to test with the stored key."
+            : "Set an API key above to test the connection."
+          : "Select a model above to test the connection."}
       </p>
     );
   }
@@ -632,12 +643,12 @@ function TestConnectionButton({
     setTesting(true);
     setResult(null);
     try {
-      const resp = await window.api.testLlmConnection({
+      const resp = await window.api.testLlmConnection(
         apiKey,
         model,
-        provider: provider || undefined,
-        baseUrl: baseUrl || undefined,
-      });
+        provider || undefined,
+        baseUrl || undefined,
+      );
       setResult({ ok: true, message: `Connected via ${resp.model}` });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);

@@ -347,8 +347,10 @@ fn mask(s: &Option<String>) -> Value {
 /// the renderer's "not set" semantics hold; parity is revisited when the
 /// config command is wired.
 pub fn redacted(config: &AutoTagConfig) -> Value {
+    let key_configured = config.llm_api_key.as_deref().filter(|k| !k.is_empty()).is_some();
     json!({
         "llmApiKey": mask(&config.llm_api_key),
+        "llmApiKeyConfigured": key_configured,
         "llmModel": config.llm_model.clone().map(Value::String).unwrap_or(Value::Null),
         "llmProvider": config.llm_provider.clone().map(Value::String).unwrap_or(Value::Null),
         "llmBaseUrl": config.llm_base_url.clone().map(Value::String).unwrap_or(Value::Null),
@@ -761,6 +763,7 @@ mod tests {
 
         let expected = json!({
             "llmApiKey": "****7890",
+            "llmApiKeyConfigured": true,
             "llmModel": "gpt-4",
             "llmProvider": null,
             "llmBaseUrl": null,

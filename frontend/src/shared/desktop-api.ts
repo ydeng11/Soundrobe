@@ -474,12 +474,12 @@ export interface DesktopAPI {
     lyricsHost?: string | null;
     libraryPath?: string | null;
   }) => Promise<void>;
-  testLlmConnection: (config: {
-    apiKey: string;
-    model: string;
-    provider?: string;
-    baseUrl?: string;
-  }) => Promise<{ model: string }>;
+  testLlmConnection: (
+    apiKey: string,
+    model: string,
+    provider?: string,
+    baseUrl?: string,
+  ) => Promise<{ model: string }>;
 
   // Window events
   onFocus: () => Promise<void>;

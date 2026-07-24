@@ -1158,7 +1158,13 @@ async fn resolve_tags_via_llm(
         "required": ["artist", "albumArtist", "album", "year", "genre", "tracks", "confidence"]
     });
     tracing::debug!(model, "calling auto-tag LLM");
-    let result = OpenRouterClient::new(api_key.unwrap(), model)
+    let Some(api_key) = api_key else { return None; };
+    let llm_endpoint = crate::infra::openrouter::LlmEndpoint::from_config(
+        config.llm_provider.as_deref(),
+        config.llm_base_url.as_deref(),
+    );
+    let result = OpenRouterClient::at(api_key, model, &llm_endpoint.base_url)
+        .with_provider(llm_endpoint.provider)
         .complete_json(messages, "TagCorrectionResponse", schema, cancelled)
         .await;
     match &result {
@@ -1206,7 +1212,12 @@ async fn fill_genre_if_missing(
         },
         "required": ["genre", "confidence"]
     });
-    let Ok(response) = OpenRouterClient::new(api_key, model)
+    let endpoint = crate::infra::openrouter::LlmEndpoint::from_config(
+        config.llm_provider.as_deref(),
+        config.llm_base_url.as_deref(),
+    );
+    let Ok(response) = OpenRouterClient::at(api_key, model, &endpoint.base_url)
+        .with_provider(endpoint.provider)
         .with_generation(0.2, 256)
         .complete_json(messages, "GenreFillResponse", schema, cancelled)
         .await

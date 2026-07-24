@@ -175,8 +175,8 @@ export function createTauriDesktopApi(): DesktopAPI {
       invokeCommand("assistant:init-runtime", undefined),
     assistantInitServices: (config) =>
       invokeCommand("assistant:init-services", { config }),
-    testLlmConnection: (config) =>
-      invokeCommand("configuration:test-llm-connection", { ...config }),
+    testLlmConnection: (apiKey, model, provider, baseUrl) =>
+      invokeCommand("configuration:test-llm-connection", { apiKey, model, provider, baseUrl }),
     onAssistantEvent: (callback) => subscribe("assistant:event", callback),
 
     // Debug
