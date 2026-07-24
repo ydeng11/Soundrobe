@@ -5314,9 +5314,8 @@ mod assistant_ai_tests {
         let context = test_library_context(0);
         let variants = [
             "change the album title to New Title",
-            "edit the album name",
-            "update the album field",
-        ];
+            "rename the album to Greatest Hits",
+            "set the artist to Testing"];
         for variant in &variants {
             let data = assistant_llm_call(variant, &context, &key, &model).await;
             let has_batch = data["actionBatch"].is_object();

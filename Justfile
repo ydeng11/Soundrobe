@@ -76,6 +76,13 @@ fe-check: fe-typecheck fe-test
 fe-smoke-openrouter:
     cd frontend/src-tauri && cargo test --all-features live_openrouter_returns_schema_constrained_json -- --ignored --nocapture
 
+# Run the AI assistant integration tests (require LLM_API_KEY from .env.local).
+# Tests: same_intent_read_only_produces_message,
+#        mutating_request_always_has_action_batch_or_tool_call, ...
+# For judge-based tests set LLM_JUDGE_MODEL too.
+fe-smoke-assistant-ai:
+    cd frontend/src-tauri && cargo test --all-features -- --ignored --nocapture 'same_intent_read_only_produces_message' 'mutating_request_always_has_action_batch_or_tool_call'
+
 # Exercise the packaged renderer adapter, Tauri command, assistant runtime,
 # OpenRouter transport, response schema, and conversation persistence together.
 fe-smoke-assistant: _fe-deps-check
