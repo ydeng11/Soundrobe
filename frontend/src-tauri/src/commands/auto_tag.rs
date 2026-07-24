@@ -65,6 +65,9 @@ pub struct TrackCandidate {
     pub musicbrainz_track_id: Option<String>,
     pub length: Option<f64>,
     pub genre: Option<String>,
+    /// File stem (without extension) for LLM title inference.
+    #[serde(default)]
+    pub filename: Option<String>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
@@ -112,7 +115,7 @@ pub fn build_lookup_request(album_path: &Path) -> Result<LookupRequest, ApiError
         .file_name()
         .and_then(|name| name.to_str())
         .unwrap_or_default();
-    let cd_subfolder = Regex::new(r"(?i)^(?:cd|disc|disk|ディスク)\s*\d+\s*$")
+    let cd_subfolder = Regex::new(r"(?i)^(?:cd|disc|disk|ディスク)\s*\d+\s*$|^.+(?:\s|\(|\[)(?:cd|disc|disk)\s*\d+\s*$")
         .expect("valid CD subfolder regex")
         .is_match(supplied_folder);
     let identity_album_path = if cd_subfolder {
@@ -170,12 +173,13 @@ pub fn build_lookup_request(album_path: &Path) -> Result<LookupRequest, ApiError
         .into_iter()
         .enumerate()
         .map(|(index, track)| {
-            let filename_number = Path::new(&track.path)
+            let filename_stem = Path::new(&track.path)
                 .file_stem()
-                .and_then(|stem| stem.to_str())
-                .and_then(filename_track_number);
+                .and_then(|stem| stem.to_str());
+            let filename_number = filename_stem.and_then(filename_track_number);
             TrackCandidate {
-                title: track.title,
+                title: track.title.or_else(|| filename_stem.and_then(filename_track_title)),
+                filename: filename_stem.map(|s| s.to_owned()),
                 artist: track.artist.clone(),
                 artists: if track.artists.is_empty() {
                     track.artist.into_iter().collect()
@@ -269,6 +273,17 @@ fn filename_track_number(stem: &str) -> Option<u32> {
         .captures(stem)
         .and_then(|captures| captures.get(1))
         .and_then(|number| number.as_str().parse().ok())
+}
+
+/// Extract the track title from a filename stem by removing the track number prefix.
+/// E.g. "01 从今以后" → Some("从今以后"), "track" → None.
+fn filename_track_title(stem: &str) -> Option<String> {
+    let title = Regex::new(r"^\d{1,3}\s*[.\-_\s]+")
+        .expect("valid filename title regex")
+        .replace(stem, "")
+        .trim()
+        .to_string();
+    if title.is_empty() { None } else { Some(title) }
 }
 
 pub fn folder_candidate(request: &LookupRequest) -> AlbumCandidate {
@@ -1125,6 +1140,7 @@ async fn resolve_tags_via_llm(
         "current_tracks": request.tracks.iter().enumerate().map(|(index, track)| serde_json::json!({
             "index": index,
             "title": track.title,
+            "filename": track.filename,
             "artist": track.artist,
             "track_number": track.track_number,
             "genre": track.genre,
@@ -1134,6 +1150,7 @@ async fn resolve_tags_via_llm(
         ChatMessage::system(concat!(
             "Resolve correct music metadata from folder structure, parser hints, and existing tags. ",
             "Return only JSON with artist, albumArtist, album, year, genre, tracks, and confidence. ",
+            "Use the per-track filename field to infer titles when the existing title is missing or garbled. ",
             "Strip year and format annotations from album names. Preserve uncertain fields as null. ",
             "Use Various Artists only for true compilations. Per-track entries use index, title, artist. ",
             "Do not invent provider IDs. Genre should use conservative Discogs-style comma-separated tags."
