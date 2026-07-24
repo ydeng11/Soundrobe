@@ -81,7 +81,7 @@ fe-smoke-openrouter:
 #        mutating_request_always_has_action_batch_or_tool_call, ...
 # For judge-based tests set LLM_JUDGE_MODEL too.
 fe-smoke-assistant-ai:
-    cd frontend/src-tauri && cargo test --all-features -- --ignored --nocapture 'same_intent_read_only_produces_message' 'mutating_request_always_has_action_batch_or_tool_call'
+    cd frontend/src-tauri && cargo test --all-features -- --ignored --nocapture same_intent_read_only_produces_consistent_shape mutating_request_always_has_action_batch_or_tool_call
 
 # Exercise the packaged renderer adapter, Tauri command, assistant runtime,
 # OpenRouter transport, response schema, and conversation persistence together.
