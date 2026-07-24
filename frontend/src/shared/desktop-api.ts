@@ -417,7 +417,7 @@ export interface DesktopAPI {
   cancelAudit: () => Promise<void>;
 
   // Cover
-  getCoverDataUrl: (albumPath: string) => Promise<string | null>;
+  getCoverDataUrl: (albumPath: string, preferredTrackPath?: string) => Promise<string | null>;
   setCover: (albumPath: string) => Promise<string | null>;
   removeCover: (albumPath: string) => Promise<boolean>;
   downloadCoverArt: (albumPath: string) => Promise<string | null>;

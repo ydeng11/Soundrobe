@@ -114,7 +114,8 @@ export function createTauriDesktopApi(): DesktopAPI {
     deleteFiles: (filePaths) => invokeCommand("track:delete-files", { filePaths }),
 
     // Cover
-    getCoverDataUrl: (albumPath) => invokeCommand("cover:data-url", { albumPath }),
+    getCoverDataUrl: (albumPath, preferredTrackPath) =>
+      invokeCommand("cover:data-url", { albumPath, preferredTrackPath }),
     setCover: (albumPath) => invokeCommand("cover:set", { albumPath }),
     removeCover: (albumPath) => invokeCommand("cover:remove", { albumPath }),
     downloadCoverArt: (albumPath) => invokeCommand("cover:download", { albumPath }),

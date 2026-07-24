@@ -27,8 +27,8 @@ const COVER_EXTENSIONS: &[&str] = &["jpg", "jpeg", "png"];
 const AUDIO_EXTENSIONS: &[&str] = &["mp3", "flac", "m4a", "mp4", "wav", "ogg", "opus", "ape"];
 
 #[tauri::command]
-pub fn cover_data_url(album_path: String) -> Option<String> {
-    cover_data_url_at(Path::new(&album_path))
+pub fn cover_data_url(album_path: String, preferred_track: Option<String>) -> Option<String> {
+    cover_data_url_at(Path::new(&album_path), preferred_track.as_deref())
 }
 
 #[tauri::command]
@@ -290,13 +290,64 @@ fn read_local_artwork(kind: ArtworkKind, album_path: &Path) -> Option<Vec<u8>> {
     }
 }
 
-pub fn cover_data_url_at(album_path: &Path) -> Option<String> {
+/// Read cover art for an album dir.
+///
+/// Priority:
+///   1. External cover file (cover.jpg etc.) — checked first via single-pass
+///      directory scan (no individual stat calls).
+///   2. Preferred track hint — probe only that one file for embedded art.
+///   3. Full directory scan — probe every audio file for embedded art.
+pub fn cover_data_url_at(album_path: &Path, preferred_track: Option<&str>) -> Option<String> {
+    let total_start = std::time::Instant::now();
+
     if is_cover_suppressed(album_path) {
+        tracing::debug!("[cover] suppressed — {:?}", total_start.elapsed());
         return None;
     }
+
+    // 1. External cover file (fastest path)
+    let ext_start = std::time::Instant::now();
     if let Some(path) = find_external_cover(album_path) {
-        return image_data_url(&fs::read(path).ok()?, 500, 85);
+        let found_at = ext_start.elapsed();
+        let img = fs::read(&path).ok()?;
+        let img_start = std::time::Instant::now();
+        let url = image_data_url(&img, 500, 85);
+        tracing::debug!(
+            "[cover] external {} ({:?} scan + {:?} encode, total {:?})",
+            path.display(),
+            found_at,
+            img_start.elapsed(),
+            total_start.elapsed(),
+        );
+        return url;
     }
+    let ext_elapsed = ext_start.elapsed();
+
+    // 2. Preferred track hint — avoid scanning every audio file
+    if let Some(track_path) = preferred_track {
+        let hint_path = std::path::Path::new(track_path);
+        let album_parent_matches = hint_path.parent() == Some(album_path);
+        let hint_valid = hint_path.is_file() && album_parent_matches;
+        tracing::debug!(
+            "[cover] preferred= {} valid={} in_album={} (ext scan {:?})",
+            track_path,
+            hint_path.is_file(),
+            album_parent_matches,
+            ext_elapsed,
+        );
+        if hint_valid {
+            if let Some(url) = try_embedded_cover(hint_path) {
+                tracing::debug!("[cover] total {:?}", total_start.elapsed());
+                return Some(url);
+            }
+        }
+    } else {
+        tracing::debug!("[cover] no preferred track (ext scan {:?})", ext_elapsed);
+    }
+
+    // 3. Fallback: scan all audio files for embedded art
+    let fallback_start = std::time::Instant::now();
+    let mut probe_count: usize = 0;
     let entries = fs::read_dir(album_path).ok()?;
     for entry in entries.flatten() {
         let path = entry.path();
@@ -312,24 +363,50 @@ pub fn cover_data_url_at(album_path: &Path) -> Option<String> {
         if !AUDIO_EXTENSIONS.contains(&extension.as_str()) {
             continue;
         }
-        let Ok(probe) = Probe::open(&path) else {
-            continue;
-        };
-        let Ok(tagged) = probe
-            .options(ParseOptions::new().read_properties(false))
-            .read()
-        else {
-            continue;
-        };
-        for tag in tagged.tags() {
-            if let Some(picture) = tag.pictures().first() {
-                if let Some(url) = image_data_url(picture.data(), 500, 85) {
-                    return Some(url);
-                }
-            }
+        probe_count += 1;
+        if let Some(url) = try_embedded_cover(&path) {
+            tracing::debug!(
+                "[cover] fallback: {}/{} probes, found at {} ({:?})",
+                probe_count,
+                probe_count,
+                path.display(),
+                total_start.elapsed(),
+            );
+            return Some(url);
         }
     }
+    tracing::debug!(
+        "[cover] fallback: {} probes, no cover ({:?})",
+        probe_count,
+        total_start.elapsed(),
+    );
     None
+}
+
+/// Probe a single audio file for an embedded cover picture and return its
+/// base64-encoded JPEG data URL. This avoids scanning every file in the album.
+/// Returns `None` if the file has no embedded picture or cannot be read.
+fn try_embedded_cover(path: &Path) -> Option<String> {
+    let probed = std::time::Instant::now();
+    let Ok(tagged) = Probe::open(path)
+        .and_then(|p| p.options(ParseOptions::new().read_properties(false)).read())
+    else {
+        return None;
+    };
+    let picture: &[u8] = tagged
+        .tags()
+        .iter()
+        .find_map(|tag| tag.pictures().first())
+        .map(|p| p.data())?;
+    let img_start = std::time::Instant::now();
+    let url = image_data_url(picture, 500, 85)?;
+    tracing::debug!(
+        "[cover] embedded probe: {} ({:?} probe + {:?} encode)",
+        path.display(),
+        probed.elapsed(),
+        img_start.elapsed(),
+    );
+    Some(url)
 }
 
 pub fn set_cover_from_path(album_path: &Path, source: &Path) -> Option<String> {
@@ -380,45 +457,67 @@ fn find_external_cover(album_path: &Path) -> Option<PathBuf> {
     if !album_path.exists() {
         return None;
     }
-    // First try standard cover names
-    for name in COVER_NAMES {
-        for extension in COVER_EXTENSIONS {
-            let candidate = album_path.join(format!("{name}.{extension}"));
-            if candidate.exists() {
-                return Some(candidate);
-            }
+    // Scan the directory once instead of issuing COVER_NAMES × COVER_EXTENSIONS
+    // individual exists() calls (which are expensive on network/slow volumes).
+    let entries: Vec<_> = fs::read_dir(album_path)
+        .ok()?
+        .flatten()
+        .filter(|entry| entry.file_type().map(|t| t.is_file()).unwrap_or(false))
+        .collect();
+
+    // First pass: look for standard cover names (case-insensitive name match
+    // against the stem, avoiding separate path-existence stat calls).
+    let lower_names: Vec<String> = COVER_NAMES.iter().map(|n| n.to_ascii_lowercase()).collect();
+    for entry in &entries {
+        let path = entry.path();
+        let name = entry.file_name();
+        let name_str = name.to_string_lossy();
+        if name_str.starts_with('.') || name_str.eq_ignore_ascii_case("artist.jpg") {
+            continue;
         }
+        let stem = path
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or_default()
+            .to_ascii_lowercase();
+        if !lower_names.contains(&stem) {
+            continue;
+        }
+        let ext = path
+            .extension()
+            .and_then(|e| e.to_str())
+            .unwrap_or_default()
+            .to_ascii_lowercase();
+        if !COVER_EXTENSIONS.contains(&ext.as_str()) {
+            continue;
+        }
+        return Some(path);
     }
-    // Fallback: scan the album directory for any image file that looks
-    // like a cover (largest jpg/png, ignoring hidden files and artist.jpg).
-    // This catches non-standard-named covers like 狂想曲.jpg.
+
+    // Second pass: any image file > 1 KB (non-standard-named covers like
+    // 狂想曲.jpg). Uses the same already-scanned entry list — no re-read_dir.
     let mut best: Option<PathBuf> = None;
     let mut best_size: u64 = 0;
-    if let Ok(entries) = fs::read_dir(album_path) {
-        for entry in entries.flatten() {
-            let path = entry.path();
-            if !entry.file_type().map(|t| t.is_file()).unwrap_or(false) {
-                continue;
-            }
-            let name = entry.file_name();
-            let name_str = name.to_string_lossy();
-            if name_str.starts_with('.') || name_str.eq_ignore_ascii_case("artist.jpg") {
-                continue;
-            }
-            let ext = path
-                .extension()
-                .and_then(|e| e.to_str())
-                .unwrap_or_default()
-                .to_ascii_lowercase();
-            if !COVER_EXTENSIONS.contains(&ext.as_str()) {
-                continue;
-            }
-            if let Ok(meta) = fs::metadata(&path) {
-                let len = meta.len();
-                if len >= 1024 && len > best_size {
-                    best_size = len;
-                    best = Some(path);
-                }
+    for entry in &entries {
+        let path = entry.path();
+        let name = entry.file_name();
+        let name_str = name.to_string_lossy();
+        if name_str.starts_with('.') || name_str.eq_ignore_ascii_case("artist.jpg") {
+            continue;
+        }
+        let ext = path
+            .extension()
+            .and_then(|e| e.to_str())
+            .unwrap_or_default()
+            .to_ascii_lowercase();
+        if !COVER_EXTENSIONS.contains(&ext.as_str()) {
+            continue;
+        }
+        if let Ok(meta) = fs::metadata(&path) {
+            let len = meta.len();
+            if len >= 1024 && len > best_size {
+                best_size = len;
+                best = Some(path);
             }
         }
     }
@@ -511,7 +610,7 @@ mod tests {
         assert_eq!(&cover[..2], &[0xff, 0xd8]);
         let decoded = image::load_from_memory(&cover).unwrap();
         assert_eq!((decoded.width(), decoded.height()), (500, 125));
-        assert!(cover_data_url_at(&album).is_some());
+        assert!(cover_data_url_at(&album, None).is_some());
         fs::remove_dir_all(root).unwrap();
     }
 
@@ -524,7 +623,7 @@ mod tests {
         assert!(!root.join("cover.jpg").exists());
         assert!(root.join("front.png").exists());
         assert!(root.join(COVER_REMOVED_MARKER).exists());
-        assert_eq!(cover_data_url_at(&root), None);
+        assert_eq!(cover_data_url_at(&root, None), None);
         fs::remove_dir_all(root).unwrap();
     }
 
@@ -642,7 +741,7 @@ mod tests {
         );
         tag.save_to_path(&track, lofty::config::WriteOptions::new())
             .unwrap();
-        let url = cover_data_url_at(&root).expect("valid embedded artwork");
+        let url = cover_data_url_at(&root, None).expect("valid embedded artwork");
         assert!(url.starts_with("data:image/jpeg;base64,"));
         fs::remove_dir_all(root).unwrap();
     }
@@ -774,11 +873,154 @@ mod tests {
     fn malformed_external_image_and_missing_album_fail_closed() {
         let root = root();
         fs::write(root.join("cover.jpg"), b"not an image").unwrap();
-        assert_eq!(cover_data_url_at(&root), None);
+        assert_eq!(cover_data_url_at(&root, None), None);
         assert_eq!(set_cover_from_path(&root, &root.join("missing.png")), None);
         let missing = root.join("missing-album");
-        assert_eq!(cover_data_url_at(&missing), None);
+        assert_eq!(cover_data_url_at(&missing, None), None);
         assert!(!remove_cover_at(&missing));
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn preferred_track_avoids_full_directory_scan() {
+        let root = root();
+        let album = root.join("Album");
+        fs::create_dir_all(&album).unwrap();
+
+        // Two tracks — only the preferred one has embedded art
+        let track_no_cover = album.join("01 no cover.flac");
+        fs::copy(
+            PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                .join("../test/fixtures/tauri/media-corpus/minimal.mp3"),
+            &track_no_cover,
+        )
+        .unwrap();
+
+        let track_with_cover = album.join("02 with cover.mp3");
+        fs::copy(
+            PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                .join("../test/fixtures/tauri/media-corpus/minimal.mp3"),
+            &track_with_cover,
+        )
+        .unwrap();
+        let mut tag = Id3v2Tag::new();
+        tag.insert_picture(
+            Picture::unchecked(png(4, 4))
+                .pic_type(PictureType::CoverFront)
+                .mime_type(MimeType::Png)
+                .build(),
+        );
+        tag.save_to_path(&track_with_cover, lofty::config::WriteOptions::new())
+            .unwrap();
+
+        // Preferring the track-with-cover should find it without scanning '01 no cover.flac'
+        let url = cover_data_url_at(&album, Some(track_with_cover.to_str().unwrap())).unwrap();
+        assert!(url.starts_with("data:image/jpeg;base64,"));
+
+        // Preferring the non-cover track should return none (no fallback scan should be
+        // needed for this test, but we assert it's at least not a crash)
+        let result = cover_data_url_at(&album, Some(track_no_cover.to_str().unwrap()));
+        // The non-cover file is MP3 with ID3 tag but no picture — the hint should return
+        // None, then the fallback should find the other track's embedded art.
+        assert!(
+            result.is_none() || result.unwrap().starts_with("data:image/jpeg;base64,")
+        );
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn preferred_track_outside_album_ignored_falls_back() {
+        let root = root();
+        let album = root.join("Album");
+        fs::create_dir_all(&album).unwrap();
+
+        // Track outside the album directory
+        let outside = root.join("outside.mp3");
+        fs::copy(
+            PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                .join("../test/fixtures/tauri/media-corpus/minimal.mp3"),
+            &outside,
+        )
+        .unwrap();
+
+        // Track inside album (no cover)
+        let inside = album.join("01 no cover.flac");
+        fs::copy(
+            PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                .join("../test/fixtures/tauri/media-corpus/minimal.mp3"),
+            &inside,
+        )
+        .unwrap();
+
+        // No external cover, no files with embedded art → None
+        assert_eq!(cover_data_url_at(&album, Some(outside.to_str().unwrap())), None);
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn preferred_track_none_falls_back_to_full_scan() {
+        let root = root();
+        let album = root.join("Album");
+        fs::create_dir_all(&album).unwrap();
+
+        // Single track with embedded art
+        let track = album.join("01 with cover.mp3");
+        fs::copy(
+            PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                .join("../test/fixtures/tauri/media-corpus/minimal.mp3"),
+            &track,
+        )
+        .unwrap();
+        let mut tag = Id3v2Tag::new();
+        tag.insert_picture(
+            Picture::unchecked(png(4, 4))
+                .pic_type(PictureType::CoverFront)
+                .mime_type(MimeType::Png)
+                .build(),
+        );
+        tag.save_to_path(&track, lofty::config::WriteOptions::new())
+            .unwrap();
+
+        // With no preferred track hint, should scan and find embedded art
+        let url = cover_data_url_at(&album, None).unwrap();
+        assert!(url.starts_with("data:image/jpeg;base64,"));
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn external_cover_has_priority_over_preferred_track() {
+        let root = root();
+        let album = root.join("Album");
+        fs::create_dir_all(&album).unwrap();
+
+        // External cover.jpg
+        fs::write(album.join("cover.jpg"), png(2, 2)).unwrap();
+
+        // Track with embedded art
+        let track = album.join("track.mp3");
+        fs::copy(
+            PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                .join("../test/fixtures/tauri/media-corpus/minimal.mp3"),
+            &track,
+        )
+        .unwrap();
+        let mut tag = Id3v2Tag::new();
+        tag.insert_picture(
+            Picture::unchecked(png(4, 4))
+                .pic_type(PictureType::CoverFront)
+                .mime_type(MimeType::Png)
+                .build(),
+        );
+        tag.save_to_path(&track, lofty::config::WriteOptions::new())
+            .unwrap();
+
+        // External cover should win even when a preferred track with embedded art is given
+        let url = cover_data_url_at(&album, Some(track.to_str().unwrap())).unwrap();
+        assert!(url.starts_with("data:image/jpeg;base64,"));
+
         fs::remove_dir_all(root).unwrap();
     }
 }

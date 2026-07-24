@@ -100,6 +100,14 @@ export function FileGrid({
     [selectedTrackPaths]
   );
 
+  // Stable refs so click/context-menu callbacks don't recreate on every
+  // selection (which would defeat the memoized FileGridRow and rerender
+  // the entire grid). Update them each render — the ref identity is stable.
+  const selectedTrackPathsRef = useRef(selectedTrackPaths);
+  selectedTrackPathsRef.current = selectedTrackPaths;
+  const multiSelectedRef = useRef(multiSelected);
+  multiSelectedRef.current = multiSelected;
+
   // Draggable column widths (pixel values)
   const headerRef = useRef<HTMLDivElement>(null);
   const [columnWidths, setColumnWidths] = useState<Record<string, number> | null>(null);
@@ -374,8 +382,9 @@ export function FileGrid({
       e.stopPropagation();
 
       if (contextMenuBusyRef.current) return;
-      const isMultiSelected = selectedTrackPaths.length > 1 && selectedTrackPaths.includes(track.path);
-      const contextPaths = isMultiSelected ? selectedTrackPaths : [track.path];
+      const currentPaths = selectedTrackPathsRef.current;
+      const isMultiSelected = currentPaths.length > 1 && currentPaths.includes(track.path);
+      const contextPaths = isMultiSelected ? currentPaths : [track.path];
 
       if (!isMultiSelected) {
         onMultiSelect?.([track.path]);
@@ -397,17 +406,18 @@ export function FileGrid({
         contextMenuBusyRef.current = false;
       }
     },
-    [onEditExtraTags, onDeleteFiles, onMultiSelect, onSelectTrack, selectedTrackPaths, showTrackMenu],
+    [onEditExtraTags, onDeleteFiles, onMultiSelect, onSelectTrack, showTrackMenu],
   );
 
   const handleFileAreaContextMenu = useCallback(
     async (e: React.MouseEvent) => {
       e.preventDefault();
 
-      if (selectedTrackPaths.length === 0) return;
+      const currentPaths = selectedTrackPathsRef.current;
+      if (currentPaths.length === 0) return;
       if (contextMenuBusyRef.current) return;
 
-      const primary = tracks.find((track) => track.path === selectedTrackPaths[0]);
+      const primary = tracks.find((track) => track.path === currentPaths[0]);
       if (!primary) {
         return;
       }
@@ -417,9 +427,9 @@ export function FileGrid({
         const action = await showTrackMenu(primary);
 
         if (action === "extra-tags") {
-          onEditExtraTags?.(primary, selectedTrackPaths);
+          onEditExtraTags?.(primary, currentPaths);
         } else if (action === "delete-files") {
-          onDeleteFiles?.(selectedTrackPaths);
+          onDeleteFiles?.(currentPaths);
         }
       } catch {
         // Backend rejected the request (e.g. ContextMenuAlreadyActive); user can retry.
@@ -427,11 +437,12 @@ export function FileGrid({
         contextMenuBusyRef.current = false;
       }
     },
-    [onEditExtraTags, onDeleteFiles, selectedTrackPaths, showTrackMenu, sorted, tracks],
+    [onEditExtraTags, onDeleteFiles, showTrackMenu, sorted, tracks],
   );
 
   const handleRowClick = useCallback(
     (track: TrackData, index: number, event: React.MouseEvent) => {
+      performance.mark("select:click");
       if (event.shiftKey && lastClickedRef.current >= 0) {
         const from = Math.min(lastClickedRef.current, index);
         const to = Math.max(lastClickedRef.current, index);
@@ -445,9 +456,11 @@ export function FileGrid({
         // The BatchEditor (shown when selectedTrackPaths.length > 1) gets cover art
         // from handleMultiSelect's first-track logic anyway.
       } else if (event.ctrlKey || event.metaKey) {
-        const paths = multiSelected.has(track.path)
-          ? selectedTrackPaths.filter((path) => path !== track.path)
-          : [...selectedTrackPaths, track.path];
+        const currentSet = multiSelectedRef.current;
+        const currentPaths = selectedTrackPathsRef.current;
+        const paths = currentSet.has(track.path)
+          ? currentPaths.filter((path) => path !== track.path)
+          : [...currentPaths, track.path];
         onMultiSelect?.(paths);
         lastClickedRef.current = index;
       } else {
@@ -456,7 +469,7 @@ export function FileGrid({
         onSelectTrack(track.path, track);
       }
     },
-    [sorted, multiSelected, selectedTrackPaths, onSelectTrack, onMultiSelect]
+    [sorted, onSelectTrack, onMultiSelect]
   );
 
   const handleHeaderContextMenu = useCallback((e: React.MouseEvent) => {

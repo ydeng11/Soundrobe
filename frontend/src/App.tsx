@@ -99,31 +99,52 @@ export default function App() {
   // Debounce timer for rapid cover navigation
   const coverDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  /** Fetch cover data URL with caching and stale-response guarding. */
-  const fetchCover = useCallback((albumPath: string, signal?: AbortSignal) => {
-    const cached = coverUrlCacheRef.current.get(albumPath);
-    if (cached !== undefined) {
-      dispatch({ type: "SET_COVER_URL", url: cached });
-      return;
-    }
+  /** Fetch cover data URL with caching and stale-response guarding.
+   *
+   * `preferredTrackPath` hints at a track known to have embedded cover art so
+   * the Rust side can probe just that one file instead of scanning every audio
+   * file in the album directory (the main cause of multi-second selection lag).
+   */
+  const fetchCover = useCallback(
+    (albumPath: string, signal?: AbortSignal, preferredTrackPath?: string | null) => {
+      const cached = coverUrlCacheRef.current.get(albumPath);
+      if (cached !== undefined) {
+        console.log(`[select] cover cached — ${albumPath.split("/").pop()}`);
+        dispatch({ type: "SET_COVER_URL", url: cached });
+        return;
+      }
 
-    window.api.getCoverDataUrl(albumPath).then(
-      (url) => {
-        if (signal?.aborted) return;
-        coverUrlCacheRef.current.set(albumPath, url);
-        dispatch({ type: "SET_COVER_URL", url });
-      },
-      () => {
-        if (signal?.aborted) return;
-        coverUrlCacheRef.current.set(albumPath, null);
-        dispatch({ type: "SET_COVER_URL", url: null });
-      },
-    );
-  }, []);
+      const ipcStart = performance.now();
+      window.api.getCoverDataUrl(albumPath, preferredTrackPath ?? undefined).then(
+        (url) => {
+          if (signal?.aborted) {
+            console.log(`[select] cover aborted (${(performance.now() - ipcStart).toFixed(0)}ms)`);
+            return;
+          }
+          const elapsed = performance.now() - ipcStart;
+          coverUrlCacheRef.current.set(albumPath, url);
+          dispatch({ type: "SET_COVER_URL", url });
+          console.log(`[select] ${elapsed.toFixed(0)}ms — cover ready`);
+        },
+        () => {
+          if (signal?.aborted) return;
+          const elapsed = performance.now() - ipcStart;
+          coverUrlCacheRef.current.set(albumPath, null);
+          dispatch({ type: "SET_COVER_URL", url: null });
+          console.log(`[select] ${elapsed.toFixed(0)}ms — no cover`);
+        },
+      );
+    },
+    [],
+  );
 
-  /** Debounced cover fetch — cancels previous in-flight request. */
+  /** Debounced cover fetch — cancels previous in-flight request.
+   *
+   * `preferredTrackPath` is forwarded to `fetchCover` so Rust only probes
+   * the one known cover-bearing file rather than scanning every audio file.
+   */
   const debouncedFetchCover = useCallback(
-    (albumPath: string) => {
+    (albumPath: string, preferredTrackPath?: string | null) => {
       if (coverDebounceRef.current) {
         clearTimeout(coverDebounceRef.current);
       }
@@ -134,7 +155,7 @@ export default function App() {
       coverAbortRef.current = abort;
 
       coverDebounceRef.current = setTimeout(() => {
-        fetchCover(albumPath, abort.signal);
+        fetchCover(albumPath, abort.signal, preferredTrackPath);
       }, 80);
     },
     [fetchCover],
@@ -263,23 +284,29 @@ export default function App() {
     (paths: string[]) => {
       dispatch({ type: "SET_SELECTED_TRACKS", paths });
 
-      // Still show the primary (first) track's cover art
+      // Still show the primary (first) track's cover art.
+      // Use debouncedFetchCover so that when handleSelectTrack follows
+      // (single-click), the immediate and debounced calls collapse into
+      // one IPC — avoiding a double Rust-side album scan (~500ms).
       if (paths.length > 0) {
         const primary = state.tracks.find((t) => t.path === paths[0]);
         if (primary) {
-          fetchCover(dirPath(primary.path));
+          debouncedFetchCover(dirPath(primary.path), primary.hasCover ? primary.path : null);
         }
       }
     },
-    [state.tracks, fetchCover],
+    [state.tracks, debouncedFetchCover],
   );
 
   // --- Track selection ---
 
   const handleSelectTrack = useCallback(
     (path: string, track: TrackData) => {
+      console.log(`[select] dispatch — ${track.path.split("/").pop()}`);
       dispatch({ type: "SELECT_TRACK", path, track });
-      debouncedFetchCover(dirPath(path));
+      // Pass the clicked track as a preferred hint so Rust probes this one
+      // file for embedded cover art instead of scanning every audio file.
+      debouncedFetchCover(dirPath(path), track.hasCover ? path : null);
     },
     [debouncedFetchCover],
   );
