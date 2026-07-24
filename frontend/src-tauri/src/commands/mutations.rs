@@ -1604,7 +1604,15 @@ pub fn write_wav_atomic(path: &Path, patch: &TrackPatch) -> Result<TrackWriteOut
 
     let temporary = sibling_temp_path(path);
     let result = (|| {
-        copy_file_data(path, &temporary)?;
+        // Strip the garbled LIST INFO chunk before saving, so the ID3v2
+        // values are authoritative after write (no stale INAM/IART/IPRD).
+        let cleaned = strip_wav_list_chunk(&original_bytes);
+        fs::write(&temporary, &cleaned).map_err(|e| {
+            ApiError::Io(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                format!("write WAV staging: {e}"),
+            ))
+        })?;
         tag.save_to_path(&temporary, WriteOptions::new())?;
         let candidate_bytes = fs::read(&temporary)?;
         let candidate_audio = wav_data_payloads(&candidate_bytes).ok_or_else(|| {
@@ -2515,6 +2523,32 @@ fn wav_data_payloads(bytes: &[u8]) -> Option<Vec<Vec<u8>>> {
         offset = data_end.checked_add(size % 2)?;
     }
     (offset == bytes.len() && !payloads.is_empty()).then_some(payloads)
+}
+
+/// Strip the RIFF `LIST` chunk from a WAV byte buffer, returning a new
+/// buffer with the same audio payload but no LIST INFO metadata.
+/// The RIFF total size in the header is updated accordingly.
+fn strip_wav_list_chunk(bytes: &[u8]) -> Vec<u8> {
+    let mut out = bytes[..12].to_vec(); // RIFF header, size placeholder
+    let mut offset = 12_usize;
+    while offset.checked_add(8).is_some_and(|end| end <= bytes.len()) {
+        let id = bytes.get(offset..offset + 4).unwrap_or_default();
+        let chunk_size_bytes: [u8; 4] = bytes.get(offset + 4..offset + 8)
+            .and_then(|s| <[u8; 4]>::try_from(s).ok())
+            .unwrap_or([0; 4]);
+        let chunk_size = u32::from_le_bytes(chunk_size_bytes) as usize;
+        if id == b"LIST" {
+            // Skip this chunk entirely
+            offset += 8 + chunk_size + (chunk_size % 2);
+            continue;
+        }
+        out.extend_from_slice(bytes.get(offset..offset + 8 + chunk_size + (chunk_size % 2)).unwrap_or_default());
+        offset += 8 + chunk_size + (chunk_size % 2);
+    }
+    // Update RIFF size in header
+    let riff_len = (out.len() as u32).wrapping_sub(8).to_le_bytes();
+    out[4..8].copy_from_slice(&riff_len);
+    out
 }
 
 fn mp4_mdat_payloads(bytes: &[u8]) -> Option<Vec<Vec<u8>>> {
@@ -3653,6 +3687,68 @@ mod tests {
             original_audio
         );
         fs::remove_dir_all(root).unwrap();
+    }
+
+    /// WAV with both garbled LIST INFO and correct ID3v2 must prefer the
+    /// ID3v2 values on read and strip the stale LIST chunk on write.
+    #[test]
+    fn wav_read_prefers_id3v2_over_list_info_and_write_strips_list() {
+        let path = media_fixture("synthetic-list-id3.wav");
+
+        // Verify read prefers ID3v2 values over garbled LIST INFO.
+        let track = read_track_metadata(&path).unwrap();
+        assert_eq!(
+            track.title.as_deref(),
+            Some("从今以后"),
+            "title should come from ID3v2, not LIST INAM"
+        );
+        assert_eq!(
+            track.artist.as_deref(),
+            Some("信乐团"),
+            "artist should come from ID3v2, not LIST IART"
+        );
+        assert_eq!(
+            track.album.as_deref(),
+            Some("挑信"),
+            "album should come from ID3v2, not LIST IPRD"
+        );
+
+        // Verify write strips the LIST chunk from the file.
+        let patch: TrackPatch =
+            serde_json::from_value(serde_json::json!({"title": "Updated After Write"})).unwrap();
+        let original_audio = wav_data_payloads(&fs::read(&path).unwrap()).unwrap();
+        {
+            let (root, tmp) = copy_to_temp(&path, "synthetic-list-id3.wav");
+            write_wav_atomic(&tmp, &patch).unwrap();
+            assert_eq!(
+                wav_data_payloads(&fs::read(&tmp).unwrap()).unwrap(),
+                original_audio
+            );
+            // After write, the LIST chunk must be absent.
+            let written = fs::read(&tmp).unwrap();
+            let mut off = 12_usize;
+            while off + 8 <= written.len() {
+                let id = &written[off..off + 4];
+                assert_ne!(id, b"LIST", "LIST chunk must be stripped on write");
+                let size =
+                    u32::from_le_bytes(written[off + 4..off + 8].try_into().unwrap()) as usize;
+                off += 8 + size + (size % 2);
+            }
+            fs::remove_dir_all(root).unwrap();
+        }
+
+        // Verify strip_wav_list_chunk directly.
+        let bytes = fs::read(&path).unwrap();
+        let cleaned = strip_wav_list_chunk(&bytes);
+        assert!(cleaned.len() < bytes.len(), "stripped file should be smaller");
+        let mut off = 12_usize;
+        while off + 8 <= cleaned.len() {
+            let id = &cleaned[off..off + 4];
+            assert_ne!(id, b"LIST", "strip_wav_list_chunk must remove LIST");
+            let size =
+                u32::from_le_bytes(cleaned[off + 4..off + 8].try_into().unwrap()) as usize;
+            off += 8 + size + (size % 2);
+        }
     }
 
     #[test]
