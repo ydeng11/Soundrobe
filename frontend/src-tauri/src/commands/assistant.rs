@@ -30,8 +30,8 @@ use crate::state::write_queue::WriteQueue;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::{BTreeMap, HashSet};
-use std::fs;
 use std::path::{Path, PathBuf};
+use std::fs;
 use std::sync::atomic::Ordering;
 use tauri::{AppHandle, Emitter, State};
 
@@ -455,15 +455,14 @@ pub async fn assistant_send(
                 "You are the Soundrobe desktop music-library assistant. You see the user's library context above.\n",
                 "\n",
                 "How to respond:\n",
-                "- If the user asks something the context already answers (\"what albums\", \"how many tracks\"), reply directly with just a message — no tool, no action batch.\n",
-                "- If you need data not visible in context (search for a specific artist, fetch remote info), use a read-only tool.\n",
-                "- If the user says \"change X to Y\", \"set X to Y\", or any concrete edit with a new value, output an actionBatch right away. Don't ask what value to use — it's already in their message.\n",
+                "- If the user asks something the context already answers, reply directly with just a message — no tool.\n",
+                "- If you need data not visible in context (search, inspect, query), use a read-only tool.\n",
+                "- If the request is an explicit edit with values (\"set X to Y\", \"remove field Z\"), use metadata.patch with explicit values.\n",
+                "- If the request is a transformation (\"strip numbers from titles\", \"lowercase all genres\", \"extract first word\", \"convert Chinese to traditional\"), use metadata.transform with the right operations pipeline.\n",
+                "- For filename/path renames, use files.transform.\n",
+                "- Prefer toolCall over model-authored actionBatch. Use toolCall for metadata.patch, metadata.transform, and files.transform.\n",
                 "- If the request is vague (\"edit the album\" without a value), explain what you need and ask.\n",
                 "\n",
-                "actionBatch fields:\n",
-                "  kind — one of: tag-update, extra-tag-update, metadata-update, folder-move, auto-tag-run, audit-run\n",
-                "  actions — each with trackPath from the active scope, tagKind (standard|extra), field, newValue (null to remove)\n",
-                "  riskLevel — low, medium, or high\n",
                 "toolCall — toolName from the list below, args matching its schema\n",
                 "Your message should be concise and user-facing.\n",
                 "Available tools: {tools}"
@@ -584,7 +583,9 @@ pub async fn assistant_send(
             config: &raw_config,
             assistant: &snapshot,
         };
-        let execution = if tool_call.tool_name == "create_plan" {
+        let execution = if tool_call.tool_name == "create_plan"
+            || tool_call.tool_name == "plan.create"
+        {
             execute_create_plan(&tool_call.args, &input, &session_id, native_services).await
         } else if registered_tool_is_read_only(&tool_call.tool_name) == Some(false) {
             execute_mutating_assistant_tool(
@@ -901,6 +902,7 @@ fn derive_assistant_task_contract(message: &str) -> AssistantTaskContract {
             requires_completion_evidence: false,
         };
     }
+    // Keep deterministic routing only for complex multi-step tasks
     if text.contains("auto-tag")
         || text.contains("auto tag")
         || text.contains("fill tags")
@@ -926,87 +928,9 @@ fn derive_assistant_task_contract(message: &str) -> AssistantTaskContract {
             requires_completion_evidence: true,
         };
     }
-    if (text.contains("strip") || text.contains("remove"))
-        && text.contains("filename")
-        && (text.contains("prefix") || text.contains("number"))
-    {
-        return AssistantTaskContract {
-            kind: AssistantTaskContractKind::ActionPreviewRequired,
-            route: Some(AssistantTaskRoute::StripFilenamePrefixes),
-            reason: "strip_filename_prefixes_intent",
-            requires_completion_evidence: true,
-        };
-    }
-    if text.contains("filename")
-        && (text.contains("infer") || text.contains("parse") || text.contains("derive"))
-        && (text.contains("tag") || text.contains("title") || text.contains("artist"))
-    {
-        return AssistantTaskContract {
-            kind: AssistantTaskContractKind::ActionPreviewRequired,
-            route: Some(AssistantTaskRoute::InferTagsFromFilenames),
-            reason: "infer_tags_from_filenames_intent",
-            requires_completion_evidence: true,
-        };
-    }
-    let chinese_conversion = text.contains("chinese")
-        || text.contains("中文")
-        || text.contains("traditional")
-        || text.contains("simplified")
-        || text.contains("繁體")
-        || text.contains("繁体")
-        || text.contains("简体")
-        || text.contains("簡體");
-    if chinese_conversion
-        && (text.contains("convert") || text.contains("转换") || text.contains("轉換"))
-    {
-        let route =
-            if text.contains("traditional") || text.contains("繁體") || text.contains("繁体") {
-                Some(AssistantTaskRoute::ChineseToTraditional)
-            } else if text.contains("simplified") || text.contains("简体") || text.contains("簡體")
-            {
-                Some(AssistantTaskRoute::ChineseToSimplified)
-            } else {
-                None
-            };
-        return AssistantTaskContract {
-            kind: route.map_or(AssistantTaskContractKind::ClarificationRequired, |_| {
-                AssistantTaskContractKind::ActionPreviewRequired
-            }),
-            route,
-            reason: "chinese_convert_intent",
-            requires_completion_evidence: route.is_some(),
-        };
-    }
-    if text.contains("album")
-        && (text.contains("group") || text.contains("organize") || text.contains("organise"))
-        && (text.contains("folder") || text.contains("file"))
-    {
-        return AssistantTaskContract {
-            kind: AssistantTaskContractKind::ActionPreviewRequired,
-            route: Some(AssistantTaskRoute::GroupByAlbum),
-            reason: "group_by_album_intent",
-            requires_completion_evidence: true,
-        };
-    }
-    if (text.contains("strip") || text.contains("remove"))
-        && text.contains("title")
-        && (text.contains("prefix") || text.contains("number"))
-    {
-        return AssistantTaskContract {
-            kind: AssistantTaskContractKind::ActionPreviewRequired,
-            route: Some(AssistantTaskRoute::StripTrackTitlePrefixes),
-            reason: "strip_track_title_prefixes_intent",
-            requires_completion_evidence: true,
-        };
-    }
-    if (text.contains("track") && text.contains("number")) || text.contains("renumber") {
-        return AssistantTaskContract {
-            kind: AssistantTaskContractKind::ActionPreviewRequired,
-            route: Some(AssistantTaskRoute::AutoNumberTracks),
-            reason: "auto_number_tracks_intent",
-            requires_completion_evidence: true,
-        };
-    }
+    // All other requests: let the LLM reason about them.
+    // Simple transformations (strip prefixes, convert Chinese, regex extract, etc.)
+    // are now handled by the LLM using metadata.transform / metadata.patch tools.
     let read_only = [
         "summarize",
         "summary",
@@ -1026,7 +950,7 @@ fn derive_assistant_task_contract(message: &str) -> AssistantTaskContract {
     .any(|needle| text.contains(needle));
     let mutation = [
         "apply", "change", "fix", "update", "edit", "set ", "write", "number", "renumber", "infer",
-        "parse", "strip", "organize", "organise", "move", "run ",
+        "parse", "strip", "organize", "organise", "move", "run ", "convert", "group",
     ]
     .iter()
     .any(|needle| text.contains(needle))
@@ -1213,13 +1137,13 @@ fn deterministic_task_batch(
     }))
 }
 
-struct MutatingToolExecution {
-    result: AssistantToolResult,
-    batches: Vec<AssistantActionBatch>,
-    completion_evidence: bool,
+pub(crate) struct MutatingToolExecution {
+    pub(crate) result: AssistantToolResult,
+    pub(crate) batches: Vec<AssistantActionBatch>,
+    pub(crate) completion_evidence: bool,
 }
 
-fn mutating_tool_execution(
+pub(crate) fn mutating_tool_execution(
     summary: String,
     data: Option<Value>,
     batch: Option<AssistantActionBatch>,
@@ -1238,7 +1162,7 @@ fn mutating_tool_execution(
     }
 }
 
-fn mutating_tool_no_changes(summary: impl Into<String>) -> MutatingToolExecution {
+pub(crate) fn mutating_tool_no_changes(summary: impl Into<String>) -> MutatingToolExecution {
     let summary = summary.into();
     MutatingToolExecution {
         result: AssistantToolResult {
@@ -1252,7 +1176,7 @@ fn mutating_tool_no_changes(summary: impl Into<String>) -> MutatingToolExecution
     }
 }
 
-fn mutating_tool_error(message: impl Into<String>) -> MutatingToolExecution {
+pub(crate) fn mutating_tool_error(message: impl Into<String>) -> MutatingToolExecution {
     let message = message.into();
     MutatingToolExecution {
         result: AssistantToolResult {
@@ -1266,7 +1190,7 @@ fn mutating_tool_error(message: impl Into<String>) -> MutatingToolExecution {
     }
 }
 
-fn assistant_batch(
+pub(crate) fn assistant_batch(
     session_id: &str,
     kind: &str,
     title: impl Into<String>,
@@ -1289,7 +1213,7 @@ fn assistant_batch(
     }
 }
 
-fn tool_scope_paths(input: &AssistantSendInput, args: &Value) -> Result<Vec<String>, String> {
+pub(crate) fn tool_scope_paths(input: &AssistantSendInput, args: &Value) -> Result<Vec<String>, String> {
     let scope = args
         .get("target_scope")
         .and_then(Value::as_str)
@@ -1343,6 +1267,18 @@ fn execute_mutating_assistant_tool(
         return mutating_tool_error(format!("Invalid arguments for {name}: {error}"));
     }
     match name {
+        // New general tools
+        "metadata.patch" => {
+            super::assistant_metadata_tools::execute_metadata_patch(args, input, session_id)
+        }
+        "metadata.transform" => {
+            super::assistant_metadata_tools::execute_metadata_transform(args, input, session_id)
+        }
+        "files.transform" => {
+            super::assistant_metadata_tools::execute_files_transform(args, input, session_id)
+        }
+        "library.run_task" => execute_run_library_task(args, input, session_id),
+        // Legacy tools (kept for backward compatibility)
         "edit_metadata" => execute_edit_metadata(args, input, session_id),
         "extract_tag_value" => execute_extract_tag_value(args, input, session_id),
         "organize_files" => execute_organize_files(args, input, session_id),
@@ -1861,7 +1797,7 @@ fn execute_edit_metadata(
     )
 }
 
-fn action_value_string(value: &Value) -> Option<String> {
+pub(crate) fn action_value_string(value: &Value) -> Option<String> {
     match value {
         Value::String(value) => Some(value.clone()),
         Value::Number(value) => Some(value.to_string()),
@@ -1877,11 +1813,11 @@ fn action_value_string(value: &Value) -> Option<String> {
     }
 }
 
-fn track_field_string(track: &Value, field: &str) -> Option<String> {
+pub(crate) fn track_field_string(track: &Value, field: &str) -> Option<String> {
     track.get(field).and_then(action_value_string)
 }
 
-fn extra_action(path: &str, key: &str, value: Option<&str>, operation: &str) -> AssistantAction {
+pub(crate) fn extra_action(path: &str, key: &str, value: Option<&str>, operation: &str) -> AssistantAction {
     AssistantAction {
         tag_kind: Some("extra".into()),
         track_path: Some(path.into()),
@@ -2305,14 +2241,14 @@ fn numeric_field(track: &Value, field: &str) -> Option<u32> {
     })
 }
 
-fn track_path(track: &Value) -> &str {
+pub(crate) fn track_path(track: &Value) -> &str {
     track
         .get("path")
         .and_then(Value::as_str)
         .unwrap_or_default()
 }
 
-fn push_numeric_action(
+pub(crate) fn push_numeric_action(
     actions: &mut Vec<AssistantAction>,
     track: &Value,
     field: &str,
@@ -2365,7 +2301,7 @@ fn plan_strip_track_title_prefixes(
         .collect()
 }
 
-fn strip_track_title_prefix(title: &str) -> String {
+pub(crate) fn strip_track_title_prefix(title: &str) -> String {
     use std::sync::OnceLock;
     static PREFIX: OnceLock<regex::Regex> = OnceLock::new();
     PREFIX
@@ -2480,7 +2416,7 @@ fn split_artist_names(artist: &str) -> Vec<String> {
         .collect()
 }
 
-fn push_string_action(
+pub(crate) fn push_string_action(
     actions: &mut Vec<AssistantAction>,
     track: Option<&Value>,
     path: &str,
@@ -2614,7 +2550,7 @@ fn plan_group_by_album(
     Ok(actions)
 }
 
-fn path_is_inside(path: &Path, root: &Path) -> bool {
+pub(crate) fn path_is_inside(path: &Path, root: &Path) -> bool {
     fn normalized(path: &Path) -> Option<PathBuf> {
         let mut result = PathBuf::new();
         for component in path.components() {
@@ -3432,6 +3368,7 @@ mod apply_contract_tests {
 
     #[test]
     fn task_contract_routes_known_library_tasks_without_model_judgment() {
+        // auto-tag and audit remain deterministic (complex multi-step tasks)
         let auto_tag = derive_assistant_task_contract("fill missing tags for this album");
         assert_eq!(
             auto_tag.kind,
@@ -3445,41 +3382,31 @@ mod apply_contract_tests {
         assert_eq!(audit.route, Some(AssistantTaskRoute::Audit));
         assert!(audit.requires_completion_evidence);
 
+        // Simple transformations no longer get deterministic routes; they go to the LLM
         let numbering = derive_assistant_task_contract("fix track numbers within each album");
-        assert_eq!(numbering.route, Some(AssistantTaskRoute::AutoNumberTracks));
+        assert_eq!(numbering.kind, AssistantTaskContractKind::ActionPreviewRequired);
+        assert_eq!(numbering.route, None); // LLM handles via metadata tools
 
         let titles = derive_assistant_task_contract("strip number prefixes from track titles");
-        assert_eq!(
-            titles.route,
-            Some(AssistantTaskRoute::StripTrackTitlePrefixes)
-        );
+        assert_eq!(titles.kind, AssistantTaskContractKind::ActionPreviewRequired);
+        assert_eq!(titles.route, None); // LLM uses metadata.transform
 
         let filenames = derive_assistant_task_contract("remove number prefixes from filenames");
-        assert_eq!(
-            filenames.route,
-            Some(AssistantTaskRoute::StripFilenamePrefixes)
-        );
+        assert_eq!(filenames.kind, AssistantTaskContractKind::ActionPreviewRequired);
+        assert_eq!(filenames.route, None); // LLM uses files.transform
 
         let inference =
             derive_assistant_task_contract("infer title and artist tags from filenames");
-        assert_eq!(
-            inference.route,
-            Some(AssistantTaskRoute::InferTagsFromFilenames)
-        );
+        assert_eq!(inference.kind, AssistantTaskContractKind::ActionPreviewRequired);
+        assert_eq!(inference.route, None); // LLM uses metadata.transform with filename source
 
         let chinese = derive_assistant_task_contract("convert Chinese tags to Traditional");
-        assert_eq!(
-            chinese.route,
-            Some(AssistantTaskRoute::ChineseToTraditional)
-        );
-        let ambiguous_chinese = derive_assistant_task_contract("convert Chinese tags");
-        assert_eq!(
-            ambiguous_chinese.kind,
-            AssistantTaskContractKind::ClarificationRequired
-        );
+        assert_eq!(chinese.kind, AssistantTaskContractKind::ActionPreviewRequired);
+        assert_eq!(chinese.route, None); // LLM uses metadata.transform with chinese_to_traditional
 
         let grouping = derive_assistant_task_contract("group files into album folders");
-        assert_eq!(grouping.route, Some(AssistantTaskRoute::GroupByAlbum));
+        assert_eq!(grouping.kind, AssistantTaskContractKind::ActionPreviewRequired);
+        assert_eq!(grouping.route, None); // LLM uses files.transform
     }
 
     #[test]
@@ -3749,14 +3676,22 @@ mod apply_contract_tests {
     }
 
     #[test]
-    fn assistant_response_schema_advertises_the_complete_registry() {
+    fn assistant_response_schema_advertises_the_public_registry() {
         let schema = assistant_response_schema();
         let names = schema["properties"]["toolCall"]["properties"]["toolName"]["enum"]
             .as_array()
             .unwrap();
-        assert_eq!(names.len(), 22);
-        assert!(names.contains(&serde_json::json!("edit_metadata")));
-        assert!(names.contains(&serde_json::json!("create_plan")));
+        // Public catalog has 15 tools
+        assert_eq!(names.len(), 15);
+        // New tools are present
+        assert!(names.contains(&serde_json::json!("metadata.patch")));
+        assert!(names.contains(&serde_json::json!("metadata.transform")));
+        assert!(names.contains(&serde_json::json!("files.transform")));
+        assert!(names.contains(&serde_json::json!("library.run_task")));
+        assert!(names.contains(&serde_json::json!("plan.create")));
+        // Legacy tools are NOT advertised
+        assert!(!names.contains(&serde_json::json!("edit_metadata")));
+        assert!(!names.contains(&serde_json::json!("create_plan")));
     }
 
     #[test]
@@ -4538,9 +4473,12 @@ mod assistant_behaviour_tests {
     // ── Tool catalog & schema shape ──────────────────────────────────
 
     #[test]
-    fn all_22_registered_tools_have_valid_schemas() {
+    fn all_registered_tools_have_valid_schemas() {
         let defs = crate::commands::assistant_tools::assistant_tool_definitions();
-        assert_eq!(defs.len(), 22, "expected 22 registered tools");
+        assert_eq!(defs.len(), 27, "expected 27 registered tools total");
+        let public = crate::commands::assistant_tools::public_tool_definitions();
+        assert_eq!(public.len(), 15, "expected 15 public tools");
+        assert!(public.iter().all(|d| d.public));
         for tool in &defs {
             assert!(!tool.name.is_empty(), "all tools need a name");
             assert!(
@@ -4570,7 +4508,7 @@ mod assistant_behaviour_tests {
     }
 
     #[test]
-    fn context_tool_catalog_matches_registry_count() {
+    fn context_tool_catalog_matches_public_registry() {
         let catalog = crate::commands::assistant_tools::context_tool_catalog();
         let catalog_names = catalog
             .as_array()
@@ -4578,12 +4516,17 @@ mod assistant_behaviour_tests {
             .iter()
             .filter_map(|t| t.get("name").and_then(Value::as_str))
             .collect::<Vec<_>>();
-        assert_eq!(catalog_names.len(), 22);
-        // Must include every tool name
-        assert!(catalog_names.contains(&"edit_metadata"));
+        assert_eq!(catalog_names.len(), 15);
+        // Must include public tools
+        assert!(catalog_names.contains(&"metadata.patch"));
+        assert!(catalog_names.contains(&"metadata.transform"));
+        assert!(catalog_names.contains(&"files.transform"));
         assert!(catalog_names.contains(&"library.summarize"));
-        assert!(catalog_names.contains(&"create_plan"));
-        assert!(catalog_names.contains(&"organize_files"));
+        assert!(catalog_names.contains(&"library.run_task"));
+        assert!(catalog_names.contains(&"plan.create"));
+        // Must NOT include legacy tools
+        assert!(!catalog_names.contains(&"edit_metadata"));
+        assert!(!catalog_names.contains(&"create_plan"));
     }
 
     // ── Tool argument validation ────────────────────────────────────
@@ -5102,12 +5045,11 @@ mod assistant_behaviour_tests {
     }
 
     #[test]
-    fn task_contract_chinese_convert_simplified_detected() {
+    fn task_contract_chinese_convert_now_goes_to_llm() {
         let contract = derive_assistant_task_contract("convert Chinese to simplified");
-        assert_eq!(
-            contract.route,
-            Some(AssistantTaskRoute::ChineseToSimplified)
-        );
+        // No longer routed deterministically; LLM uses metadata.transform
+        assert_eq!(contract.kind, AssistantTaskContractKind::ActionPreviewRequired);
+        assert_eq!(contract.route, None);
     }
 
     // ── Mutating tool: run_library_task ─────────────────────────────

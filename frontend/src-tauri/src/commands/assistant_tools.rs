@@ -14,9 +14,19 @@ pub(crate) enum AssistantToolOperationKind {
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct AssistantToolDefinition {
     pub name: &'static str,
+    pub description: &'static str,
     pub input_schema: Value,
     pub read_only: bool,
+    pub public: bool,
     pub operation_kind: AssistantToolOperationKind,
+}
+
+/// Returns only the public tool definitions (the orthogonal set shown to the LLM).
+pub(crate) fn public_tool_definitions() -> Vec<AssistantToolDefinition> {
+    assistant_tool_definitions()
+        .into_iter()
+        .filter(|d| d.public)
+        .collect()
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -30,38 +40,132 @@ pub(crate) struct AssistantToolResult {
 pub(crate) fn assistant_tool_definitions() -> Vec<AssistantToolDefinition> {
     use AssistantToolOperationKind as Kind;
 
-    const TOOLS: &[(&str, bool, Kind)] = &[
-        ("library.summarize", true, Kind::ReadOnly),
-        ("tracks.search", true, Kind::ReadOnly),
-        ("tracks.inspect", true, Kind::ReadOnly),
-        ("albums.inspect", true, Kind::ReadOnly),
-        ("query.metadata", true, Kind::ReadOnly),
-        ("query.datasetStatus", true, Kind::ReadOnly),
-        ("api.musicbrainzSearch", true, Kind::Lookup),
-        ("api.discogsSearch", true, Kind::Lookup),
-        ("api.lyricsSearch", true, Kind::Lookup),
-        ("tags.prettify", true, Kind::ReadOnly),
-        ("edit_metadata", false, Kind::MetadataEdit),
-        ("auto_numbering_tracks", false, Kind::MetadataEdit),
-        ("strip_track_title_prefixes", false, Kind::MetadataEdit),
-        ("extract_tag_value", false, Kind::MetadataEdit),
-        ("chinese_convert", false, Kind::MetadataEdit),
-        ("strip_filename_prefixes", false, Kind::FileMove),
-        ("infer_tags_from_filenames", false, Kind::MetadataEdit),
-        ("organize_files", false, Kind::FileMove),
-        ("group_by_album", false, Kind::FileMove),
-        ("remove_embedded_cover", false, Kind::MetadataEdit),
-        ("run_library_task", false, Kind::Planning),
-        ("create_plan", false, Kind::Planning),
+    #[derive(Clone, Copy)]
+    struct ToolSpec {
+        name: &'static str,
+        description: &'static str,
+        read_only: bool,
+        public: bool,
+        operation_kind: AssistantToolOperationKind,
+    }
+
+    const TOOLS: &[ToolSpec] = &[
+        // ── Public read-only tools ───────────────────────────────────────
+        ToolSpec {
+            name: "library.summarize",
+            description: "Get a high-level summary of the current library: album count, track count, artists, genres, total size and duration, and counts of missing tags.",
+            read_only: true, public: true,
+            operation_kind: Kind::ReadOnly,
+        },
+        ToolSpec {
+            name: "tracks.search",
+            description: "Search loaded tracks by title, artist, album, genre, year, codec, missing tags, missing cover, or duplicates. Returns up to 20 matching tracks with paths.",
+            read_only: true, public: true,
+            operation_kind: Kind::ReadOnly,
+        },
+        ToolSpec {
+            name: "tracks.inspect",
+            description: "Inspect detailed metadata for specific tracks by path or for selected/active tracks. Accepts an optional path array and limit.",
+            read_only: true, public: true,
+            operation_kind: Kind::ReadOnly,
+        },
+        ToolSpec {
+            name: "albums.inspect",
+            description: "Inspect an album and its tracks by path. Defaults to the active album when no path is given.",
+            read_only: true, public: true,
+            operation_kind: Kind::ReadOnly,
+        },
+        ToolSpec {
+            name: "query.metadata",
+            description: "Query aggregate library statistics (tag completeness, total tracks/albums), find tracks missing a specific tag, or find duplicate tracks.",
+            read_only: true, public: true,
+            operation_kind: Kind::ReadOnly,
+        },
+        ToolSpec {
+            name: "query.datasetStatus",
+            description: "Check whether the local MusicBrainz dataset is available and how many records it contains.",
+            read_only: true, public: true,
+            operation_kind: Kind::ReadOnly,
+        },
+        ToolSpec {
+            name: "api.musicbrainzSearch",
+            description: "Search MusicBrainz for releases by artist and album. Query format: artist:<name> album:<name>. Returns up to 5 releases.",
+            read_only: true, public: true,
+            operation_kind: Kind::Lookup,
+        },
+        ToolSpec {
+            name: "api.discogsSearch",
+            description: "Search Discogs for releases by query string. Requires a configured Discogs token. Returns up to 5 releases.",
+            read_only: true, public: true,
+            operation_kind: Kind::Lookup,
+        },
+        ToolSpec {
+            name: "api.lyricsSearch",
+            description: "Fetch lyrics for a track by artist and title from the configured lyrics API.",
+            read_only: true, public: true,
+            operation_kind: Kind::Lookup,
+        },
+        ToolSpec {
+            name: "tags.prettify",
+            description: "Preview prettified (title-cased, separator-normalized) tag values. Provide a single text string or a map of fields.",
+            read_only: true, public: true,
+            operation_kind: Kind::ReadOnly,
+        },
+        // ── Public mutating tools (the orthogonal set) ───────────────────
+        ToolSpec {
+            name: "metadata.patch",
+            description: "Apply uniform or per-track changes to tag fields. Supports set, remove, and upsert (extra tags only) actions. Use for explicit value changes where you know the new values.",
+            read_only: false, public: true,
+            operation_kind: Kind::MetadataEdit,
+        },
+        ToolSpec {
+            name: "metadata.transform",
+            description: "Apply a pipeline of deterministic operations to a tag field. Supports regex_replace, regex_extract, strip_prefix, strip_suffix, trim, lowercase, uppercase, title_case, prettify, chinese_to_simplified, chinese_to_traditional. Source can be a tag field or filename stem.",
+            read_only: false, public: true,
+            operation_kind: Kind::MetadataEdit,
+        },
+        ToolSpec {
+            name: "files.transform",
+            description: "Apply operations to filenames with path containment. Same operations as metadata.transform but for renaming files. Higher risk than metadata changes.",
+            read_only: false, public: true,
+            operation_kind: Kind::FileMove,
+        },
+        ToolSpec {
+            name: "library.run_task",
+            description: "Run the auto-tagging or audit task on a scope (selected, active_album, library).",
+            read_only: false, public: true,
+            operation_kind: Kind::Planning,
+        },
+        ToolSpec {
+            name: "plan.create",
+            description: "Create a multi-step plan that chains tool calls with dependency ordering and variable passing between steps.",
+            read_only: false, public: true,
+            operation_kind: Kind::Planning,
+        },
+        // ── Legacy internal-only aliases (hidden from LLM) ───────────────
+        ToolSpec { name: "edit_metadata", description: "Legacy: use metadata.patch instead.", read_only: false, public: false, operation_kind: Kind::MetadataEdit },
+        ToolSpec { name: "auto_numbering_tracks", description: "Legacy: use metadata.transform instead.", read_only: false, public: false, operation_kind: Kind::MetadataEdit },
+        ToolSpec { name: "strip_track_title_prefixes", description: "Legacy: use metadata.transform instead.", read_only: false, public: false, operation_kind: Kind::MetadataEdit },
+        ToolSpec { name: "extract_tag_value", description: "Legacy: use metadata.transform instead.", read_only: false, public: false, operation_kind: Kind::MetadataEdit },
+        ToolSpec { name: "chinese_convert", description: "Legacy: use metadata.transform instead.", read_only: false, public: false, operation_kind: Kind::MetadataEdit },
+        ToolSpec { name: "strip_filename_prefixes", description: "Legacy: use files.transform instead.", read_only: false, public: false, operation_kind: Kind::FileMove },
+        ToolSpec { name: "infer_tags_from_filenames", description: "Legacy: use metadata.transform instead.", read_only: false, public: false, operation_kind: Kind::MetadataEdit },
+        ToolSpec { name: "organize_files", description: "Legacy: use files.transform instead.", read_only: false, public: false, operation_kind: Kind::FileMove },
+        ToolSpec { name: "group_by_album", description: "Legacy: use files.transform instead.", read_only: false, public: false, operation_kind: Kind::FileMove },
+        ToolSpec { name: "remove_embedded_cover", description: "Legacy: use metadata.patch instead.", read_only: false, public: false, operation_kind: Kind::MetadataEdit },
+        ToolSpec { name: "run_library_task", description: "Legacy: superseded by library.run_task.", read_only: false, public: false, operation_kind: Kind::Planning },
+        ToolSpec { name: "create_plan", description: "Legacy: superseded by plan.create.", read_only: false, public: false, operation_kind: Kind::Planning },
     ];
     TOOLS
         .iter()
         .map(
-            |(name, read_only, operation_kind)| AssistantToolDefinition {
-                name,
-                input_schema: tool_schema(name),
-                read_only: *read_only,
-                operation_kind: *operation_kind,
+            |spec| AssistantToolDefinition {
+                name: spec.name,
+                description: spec.description,
+                input_schema: tool_schema(spec.name),
+                read_only: spec.read_only,
+                public: spec.public,
+                operation_kind: spec.operation_kind,
             },
         )
         .collect()
@@ -69,11 +173,12 @@ pub(crate) fn assistant_tool_definitions() -> Vec<AssistantToolDefinition> {
 
 pub(crate) fn context_tool_catalog() -> Value {
     Value::Array(
-        assistant_tool_definitions()
+        public_tool_definitions()
             .into_iter()
             .map(|definition| {
                 serde_json::json!({
                     "name": definition.name,
+                    "description": definition.description,
                     "inputSchema": definition.input_schema,
                     "readOnly": definition.read_only,
                     "operationKind": operation_kind_name(definition.operation_kind)
@@ -259,6 +364,121 @@ fn tool_schema(name: &str) -> Value {
                 }}
             },
             "required": ["steps"]
+        }),
+        "metadata.patch" => serde_json::json!({
+            "type": "object",
+            "properties": {
+                "target_scope": {"type": "string", "enum": ["selected", "active_album", "library", "explicit_paths"]},
+                "paths": {"type": "array", "items": {"type": "string"}},
+                "changes": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "tag_kind": {"type": "string", "enum": ["standard", "extra"]},
+                            "field": {"type": "string"},
+                            "action": {"type": "string", "enum": ["set", "remove", "upsert"]},
+                            "value": {}
+                        },
+                        "required": ["field", "action"]
+                    }
+                },
+                "per_track_changes": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "path": {"type": "string"},
+                            "changes": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "field": {"type": "string"},
+                                        "action": {"type": "string", "enum": ["set", "remove"]},
+                                        "value": {}
+                                    },
+                                    "required": ["field", "action"]
+                                }
+                            }
+                        },
+                        "required": ["path", "changes"]
+                    }
+                }
+            },
+            "required": ["target_scope"]
+        }),
+        "metadata.transform" => serde_json::json!({
+            "type": "object",
+            "properties": {
+                "target_scope": {"type": "string", "enum": ["selected", "active_album", "library", "explicit_paths"]},
+                "paths": {"type": "array", "items": {"type": "string"}},
+                "source": {
+                    "type": "object",
+                    "properties": {
+                        "kind": {"type": "string", "enum": ["tag", "filename"]},
+                        "field": {"type": "string"}
+                    },
+                    "default": {"kind": "tag", "field": "title"}
+                },
+                "destination": {
+                    "type": "object",
+                    "properties": {
+                        "kind": {"type": "string", "enum": ["tag", "filename"]},
+                        "field": {"type": "string"}
+                    },
+                    "default": {"kind": "tag", "field": "title"}
+                },
+                "operations": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "op": {"type": "string", "enum": ["regex_replace", "regex_extract", "strip_prefix", "strip_suffix", "literal_replace", "trim", "lowercase", "uppercase", "title_case", "prettify", "chinese_to_simplified", "chinese_to_traditional"]},
+                            "pattern": {"type": "string"},
+                            "replacement": {"type": "string"},
+                            "group_index": {"type": "number"},
+                            "prefix": {"type": "string"},
+                            "suffix": {"type": "string"},
+                            "find": {"type": "string"}
+                        },
+                        "required": ["op"]
+                    }
+                }
+            },
+            "required": ["target_scope", "operations"]
+        }),
+        "files.transform" => serde_json::json!({
+            "type": "object",
+            "properties": {
+                "target_scope": {"type": "string", "enum": ["selected", "active_album", "library", "explicit_paths"]},
+                "paths": {"type": "array", "items": {"type": "string"}},
+                "source": {
+                    "type": "object",
+                    "properties": {
+                        "kind": {"type": "string", "enum": ["tag", "filename"]},
+                        "field": {"type": "string"}
+                    },
+                    "default": {"kind": "filename"}
+                },
+                "operations": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "op": {"type": "string", "enum": ["regex_replace", "regex_extract", "strip_prefix", "strip_suffix", "literal_replace", "trim", "lowercase", "uppercase", "title_case", "prettify", "chinese_to_simplified", "chinese_to_traditional"]},
+                            "pattern": {"type": "string"},
+                            "replacement": {"type": "string"},
+                            "group_index": {"type": "number"},
+                            "prefix": {"type": "string"},
+                            "suffix": {"type": "string"},
+                            "find": {"type": "string"}
+                        },
+                        "required": ["op"]
+                    }
+                }
+            },
+            "required": ["target_scope", "operations"]
         }),
         _ => serde_json::json!({"type": "object", "properties": {}, "required": []}),
     }
@@ -960,42 +1180,37 @@ mod tests {
             .copied()
             .collect::<std::collections::HashSet<_>>();
 
-        assert_eq!(names.len(), 22);
+        // All definitions (27 total) still present for internal dispatch
+        assert_eq!(names.len(), 27);
         assert_eq!(unique.len(), names.len());
-        assert_eq!(
-            names,
-            vec![
-                "library.summarize",
-                "tracks.search",
-                "tracks.inspect",
-                "albums.inspect",
-                "query.metadata",
-                "query.datasetStatus",
-                "api.musicbrainzSearch",
-                "api.discogsSearch",
-                "api.lyricsSearch",
-                "tags.prettify",
-                "edit_metadata",
-                "auto_numbering_tracks",
-                "strip_track_title_prefixes",
-                "extract_tag_value",
-                "chinese_convert",
-                "strip_filename_prefixes",
-                "infer_tags_from_filenames",
-                "organize_files",
-                "group_by_album",
-                "remove_embedded_cover",
-                "run_library_task",
-                "create_plan",
-            ]
-        );
-        assert!(definitions[..10]
-            .iter()
-            .all(|definition| definition.read_only));
-        assert!(definitions[10..]
-            .iter()
-            .all(|definition| !definition.read_only));
-        assert_eq!(context_tool_catalog().as_array().map(Vec::len), Some(22));
+        // All definitions must have descriptions
+        assert!(definitions.iter().all(|d| !d.description.is_empty()));
+
+        // Public tools are the orthogonal set (10 read-only + 5 mutating = 15)
+        let public_count = definitions.iter().filter(|d| d.public).count();
+        let public_read_only = definitions.iter().filter(|d| d.public && d.read_only).count();
+        let public_mutating = definitions.iter().filter(|d| d.public && !d.read_only).count();
+        assert_eq!(public_count, 15, "public tool count should be 15");
+        assert_eq!(public_read_only, 10, "10 public read-only tools");
+        assert_eq!(public_mutating, 5, "5 public mutating tools");
+
+        // New tools are present in the full definitions
+        assert!(names.contains(&"metadata.patch"));
+        assert!(names.contains(&"metadata.transform"));
+        assert!(names.contains(&"files.transform"));
+        // Public catalog only exposes the orthogonal set
+        assert_eq!(context_tool_catalog().as_array().map(Vec::len), Some(15));
+    }
+
+    #[test]
+    fn catalog_entries_include_descriptions() {
+        let catalog = context_tool_catalog();
+        let entries = catalog.as_array().unwrap();
+        assert_eq!(entries.len(), 15, "public catalog should have 15 tools");
+        for entry in entries {
+            let desc = entry.get("description").and_then(Value::as_str).unwrap_or("");
+            assert!(!desc.is_empty(), "Tool {} is missing a description", entry["name"]);
+        }
     }
 
     #[test]
