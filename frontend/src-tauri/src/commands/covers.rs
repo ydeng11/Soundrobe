@@ -42,6 +42,34 @@ fn cover_cache_invalidate(album_path: &str) {
     if let Ok(mut cache) = COVER_CACHE.lock() {
         cache.remove(album_path);
     }
+    if let Ok(mut cache) = COVER_SOURCE_CACHE.lock() {
+        cache.remove(album_path);
+    }
+}
+
+/// Source-path cache keyed by album path. Populated eagerly during
+/// `read_album` so `cover_data_url_at` can skip directory scanning and go
+/// directly to the known cover source file. The tuple is (kind, path)
+/// where kind is "external" or "embedded".
+static COVER_SOURCE_CACHE: LazyLock<Mutex<HashMap<String, (String, String)>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
+
+/// Populated eagerly by `read_album` so that cover scans can skip the
+/// album directory entirely. Returns `(kind, source_path)`.
+pub fn cover_source_cached(album_path: &str) -> Option<(String, String)> {
+    COVER_SOURCE_CACHE.lock().ok()?.get(album_path).cloned()
+}
+
+/// Called by `read_album` to record where the cover art lives for this album.
+/// `kind` is "external" (standalone image file) or "embedded" (audio file
+/// containing embedded art). Pass the actual path to the source file.
+pub fn cover_cache_source(album_path: &str, kind: &str, source_path: &str) {
+    if let Ok(mut cache) = COVER_SOURCE_CACHE.lock() {
+        cache.insert(
+            album_path.to_owned(),
+            (kind.to_owned(), source_path.to_owned()),
+        );
+    }
 }
 
 const COVER_REMOVED_MARKER: &str = ".auto-tagger-cover-removed";
@@ -329,8 +357,9 @@ fn read_local_artwork(kind: ArtworkKind, album_path: &Path) -> Option<Vec<u8>> {
 /// Read cover art for an album dir.
 ///
 /// Priority:
-///   1. External cover file (cover.jpg etc.) — checked first via single-pass
-///      directory scan (no individual stat calls).
+///   0. Source-path cache (populated eagerly by `read_album`) — skip
+///      directory scanning entirely and go directly to the known source.
+///   1. External cover file (cover.jpg etc.) — single-pass directory scan.
 ///   2. Preferred track hint — probe only that one file for embedded art.
 ///   3. Full directory scan — probe every audio file for embedded art.
 pub fn cover_data_url_at(album_path: &Path, preferred_track: Option<&str>) -> Option<String> {
@@ -341,7 +370,35 @@ pub fn cover_data_url_at(album_path: &Path, preferred_track: Option<&str>) -> Op
         return None;
     }
 
-    // 1. External cover file (fastest path)
+    // 0. Source-path cache — populated eagerly by `read_album`.
+    // This skips directory scanning and goes directly to the known cover source.
+    if let Some((kind, source_path)) = cover_source_cached(&album_path.to_string_lossy()) {
+        return match kind.as_str() {
+            "external" => {
+                let path = Path::new(&source_path);
+                let img = fs::read(path).ok()?;
+                let url = image_data_url(&img, 500, 85);
+                tracing::debug!(
+                    "[cover] source-cache external {} ({:?} total)",
+                    path.display(),
+                    total_start.elapsed(),
+                );
+                url
+            }
+            "embedded" => {
+                let url = try_embedded_cover(Path::new(&source_path));
+                tracing::debug!(
+                    "[cover] source-cache embedded {} ({:?} total)",
+                    source_path,
+                    total_start.elapsed(),
+                );
+                url
+            }
+            _ => None,
+        };
+    }
+
+    // 1. External cover file (fastest scan path — single-pass directory read)
     let ext_start = std::time::Instant::now();
     if let Some(path) = find_external_cover(album_path) {
         let found_at = ext_start.elapsed();

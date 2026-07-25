@@ -4,6 +4,7 @@
 //! Atomic mutation cores live in `commands::mutations`; extra tags, rename, and
 //! remaining formats are enabled only as their differential contracts turn green.
 
+use crate::commands::covers::cover_cache_source;
 use crate::commands::library::is_audio_file;
 use crate::error::ApiError;
 use lofty::config::ParseOptions;
@@ -222,6 +223,15 @@ pub fn read_album(album_path: &Path) -> Result<AlbumDetail, ApiError> {
         .to_string(),
         data_url: None,
     };
+
+    // Populate the cover source cache so cover_data_url_at can skip directory
+    // scanning and go directly to the known source file.
+    let album_path_str = album_path.to_string_lossy();
+    if let Some(path) = &external_cover {
+        cover_cache_source(&album_path_str, "external", path);
+    } else if let Some(track) = tracks.iter().find(|t| t.has_cover) {
+        cover_cache_source(&album_path_str, "embedded", &track.path);
+    }
     let status = if error_count == 0 {
         "ok"
     } else if error_count < tracks.len() {
