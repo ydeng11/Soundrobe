@@ -372,30 +372,49 @@ pub fn cover_data_url_at(album_path: &Path, preferred_track: Option<&str>) -> Op
 
     // 0. Source-path cache — populated eagerly by `read_album`.
     // This skips directory scanning and goes directly to the known cover source.
+    // If the cached source file is missing (e.g. externally deleted), fall through
+    // to the scan paths below rather than returning None.
     if let Some((kind, source_path)) = cover_source_cached(&album_path.to_string_lossy()) {
-        return match kind.as_str() {
+        match kind.as_str() {
             "external" => {
                 let path = Path::new(&source_path);
-                let img = fs::read(path).ok()?;
-                let url = image_data_url(&img, 500, 85);
+                if path.is_file() {
+                    if let Ok(img) = fs::read(path) {
+                        if let Some(url) = image_data_url(&img, 500, 85) {
+                            tracing::debug!(
+                                "[cover] source-cache external {} ({:?} total)",
+                                path.display(),
+                                total_start.elapsed(),
+                            );
+                            return Some(url);
+                        }
+                    }
+                }
                 tracing::debug!(
-                    "[cover] source-cache external {} ({:?} total)",
+                    "[cover] source-cache external {} — stale, falling through",
                     path.display(),
-                    total_start.elapsed(),
                 );
-                url
             }
             "embedded" => {
-                let url = try_embedded_cover(Path::new(&source_path));
+                if Path::new(&source_path).is_file() {
+                    if let Some(url) = try_embedded_cover(Path::new(&source_path)) {
+                        tracing::debug!(
+                            "[cover] source-cache embedded {} ({:?} total)",
+                            source_path,
+                            total_start.elapsed(),
+                        );
+                        return Some(url);
+                    }
+                }
                 tracing::debug!(
-                    "[cover] source-cache embedded {} ({:?} total)",
+                    "[cover] source-cache embedded {} — stale, falling through",
                     source_path,
-                    total_start.elapsed(),
                 );
-                url
             }
-            _ => None,
-        };
+            _ => {}
+        }
+        // Invalidate stale entry so next call doesn't attempt it again
+        cover_cache_invalidate(&album_path.to_string_lossy());
     }
 
     // 1. External cover file (fastest scan path — single-pass directory read)

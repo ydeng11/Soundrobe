@@ -709,21 +709,22 @@ pub fn protect_candidate_tracks(
     // scope the provider candidate tracks to that disc number.
     // Only filter when provider tracks have disc numbers AND the filtered
     // count equals the local track count (otherwise retain full candidate).
-    let candidate_tracks = if let Some(disc_number) = request.selected_disc_number {
-        let scoped: Vec<_> = candidate
-            .tracks
-            .iter()
-            .filter(|t| t.disc_number == Some(disc_number))
-            .cloned()
-            .collect();
-        if !scoped.is_empty() && scoped.len() == request.tracks.len() {
-            scoped
-        } else {
-            candidate.tracks.clone()
-        }
-    } else {
-        candidate.tracks.clone()
-    };
+    let candidate_tracks = request
+        .selected_disc_number
+        .and_then(|disc_number| {
+            let scoped: Vec<_> = candidate
+                .tracks
+                .iter()
+                .filter(|t| t.disc_number == Some(disc_number))
+                .cloned()
+                .collect();
+            if !scoped.is_empty() && scoped.len() == request.tracks.len() {
+                Some(scoped)
+            } else {
+                None
+            }
+        })
+        .unwrap_or_else(|| candidate.tracks.clone());
     let matched = match_remote_candidate_tracks(
         &request.tracks,
         &filenames,

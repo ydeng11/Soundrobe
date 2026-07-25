@@ -2537,17 +2537,18 @@ fn strip_wav_list_chunk(bytes: &[u8]) -> Vec<u8> {
             .and_then(|s| <[u8; 4]>::try_from(s).ok())
             .unwrap_or([0; 4]);
         let chunk_size = u32::from_le_bytes(chunk_size_bytes) as usize;
+        let chunk_total = 8 + chunk_size + (chunk_size % 2); // header + data + padding
         if id == b"LIST" {
             // Only strip LIST chunks with INFO type (metadata), preserving
             // other LIST chunks such as adtl (cue labels).
             let list_type = bytes.get(offset + 8..offset + 12).unwrap_or_default();
             if list_type == b"INFO" {
-                offset += 8 + chunk_size + (chunk_size % 2);
+                offset += chunk_total;
                 continue;
             }
         }
-        out.extend_from_slice(bytes.get(offset..offset + 8 + chunk_size + (chunk_size % 2)).unwrap_or_default());
-        offset += 8 + chunk_size + (chunk_size % 2);
+        out.extend_from_slice(bytes.get(offset..offset + chunk_total).unwrap_or_default());
+        offset += chunk_total;
     }
     // Update RIFF size in header
     let riff_len = (out.len() as u32).wrapping_sub(8).to_le_bytes();
@@ -3736,14 +3737,11 @@ mod tests {
             let mut off = 12_usize;
             while off + 8 <= written.len() {
                 let id = &written[off..off + 4];
-                if id == b"LIST" {
-                    if off + 12 <= written.len() {
-                        let list_type = &written[off + 8..off + 12];
-                        if list_type == b"INFO" {
-                            saw_info = true;
-                        } else if list_type == b"adtl" {
-                            saw_adtl = true;
-                        }
+                if id == b"LIST" && off + 12 <= written.len() {
+                    match &written[off + 8..off + 12] {
+                        b"INFO" => saw_info = true,
+                        b"adtl" => saw_adtl = true,
+                        _ => {}
                     }
                 }
                 let size =
@@ -3765,14 +3763,11 @@ mod tests {
         let mut off = 12_usize;
         while off + 8 <= cleaned.len() {
             let id = &cleaned[off..off + 4];
-            if id == b"LIST" {
-                if off + 12 <= cleaned.len() {
-                    let list_type = &cleaned[off + 8..off + 12];
-                    if list_type == b"INFO" {
-                        saw_info = true;
-                    } else if list_type == b"adtl" {
-                        saw_adtl = true;
-                    }
+            if id == b"LIST" && off + 12 <= cleaned.len() {
+                match &cleaned[off + 8..off + 12] {
+                    b"INFO" => saw_info = true,
+                    b"adtl" => saw_adtl = true,
+                    _ => {}
                 }
             }
             let size =
