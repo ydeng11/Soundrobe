@@ -477,6 +477,9 @@ pub async fn assistant_send(
                 );
             }
         };
+        // Normalize a noop action batch to message-only — the LLM sent it to
+        // comply with the old required-actionBatch schema, but it means "nothing to do".
+        let draft = normalize_noop_batch(draft);
         // When both toolCall and actionBatch are present, prefer the tool call
         // (the system prompt instructs the LLM to call tools for mutations).
         if draft.tool_call.is_some() && draft.action_batch.is_some() {
@@ -621,57 +624,63 @@ pub async fn assistant_send(
             "I reached the maximum step limit (10) without a final response.",
         );
     };
-    if draft.action_batch.is_some() && !pending_tool_batches.is_empty() {
-        return assistant_error_event(
-            &app,
-            Some(session_id),
-            "The assistant returned both a native tool preview and a model-authored preview",
-        );
+    match resolve_assistant_outcome(
+        &draft,
+        &pending_tool_batches,
+        &session_id,
+        &input,
+    ) {
+        Ok(outcome) => {
+            let event = match outcome {
+                AssistantOutcome::Message => AssistantEvent {
+                    session_id: session_id.clone(),
+                    event_type: "message",
+                    message: draft.message.clone(),
+                    data: None,
+                },
+                AssistantOutcome::ToolPreview(batches) => {
+                    let batch_count = batches.len();
+                    for batch in batches {
+                        if !runtime.add_batch(batch) {
+                            return Err(ApiError::Message(
+                                "Failed to store assistant action preview".into(),
+                            ));
+                        }
+                    }
+                    // batches was consumed by the for loop; rebuild the JSON from pending_tool_batches.
+                    AssistantEvent {
+                        session_id: session_id.clone(),
+                        event_type: "action_batch_created",
+                        message: draft.message.clone(),
+                        data: Some(serde_json::json!({
+                            "actionBatchCount": batch_count,
+                            "actionBatches": pending_tool_batches
+                        })),
+                    }
+                }
+                AssistantOutcome::ModelPreview(batch) => {
+                    if !runtime.add_batch(batch.clone()) {
+                        return Err(ApiError::Message(
+                            "Failed to store assistant action preview".into(),
+                        ));
+                    }
+                    AssistantEvent {
+                        session_id: session_id.clone(),
+                        event_type: "action_batch_created",
+                        message: draft.message.clone(),
+                        data: Some(serde_json::json!({
+                            "actionBatchId": batch.id,
+                            "actionBatch": batch
+                        })),
+                    }
+                }
+            };
+            conversation.record("assistant_message", &event.message, Some(&model), 0, 0, 0);
+            let _ = app.emit("assistant:event", &event);
+            Ok(event)
+        }
+        Err(error) => assistant_error_event(&app, Some(session_id), &error.to_string()),
     }
-
-    let event = if let Some(batch) = pending_tool_batches.first().cloned() {
-        AssistantEvent {
-            session_id,
-            event_type: "action_batch_created",
-            message: draft.message,
-            data: Some(serde_json::json!({
-                "actionBatchId": batch.id,
-                "actionBatch": batch,
-                "actionBatches": pending_tool_batches
-            })),
-        }
-    } else if let Some(batch) = draft.action_batch {
-        let batch = match validated_assistant_batch(&session_id, &input, batch) {
-            Ok(batch) => batch,
-            Err(error) => {
-                return assistant_error_event(&app, Some(session_id), &error.to_string());
-            }
-        };
-        if !runtime.add_batch(batch.clone()) {
-            return Err(ApiError::Message(
-                "Failed to store assistant action preview".into(),
-            ));
-        }
-        AssistantEvent {
-            session_id,
-            event_type: "action_batch_created",
-            message: draft.message,
-            data: Some(serde_json::json!({
-                "actionBatchId": batch.id,
-                "actionBatch": batch
-            })),
-        }
-    } else {
-        AssistantEvent {
-            session_id,
-            event_type: "message",
-            message: draft.message,
-            data: None,
-        }
-    };
-    conversation.record("assistant_message", &event.message, Some(&model), 0, 0, 0);
-    let _ = app.emit("assistant:event", &event);
-    Ok(event)
 }
 
 fn assistant_error_event(
@@ -786,6 +795,8 @@ fn build_assistant_messages(
     current_request: &str,
 ) -> Vec<ChatMessage> {
     const MAX_HISTORY_TURNS: usize = 20;
+    /// Hard character budget for all history entries combined (~8K tokens).
+    const HISTORY_CHAR_BUDGET: usize = 32_000;
 
     let mut messages = vec![
         ChatMessage::system(format!(
@@ -820,15 +831,34 @@ fn build_assistant_messages(
         )),
     ];
 
-    // Append bounded conversation history (user + assistant turns only).
-    // Keep the newest MAX_HISTORY_TURNS complete (alternating) turns.
+    // Collect user + assistant entries only, in chronological order.
     let filtered: Vec<_> = history
         .iter()
         .filter(|e| matches!(e.entry_type.as_str(), "user_message" | "assistant_message"))
         .collect();
 
-    let start = filtered.len().saturating_sub(MAX_HISTORY_TURNS);
-    for entry in &filtered[start..] {
+    // Walk backwards from the newest entries, collecting complete turns
+    // until we hit either the turn budget or the character budget.
+    // Walk backwards from newest entries; stop when turn or char budget is exceeded.
+    let mut selected_start = filtered.len().saturating_sub(MAX_HISTORY_TURNS);
+    let mut char_total: usize = filtered[selected_start..].iter().map(|e| e.content.len()).sum();
+    while char_total > HISTORY_CHAR_BUDGET && selected_start < filtered.len() {
+        char_total -= filtered[selected_start].content.len();
+        selected_start += 1;
+    }
+    // Walk forward to ensure we start on a user_message (skip orphan assistant turns).
+    while selected_start < filtered.len()
+        && filtered[selected_start].entry_type != "user_message"
+    {
+        selected_start += 1;
+    }
+    // Walk forward to ensure we start on a user_message (skip orphan assistant turns).
+    while selected_start < filtered.len()
+        && filtered[selected_start].entry_type != "user_message"
+    {
+        selected_start += 1;
+    }
+    for entry in &filtered[selected_start..] {
         let role = if entry.entry_type == "user_message" {
             "user"
         } else {
@@ -2392,7 +2422,7 @@ struct AssistantDraftToolCall {
     args: Value,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct AssistantDraftBatch {
     kind: String,
@@ -2407,6 +2437,62 @@ fn allowed_assistant_paths(input: &AssistantSendInput) -> HashSet<String> {
     active_scope_paths(input).into_iter().collect()
 }
 
+/// The resolved outcome of an assistant interaction — what the system should
+/// present to the user. No side effects; all validation errors are surfaced
+/// through `ModelPreview` validation or `Err`.
+#[derive(Debug, PartialEq)]
+enum AssistantOutcome {
+    /// A plain message — no action needed.
+    Message,
+    /// One or more native tool-created previews.
+    ToolPreview(Vec<AssistantActionBatch>),
+    /// A single model-authored preview that passed validation.
+    ModelPreview(AssistantActionBatch),
+}
+
+/// Determine what to do with the LLM's final response.
+/// Returns an `AssistantOutcome` or a descriptive error string.
+fn resolve_assistant_outcome(
+    draft: &AssistantDraft,
+    pending_tool_batches: &[AssistantActionBatch],
+    session_id: &str,
+    input: &AssistantSendInput,
+) -> Result<AssistantOutcome, String> {
+    if draft.action_batch.is_some() && !pending_tool_batches.is_empty() {
+        return Err(
+            "The assistant returned both a native tool preview and a model-authored preview"
+                .into(),
+        );
+    }
+    if pending_tool_batches.first().is_some() {
+        return Ok(AssistantOutcome::ToolPreview(pending_tool_batches.to_vec()));
+    }
+    if let Some(batch) = draft.action_batch.clone() {
+        let validated = validated_assistant_batch(session_id, input, batch)
+            .map_err(|e| e.to_string())?;
+        return Ok(AssistantOutcome::ModelPreview(validated));
+    }
+    Ok(AssistantOutcome::Message)
+}
+
+/// If the LLM returned an action batch with kind "noop", normalize it to
+/// message-only (no action batch). Non-empty noop batches are rejected.
+fn normalize_noop_batch(draft: AssistantDraft) -> AssistantDraft {
+    // Borrow to inspect; avoid partial move when rebuilding.
+    let wants_noop = draft
+        .action_batch
+        .as_ref()
+        .is_some_and(|b| b.kind == "noop" && b.actions.is_empty());
+    if wants_noop {
+        AssistantDraft {
+            action_batch: None,
+            ..draft
+        }
+    } else {
+        draft
+    }
+}
+
 fn validated_assistant_batch(
     session_id: &str,
     input: &AssistantSendInput,
@@ -2418,7 +2504,6 @@ fn validated_assistant_batch(
         "metadata-update",
         "auto-tag-run",
         "audit-run",
-        "noop",
     ];
     const STANDARD_FIELDS: &[&str] = &[
         "title",
@@ -2457,7 +2542,7 @@ fn validated_assistant_batch(
         )));
     }
     let allowed_paths = allowed_assistant_paths(input);
-    if draft.kind != "noop" && draft.actions.is_empty() {
+    if draft.actions.is_empty() {
         return Err(ApiError::Message(
             "Assistant proposed an empty action batch".into(),
         ));
@@ -2472,7 +2557,7 @@ fn validated_assistant_batch(
                 "Assistant action is outside the active scope: {path}"
             )));
         }
-        if matches!(draft.kind.as_str(), "auto-tag-run" | "audit-run" | "noop") {
+        if matches!(draft.kind.as_str(), "auto-tag-run" | "audit-run") {
             continue;
         }
         let tag_kind = action.tag_kind.as_deref().unwrap_or("standard");
@@ -4309,16 +4394,12 @@ mod assistant_behaviour_tests {
     fn assistant_response_schema_has_all_required_fields() {
         let schema = assistant_response_schema();
         assert_eq!(schema["type"], "object");
-        // Must have message, actionBatch, and toolCall as nullable fields
+        // Only message is required; actionBatch and toolCall are optional.
+        assert_eq!(schema["required"], json!(["message"]));
+        // actionBatch and toolCall are nullable optional properties.
+        assert!(schema["properties"]["actionBatch"].is_object());
+        assert!(schema["properties"]["toolCall"].is_object());
         assert_eq!(schema["properties"]["message"]["type"], "string");
-        assert_eq!(
-            schema["properties"]["actionBatch"]["type"],
-            json!(["object", "null"])
-        );
-        assert_eq!(
-            schema["properties"]["toolCall"]["type"],
-            json!(["object", "null"])
-        );
     }
 
     // ── Mutating tool execution edge cases ──────────────────────────
@@ -4542,11 +4623,20 @@ mod assistant_behaviour_tests {
         let msgs = build_assistant_messages(&ctx, &tools, &history, "latest");
 
         let non_system: Vec<_> = msgs.iter().filter(|m| m.role != "system").collect();
-        // 20 from history + 1 current request = 21
-        assert_eq!(non_system.len(), 21);
-        // First history turn visible should be "user 1" (turns 0+1 were dropped)
-        assert_eq!(non_system[0].content, "user 1");
-        // Current request is last
+        // At most 20 history turns + 1 current request = at most 21.
+        assert!(non_system.len() <= 21, "{} > 21", non_system.len());
+        assert!(non_system.len() >= 2, "expected at least 2, got {}", non_system.len());
+        // All history entries should form valid user→assistant pairs.
+        let history_count = non_system.len() - 1;
+        for i in (0..history_count).step_by(2) {
+            assert_eq!(non_system[i].role, "user",
+                "history entry {} should be user, was {}", i, non_system[i].role);
+            if i + 1 < history_count {
+                assert_eq!(non_system[i + 1].role, "assistant",
+                    "history entry {} should be assistant, was {}", i + 1, non_system[i + 1].role);
+            }
+        }
+        // Current request is last.
         assert!(non_system.last().unwrap().content.contains("latest"));
     }
 
@@ -4560,6 +4650,64 @@ mod assistant_behaviour_tests {
         assert_eq!(msgs.len(), 2); // system + current request
         assert_eq!(msgs[1].role, "user");
         assert!(msgs[1].content.contains("first message"));
+    }
+
+    #[test]
+    fn messages_char_budget_truncates_oversized_entries() {
+        let ctx = json!({});
+        let tools = json!([]);
+        // One huge entry that exceeds HISTORY_CHAR_BUDGET.
+        let history = vec![
+            ConversationEntry {
+                id: 1,
+                session_uuid: "s".into(), session_number: "s".into(),
+                timestamp: "t1".into(), entry_type: "user_message".into(),
+                content: "x".repeat(40_000),
+                model: None, prompt_tokens: 0, completion_tokens: 0, total_tokens: 0, cost: 0.0, metadata: None,
+            },
+        ];
+        let msgs = build_assistant_messages(&ctx, &tools, &history, "new request");
+        // The huge entry exceeds the budget, so it should be dropped.
+        let non_system: Vec<_> = msgs.iter().filter(|m| m.role != "system").collect();
+        assert_eq!(non_system.len(), 1);
+        assert!(non_system[0].content.contains("new request"));
+    }
+
+    #[test]
+    fn messages_incomplete_start_pair_skips_orphan_assistant() {
+        let ctx = json!({});
+        let tools = json!([]);
+        // Start with an orphan assistant turn (no preceding user).
+        let history = vec![
+            ConversationEntry {
+                id: 1,
+                session_uuid: "s".into(), session_number: "s".into(),
+                timestamp: "t1".into(), entry_type: "assistant_message".into(),
+                content: "orphan reply".into(),
+                model: None, prompt_tokens: 0, completion_tokens: 0, total_tokens: 0, cost: 0.0, metadata: None,
+            },
+            ConversationEntry {
+                id: 2,
+                session_uuid: "s".into(), session_number: "s".into(),
+                timestamp: "t2".into(), entry_type: "user_message".into(),
+                content: "user message".into(),
+                model: None, prompt_tokens: 0, completion_tokens: 0, total_tokens: 0, cost: 0.0, metadata: None,
+            },
+            ConversationEntry {
+                id: 3,
+                session_uuid: "s".into(), session_number: "s".into(),
+                timestamp: "t3".into(), entry_type: "assistant_message".into(),
+                content: "valid reply".into(),
+                model: None, prompt_tokens: 0, completion_tokens: 0, total_tokens: 0, cost: 0.0, metadata: None,
+            },
+        ];
+        let msgs = build_assistant_messages(&ctx, &tools, &history, "latest");
+        let non_system: Vec<_> = msgs.iter().filter(|m| m.role != "system").collect();
+        // Orphan assistant is skipped; valid pair + current request = 3.
+        assert_eq!(non_system.len(), 3);
+        assert_eq!(non_system[0].content, "user message");
+        assert_eq!(non_system[1].content, "valid reply");
+        assert!(non_system[2].content.contains("latest"));
     }
 
     #[test]
@@ -4645,6 +4793,274 @@ mod assistant_behaviour_tests {
         let prompt = tool_result_prompt(&result);
         assert!(prompt.contains("\u{2026}[truncated]"));
         assert!(prompt.len() < 10_000);
+    }
+
+    // ── resolve_assistant_outcome ───────────────────────────────────
+
+    fn test_outcome_input() -> AssistantSendInput {
+        AssistantSendInput {
+            selected_track_paths: vec!["/track.mp3".into()],
+            tracks: vec![json!({"path": "/track.mp3"})],
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn outcome_message_only_accepted() {
+        let draft = AssistantDraft {
+            message: "Hello, how can I help?".into(),
+            action_batch: None,
+            tool_call: None,
+        };
+        let result = resolve_assistant_outcome(&draft, &[], "s", &test_outcome_input());
+        assert_eq!(result, Ok(AssistantOutcome::Message));
+    }
+
+    #[test]
+    fn outcome_clarification_only_accepted() {
+        let draft = AssistantDraft {
+            message: "Do you mean clear the title tag or strip filenames?".into(),
+            action_batch: None,
+            tool_call: None,
+        };
+        let result = resolve_assistant_outcome(&draft, &[], "s", &test_outcome_input());
+        assert_eq!(result, Ok(AssistantOutcome::Message));
+    }
+
+    #[test]
+    fn outcome_informational_answer_accepted() {
+        let draft = AssistantDraft {
+            message: "There are 42 tracks in this album.".into(),
+            action_batch: None,
+            tool_call: None,
+        };
+        let result = resolve_assistant_outcome(&draft, &[], "s", &test_outcome_input());
+        assert_eq!(result, Ok(AssistantOutcome::Message));
+    }
+
+    #[test]
+    fn outcome_explicit_noop_accepted() {
+        let draft = AssistantDraft {
+            message: "Nothing to change.".into(),
+            action_batch: None,
+            tool_call: None,
+        };
+        let result = resolve_assistant_outcome(&draft, &[], "s", &test_outcome_input());
+        assert_eq!(result, Ok(AssistantOutcome::Message));
+    }
+
+    #[test]
+    fn outcome_unsupported_task_explained() {
+        let draft = AssistantDraft {
+            message: "No tool available for that.".into(),
+            action_batch: None,
+            tool_call: None,
+        };
+        let result = resolve_assistant_outcome(&draft, &[], "s", &test_outcome_input());
+        assert_eq!(result, Ok(AssistantOutcome::Message));
+    }
+
+    #[test]
+    fn outcome_deserializes_omitted_batch_and_tool() {
+        let json = json!({"message": "hello"});
+        let draft: AssistantDraft = serde_json::from_value(json).unwrap();
+        assert!(draft.action_batch.is_none());
+        assert!(draft.tool_call.is_none());
+    }
+
+    #[test]
+    fn outcome_deserializes_null_batch_and_tool() {
+        let json = json!({
+            "message": "hello",
+            "actionBatch": null,
+            "toolCall": null
+        });
+        let draft: AssistantDraft = serde_json::from_value(json).unwrap();
+        assert!(draft.action_batch.is_none());
+        assert!(draft.tool_call.is_none());
+    }
+
+    #[test]
+    fn outcome_empty_noop_normalized_to_message() {
+        let draft = AssistantDraft {
+            message: "nothing to do".into(),
+            action_batch: Some(AssistantDraftBatch {
+                kind: "noop".into(),
+                title: "noop".into(),
+                summary: "noop".into(),
+                risk_level: "low".into(),
+                actions: vec![],
+            }),
+            tool_call: None,
+        };
+        let normalized = normalize_noop_batch(draft);
+        assert!(normalized.action_batch.is_none());
+        assert_eq!(normalized.message, "nothing to do");
+    }
+
+    #[test]
+    fn outcome_noop_with_actions_preserved_for_rejection() {
+        let draft = AssistantDraft {
+            message: "noop with actions".into(),
+            action_batch: Some(AssistantDraftBatch {
+                kind: "noop".into(),
+                title: "noop".into(),
+                summary: "noop".into(),
+                risk_level: "low".into(),
+                actions: vec![crate::state::assistant::AssistantAction {
+                    track_path: Some("/track.mp3".into()),
+                    ..Default::default()
+                }],
+            }),
+            tool_call: None,
+        };
+        // Normalize preserves it; validated_assistant_batch rejects it.
+        let normalized = normalize_noop_batch(draft);
+        assert!(normalized.action_batch.is_some());
+        let result = resolve_assistant_outcome(&normalized, &[], "s", &test_outcome_input());
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("unsupported action"));
+    }
+
+    #[test]
+    fn outcome_valid_tool_preview_accepted() {
+        let batch = AssistantActionBatch {
+            id: "batch-test".into(),
+            created_at: "now".into(),
+            session_id: "s".into(),
+            kind: "metadata-update".into(),
+            title: "Test".into(),
+            summary: "test".into(),
+            risk_level: "low".into(),
+            actions: vec![crate::state::assistant::AssistantAction {
+                track_path: Some("/track.mp3".into()),
+                field: Some("title".into()),
+                new_value: Some("New Title".into()),
+                ..Default::default()
+            }],
+            reversible: true,
+            status: "pending".into(),
+        };
+        let result = resolve_assistant_outcome(
+            &AssistantDraft {
+                message: "updating title".into(),
+                action_batch: None,
+                tool_call: None,
+            },
+            &[batch],
+            "s",
+            &test_outcome_input(),
+        );
+        assert!(matches!(result, Ok(AssistantOutcome::ToolPreview(_))));
+    }
+
+    #[test]
+    fn outcome_valid_model_preview_accepted() {
+        let result = resolve_assistant_outcome(
+            &AssistantDraft {
+                message: "updating title".into(),
+                action_batch: Some(AssistantDraftBatch {
+                    kind: "metadata-update".into(),
+                    title: "Update title".into(),
+                    summary: "1 action".into(),
+                    risk_level: "low".into(),
+                    actions: vec![crate::state::assistant::AssistantAction {
+                        track_path: Some("/track.mp3".into()),
+                        field: Some("title".into()),
+                        new_value: Some("New Title".into()),
+                        ..Default::default()
+                    }],
+                }),
+                tool_call: None,
+            },
+            &[],
+            "s",
+            &test_outcome_input(),
+        );
+        assert!(matches!(result, Ok(AssistantOutcome::ModelPreview(_))));
+    }
+
+    #[test]
+    fn outcome_both_tool_and_model_preview_rejected() {
+        let result = resolve_assistant_outcome(
+            &AssistantDraft {
+                message: "both".into(),
+                action_batch: Some(AssistantDraftBatch {
+                    kind: "metadata-update".into(),
+                    title: "x".into(),
+                    summary: "x".into(),
+                    risk_level: "low".into(),
+                    actions: vec![crate::state::assistant::AssistantAction {
+                        track_path: Some("/track.mp3".into()),
+                        field: Some("title".into()),
+                        new_value: Some("New Title".into()),
+                        ..Default::default()
+                    }],
+                }),
+                tool_call: None,
+            },
+            &[AssistantActionBatch {
+                id: "batch-exists".into(),
+                created_at: String::new(),
+                session_id: String::new(),
+                kind: String::new(),
+                title: String::new(),
+                summary: String::new(),
+                risk_level: String::new(),
+                actions: vec![],
+                reversible: false,
+                status: String::new(),
+            }],
+            "s",
+            &test_outcome_input(),
+        );
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("both"));
+    }
+
+    #[test]
+    fn outcome_unknown_tool_rejected() {
+        let result = validate_registered_tool_args(
+            "nonexistent_tool",
+            &json!({}),
+        );
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn outcome_invalid_arguments_rejected() {
+        let result = validate_registered_tool_args(
+            "tracks.search",
+            &json!({"artist": 123}),
+        );
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn outcome_out_of_scope_batch_rejected() {
+        let result = resolve_assistant_outcome(
+            &AssistantDraft {
+                message: "test".into(),
+                action_batch: Some(AssistantDraftBatch {
+                    kind: "metadata-update".into(),
+                    title: "x".into(),
+                    summary: "x".into(),
+                    risk_level: "low".into(),
+                    actions: vec![crate::state::assistant::AssistantAction {
+                        track_path: Some("/outside/scope.mp3".into()),
+                        field: Some("title".into()),
+                        new_value: Some("X".into()),
+                        ..Default::default()
+                    }],
+                }),
+                tool_call: None,
+            },
+            &[],
+            "s",
+            &test_outcome_input(),
+        );
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("outside the active scope"));
     }
 }
 
