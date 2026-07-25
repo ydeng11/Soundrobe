@@ -395,3 +395,50 @@ describe("App — cover removal", () => {
     });
   });
 });
+
+describe("App — auto-tag artwork refresh", () => {
+  it("evicts a cached missing cover and refetches the active album after auto-tag", async () => {
+    const getCoverDataUrl = window.api
+      .getCoverDataUrl as ReturnType<typeof vi.fn>;
+    getCoverDataUrl.mockResolvedValue(null);
+    (window.api.autoTagAlbum as ReturnType<typeof vi.fn>).mockResolvedValue(
+      "auto-tag-1",
+    );
+
+    render(<App />);
+    await act(async () => {
+      fireEvent.click(screen.getByText("Open Library"));
+    });
+
+    let trackRows: HTMLElement[];
+    await waitFor(() => {
+      trackRows = screen.getAllByTestId(/^file-row-/);
+      expect(trackRows.length).toBe(2);
+    });
+
+    await act(async () => {
+      fireEvent.click(trackRows![0]);
+    });
+    await waitFor(() => {
+      expect(getCoverDataUrl).toHaveBeenCalled();
+      expect(screen.getByText(/No cover/)).toBeTruthy();
+    });
+
+    getCoverDataUrl.mockClear();
+    getCoverDataUrl.mockResolvedValue(
+      "data:image/jpeg;base64,auto-tag-cover",
+    );
+
+    await act(async () => {
+      fireEvent.click(screen.getByText("Auto-Tag"));
+    });
+
+    await waitFor(() => {
+      expect(getCoverDataUrl).toHaveBeenCalledWith(
+        "/music/Test Album",
+        "/music/Test Album/01.mp3",
+      );
+      expect(screen.getByAltText("Cover art")).toBeTruthy();
+    });
+  });
+});

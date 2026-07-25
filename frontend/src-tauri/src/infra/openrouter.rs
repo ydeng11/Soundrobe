@@ -1,12 +1,12 @@
 //! Shared OpenRouter structured-response client.
 
 use reqwest::{Client, StatusCode};
-use tracing;
 use serde::Serialize;
 use serde_json::{json, Value};
 use std::fmt;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
+use tracing;
 
 const OPENROUTER_BASE: &str = "https://openrouter.ai/api/v1";
 const DEFAULT_TIMEOUT: Duration = Duration::from_secs(30);
@@ -251,7 +251,7 @@ impl OpenRouterClient {
         });
         let messages = vec![
             ChatMessage::system(
-                "Return a JSON object with exactly one field 'response' set to the string 'ok'."
+                "Return a JSON object with exactly one field 'response' set to the string 'ok'.",
             ),
             ChatMessage::user("Say ok"),
         ];
@@ -312,9 +312,7 @@ impl OpenRouterClient {
                     .and_then(Value::as_array)
                     .is_some_and(|arr| !arr.is_empty()),
                 ProviderKind::Anthropic => {
-                    let has_tool_use = current
-                        .pointer("/content/0/type")
-                        .and_then(Value::as_str)
+                    let has_tool_use = current.pointer("/content/0/type").and_then(Value::as_str)
                         == Some("tool_use");
                     let stop_reason = current
                         .get("stop_reason")
@@ -392,7 +390,11 @@ impl OpenRouterClient {
             if remaining.is_zero() {
                 return Err(OpenRouterError::Timeout(self.timeout.as_millis()));
             }
-            tracing::debug!(attempt, remaining_ms = remaining.as_millis(), "OpenRouter attempt");
+            tracing::debug!(
+                attempt,
+                remaining_ms = remaining.as_millis(),
+                "OpenRouter attempt"
+            );
             match tokio::time::timeout(
                 remaining,
                 self.post(
@@ -473,8 +475,21 @@ impl OpenRouterClient {
             return Err(OpenRouterError::Cancelled);
         }
         match self.provider {
-            ProviderKind::Anthropic => self.post_anthropic(messages, schema_name, schema, max_tokens, cancelled).await,
-            ProviderKind::OpenAi => self.post_openai(messages, schema_name, schema, max_tokens, disable_reasoning, cancelled).await,
+            ProviderKind::Anthropic => {
+                self.post_anthropic(messages, schema_name, schema, max_tokens, cancelled)
+                    .await
+            }
+            ProviderKind::OpenAi => {
+                self.post_openai(
+                    messages,
+                    schema_name,
+                    schema,
+                    max_tokens,
+                    disable_reasoning,
+                    cancelled,
+                )
+                .await
+            }
         }
     }
 

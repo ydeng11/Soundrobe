@@ -126,12 +126,10 @@ pub async fn fetch_album_lyrics(
             // Check local lyrics first (blocking I/O, spawn to avoid holding up
             // the async runtime).
             let local_path = path.clone();
-            let mut lyrics = tokio::task::spawn_blocking(move || {
-                read_local_lyrics(&local_path)
-            })
-            .await
-            .ok()
-            .flatten();
+            let mut lyrics = tokio::task::spawn_blocking(move || read_local_lyrics(&local_path))
+                .await
+                .ok()
+                .flatten();
 
             if lyrics.is_none() {
                 if let Some(ref base_url) = base_url {
@@ -142,8 +140,7 @@ pub async fn fetch_album_lyrics(
                                 &title,
                                 &artist,
                                 metadata.album.as_deref(),
-                                (metadata.duration > 0.0)
-                                    .then_some(metadata.duration.round()),
+                                (metadata.duration > 0.0).then_some(metadata.duration.round()),
                             )
                             .await;
                         }

@@ -10,7 +10,7 @@ use tauri::{AppHandle, Emitter, Manager, State};
 
 use crate::{
     commands::{
-        covers::download_album_artwork_at,
+        covers::{download_album_artwork_at, download_artist_artwork_at},
         library::collect_audio_files,
         lyrics::{fetch_album_lyrics, DEFAULT_BASE_URL},
         mutations::{write_track_queued, TrackPatch},
@@ -116,9 +116,11 @@ pub fn build_lookup_request(album_path: &Path) -> Result<LookupRequest, ApiError
         .file_name()
         .and_then(|name| name.to_str())
         .unwrap_or_default();
-    let cd_subfolder = Regex::new(r"(?i)^(?:cd|disc|disk|ディスク)\s*\d+\s*$|^.+(?:\s|\(|\[)(?:cd|disc|disk)\s*\d+\s*$")
-        .expect("valid CD subfolder regex")
-        .is_match(supplied_folder);
+    let cd_subfolder = Regex::new(
+        r"(?i)^(?:cd|disc|disk|ディスク)\s*\d+\s*$|^.+(?:\s|\(|\[)(?:cd|disc|disk)\s*\d+\s*$",
+    )
+    .expect("valid CD subfolder regex")
+    .is_match(supplied_folder);
     // Extract disc number from folder suffix like "CD1", "Disc 2", "(CD1)", "挑信 CD1".
     let selected_disc_number = Regex::new(r"(?i)(?:cd|disc|disk)\s*(\d+)")
         .expect("valid disc number regex")
@@ -185,7 +187,9 @@ pub fn build_lookup_request(album_path: &Path) -> Result<LookupRequest, ApiError
                 .and_then(|stem| stem.to_str());
             let filename_number = filename_stem.and_then(filename_track_number);
             TrackCandidate {
-                title: track.title.or_else(|| filename_stem.and_then(filename_track_title)),
+                title: track
+                    .title
+                    .or_else(|| filename_stem.and_then(filename_track_title)),
                 filename: filename_stem.map(|s| s.to_owned()),
                 artist: track.artist.clone(),
                 artists: if track.artists.is_empty() {
@@ -291,7 +295,11 @@ fn filename_track_title(stem: &str) -> Option<String> {
         .replace(stem, "")
         .trim()
         .to_string();
-    if title.is_empty() { None } else { Some(title) }
+    if title.is_empty() {
+        None
+    } else {
+        Some(title)
+    }
 }
 
 pub fn folder_candidate(request: &LookupRequest) -> AlbumCandidate {
@@ -1140,10 +1148,7 @@ async fn resolve_tags_via_llm(
     config: &AutoTagConfig,
     cancelled: &AtomicBool,
 ) -> Option<LlmTagResolution> {
-    let api_key = config
-        .llm_api_key
-        .as_deref()
-        .filter(|key| !key.is_empty());
+    let api_key = config.llm_api_key.as_deref().filter(|key| !key.is_empty());
     if api_key.is_none() {
         tracing::debug!(
             hints_artist = ?request.artist_hint,
@@ -1205,7 +1210,9 @@ async fn resolve_tags_via_llm(
         "required": ["artist", "albumArtist", "album", "year", "genre", "tracks", "confidence"]
     });
     tracing::debug!(model, "calling auto-tag LLM");
-    let Some(api_key) = api_key else { return None; };
+    let Some(api_key) = api_key else {
+        return None;
+    };
     let llm_endpoint = crate::infra::openrouter::LlmEndpoint::from_config(
         config.llm_provider.as_deref(),
         config.llm_base_url.as_deref(),
@@ -1218,7 +1225,9 @@ async fn resolve_tags_via_llm(
         Ok(_) => tracing::debug!("auto-tag LLM succeeded"),
         Err(e) => tracing::warn!("auto-tag LLM failed: {e}"),
     }
-    result.ok().map(|response| llm_resolution_from_value(request, &response.data))
+    result
+        .ok()
+        .map(|response| llm_resolution_from_value(request, &response.data))
 }
 
 async fn fill_genre_if_missing(
@@ -1562,11 +1571,30 @@ pub async fn resolve_and_apply_album(
             config.discogs_token.clone(),
             config.theaudiodb_api_key.clone(),
         );
-        if let Some(path) = download_album_artwork_at(album_path, &remote, services.queue).await {
+        if let Some((_bytes, source, path)) =
+            download_album_artwork_at(album_path, &remote, services.queue).await
+        {
             report(
                 "source",
                 format!("Cover art: {}", path.display()),
-                Some(serde_json::json!({"source": "cover", "path": path.to_string_lossy()})),
+                Some(serde_json::json!({
+                    "source": "cover",
+                    "provider": source,
+                    "path": path.to_string_lossy()
+                })),
+            );
+        }
+        if let Some((_bytes, source, path)) =
+            download_artist_artwork_at(album_path, &remote, services.queue).await
+        {
+            report(
+                "source",
+                format!("Artist art: {}", path.display()),
+                Some(serde_json::json!({
+                    "source": "artist",
+                    "provider": source,
+                    "path": path.to_string_lossy()
+                })),
             );
         }
     }
@@ -1705,14 +1733,7 @@ pub async fn apply_candidate_tags(
     candidate: &AlbumCandidate,
     queue: &WriteQueue,
 ) -> Result<usize, ApiError> {
-    apply_candidate_tags_reported(
-        album_path,
-        candidate,
-        queue,
-        HashMap::new(),
-        |_| {},
-    )
-    .await
+    apply_candidate_tags_reported(album_path, candidate, queue, HashMap::new(), |_| {}).await
 }
 
 async fn apply_candidate_tags_reported(
@@ -2438,11 +2459,7 @@ mod tests {
 
         // Without the matched request ID (None), the SACD candidate is
         // rejected by album name mismatch.
-        let filtered = filter_candidates_for_album(
-            Some("精选 Collection"),
-            candidates,
-            None,
-        );
+        let filtered = filter_candidates_for_album(Some("精选 Collection"), candidates, None);
         assert_eq!(filtered.len(), 0);
     }
 
@@ -2834,7 +2851,9 @@ mod tests {
 
         // Only the two Super Girl releases should pass the filter
         assert_eq!(ranked.len(), 2);
-        assert!(ranked.iter().any(|r| r.id == "a9746022-a1f5-478f-9480-6ffe9e846b40"));
+        assert!(ranked
+            .iter()
+            .any(|r| r.id == "a9746022-a1f5-478f-9480-6ffe9e846b40"));
         assert!(ranked
             .iter()
             .any(|r| r.id == "23058dc0-d399-447a-8c75-798fee8af9c4"));
@@ -2972,6 +2991,4 @@ mod tests {
         assert_eq!(written.album.as_deref(), Some("Folder Album"));
         fs::remove_dir_all(root).unwrap();
     }
-
-
 }

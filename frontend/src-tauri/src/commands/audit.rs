@@ -655,10 +655,7 @@ pub fn build_deterministic_audit_findings(
         let metadata_artist = track.artist.as_deref();
         let source_artist = filename_artist
             .filter(|artist| split_artist_names(artist).len() >= 2)
-            .or_else(|| {
-                metadata_artist
-                    .filter(|artist| split_artist_names(artist).len() >= 2)
-            })
+            .or_else(|| metadata_artist.filter(|artist| split_artist_names(artist).len() >= 2))
             .or(filename_artist)
             .or(metadata_artist);
         if let Some(source_artist) = source_artist {

@@ -347,7 +347,11 @@ fn mask(s: &Option<String>) -> Value {
 /// the renderer's "not set" semantics hold; parity is revisited when the
 /// config command is wired.
 pub fn redacted(config: &AutoTagConfig) -> Value {
-    let key_configured = config.llm_api_key.as_deref().filter(|k| !k.is_empty()).is_some();
+    let key_configured = config
+        .llm_api_key
+        .as_deref()
+        .filter(|k| !k.is_empty())
+        .is_some();
     json!({
         "llmApiKey": mask(&config.llm_api_key),
         "llmApiKeyConfigured": key_configured,
@@ -478,9 +482,7 @@ impl ConfigState {
         let _guard: MutexGuard<'_, ()> = match self.write_lock.lock() {
             Ok(g) => g,
             Err(e) => {
-                tracing::warn!(
-                    "config write-lock poisoned, skipping save for {camel_key}: {e}"
-                );
+                tracing::warn!("config write-lock poisoned, skipping save for {camel_key}: {e}");
                 return;
             }
         };

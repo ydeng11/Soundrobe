@@ -466,9 +466,7 @@ fn strip_album_subtitle(album: &str) -> String {
         r"(?i)[（(][^）)]*(?:精選|精歌|精选|精选集|新歌|新曲|首張|經典|專輯|album|edition|version|disc|remaster)[^）)]*[）)]",
     )
     .expect("valid subtitle regex");
-    re.replace_all(album, "")
-        .trim()
-        .to_string()
+    re.replace_all(album, "").trim().to_string()
 }
 
 fn parse_musicbrainz_search_release(value: &serde_json::Value) -> Option<ProviderAlbum> {
@@ -2473,17 +2471,11 @@ mod tests {
         assert_eq!(album.tracks[0].track_number, Some(1));
         assert_eq!(album.tracks[0].disc_number, Some(1));
         // Recording ID belongs to the first medium (SACD).
-        assert_eq!(
-            album.tracks[0].recording_id.as_deref(),
-            Some("rec-a1")
-        );
+        assert_eq!(album.tracks[0].recording_id.as_deref(), Some("rec-a1"));
         assert_eq!(album.tracks[1].title.as_deref(), Some("Song B"));
         assert_eq!(album.tracks[1].track_number, Some(2));
         assert_eq!(album.tracks[1].disc_number, Some(1));
-        assert_eq!(
-            album.tracks[1].recording_id.as_deref(),
-            Some("rec-b1")
-        );
+        assert_eq!(album.tracks[1].recording_id.as_deref(), Some("rec-b1"));
     }
 
     #[tokio::test]
@@ -2789,7 +2781,10 @@ mod tests {
             "Super Girl 愛無畏"
         );
         // No parenthesized subtitle -> unchanged
-        assert_eq!(strip_album_subtitle("Super Girl 爱无畏"), "Super Girl 爱无畏");
+        assert_eq!(
+            strip_album_subtitle("Super Girl 爱无畏"),
+            "Super Girl 爱无畏"
+        );
         // English-style parentheses
         assert_eq!(
             strip_album_subtitle("Greatest Hits (Deluxe Edition)"),
@@ -2807,10 +2802,12 @@ mod tests {
         assert!(album_names_match(folder_hint, "Super Girl 爱无畏"));
 
         // Taiwan release: "Super Girl 愛 無畏 新歌＋精選"
-        assert!(album_names_match(folder_hint, "Super Girl 愛 無畏 新歌＋精選"));
+        assert!(album_names_match(
+            folder_hint,
+            "Super Girl 愛 無畏 新歌＋精選"
+        ));
 
         // Unrelated releases should not match
         assert!(!album_names_match(folder_hint, "Unrelated Album"));
     }
-
 }

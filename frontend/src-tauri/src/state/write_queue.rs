@@ -9,8 +9,8 @@
 use std::collections::HashMap;
 use std::future::Future;
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
 use tokio::sync::Mutex;
 
 /// All media mutations pass through one queue so two UI actions cannot race on

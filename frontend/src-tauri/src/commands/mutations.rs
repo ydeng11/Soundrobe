@@ -4,7 +4,6 @@
 use crate::commands::tracks::{
     id3_user_text_values, read_track_metadata, unreadable_track_data, TrackData,
 };
-use memchr::memmem::Finder;
 use crate::error::ApiError;
 use crate::state::write_queue::WriteQueue;
 use lofty::ape::{ApeFile, ApeItem, ApeTag};
@@ -16,10 +15,11 @@ use lofty::iff::wav::WavFile;
 use lofty::mp4::{Atom, AtomData, AtomIdent, Ilst, Mp4File};
 use lofty::mpeg::MpegFile;
 use lofty::ogg::{OpusFile, VorbisFile};
-use lofty::tag::{Accessor, ItemValue, TagExt};
 use lofty::probe::Probe;
 use lofty::tag::TagType;
+use lofty::tag::{Accessor, ItemValue, TagExt};
 use lofty::TextEncoding;
+use memchr::memmem::Finder;
 use serde::{Deserialize, Deserializer, Serialize};
 use std::borrow::Cow;
 use std::collections::HashMap;
@@ -281,10 +281,7 @@ pub async fn track_extra_tags_write(
 }
 
 /// Helper: record a single probe phase outcome.
-fn probe_phase(
-    name: &str,
-    result: &std::io::Result<()>,
-) -> WriteProbePhase {
+fn probe_phase(name: &str, result: &std::io::Result<()>) -> WriteProbePhase {
     match result {
         Ok(_) => WriteProbePhase {
             name: name.to_string(),
@@ -310,7 +307,10 @@ pub async fn volume_probe_write(path: String) -> WriteProbeResult {
     let mut phases: Vec<WriteProbePhase> = Vec::new();
 
     // 1. Can we stat the target?
-    phases.push(probe_phase("stat_target", &fs::metadata(&target).map(|_| ())));
+    phases.push(probe_phase(
+        "stat_target",
+        &fs::metadata(&target).map(|_| ()),
+    ));
 
     // 2. Can we read the target?
     let read_result = fs::read(&target);
@@ -455,13 +455,17 @@ pub async fn volume_probe_write_real(
         .map(|s| s.to_string());
 
     // Create a sibling copy (e.g. "05 靠近一點.probe-test.flac")
-    let copy_path = target.with_file_name(
-        format!(
-            "{}.probe-test.{}",
-            target.file_stem().and_then(|s| s.to_str()).unwrap_or("track"),
-            target.extension().and_then(|s| s.to_str()).unwrap_or("flac")
-        )
-    );
+    let copy_path = target.with_file_name(format!(
+        "{}.probe-test.{}",
+        target
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("track"),
+        target
+            .extension()
+            .and_then(|s| s.to_str())
+            .unwrap_or("flac")
+    ));
 
     // Ensure the copy is clean
     let _ = fs::remove_file(&copy_path);
@@ -695,8 +699,8 @@ pub(crate) async fn write_track_queued(
                 }
                 result
             })
-                .await
-                .map_err(|error| ApiError::WriteTask(error.to_string()))?
+            .await
+            .map_err(|error| ApiError::WriteTask(error.to_string()))?
         })
         .await?;
     Ok(())
@@ -706,14 +710,10 @@ pub(crate) async fn write_track_queued(
 /// Uses lofty's unified `Probe` + `TaggedFile` API to handle all formats.
 pub(crate) fn remove_embedded_cover_at(path: &Path) -> Result<(), ApiError> {
     let mut tagged_file = Probe::open(path)
-        .map_err(|e| {
-            ApiError::WriteTask(format!("Failed to open track for cover removal: {e}"))
-        })?
+        .map_err(|e| ApiError::WriteTask(format!("Failed to open track for cover removal: {e}")))?
         .options(ParseOptions::new().read_properties(false))
         .read()
-        .map_err(|e| {
-            ApiError::WriteTask(format!("Failed to read track for cover removal: {e}"))
-        })?;
+        .map_err(|e| ApiError::WriteTask(format!("Failed to read track for cover removal: {e}")))?;
 
     // Collect tag types first to avoid borrow conflicts with tag_mut.
     let tag_types: Vec<TagType> = tagged_file.tags().iter().map(|t| t.tag_type()).collect();
@@ -735,7 +735,9 @@ pub(crate) fn remove_embedded_cover_at(path: &Path) -> Result<(), ApiError> {
 
     tagged_file
         .save_to_path(path, WriteOptions::new())
-        .map_err(|e| ApiError::WriteTask(format!("Failed to save track after cover removal: {e}")))?;
+        .map_err(|e| {
+            ApiError::WriteTask(format!("Failed to save track after cover removal: {e}"))
+        })?;
 
     Ok(())
 }
@@ -767,8 +769,8 @@ pub(crate) async fn remove_embedded_cover_queued(
                 }
                 result
             })
-                .await
-                .map_err(|error| ApiError::WriteTask(error.to_string()))?
+            .await
+            .map_err(|error| ApiError::WriteTask(error.to_string()))?
         })
         .await?;
     Ok(())
@@ -794,9 +796,7 @@ async fn batch_write_queued(
         return Ok(());
     }
 
-    let total = progress_tracker
-        .as_ref()
-        .map_or(0, |(_, t)| *t);
+    let total = progress_tracker.as_ref().map_or(0, |(_, t)| *t);
 
     // 2. Spawn one task per folder (concurrent across folders).
     //    Each task acquires only its folder-scoped lock via run_for_folder,
@@ -809,10 +809,9 @@ async fn batch_write_queued(
     //    via `write_concurrency` in ~/.auto-tagger/config.yaml or the
     //    AUTO_TAG_WRITE_CONCURRENCY environment variable (e.g. 8 for
     //    local NVMe).
-    let max_concurrency = crate::state::config::resolve_write_concurrency(
-        &dirs::home_dir().unwrap_or_default(),
-    )
-    .unwrap_or(2);
+    let max_concurrency =
+        crate::state::config::resolve_write_concurrency(&dirs::home_dir().unwrap_or_default())
+            .unwrap_or(2);
     let io_quota = Arc::new(tokio::sync::Semaphore::new(max_concurrency));
     let mut handles = Vec::new();
     for (folder, folder_updates) in folder_groups {
@@ -830,19 +829,14 @@ async fn batch_write_queued(
                         for update in batch {
                             let write_start = std::time::Instant::now();
                             let path_str = update.path.clone();
-                            match write_track_dispatch(
-                                Path::new(&update.path),
-                                &update.fields,
-                            ) {
+                            match write_track_dispatch(Path::new(&update.path), &update.fields) {
                                 Ok(_) => {
                                     tracing::debug!(
                                         path = %update.path,
                                         elapsed_s = write_start.elapsed().as_secs_f64(),
                                         "batch track write done"
                                     );
-                                    let mut acc = accum
-                                        .lock()
-                                        .expect("accum lock poisoned");
+                                    let mut acc = accum.lock().expect("accum lock poisoned");
                                     acc.successes.push(path_str);
 
                                     // Emit progress after each track write so the
@@ -866,14 +860,12 @@ async fn batch_write_queued(
                                         error = %e,
                                         "batch track write failed, continuing"
                                     );
-                                    accum
-                                        .lock()
-                                        .expect("accum lock poisoned")
-                                        .failures
-                                        .push(TrackWriteFailure {
+                                    accum.lock().expect("accum lock poisoned").failures.push(
+                                        TrackWriteFailure {
                                             path: path_str,
                                             error: e.to_string(),
-                                        });
+                                        },
+                                    );
                                 }
                             }
                         }
@@ -947,9 +939,7 @@ async fn batch_write_with_readback(
     let total = updates.len() as u64;
     let accum = Arc::new(Mutex::new(BatchAccumulator::default()));
     batch_write_queued(queue, updates, app.map(|a| (a, total)), &accum).await?;
-    let mut acc = accum
-        .lock()
-        .expect("accum lock poisoned");
+    let mut acc = accum.lock().expect("accum lock poisoned");
     let successes: std::collections::HashSet<String> = acc.successes.drain(..).collect();
     let failures = acc.failures.clone();
     drop(acc);
@@ -1003,8 +993,8 @@ pub(crate) async fn write_extra_tags_queued(
                 }
                 result
             })
-                .await
-                .map_err(|error| ApiError::WriteTask(error.to_string()))?
+            .await
+            .map_err(|error| ApiError::WriteTask(error.to_string()))?
         })
         .await?;
     Ok(())
@@ -1453,8 +1443,9 @@ fn try_ape_inplace_update(
     let _ = fs::remove_file(&scratch);
 
     // Verify audio core unchanged.
-    let candidate_core = ape_audio_core(&candidate)
-        .ok_or_else(|| ApiError::MediaSafety("invalid written Monkey audio boundary".to_string()))?;
+    let candidate_core = ape_audio_core(&candidate).ok_or_else(|| {
+        ApiError::MediaSafety("invalid written Monkey audio boundary".to_string())
+    })?;
     if candidate_core != original_core {
         return Err(ApiError::MediaSafety(
             "Monkey audio core changed during metadata write".to_string(),
@@ -1477,7 +1468,9 @@ fn try_ape_inplace_update(
     use std::io::Seek;
     let tag_bytes = &candidate[candidate_core.len()..];
     let write_result = (|| -> Result<(), ApiError> {
-        let mut f = std::fs::OpenOptions::new().write(true).open(path)
+        let mut f = std::fs::OpenOptions::new()
+            .write(true)
+            .open(path)
             .map_err(|e| ApiError::WriteTask(format!("open for APE in-place: {e}")))?;
         f.set_len(original_core.len() as u64)
             .map_err(|e| ApiError::WriteTask(format!("APE truncate: {e}")))?;
@@ -1813,7 +1806,8 @@ fn try_id3v2_inplace_update(
     patch: &TrackPatch,
     payload_ok: &dyn Fn(&[u8], &[u8]) -> bool,
 ) -> Result<Option<TrackWriteOutcome>, ApiError> {
-    let original_payload = original_bytes.get(payload_offset..)
+    let original_payload = original_bytes
+        .get(payload_offset..)
         .ok_or_else(|| ApiError::MediaSafety("invalid ID3v2 boundary".to_string()))?;
     let before = read_track_metadata(path)?;
     preserve_omitted_list(tag, path, "ARTISTS", &patch.artists);
@@ -1840,7 +1834,7 @@ fn try_id3v2_inplace_update(
     let new_tag_size = candidate.len() - original_payload.len();
 
     if new_tag_size > payload_offset {
-        return Ok(None);  // doesn't fit — fall back
+        return Ok(None); // doesn't fit — fall back
     }
 
     // Verify audio payload is unchanged.
@@ -1888,7 +1882,7 @@ pub fn write_mp3_atomic(path: &Path, patch: &TrackPatch) -> Result<TrackWriteOut
     // renderer_write_contract. Re-enable after fixing Lofty save-to-scratch.
     //
     // let mut tag = read_id3v2(path)?;
-    // if let Some(outcome) = try_id3v2_inplace_update( ... 
+    // if let Some(outcome) = try_id3v2_inplace_update( ...
 
     // Fallback: full rewrite via local scratch + atomic rename.
     let before = read_track_metadata(path)?;
@@ -2533,7 +2527,8 @@ fn strip_wav_list_chunk(bytes: &[u8]) -> Vec<u8> {
     let mut offset = 12_usize;
     while offset.checked_add(8).is_some_and(|end| end <= bytes.len()) {
         let id = bytes.get(offset..offset + 4).unwrap_or_default();
-        let chunk_size_bytes: [u8; 4] = bytes.get(offset + 4..offset + 8)
+        let chunk_size_bytes: [u8; 4] = bytes
+            .get(offset + 4..offset + 8)
             .and_then(|s| <[u8; 4]>::try_from(s).ok())
             .unwrap_or([0; 4]);
         let chunk_size = u32::from_le_bytes(chunk_size_bytes) as usize;
@@ -2830,7 +2825,8 @@ fn try_flac_inplace_update(
 
     // Capture the original metadata region from the already-loaded bytes so
     // we never re-read the remote file just for restoration data.
-    let original_metadata = prepared.get(..audio_offset)
+    let original_metadata = prepared
+        .get(..audio_offset)
         .ok_or_else(|| ApiError::MediaSafety("invalid FLAC metadata boundary".to_string()))?
         .to_vec();
 
@@ -2844,7 +2840,8 @@ fn try_flac_inplace_update(
             .map_err(|_| ApiError::MediaSafety("cannot read FLAC metadata".to_string()))?;
         let mut comments = flac.vorbis_comments().cloned().unwrap_or_default();
         apply(&mut comments);
-        comments.save_to_path(&scratch, WriteOptions::new())
+        comments
+            .save_to_path(&scratch, WriteOptions::new())
             .map_err(|e| ApiError::WriteTask(format!("failed to save patched comments: {e}")))?;
 
         let candidate = fs::read(&scratch)?;
@@ -2852,7 +2849,7 @@ fn try_flac_inplace_update(
         // `repack_flac_metadata` returns `Some` only when the new metadata
         // fits within `audio_offset` bytes (including padding).
         let Some(repacked) = repack_flac_metadata(&candidate, audio_offset, payload) else {
-            return Ok(None);  // doesn't fit — fall back
+            return Ok(None); // doesn't fit — fall back
         };
 
         let before = read_track_metadata(path)?;
@@ -2872,7 +2869,9 @@ fn try_flac_inplace_update(
         // All errors after the mutation trigger restoration of the original
         // metadata prefix.
         let write_result = (|| -> Result<(), ApiError> {
-            let mut f = std::fs::OpenOptions::new().write(true).open(path)
+            let mut f = std::fs::OpenOptions::new()
+                .write(true)
+                .open(path)
                 .map_err(|e| ApiError::WriteTask(format!("open for in-place write: {e}")))?;
             f.write_all(new_metadata)
                 .map_err(|e| ApiError::WriteTask(format!("in-place metadata write: {e}")))?;
@@ -2963,9 +2962,8 @@ fn replace_file_atomic(source: &Path, destination: &Path) -> std::io::Result<()>
         .extension()
         .and_then(|e| e.to_str())
         .unwrap_or("tmp");
-    let staging = destination.with_file_name(format!(
-        ".{name}.soundrobe-{pid}-{sequence}.tmp.{ext}"
-    ));
+    let staging =
+        destination.with_file_name(format!(".{name}.soundrobe-{pid}-{sequence}.tmp.{ext}"));
 
     // 1. Copy validated result to staging temp on the target filesystem.
     // 2. Atomic-rename staging over the original.
@@ -3177,7 +3175,7 @@ mod tests {
 
     #[test]
     fn ghost_valid_prefixed_match_neutralized() {
-        let vendor = b"soundrobe";         // length 9
+        let vendor = b"soundrobe"; // length 9
         let len_prefix = 9u32.to_le_bytes(); // [9, 0, 0, 0]
         let mut buf = Vec::new();
         buf.extend_from_slice(b"fLaC");
@@ -3185,10 +3183,10 @@ mod tests {
         // Last-metadata-block flag + block-type STREAMINFO (0) + length 34
         buf.extend_from_slice(&[0x80, 0, 0, 34]);
         buf.extend_from_slice(&[0u8; 34]); // STREAMINFO
-        // Now audio payload containing a valid prefixed vendor string
-        // We need the 4-byte length prefix + vendor string in the audio region
+                                           // Now audio payload containing a valid prefixed vendor string
+                                           // We need the 4-byte length prefix + vendor string in the audio region
         let audio_off = buf.len();
-        buf.extend_from_slice(&len_prefix);  // valid length prefix = 9
+        buf.extend_from_slice(&len_prefix); // valid length prefix = 9
         buf.extend_from_slice(vendor);
         buf.extend_from_slice(b"more audio data");
 
@@ -3220,7 +3218,7 @@ mod tests {
 
     #[test]
     fn ghost_multiple_matches_all_neutralized() {
-        let vendor = b"auto-tagger";       // length 11
+        let vendor = b"auto-tagger"; // length 11
         let len_prefix = 11u32.to_le_bytes();
         let mut buf = Vec::new();
         buf.extend_from_slice(b"fLaC");
@@ -3309,7 +3307,8 @@ mod tests {
         // Verify rename_all = "camelCase" maps albumArtist -> album_artist
         let patch: TrackPatch = serde_json::from_value(serde_json::json!({
             "albumArtist": "Diagnostic Test"
-        })).unwrap();
+        }))
+        .unwrap();
         assert_eq!(
             patch.album_artist,
             Patch::Value("Diagnostic Test".to_string())
@@ -3330,9 +3329,7 @@ mod tests {
         {
             let mut comments = lofty::ogg::VorbisComments::new();
             comments.push("ALBUM ARTIST".to_string(), "old".to_string());
-            comments
-                .save_to_path(&path, WriteOptions::new())
-                .unwrap();
+            comments.save_to_path(&path, WriteOptions::new()).unwrap();
         }
         // Confirm the file has ALBUM ARTIST (space) and NOT ALBUMARTIST (no space).
         // Lofty stores raw key-value pairs; "ALBUM ARTIST" and "ALBUMARTIST" are
@@ -3357,7 +3354,8 @@ mod tests {
         // Step 2: Apply the album-artist patch
         let patch: TrackPatch = serde_json::from_value(serde_json::json!({
             "albumArtist": "new"
-        })).unwrap();
+        }))
+        .unwrap();
         assert_eq!(
             write_flac_atomic(&path, &patch).unwrap(),
             TrackWriteOutcome::Replaced
@@ -3370,10 +3368,16 @@ mod tests {
         // Step 4: Confirm stale ALBUM ARTIST (space) is gone and canonical key holds new value
         let flac = read_flac(&path).unwrap();
         let comments = flac.vorbis_comments().unwrap();
-        assert_eq!(comments.get("ALBUM ARTIST"), None,
-            "stale ALBUM ARTIST (space) must be cleared");
-        assert_eq!(comments.get("ALBUMARTIST"), Some("new"),
-            "canonical ALBUMARTIST (no space) must hold new value");
+        assert_eq!(
+            comments.get("ALBUM ARTIST"),
+            None,
+            "stale ALBUM ARTIST (space) must be cleared"
+        );
+        assert_eq!(
+            comments.get("ALBUMARTIST"),
+            Some("new"),
+            "canonical ALBUMARTIST (no space) must hold new value"
+        );
 
         // Step 5: Audio payload unchanged
         let after_bytes = fs::read(&path).unwrap();
@@ -3567,10 +3571,7 @@ mod tests {
         }))
         .unwrap();
         let result = write_ape_atomic(&path, &patch);
-        assert_eq!(
-            result.unwrap(),
-            TrackWriteOutcome::Replaced
-        );
+        assert_eq!(result.unwrap(), TrackWriteOutcome::Replaced);
         let after = fs::read(&path).unwrap();
         assert_eq!(ape_audio_core(&after).unwrap(), original_core);
         assert_ne!(
@@ -3755,9 +3756,15 @@ mod tests {
 
         // Verify strip_wav_list_chunk directly (INFO only, not adtl).
         let bytes = fs::read(&path).unwrap();
-        assert!(bytes.windows(4).any(|w| w == b"adtl"), "fixture must have adtl chunk");
+        assert!(
+            bytes.windows(4).any(|w| w == b"adtl"),
+            "fixture must have adtl chunk"
+        );
         let cleaned = strip_wav_list_chunk(&bytes);
-        assert!(cleaned.len() < bytes.len(), "stripped file should be smaller");
+        assert!(
+            cleaned.len() < bytes.len(),
+            "stripped file should be smaller"
+        );
         let mut saw_adtl = false;
         let mut saw_info = false;
         let mut off = 12_usize;
@@ -3770,8 +3777,7 @@ mod tests {
                     _ => {}
                 }
             }
-            let size =
-                u32::from_le_bytes(cleaned[off + 4..off + 8].try_into().unwrap()) as usize;
+            let size = u32::from_le_bytes(cleaned[off + 4..off + 8].try_into().unwrap()) as usize;
             off += 8 + size + (size % 2);
         }
         assert!(!saw_info, "strip_wav_list_chunk must remove LIST INFO");
@@ -4103,12 +4109,13 @@ mod tests {
     fn flac_inplace_fits_with_padding() {
         // padded.flac has ample PADDING — the in-place fast path should succeed.
         let (root, path) = copy_to_temp(&writer_fixture("padded.flac"), "inplace-padded.flac");
-        let before_audio = flac_audio_payload(&fs::read(&path).unwrap()).unwrap().to_vec();
+        let before_audio = flac_audio_payload(&fs::read(&path).unwrap())
+            .unwrap()
+            .to_vec();
         let before_offset = flac_audio_offset(&fs::read(&path).unwrap()).unwrap();
 
-        let patch: TrackPatch = serde_json::from_value(
-            serde_json::json!({"album": "In-place Album"}),
-        ).unwrap();
+        let patch: TrackPatch =
+            serde_json::from_value(serde_json::json!({"album": "In-place Album"})).unwrap();
         let outcome = write_flac_atomic(&path, &patch).unwrap();
         assert_eq!(outcome, TrackWriteOutcome::Replaced);
 
@@ -4128,7 +4135,9 @@ mod tests {
         // Use flac-bare.flac which has no PADDING — any metadata addition
         // exceeds the available space and forces a full rewrite.
         let (root, path) = copy_to_temp(&writer_fixture("flac-bare.flac"), "inplace-bare.flac");
-        let before_audio = flac_audio_payload(&fs::read(&path).unwrap()).unwrap().to_vec();
+        let before_audio = flac_audio_payload(&fs::read(&path).unwrap())
+            .unwrap()
+            .to_vec();
         let before_offset = flac_audio_offset(&fs::read(&path).unwrap()).unwrap();
 
         // Add a long title that won't fit in the tiny bare FLAC.
@@ -4151,8 +4160,11 @@ mod tests {
         // Extra-tag in-place is currently disabled (fallback full rewrite).
         // This test confirms the extra-tag fallback still preserves audio
         // when padding is ample.
-        let (root, path) = copy_to_temp(&writer_fixture("padded.flac"), "inplace-extra-padded.flac");
-        let before_audio = flac_audio_payload(&fs::read(&path).unwrap()).unwrap().to_vec();
+        let (root, path) =
+            copy_to_temp(&writer_fixture("padded.flac"), "inplace-extra-padded.flac");
+        let before_audio = flac_audio_payload(&fs::read(&path).unwrap())
+            .unwrap()
+            .to_vec();
         let before_offset = flac_audio_offset(&fs::read(&path).unwrap()).unwrap();
 
         let updates = vec![ExtraTagUpdate {
@@ -4180,9 +4192,8 @@ mod tests {
 
         // Write a change that triggers the in-place fast path (metadata fits
         // within existing padding).
-        let patch: TrackPatch = serde_json::from_value(
-            serde_json::json!({"album": "Restored Album"}),
-        ).unwrap();
+        let patch: TrackPatch =
+            serde_json::from_value(serde_json::json!({"album": "Restored Album"})).unwrap();
         let outcome = write_flac_atomic(&path, &patch).unwrap();
         assert_eq!(outcome, TrackWriteOutcome::Replaced);
 
@@ -4204,15 +4215,19 @@ mod tests {
         // when the logical metadata values are identical.  The important
         // invariant is that the file stays valid and audio is preserved.
         let (root, path) = copy_to_temp(&writer_fixture("padded.flac"), "inplace-noop.flac");
-        let before_audio = flac_audio_payload(&fs::read(&path).unwrap()).unwrap().to_vec();
+        let before_audio = flac_audio_payload(&fs::read(&path).unwrap())
+            .unwrap()
+            .to_vec();
         let before_offset = flac_audio_offset(&fs::read(&path).unwrap()).unwrap();
 
-        let patch: TrackPatch = serde_json::from_value(
-            serde_json::json!({"album": "Corpus Album"}),
-        ).unwrap();
+        let patch: TrackPatch =
+            serde_json::from_value(serde_json::json!({"album": "Corpus Album"})).unwrap();
         let outcome = write_flac_atomic(&path, &patch).unwrap();
         // Accept either outcome — both preserve audio integrity.
-        assert!(matches!(outcome, TrackWriteOutcome::Replaced | TrackWriteOutcome::Skipped));
+        assert!(matches!(
+            outcome,
+            TrackWriteOutcome::Replaced | TrackWriteOutcome::Skipped
+        ));
 
         let after = fs::read(&path).unwrap();
         assert_eq!(flac_audio_offset(&after).unwrap(), before_offset);
@@ -4733,7 +4748,9 @@ mod tests {
         ];
         let queue = WriteQueue::default();
         let accum = Arc::new(Mutex::new(BatchAccumulator::default()));
-        batch_write_queued(&queue, updates, None, &accum).await.unwrap();
+        batch_write_queued(&queue, updates, None, &accum)
+            .await
+            .unwrap();
         assert_eq!(
             read_track_metadata(&first).unwrap().title.as_deref(),
             Some("First batch title")
@@ -4742,7 +4759,9 @@ mod tests {
             read_track_metadata(&second).unwrap().title.as_deref(),
             Some("Second batch title")
         );
-        batch_write_queued(&queue, Vec::new(), None, &accum).await.unwrap();
+        batch_write_queued(&queue, Vec::new(), None, &accum)
+            .await
+            .unwrap();
         assert!(!queue.is_active());
         fs::remove_dir_all(root).unwrap();
     }
@@ -4981,14 +5000,8 @@ mod tests {
         ];
         let groups = group_by_folder(updates);
         assert_eq!(groups.len(), 2);
-        assert_eq!(
-            groups.get(Path::new("/albums/A")).map(|v| v.len()),
-            Some(2)
-        );
-        assert_eq!(
-            groups.get(Path::new("/albums/B")).map(|v| v.len()),
-            Some(1)
-        );
+        assert_eq!(groups.get(Path::new("/albums/A")).map(|v| v.len()), Some(2));
+        assert_eq!(groups.get(Path::new("/albums/B")).map(|v| v.len()), Some(1));
     }
 
     #[test]
@@ -4999,10 +5012,7 @@ mod tests {
         }];
         let groups = group_by_folder(updates);
         assert_eq!(groups.len(), 1);
-        assert_eq!(
-            groups.get(Path::new("/single")).map(|v| v.len()),
-            Some(1)
-        );
+        assert_eq!(groups.get(Path::new("/single")).map(|v| v.len()), Some(1));
     }
 
     #[test]
@@ -5064,7 +5074,9 @@ mod tests {
             },
         ];
 
-        let result = batch_write_with_readback(&queue, updates, None).await.unwrap();
+        let result = batch_write_with_readback(&queue, updates, None)
+            .await
+            .unwrap();
         assert_eq!(result.tracks.len(), 2);
         assert!(result.failures.is_empty());
         assert_eq!(result.tracks[0].title.as_deref(), Some("Album A Track"));
@@ -5111,7 +5123,9 @@ mod tests {
             },
         ];
 
-        let result = batch_write_with_readback(&queue, updates, None).await.unwrap();
+        let result = batch_write_with_readback(&queue, updates, None)
+            .await
+            .unwrap();
         assert_eq!(result.tracks.len(), 2);
         assert!(result.failures.is_empty());
         // Both entries point to the same file; after both writes complete
@@ -5156,7 +5170,9 @@ mod tests {
         }
 
         let queue = WriteQueue::default();
-        let result = batch_write_with_readback(&queue, updates, None).await.unwrap();
+        let result = batch_write_with_readback(&queue, updates, None)
+            .await
+            .unwrap();
         assert_eq!(result.tracks.len(), track_count);
         assert!(result.failures.is_empty());
         for (i, track) in result.tracks.iter().enumerate() {
@@ -5170,4 +5186,3 @@ mod tests {
         fs::remove_dir_all(root).unwrap();
     }
 }
-

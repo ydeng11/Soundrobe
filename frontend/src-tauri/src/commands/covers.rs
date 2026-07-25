@@ -180,6 +180,8 @@ enum ArtworkKind {
     Artist,
 }
 
+pub(super) type ArtworkDownload = (Vec<u8>, &'static str, PathBuf);
+
 #[tauri::command]
 pub async fn cover_download(
     album_path: String,
@@ -189,7 +191,7 @@ pub async fn cover_download(
 ) -> Result<Option<String>, ApiError> {
     let remote = remote_client(&providers, &config);
     let Some((bytes, _source, _path)) =
-        download_artwork_at(ArtworkKind::Album, Path::new(&album_path), &remote, &queue).await
+        download_album_artwork_with_policy(Path::new(&album_path), &remote, &queue, false).await
     else {
         return Ok(None);
     };
@@ -197,7 +199,6 @@ pub async fn cover_download(
         "data:image/jpeg;base64,{}",
         base64::engine::general_purpose::STANDARD.encode(bytes)
     );
-    cover_cache_set(&album_path, Some(url.clone()));
     Ok(Some(url))
 }
 
@@ -210,7 +211,7 @@ pub async fn cover_download_artist_art(
 ) -> Result<Option<ArtistArtResult>, ApiError> {
     let remote = remote_client(&providers, &config);
     Ok(
-        download_artwork_at(ArtworkKind::Artist, Path::new(&album_path), &remote, &queue)
+        download_artist_artwork_at(Path::new(&album_path), &remote, &queue)
             .await
             .map(|(_bytes, source, path)| ArtistArtResult {
                 path: path.to_string_lossy().into_owned(),
@@ -233,7 +234,7 @@ async fn download_artwork_at(
     album_path: &Path,
     remote: &RemoteArtworkClient,
     queue: &WriteQueue,
-) -> Option<(Vec<u8>, &'static str, PathBuf)> {
+) -> Option<ArtworkDownload> {
     if !album_path.exists() {
         return None;
     }
@@ -270,11 +271,10 @@ async fn download_artwork_at(
     } else {
         // No local artwork — try remote providers, which need track metadata.
         let album_path_owned = album_path.to_path_buf();
-        let metadata = tokio::task::spawn_blocking(move || {
-            read_first_track_metadata(&album_path_owned)
-        })
-        .await
-        .ok()??;
+        let metadata =
+            tokio::task::spawn_blocking(move || read_first_track_metadata(&album_path_owned))
+                .await
+                .ok()??;
         if kind == ArtworkKind::Artist && metadata.artist.is_none() {
             return None;
         }
@@ -337,20 +337,38 @@ async fn download_artwork_at(
     written.then_some((bytes, source, destination))
 }
 
-pub async fn download_album_artwork_at(
+async fn download_album_artwork_with_policy(
     album_path: &Path,
     remote: &RemoteArtworkClient,
     queue: &WriteQueue,
-) -> Option<PathBuf> {
-    if is_cover_suppressed(album_path) {
+    respect_suppression: bool,
+) -> Option<ArtworkDownload> {
+    if respect_suppression && is_cover_suppressed(album_path) {
         return None;
     }
-    if let Some(path) = find_external_cover(album_path) {
-        return Some(path);
-    }
-    download_artwork_at(ArtworkKind::Album, album_path, remote, queue)
-        .await
-        .map(|(_, _, path)| path)
+    let result = download_artwork_at(ArtworkKind::Album, album_path, remote, queue).await?;
+    let url = format!(
+        "data:image/jpeg;base64,{}",
+        base64::engine::general_purpose::STANDARD.encode(&result.0)
+    );
+    cover_cache_set(&album_path.to_string_lossy(), Some(url));
+    Some(result)
+}
+
+pub(super) async fn download_album_artwork_at(
+    album_path: &Path,
+    remote: &RemoteArtworkClient,
+    queue: &WriteQueue,
+) -> Option<ArtworkDownload> {
+    download_album_artwork_with_policy(album_path, remote, queue, true).await
+}
+
+pub(super) async fn download_artist_artwork_at(
+    album_path: &Path,
+    remote: &RemoteArtworkClient,
+    queue: &WriteQueue,
+) -> Option<ArtworkDownload> {
+    download_artwork_at(ArtworkKind::Artist, album_path, remote, queue).await
 }
 
 struct CoverMetadata {
@@ -963,19 +981,26 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn auto_tag_cover_keeps_existing_sidecar_without_provider_lookup() {
+    async fn auto_tag_cover_canonicalizes_localized_sidecar_and_refreshes_cached_miss() {
         let root = root();
-        let sidecar = root.join("folder.png");
-        let original = png(2, 2);
+        let sidecar = root.join("许美静.国语真经典 封面.jpg");
+        let original = png(1500, 500);
         fs::write(&sidecar, &original).unwrap();
+        cover_cache_set(&root.to_string_lossy(), None);
         let providers = ProviderState::new();
         let remote = RemoteArtworkClient::new(providers.http(), None, None);
 
         let resolved = download_album_artwork_at(&root, &remote, &WriteQueue::default()).await;
 
-        assert_eq!(resolved.as_deref(), Some(sidecar.as_path()));
+        let (_bytes, source, path) = resolved.expect("local sidecar should resolve");
+        assert_eq!(source, "local");
+        assert_eq!(path, root.join("cover.jpg"));
         assert_eq!(fs::read(&sidecar).unwrap(), original);
-        assert!(!root.join("cover.jpg").exists());
+        assert!(root.join("cover.jpg").exists());
+        assert!(
+            cover_data_url(root.to_string_lossy().into_owned(), None).is_some(),
+            "auto-tag must replace a prewarmed missing-cover cache entry"
+        );
         fs::remove_dir_all(root).unwrap();
     }
 
@@ -1004,8 +1029,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn download_skips_local_artwork_when_cover_is_suppressed() {
-        // When the suppression marker exists, download_artwork_at must
+    async fn explicit_download_skips_local_artwork_when_cover_is_suppressed() {
+        // When the suppression marker exists, the explicit download path must
         // skip leftover local files and go through remote providers.
         // The minimal.mp3 fixture carries MusicBrainz IDs so Cover Art
         // Archive may return an image regardless of the marker — the key
@@ -1025,7 +1050,7 @@ mod tests {
         let remote = RemoteArtworkClient::new(providers.http(), None, None);
         let queue = WriteQueue::default();
 
-        let result = download_artwork_at(ArtworkKind::Album, &album, &remote, &queue).await;
+        let result = download_album_artwork_with_policy(&album, &remote, &queue, false).await;
         if let Some((_bytes, source, _path)) = &result {
             assert_ne!(
                 *source, "local",
@@ -1115,7 +1140,7 @@ mod tests {
         let queue = WriteQueue::default();
 
         let (artist_bytes, artist_source, artist_path) =
-            download_artwork_at(ArtworkKind::Artist, &album, &remote, &queue)
+            download_artist_artwork_at(&album, &remote, &queue)
                 .await
                 .unwrap();
         assert_eq!(artist_source, "local");
@@ -1179,9 +1204,7 @@ mod tests {
         let result = cover_data_url_at(&album, Some(track_no_cover.to_str().unwrap()));
         // The non-cover file is MP3 with ID3 tag but no picture — the hint should return
         // None, then the fallback should find the other track's embedded art.
-        assert!(
-            result.is_none() || result.unwrap().starts_with("data:image/jpeg;base64,")
-        );
+        assert!(result.is_none() || result.unwrap().starts_with("data:image/jpeg;base64,"));
 
         fs::remove_dir_all(root).unwrap();
     }
@@ -1211,7 +1234,10 @@ mod tests {
         .unwrap();
 
         // No external cover, no files with embedded art → None
-        assert_eq!(cover_data_url_at(&album, Some(outside.to_str().unwrap())), None);
+        assert_eq!(
+            cover_data_url_at(&album, Some(outside.to_str().unwrap())),
+            None
+        );
 
         fs::remove_dir_all(root).unwrap();
     }
