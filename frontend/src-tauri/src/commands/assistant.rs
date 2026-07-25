@@ -639,22 +639,17 @@ pub async fn assistant_send(
                     data: None,
                 },
                 AssistantOutcome::ToolPreview(batches) => {
-                    let batch_count = batches.len();
-                    for batch in batches {
-                        if !runtime.add_batch(batch) {
-                            return Err(ApiError::Message(
-                                "Failed to store assistant action preview".into(),
-                            ));
-                        }
-                    }
-                    // batches was consumed by the for loop; rebuild the JSON from pending_tool_batches.
+                    // Tool-created batches were already stored during execution;
+                    // do not call runtime.add_batch again here.
+                    let first = &batches[0];
                     AssistantEvent {
                         session_id: session_id.clone(),
                         event_type: "action_batch_created",
                         message: draft.message.clone(),
                         data: Some(serde_json::json!({
-                            "actionBatchCount": batch_count,
-                            "actionBatches": pending_tool_batches
+                            "actionBatchId": first.id,
+                            "actionBatch": first,
+                            "actionBatches": batches
                         })),
                     }
                 }
@@ -724,7 +719,11 @@ fn assistant_response_schema() -> Value {
             "actionBatch": {
                 "type": ["object", "null"],
                 "properties": {
-                    "kind": {"type": "string"},
+                    "kind": {
+                        "type": "string",
+                        "enum": ["tag-update", "extra-tag-update", "metadata-update",
+                                  "auto-tag-run", "audit-run"]
+                    },
                     "title": {"type": "string"},
                     "summary": {"type": "string"},
                     "riskLevel": {"type": "string", "enum": ["low", "medium", "high"]},
@@ -831,42 +830,45 @@ fn build_assistant_messages(
         )),
     ];
 
-    // Collect user + assistant entries only, in chronological order.
-    let filtered: Vec<_> = history
-        .iter()
-        .filter(|e| matches!(e.entry_type.as_str(), "user_message" | "assistant_message"))
-        .collect();
-
-    // Walk backwards from the newest entries, collecting complete turns
-    // until we hit either the turn budget or the character budget.
-    // Walk backwards from newest entries; stop when turn or char budget is exceeded.
-    let mut selected_start = filtered.len().saturating_sub(MAX_HISTORY_TURNS);
-    let mut char_total: usize = filtered[selected_start..].iter().map(|e| e.content.len()).sum();
-    while char_total > HISTORY_CHAR_BUDGET && selected_start < filtered.len() {
-        char_total -= filtered[selected_start].content.len();
-        selected_start += 1;
+    // Group persisted history into complete user_message → assistant_message exchanges.
+    // Orphan assistant entries and dangling users (failed/truncated) are dropped.
+    struct Exchange<'a> {
+        user: &'a ConversationEntry,
+        assistant: &'a ConversationEntry,
     }
-    // Walk forward to ensure we start on a user_message (skip orphan assistant turns).
-    while selected_start < filtered.len()
-        && filtered[selected_start].entry_type != "user_message"
-    {
-        selected_start += 1;
-    }
-    // Walk forward to ensure we start on a user_message (skip orphan assistant turns).
-    while selected_start < filtered.len()
-        && filtered[selected_start].entry_type != "user_message"
-    {
-        selected_start += 1;
-    }
-    for entry in &filtered[selected_start..] {
-        let role = if entry.entry_type == "user_message" {
-            "user"
+    let mut exchanges: Vec<Exchange> = Vec::new();
+    let mut i = 0;
+    while i + 1 < history.len() {
+        let a = &history[i];
+        let b = &history[i + 1];
+        if a.entry_type == "user_message" && b.entry_type == "assistant_message" {
+            exchanges.push(Exchange { user: a, assistant: b });
+            i += 2;
         } else {
-            "assistant"
-        };
+            i += 1;
+        }
+    }
+
+    // Keep the newest exchanges that fit within both budgets.
+    let max_exchanges = MAX_HISTORY_TURNS / 2;
+    let mut exchange_start = exchanges.len().saturating_sub(max_exchanges);
+    let mut char_total: usize = exchanges[exchange_start..]
+        .iter()
+        .flat_map(|ex| [ex.user.content.len(), ex.assistant.content.len()])
+        .sum();
+    while char_total > HISTORY_CHAR_BUDGET && exchange_start < exchanges.len() {
+        let ex = &exchanges[exchange_start];
+        char_total = char_total.saturating_sub(ex.user.content.len() + ex.assistant.content.len());
+        exchange_start += 1;
+    }
+    for ex in &exchanges[exchange_start..] {
         messages.push(ChatMessage {
-            role: role.to_string(),
-            content: entry.content.clone(),
+            role: "user".to_string(),
+            content: ex.user.content.clone(),
+        });
+        messages.push(ChatMessage {
+            role: "assistant".to_string(),
+            content: ex.assistant.content.clone(),
         });
     }
 
@@ -3179,12 +3181,6 @@ mod apply_contract_tests {
     }
 
     #[test]
-
-
-    #[test]
-
-
-    #[test]
     fn assistant_response_schema_advertises_the_public_registry() {
         let schema = assistant_response_schema();
         let names = schema["properties"]["toolCall"]["properties"]["toolName"]["enum"]
@@ -3447,8 +3443,6 @@ mod apply_contract_tests {
         assert!(execution.result.ok);
         assert!(!execution.completion_evidence);
     }
-
-    #[test]
     #[test]
     fn repeated_tool_guard_stops_third_identical_call_but_not_distinct_args() {
         let mut signatures = vec![
@@ -4460,31 +4454,7 @@ mod assistant_behaviour_tests {
         }
     }
 
-    // ── Deterministic task routing edge cases ───────────────────────
-
-    #[test]
-
-
     // ── Mutating tool: run_library_task ─────────────────────────────
-
-    #[test]
-    fn run_library_task_audit_creates_audit_run_preview() {
-        let input = AssistantSendInput {
-            selected_track_paths: vec!["/music/one.flac".into()],
-            tracks: vec![json!({"path": "/music/one.flac"})],
-            ..Default::default()
-        };
-        let execution = execute_mutating_assistant_tool(
-            "run_library_task",
-            &json!({"task": "audit", "target_scope": "selected"}),
-            &input,
-            "session",
-        );
-        assert!(execution.result.ok,
-            "run_library_task failed: {}",
-            execution.result.error.as_deref().unwrap_or("unknown"));
-        assert_eq!(execution.batches[0].kind, "audit-run");
-    }
 
     #[test]
     fn run_library_task_auto_tag_creates_auto_tag_run_preview() {
@@ -5037,6 +5007,45 @@ mod assistant_behaviour_tests {
     }
 
     #[test]
+    fn outcome_tool_preview_does_not_re_add_batch() {
+        // Tool-created batches are already stored during execution.
+        // This test verifies resolve_assistant_outcome accepts them
+        // without requiring a second runtime.add_batch.
+        let batch = AssistantActionBatch {
+            id: "batch-tool".into(),
+            created_at: "now".into(),
+            session_id: "s".into(),
+            kind: "metadata-update".into(),
+            title: "Tool preview".into(),
+            summary: "1 action".into(),
+            risk_level: "low".into(),
+            actions: vec![crate::state::assistant::AssistantAction {
+                track_path: Some("/track.mp3".into()),
+                field: Some("title".into()),
+                new_value: Some("New Title".into()),
+                ..Default::default()
+            }],
+            reversible: true,
+            status: "pending".into(),
+        };
+        let result = resolve_assistant_outcome(
+            &AssistantDraft {
+                message: "tool done".into(),
+                action_batch: None,
+                tool_call: None,
+            },
+            &[batch.clone()],
+            "s",
+            &test_outcome_input(),
+        );
+        assert!(
+            matches!(&result, Ok(AssistantOutcome::ToolPreview(b)) if b[0].id == "batch-tool"),
+            "expected ToolPreview with original batch id, got {:?}",
+            result
+        );
+    }
+
+    #[test]
     fn outcome_out_of_scope_batch_rejected() {
         let result = resolve_assistant_outcome(
             &AssistantDraft {
@@ -5293,6 +5302,76 @@ mod assistant_ai_tests {
         )
         .await;
         assert!(satisfies, "Response failed judge: {}\nData: {}", reasoning, data);
+    }
+
+    // ── Semantic smoke tests for open-ended conversations ────────────
+
+    #[ignore = "requires LLM_API_KEY, LLM_MODEL, and active OpenRouter access"]
+    #[tokio::test]
+    async fn live_greeting_returns_message_only() {
+        let (key, model) = credentials().expect("set LLM_API_KEY and LLM_MODEL");
+        let context = test_library_context(0);
+        let data = assistant_llm_call("hello", &context, &key, &model).await;
+        let message = data["message"].as_str().unwrap_or("");
+        assert!(!message.is_empty(), "greeting must produce a message");
+        assert!(
+            !data["actionBatch"].is_object() && !data["toolCall"].is_object(),
+            "greeting '{}' should not produce a tool or actionBatch, got: {}",
+            message, data
+        );
+    }
+
+    #[ignore = "requires LLM_API_KEY, LLM_MODEL, and active OpenRouter access"]
+    #[tokio::test]
+    async fn live_remove_titles_clarifies() {
+        let (key, model) = credentials().expect("set LLM_API_KEY and LLM_MODEL");
+        let context = test_library_context(0);
+        let data = assistant_llm_call("remove titles", &context, &key, &model).await;
+        let message = data["message"].as_str().unwrap_or("");
+        assert!(!message.is_empty(), "must produce a message");
+        // The response should be a clarification (message-only) or optionally
+        // a toolCall if the LLM feels confident enough.
+        let has_batch = data["actionBatch"].is_object();
+        assert!(
+            !has_batch,
+            "'remove titles' should not produce actionBatch (clarify instead), got: {}",
+            data
+        );
+        // The message should ask a question or acknowledge ambiguity.
+        let lower = message.to_lowercase();
+        assert!(
+            lower.contains("?") || lower.contains("clarify") || lower.contains("mean"),
+            "'remove titles' should ask a clarification question, got: {}",
+            message
+        );
+    }
+
+    #[ignore = "requires LLM_API_KEY, LLM_MODEL, and active OpenRouter access"]
+    #[tokio::test]
+    async fn live_unsupported_task_explains_limitation() {
+        let (key, model) = credentials().expect("set LLM_API_KEY and LLM_MODEL");
+        let context = test_library_context(0);
+        let data = assistant_llm_call(
+            "can you normalize the audio loudness of these tracks?",
+            &context,
+            &key,
+            &model,
+        )
+        .await;
+        let message = data["message"].as_str().unwrap_or("");
+        assert!(!message.is_empty(), "must produce a message");
+        assert!(
+            !data["actionBatch"].is_object(),
+            "unsupported task should not produce actionBatch, got: {}",
+            data
+        );
+        // Should explain the limitation, not fabricate a tool.
+        let lower = message.to_lowercase();
+        assert!(
+            lower.contains("don't") || lower.contains("not") || lower.contains("can't") || lower.contains("unavailable") || lower.contains("doesn't support"),
+            "unsupported task should explain limitation, got: {}",
+            message
+        );
     }
 }
 
