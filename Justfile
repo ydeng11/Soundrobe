@@ -50,10 +50,17 @@ fe-install:
 
 # Start Tauri with Vite HMR — hot-reloads on save
 # .env vars (LLM_API_KEY, LLM_MODEL, AUTO_TAG_CHINESE_SCRIPT) loaded automatically
-# via set dotenv-load, but AUTO_TAG_CHINESE_SCRIPT is hard-coded here so dev mode
-# always uses simplified Chinese (override via .env.local or export).
+# via set dotenv-load. Fails immediately if critical vars are missing.
 fe-dev: _fe-deps-check
-    cd frontend && SOUNDROBE_LOG=trace AUTO_TAG_CHINESE_SCRIPT=simplified npm run dev
+    #!/usr/bin/env bash
+    set -euo pipefail
+    : "${LLM_API_KEY:?LLM_API_KEY missing — add it to .env.local}"
+    : "${LLM_MODEL:?LLM_MODEL missing — add it to .env.local}"
+    cd frontend
+    exec env \
+        SOUNDROBE_LOG="${SOUNDROBE_LOG:-trace}" \
+        AUTO_TAG_CHINESE_SCRIPT="${AUTO_TAG_CHINESE_SCRIPT:-simplified}" \
+        npm run dev
 
 # Build the Tauri application and platform bundle
 fe-build: _fe-deps-check
@@ -103,7 +110,7 @@ fe-smoke-cover-picker: _fe-deps-check
 fe-model model_name="":
     #!/usr/bin/env bash
     set -euo pipefail
-    ENV_FILE="frontend/.env.local"
+    ENV_FILE=".env.local"
     if [ -n "{{ model_name }}" ]; then
         # Update — set or replace LLM_MODEL in .env.local
         if [ -f "$ENV_FILE" ] && grep -q '^LLM_MODEL=' "$ENV_FILE" 2>/dev/null; then

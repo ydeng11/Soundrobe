@@ -16,10 +16,11 @@
 use serde_json::{json, Value};
 use tauri::State;
 
-use crate::infra::openrouter::{LlmEndpoint, OpenRouterClient};
-use crate::state::config::ConfigState;
-use crate::state::assistant::AssistantServicesState;
 use crate::error::ApiError;
+use crate::infra::is_not_redacted;
+use crate::infra::openrouter::{LlmEndpoint, OpenRouterClient};
+use crate::state::assistant::AssistantServicesState;
+use crate::state::config::ConfigState;
 
 /// `getConfig()` — redacted renderer view. Sync because `ConfigState` is a
 /// `Mutex` snapshot (no async work); never rejects so renderer `try/catch` is a
@@ -68,39 +69,55 @@ pub async fn test_llm_connection(
 ) -> Result<serde_json::Value, ApiError> {
     let raw = config.raw();
     // Resolve api_key: explicit (from renderer) → config file/env.
-    let effective_key = if api_key.is_empty() {
-        raw.llm_api_key.as_deref().filter(|k| !k.is_empty())
-            .ok_or_else(|| ApiError::Message(
-                "No API key provided and none configured. Set LLM_API_KEY in Settings or env.".into()
-            ))?
+    // Redacted placeholders ("****...") from the UI must be rejected —
+    // the real key always lives in ConfigState.
+    let effective_key = if api_key.is_empty() || !is_not_redacted(&api_key) {
+        raw.llm_api_key
+            .as_deref()
+            .filter(|k| is_not_redacted(k))
+            .ok_or_else(|| {
+                ApiError::Message(
+                    "No API key provided and none configured. Set LLM_API_KEY in Settings or env."
+                        .into(),
+                )
+            })?
             .to_string()
     } else {
         api_key
     };
     let effective_model = if model.is_empty() {
-        raw.llm_model.as_deref().filter(|m| !m.is_empty())
-            .ok_or_else(|| ApiError::Message(
-                "No model provided and none configured. Set LLM_MODEL in Settings or env.".into()
-            ))?
+        raw.llm_model
+            .as_deref()
+            .filter(|m| !m.is_empty())
+            .ok_or_else(|| {
+                ApiError::Message(
+                    "No model provided and none configured. Set LLM_MODEL in Settings or env."
+                        .into(),
+                )
+            })?
             .to_string()
     } else {
         model
     };
     // Resolve provider + base_url: explicit → config → defaults.
-    let effective_provider = provider.as_deref().filter(|p| !p.is_empty()).or(
-        raw.llm_provider.as_deref()
-    );
+    let effective_provider = provider
+        .as_deref()
+        .filter(|p| !p.is_empty())
+        .or(raw.llm_provider.as_deref());
     let endpoint = LlmEndpoint::from_config(
         effective_provider,
-        base_url.as_deref().filter(|u| !u.is_empty())
+        base_url
+            .as_deref()
+            .filter(|u| !u.is_empty())
             .or(raw.llm_base_url.as_deref()),
     );
     let client = OpenRouterClient::at(&effective_key, &effective_model, &endpoint.base_url)
         .with_provider(endpoint.provider)
         .with_generation(0.0, 64)
         .with_timeout(std::time::Duration::from_secs(15));
-    let responding_model = client.test_connection().await.map_err(|e| {
-        ApiError::Message(format!("LLM test failed: {e}"))
-    })?;
+    let responding_model = client
+        .test_connection()
+        .await
+        .map_err(|e| ApiError::Message(format!("LLM test failed: {e}")))?;
     Ok(json!({"model": responding_model}))
 }

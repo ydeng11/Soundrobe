@@ -4,7 +4,7 @@ const TABS = ["providers", "metadata", "advanced"] as const;
 type TabId = (typeof TABS)[number];
 
 const TAB_LABELS: Record<TabId, string> = {
-  providers: "Providers",
+  providers: "AI & Providers",
   metadata: "Metadata",
   advanced: "Advanced",
 };
@@ -68,16 +68,16 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
         const cfg = await window.api.getConfig();
         setKeyConfigured(!!(cfg.llmApiKeyConfigured as boolean));
         setSettings({
-          llmApiKey: "",
+          llmApiKey: (cfg.llmApiKey as string) ?? "",
           llmModel: (cfg.llmModel as string) ?? "",
           llmProvider: (cfg.llmProvider as string) ?? "",
           llmBaseUrl: (cfg.llmBaseUrl as string) ?? "",
           lyricsDownloadEnabled: (cfg.lyricsDownloadEnabled as boolean) ?? false,
           lyricsApiUrl: (cfg.lyricsApiUrl as string) ?? "",
-          discogsToken: "",
+          discogsToken: (cfg.discogsToken as string) ?? "",
           debug: (cfg.debug as boolean) ?? false,
           assistantAutonomous: (cfg.assistantAutonomous as boolean) ?? false,
-          theAudioDbApiKey: "",
+          theAudioDbApiKey: (cfg.theAudioDbApiKey as string) ?? "",
           chineseScript: (cfg.chineseScript as string) ?? "",
         });
       } catch (err) {
@@ -96,15 +96,18 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
 
     try {
       const promises: Promise<void>[] = [];
-      if (settings.llmApiKey) {
+      // Secret fields: only save when the value is a real (non-masked) key.
+      // The renderer displays a redacted placeholder like "****b7" loaded
+      // from getConfig — saving that would overwrite the real key.
+      if (settings.llmApiKey && !settings.llmApiKey.startsWith("****")) {
         promises.push(window.api.setConfig("llmApiKey", settings.llmApiKey));
       }
-      if (settings.discogsToken) {
+      if (settings.discogsToken && !settings.discogsToken.startsWith("****")) {
         promises.push(
           window.api.setConfig("discogsToken", settings.discogsToken),
         );
       }
-      if (settings.theAudioDbApiKey) {
+      if (settings.theAudioDbApiKey && !settings.theAudioDbApiKey.startsWith("****")) {
         promises.push(
           window.api.setConfig("theAudioDbApiKey", settings.theAudioDbApiKey),
         );
@@ -643,8 +646,11 @@ function TestConnectionButton({
     setTesting(true);
     setResult(null);
     try {
+      // When the displayed key is a redacted placeholder, send empty string
+      // so the backend resolves the real key from its own config.
+      const effectiveKey = apiKey.startsWith("****") ? "" : apiKey;
       const resp = await window.api.testLlmConnection(
-        apiKey,
+        effectiveKey,
         model,
         provider || undefined,
         baseUrl || undefined,

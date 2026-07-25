@@ -37,7 +37,7 @@ function renderPanel(props?: Partial<React.ComponentProps<typeof AssistantPanel>
     <AssistantPanel
       isOpen={true}
       onClose={vi.fn()}
-      apiKey="test-key"
+      keyConfigured={true}
       libraryPath="/music"
       activeAlbumPath={null}
       selectedTrackPaths={[]}
@@ -248,12 +248,12 @@ describe("AssistantPanel — core behavior preserved", () => {
     });
   });
 
-  it("disables send when no apiKey", () => {
+  it("disables send when no key configured", () => {
     render(
       <AssistantPanel
         isOpen={true}
         onClose={vi.fn()}
-        apiKey=""
+        keyConfigured={false}
         libraryPath="/music"
         activeAlbumPath={null}
         selectedTrackPaths={[]}

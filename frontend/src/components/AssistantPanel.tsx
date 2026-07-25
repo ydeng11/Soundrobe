@@ -30,7 +30,8 @@ interface ChatMessage {
 interface AssistantPanelProps {
   isOpen: boolean;
   onClose: () => void;
-  apiKey: string;
+  /** Whether an LLM API key is configured (backend resolves it from ConfigState). */
+  keyConfigured: boolean;
   model?: string;
   libraryPath: string | null;
   activeAlbumPath: string | null;
@@ -53,7 +54,7 @@ interface AssistantPanelProps {
 export function AssistantPanel({
   isOpen,
   onClose,
-  apiKey,
+  keyConfigured,
   model,
   libraryPath,
   activeAlbumPath,
@@ -261,9 +262,11 @@ export function AssistantPanel({
     ]);
 
     try {
+      // The API key is resolved server-side from ConfigState — never send
+      // the redacted/masked renderer copy to the backend.
       await window.api.assistantSend({
         message: text,
-        apiKey,
+        apiKey: "",
         model,
         libraryPath,
         activeAlbumPath,
@@ -543,8 +546,8 @@ export function AssistantPanel({
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={apiKey ? "Ask the assistant..." : "Configure an LLM API key in Settings"}
-            disabled={sending || !apiKey}
+            placeholder={keyConfigured ? "Ask the assistant..." : "Configure an LLM API key in Settings"}
+            disabled={sending || !keyConfigured}
             rows={2}
             className="flex-1 bg-[#313244] text-[#cdd6f4] text-sm rounded-lg px-3 py-2 resize-none outline-none focus:ring-1 focus:ring-[#89b4fa] placeholder-[#6c7086] disabled:opacity-50"
           />
@@ -559,7 +562,7 @@ export function AssistantPanel({
             ) : (
               <button
                 onClick={handleSend}
-                disabled={!inputText.trim() || !apiKey}
+                disabled={!inputText.trim() || !keyConfigured}
                 className="px-3 py-2 bg-[#89b4fa] text-[#1e1e2e] rounded-lg text-sm hover:bg-[#b4befe] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Send

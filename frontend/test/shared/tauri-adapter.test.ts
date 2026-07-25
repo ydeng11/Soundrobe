@@ -71,7 +71,7 @@ const CHANNEL_PARITY: Array<{
   { method: "assistantGetBatches", command: "assistant_get_batches", args: {} },
   { method: "assistantInitRuntime", command: "assistant_init_runtime", args: {} },
   { method: "assistantInitServices", command: "assistant_init_services", args: { config: { apiKey: "x" } } },
-  { method: "testLlmConnection", command: "configuration_test_llm_connection", args: { apiKey: "k", model: "m" } },
+  { method: "testLlmConnection", command: "test_llm_connection", args: { apiKey: "k", model: "m" } },
   { method: "subscribeDebugLogs", command: "debug_subscribe", args: {} },
   { method: "setDebugMode", command: "debug_set_mode", args: { enabled: true } },
   { method: "onFocus", command: "window_focused", args: {} },

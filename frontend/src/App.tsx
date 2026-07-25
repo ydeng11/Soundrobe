@@ -89,7 +89,7 @@ export default function App() {
   );
   const [batchExtraTagsOpen, setBatchExtraTagsOpen] = React.useState(false);
   const [showAssistant, setShowAssistant] = React.useState(false);
-  const [assistantApiKey, setAssistantApiKey] = React.useState("");
+  const [assistantApiKeyConfigured, setAssistantApiKeyConfigured] = React.useState(false);
   const [assistantModel, setAssistantModel] = React.useState("");
 
   // Cover URL cache: albumPath → dataUrl | null
@@ -765,6 +765,22 @@ export default function App() {
         dispatch({ type: "UPDATE_TRACKS", tracks: updatedTrackList });
       }
 
+      for (const albumPath of taggedAlbumSet) {
+        coverUrlCacheRef.current.delete(albumPath);
+      }
+      const visibleAlbumPath =
+        state.activeAlbumPath ??
+        (state.selectedTrack ? dirPath(state.selectedTrack.path) : null);
+      if (visibleAlbumPath && taggedAlbumSet.has(visibleAlbumPath)) {
+        const activeTracks = updatedTrackList.filter(
+          (track) => dirPath(track.path) === visibleAlbumPath,
+        );
+        const preferredTrackPath =
+          activeTracks.find((track) => track.hasCover)?.path ??
+          activeTracks[0]?.path;
+        fetchCover(visibleAlbumPath, undefined, preferredTrackPath);
+      }
+
       if (totalErrors > 0) {
         dispatch({
           type: "SET_ERROR",
@@ -783,7 +799,9 @@ export default function App() {
     state.activeAlbumPath,
     state.albums,
     state.tracks,
+    state.selectedTrack,
     state.autoTagging,
+    fetchCover,
     loadAlbumTracks,
   ]);
 
@@ -1333,17 +1351,16 @@ export default function App() {
     setShowAssistant(false);
   }, []);
 
-  // Load API key for assistant on mount, when assistant panel opens, or settings change
+  // Track whether an LLM API key is configured for the assistant UI state.
+  // The actual key is resolved server-side from ConfigState (env/config file)
+  // and is never sent through the renderer (getConfig() returns a masked copy).
   useEffect(() => {
     window.api.getConfig().then(
       (cfg) => {
-        const apiKey = (cfg.llmApiKey as string) ?? "";
+        const configured = (cfg.llmApiKeyConfigured as boolean) ?? false;
         const model = (cfg.llmModel as string) ?? "";
-        setAssistantApiKey(apiKey);
+        setAssistantApiKeyConfigured(configured);
         setAssistantModel(model);
-        // Keep backend services in sync so the assistant can see the key
-        // even if the user never opens Settings.
-        window.api.assistantInitServices({ apiKey, model: model || undefined });
       },
       () => {
         // Silently fail — assistant just won't work until API key is configured
@@ -2005,7 +2022,7 @@ export default function App() {
         <AssistantPanel
           isOpen={showAssistant}
           onClose={handleCloseAssistant}
-          apiKey={assistantApiKey}
+          keyConfigured={assistantApiKeyConfigured}
           model={assistantModel}
           libraryPath={state.libraryPath}
           activeAlbumPath={state.activeAlbumPath}

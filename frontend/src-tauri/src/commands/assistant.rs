@@ -15,6 +15,7 @@ use crate::commands::{
     tracks::{read_extra_tags, read_track_metadata},
 };
 use crate::error::ApiError;
+use crate::infra::is_not_redacted;
 use lofty::file::TaggedFileExt;
 use crate::infra::openrouter::{ChatMessage, OpenRouterClient};
 use crate::state::assistant::{
@@ -42,6 +43,109 @@ pub struct AssistantEvent {
     event_type: &'static str,
     message: String,
     data: Option<Value>,
+}
+
+// ── Credential resolution ─────────────────────────────────────────────
+
+/// Resolve the LLM API key and model from two sources, in priority order:
+///
+/// 1. `ConfigState` (env/config file) — the canonical secret authority.
+/// 2. `AssistantServicesState` (copied from the real key during init).
+///
+/// Values starting with `"****"` are rejected as redacted placeholders.
+/// Renderer-supplied `input.api_key` is NOT consulted — the renderer only
+/// ever sees a masked copy, so accepting it would re-introduce the 400 error.
+pub(crate) fn resolve_credentials(
+    config_key: Option<&str>,
+    config_model: Option<&str>,
+    snapshot_key: &str,
+    snapshot_model: &str,
+) -> (Option<String>, Option<String>) {
+    let api_key = config_key
+        .filter(|k| is_not_redacted(k))
+        .map(str::to_string)
+        .or_else(|| {
+            if is_not_redacted(snapshot_key) {
+                Some(snapshot_key.to_string())
+            } else {
+                None
+            }
+        });
+
+    let model = config_model
+        .filter(|m| !m.is_empty())
+        .map(str::to_string)
+        .or_else(|| {
+            if !snapshot_model.is_empty() {
+                Some(snapshot_model.to_string())
+            } else {
+                None
+            }
+        });
+
+    (api_key, model)
+}
+
+#[cfg(test)]
+mod credential_tests {
+    use super::*;
+
+    #[test]
+    fn config_key_wins_over_snapshot() {
+        let (key, model) = resolve_credentials(
+            Some("sk-or-v1-real"),
+            Some("gpt-4"),
+            "****b7", // masked snapshot
+            "old-model",
+        );
+        assert_eq!(key.as_deref(), Some("sk-or-v1-real"));
+        assert_eq!(model.as_deref(), Some("gpt-4"));
+    }
+
+    #[test]
+    fn masked_only_keys_are_rejected() {
+        let (key, _model) = resolve_credentials(None, Some("model"), "****b7", "model");
+        assert_eq!(key, None, "masked placeholder must be rejected");
+    }
+
+    #[test]
+    fn snapshot_key_used_when_config_key_is_none() {
+        let (key, _model) = resolve_credentials(None, Some("model"), "sk-or-v1-snapshot", "model");
+        assert_eq!(key.as_deref(), Some("sk-or-v1-snapshot"));
+    }
+
+    #[test]
+    fn returns_none_for_key_when_both_sources_empty() {
+        let (key, _model) = resolve_credentials(None, None, "", "");
+        assert_eq!(key, None);
+    }
+
+    #[test]
+    fn empty_model_rejected_and_falls_back() {
+        let (_key, model) =
+            resolve_credentials(Some("key"), None, "snapshot-key", "snapshot-model");
+        assert_eq!(model.as_deref(), Some("snapshot-model"));
+    }
+
+    #[test]
+    fn both_sources_empty_returns_none_for_both() {
+        let (key, model) = resolve_credentials(None, None, "", "");
+        assert_eq!(key, None);
+        assert_eq!(model, None);
+    }
+
+    #[test]
+    fn redacted_config_key_skips_to_snapshot() {
+        let (key, model) = resolve_credentials(Some("****b7"), Some("model"), "sk-or-v1-real", "m");
+        assert_eq!(key.as_deref(), Some("sk-or-v1-real"));
+        assert_eq!(model.as_deref(), Some("model"));
+    }
+
+    #[test]
+    fn non_redacted_empty_string_rejected() {
+        let (key, _model) = resolve_credentials(Some(""), None, "", "");
+        assert_eq!(key, None);
+    }
 }
 
 #[derive(Clone, Copy)]
@@ -297,29 +401,15 @@ pub async fn assistant_send(
         return Ok(event);
     }
     let snapshot = services.snapshot().unwrap_or_default();
-    // Priority: renderer-supplied (input) → services state → config file/env.
-    let api_key = input
-        .api_key
-        .clone()
-        .filter(|key| !key.is_empty())
-        .or_else(|| {
-            (!snapshot.api_key.is_empty()).then_some(snapshot.api_key.clone())
-        })
-        .or(raw_config.llm_api_key.clone())
-        .filter(|key| !key.is_empty());
-    let model = input
-        .llm_model
-        .clone()
-        .filter(|m| !m.is_empty())
-        .or_else(|| {
-            (!snapshot.model.is_empty()).then_some(snapshot.model.clone())
-        })
-        .or(raw_config.llm_model.clone())
-        .filter(|m| !m.is_empty());
+    let (api_key, model) = resolve_credentials(
+        raw_config.llm_api_key.as_deref(),
+        raw_config.llm_model.as_deref(),
+        &snapshot.api_key,
+        &snapshot.model,
+    );
     tracing::debug!(
-        has_input_key = input.api_key.as_deref().filter(|k| !k.is_empty()).is_some(),
-        has_service_key = !snapshot.api_key.is_empty(),
-        has_config_key = raw_config.llm_api_key.as_deref().filter(|k| !k.is_empty()).is_some(),
+        has_config_key = raw_config.llm_api_key.as_deref().filter(|k| is_not_redacted(k)).is_some(),
+        has_service_key = is_not_redacted(&snapshot.api_key),
         has_model = model.is_some(),
         "assistant credential resolution"
     );
