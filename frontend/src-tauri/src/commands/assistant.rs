@@ -748,7 +748,7 @@ fn assistant_response_schema() -> Value {
                 "required": ["toolName", "args"]
             }
         },
-        "required": ["message", "actionBatch", "toolCall"]
+        "required": ["message"]
     })
 }
 
@@ -2418,6 +2418,7 @@ fn validated_assistant_batch(
         "metadata-update",
         "auto-tag-run",
         "audit-run",
+        "noop",
     ];
     const STANDARD_FIELDS: &[&str] = &[
         "title",
@@ -2456,7 +2457,7 @@ fn validated_assistant_batch(
         )));
     }
     let allowed_paths = allowed_assistant_paths(input);
-    if draft.actions.is_empty() {
+    if draft.kind != "noop" && draft.actions.is_empty() {
         return Err(ApiError::Message(
             "Assistant proposed an empty action batch".into(),
         ));
@@ -2471,7 +2472,7 @@ fn validated_assistant_batch(
                 "Assistant action is outside the active scope: {path}"
             )));
         }
-        if matches!(draft.kind.as_str(), "auto-tag-run" | "audit-run") {
+        if matches!(draft.kind.as_str(), "auto-tag-run" | "audit-run" | "noop") {
             continue;
         }
         let tag_kind = action.tag_kind.as_deref().unwrap_or("standard");
