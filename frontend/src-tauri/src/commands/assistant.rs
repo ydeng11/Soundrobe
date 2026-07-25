@@ -23,7 +23,7 @@ use crate::state::assistant::{
     AssistantServicesSnapshot, AssistantServicesState,
 };
 use crate::state::config::ConfigState;
-use crate::state::conversation::ConversationState;
+use crate::state::conversation::{ConversationEntry, ConversationState};
 use crate::state::providers::convert_chinese_text;
 use crate::state::providers::{DiscogsClient, MusicBrainzClient, ProviderState};
 use crate::state::write_queue::WriteQueue;
@@ -354,7 +354,6 @@ pub async fn assistant_send(
         "assistant_send started"
     );
     let raw_config = config.raw();
-    let contract = derive_assistant_task_contract(&input.message);
     if !conversation.initialize(raw_config.cache_path.as_deref()) || !runtime.initialize() {
         return Err(ApiError::Message(
             "Assistant runtime could not be initialized".into(),
@@ -363,43 +362,6 @@ pub async fn assistant_send(
     let current = conversation
         .current()
         .ok_or_else(|| ApiError::Message("No active assistant session".into()))?;
-    conversation.record("user_message", &input.message, None, 0, 0, 0);
-    if let Some(route) = contract.route {
-        let Some(batch) = deterministic_task_batch(&current.session_id, &input, route)? else {
-            let event = AssistantEvent {
-                session_id: current.session_id,
-                event_type: "message",
-                message: route.no_changes_message().into(),
-                data: Some(serde_json::json!({
-                    "outcome": "no_changes",
-                    "routeSource": "deterministic",
-                    "contractReason": contract.reason,
-                })),
-            };
-            conversation.record("assistant_message", &event.message, None, 0, 0, 0);
-            let _ = app.emit("assistant:event", &event);
-            return Ok(event);
-        };
-        if !runtime.add_batch(batch.clone()) {
-            return Err(ApiError::Message(
-                "Failed to store assistant action preview".into(),
-            ));
-        }
-        let event = AssistantEvent {
-            session_id: current.session_id,
-            event_type: "action_batch_created",
-            message: batch.summary.clone(),
-            data: Some(serde_json::json!({
-                "actionBatchId": batch.id,
-                "actionBatch": batch,
-                "routeSource": "deterministic",
-                "contractReason": contract.reason,
-            })),
-        };
-        conversation.record("assistant_message", &event.message, None, 0, 0, 0);
-        let _ = app.emit("assistant:event", &event);
-        return Ok(event);
-    }
     let snapshot = services.snapshot().unwrap_or_default();
     let (api_key, model) = resolve_credentials(
         raw_config.llm_api_key.as_deref(),
@@ -449,33 +411,15 @@ pub async fn assistant_send(
     let client = OpenRouterClient::at(&api_key, &model, &endpoint.base_url)
         .with_provider(endpoint.provider)
         .with_generation(0.0, 4096);
-    let mut messages = vec![
-        ChatMessage::system(format!(
-            concat!(
-                "You are the Soundrobe desktop music-library assistant. You see the user's library context above.\n",
-                "\n",
-                "How to respond:\n",
-                "- If the user asks something the context already answers, reply directly with just a message — no tool.\n",
-                "- If you need data not visible in context (search, inspect, query), use a read-only tool.\n",
-                "- If the request is an explicit edit with values (\"set X to Y\", \"remove field Z\"), use metadata.patch with explicit values.\n",
-                "- If the request is a transformation (\"strip numbers from titles\", \"lowercase all genres\", \"extract first word\", \"convert Chinese to traditional\"), use metadata.transform with the right operations pipeline.\n",
-                "- For filename/path renames, use files.transform.\n",
-                "- Prefer toolCall over model-authored actionBatch. Use toolCall for metadata.patch, metadata.transform, and files.transform.\n",
-                "- If the request is vague (\"edit the album\" without a value), explain what you need and ask.\n",
-                "\n",
-                "toolCall — toolName from the list below, args matching its schema\n",
-                "Your message should be concise and user-facing.\n",
-                "Available tools: {tools}"
-            ),
-            tools = tools
-        )),
-        ChatMessage::user(format!("App context:\n{context}\n\nUser request:\n{}", input.message)),
-    ];
+    // Capture history before recording the current message so it is not duplicated.
+    let history = conversation.conversation(&current.session_id);
+    conversation.record("user_message", &input.message, None, 0, 0, 0);
+    let mut messages = build_assistant_messages(&context, &tools, &history, &input.message);
     let mut signatures = Vec::new();
     let mut repaired_invalid_args = false;
     let mut final_draft = None;
     let mut pending_tool_batches = Vec::new();
-    let mut tool_completion_evidence = false;
+
     for step_number in 1..=10 {
         let step = AssistantEvent {
             session_id: session_id.clone(),
@@ -606,7 +550,7 @@ pub async fn assistant_send(
                 completion_evidence: false,
             }
         };
-        tool_completion_evidence |= execution.completion_evidence;
+
         let result = execution.result;
         let created_batches = execution.batches;
         for batch in &created_batches {
@@ -684,15 +628,7 @@ pub async fn assistant_send(
             "The assistant returned both a native tool preview and a model-authored preview",
         );
     }
-    if let Err(error) = validate_completion_evidence(
-        &contract,
-        draft.action_batch.is_some()
-            || !pending_tool_batches.is_empty()
-            || tool_completion_evidence,
-        &draft.message,
-    ) {
-        return assistant_error_event(&app, Some(session_id), &error.to_string());
-    }
+
     let event = if let Some(batch) = pending_tool_batches.first().cloned() {
         AssistantEvent {
             session_id,
@@ -841,121 +777,75 @@ pub struct AssistantSendInput {
     pub llm_model: Option<String>,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum AssistantTaskContractKind {
-    ReadOnlyAnswer,
-    ActionPreviewRequired,
-    ClarificationRequired,
-    ChatOnly,
-}
+/// Build the LLM message list: system prompt, bounded conversation history, current request.
+/// The current request is appended as the final user turn so the LLM sees it after prior context.
+fn build_assistant_messages(
+    context: &serde_json::Value,
+    tools: &serde_json::Value,
+    history: &[ConversationEntry],
+    current_request: &str,
+) -> Vec<ChatMessage> {
+    const MAX_HISTORY_TURNS: usize = 20;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum AssistantTaskRoute {
-    AutoTag,
-    Audit,
-}
+    let mut messages = vec![
+        ChatMessage::system(format!(
+            concat!(
+                "You are the Soundrobe desktop music-library assistant. ",
+                "The user's current library selection is shown in the next user message.\n",
+                "\n",
+                "How to respond:\n",
+                "- Infer intent from the current selection, library context, and prior turns below.\n",
+                "- Treat a short follow-up as an answer to the most recent clarification question.\n",
+                "- Combine prior turns with the current selection before choosing a tool.\n",
+                "- If the request is an explicit edit with concrete values (\"set title to X\", ",
+                "  \"remove genre\"), call metadata.patch with explicit values.\n",
+                "- If the request is a transformation (\"strip numbers from titles\", ",
+                "  \"lowercase all genres\", \"extract first word\", ",
+                "  \"convert Chinese to traditional\"), ",
+                "  call metadata.transform with the right operations pipeline.\n",
+                "- For filename/path renames, call files.transform.\n",
+                "- For multi-step library tasks like auto-tagging or auditing, call library.run_task.\n",
+                "- Prefer toolCall over model-authored actionBatch.\n",
+                "- Ask one focused clarification **only** when materially different interpretations ",
+                "  would produce different actions.\n",
+                "- When no catalog tool supports the request, explain the limitation normally.\n",
+                "- An answer without any action is valid. Not every request needs a tool.\n",
+                "- **Never claim an action was applied.** Previews still require user approval.\n",
+                "\n",
+                "toolCall — toolName from the list below, args matching its schema\n",
+                "Your message should be concise and user-facing.\n",
+                "Available tools: {tools}"
+            ),
+            tools = serde_json::to_string(tools).unwrap_or_default()
+        )),
+    ];
 
-impl AssistantTaskRoute {
-    fn no_changes_message(self) -> &'static str {
-        match self {
-            Self::AutoTag | Self::Audit => "No changes are needed.",
-        }
-    }
-}
+    // Append bounded conversation history (user + assistant turns only).
+    // Keep the newest MAX_HISTORY_TURNS complete (alternating) turns.
+    let filtered: Vec<_> = history
+        .iter()
+        .filter(|e| matches!(e.entry_type.as_str(), "user_message" | "assistant_message"))
+        .collect();
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-struct AssistantTaskContract {
-    kind: AssistantTaskContractKind,
-    route: Option<AssistantTaskRoute>,
-    reason: &'static str,
-    requires_completion_evidence: bool,
-}
+    let start = filtered.len().saturating_sub(MAX_HISTORY_TURNS);
+    for entry in &filtered[start..] {
+        let role = if entry.entry_type == "user_message" {
+            "user"
+        } else {
+            "assistant"
+        };
+        messages.push(ChatMessage {
+            role: role.to_string(),
+            content: entry.content.clone(),
+        });
+    }
 
-fn derive_assistant_task_contract(message: &str) -> AssistantTaskContract {
-    let text = message.trim().to_lowercase();
-    if text.is_empty() {
-        return AssistantTaskContract {
-            kind: AssistantTaskContractKind::ClarificationRequired,
-            route: None,
-            reason: "empty_user_message",
-            requires_completion_evidence: false,
-        };
-    }
-    // Keep deterministic routing only for complex multi-step tasks
-    if text.contains("auto-tag")
-        || text.contains("auto tag")
-        || text.contains("fill tags")
-        || text.contains("fill missing tags")
-        || text.contains("tag this")
-    {
-        return AssistantTaskContract {
-            kind: AssistantTaskContractKind::ActionPreviewRequired,
-            route: Some(AssistantTaskRoute::AutoTag),
-            reason: "auto_tag_intent",
-            requires_completion_evidence: true,
-        };
-    }
-    if text.contains("audit")
-        || text.contains("check missing")
-        || text.contains("check metadata")
-        || text.contains("scan metadata")
-    {
-        return AssistantTaskContract {
-            kind: AssistantTaskContractKind::ActionPreviewRequired,
-            route: Some(AssistantTaskRoute::Audit),
-            reason: "audit_intent",
-            requires_completion_evidence: true,
-        };
-    }
-    // All other requests: let the LLM reason about them.
-    // Simple transformations (strip prefixes, convert Chinese, regex extract, etc.)
-    // are now handled by the LLM using metadata.transform / metadata.patch tools.
-    let read_only = [
-        "summarize",
-        "summary",
-        "find",
-        "search",
-        "list",
-        "show",
-        "inspect",
-        "what ",
-        "which ",
-        "how many",
-        "count",
-        "missing",
-        "duplicate",
-    ]
-    .iter()
-    .any(|needle| text.contains(needle));
-    let mutation = [
-        "apply", "change", "fix", "update", "edit", "set ", "write", "number", "renumber", "infer",
-        "parse", "strip", "organize", "organise", "move", "run ", "convert", "group",
-    ]
-    .iter()
-    .any(|needle| text.contains(needle))
-        || text.starts_with("tag ");
-    if mutation {
-        return AssistantTaskContract {
-            kind: AssistantTaskContractKind::ActionPreviewRequired,
-            route: None,
-            reason: "general_action_intent",
-            requires_completion_evidence: true,
-        };
-    }
-    if read_only {
-        return AssistantTaskContract {
-            kind: AssistantTaskContractKind::ReadOnlyAnswer,
-            route: None,
-            reason: "read_only_intent",
-            requires_completion_evidence: false,
-        };
-    }
-    AssistantTaskContract {
-        kind: AssistantTaskContractKind::ChatOnly,
-        route: None,
-        reason: "no_action_or_read_only_intent",
-        requires_completion_evidence: false,
-    }
+    messages.push(ChatMessage::user(format!(
+        "App context:\n{context}\n\nUser request:\n{current_request}",
+        context = serde_json::to_string_pretty(context).unwrap_or_default(),
+    )));
+
+    messages
 }
 
 fn active_scope_paths(input: &AssistantSendInput) -> Vec<String> {
@@ -974,60 +864,6 @@ fn active_scope_paths(input: &AssistantSendInput) -> Vec<String> {
         })
         .map(str::to_string)
         .collect()
-}
-
-fn deterministic_task_batch(
-    session_id: &str,
-    input: &AssistantSendInput,
-    route: AssistantTaskRoute,
-) -> Result<Option<AssistantActionBatch>, ApiError> {
-    let paths = active_scope_paths(input);
-    if paths.is_empty() {
-        return Err(ApiError::Message(
-            "No tracks are available in the current assistant scope".into(),
-        ));
-    }
-    let (kind, title, summary, risk_level, actions) = match route {
-        AssistantTaskRoute::AutoTag => (
-            "auto-tag-run",
-            "Run auto-tag",
-            format!("Preview auto-tag for {} track(s)", paths.len()),
-            "low",
-            paths
-                .into_iter()
-                .map(|track_path| AssistantAction {
-                    track_path: Some(track_path),
-                    ..Default::default()
-                })
-                .collect(),
-        ),
-        AssistantTaskRoute::Audit => (
-            "audit-run",
-            "Run metadata audit",
-            format!("Preview metadata audit for {} track(s)", paths.len()),
-            "low",
-            paths
-                .into_iter()
-                .map(|track_path| AssistantAction {
-                    track_path: Some(track_path),
-                    ..Default::default()
-                })
-                .collect(),
-        ),
-
-    };
-    Ok(Some(AssistantActionBatch {
-        id: format!("batch-{}", uuid::Uuid::new_v4()),
-        created_at: time::OffsetDateTime::now_utc().to_string(),
-        session_id: session_id.to_string(),
-        kind: kind.into(),
-        title: title.into(),
-        summary,
-        risk_level: risk_level.into(),
-        actions,
-        reversible: true,
-        status: "pending".into(),
-    }))
 }
 
 pub(crate) struct MutatingToolExecution {
@@ -2494,23 +2330,7 @@ fn unique_planned_destination(
     unreachable!()
 }
 
-fn validate_completion_evidence(
-    contract: &AssistantTaskContract,
-    has_action_batch: bool,
-    response_message: &str,
-) -> Result<(), ApiError> {
-    if contract.kind == AssistantTaskContractKind::ReadOnlyAnswer && has_action_batch {
-        return Err(ApiError::Message(
-            "The assistant proposed a mutation preview for a read-only request".into(),
-        ));
-    }
-    if contract.requires_completion_evidence && !has_action_batch {
-        return Err(ApiError::Message(format!(
-            "No action was performed. This request requires a preview batch, but the assistant only replied: {response_message}"
-        )));
-    }
-    Ok(())
-}
+
 
 fn tool_call_signature(name: &str, args: &Value) -> String {
     format!("{name}|{}", canonical_json(args))
@@ -3260,84 +3080,7 @@ mod apply_contract_tests {
     use std::sync::atomic::{AtomicU64, Ordering};
 
     #[test]
-    fn task_contract_routes_known_library_tasks_without_model_judgment() {
-        // auto-tag and audit remain deterministic (complex multi-step tasks)
-        let auto_tag = derive_assistant_task_contract("fill missing tags for this album");
-        assert_eq!(
-            auto_tag.kind,
-            AssistantTaskContractKind::ActionPreviewRequired
-        );
-        assert_eq!(auto_tag.route, Some(AssistantTaskRoute::AutoTag));
-        assert!(auto_tag.requires_completion_evidence);
 
-        let audit = derive_assistant_task_contract("audit the selected tracks");
-        assert_eq!(audit.kind, AssistantTaskContractKind::ActionPreviewRequired);
-        assert_eq!(audit.route, Some(AssistantTaskRoute::Audit));
-        assert!(audit.requires_completion_evidence);
-
-        // Simple transformations no longer get deterministic routes; they go to the LLM
-        let numbering = derive_assistant_task_contract("fix track numbers within each album");
-        assert_eq!(numbering.kind, AssistantTaskContractKind::ActionPreviewRequired);
-        assert_eq!(numbering.route, None); // LLM handles via metadata tools
-
-        let titles = derive_assistant_task_contract("strip number prefixes from track titles");
-        assert_eq!(titles.kind, AssistantTaskContractKind::ActionPreviewRequired);
-        assert_eq!(titles.route, None); // LLM uses metadata.transform
-
-        let filenames = derive_assistant_task_contract("remove number prefixes from filenames");
-        assert_eq!(filenames.kind, AssistantTaskContractKind::ActionPreviewRequired);
-        assert_eq!(filenames.route, None); // LLM uses files.transform
-
-        let inference =
-            derive_assistant_task_contract("infer title and artist tags from filenames");
-        assert_eq!(inference.kind, AssistantTaskContractKind::ActionPreviewRequired);
-        assert_eq!(inference.route, None); // LLM uses metadata.transform with filename source
-
-        let chinese = derive_assistant_task_contract("convert Chinese tags to Traditional");
-        assert_eq!(chinese.kind, AssistantTaskContractKind::ActionPreviewRequired);
-        assert_eq!(chinese.route, None); // LLM uses metadata.transform with chinese_to_traditional
-
-        let grouping = derive_assistant_task_contract("group files into album folders");
-        assert_eq!(grouping.kind, AssistantTaskContractKind::ActionPreviewRequired);
-        assert_eq!(grouping.route, None); // LLM uses files.transform
-    }
-
-    #[test]
-    fn task_contract_distinguishes_read_only_and_chat_requests() {
-        let inspect = derive_assistant_task_contract("show tracks missing a title");
-        assert_eq!(inspect.kind, AssistantTaskContractKind::ReadOnlyAnswer);
-        assert!(!inspect.requires_completion_evidence);
-
-        let chat = derive_assistant_task_contract("hello there");
-        assert_eq!(chat.kind, AssistantTaskContractKind::ChatOnly);
-        assert!(!chat.requires_completion_evidence);
-    }
-
-    #[test]
-    fn deterministic_library_task_batch_uses_only_active_scope_paths() {
-        let input = AssistantSendInput {
-            message: "auto tag this".into(),
-            selected_track_paths: vec!["/music/selected.mp3".into()],
-            tracks: vec![serde_json::json!({"path": "/music/other.mp3"})],
-            ..Default::default()
-        };
-
-        let batch = deterministic_task_batch("session", &input, AssistantTaskRoute::AutoTag)
-            .unwrap()
-            .unwrap();
-
-        assert_eq!(batch.kind, "auto-tag-run");
-        assert_eq!(batch.actions.len(), 1);
-        assert_eq!(
-            batch.actions[0].track_path.as_deref(),
-            Some("/music/selected.mp3")
-        );
-    }
-
-    #[test]
-
-
-    #[test]
     fn standard_array_actions_are_deserialized_as_separate_values() {
         let patch = action_patch("artists", Some("Artist A; Artist B")).unwrap();
         assert_eq!(
@@ -3620,21 +3363,6 @@ mod apply_contract_tests {
     }
 
     #[test]
-    fn mutating_contract_rejects_model_reply_without_preview_evidence() {
-        let contract = derive_assistant_task_contract("change the album title");
-        let error = validate_completion_evidence(&contract, false, "I can do that").unwrap_err();
-
-        assert!(error.to_string().contains("requires a preview batch"));
-    }
-
-    #[test]
-    fn read_only_contract_rejects_a_model_authored_mutation_preview() {
-        let contract = derive_assistant_task_contract("show tracks missing a title");
-        let error = validate_completion_evidence(&contract, true, "Apply these fixes").unwrap_err();
-
-        assert!(error.to_string().contains("read-only request"));
-    }
-
     #[test]
     fn repeated_tool_guard_stops_third_identical_call_but_not_distinct_args() {
         let mut signatures = vec![
@@ -4653,84 +4381,7 @@ mod assistant_behaviour_tests {
     // ── Deterministic task routing edge cases ───────────────────────
 
     #[test]
-    fn task_contract_empty_message_is_clarification() {
-        let contract = derive_assistant_task_contract("");
-        assert_eq!(contract.kind, AssistantTaskContractKind::ClarificationRequired);
-        assert_eq!(contract.route, None);
-        assert!(!contract.requires_completion_evidence);
-    }
 
-    #[test]
-    fn task_contract_track_auto_tag_phrase_triggers_auto_tag() {
-        let prompts = [
-            "auto-tag this album",
-            "fill missing tags",
-            "fill tags for this",
-            "tag this album please",
-        ];
-        for prompt in &prompts {
-            let contract = derive_assistant_task_contract(prompt);
-            assert_eq!(
-                contract.route,
-                Some(AssistantTaskRoute::AutoTag),
-                "expected AutoTag for prompt: {}",
-                prompt
-            );
-            assert!(contract.requires_completion_evidence);
-        }
-    }
-
-    #[test]
-    fn task_contract_audit_phrase_triggers_audit() {
-        let prompts = ["audit this", "check missing metadata", "scan metadata here"];
-        for prompt in &prompts {
-            let contract = derive_assistant_task_contract(prompt);
-            assert_eq!(
-                contract.route,
-                Some(AssistantTaskRoute::Audit),
-                "expected Audit for prompt: {}",
-                prompt
-            );
-        }
-    }
-
-    #[test]
-    fn task_contract_general_mutation_route_with_no_specific_match() {
-        let prompts = ["change the album artist", "fix the genre field", "set the title"];
-        for prompt in &prompts {
-            let contract = derive_assistant_task_contract(prompt);
-            assert_eq!(
-                contract.kind,
-                AssistantTaskContractKind::ActionPreviewRequired,
-                "expected ActionPreviewRequired for prompt: {}",
-                prompt
-            );
-            assert_eq!(contract.route, None);
-            assert!(contract.requires_completion_evidence);
-        }
-    }
-
-    #[test]
-    fn task_contract_read_only_phrase_is_detected() {
-        let prompts = ["summarize the library", "list all tracks", "how many albums do I have"];
-        for prompt in &prompts {
-            let contract = derive_assistant_task_contract(prompt);
-            assert_eq!(
-                contract.kind,
-                AssistantTaskContractKind::ReadOnlyAnswer,
-                "expected ReadOnlyAnswer for prompt: {}",
-                prompt
-            );
-        }
-    }
-
-    #[test]
-    fn task_contract_chinese_convert_now_goes_to_llm() {
-        let contract = derive_assistant_task_contract("convert Chinese to simplified");
-        // No longer routed deterministically; LLM uses metadata.transform
-        assert_eq!(contract.kind, AssistantTaskContractKind::ActionPreviewRequired);
-        assert_eq!(contract.route, None);
-    }
 
     // ── Mutating tool: run_library_task ─────────────────────────────
 
@@ -4793,14 +4444,158 @@ mod assistant_behaviour_tests {
         assert!(batch.reversible);
     }
 
-    // ── deterministic_task_batch returns error for empty scope ──────
+
+
+    // ── build_assistant_messages ──────────────────────────────────
 
     #[test]
-    fn deterministic_batch_rejects_empty_scope() {
-        let input = AssistantSendInput::default();
-        let err = deterministic_task_batch("session", &input, AssistantTaskRoute::AutoTag)
-            .unwrap_err();
-        assert!(err.to_string().contains("No tracks"));
+    fn messages_includes_current_request_exactly_once() {
+        let ctx = json!({});
+        let tools = json!([]);
+        let history = vec![];
+        let msgs = build_assistant_messages(&ctx, &tools, &history, "remove titles");
+
+        let user_turns: Vec<_> = msgs.iter().filter(|m| m.role == "user").collect();
+        assert_eq!(user_turns.len(), 1, "current request must appear exactly once");
+        assert!(user_turns[0].content.contains("remove titles"));
+    }
+
+    #[test]
+    fn messages_includes_system_prompt_first() {
+        let ctx = json!({});
+        let tools = json!([]);
+        let history = vec![];
+        let msgs = build_assistant_messages(&ctx, &tools, &history, "hello");
+
+        assert_eq!(msgs.first().unwrap().role, "system");
+        assert!(msgs.first().unwrap().content.contains("Soundrobe"));
+    }
+
+    #[test]
+    fn messages_filters_out_system_entries_from_history() {
+        let ctx = json!({});
+        let tools = json!([]);
+        let history = vec![
+            ConversationEntry {
+                id: 1,
+                session_uuid: "s".into(), session_number: "s".into(),
+                timestamp: "t1".into(), entry_type: "system".into(),
+                content: "error: something failed".into(),
+                model: None, prompt_tokens: 0, completion_tokens: 0, total_tokens: 0, cost: 0.0, metadata: None,
+            },
+            ConversationEntry {
+                id: 2,
+                session_uuid: "s".into(), session_number: "s".into(),
+                timestamp: "t2".into(), entry_type: "user_message".into(),
+                content: "first question".into(),
+                model: None, prompt_tokens: 0, completion_tokens: 0, total_tokens: 0, cost: 0.0, metadata: None,
+            },
+            ConversationEntry {
+                id: 3,
+                session_uuid: "s".into(), session_number: "s".into(),
+                timestamp: "t3".into(), entry_type: "assistant_message".into(),
+                content: "clarification reply".into(),
+                model: None, prompt_tokens: 0, completion_tokens: 0, total_tokens: 0, cost: 0.0, metadata: None,
+            },
+        ];
+        let msgs = build_assistant_messages(&ctx, &tools, &history, "follow-up");
+
+        // System entry should be excluded — only user+assistant turns + final request.
+        let history_turns: Vec<_> = msgs
+            .iter()
+            .filter(|m| m.role != "system")
+            .collect();
+        assert_eq!(history_turns.len(), 3); // first question + clarification + follow-up
+        assert_eq!(history_turns[0].role, "user");
+        assert_eq!(history_turns[0].content, "first question");
+        assert_eq!(history_turns[1].role, "assistant");
+        assert_eq!(history_turns[1].content, "clarification reply");
+        assert_eq!(history_turns[2].role, "user");
+        assert!(history_turns[2].content.contains("follow-up"));
+    }
+
+    #[test]
+    fn messages_truncates_to_most_recent_turns() {
+        let ctx = json!({});
+        let tools = json!([]);
+        let mut history = Vec::new();
+        // Build 22 turns (11 user + 11 assistant) — MAX_HISTORY_TURNS is 20.
+        for i in 0..11 {
+            history.push(ConversationEntry {
+                id: i as i64 * 2 + 1,
+                session_uuid: "s".into(), session_number: "s".into(),
+                timestamp: format!("t{}", i * 2),
+                entry_type: "user_message".into(),
+                content: format!("user {}", i),
+                model: None, prompt_tokens: 0, completion_tokens: 0, total_tokens: 0, cost: 0.0, metadata: None,
+            });
+            history.push(ConversationEntry {
+                id: i as i64 * 2 + 2,
+                session_uuid: "s".into(), session_number: "s".into(),
+                timestamp: format!("t{}", i * 2 + 1),
+                entry_type: "assistant_message".into(),
+                content: format!("assistant {}", i),
+                model: None, prompt_tokens: 0, completion_tokens: 0, total_tokens: 0, cost: 0.0, metadata: None,
+            });
+        }
+        let msgs = build_assistant_messages(&ctx, &tools, &history, "latest");
+
+        let non_system: Vec<_> = msgs.iter().filter(|m| m.role != "system").collect();
+        // 20 from history + 1 current request = 21
+        assert_eq!(non_system.len(), 21);
+        // First history turn visible should be "user 1" (turns 0+1 were dropped)
+        assert_eq!(non_system[0].content, "user 1");
+        // Current request is last
+        assert!(non_system.last().unwrap().content.contains("latest"));
+    }
+
+    #[test]
+    fn messages_accepts_empty_history() {
+        let ctx = json!({});
+        let tools = json!([]);
+        let history = vec![];
+        let msgs = build_assistant_messages(&ctx, &tools, &history, "first message");
+
+        assert_eq!(msgs.len(), 2); // system + current request
+        assert_eq!(msgs[1].role, "user");
+        assert!(msgs[1].content.contains("first message"));
+    }
+
+    #[test]
+    fn messages_preserves_clarification_follow_up_order() {
+        let ctx = json!({});
+        let tools = json!([]);
+        let history = vec![
+            ConversationEntry {
+                id: 1,
+                session_uuid: "s".into(), session_number: "s".into(),
+                timestamp: "t1".into(), entry_type: "user_message".into(),
+                content: "remove titles".into(),
+                model: None, prompt_tokens: 0, completion_tokens: 0, total_tokens: 0, cost: 0.0, metadata: None,
+            },
+            ConversationEntry {
+                id: 2,
+                session_uuid: "s".into(), session_number: "s".into(),
+                timestamp: "t2".into(), entry_type: "assistant_message".into(),
+                content: "Do you mean clear title tags or strip filenames?".into(),
+                model: None, prompt_tokens: 0, completion_tokens: 0, total_tokens: 0, cost: 0.0, metadata: None,
+            },
+        ];
+        let msgs = build_assistant_messages(
+            &ctx,
+            &tools,
+            &history,
+            "clear the title tags",
+        );
+
+        let non_system: Vec<_> = msgs.iter().filter(|m| m.role != "system").collect();
+        assert_eq!(non_system.len(), 3);
+        assert!(non_system[0].content.contains("remove titles"),
+            "first history turn is the original vague request");
+        assert!(non_system[1].content.contains("Do you mean"),
+            "second history turn is the clarification");
+        assert!(non_system[2].content.contains("clear the title tags"),
+            "final turn is the disambiguated follow-up");
     }
 
     // ── Tool catalog schema shapes ──────────────────────────────────
