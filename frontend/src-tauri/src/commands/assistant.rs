@@ -853,32 +853,11 @@ enum AssistantTaskContractKind {
 enum AssistantTaskRoute {
     AutoTag,
     Audit,
-    AutoNumberTracks,
-    StripTrackTitlePrefixes,
-    StripFilenamePrefixes,
-    InferTagsFromFilenames,
-    ChineseToTraditional,
-    ChineseToSimplified,
-    GroupByAlbum,
 }
 
 impl AssistantTaskRoute {
     fn no_changes_message(self) -> &'static str {
         match self {
-            Self::AutoNumberTracks => "Track numbering is already correct. No changes are needed.",
-            Self::StripTrackTitlePrefixes => {
-                "No track-title number prefixes were found. No changes are needed."
-            }
-            Self::StripFilenamePrefixes => {
-                "No filename number prefixes were found. No changes are needed."
-            }
-            Self::InferTagsFromFilenames => {
-                "No filenames had a clear artist-title shape. No changes are needed."
-            }
-            Self::ChineseToTraditional | Self::ChineseToSimplified => {
-                "The selected metadata is already in the requested Chinese script. No changes are needed."
-            }
-            Self::GroupByAlbum => "No files need to move into album folders.",
             Self::AutoTag | Self::Audit => "No changes are needed.",
         }
     }
@@ -1035,93 +1014,7 @@ fn deterministic_task_batch(
                 })
                 .collect(),
         ),
-        AssistantTaskRoute::AutoNumberTracks => {
-            let actions = plan_track_numbering(input, &paths);
-            if actions.is_empty() {
-                return Ok(None);
-            }
-            (
-                "metadata-update",
-                "Number tracks",
-                format!("Preview {} track-numbering update(s)", actions.len()),
-                "low",
-                actions,
-            )
-        }
-        AssistantTaskRoute::StripTrackTitlePrefixes => {
-            let actions = plan_strip_track_title_prefixes(input, &paths);
-            if actions.is_empty() {
-                return Ok(None);
-            }
-            (
-                "metadata-update",
-                "Strip track-title prefixes",
-                format!("Preview {} title update(s)", actions.len()),
-                "low",
-                actions,
-            )
-        }
-        AssistantTaskRoute::StripFilenamePrefixes => {
-            let actions = plan_strip_filename_prefixes(&paths);
-            if actions.is_empty() {
-                return Ok(None);
-            }
-            (
-                "folder-move",
-                "Strip filename prefixes",
-                format!("Preview {} file rename(s)", actions.len()),
-                "medium",
-                actions,
-            )
-        }
-        AssistantTaskRoute::InferTagsFromFilenames => {
-            let actions = plan_infer_tags_from_filenames(
-                input,
-                &paths,
-                input.message.to_lowercase().contains("prett"),
-            );
-            if actions.is_empty() {
-                return Ok(None);
-            }
-            (
-                "metadata-update",
-                "Infer tags from filenames",
-                format!("Preview {} inferred tag update(s)", actions.len()),
-                "low",
-                actions,
-            )
-        }
-        AssistantTaskRoute::ChineseToTraditional | AssistantTaskRoute::ChineseToSimplified => {
-            let target = if route == AssistantTaskRoute::ChineseToTraditional {
-                "traditional"
-            } else {
-                "simplified"
-            };
-            let actions = plan_chinese_conversion(input, &paths, target);
-            if actions.is_empty() {
-                return Ok(None);
-            }
-            (
-                "metadata-update",
-                "Convert Chinese metadata",
-                format!("Preview {} Chinese-script update(s)", actions.len()),
-                "low",
-                actions,
-            )
-        }
-        AssistantTaskRoute::GroupByAlbum => {
-            let actions = plan_group_by_album(input, &paths)?;
-            if actions.is_empty() {
-                return Ok(None);
-            }
-            (
-                "folder-move",
-                "Group files by album",
-                format!("Preview {} album-folder move(s)", actions.len()),
-                "medium",
-                actions,
-            )
-        }
+
     };
     Ok(Some(AssistantActionBatch {
         id: format!("batch-{}", uuid::Uuid::new_v4()),
@@ -3442,161 +3335,7 @@ mod apply_contract_tests {
     }
 
     #[test]
-    fn deterministic_numbering_groups_by_album_and_emits_only_real_diffs() {
-        let input = AssistantSendInput {
-            message: "fix track numbers".into(),
-            tracks: vec![
-                serde_json::json!({
-                    "path": "/music/A/Album/02.mp3", "album": "Album", "albumArtist": "A",
-                    "trackNumber": 9, "trackTotal": 9, "discNumber": 1, "discTotal": 1
-                }),
-                serde_json::json!({
-                    "path": "/music/A/Album/01.mp3", "album": "Album", "albumArtist": "A",
-                    "trackNumber": 1, "trackTotal": 9, "discNumber": 1, "discTotal": 1
-                }),
-                serde_json::json!({
-                    "path": "/music/B/Other/01.mp3", "album": "Other", "albumArtist": "B",
-                    "trackNumber": 1, "trackTotal": 1
-                }),
-            ],
-            ..Default::default()
-        };
 
-        let batch =
-            deterministic_task_batch("session", &input, AssistantTaskRoute::AutoNumberTracks)
-                .unwrap()
-                .unwrap();
-
-        assert_eq!(batch.kind, "metadata-update");
-        assert!(batch.actions.iter().any(|action| {
-            action.track_path.as_deref() == Some("/music/A/Album/02.mp3")
-                && action.field.as_deref() == Some("trackNumber")
-                && action.new_value.as_deref() == Some("2")
-        }));
-        assert!(!batch
-            .actions
-            .iter()
-            .any(|action| { action.track_path.as_deref() == Some("/music/B/Other/01.mp3") }));
-    }
-
-    #[test]
-    fn deterministic_numbering_returns_no_change_for_correct_tracks() {
-        let input = AssistantSendInput {
-            message: "fix track numbers".into(),
-            tracks: vec![
-                serde_json::json!({
-                    "path": "/music/A/Album/01.mp3", "album": "Album", "albumArtist": "A",
-                    "trackNumber": 1, "trackTotal": 2, "discNumber": 1, "discTotal": 1
-                }),
-                serde_json::json!({
-                    "path": "/music/A/Album/02.mp3", "album": "Album", "albumArtist": "A",
-                    "trackNumber": 2, "trackTotal": 2, "discNumber": 1, "discTotal": 1
-                }),
-            ],
-            ..Default::default()
-        };
-
-        let batch =
-            deterministic_task_batch("session", &input, AssistantTaskRoute::AutoNumberTracks)
-                .unwrap();
-
-        assert!(batch.is_none());
-    }
-
-    #[test]
-    fn deterministic_title_prefix_cleanup_emits_only_changed_titles() {
-        let input = AssistantSendInput {
-            message: "strip title prefixes".into(),
-            tracks: vec![
-                serde_json::json!({"path": "/music/01.mp3", "title": "01. First"}),
-                serde_json::json!({"path": "/music/02.mp3", "title": "02 - Second"}),
-                serde_json::json!({"path": "/music/03.mp3", "title": "Already Clean"}),
-            ],
-            ..Default::default()
-        };
-
-        let batch = deterministic_task_batch(
-            "session",
-            &input,
-            AssistantTaskRoute::StripTrackTitlePrefixes,
-        )
-        .unwrap()
-        .unwrap();
-
-        assert_eq!(batch.kind, "metadata-update");
-        assert_eq!(batch.actions.len(), 2);
-        assert_eq!(batch.actions[0].new_value.as_deref(), Some("First"));
-        assert_eq!(batch.actions[1].new_value.as_deref(), Some("Second"));
-        assert!(batch
-            .actions
-            .iter()
-            .all(|action| action.tag_kind.as_deref() == Some("standard")));
-    }
-
-    #[test]
-    fn deterministic_filename_prefix_cleanup_previews_renames_without_writing() {
-        let input = AssistantSendInput {
-            message: "strip filename prefixes".into(),
-            tracks: vec![
-                serde_json::json!({"path": "/music/01. First.mp3"}),
-                serde_json::json!({"path": "/music/02 - Second.flac"}),
-                serde_json::json!({"path": "/music/Already Clean.ogg"}),
-            ],
-            ..Default::default()
-        };
-
-        let batch =
-            deterministic_task_batch("session", &input, AssistantTaskRoute::StripFilenamePrefixes)
-                .unwrap()
-                .unwrap();
-
-        assert_eq!(batch.kind, "folder-move");
-        assert_eq!(batch.risk_level, "medium");
-        assert_eq!(batch.actions.len(), 2);
-        assert_eq!(
-            batch.actions[0].destination_path.as_deref(),
-            Some("/music/First.mp3")
-        );
-        assert_eq!(
-            batch.actions[1].destination_path.as_deref(),
-            Some("/music/Second.flac")
-        );
-    }
-
-    #[test]
-    fn deterministic_filename_inference_handles_spaced_and_structured_compact_names() {
-        let input = AssistantSendInput {
-            message: "infer and prettify tags from filenames".into(),
-            tracks: vec![
-                serde_json::json!({"path": "/music/01 Artist A & Artist B - first_song.flac"}),
-                serde_json::json!({"path": "/music/110-hedgehog-you_are_so_famous.flac"}),
-                serde_json::json!({"path": "/music/standalone-title.flac"}),
-            ],
-            ..Default::default()
-        };
-
-        let batch = deterministic_task_batch(
-            "session",
-            &input,
-            AssistantTaskRoute::InferTagsFromFilenames,
-        )
-        .unwrap()
-        .unwrap();
-
-        assert_eq!(batch.actions.len(), 6);
-        assert!(batch.actions.iter().any(|action| {
-            action.track_path.as_deref() == Some("/music/110-hedgehog-you_are_so_famous.flac")
-                && action.field.as_deref() == Some("title")
-                && action.new_value.as_deref() == Some("You Are So Famous")
-        }));
-        assert!(batch.actions.iter().any(|action| {
-            action.field.as_deref() == Some("artists")
-                && action.new_value.as_deref() == Some("Artist A; Artist B")
-        }));
-        assert!(!batch.actions.iter().any(|action| {
-            action.track_path.as_deref() == Some("/music/standalone-title.flac")
-        }));
-    }
 
     #[test]
     fn standard_array_actions_are_deserialized_as_separate_values() {
@@ -3611,69 +3350,10 @@ mod apply_contract_tests {
     }
 
     #[test]
-    fn deterministic_chinese_conversion_updates_only_changed_text_fields() {
-        let input = AssistantSendInput {
-            message: "convert Chinese tags to Traditional".into(),
-            tracks: vec![serde_json::json!({
-                "path": "/music/one.flac",
-                "title": "音乐与未来",
-                "artist": "Artist",
-                "artists": ["音乐人", "Artist"],
-                "album": "专辑"
-            })],
-            ..Default::default()
-        };
 
-        let batch =
-            deterministic_task_batch("session", &input, AssistantTaskRoute::ChineseToTraditional)
-                .unwrap()
-                .unwrap();
-
-        assert!(batch.actions.iter().any(|action| {
-            action.field.as_deref() == Some("title")
-                && action.new_value.as_deref() == Some("音樂與未來")
-        }));
-        assert!(batch.actions.iter().any(|action| {
-            action.field.as_deref() == Some("artists")
-                && action.new_value.as_deref() == Some("音樂人; Artist")
-        }));
-        assert!(!batch
-            .actions
-            .iter()
-            .any(|action| action.field.as_deref() == Some("artist")));
-    }
 
     #[test]
-    fn deterministic_album_grouping_stays_inside_library_and_avoids_collisions() {
-        let root = temp_dir();
-        let existing_dir = root.join("A B");
-        fs::create_dir_all(&existing_dir).unwrap();
-        fs::write(existing_dir.join("song.mp3"), b"existing").unwrap();
-        let source = root.join("loose/song.mp3");
-        let already_grouped = existing_dir.join("other.mp3");
-        let outside = root.parent().unwrap().join("outside.mp3");
-        let input = AssistantSendInput {
-            message: "group files into album folders".into(),
-            library_path: Some(root.to_string_lossy().into_owned()),
-            tracks: vec![
-                serde_json::json!({"path": source, "album": "A/B"}),
-                serde_json::json!({"path": already_grouped, "album": "A/B"}),
-                serde_json::json!({"path": outside, "album": "Outside"}),
-            ],
-            ..Default::default()
-        };
 
-        let batch = deterministic_task_batch("session", &input, AssistantTaskRoute::GroupByAlbum)
-            .unwrap()
-            .unwrap();
-
-        assert_eq!(batch.actions.len(), 1);
-        assert_eq!(
-            batch.actions[0].destination_path.as_deref(),
-            Some(existing_dir.join("song_1.mp3").to_string_lossy().as_ref())
-        );
-        fs::remove_dir_all(root).unwrap();
-    }
 
     #[test]
     fn assistant_response_schema_advertises_the_public_registry() {

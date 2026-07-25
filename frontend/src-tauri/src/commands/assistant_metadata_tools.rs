@@ -13,7 +13,7 @@ use crate::commands::assistant::{
     track_path, MutatingToolExecution,
 };
 pub(crate) use crate::commands::assistant::AssistantSendInput;
-use crate::state::assistant::{AssistantAction, AssistantActionBatch};
+use crate::state::assistant::AssistantAction;
 use serde_json::Value;
 use std::collections::{BTreeMap, HashSet};
 use std::path::Path;
@@ -204,12 +204,6 @@ fn execute_pipeline(text: &str, pipeline: &[PipelineOp]) -> Option<String> {
         }
     }
     changed.then_some(current)
-}
-
-/// Apply a pipeline of operation descriptors to a text value.
-pub(crate) fn apply_pipeline(text: &str, operations: &[Value]) -> Result<Option<String>, String> {
-    let pipeline = compile_pipeline(operations)?;
-    Ok(execute_pipeline(text, &pipeline))
 }
 
 pub(crate) fn op_prettify(text: &str) -> Option<String> {
@@ -860,6 +854,14 @@ fn is_unique_field(field: &str) -> bool {
 mod tests {
     use super::*;
     use crate::commands::assistant::AssistantSendInput;
+
+    fn apply_pipeline_helper(
+        text: &str,
+        operations: &[serde_json::Value],
+    ) -> Result<Option<String>, String> {
+        let pipeline = compile_pipeline(operations)?;
+        Ok(execute_pipeline(text, &pipeline))
+    }
 
     fn test_input() -> AssistantSendInput {
         AssistantSendInput {
@@ -2077,7 +2079,7 @@ mod tests {
             {"op": "trim"},
             {"op": "title_case"}
         ]);
-        let result = apply_pipeline("01. hello world", ops.as_array().unwrap()).unwrap();
+        let result = apply_pipeline_helper("01. hello world", ops.as_array().unwrap()).unwrap();
         assert_eq!(result, Some("Hello World".into()));
     }
 
@@ -2086,7 +2088,7 @@ mod tests {
         let ops = serde_json::json!([
             {"op": "lowercase"}
         ]);
-        let result = apply_pipeline("hello", ops.as_array().unwrap()).unwrap();
+        let result = apply_pipeline_helper("hello", ops.as_array().unwrap()).unwrap();
         assert_eq!(result, None);
     }
 
@@ -2097,7 +2099,7 @@ mod tests {
             {"op": "lowercase"},
             {"op": "uppercase"}
         ]);
-        let result = apply_pipeline("HELLO", ops.as_array().unwrap()).unwrap();
+        let result = apply_pipeline_helper("HELLO", ops.as_array().unwrap()).unwrap();
         // The pipeline saw a change (lowercase changed it), so it reports Some
         assert_eq!(result, Some("HELLO".into()));
     }
@@ -2107,7 +2109,7 @@ mod tests {
         let ops = serde_json::json!([
             {"op": "nonexistent"}
         ]);
-        let result = apply_pipeline("hello", ops.as_array().unwrap());
+        let result = apply_pipeline_helper("hello", ops.as_array().unwrap());
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("nonexistent"));
     }
@@ -2117,14 +2119,14 @@ mod tests {
         let ops = serde_json::json!([
             {"pattern": "test"}
         ]);
-        let result = apply_pipeline("hello", ops.as_array().unwrap());
+        let result = apply_pipeline_helper("hello", ops.as_array().unwrap());
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("'op'"));
     }
 
     #[test]
     fn pipeline_empty_operations_returns_none() {
-        let result = apply_pipeline("hello", &[]).unwrap();
+        let result = apply_pipeline_helper("hello", &[]).unwrap();
         assert_eq!(result, None);
     }
 
@@ -2135,19 +2137,19 @@ mod tests {
             {"op": "regex_replace", "pattern": "^(?:\\d+[.)]\\s+|\\d+\\s*[-–]\\s+|\\d{1,3}\\s+)", "replacement": ""}
         ]);
         assert_eq!(
-            apply_pipeline("01. Song", ops.as_array().unwrap()).unwrap(),
+            apply_pipeline_helper("01. Song", ops.as_array().unwrap()).unwrap(),
             Some("Song".into())
         );
         assert_eq!(
-            apply_pipeline("01 - Song", ops.as_array().unwrap()).unwrap(),
+            apply_pipeline_helper("01 - Song", ops.as_array().unwrap()).unwrap(),
             Some("Song".into())
         );
         assert_eq!(
-            apply_pipeline("1  Song", ops.as_array().unwrap()).unwrap(),
+            apply_pipeline_helper("1  Song", ops.as_array().unwrap()).unwrap(),
             Some("Song".into())
         );
         assert_eq!(
-            apply_pipeline("Song", ops.as_array().unwrap()).unwrap(),
+            apply_pipeline_helper("Song", ops.as_array().unwrap()).unwrap(),
             None
         );
     }
@@ -2160,11 +2162,11 @@ mod tests {
             {"op": "strip_prefix", "prefix": "Mr. "}
         ]);
         assert_eq!(
-            apply_pipeline("Mr. Smith", ops.as_array().unwrap()).unwrap(),
+            apply_pipeline_helper("Mr. Smith", ops.as_array().unwrap()).unwrap(),
             Some("Smith".into())
         );
         assert_eq!(
-            apply_pipeline("Smith", ops.as_array().unwrap()).unwrap(),
+            apply_pipeline_helper("Smith", ops.as_array().unwrap()).unwrap(),
             None
         );
     }
@@ -2175,7 +2177,7 @@ mod tests {
             {"op": "literal_replace", "find": " - ", "replacement": ": "}
         ]);
         assert_eq!(
-            apply_pipeline("Song - Remix", ops.as_array().unwrap()).unwrap(),
+            apply_pipeline_helper("Song - Remix", ops.as_array().unwrap()).unwrap(),
             Some("Song: Remix".into())
         );
     }
