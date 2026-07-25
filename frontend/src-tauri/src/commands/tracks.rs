@@ -4,7 +4,7 @@
 //! Atomic mutation cores live in `commands::mutations`; extra tags, rename, and
 //! remaining formats are enabled only as their differential contracts turn green.
 
-use crate::commands::covers::cover_cache_source;
+use crate::commands::covers::{cover_cache_source, cover_cache_warm};
 use crate::commands::library::is_audio_file;
 use crate::error::ApiError;
 use lofty::config::ParseOptions;
@@ -227,11 +227,17 @@ pub fn read_album(album_path: &Path) -> Result<AlbumDetail, ApiError> {
     // Populate the cover source cache so cover_data_url_at can skip directory
     // scanning and go directly to the known source file.
     let album_path_str = album_path.to_string_lossy();
+    let embedded_cover_track = tracks.iter().find(|track| track.has_cover);
     if let Some(path) = &external_cover {
         cover_cache_source(&album_path_str, "external", path);
-    } else if let Some(track) = tracks.iter().find(|t| t.has_cover) {
+    } else if let Some(track) = embedded_cover_track {
         cover_cache_source(&album_path_str, "embedded", &track.path);
     }
+    cover_cache_warm(
+        album_path,
+        embedded_cover_track.map(|track| track.path.as_str()),
+        external_cover.is_some() || embedded_cover_track.is_some(),
+    );
     let status = if error_count == 0 {
         "ok"
     } else if error_count < tracks.len() {
@@ -267,8 +273,11 @@ fn detect_external_cover(album_path: &Path) -> Option<String> {
 /// `album:read` / `readAlbum()`. Read-only; propagates an unreadable album
 /// directory while containing individual malformed track files in the result.
 #[tauri::command]
-pub fn album_read(album_path: String) -> Result<AlbumDetail, ApiError> {
-    read_album(Path::new(&album_path))
+pub async fn album_read(album_path: String) -> Result<AlbumDetail, ApiError> {
+    let path = PathBuf::from(album_path);
+    tokio::task::spawn_blocking(move || read_album(&path))
+        .await
+        .map_err(|error| ApiError::ReadTask(error.to_string()))?
 }
 
 /// Read multiple albums in parallel by spawning one blocking task per folder.
@@ -1910,6 +1919,19 @@ mod tests {
         );
         assert_eq!(result.cover_info.data_url, None);
         std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    /// Intent: album loading now performs cover decoding and encoding, so the
+    /// Tauri command must keep that blocking work off the async runtime thread.
+    #[test]
+    fn album_read_command_is_async() {
+        fn assert_future<F>(_: F)
+        where
+            F: std::future::Future<Output = Result<AlbumDetail, ApiError>>,
+        {
+        }
+
+        assert_future(album_read("/missing/album".to_string()));
     }
 
     /// Intent: one malformed track is visible but must downgrade a otherwise

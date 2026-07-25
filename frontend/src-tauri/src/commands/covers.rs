@@ -13,6 +13,7 @@ use lofty::config::ParseOptions;
 use lofty::file::TaggedFileExt;
 use lofty::probe::Probe;
 use serde::Serialize;
+use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -21,29 +22,56 @@ use std::sync::Mutex;
 use tauri::{AppHandle, State};
 use tauri_plugin_dialog::{DialogExt, FilePath};
 
-/// In-memory cover data URL cache keyed by absolute album path.
-/// Populated lazily on first access per album; cleared on cover mutations.
-/// This avoids repeatedly scanning the album directory (which can take 2+
-/// seconds on network/slow volumes).
-static COVER_CACHE: LazyLock<Mutex<HashMap<String, String>>> =
-    LazyLock::new(|| Mutex::new(HashMap::new()));
+/// Prepared cover results live on local disk rather than accumulating one
+/// base64 string per album in memory. The renderer keeps its own hot cache
+/// after the first selection, while Rust handles the first local-disk read.
+static COVER_DISK_CACHE_LOCK: Mutex<()> = Mutex::new(());
+static COVER_DISK_CACHE_DIR: LazyLock<PathBuf> = LazyLock::new(|| {
+    let started = std::time::SystemTime::UNIX_EPOCH
+        .elapsed()
+        .map_or(0, |elapsed| elapsed.as_nanos());
+    std::env::temp_dir().join(format!(
+        "soundrobe-cover-cache-{}-{started}",
+        std::process::id()
+    ))
+});
 
-fn cover_cache_get(album_path: &str) -> Option<String> {
-    COVER_CACHE.lock().ok()?.get(album_path).cloned()
+fn cover_disk_cache_path(album_path: &str) -> PathBuf {
+    let digest = Sha256::digest(album_path.as_bytes());
+    COVER_DISK_CACHE_DIR.join(format!("{digest:x}.txt"))
 }
 
-fn cover_cache_set(album_path: &str, data_url: &str) {
-    if let Ok(mut cache) = COVER_CACHE.lock() {
-        cache.insert(album_path.to_owned(), data_url.to_owned());
+fn cover_disk_cache_get(album_path: &str) -> Option<Option<String>> {
+    let _guard = COVER_DISK_CACHE_LOCK.lock().ok()?;
+    let value = fs::read_to_string(cover_disk_cache_path(album_path)).ok()?;
+    Some((!value.is_empty()).then_some(value))
+}
+
+fn cover_disk_cache_set(album_path: &str, value: &Option<String>) {
+    let Ok(_guard) = COVER_DISK_CACHE_LOCK.lock() else {
+        return;
+    };
+    if fs::create_dir_all(&*COVER_DISK_CACHE_DIR).is_err() {
+        return;
     }
+    let body = value.as_deref().unwrap_or_default();
+    let _ = fs::write(cover_disk_cache_path(album_path), body);
+}
+
+fn cover_cache_get(album_path: &str) -> Option<Option<String>> {
+    cover_disk_cache_get(album_path)
+}
+
+fn cover_cache_set(album_path: &str, data_url: Option<String>) {
+    cover_disk_cache_set(album_path, &data_url);
 }
 
 fn cover_cache_invalidate(album_path: &str) {
-    if let Ok(mut cache) = COVER_CACHE.lock() {
-        cache.remove(album_path);
-    }
     if let Ok(mut cache) = COVER_SOURCE_CACHE.lock() {
         cache.remove(album_path);
+    }
+    if let Ok(_guard) = COVER_DISK_CACHE_LOCK.lock() {
+        let _ = fs::remove_file(cover_disk_cache_path(album_path));
     }
 }
 
@@ -72,6 +100,25 @@ pub fn cover_cache_source(album_path: &str, kind: &str, source_path: &str) {
     }
 }
 
+/// Materialize the selection-time cover result while an album is loading.
+/// `has_cover` comes from the metadata/external-cover work `read_album` has
+/// already completed, so known misses avoid a redundant full audio-file scan.
+pub fn cover_cache_warm(album_path: &Path, preferred_track: Option<&str>, has_cover: bool) {
+    let album_path_str = album_path.to_string_lossy().into_owned();
+    if cover_cache_get(&album_path_str).is_some() {
+        return;
+    }
+    let data_url = if has_cover {
+        cover_data_url_at(album_path, preferred_track)
+    } else {
+        if let Ok(mut cache) = COVER_SOURCE_CACHE.lock() {
+            cache.remove(&album_path_str);
+        }
+        None
+    };
+    cover_cache_set(&album_path_str, data_url);
+}
+
 const COVER_REMOVED_MARKER: &str = ".auto-tagger-cover-removed";
 const COVER_NAMES: &[&str] = &[
     "cover", "Cover", "COVER", "front", "Front", "FRONT", "folder", "Folder", "FOLDER", "albumart",
@@ -82,15 +129,16 @@ const AUDIO_EXTENSIONS: &[&str] = &["mp3", "flac", "m4a", "mp4", "wav", "ogg", "
 
 #[tauri::command]
 pub fn cover_data_url(album_path: String, preferred_track: Option<String>) -> Option<String> {
-    // Fast path: return cached data URL without any filesystem access.
+    // Fast path: return the prepared local-cache result, including a known
+    // missing cover, without rescanning media or transforming an image.
     if let Some(url) = cover_cache_get(&album_path) {
-        return Some(url);
+        return url;
     }
 
     // Slow path: scan the album directory and cache the result.
-    let url = cover_data_url_at(Path::new(&album_path), preferred_track.as_deref())?;
-    cover_cache_set(&album_path, &url);
-    Some(url)
+    let url = cover_data_url_at(Path::new(&album_path), preferred_track.as_deref());
+    cover_cache_set(&album_path, url.clone());
+    url
 }
 
 #[tauri::command]
@@ -149,7 +197,7 @@ pub async fn cover_download(
         "data:image/jpeg;base64,{}",
         base64::engine::general_purpose::STANDARD.encode(bytes)
     );
-    cover_cache_set(&album_path, &url);
+    cover_cache_set(&album_path, Some(url.clone()));
     Ok(Some(url))
 }
 
@@ -686,6 +734,7 @@ fn image_data_url(bytes: &[u8], max_dimension: u32, quality: u8) -> Option<Strin
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::commands::tracks::read_album;
     use image::{GenericImage, ImageFormat, Rgba};
     use lofty::id3::v2::Id3v2Tag;
     use lofty::picture::{MimeType, Picture, PictureType};
@@ -713,6 +762,93 @@ mod tests {
         let mut output = Cursor::new(Vec::new());
         image.write_to(&mut output, ImageFormat::Png).unwrap();
         output.into_inner()
+    }
+
+    fn album_with_external_cover() -> (PathBuf, PathBuf, PathBuf) {
+        let root = root();
+        let album = root.join("Album");
+        fs::create_dir_all(&album).unwrap();
+        fs::copy(
+            PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                .join("../test/fixtures/tauri/media-corpus/minimal.mp3"),
+            album.join("01.mp3"),
+        )
+        .unwrap();
+        let cover = album.join("cover.png");
+        fs::write(&cover, png(8, 8)).unwrap();
+        (root, album, cover)
+    }
+
+    /// Intent: once library loading has completed, selecting a track must not
+    /// depend on reading or transforming the album cover for the first time.
+    #[test]
+    fn album_read_warms_cover_data_before_first_selection() {
+        let (root, album, cover) = album_with_external_cover();
+
+        read_album(&album).expect("library loading should read the album");
+        fs::remove_file(cover).unwrap();
+
+        let url = cover_data_url(album.to_string_lossy().into_owned(), None)
+            .expect("selection should use the cover warmed during album loading");
+        assert!(url.starts_with("data:image/jpeg;base64,"));
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    /// Intent: metadata-only callers of `read_album` must reuse prepared cover
+    /// results instead of repeating decode, resize, encode, and base64 work.
+    #[test]
+    fn repeated_album_read_reuses_prepared_cover() {
+        let (root, album, cover) = album_with_external_cover();
+
+        read_album(&album).expect("library loading should prepare the cover");
+        fs::remove_file(cover).unwrap();
+        read_album(&album).expect("metadata-only reread should still succeed");
+
+        assert!(
+            cover_data_url(album.to_string_lossy().into_owned(), None).is_some(),
+            "rereading album metadata should not replace the prepared cover result"
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    /// Intent: cover mutations must invalidate the prepared disk result so a
+    /// removed cover cannot reappear when the track is selected again.
+    #[test]
+    fn cover_removal_invalidates_prepared_disk_result() {
+        let (root, album, _cover) = album_with_external_cover();
+        read_album(&album).expect("library loading should prepare the cover");
+
+        assert!(remove_cover_at(&album));
+        assert_eq!(
+            cover_data_url(album.to_string_lossy().into_owned(), None),
+            None
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    /// Intent: albums without artwork must also become constant-time selection
+    /// cache hits instead of rescanning every audio file on first selection.
+    #[test]
+    fn album_read_warms_missing_cover_before_first_selection() {
+        let root = root();
+        let album = root.join("Album");
+        fs::create_dir_all(&album).unwrap();
+        fs::copy(
+            PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                .join("../test/fixtures/tauri/media-corpus/minimal.mp3"),
+            album.join("01.mp3"),
+        )
+        .unwrap();
+
+        read_album(&album).expect("library loading should read the album");
+        fs::write(album.join("cover.png"), png(8, 8)).unwrap();
+
+        assert_eq!(
+            cover_data_url(album.to_string_lossy().into_owned(), None),
+            None,
+            "selection should use the missing-cover result warmed during album loading"
+        );
+        fs::remove_dir_all(root).unwrap();
     }
 
     #[test]
