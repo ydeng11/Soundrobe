@@ -561,8 +561,18 @@ fn remote_title_variants<'a>(titles: impl Iterator<Item = &'a str>) -> Vec<Strin
         let cleaned = strip_annotations(title);
         for component in std::iter::once(cleaned).chain(bilingual_components(title)) {
             variants.extend(title_variants(&component));
-            if let Some(leading) = leading_cjk(&component) {
-                variants.extend(title_variants(&leading));
+            // Only emit a CJK-leading prefix when the title has BOTH CJK
+            // and Latin characters (a bilingual title where the CJK portion
+            // is a meaningful alternative, e.g. "好好 (Want to Hear Your
+            // Voice)" → "好好").  For all-CJK titles like "男孩不哭(伴唱曲)"
+            // the CJK prefix "男孩不哭" is NOT a valid variant — it would
+            // collide with the separate track "男孩不哭" in the index.
+            let has_cjk = component.chars().any(is_cjk);
+            let has_latin = component.chars().any(|c| c.is_ascii_alphabetic());
+            if has_cjk && has_latin {
+                if let Some(leading) = leading_cjk(&component) {
+                    variants.extend(title_variants(&leading));
+                }
             }
         }
     }
@@ -1064,6 +1074,124 @@ mod tests {
         assert_eq!(matched.evidence[0], Some(MatchEvidence::Position));
         assert_eq!(matched.evidence[1], Some(MatchEvidence::TagTitle));
         assert_eq!(matched.evidence[2], Some(MatchEvidence::Position));
+    }
+
+    #[test]
+    fn all_tracks_in_artist_dash_title_folder_match_via_filename_form() {
+        // An album where every filename is "Artist - Title.wav" (no
+        // numeric prefix).  Each local has tag title = "Artist - Title"
+        // from filename_track_title, and the remote has clean "Title".
+        let titles = &[
+            "男孩不哭", "嘿!你写日记吗", "做我的新舞伴吧!", "热雷雨",
+            "改变你", "我的烦恼", "沙丘魔堡", "我想先离开",
+            "年轻的英雄", "男孩不哭(伴唱曲)",
+        ];
+        let local: Vec<_> = titles
+            .iter()
+            .map(|t| TrackCandidate {
+                title: Some(format!("小虎队 - {t}")),
+                artist: None,
+                length: Some(210.0),
+                ..TrackCandidate::default()
+            })
+            .collect();
+        let filenames: Vec<_> = titles
+            .iter()
+            .map(|t| format!("小虎队 - {t}.wav"))
+            .collect();
+        let remote: Vec<_> = titles
+            .iter()
+            .map(|t| TrackCandidate {
+                title: Some(t.to_string()),
+                artist: Some("小虎队".into()),
+                length: Some(210.0),
+                ..TrackCandidate::default()
+            })
+            .collect();
+
+        let matched = match_remote_candidate_tracks(
+            &local,
+            &filenames,
+            &remote,
+            "musicbrainz",
+            &["小虎队".into()],
+            &[],
+        );
+
+        assert!(
+            matched.stats.matched > 0,
+            "expected at least 1 title match"
+        );
+        for (i, t) in titles.iter().copied().enumerate() {
+            assert_eq!(
+                matched.evidence[i],
+                Some(MatchEvidence::FilenameTitle),
+                "{t}: expected FilenameTitle evidence"
+            );
+            assert_eq!(
+                matched.tracks[i].title.as_deref(),
+                Some(t),
+                "{t}: expected clean title"
+            );
+            assert_eq!(
+                matched.tracks[i].artist.as_deref(),
+                Some("小虎队"),
+                "{t}: expected artist"
+            );
+        }
+        assert_eq!(matched.stats.matched, titles.len());
+        assert!(matched.is_full_ordered_match);
+    }
+
+    #[test]
+    fn filename_without_track_number_matches_by_dash_suffix_when_tag_title_is_missing() {
+        // Regression: a filename like "小虎队 - 沙丘魔堡.wav" where
+        // there is no numeric track prefix should still match the
+        // clean remote title "沙丘魔堡" via the filename form.
+        let local = vec![TrackCandidate {
+            title: Some("小虎队 - 沙丘魔堡".into()), // filename-derived title
+            artist: None,
+            length: Some(210.0),
+            ..TrackCandidate::default()
+        }];
+        let remote = vec![TrackCandidate {
+            title: Some("沙丘魔堡".into()),
+            artist: Some("小虎队".into()),
+            length: Some(210.0),
+            ..TrackCandidate::default()
+        }];
+
+        let matched = match_remote_candidate_tracks(
+            &local,
+            &["小虎队 - 沙丘魔堡.wav".into()],
+            &remote,
+            "musicbrainz",
+            &["小虎队".into()],
+            &[],
+        );
+
+        assert_eq!(
+            matched.stats.matched, 1,
+            "expected 1 match but got {}",
+            matched.stats.matched
+        );
+        assert_eq!(
+            matched.tracks[0].title.as_deref(),
+            Some("沙丘魔堡"),
+            "title should be the clean remote title"
+        );
+        assert_eq!(
+            matched.tracks[0].artist.as_deref(),
+            Some("小虎队"),
+            "artist should come from remote"
+        );
+        // Verify the evidence is FilenameTitle (not TagTitle which
+        // would be "小虎队 沙丘魔堡" and fail to match)
+        assert_eq!(
+            matched.evidence[0],
+            Some(MatchEvidence::FilenameTitle),
+            "should match via filename form, not polluted tag title"
+        );
     }
 
     #[test]
