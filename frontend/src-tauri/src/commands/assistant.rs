@@ -420,23 +420,10 @@ pub async fn assistant_send(
     let mut final_draft = None;
     let mut pending_tool_batches = Vec::new();
     let mut self_reviewed = false;
+    // Absolute deadline for the entire session (120 s).
+    let deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(120);
 
     for step_number in 1..=10 {
-        // Bounded total watchdog: fail if the whole session exceeds 120 s.
-        if session_start.elapsed() > std::time::Duration::from_secs(120) {
-            tracing::error!(
-                elapsed_us = session_start.elapsed().as_micros(),
-                session_id = %session_id,
-                "assistant session timed out (120 s)"
-            );
-            conversation.record_system("Session timed out after 120 seconds");
-            return assistant_error_event(
-                &app,
-                Some(session_id),
-                "The assistant session timed out. Please try again.",
-            );
-        }
-
         let step = AssistantEvent {
             session_id: session_id.clone(),
             event_type: "step",
@@ -444,14 +431,16 @@ pub async fn assistant_send(
             data: None,
         };
         let _ = app.emit("assistant:event", step);
-        let response = client
-            .complete_json(
+        let response = tokio::time::timeout_at(
+            deadline,
+            client.complete_json(
                 messages.clone(),
                 "AssistantResponse",
                 assistant_response_schema(),
                 &cancelled,
-            )
-            .await;
+            ),
+        )
+        .await;
         if cancelled.load(Ordering::Acquire) {
             let event = AssistantEvent {
                 session_id,
@@ -463,8 +452,8 @@ pub async fn assistant_send(
             return Ok(event);
         }
         let response = match response {
-            Ok(response) => response,
-            Err(error) => {
+            Ok(Ok(response)) => response,
+            Ok(Err(error)) => {
                 tracing::warn!(
                     elapsed_us = session_start.elapsed().as_micros(),
                     error = %error,
@@ -473,6 +462,19 @@ pub async fn assistant_send(
                 );
                 conversation.record_system(&error.to_string());
                 return assistant_error_event(&app, Some(session_id), &error.to_string());
+            }
+            Err(_elapsed) => {
+                tracing::error!(
+                    elapsed_us = session_start.elapsed().as_micros(),
+                    session_id = %session_id,
+                    "assistant session timed out (120 s)"
+                );
+                conversation.record_system("Session timed out after 120 seconds");
+                return assistant_error_event(
+                    &app,
+                    Some(session_id),
+                    "The assistant session timed out. Please try again.",
+                );
             }
         };
         conversation.record(
@@ -504,10 +506,14 @@ pub async fn assistant_send(
             ));
         }
         let Some(tool_call) = draft.tool_call else {
-            // Self-review retry: when the LLM returns a message-only draft,
-            // give it one chance to convert a planned-action description
-            // into an actual tool call.  Genuine clarifications, answers,
-            // and limitations pass through unchanged.
+            // Model-authored action batch: no tool call needed.
+            if draft.action_batch.is_some() {
+                final_draft = Some(draft);
+                break;
+            }
+            // Message-only: self-review retry — give the LLM one chance to
+            // convert a planned-action description into an actual tool call.
+            // Genuine clarifications/answers/limitations pass through unchanged.
             if !self_reviewed {
                 self_reviewed = true;
                 messages.push(ChatMessage {
@@ -566,7 +572,18 @@ pub async fn assistant_send(
         let execution = if tool_call.tool_name == "create_plan"
             || tool_call.tool_name == "plan.create"
         {
-            execute_create_plan(&tool_call.args, &input, &session_id, native_services).await
+            match tokio::time::timeout_at(deadline, execute_create_plan(&tool_call.args, &input, &session_id, native_services)).await {
+                Ok(exec) => exec,
+                Err(_) => {
+                    tracing::error!(tool = %tool_call.tool_name, "plan execution timed out");
+                    conversation.record_system("Session timed out after 120 seconds");
+                    return assistant_error_event(
+                        &app,
+                        Some(session_id),
+                        "The assistant session timed out. Please try again.",
+                    );
+                }
+            }
         } else if registered_tool_is_read_only(&tool_call.tool_name) == Some(false) {
             execute_mutating_assistant_tool(
                 &tool_call.tool_name,
@@ -575,13 +592,24 @@ pub async fn assistant_send(
                 &session_id,
             )
         } else {
+            let tool_result = match tokio::time::timeout_at(deadline, execute_native_assistant_tool(
+                &tool_call.tool_name,
+                &tool_call.args,
+                native_services,
+            )).await {
+                Ok(result) => result,
+                Err(_) => {
+                    tracing::error!(tool = %tool_call.tool_name, "native tool execution timed out");
+                    conversation.record_system("Session timed out after 120 seconds");
+                    return assistant_error_event(
+                        &app,
+                        Some(session_id),
+                        "The assistant session timed out. Please try again.",
+                    );
+                }
+            };
             MutatingToolExecution {
-                result: execute_native_assistant_tool(
-                    &tool_call.tool_name,
-                    &tool_call.args,
-                    native_services,
-                )
-                .await,
+                result: tool_result,
                 batches: Vec::new(),
                 completion_evidence: false,
             }
