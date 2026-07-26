@@ -1227,4 +1227,147 @@ mod tests {
         assert_eq!(matched.tracks[0].title.as_deref(), Some("Title"));
         assert_eq!(matched.tracks[0].artist.as_deref(), Some("Artist & Guest"));
     }
+
+    /// Regression test for a real-world album (小虎队 - 男孩不哭, 1989)
+    /// where one track has a character that differs between the local
+    /// filename and the MusicBrainz title, causing a failed match.
+    ///
+    /// Track 9 on MusicBrainz is "砂丘魔堡" (with U+7802 砂) while the
+    /// on-disk filename uses "沙丘魔堡" (U+6C99 沙).  OpenCC does NOT
+    /// convert 砂 ↔ 沙 as they are distinct characters.  The filename
+    /// form matching thus fails for this track, and it falls through to
+    /// Position evidence — producing the reported symptoms (polluted
+    /// local title, missing artist).
+    ///
+    /// This test verifies that MOST tracks match via FilenameTitle but
+    /// the character-mismatched track gets Position.
+    #[test]
+    fn character_mismatch_prevents_filename_match_while_others_match_by_title() {
+        // === Arrange: exact file listing from the 1989 album ===
+        let local_titles: Vec<&str> = vec![
+            "男孩不哭",
+            "热雷雨",
+            "嘿!你写日记吗",
+            "做我的新舞伴吧!",
+            "我的烦恼",
+            "年轻的英雄",
+            "改变你",
+            "我想先离开",
+            "沙丘魔堡",    // <-- local uses 沙 (U+6C99)
+            "男孩不哭(伴唱曲)",
+        ];
+        let filenames: Vec<String> = local_titles
+            .iter()
+            .map(|t| format!("小虎队 - {t}.wav"))
+            .collect();
+        let local: Vec<TrackCandidate> = local_titles
+            .iter()
+            .map(|t| TrackCandidate {
+                title: Some(format!("小虎队 - {t}")),
+                artist: None,
+                length: Some(240.0),
+                ..TrackCandidate::default()
+            })
+            .collect();
+
+        // === Arrange: remote tracks as they appear on MusicBrainz ===
+        // Track 1 has duration 246000 ms (= 246s), others have null
+        let remote_titles_and_durations: Vec<(&str, Option<f64>)> = vec![
+            ("男孩不哭", Some(246.0)),
+            ("熱雷雨", None),
+            ("嘿!你寫日記嗎?", None),
+            ("做我的新舞伴吧!", None),
+            ("我的煩惱", None),
+            ("年輕的英雄", None),
+            ("改變你", None),
+            ("我想先離開", None),
+            ("砂丘魔堡", None),  // <-- MB uses 砂 (U+7802)
+            ("男孩不哭 (伴唱曲)", None),
+        ];
+        let remote: Vec<TrackCandidate> = remote_titles_and_durations
+            .iter()
+            .map(|(title, duration)| TrackCandidate {
+                title: Some(title.to_string()),
+                artist: Some("小虎队".into()),
+                length: *duration,
+                ..TrackCandidate::default()
+            })
+            .collect();
+
+        // === Act ===
+        let matched = match_remote_candidate_tracks(
+            &local,
+            &filenames,
+            &remote,
+            "musicbrainz",
+            &["小虎队".into()],
+            &[],
+        );
+
+        // === Assert ===
+        assert_eq!(matched.stats.matched, 10);
+
+        // Tracks 0-7 match via FilenameTitle (simplified↔traditional handled by opencc)
+        for i in 0..8 {
+            assert_eq!(
+                matched.evidence[i],
+                Some(MatchEvidence::FilenameTitle),
+                "track[{i}]: expected FilenameTitle"
+            );
+            assert!(
+                matched.tracks[i].artist.is_some(),
+                "track[{i}]: artist should be set for FilenameTitle match"
+            );
+        }
+
+        // Track 8 (沙丘魔堡) — the 砂↔沙 character mismatch prevents
+        // title-based matching, so it falls to Position evidence.
+        assert_eq!(
+            matched.evidence[8],
+            Some(MatchEvidence::Position),
+            "track[8] 沙丘魔堡: expected Position due to 砂↔沙"
+        );
+        assert_eq!(
+            matched.tracks[8].title.as_deref(),
+            Some("小虎队 - 沙丘魔堡"),
+            "track[8]: Position evidence keeps the polluted local title"
+        );
+        assert_eq!(
+            matched.tracks[8].artist.as_deref(),
+            Some("小虎队"),
+            "track[8]: artist set from remote because local_artist_blank"
+        );
+
+        // Track 9 (男孩不哭 (伴唱曲)) also matches via FilenameTitle
+        assert_eq!(
+            matched.evidence[9],
+            Some(MatchEvidence::FilenameTitle),
+            "track[9] (伴唱曲): expected FilenameTitle"
+        );
+    }
+
+    /// Confirm that 砂 (U+7802) and 沙 (U+6C99) are distinct through
+    /// the normalisation pipeline — opencc does not convert between them.
+    #[test]
+    fn sha_and_sha_different_characters_not_converted_by_opencc() {
+        use crate::state::providers::convert_chinese_text;
+
+        // Neither direction converts between 砂 and 沙
+        assert_eq!(
+            convert_chinese_text("砂丘魔堡", "simplified"),
+            "砂丘魔堡",
+            "砂 should not simplify to 沙"
+        );
+        assert_eq!(
+            convert_chinese_text("沙丘魔堡", "traditional"),
+            "沙丘魔堡",
+            "沙 should not traditionalize to 砂"
+        );
+
+        assert_ne!(
+            super::normalize_title("沙丘魔堡"),
+            super::normalize_title("砂丘魔堡"),
+            "normalize_title should not conflate 沙 and 砂"
+        );
+    }
 }
