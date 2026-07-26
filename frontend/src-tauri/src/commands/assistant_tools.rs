@@ -158,16 +158,14 @@ pub(crate) fn assistant_tool_definitions() -> Vec<AssistantToolDefinition> {
     ];
     TOOLS
         .iter()
-        .map(
-            |spec| AssistantToolDefinition {
-                name: spec.name,
-                description: spec.description,
-                input_schema: tool_schema(spec.name),
-                read_only: spec.read_only,
-                public: spec.public,
-                operation_kind: spec.operation_kind,
-            },
-        )
+        .map(|spec| AssistantToolDefinition {
+            name: spec.name,
+            description: spec.description,
+            input_schema: tool_schema(spec.name),
+            read_only: spec.read_only,
+            public: spec.public,
+            operation_kind: spec.operation_kind,
+        })
         .collect()
 }
 
@@ -1188,8 +1186,14 @@ mod tests {
 
         // Public tools are the orthogonal set (10 read-only + 5 mutating = 15)
         let public_count = definitions.iter().filter(|d| d.public).count();
-        let public_read_only = definitions.iter().filter(|d| d.public && d.read_only).count();
-        let public_mutating = definitions.iter().filter(|d| d.public && !d.read_only).count();
+        let public_read_only = definitions
+            .iter()
+            .filter(|d| d.public && d.read_only)
+            .count();
+        let public_mutating = definitions
+            .iter()
+            .filter(|d| d.public && !d.read_only)
+            .count();
         assert_eq!(public_count, 15, "public tool count should be 15");
         assert_eq!(public_read_only, 10, "10 public read-only tools");
         assert_eq!(public_mutating, 5, "5 public mutating tools");
@@ -1208,8 +1212,15 @@ mod tests {
         let entries = catalog.as_array().unwrap();
         assert_eq!(entries.len(), 15, "public catalog should have 15 tools");
         for entry in entries {
-            let desc = entry.get("description").and_then(Value::as_str).unwrap_or("");
-            assert!(!desc.is_empty(), "Tool {} is missing a description", entry["name"]);
+            let desc = entry
+                .get("description")
+                .and_then(Value::as_str)
+                .unwrap_or("");
+            assert!(
+                !desc.is_empty(),
+                "Tool {} is missing a description",
+                entry["name"]
+            );
         }
     }
 

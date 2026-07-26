@@ -16,7 +16,6 @@ use crate::commands::{
 };
 use crate::error::ApiError;
 use crate::infra::is_not_redacted;
-use lofty::file::TaggedFileExt;
 use crate::infra::openrouter::{ChatMessage, OpenRouterClient};
 use crate::state::assistant::{
     AssistantAction, AssistantActionBatch, AssistantRuntimeState, AssistantServicesConfig,
@@ -27,11 +26,12 @@ use crate::state::conversation::{ConversationEntry, ConversationState};
 use crate::state::providers::convert_chinese_text;
 use crate::state::providers::{DiscogsClient, MusicBrainzClient, ProviderState};
 use crate::state::write_queue::WriteQueue;
+use lofty::file::TaggedFileExt;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::{BTreeMap, HashSet};
-use std::path::{Path, PathBuf};
 use std::fs;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::Ordering;
 use tauri::{AppHandle, Emitter, State};
 
@@ -370,7 +370,11 @@ pub async fn assistant_send(
         &snapshot.model,
     );
     tracing::debug!(
-        has_config_key = raw_config.llm_api_key.as_deref().filter(|k| is_not_redacted(k)).is_some(),
+        has_config_key = raw_config
+            .llm_api_key
+            .as_deref()
+            .filter(|k| is_not_redacted(k))
+            .is_some(),
         has_service_key = is_not_redacted(&snapshot.api_key),
         has_model = model.is_some(),
         "assistant credential resolution"
@@ -523,7 +527,8 @@ pub async fn assistant_send(
                 messages.push(ChatMessage::system(
                     "If your response above is a clarification, answer, or limitation, \
                      finalize it unchanged.  If it announces an action (e.g. \"I'll inspect\" \
-                     or \"let me preview\"), call the tool now instead.".to_string(),
+                     or \"let me preview\"), call the tool now instead."
+                        .to_string(),
                 ));
                 continue;
             }
@@ -572,7 +577,12 @@ pub async fn assistant_send(
         let execution = if tool_call.tool_name == "create_plan"
             || tool_call.tool_name == "plan.create"
         {
-            match tokio::time::timeout_at(deadline, execute_create_plan(&tool_call.args, &input, &session_id, native_services)).await {
+            match tokio::time::timeout_at(
+                deadline,
+                execute_create_plan(&tool_call.args, &input, &session_id, native_services),
+            )
+            .await
+            {
                 Ok(exec) => exec,
                 Err(_) => {
                     tracing::error!(tool = %tool_call.tool_name, "plan execution timed out");
@@ -592,11 +602,16 @@ pub async fn assistant_send(
                 &session_id,
             )
         } else {
-            let tool_result = match tokio::time::timeout_at(deadline, execute_native_assistant_tool(
-                &tool_call.tool_name,
-                &tool_call.args,
-                native_services,
-            )).await {
+            let tool_result = match tokio::time::timeout_at(
+                deadline,
+                execute_native_assistant_tool(
+                    &tool_call.tool_name,
+                    &tool_call.args,
+                    native_services,
+                ),
+            )
+            .await
+            {
                 Ok(result) => result,
                 Err(_) => {
                     tracing::error!(tool = %tool_call.tool_name, "native tool execution timed out");
@@ -685,12 +700,7 @@ pub async fn assistant_send(
             "I reached the maximum step limit (10) without a final response.",
         );
     };
-    match resolve_assistant_outcome(
-        &draft,
-        &pending_tool_batches,
-        &session_id,
-        &input,
-    ) {
+    match resolve_assistant_outcome(&draft, &pending_tool_batches, &session_id, &input) {
         Ok(outcome) => {
             let event = match outcome {
                 AssistantOutcome::Message => AssistantEvent {
@@ -906,7 +916,10 @@ fn build_assistant_messages(
         let a = &history[i];
         let b = &history[i + 1];
         if a.entry_type == "user_message" && b.entry_type == "assistant_message" {
-            exchanges.push(Exchange { user: a, assistant: b });
+            exchanges.push(Exchange {
+                user: a,
+                assistant: b,
+            });
             i += 2;
         } else {
             i += 1;
@@ -1038,7 +1051,10 @@ pub(crate) fn assistant_batch(
     }
 }
 
-pub(crate) fn tool_scope_paths(input: &AssistantSendInput, args: &Value) -> Result<Vec<String>, String> {
+pub(crate) fn tool_scope_paths(
+    input: &AssistantSendInput,
+    args: &Value,
+) -> Result<Vec<String>, String> {
     let scope = args
         .get("target_scope")
         .and_then(Value::as_str)
@@ -1456,10 +1472,7 @@ fn execute_remove_embedded_cover(
     if actions.is_empty() {
         return mutating_tool_no_changes("No tracks with embedded cover art found.");
     }
-    let summary = format!(
-        "Remove embedded cover art from {} track(s)",
-        actions.len()
-    );
+    let summary = format!("Remove embedded cover art from {} track(s)", actions.len());
     let batch = assistant_batch(
         session_id,
         "embedded-cover-remove",
@@ -1546,7 +1559,14 @@ fn execute_edit_metadata(
             let Some(desired) = action_value_string(value) else {
                 continue;
             };
-            push_string_action(&mut actions, track, path, field, &desired, &format!("Set {field} to {desired}"));
+            push_string_action(
+                &mut actions,
+                track,
+                path,
+                field,
+                &desired,
+                &format!("Set {field} to {desired}"),
+            );
         }
         for field in &removes {
             let old_value = track.and_then(|track| track_field_string(track, field));
@@ -1642,7 +1662,12 @@ pub(crate) fn track_field_string(track: &Value, field: &str) -> Option<String> {
     track.get(field).and_then(action_value_string)
 }
 
-pub(crate) fn extra_action(path: &str, key: &str, value: Option<&str>, operation: &str) -> AssistantAction {
+pub(crate) fn extra_action(
+    path: &str,
+    key: &str,
+    value: Option<&str>,
+    operation: &str,
+) -> AssistantAction {
     AssistantAction {
         tag_kind: Some("extra".into()),
         track_path: Some(path.into()),
@@ -1699,7 +1724,14 @@ fn execute_extract_tag_value(
             continue;
         };
         if extracted != current {
-            push_string_action(&mut actions, Some(track), path, field, extracted, &format!("Extract {field} from regex"));
+            push_string_action(
+                &mut actions,
+                Some(track),
+                path,
+                field,
+                extracted,
+                &format!("Extract {field} from regex"),
+            );
         }
     }
     if actions.is_empty() {
@@ -2189,10 +2221,31 @@ fn plan_infer_tags_from_filenames(
             title
         };
         let track = tracks.get(path.as_str()).copied();
-        push_string_action(&mut actions, track, path, "title", &title, "Infer title from filename");
-        push_string_action(&mut actions, track, path, "artist", &artist, "Infer artist from filename");
+        push_string_action(
+            &mut actions,
+            track,
+            path,
+            "title",
+            &title,
+            "Infer title from filename",
+        );
+        push_string_action(
+            &mut actions,
+            track,
+            path,
+            "artist",
+            &artist,
+            "Infer artist from filename",
+        );
         let artists = split_artist_names(&artist).join("; ");
-        push_string_action(&mut actions, track, path, "artists", &artists, "Infer artists from filename");
+        push_string_action(
+            &mut actions,
+            track,
+            path,
+            "artists",
+            &artists,
+            "Infer artists from filename",
+        );
     }
     actions
 }
@@ -2312,7 +2365,14 @@ fn plan_chinese_conversion(
                 convert_chinese_text(&original, target)
             };
             if converted != original {
-                push_string_action(&mut actions, Some(track), path, field, &converted, &format!("Convert {field} to {target} Chinese"));
+                push_string_action(
+                    &mut actions,
+                    Some(track),
+                    path,
+                    field,
+                    &converted,
+                    &format!("Convert {field} to {target} Chinese"),
+                );
             }
         }
     }
@@ -2426,8 +2486,6 @@ fn unique_planned_destination(
     unreachable!()
 }
 
-
-
 fn tool_call_signature(name: &str, args: &Value) -> String {
     format!("{name}|{}", canonical_json(args))
 }
@@ -2526,16 +2584,15 @@ fn resolve_assistant_outcome(
 ) -> Result<AssistantOutcome, String> {
     if draft.action_batch.is_some() && !pending_tool_batches.is_empty() {
         return Err(
-            "The assistant returned both a native tool preview and a model-authored preview"
-                .into(),
+            "The assistant returned both a native tool preview and a model-authored preview".into(),
         );
     }
     if pending_tool_batches.first().is_some() {
         return Ok(AssistantOutcome::ToolPreview(pending_tool_batches.to_vec()));
     }
     if let Some(batch) = draft.action_batch.clone() {
-        let validated = validated_assistant_batch(session_id, input, batch)
-            .map_err(|e| e.to_string())?;
+        let validated =
+            validated_assistant_batch(session_id, input, batch).map_err(|e| e.to_string())?;
         return Ok(AssistantOutcome::ModelPreview(validated));
     }
     Ok(AssistantOutcome::Message)
@@ -2825,7 +2882,8 @@ async fn apply_standard_actions(
             Err(error) => {
                 tracing::warn!(
                     "apply_standard_actions: could not read undo snapshot for {}: {}",
-                    path, error
+                    path,
+                    error
                 );
                 undo.push(serde_json::json!({ "path": path, "metadata": null, "error": error.to_string() }));
             }
@@ -3135,7 +3193,9 @@ async fn apply_action_batch(
             }
         }
         "folder-move" => apply_folder_moves(runtime, queue, &batch, batch_id).await,
-        "embedded-cover-remove" => apply_remove_embedded_cover(runtime, queue, &batch, batch_id).await,
+        "embedded-cover-remove" => {
+            apply_remove_embedded_cover(runtime, queue, &batch, batch_id).await
+        }
         "auto-tag-run" | "audit-run" => {
             runtime.mark_batch_applied(batch_id);
             let task = if batch.kind == "auto-tag-run" {
@@ -3937,14 +3997,13 @@ mod apply_contract_tests {
             llm_model: None,
         };
 
-        let actions = plan_chinese_conversion(
-            &input,
-            &paths,
-            "simplified",
-        );
+        let actions = plan_chinese_conversion(&input, &paths, "simplified");
 
         // At least some tracks should have conversion actions (titles containing Chinese)
-        assert!(!actions.is_empty(), "Should produce at least one conversion action");
+        assert!(
+            !actions.is_empty(),
+            "Should produce at least one conversion action"
+        );
 
         // Verify each action converts to simplified Chinese (no traditional characters)
         for action in &actions {
@@ -3990,7 +4049,8 @@ mod apply_contract_tests {
             let track = read_track_metadata(&path).unwrap();
             if let Some(converted) = &track.title {
                 assert_ne!(
-                    converted, title,
+                    converted,
+                    title,
                     "Track {} title should have changed from traditional",
                     i + 1
                 );
@@ -4002,7 +4062,11 @@ mod apply_contract_tests {
             }
             // Verify artist was also converted
             if let Some(artist) = &track.artist {
-                assert!(!artist.is_empty(), "Track {} artist should not be empty", i + 1);
+                assert!(
+                    !artist.is_empty(),
+                    "Track {} artist should not be empty",
+                    i + 1
+                );
             }
         }
 
@@ -4041,8 +4105,7 @@ mod assistant_behaviour_tests {
             // Every tool must have at least a "type":"object" — the schema
             // is used by validate_tool_args which expects properties/required.
             assert_eq!(
-                tool.input_schema["type"],
-                "object",
+                tool.input_schema["type"], "object",
                 "tool {} schema type must be object",
                 tool.name
             );
@@ -4132,7 +4195,11 @@ mod assistant_behaviour_tests {
             &json!({"plan_description": "test"}),
         )
         .unwrap_err();
-        assert!(err.contains("steps"), "expected error about missing steps: {}", err);
+        assert!(
+            err.contains("steps"),
+            "expected error about missing steps: {}",
+            err
+        );
     }
 
     #[test]
@@ -4146,10 +4213,7 @@ mod assistant_behaviour_tests {
     #[test]
     fn action_patch_string_field() {
         let patch = action_patch("title", Some("New Title")).unwrap();
-        assert_eq!(
-            patch.title.value(),
-            Some(&"New Title".to_string())
-        );
+        assert_eq!(patch.title.value(), Some(&"New Title".to_string()));
     }
 
     #[test]
@@ -4157,13 +4221,19 @@ mod assistant_behaviour_tests {
         let patch = action_patch("artists", Some("A; B; C")).unwrap();
         // artists are stored as the raw semicolon-joined string in the patch
         // (conversion to Many happens during write, not during patch creation).
-        assert!(patch.artists.value().is_some(), "artists field should have a value");
+        assert!(
+            patch.artists.value().is_some(),
+            "artists field should have a value"
+        );
     }
 
     #[test]
     fn action_patch_removal_returns_null() {
         let patch = action_patch("genre", None).unwrap();
-        assert_eq!(patch.genre, crate::commands::mutations::Patch::<String>::Null);
+        assert_eq!(
+            patch.genre,
+            crate::commands::mutations::Patch::<String>::Null
+        );
     }
 
     #[test]
@@ -4209,10 +4279,7 @@ mod assistant_behaviour_tests {
     #[test]
     fn tool_scope_paths_explicit_paths_filters_to_loaded() {
         let input = AssistantSendInput {
-            tracks: vec![
-                json!({"path": "/a.mp3"}),
-                json!({"path": "/b.mp3"}),
-            ],
+            tracks: vec![json!({"path": "/a.mp3"}), json!({"path": "/b.mp3"})],
             ..Default::default()
         };
         let paths = tool_scope_paths(
@@ -4226,10 +4293,7 @@ mod assistant_behaviour_tests {
     #[test]
     fn tool_scope_paths_library_returns_all_loaded_paths() {
         let input = AssistantSendInput {
-            tracks: vec![
-                json!({"path": "/z.mp3"}),
-                json!({"path": "/a.mp3"}),
-            ],
+            tracks: vec![json!({"path": "/z.mp3"}), json!({"path": "/a.mp3"})],
             ..Default::default()
         };
         let paths = tool_scope_paths(&input, &json!({"target_scope": "library"})).unwrap();
@@ -4301,11 +4365,11 @@ mod assistant_behaviour_tests {
     fn resolve_plan_args_inside_array_resolves_each_entry() {
         let mut scratchpad = BTreeMap::new();
         scratchpad.insert("id".into(), json!("the-path"));
-        let resolved = resolve_plan_args(
-            &json!(["$id", "literal", {"key": "$id"}]),
-            &scratchpad,
+        let resolved = resolve_plan_args(&json!(["$id", "literal", {"key": "$id"}]), &scratchpad);
+        assert_eq!(
+            resolved,
+            json!(["the-path", "literal", {"key": "the-path"}])
         );
-        assert_eq!(resolved, json!(["the-path", "literal", {"key": "the-path"}]));
     }
 
     // ── query_field ─────────────────────────────────────────────────
@@ -4343,9 +4407,10 @@ mod assistant_behaviour_tests {
 
     #[test]
     fn would_repeat_allows_first_two_identical_calls() {
-        let sigs = vec![
-            tool_call_signature("tracks.search", &json!({"artist": "A"})),
-        ];
+        let sigs = vec![tool_call_signature(
+            "tracks.search",
+            &json!({"artist": "A"}),
+        )];
         assert!(!would_repeat_tool_call(
             &sigs,
             "tracks.search",
@@ -4436,10 +4501,7 @@ mod assistant_behaviour_tests {
     fn active_scope_paths_falls_back_to_tracks_when_none_selected() {
         let input = AssistantSendInput {
             selected_track_paths: vec![],
-            tracks: vec![
-                json!({"path": "/a.mp3"}),
-                json!({"path": "/b.mp3"}),
-            ],
+            tracks: vec![json!({"path": "/a.mp3"}), json!({"path": "/b.mp3"})],
             ..Default::default()
         };
         let paths = active_scope_paths(&input);
@@ -4560,8 +4622,6 @@ mod assistant_behaviour_tests {
         assert!(batch.reversible);
     }
 
-
-
     // ── build_assistant_messages ──────────────────────────────────
 
     #[test]
@@ -4572,7 +4632,11 @@ mod assistant_behaviour_tests {
         let msgs = build_assistant_messages(&ctx, &tools, &history, "remove titles");
 
         let user_turns: Vec<_> = msgs.iter().filter(|m| m.role == "user").collect();
-        assert_eq!(user_turns.len(), 1, "current request must appear exactly once");
+        assert_eq!(
+            user_turns.len(),
+            1,
+            "current request must appear exactly once"
+        );
         assert!(user_turns[0].content.contains("remove titles"));
     }
 
@@ -4594,33 +4658,51 @@ mod assistant_behaviour_tests {
         let history = vec![
             ConversationEntry {
                 id: 1,
-                session_uuid: "s".into(), session_number: "s".into(),
-                timestamp: "t1".into(), entry_type: "system".into(),
+                session_uuid: "s".into(),
+                session_number: "s".into(),
+                timestamp: "t1".into(),
+                entry_type: "system".into(),
                 content: "error: something failed".into(),
-                model: None, prompt_tokens: 0, completion_tokens: 0, total_tokens: 0, cost: 0.0, metadata: None,
+                model: None,
+                prompt_tokens: 0,
+                completion_tokens: 0,
+                total_tokens: 0,
+                cost: 0.0,
+                metadata: None,
             },
             ConversationEntry {
                 id: 2,
-                session_uuid: "s".into(), session_number: "s".into(),
-                timestamp: "t2".into(), entry_type: "user_message".into(),
+                session_uuid: "s".into(),
+                session_number: "s".into(),
+                timestamp: "t2".into(),
+                entry_type: "user_message".into(),
                 content: "first question".into(),
-                model: None, prompt_tokens: 0, completion_tokens: 0, total_tokens: 0, cost: 0.0, metadata: None,
+                model: None,
+                prompt_tokens: 0,
+                completion_tokens: 0,
+                total_tokens: 0,
+                cost: 0.0,
+                metadata: None,
             },
             ConversationEntry {
                 id: 3,
-                session_uuid: "s".into(), session_number: "s".into(),
-                timestamp: "t3".into(), entry_type: "assistant_message".into(),
+                session_uuid: "s".into(),
+                session_number: "s".into(),
+                timestamp: "t3".into(),
+                entry_type: "assistant_message".into(),
                 content: "clarification reply".into(),
-                model: None, prompt_tokens: 0, completion_tokens: 0, total_tokens: 0, cost: 0.0, metadata: None,
+                model: None,
+                prompt_tokens: 0,
+                completion_tokens: 0,
+                total_tokens: 0,
+                cost: 0.0,
+                metadata: None,
             },
         ];
         let msgs = build_assistant_messages(&ctx, &tools, &history, "follow-up");
 
         // System entry should be excluded — only user+assistant turns + final request.
-        let history_turns: Vec<_> = msgs
-            .iter()
-            .filter(|m| m.role != "system")
-            .collect();
+        let history_turns: Vec<_> = msgs.iter().filter(|m| m.role != "system").collect();
         assert_eq!(history_turns.len(), 3); // first question + clarification + follow-up
         assert_eq!(history_turns[0].role, "user");
         assert_eq!(history_turns[0].content, "first question");
@@ -4639,19 +4721,31 @@ mod assistant_behaviour_tests {
         for i in 0..11 {
             history.push(ConversationEntry {
                 id: i as i64 * 2 + 1,
-                session_uuid: "s".into(), session_number: "s".into(),
+                session_uuid: "s".into(),
+                session_number: "s".into(),
                 timestamp: format!("t{}", i * 2),
                 entry_type: "user_message".into(),
                 content: format!("user {}", i),
-                model: None, prompt_tokens: 0, completion_tokens: 0, total_tokens: 0, cost: 0.0, metadata: None,
+                model: None,
+                prompt_tokens: 0,
+                completion_tokens: 0,
+                total_tokens: 0,
+                cost: 0.0,
+                metadata: None,
             });
             history.push(ConversationEntry {
                 id: i as i64 * 2 + 2,
-                session_uuid: "s".into(), session_number: "s".into(),
+                session_uuid: "s".into(),
+                session_number: "s".into(),
                 timestamp: format!("t{}", i * 2 + 1),
                 entry_type: "assistant_message".into(),
                 content: format!("assistant {}", i),
-                model: None, prompt_tokens: 0, completion_tokens: 0, total_tokens: 0, cost: 0.0, metadata: None,
+                model: None,
+                prompt_tokens: 0,
+                completion_tokens: 0,
+                total_tokens: 0,
+                cost: 0.0,
+                metadata: None,
             });
         }
         let msgs = build_assistant_messages(&ctx, &tools, &history, "latest");
@@ -4659,15 +4753,27 @@ mod assistant_behaviour_tests {
         let non_system: Vec<_> = msgs.iter().filter(|m| m.role != "system").collect();
         // At most 20 history turns + 1 current request = at most 21.
         assert!(non_system.len() <= 21, "{} > 21", non_system.len());
-        assert!(non_system.len() >= 2, "expected at least 2, got {}", non_system.len());
+        assert!(
+            non_system.len() >= 2,
+            "expected at least 2, got {}",
+            non_system.len()
+        );
         // All history entries should form valid user→assistant pairs.
         let history_count = non_system.len() - 1;
         for i in (0..history_count).step_by(2) {
-            assert_eq!(non_system[i].role, "user",
-                "history entry {} should be user, was {}", i, non_system[i].role);
+            assert_eq!(
+                non_system[i].role, "user",
+                "history entry {} should be user, was {}",
+                i, non_system[i].role
+            );
             if i + 1 < history_count {
-                assert_eq!(non_system[i + 1].role, "assistant",
-                    "history entry {} should be assistant, was {}", i + 1, non_system[i + 1].role);
+                assert_eq!(
+                    non_system[i + 1].role,
+                    "assistant",
+                    "history entry {} should be assistant, was {}",
+                    i + 1,
+                    non_system[i + 1].role
+                );
             }
         }
         // Current request is last.
@@ -4691,15 +4797,20 @@ mod assistant_behaviour_tests {
         let ctx = json!({});
         let tools = json!([]);
         // One huge entry that exceeds HISTORY_CHAR_BUDGET.
-        let history = vec![
-            ConversationEntry {
-                id: 1,
-                session_uuid: "s".into(), session_number: "s".into(),
-                timestamp: "t1".into(), entry_type: "user_message".into(),
-                content: "x".repeat(40_000),
-                model: None, prompt_tokens: 0, completion_tokens: 0, total_tokens: 0, cost: 0.0, metadata: None,
-            },
-        ];
+        let history = vec![ConversationEntry {
+            id: 1,
+            session_uuid: "s".into(),
+            session_number: "s".into(),
+            timestamp: "t1".into(),
+            entry_type: "user_message".into(),
+            content: "x".repeat(40_000),
+            model: None,
+            prompt_tokens: 0,
+            completion_tokens: 0,
+            total_tokens: 0,
+            cost: 0.0,
+            metadata: None,
+        }];
         let msgs = build_assistant_messages(&ctx, &tools, &history, "new request");
         // The huge entry exceeds the budget, so it should be dropped.
         let non_system: Vec<_> = msgs.iter().filter(|m| m.role != "system").collect();
@@ -4715,24 +4826,45 @@ mod assistant_behaviour_tests {
         let history = vec![
             ConversationEntry {
                 id: 1,
-                session_uuid: "s".into(), session_number: "s".into(),
-                timestamp: "t1".into(), entry_type: "assistant_message".into(),
+                session_uuid: "s".into(),
+                session_number: "s".into(),
+                timestamp: "t1".into(),
+                entry_type: "assistant_message".into(),
                 content: "orphan reply".into(),
-                model: None, prompt_tokens: 0, completion_tokens: 0, total_tokens: 0, cost: 0.0, metadata: None,
+                model: None,
+                prompt_tokens: 0,
+                completion_tokens: 0,
+                total_tokens: 0,
+                cost: 0.0,
+                metadata: None,
             },
             ConversationEntry {
                 id: 2,
-                session_uuid: "s".into(), session_number: "s".into(),
-                timestamp: "t2".into(), entry_type: "user_message".into(),
+                session_uuid: "s".into(),
+                session_number: "s".into(),
+                timestamp: "t2".into(),
+                entry_type: "user_message".into(),
                 content: "user message".into(),
-                model: None, prompt_tokens: 0, completion_tokens: 0, total_tokens: 0, cost: 0.0, metadata: None,
+                model: None,
+                prompt_tokens: 0,
+                completion_tokens: 0,
+                total_tokens: 0,
+                cost: 0.0,
+                metadata: None,
             },
             ConversationEntry {
                 id: 3,
-                session_uuid: "s".into(), session_number: "s".into(),
-                timestamp: "t3".into(), entry_type: "assistant_message".into(),
+                session_uuid: "s".into(),
+                session_number: "s".into(),
+                timestamp: "t3".into(),
+                entry_type: "assistant_message".into(),
                 content: "valid reply".into(),
-                model: None, prompt_tokens: 0, completion_tokens: 0, total_tokens: 0, cost: 0.0, metadata: None,
+                model: None,
+                prompt_tokens: 0,
+                completion_tokens: 0,
+                total_tokens: 0,
+                cost: 0.0,
+                metadata: None,
             },
         ];
         let msgs = build_assistant_messages(&ctx, &tools, &history, "latest");
@@ -4751,34 +4883,49 @@ mod assistant_behaviour_tests {
         let history = vec![
             ConversationEntry {
                 id: 1,
-                session_uuid: "s".into(), session_number: "s".into(),
-                timestamp: "t1".into(), entry_type: "user_message".into(),
+                session_uuid: "s".into(),
+                session_number: "s".into(),
+                timestamp: "t1".into(),
+                entry_type: "user_message".into(),
                 content: "remove titles".into(),
-                model: None, prompt_tokens: 0, completion_tokens: 0, total_tokens: 0, cost: 0.0, metadata: None,
+                model: None,
+                prompt_tokens: 0,
+                completion_tokens: 0,
+                total_tokens: 0,
+                cost: 0.0,
+                metadata: None,
             },
             ConversationEntry {
                 id: 2,
-                session_uuid: "s".into(), session_number: "s".into(),
-                timestamp: "t2".into(), entry_type: "assistant_message".into(),
+                session_uuid: "s".into(),
+                session_number: "s".into(),
+                timestamp: "t2".into(),
+                entry_type: "assistant_message".into(),
                 content: "Do you mean clear title tags or strip filenames?".into(),
-                model: None, prompt_tokens: 0, completion_tokens: 0, total_tokens: 0, cost: 0.0, metadata: None,
+                model: None,
+                prompt_tokens: 0,
+                completion_tokens: 0,
+                total_tokens: 0,
+                cost: 0.0,
+                metadata: None,
             },
         ];
-        let msgs = build_assistant_messages(
-            &ctx,
-            &tools,
-            &history,
-            "clear the title tags",
-        );
+        let msgs = build_assistant_messages(&ctx, &tools, &history, "clear the title tags");
 
         let non_system: Vec<_> = msgs.iter().filter(|m| m.role != "system").collect();
         assert_eq!(non_system.len(), 3);
-        assert!(non_system[0].content.contains("remove titles"),
-            "first history turn is the original vague request");
-        assert!(non_system[1].content.contains("Do you mean"),
-            "second history turn is the clarification");
-        assert!(non_system[2].content.contains("clear the title tags"),
-            "final turn is the disambiguated follow-up");
+        assert!(
+            non_system[0].content.contains("remove titles"),
+            "first history turn is the original vague request"
+        );
+        assert!(
+            non_system[1].content.contains("Do you mean"),
+            "second history turn is the clarification"
+        );
+        assert!(
+            non_system[2].content.contains("clear the title tags"),
+            "final turn is the disambiguated follow-up"
+        );
     }
 
     // ── Tool catalog schema shapes ──────────────────────────────────
@@ -4806,7 +4953,10 @@ mod assistant_behaviour_tests {
             .unwrap();
         // tracks.search is entirely optional — all properties are optional
         if let Some(required) = schema.get("required").and_then(Value::as_array) {
-            assert!(required.is_empty(), "tracks.search should have no required fields");
+            assert!(
+                required.is_empty(),
+                "tracks.search should have no required fields"
+            );
         }
         assert!(schema["properties"].get("artist").is_some());
         assert!(schema["properties"].get("missingTitle").is_some());
@@ -5054,19 +5204,13 @@ mod assistant_behaviour_tests {
 
     #[test]
     fn outcome_unknown_tool_rejected() {
-        let result = validate_registered_tool_args(
-            "nonexistent_tool",
-            &json!({}),
-        );
+        let result = validate_registered_tool_args("nonexistent_tool", &json!({}));
         assert!(result.is_err());
     }
 
     #[test]
     fn outcome_invalid_arguments_rejected() {
-        let result = validate_registered_tool_args(
-            "tracks.search",
-            &json!({"artist": 123}),
-        );
+        let result = validate_registered_tool_args("tracks.search", &json!({"artist": 123}));
         assert!(result.is_err());
     }
 
@@ -5180,7 +5324,8 @@ mod assistant_ai_tests {
                 "album": "Blue Train"
             }),
         ];
-        for i in 0..additional_tracks {  // renamed from _i to i
+        for i in 0..additional_tracks {
+            // renamed from _i to i
             tracks.push(json!({
                 "path": format!("/music/other/track{}.flac", i + 3),
                 "title": format!("Track {}", i + 3),
@@ -5217,7 +5362,12 @@ mod assistant_ai_tests {
             .with_generation(0.0, 4096)
             .with_timeout(std::time::Duration::from_secs(60));
         let response = client
-            .complete_json(messages, "AssistantResponse", schema, &AtomicBool::new(false))
+            .complete_json(
+                messages,
+                "AssistantResponse",
+                schema,
+                &AtomicBool::new(false),
+            )
             .await
             .expect("LLM call should succeed");
         response.data
@@ -5233,8 +5383,7 @@ mod assistant_ai_tests {
     ) -> (bool, String) {
         let judge_model = std::env::var("LLM_JUDGE_MODEL")
             .expect("LLM_JUDGE_MODEL must be set (and differ from LLM_MODEL)");
-        let client = OpenRouterClient::new(api_key, &judge_model)
-            .with_generation(0.0, 256);
+        let client = OpenRouterClient::new(api_key, &judge_model).with_generation(0.0, 256);
         let mut criteria_text = String::new();
         for (i, c) in criteria.iter().enumerate() {
             criteria_text.push_str(&format!("{}. {}\n", i + 1, c));
@@ -5254,16 +5403,24 @@ mod assistant_ai_tests {
         });
         let messages = vec![
             ChatMessage::system(
-                "You are a test judge. Evaluate if the assistant response meets the criteria."
+                "You are a test judge. Evaluate if the assistant response meets the criteria.",
             ),
             ChatMessage::user(&judge_prompt),
         ];
-        match client.complete_json(messages, "JudgeResponse", judge_schema, &AtomicBool::new(false)).await {
+        match client
+            .complete_json(
+                messages,
+                "JudgeResponse",
+                judge_schema,
+                &AtomicBool::new(false),
+            )
+            .await
+        {
             Ok(resp) => {
                 let satisfies = resp.data["satisfies"].as_bool().unwrap_or(false);
                 let reasoning = resp.data["reasoning"].as_str().unwrap_or("").to_string();
                 (satisfies, reasoning)
-            },
+            }
             Err(e) => (false, format!("judge LLM call failed: {e}")),
         }
     }
@@ -5288,7 +5445,11 @@ mod assistant_ai_tests {
             let data = assistant_llm_call(variant, &context, &key, &model).await;
             let has_batch = data["actionBatch"].is_object();
             let has_tool = data["toolCall"].is_object();
-            let shape = if has_batch || has_tool { "action" } else { "message" };
+            let shape = if has_batch || has_tool {
+                "action"
+            } else {
+                "message"
+            };
             shapes.push(shape);
             // All responses must produce a non-empty message.
             let message = data["message"].as_str().unwrap_or("");
@@ -5311,7 +5472,8 @@ mod assistant_ai_tests {
         let variants = [
             "change the album title to New Title",
             "rename the album to Greatest Hits",
-            "set the artist to Testing"];
+            "set the artist to Testing",
+        ];
         for variant in &variants {
             let data = assistant_llm_call(variant, &context, &key, &model).await;
             let has_batch = data["actionBatch"].is_object();
@@ -5319,7 +5481,8 @@ mod assistant_ai_tests {
             assert!(
                 has_batch || has_tool,
                 "{} should produce actionBatch or toolCall, got: {}",
-                variant, data
+                variant,
+                data
             );
         }
     }
@@ -5331,7 +5494,13 @@ mod assistant_ai_tests {
     async fn judge_verifies_semantic_equivalence() {
         let (key, model) = credentials().expect("set LLM_API_KEY and LLM_MODEL");
         let context = test_library_context(5);
-        let data = assistant_llm_call("how many tracks do I have by John Coltrane", &context, &key, &model).await;
+        let data = assistant_llm_call(
+            "how many tracks do I have by John Coltrane",
+            &context,
+            &key,
+            &model,
+        )
+        .await;
         let (satisfies, reasoning) = judge_response(
             "how many tracks do I have by John Coltrane",
             &data,
@@ -5342,7 +5511,11 @@ mod assistant_ai_tests {
             &key,
         )
         .await;
-        assert!(satisfies, "Response failed judge: {}\nData: {}", reasoning, data);
+        assert!(
+            satisfies,
+            "Response failed judge: {}\nData: {}",
+            reasoning, data
+        );
     }
 
     // ── Semantic smoke tests for open-ended conversations ────────────
@@ -5358,7 +5531,8 @@ mod assistant_ai_tests {
         assert!(
             !data["actionBatch"].is_object() && !data["toolCall"].is_object(),
             "greeting '{}' should not produce a tool or actionBatch, got: {}",
-            message, data
+            message,
+            data
         );
     }
 
@@ -5409,7 +5583,11 @@ mod assistant_ai_tests {
         // Should explain the limitation, not fabricate a tool.
         let lower = message.to_lowercase();
         assert!(
-            lower.contains("don't") || lower.contains("not") || lower.contains("can't") || lower.contains("unavailable") || lower.contains("doesn't support"),
+            lower.contains("don't")
+                || lower.contains("not")
+                || lower.contains("can't")
+                || lower.contains("unavailable")
+                || lower.contains("doesn't support"),
             "unsupported task should explain limitation, got: {}",
             message
         );
@@ -5438,8 +5616,10 @@ mod assistant_ai_tests {
             data
         );
         let name = tool_call["toolName"].as_str().unwrap_or("");
-        assert_eq!(name, "metadata.transform",
-            "expected metadata.transform, got tool: {name}");
+        assert_eq!(
+            name, "metadata.transform",
+            "expected metadata.transform, got tool: {name}"
+        );
         let ops = tool_call["args"]["operations"].as_array();
         assert!(
             ops.is_some_and(|o| !o.is_empty()),
@@ -5502,8 +5682,12 @@ mod assistant_ai_tests {
             "autonomous": false,
         });
 
-        let mut messages = build_assistant_messages(&context, &tools, &[],
-            "strip the romanized parts from the track titles, keeping only the Chinese characters");
+        let mut messages = build_assistant_messages(
+            &context,
+            &tools,
+            &[],
+            "strip the romanized parts from the track titles, keeping only the Chinese characters",
+        );
         let cancelled = AtomicBool::new(false);
         let mut final_draft: Option<serde_json::Value> = None;
         let mut signatures: Vec<(String, Value)> = Vec::new();
@@ -5512,11 +5696,16 @@ mod assistant_ai_tests {
             let response = OpenRouterClient::new(&key, &model)
                 .with_generation(0.0, 4096)
                 .with_timeout(std::time::Duration::from_secs(60))
-                .complete_json(messages.clone(), "AssistantResponse", schema.clone(), &cancelled)
+                .complete_json(
+                    messages.clone(),
+                    "AssistantResponse",
+                    schema.clone(),
+                    &cancelled,
+                )
                 .await
                 .expect("LLM call should succeed");
-            let draft: AssistantDraft = serde_json::from_value(response.data)
-                .expect("draft should deserialize");
+            let draft: AssistantDraft =
+                serde_json::from_value(response.data).expect("draft should deserialize");
             let draft = normalize_noop_batch(draft);
 
             let Some(tool_call) = draft.tool_call else {
@@ -5524,8 +5713,11 @@ mod assistant_ai_tests {
                 // or explanation, fail if it describes a planned action.
                 let msg = draft.message.to_lowercase();
                 assert!(
-                    msg.contains("?") || msg.contains("can't") || msg.contains("not possible")
-                        || msg.contains("sorry") || msg.contains("don't have"),
+                    msg.contains("?")
+                        || msg.contains("can't")
+                        || msg.contains("not possible")
+                        || msg.contains("sorry")
+                        || msg.contains("don't have"),
                     "LLM returned message-only instead of calling a tool: '{}'",
                     draft.message
                 );
@@ -5540,39 +5732,52 @@ mod assistant_ai_tests {
 
             let sig = (tool_call.tool_name.clone(), tool_call.args.clone());
             if signatures.contains(&sig) {
-                panic!("repeated tool call: {} {:?}", tool_call.tool_name, tool_call.args);
+                panic!(
+                    "repeated tool call: {} {:?}",
+                    tool_call.tool_name, tool_call.args
+                );
             }
             signatures.push(sig);
 
             if tool_call.tool_name == "tracks.inspect" {
                 // Execute tracks.inspect against the fixture input.
-                let result = execute_context_tool(
-                    &tool_call.tool_name,
-                    &tool_call.args,
-                    &fixture_input,
+                let result =
+                    execute_context_tool(&tool_call.tool_name, &tool_call.args, &fixture_input);
+                assert!(
+                    result.ok,
+                    "tracks.inspect failed: {}",
+                    result.error.unwrap_or_default()
                 );
-                assert!(result.ok, "tracks.inspect failed: {}", result.error.unwrap_or_default());
                 messages.push(ChatMessage {
                     role: "assistant".to_string(),
                     content: serde_json::json!({
                         "toolCall": {"toolName": &tool_call.tool_name, "args": &tool_call.args}
-                    }).to_string(),
+                    })
+                    .to_string(),
                 });
                 messages.push(ChatMessage::user(tool_result_prompt(&result)));
                 continue;
             }
 
-            if tool_call.tool_name == "metadata.transform" || tool_call.tool_name == "metadata.patch" {
+            if tool_call.tool_name == "metadata.transform"
+                || tool_call.tool_name == "metadata.patch"
+            {
                 let execution = execute_mutating_assistant_tool(
                     &tool_call.tool_name,
                     &tool_call.args,
                     &fixture_input,
                     "test-session",
                 );
-                assert!(execution.result.ok,
-                    "{} failed: {}", tool_call.tool_name,
-                    execution.result.error.as_deref().unwrap_or("unknown"));
-                assert!(!execution.batches.is_empty(), "must produce at least one action");
+                assert!(
+                    execution.result.ok,
+                    "{} failed: {}",
+                    tool_call.tool_name,
+                    execution.result.error.as_deref().unwrap_or("unknown")
+                );
+                assert!(
+                    !execution.batches.is_empty(),
+                    "must produce at least one action"
+                );
                 let batch = &execution.batches[0];
                 assert_eq!(batch.kind, "metadata-update");
                 assert_eq!(batch.actions.len(), 2, "expected 2 actions (one per track)");
@@ -5581,15 +5786,21 @@ mod assistant_ai_tests {
                 let a0 = &batch.actions[0];
                 assert_eq!(a0.track_path.as_deref(), Some(track1_path));
                 assert_eq!(a0.field.as_deref(), Some("title"));
-                assert_eq!(a0.new_value.as_deref(), Some("月亮代表我的心"),
-                    "track 1 title should strip romanized part");
+                assert_eq!(
+                    a0.new_value.as_deref(),
+                    Some("月亮代表我的心"),
+                    "track 1 title should strip romanized part"
+                );
 
                 // Track 2: "甜蜜蜜 (Tian Mi Mi)" → "甜蜜蜜"
                 let a1 = &batch.actions[1];
                 assert_eq!(a1.track_path.as_deref(), Some(track2_path));
                 assert_eq!(a1.field.as_deref(), Some("title"));
-                assert_eq!(a1.new_value.as_deref(), Some("甜蜜蜜"),
-                    "track 2 title should strip romanized part");
+                assert_eq!(
+                    a1.new_value.as_deref(),
+                    Some("甜蜜蜜"),
+                    "track 2 title should strip romanized part"
+                );
 
                 final_draft = Some(serde_json::json!({
                     "message": draft.message,
@@ -5600,16 +5811,14 @@ mod assistant_ai_tests {
             }
 
             // Unknown tool — feed result back.
-            let result = execute_context_tool(
-                &tool_call.tool_name,
-                &tool_call.args,
-                &fixture_input,
-            );
+            let result =
+                execute_context_tool(&tool_call.tool_name, &tool_call.args, &fixture_input);
             messages.push(ChatMessage {
                 role: "assistant".to_string(),
                 content: serde_json::json!({
                     "toolCall": {"toolName": &tool_call.tool_name, "args": &tool_call.args}
-                }).to_string(),
+                })
+                .to_string(),
             });
             messages.push(ChatMessage::user(tool_result_prompt(&result)));
         }
@@ -5627,13 +5836,7 @@ mod assistant_ai_tests {
         let (key, model) = credentials().expect("set LLM_API_KEY and LLM_MODEL");
         // test_library_context(0) = 2 base tracks.
         let context = test_library_context(0);
-        let data = assistant_llm_call(
-            "how many tracks do I have",
-            &context,
-            &key,
-            &model,
-        )
-        .await;
+        let data = assistant_llm_call("how many tracks do I have", &context, &key, &model).await;
         let msg = data["message"].as_str().unwrap_or("");
         assert!(!msg.is_empty(), "must produce a message");
         // Context includes 2 tracks, so answer should use context.
@@ -5660,14 +5863,12 @@ mod assistant_ai_tests {
         let context = test_library_context(0);
         let fixture_input = AssistantSendInput {
             selected_track_paths: vec!["/music/artist/album/track1.flac".into()],
-            tracks: vec![
-                serde_json::json!({
-                    "path": "/music/artist/album/track1.flac",
-                    "title": "Blue Train",
-                    "artist": "John Coltrane",
-                    "album": "Blue Train"
-                }),
-            ],
+            tracks: vec![serde_json::json!({
+                "path": "/music/artist/album/track1.flac",
+                "title": "Blue Train",
+                "artist": "John Coltrane",
+                "album": "Blue Train"
+            })],
             ..Default::default()
         };
 
@@ -5676,11 +5877,16 @@ mod assistant_ai_tests {
         let response = OpenRouterClient::new(&key, &model)
             .with_generation(0.0, 4096)
             .with_timeout(std::time::Duration::from_secs(60))
-            .complete_json(turn1_messages, "AssistantResponse", schema.clone(), &AtomicBool::new(false))
+            .complete_json(
+                turn1_messages,
+                "AssistantResponse",
+                schema.clone(),
+                &AtomicBool::new(false),
+            )
             .await
             .expect("turn1 should succeed");
-        let turn1: serde_json::Value = serde_json::from_value(response.data)
-            .expect("turn1 should be valid JSON");
+        let turn1: serde_json::Value =
+            serde_json::from_value(response.data).expect("turn1 should be valid JSON");
         let msg1 = turn1["message"].as_str().unwrap_or("");
         assert!(!msg1.is_empty(), "turn1: must produce a message");
         // Must clarify (message-only), not produce an action.
@@ -5689,37 +5895,62 @@ mod assistant_ai_tests {
             "turn1: vague request should not produce actionBatch or toolCall"
         );
         assert!(
-            msg1.to_lowercase().contains("?") || msg1.to_lowercase().contains("mean") || msg1.to_lowercase().contains("clarify"),
+            msg1.to_lowercase().contains("?")
+                || msg1.to_lowercase().contains("mean")
+                || msg1.to_lowercase().contains("clarify"),
             "turn1: should ask a clarification question, got: {msg1}"
         );
 
         // ---- Turn 2: user clarifies (production prompt + history) ----
         let follow_up_history = vec![
             ConversationEntry {
-                id: 1, session_uuid: "s".into(), session_number: "s".into(),
-                timestamp: "t1".into(), entry_type: "user_message".into(),
+                id: 1,
+                session_uuid: "s".into(),
+                session_number: "s".into(),
+                timestamp: "t1".into(),
+                entry_type: "user_message".into(),
                 content: "remove titles".into(),
-                model: None, prompt_tokens: 0, completion_tokens: 0, total_tokens: 0, cost: 0.0, metadata: None,
+                model: None,
+                prompt_tokens: 0,
+                completion_tokens: 0,
+                total_tokens: 0,
+                cost: 0.0,
+                metadata: None,
             },
             ConversationEntry {
-                id: 2, session_uuid: "s".into(), session_number: "s".into(),
-                timestamp: "t2".into(), entry_type: "assistant_message".into(),
+                id: 2,
+                session_uuid: "s".into(),
+                session_number: "s".into(),
+                timestamp: "t2".into(),
+                entry_type: "assistant_message".into(),
                 content: msg1.to_string(),
-                model: None, prompt_tokens: 0, completion_tokens: 0, total_tokens: 0, cost: 0.0, metadata: None,
+                model: None,
+                prompt_tokens: 0,
+                completion_tokens: 0,
+                total_tokens: 0,
+                cost: 0.0,
+                metadata: None,
             },
         ];
         let turn2_messages = build_assistant_messages(
-            &context, &tools, &follow_up_history,
+            &context,
+            &tools,
+            &follow_up_history,
             "I mean clear the title tags on the selected tracks",
         );
         let response = OpenRouterClient::new(&key, &model)
             .with_generation(0.0, 4096)
             .with_timeout(std::time::Duration::from_secs(60))
-            .complete_json(turn2_messages, "AssistantResponse", schema.clone(), &AtomicBool::new(false))
+            .complete_json(
+                turn2_messages,
+                "AssistantResponse",
+                schema.clone(),
+                &AtomicBool::new(false),
+            )
             .await
             .expect("turn2 should succeed");
-        let turn2: serde_json::Value = serde_json::from_value(response.data)
-            .expect("turn2 should be valid JSON");
+        let turn2: serde_json::Value =
+            serde_json::from_value(response.data).expect("turn2 should be valid JSON");
         let tool_call = &turn2["toolCall"];
         let action_batch = &turn2["actionBatch"];
         // Must produce a tool or action.
@@ -5737,15 +5968,27 @@ mod assistant_ai_tests {
             validate_registered_tool_args(name, &tool_call["args"])
                 .expect("turn2 tool args should be valid");
             let execution = execute_mutating_assistant_tool(
-                name, &tool_call["args"], &fixture_input, "test-session",
+                name,
+                &tool_call["args"],
+                &fixture_input,
+                "test-session",
             );
-            assert!(execution.result.ok,
-                "turn2 {} failed: {}", name,
-                execution.result.error.as_deref().unwrap_or("unknown"));
-            assert!(!execution.batches.is_empty(), "turn2 must produce at least one action");
+            assert!(
+                execution.result.ok,
+                "turn2 {} failed: {}",
+                name,
+                execution.result.error.as_deref().unwrap_or("unknown")
+            );
+            assert!(
+                !execution.batches.is_empty(),
+                "turn2 must produce at least one action"
+            );
             assert_eq!(execution.batches[0].kind, "metadata-update");
-            assert_eq!(execution.batches[0].actions.len(), 1,
-                "expected 1 action for the single selected track");
+            assert_eq!(
+                execution.batches[0].actions.len(),
+                1,
+                "expected 1 action for the single selected track"
+            );
             assert_eq!(
                 execution.batches[0].actions[0].field.as_deref(),
                 Some("title"),
@@ -5757,5 +6000,3 @@ mod assistant_ai_tests {
         }
     }
 }
-
-

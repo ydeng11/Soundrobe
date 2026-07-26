@@ -2,7 +2,8 @@
 //! format's pure writer passes differential and payload-safety tests.
 
 use crate::commands::tracks::{
-    id3_user_text_values, read_track_metadata, unreadable_track_data, TrackData,
+    id3_user_text_values, read_track_metadata, strip_wav_padding, unreadable_track_data,
+    TrackData,
 };
 use crate::error::ApiError;
 use crate::state::write_queue::WriteQueue;
@@ -2059,7 +2060,7 @@ pub fn write_ape_atomic(path: &Path, patch: &TrackPatch) -> Result<TrackWriteOut
 /// Write WAV ID3 metadata through a validated sibling. RIFF chunk layout may
 /// change, but every PCM `data` payload must remain exact.
 pub fn write_wav_atomic(path: &Path, patch: &TrackPatch) -> Result<TrackWriteOutcome, ApiError> {
-    let original_bytes = fs::read(path)?;
+    let mut original_bytes = fs::read(path)?;
     let original_audio = wav_data_payloads(&original_bytes)
         .ok_or_else(|| ApiError::MediaSafety("invalid WAV chunk structure".to_string()))?;
 
@@ -2068,6 +2069,10 @@ pub fn write_wav_atomic(path: &Path, patch: &TrackPatch) -> Result<TrackWriteOut
     // audio chunk minus the RIFF header overhead).
     let total_audio_len: usize = original_audio.iter().map(|c| c.len()).sum();
     let _payload_offset = original_bytes.len() - total_audio_len;
+    // Strip verified all-zero terminal padding before any Lofty
+    // write operation so the FourCC warning does not fire on
+    // subsequent reads or during the write pipeline.
+    strip_wav_padding(&mut original_bytes);
 
     // NOTE: WAV writes the ID3v2 tag inside a RIFF chunk, not at offset 0 as
     // MP3 does.  An in-place path would need to locate the `id3 ` chunk and
@@ -2086,8 +2091,10 @@ pub fn write_wav_atomic(path: &Path, patch: &TrackPatch) -> Result<TrackWriteOut
 
     let temporary = sibling_temp_path(path);
     let result = (|| {
-        // Strip the garbled LIST INFO chunk before saving, so the ID3v2
-        // values are authoritative after write (no stale INAM/IART/IPRD).
+        // Strip the garbled LIST INFO chunk and trailing null-byte padding
+        // before saving, so the ID3v2 values are authoritative after write
+        // (no stale INAM/IART/IPRD) and subsequent reads don't emit
+        // "invalid FourCC" warnings from Lofty's IFF chunk parser.
         let cleaned = strip_wav_list_chunk(&original_bytes);
         fs::write(&temporary, &cleaned).map_err(|e| {
             ApiError::Io(std::io::Error::new(
@@ -3022,7 +3029,12 @@ fn strip_wav_list_chunk(bytes: &[u8]) -> Vec<u8> {
             .unwrap_or([0; 4]);
         let chunk_size = u32::from_le_bytes(chunk_size_bytes) as usize;
         let chunk_total = 8 + chunk_size + (chunk_size % 2); // header + data + padding
-        if id == b"LIST" {
+        // Stop at trailing null-byte padding (Lofty's IFF chunk parser
+    // rejects null FourCCs, and we don't want to preserve junk).
+    if id == [0u8; 4] {
+        break;
+    }
+    if id == b"LIST" {
             // Only strip LIST chunks with INFO type (metadata), preserving
             // other LIST chunks such as adtl (cue labels).
             let list_type = bytes.get(offset + 8..offset + 12).unwrap_or_default();

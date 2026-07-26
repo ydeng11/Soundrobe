@@ -22,6 +22,7 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::fs;
 use std::fs::File;
+use std::io::Cursor;
 use std::path::{Path, PathBuf};
 
 /// Renderer-facing metadata DTO. Field names/null/default behavior match
@@ -550,7 +551,18 @@ pub fn read_track_metadata(path: &Path) -> Result<TrackData, ApiError> {
         }
     }
 
-    match lofty::read_from_path(path) {
+    // WAV files from some rippers/conversion tools embed trailing
+    // null-byte padding inside the RIFF container.  Lofty's IFF chunk
+    // parser rejects null FourCCs and logs a WARN.  Strip the padding
+    // before Lofty sees the data so the warning never fires and the
+    // tag reader doesn't stop early.
+    let read_result: std::result::Result<lofty::file::TaggedFile, ApiError> =
+        if extension == "wav" {
+            read_wav_safe(path)
+        } else {
+            lofty::read_from_path(path).map_err(ApiError::from)
+        };
+    match read_result {
         Ok(tagged) => {
             let mut track = from_lofty(path, size_bytes, &extension, &tagged);
             if extension == "flac" {
@@ -579,12 +591,12 @@ pub fn read_track_metadata(path: &Path) -> Result<TrackData, ApiError> {
             }))
         }
         Err(error) if extension == "mp3" => {
-            read_mpeg_header_fallback(path, size_bytes)?.ok_or_else(|| error.into())
+            read_mpeg_header_fallback(path, size_bytes)?.ok_or(error)
         }
         Err(error) if extension == "ogg" => {
-            read_ogg_vorbis_fallback(path, size_bytes)?.ok_or_else(|| error.into())
+            read_ogg_vorbis_fallback(path, size_bytes)?.ok_or(error)
         }
-        Err(error) => Err(error.into()),
+        Err(error) => Err(error),
     }
 }
 
@@ -604,11 +616,14 @@ fn apply_flac_native_fields(path: &Path, track: &mut TrackData) {
 }
 
 fn apply_wav_native_fields(path: &Path, track: &mut TrackData) {
-    let Ok(mut file) = File::open(path) else {
+    let Ok(mut data) = fs::read(path) else {
         return;
     };
-    let Ok(parsed) = WavFile::read_from(&mut file, ParseOptions::new().read_properties(false))
-    else {
+    strip_wav_padding(&mut data);
+    let Ok(parsed) = WavFile::read_from(
+        &mut Cursor::new(data),
+        ParseOptions::new().read_properties(false),
+    ) else {
         return;
     };
     let Some(id3v2) = parsed.id3v2() else {
@@ -665,6 +680,67 @@ fn apply_wav_native_fields(path: &Path, track: &mut TrackData) {
     track.discogs_release_id = id3v2
         .get_user_text("Discogs Release Id")
         .map(ToOwned::to_owned);
+}
+
+/// Read a WAV file through Lofty after stripping trailing all-zero padding
+/// from the RIFF container that would trigger "invalid FourCC" warnings.
+fn read_wav_safe(path: &Path) -> std::result::Result<lofty::file::TaggedFile, ApiError> {
+    let mut data = fs::read(path)?;
+    strip_wav_padding(&mut data);
+    let mut cursor = Cursor::new(data);
+    WavFile::read_from(&mut cursor, ParseOptions::new())
+        .map(|wav| wav.into())
+        .map_err(ApiError::from)
+}
+
+/// If a RIFF/WAVE buffer has a terminal tail of all-zero bytes after the
+/// last declared chunk (a null FourCC whose following bytes are entirely
+/// zero), truncate the buffer in place and correct the RIFF size field.
+///
+/// Some CD rippers and conversion tools declare a RIFF container size
+/// that extends past the last valid chunk with null bytes.  Lofty's IFF
+/// chunk parser rejects null FourCCs with a WARN log.  Stripping verified
+/// all-zero terminal padding here eliminates the noise and prevents Lofty
+/// from stopping early on a subsequent ID3 chunk.
+///
+/// # Safety
+///
+/// This function only truncates when the *entire* tail from the null
+/// FourCC to the end of the buffer is zero.  A null FourCC followed by
+/// non-zero bytes (e.g. a real FourCC in the payload or an embedded
+/// thumbnail) is never touched.
+pub(crate) fn strip_wav_padding(data: &mut Vec<u8>) {
+    if data.len() < 12 || &data[..4] != b"RIFF" || &data[8..12] != b"WAVE" {
+        return;
+    }
+    let mut offset = 12_usize;
+    while let Some(end) = offset.checked_add(8) {
+        if end > data.len() {
+            return;
+        }
+        let id = &data[offset..offset + 4];
+        if id == [0u8; 4] {
+            // Fail-closed: only strip when the entire remaining tail is
+            // all-zero padding.  A null FourCC followed by non-zero bytes
+            // (e.g. an embedded thumbnail or a misidentified file) must
+            // be preserved unchanged.
+            if data[offset..].iter().all(|&b| b == 0) {
+                data.truncate(offset);
+                let riff_len = (data.len() as u32).wrapping_sub(8).to_le_bytes();
+                data[4..8].copy_from_slice(&riff_len);
+            }
+            return;
+        }
+        let Ok(size_bytes) = <[u8; 4]>::try_from(&data[offset + 4..offset + 8]) else {
+            return;
+        };
+        let size = u32::from_le_bytes(size_bytes) as usize;
+        let chunk_total = 8 + size + (size & 1); // header + body + RIFF padding
+        let Some(next) = offset.checked_add(chunk_total) else {
+            return;
+        };
+        offset = next;
+    }
 }
 
 fn apply_mp4_native_fields(path: &Path, track: &mut TrackData) {
@@ -2073,5 +2149,96 @@ mod tests {
                 .as_nanos(),
             SEQ.fetch_add(1, Ordering::Relaxed),
         ))
+    }
+
+    /// A RIFF/WAVE with trailing all-zero bytes after the last chunk has
+    /// the padding stripped and the RIFF size field corrected.
+    #[test]
+    fn strip_wav_padding_trims_zero_tail() {
+        let mut raw = build_riff_wave();
+        // Append trailing zero padding
+        raw.extend_from_slice(&[0u8; 8]);
+        riff_fix_size(&mut raw);
+
+        let before_len = raw.len();
+        strip_wav_padding(&mut raw);
+
+        // Trailing zeros gone, RIFF size corrected
+        assert_eq!(raw.len(), before_len - 8, "trailing zero padding stripped");
+        let riff_size = u32::from_le_bytes(raw[4..8].try_into().unwrap()) as usize;
+        assert_eq!(riff_size, raw.len() - 8, "RIFF size matches new length");
+        assert!(raw.windows(4).any(|w| w == b"fmt "), "fmt chunk preserved");
+        assert!(raw.windows(4).any(|w| w == b"data"), "data chunk preserved");
+    }
+
+    /// A null FourCC followed by non-zero bytes must not be touched.
+    #[test]
+    fn strip_wav_padding_preserves_nonzero_tail() {
+        let mut raw = build_riff_wave();
+        // Null FourCC but NOT all-zero tail
+        raw.extend_from_slice(&[0u8; 4]); // null FourCC
+        raw.extend_from_slice(&4u32.to_le_bytes()); // declares a 4-byte body
+        raw.extend_from_slice(b"NONZERO"); // non-zero content
+        riff_fix_size(&mut raw);
+
+        let original_len = raw.len();
+        strip_wav_padding(&mut raw);
+
+        assert_eq!(
+            raw.len(),
+            original_len,
+            "non-zero tail after null FourCC preserved unchanged"
+        );
+    }
+
+    /// A data chunk filled with zeros (valid PCM silence) is NOT
+    /// trailing padding and must not be touched.
+    #[test]
+    fn strip_wav_padding_ignores_zero_filled_data() {
+        // Build a clean RIFF/WAVE with a zero-filled data payload.
+        let mut raw = wav_before_payload();
+        // Overwrite the default size (8) with 24
+        let pos = raw.len();
+        raw[pos - 4..pos].copy_from_slice(&24u32.to_le_bytes());
+        raw.extend_from_slice(&[0u8; 24]);
+        riff_fix_size(&mut raw);
+
+        let original = raw.len();
+        strip_wav_padding(&mut raw);
+
+        assert_eq!(raw.len(), original, "zero-filled data not treated as padding");
+        let sz = u32::from_le_bytes(raw[4..8].try_into().unwrap()) as usize;
+        assert_eq!(sz, raw.len() - 8, "RIFF size unchanged");
+    }
+
+    /// RIFF/WAVE up to end of the data-chunk size field, no PCM payload yet.
+    fn wav_before_payload() -> Vec<u8> {
+        let mut raw = Vec::new();
+        raw.extend_from_slice(b"RIFF");
+        raw.extend_from_slice(&[0u8; 4]);
+        raw.extend_from_slice(b"WAVE");
+        raw.extend_from_slice(b"fmt ");
+        raw.extend_from_slice(&16u32.to_le_bytes());
+        raw.extend_from_slice(&[
+            0x01, 0x00, 0x02, 0x00, 0x44, 0xac, 0x00, 0x00,
+            0x10, 0xb1, 0x02, 0x00, 0x04, 0x00, 0x10, 0x00,
+        ]);
+        raw.extend_from_slice(b"data");
+        raw.extend_from_slice(&8u32.to_le_bytes()); // placeholder
+        raw
+    }
+
+    /// Build a minimal RIFF/WAVE with fmt+data+8 zero PCM bytes, no padding.
+    fn build_riff_wave() -> Vec<u8> {
+        let mut raw = wav_before_payload();
+        raw.extend_from_slice(&[0u8; 8]);
+        riff_fix_size(&mut raw);
+        raw
+    }
+
+    /// Patch the RIFF size field at offset 4-8 to match current length.
+    fn riff_fix_size(raw: &mut [u8]) {
+        let size = (raw.len() as u32).wrapping_sub(8);
+        raw[4..8].copy_from_slice(&size.to_le_bytes());
     }
 }

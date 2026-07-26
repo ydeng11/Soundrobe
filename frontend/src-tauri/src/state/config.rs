@@ -412,10 +412,7 @@ impl ConfigState {
     /// Load config from a given home dir + an injected env (tests).
     pub fn init_with_env(home: PathBuf, env: Arc<dyn Env>) -> Self {
         let config = load_from_disk(&home, env.as_ref());
-        tracing::info!(
-            "config loaded: chinese_script={:?}",
-            config.chinese_script
-        );
+        tracing::info!("config loaded: chinese_script={:?}", config.chinese_script);
         Self {
             home,
             env,

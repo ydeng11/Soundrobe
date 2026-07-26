@@ -14,8 +14,8 @@ pub mod shell;
 // ── Parity owners (slices; wired as they turn green) ────────────────
 /// `assistant:*` — `electron/handlers/assistant.ts`.
 pub mod assistant;
-mod assistant_tools;
 pub(crate) mod assistant_metadata_tools;
+mod assistant_tools;
 /// `audit:*` — `electron/handlers/audit.ts`.
 pub mod audit;
 /// `album:auto-tag` candidate normalization and orchestration.

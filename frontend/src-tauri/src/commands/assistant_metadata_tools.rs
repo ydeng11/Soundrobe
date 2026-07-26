@@ -7,12 +7,12 @@
 //!
 //! These replace the narrow macro tools while keeping the same action-batch model.
 
+pub(crate) use crate::commands::assistant::AssistantSendInput;
 use crate::commands::assistant::{
     action_value_string, assistant_batch, extra_action, mutating_tool_error,
     mutating_tool_execution, mutating_tool_no_changes, push_string_action, track_field_string,
     track_path, MutatingToolExecution,
 };
-pub(crate) use crate::commands::assistant::AssistantSendInput;
 use crate::state::assistant::AssistantAction;
 use serde_json::Value;
 use std::collections::{BTreeMap, HashSet};
@@ -87,11 +87,24 @@ pub(crate) fn op_title_case(text: &str) -> Option<String> {
 /// A compiled pipeline step ready for execution.
 #[derive(Clone, Debug)]
 pub(crate) enum PipelineOp {
-    RegexReplace { pattern: regex::Regex, replacement: String },
-    RegexExtract { pattern: regex::Regex, group_index: usize },
-    StripPrefix { prefix: String },
-    StripSuffix { suffix: String },
-    LiteralReplace { find: String, replacement: String },
+    RegexReplace {
+        pattern: regex::Regex,
+        replacement: String,
+    },
+    RegexExtract {
+        pattern: regex::Regex,
+        group_index: usize,
+    },
+    StripPrefix {
+        prefix: String,
+    },
+    StripSuffix {
+        suffix: String,
+    },
+    LiteralReplace {
+        find: String,
+        replacement: String,
+    },
     Trim,
     Lowercase,
     Uppercase,
@@ -118,8 +131,15 @@ pub(crate) fn compile_pipeline(operations: &[Value]) -> Result<Vec<PipelineOp>, 
                     .ok_or_else(|| format!("{}: missing 'pattern' field", op_name))?;
                 let pattern = regex::Regex::new(pattern_str)
                     .map_err(|e| format!("{}: invalid regex '{}': {}", op_name, pattern_str, e))?;
-                let replacement = op_def.get("replacement").and_then(Value::as_str).unwrap_or("").to_string();
-                PipelineOp::RegexReplace { pattern, replacement }
+                let replacement = op_def
+                    .get("replacement")
+                    .and_then(Value::as_str)
+                    .unwrap_or("")
+                    .to_string();
+                PipelineOp::RegexReplace {
+                    pattern,
+                    replacement,
+                }
             }
             "regex_extract" => {
                 let pattern_str = op_def
@@ -128,8 +148,14 @@ pub(crate) fn compile_pipeline(operations: &[Value]) -> Result<Vec<PipelineOp>, 
                     .ok_or_else(|| format!("{}: missing 'pattern' field", op_name))?;
                 let pattern = regex::Regex::new(pattern_str)
                     .map_err(|e| format!("{}: invalid regex '{}': {}", op_name, pattern_str, e))?;
-                let group_index = op_def.get("group_index").and_then(Value::as_u64).unwrap_or(1) as usize;
-                PipelineOp::RegexExtract { pattern, group_index }
+                let group_index = op_def
+                    .get("group_index")
+                    .and_then(Value::as_u64)
+                    .unwrap_or(1) as usize;
+                PipelineOp::RegexExtract {
+                    pattern,
+                    group_index,
+                }
             }
             "strip_prefix" => {
                 let prefix = op_def
@@ -139,7 +165,9 @@ pub(crate) fn compile_pipeline(operations: &[Value]) -> Result<Vec<PipelineOp>, 
                 if prefix.is_empty() {
                     return Err(format!("{}: 'prefix' cannot be empty", op_name));
                 }
-                PipelineOp::StripPrefix { prefix: prefix.to_string() }
+                PipelineOp::StripPrefix {
+                    prefix: prefix.to_string(),
+                }
             }
             "strip_suffix" => {
                 let suffix = op_def
@@ -149,7 +177,9 @@ pub(crate) fn compile_pipeline(operations: &[Value]) -> Result<Vec<PipelineOp>, 
                 if suffix.is_empty() {
                     return Err(format!("{}: 'suffix' cannot be empty", op_name));
                 }
-                PipelineOp::StripSuffix { suffix: suffix.to_string() }
+                PipelineOp::StripSuffix {
+                    suffix: suffix.to_string(),
+                }
             }
             "literal_replace" => {
                 let find = op_def
@@ -159,8 +189,15 @@ pub(crate) fn compile_pipeline(operations: &[Value]) -> Result<Vec<PipelineOp>, 
                 if find.is_empty() {
                     return Err(format!("{}: 'find' cannot be empty", op_name));
                 }
-                let replacement = op_def.get("replacement").and_then(Value::as_str).unwrap_or("").to_string();
-                PipelineOp::LiteralReplace { find: find.to_string(), replacement }
+                let replacement = op_def
+                    .get("replacement")
+                    .and_then(Value::as_str)
+                    .unwrap_or("")
+                    .to_string();
+                PipelineOp::LiteralReplace {
+                    find: find.to_string(),
+                    replacement,
+                }
             }
             "trim" => PipelineOp::Trim,
             "lowercase" => PipelineOp::Lowercase,
@@ -182,11 +219,19 @@ fn execute_pipeline(text: &str, pipeline: &[PipelineOp]) -> Option<String> {
     let mut changed = false;
     for op in pipeline {
         let result = match op {
-            PipelineOp::RegexReplace { pattern, replacement } => op_regex_replace(&current, pattern.as_str(), replacement),
-            PipelineOp::RegexExtract { pattern, group_index } => op_regex_extract(&current, pattern.as_str(), *group_index),
+            PipelineOp::RegexReplace {
+                pattern,
+                replacement,
+            } => op_regex_replace(&current, pattern.as_str(), replacement),
+            PipelineOp::RegexExtract {
+                pattern,
+                group_index,
+            } => op_regex_extract(&current, pattern.as_str(), *group_index),
             PipelineOp::StripPrefix { prefix } => op_strip_prefix(&current, prefix),
             PipelineOp::StripSuffix { suffix } => op_strip_suffix(&current, suffix),
-            PipelineOp::LiteralReplace { find, replacement } => op_literal_replace(&current, find, replacement),
+            PipelineOp::LiteralReplace { find, replacement } => {
+                op_literal_replace(&current, find, replacement)
+            }
             PipelineOp::Trim => op_trim(&current),
             PipelineOp::Lowercase => op_lowercase(&current),
             PipelineOp::Uppercase => op_uppercase(&current),
@@ -225,7 +270,6 @@ pub(crate) fn op_chinese_to_traditional(text: &str) -> Option<String> {
 /// Each descriptor is a JSON object with an "op" field.
 /// Returns None if no operation changed the text.
 
-
 // ── Tool executors ──────────────────────────────────────────────────
 
 /// Execute `metadata.patch`: apply uniform and/or per-track changes to tag fields.
@@ -244,14 +288,27 @@ pub(crate) fn execute_metadata_patch(
     // Validate field names upfront
     if let Some(changes) = args.get("changes").and_then(Value::as_array) {
         for change in changes {
-            let field = change.get("field").and_then(Value::as_str).unwrap_or_default();
-            let tag_kind = change.get("tag_kind").and_then(Value::as_str).unwrap_or("standard");
+            let field = change
+                .get("field")
+                .and_then(Value::as_str)
+                .unwrap_or_default();
+            let tag_kind = change
+                .get("tag_kind")
+                .and_then(Value::as_str)
+                .unwrap_or("standard");
             if !is_valid_field(field, tag_kind) {
                 return mutating_tool_error(format!("Unknown standard field: '{field}'"));
             }
-            let action_type = change.get("action").and_then(Value::as_str).unwrap_or("set");
-            if matches!(action_type, "set" | "upsert") && change.get("value").is_none_or(Value::is_null) {
-                return mutating_tool_error(format!("Action '{action_type}' requires a 'value' for field '{field}'"));
+            let action_type = change
+                .get("action")
+                .and_then(Value::as_str)
+                .unwrap_or("set");
+            if matches!(action_type, "set" | "upsert")
+                && change.get("value").is_none_or(Value::is_null)
+            {
+                return mutating_tool_error(format!(
+                    "Action '{action_type}' requires a 'value' for field '{field}'"
+                ));
             }
         }
     }
@@ -259,13 +316,23 @@ pub(crate) fn execute_metadata_patch(
         for entry in per_track {
             if let Some(changes) = entry.get("changes").and_then(Value::as_array) {
                 for change in changes {
-                    let field = change.get("field").and_then(Value::as_str).unwrap_or_default();
-                    let action_type = change.get("action").and_then(Value::as_str).unwrap_or("set");
+                    let field = change
+                        .get("field")
+                        .and_then(Value::as_str)
+                        .unwrap_or_default();
+                    let action_type = change
+                        .get("action")
+                        .and_then(Value::as_str)
+                        .unwrap_or("set");
                     if !is_valid_field(field, "standard") {
                         return mutating_tool_error(format!("Unknown standard field: '{field}'"));
                     }
-                    if matches!(action_type, "set") && change.get("value").is_none_or(Value::is_null) {
-                        return mutating_tool_error(format!("Action '{action_type}' requires a 'value' for field '{field}'"));
+                    if matches!(action_type, "set")
+                        && change.get("value").is_none_or(Value::is_null)
+                    {
+                        return mutating_tool_error(format!(
+                            "Action '{action_type}' requires a 'value' for field '{field}'"
+                        ));
                     }
                 }
             }
@@ -303,16 +370,13 @@ pub(crate) fn execute_metadata_patch(
                         let track = tracks_map.get(path.as_str()).copied();
                         if let Some(v) = value {
                             if let Some(str_val) = v.as_str() {
-                                if str_val.trim().is_empty()
-                                    && is_unique_field(field)
-                                {
+                                if str_val.trim().is_empty() && is_unique_field(field) {
                                     return mutating_tool_error(format!(
                                         "Blank value for field '{field}' is not allowed"
                                     ));
                                 }
                             }
-                            let desired = action_value_string(v)
-                                .unwrap_or_default();
+                            let desired = action_value_string(v).unwrap_or_default();
                             push_string_action(
                                 &mut actions,
                                 track,
@@ -345,9 +409,9 @@ pub(crate) fn execute_metadata_patch(
                 "upsert" => {
                     // Only valid for extra tags
                     if tag_kind != "extra" {
-                        return mutating_tool_error(
-                            String::from("Upsert is only supported for extra tags"),
-                        );
+                        return mutating_tool_error(String::from(
+                            "Upsert is only supported for extra tags",
+                        ));
                     }
                     let key = field.to_string();
                     let val = value
@@ -401,8 +465,7 @@ pub(crate) fn execute_metadata_patch(
                                         ));
                                     }
                                 }
-                                let desired = action_value_string(v)
-                                    .unwrap_or_default();
+                                let desired = action_value_string(v).unwrap_or_default();
                                 push_string_action(
                                     &mut actions,
                                     track,
@@ -414,8 +477,7 @@ pub(crate) fn execute_metadata_patch(
                             }
                         }
                         "remove" => {
-                            let old_value =
-                                track.and_then(|t| track_field_string(t, field));
+                            let old_value = track.and_then(|t| track_field_string(t, field));
                             if old_value.is_some() {
                                 actions.push(AssistantAction {
                                     tag_kind: Some("standard".into()),
@@ -487,11 +549,11 @@ pub(crate) fn execute_metadata_transform(
                 .into_iter()
                 .collect()
         });
-    let source_kind = source
-        .get("kind")
+    let source_kind = source.get("kind").and_then(Value::as_str).unwrap_or("tag");
+    let source_field = source
+        .get("field")
         .and_then(Value::as_str)
-        .unwrap_or("tag");
-    let source_field = source.get("field").and_then(Value::as_str).unwrap_or("title");
+        .unwrap_or("title");
 
     let destination = args
         .get("destination")
@@ -662,7 +724,10 @@ pub(crate) fn execute_files_transform(
         .get("kind")
         .and_then(Value::as_str)
         .unwrap_or("filename");
-    let source_field = source.get("field").and_then(Value::as_str).unwrap_or("title");
+    let source_field = source
+        .get("field")
+        .and_then(Value::as_str)
+        .unwrap_or("title");
 
     let Some(operations) = args.get("operations").and_then(Value::as_array) else {
         return mutating_tool_error("Transform requires an 'operations' array".to_string());
@@ -682,7 +747,10 @@ pub(crate) fn execute_files_transform(
         return mutating_tool_error("Library root is required for file operations");
     };
     if !library.exists() || !library.is_dir() {
-        return mutating_tool_error(format!("Library path '{}' does not exist or is not a directory", library.display()));
+        return mutating_tool_error(format!(
+            "Library path '{}' does not exist or is not a directory",
+            library.display()
+        ));
     }
 
     let tracks_map: BTreeMap<&str, &Value> = input
@@ -696,10 +764,7 @@ pub(crate) fn execute_files_transform(
     for path in &paths {
         // Check path containment against library root
         if !path_is_inside(Path::new(path), library) {
-            return mutating_tool_error(format!(
-                "Path '{}' is outside the library root",
-                path
-            ));
+            return mutating_tool_error(format!("Path '{}' is outside the library root", path));
         }
 
         let source_value = match source_kind {
@@ -786,7 +851,13 @@ pub(crate) fn execute_files_transform(
             operation: Some("rename".into()),
             source_path: Some(path.clone()),
             destination_path: Some(dest_path.to_string_lossy().into_owned()),
-            description: Some(format!("Rename to '{}'", dest_path.file_name().and_then(|n| n.to_str()).unwrap_or(&new_filename))),
+            description: Some(format!(
+                "Rename to '{}'",
+                dest_path
+                    .file_name()
+                    .and_then(|n| n.to_str())
+                    .unwrap_or(&new_filename)
+            )),
             ..Default::default()
         });
     }
@@ -818,11 +889,28 @@ pub(crate) fn execute_files_transform(
 
 /// Standard tag fields that can be set/removed via metadata.patch.
 const STANDARD_FIELDS: &[&str] = &[
-    "title", "artist", "artists", "album", "albumArtist", "albumArtists",
-    "year", "trackNumber", "trackTotal", "discNumber", "discTotal",
-    "genre", "composer", "comment", "description", "lyrics", "compilation",
-    "musicbrainzTrackId", "musicbrainzAlbumId", "musicbrainzArtistId",
-    "discogsArtistId", "discogsReleaseId",
+    "title",
+    "artist",
+    "artists",
+    "album",
+    "albumArtist",
+    "albumArtists",
+    "year",
+    "trackNumber",
+    "trackTotal",
+    "discNumber",
+    "discTotal",
+    "genre",
+    "composer",
+    "comment",
+    "description",
+    "lyrics",
+    "compilation",
+    "musicbrainzTrackId",
+    "musicbrainzAlbumId",
+    "musicbrainzArtistId",
+    "discogsArtistId",
+    "discogsReleaseId",
 ];
 
 /// Sanitize a filename by removing path separators and traversal sequences.
@@ -907,8 +995,14 @@ mod tests {
         let batch = result.batches.first().unwrap();
         assert_eq!(batch.actions.len(), 2);
         // Both tracks get genre: Pop
-        assert!(batch.actions.iter().all(|a| a.field.as_deref() == Some("genre")));
-        assert!(batch.actions.iter().all(|a| a.new_value.as_deref() == Some("Pop")));
+        assert!(batch
+            .actions
+            .iter()
+            .all(|a| a.field.as_deref() == Some("genre")));
+        assert!(batch
+            .actions
+            .iter()
+            .all(|a| a.new_value.as_deref() == Some("Pop")));
     }
 
     #[test]
@@ -926,7 +1020,10 @@ mod tests {
         assert!(result.result.ok);
         let batch = result.batches.first().unwrap();
         assert_eq!(batch.actions.len(), 2);
-        assert!(batch.actions.iter().all(|a| a.operation.as_deref() == Some("remove")));
+        assert!(batch
+            .actions
+            .iter()
+            .all(|a| a.operation.as_deref() == Some("remove")));
     }
 
     #[test]
@@ -982,10 +1079,7 @@ mod tests {
             .filter(|a| a.field.as_deref() == Some("title"))
             .collect();
         assert_eq!(title_actions.len(), 1);
-        assert_eq!(
-            title_actions[0].new_value.as_deref(),
-            Some("Custom Title")
-        );
+        assert_eq!(title_actions[0].new_value.as_deref(), Some("Custom Title"));
     }
 
     #[test]
@@ -1121,8 +1215,14 @@ mod tests {
         assert!(result.result.ok);
         let batch = result.batches.first().unwrap();
         assert_eq!(batch.actions.len(), 2);
-        assert!(batch.actions.iter().all(|a| a.tag_kind.as_deref() == Some("extra")));
-        assert!(batch.actions.iter().all(|a| a.operation.as_deref() == Some("upsert")));
+        assert!(batch
+            .actions
+            .iter()
+            .all(|a| a.tag_kind.as_deref() == Some("extra")));
+        assert!(batch
+            .actions
+            .iter()
+            .all(|a| a.operation.as_deref() == Some("upsert")));
     }
 
     #[test]
@@ -1218,9 +1318,7 @@ mod tests {
             // Input with already-lowercase titles
             &AssistantSendInput {
                 selected_track_paths: vec!["/music/c.mp3".into()],
-                tracks: vec![
-                    serde_json::json!({"path": "/music/c.mp3", "title": "song"}),
-                ],
+                tracks: vec![serde_json::json!({"path": "/music/c.mp3", "title": "song"})],
                 ..Default::default()
             },
             "session-1",
@@ -1249,12 +1347,10 @@ mod tests {
     fn metadata_transform_strip_track_numbers_via_pipeline() {
         let input = AssistantSendInput {
             selected_track_paths: vec!["/music/01_song.mp3".into()],
-            tracks: vec![
-                serde_json::json!({
-                    "path": "/music/01_song.mp3",
-                    "title": "01. Song Title"
-                }),
-            ],
+            tracks: vec![serde_json::json!({
+                "path": "/music/01_song.mp3",
+                "title": "01. Song Title"
+            })],
             ..Default::default()
         };
         let result = execute_metadata_transform(
@@ -1331,7 +1427,11 @@ mod tests {
             },
             "session-1",
         );
-        assert!(result.result.ok, "files_transform failed: {}", result.result.error.as_deref().unwrap_or("unknown"));
+        assert!(
+            result.result.ok,
+            "files_transform failed: {}",
+            result.result.error.as_deref().unwrap_or("unknown")
+        );
         let batch = result.batches.first().unwrap();
         assert_eq!(batch.actions.len(), 1);
         let expected_dest = dir.join("song.mp3").to_string_lossy().into_owned();
@@ -1390,9 +1490,7 @@ mod tests {
             }),
             &AssistantSendInput {
                 selected_track_paths: vec![],
-                tracks: vec![
-                    serde_json::json!({"path": "/outside/file.mp3", "title": "Song"}),
-                ],
+                tracks: vec![serde_json::json!({"path": "/outside/file.mp3", "title": "Song"})],
                 library_path: Some(dir.to_string_lossy().into_owned()),
                 ..Default::default()
             },
@@ -1410,12 +1508,10 @@ mod tests {
         // Old macro: strip_track_title_prefixes("01. Song Title") -> "Song Title"
         let input = AssistantSendInput {
             selected_track_paths: vec!["/music/01_song.mp3".into()],
-            tracks: vec![
-                serde_json::json!({
-                    "path": "/music/01_song.mp3",
-                    "title": "01. Song Title"
-                }),
-            ],
+            tracks: vec![serde_json::json!({
+                "path": "/music/01_song.mp3",
+                "title": "01. Song Title"
+            })],
             ..Default::default()
         };
         let result = execute_metadata_transform(
@@ -1441,13 +1537,11 @@ mod tests {
         // Old macro: chinese_convert + "s2t" direction
         let input = AssistantSendInput {
             selected_track_paths: vec!["/music/a.mp3".into()],
-            tracks: vec![
-                serde_json::json!({
-                    "path": "/music/a.mp3",
-                    "title": "简体",
-                    "artist": "简体歌手"
-                }),
-            ],
+            tracks: vec![serde_json::json!({
+                "path": "/music/a.mp3",
+                "title": "简体",
+                "artist": "简体歌手"
+            })],
             ..Default::default()
         };
         let result = execute_metadata_transform(
@@ -1470,12 +1564,10 @@ mod tests {
         // Old macro: extract_tag_value with regex capture group
         let input = AssistantSendInput {
             selected_track_paths: vec!["/music/a.mp3".into()],
-            tracks: vec![
-                serde_json::json!({
-                    "path": "/music/a.mp3",
-                    "title": "01 - Song Title (feat. Artist)"
-                }),
-            ],
+            tracks: vec![serde_json::json!({
+                "path": "/music/a.mp3",
+                "title": "01 - Song Title (feat. Artist)"
+            })],
             ..Default::default()
         };
         let result = execute_metadata_transform(
@@ -1620,13 +1712,29 @@ mod tests {
             .iter()
             .filter_map(|t| t.get("name").and_then(Value::as_str))
             .collect();
-        assert!(names.contains(&"metadata.patch"), "metadata.patch should be in catalog");
-        assert!(names.contains(&"metadata.transform"), "metadata.transform should be in catalog");
-        assert!(names.contains(&"files.transform"), "files.transform should be in catalog");
+        assert!(
+            names.contains(&"metadata.patch"),
+            "metadata.patch should be in catalog"
+        );
+        assert!(
+            names.contains(&"metadata.transform"),
+            "metadata.transform should be in catalog"
+        );
+        assert!(
+            names.contains(&"files.transform"),
+            "files.transform should be in catalog"
+        );
         // Descriptions are present
         for entry in catalog.as_array().unwrap() {
-            let desc = entry.get("description").and_then(Value::as_str).unwrap_or("");
-            assert!(!desc.is_empty(), "tool {} has no description", entry["name"]);
+            let desc = entry
+                .get("description")
+                .and_then(Value::as_str)
+                .unwrap_or("");
+            assert!(
+                !desc.is_empty(),
+                "tool {} has no description",
+                entry["name"]
+            );
         }
     }
 
@@ -1654,9 +1762,7 @@ mod tests {
         // User: "remove title from these tracks"
         let input = AssistantSendInput {
             selected_track_paths: vec!["/music/a.mp3".into()],
-            tracks: vec![
-                serde_json::json!({"path": "/music/a.mp3", "title": "Song"}),
-            ],
+            tracks: vec![serde_json::json!({"path": "/music/a.mp3", "title": "Song"})],
             ..Default::default()
         };
         let result = execute_metadata_patch(
@@ -1707,9 +1813,7 @@ mod tests {
         // User: "convert all titles to lowercase"
         let input = AssistantSendInput {
             selected_track_paths: vec!["/music/a.mp3".into()],
-            tracks: vec![
-                serde_json::json!({"path": "/music/a.mp3", "title": "Hello World"}),
-            ],
+            tracks: vec![serde_json::json!({"path": "/music/a.mp3", "title": "Hello World"})],
             ..Default::default()
         };
         let result = execute_metadata_transform(
@@ -1732,9 +1836,7 @@ mod tests {
         // User: "extract the first word as the new title"
         let input = AssistantSendInput {
             selected_track_paths: vec!["/music/a.mp3".into()],
-            tracks: vec![
-                serde_json::json!({"path": "/music/a.mp3", "title": "Hello World"}),
-            ],
+            tracks: vec![serde_json::json!({"path": "/music/a.mp3", "title": "Hello World"})],
             ..Default::default()
         };
         let result = execute_metadata_transform(
@@ -1757,9 +1859,7 @@ mod tests {
         // User: "prettify all titles"
         let input = AssistantSendInput {
             selected_track_paths: vec!["/music/a.mp3".into()],
-            tracks: vec![
-                serde_json::json!({"path": "/music/a.mp3", "title": "hello_world-song"}),
-            ],
+            tracks: vec![serde_json::json!({"path": "/music/a.mp3", "title": "hello_world-song"})],
             ..Default::default()
         };
         let result = execute_metadata_transform(
@@ -1774,7 +1874,10 @@ mod tests {
         assert!(result.result.ok);
         let batch = result.batches.first().unwrap();
         assert_eq!(batch.actions.len(), 1);
-        assert_eq!(batch.actions[0].new_value.as_deref(), Some("Hello World Song"));
+        assert_eq!(
+            batch.actions[0].new_value.as_deref(),
+            Some("Hello World Song")
+        );
     }
 
     #[test]
@@ -1807,9 +1910,7 @@ mod tests {
         // User: "convert Chinese titles to Traditional"
         let input = AssistantSendInput {
             selected_track_paths: vec!["/music/a.mp3".into()],
-            tracks: vec![
-                serde_json::json!({"path": "/music/a.mp3", "title": "简体中文"}),
-            ],
+            tracks: vec![serde_json::json!({"path": "/music/a.mp3", "title": "简体中文"})],
             ..Default::default()
         };
         let result = execute_metadata_transform(
@@ -1872,10 +1973,7 @@ mod tests {
 
     #[test]
     fn regex_replace_global_flag_replaces_all() {
-        assert_eq!(
-            op_regex_replace("a1b2c3", r"\d", ""),
-            Some("abc".into())
-        );
+        assert_eq!(op_regex_replace("a1b2c3", r"\d", ""), Some("abc".into()));
     }
 
     #[test]
@@ -1937,7 +2035,10 @@ mod tests {
 
     #[test]
     fn strip_suffix_removes_trailing_text() {
-        assert_eq!(op_strip_suffix("Song (live)", " (live)"), Some("Song".into()));
+        assert_eq!(
+            op_strip_suffix("Song (live)", " (live)"),
+            Some("Song".into())
+        );
     }
 
     #[test]
@@ -2012,10 +2113,7 @@ mod tests {
 
     #[test]
     fn title_case_capitalizes_each_word() {
-        assert_eq!(
-            op_title_case("hello world"),
-            Some("Hello World".into())
-        );
+        assert_eq!(op_title_case("hello world"), Some("Hello World".into()));
     }
 
     #[test]
@@ -2025,10 +2123,7 @@ mod tests {
 
     #[test]
     fn title_case_mixed_case_normalizes() {
-        assert_eq!(
-            op_title_case("hELLO wORLD"),
-            Some("Hello World".into())
-        );
+        assert_eq!(op_title_case("hELLO wORLD"), Some("Hello World".into()));
     }
 
     // ── op_prettify ─────────────────────────────────────────────────────
