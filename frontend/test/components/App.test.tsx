@@ -210,6 +210,107 @@ describe("App — batch save progress", () => {
     expect(writes[1].path).toContain("02.mp3");
   });
 
+  it("batch disc field is split into discNumber/discTotal", async () => {
+    render(<App />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    // Open library
+    await act(async () => {
+      fireEvent.click(screen.getByText("Open Library"));
+    });
+
+    let trackRows: HTMLElement[];
+    await waitFor(() => {
+      trackRows = screen.getAllByTestId(/^file-row-/);
+      expect(trackRows.length).toBe(2);
+    });
+
+    // Multi-select both tracks
+    await act(async () => {
+      fireEvent.click(trackRows![0], { metaKey: true });
+    });
+    await act(async () => {
+      fireEvent.click(trackRows![1], { metaKey: true });
+    });
+    await waitFor(() => expect(screen.getByText("Batch Edit")).toBeTruthy());
+
+    // Set Disc to "1"
+    const discInput = screen.getByPlaceholderText(/Disc number/);
+    await act(async () => {
+      fireEvent.change(discInput, { target: { value: "1" } });
+    });
+
+    // Click "Apply changes"
+    await act(async () => {
+      fireEvent.click(screen.getByText("Apply changes"));
+    });
+
+    await waitFor(() => {
+      expect(window.api.writeTracks).toHaveBeenCalled();
+      const writes = (window.api.writeTracks as ReturnType<typeof vi.fn>).mock
+        .calls[0][0] as Array<{ path: string; fields: Record<string, unknown> }>;
+      expect(writes).toHaveLength(2);
+      // Each update must have discNumber, NOT a raw "disc" key
+      for (const w of writes) {
+        expect(w.fields).not.toHaveProperty("disc");
+        expect(w.fields).toHaveProperty("discNumber", 1);
+        expect(w.fields).not.toHaveProperty("discTotal");
+      }
+    });
+  });
+
+  it("batch disc field with total splits into discNumber and discTotal", async () => {
+    render(<App />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    // Open library
+    await act(async () => {
+      fireEvent.click(screen.getByText("Open Library"));
+    });
+
+    let trackRows: HTMLElement[];
+    await waitFor(() => {
+      trackRows = screen.getAllByTestId(/^file-row-/);
+      expect(trackRows.length).toBe(2);
+    });
+
+    // Multi-select both tracks
+    await act(async () => {
+      fireEvent.click(trackRows![0], { metaKey: true });
+    });
+    await act(async () => {
+      fireEvent.click(trackRows![1], { metaKey: true });
+    });
+    await waitFor(() => expect(screen.getByText("Batch Edit")).toBeTruthy());
+
+    // Set Disc to "1/2"
+    const discInput = screen.getByPlaceholderText(/Disc number/);
+    await act(async () => {
+      fireEvent.change(discInput, { target: { value: "1/2" } });
+    });
+
+    // Click "Apply changes"
+    await act(async () => {
+      fireEvent.click(screen.getByText("Apply changes"));
+    });
+
+    await waitFor(() => {
+      expect(window.api.writeTracks).toHaveBeenCalled();
+      const writes = (window.api.writeTracks as ReturnType<typeof vi.fn>).mock
+        .calls[0][0] as Array<{ path: string; fields: Record<string, unknown> }>;
+      expect(writes).toHaveLength(2);
+      for (const w of writes) {
+        expect(w.fields).not.toHaveProperty("disc");
+        expect(w.fields).toHaveProperty("discNumber", 1);
+        expect(w.fields).toHaveProperty("discTotal", 2);
+      }
+    });
+  });
+
   it("cleans up progress listener after batch save completes", async () => {
     const disposerSpy = vi.fn();
     (window.api.onTrackWriteEvent as ReturnType<typeof vi.fn>).mockReturnValue(disposerSpy);

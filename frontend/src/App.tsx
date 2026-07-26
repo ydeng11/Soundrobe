@@ -40,6 +40,7 @@ import {
   getConvertSourceValue,
   type ConvertTrackData,
 } from "./shared/convert";
+import { parseDiscField } from "./shared/fields";
 import type {
   ExtraTagUndoSnapshot,
   TrackData,
@@ -393,12 +394,9 @@ export default function App() {
             if (parts[1]) writeFields.trackTotal = parseNum(parts[1]);
             break;
           }
-          case "disc": {
-            const parts = value.split("/");
-            if (parts[0]) writeFields.discNumber = parseNum(parts[0]);
-            if (parts[1]) writeFields.discTotal = parseNum(parts[1]);
+          case "disc":
+            Object.assign(writeFields, parseDiscField(value));
             break;
-          }
           default:
             writeFields[field] = value || null;
         }
@@ -1727,10 +1725,20 @@ export default function App() {
       const updates: Array<{ path: string; fields: Record<string, unknown> }> =
         [];
 
-      // Build write fields once — same for all selected tracks
+      // Build write fields once — same for all selected tracks.
+      // The field keys from BatchEditor are:
+      //   artist, album, albumArtist, genre, year, disc
+      // Most map 1:1 to TrackPatch serde keys, but "disc" needs splitting
+      // into discNumber and discTotal (same pattern as handleSaveMetadata).
       const writeFields: Record<string, unknown> = {};
       for (const [key, value] of Object.entries(fields)) {
-        writeFields[key] = value || null;
+        switch (key) {
+          case "disc":
+            Object.assign(writeFields, parseDiscField(value));
+            break;
+          default:
+            writeFields[key] = value || null;
+        }
       }
 
       for (const path of paths) {
