@@ -14,7 +14,7 @@ use lofty::id3::v2::{Frame, FrameId, Id3v2Tag, TextInformationFrame, Unsynchroni
 use lofty::iff::wav::WavFile;
 use lofty::mp4::{Atom, AtomData, AtomIdent, Ilst, Mp4File};
 use lofty::mpeg::MpegFile;
-use lofty::ogg::{OpusFile, VorbisFile};
+use lofty::ogg::{OggPictureStorage, OpusFile, VorbisFile};
 use lofty::probe::Probe;
 use lofty::tag::TagType;
 use lofty::tag::{Accessor, ItemValue, TagExt};
@@ -24,7 +24,7 @@ use serde::{Deserialize, Deserializer, Serialize};
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::fs::{self, File};
-use std::io::Write;
+use std::io::{Cursor, Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
@@ -227,6 +227,46 @@ pub struct WriteProbeResult {
 pub enum TrackWriteOutcome {
     Skipped,
     Replaced,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ExtraTagWriteStrategy {
+    InPlace,
+    FullRewrite,
+    Skipped,
+}
+
+impl ExtraTagWriteStrategy {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::InPlace => "in_place",
+            Self::FullRewrite => "full_rewrite",
+            Self::Skipped => "skipped",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct ExtraTagWriteReport {
+    outcome: TrackWriteOutcome,
+    strategy: ExtraTagWriteStrategy,
+    metadata_bytes_read: u64,
+    metadata_bytes_written: u64,
+}
+
+impl ExtraTagWriteReport {
+    fn from_full_rewrite(outcome: TrackWriteOutcome) -> Self {
+        Self {
+            outcome,
+            strategy: if outcome == TrackWriteOutcome::Skipped {
+                ExtraTagWriteStrategy::Skipped
+            } else {
+                ExtraTagWriteStrategy::FullRewrite
+            },
+            metadata_bytes_read: 0,
+            metadata_bytes_written: 0,
+        }
+    }
 }
 
 /// Maximum number of tracks to write in one sequential sub-batch within a
@@ -979,8 +1019,11 @@ pub(crate) async fn write_extra_tags_queued(
                 let result = write_extra_tags_dispatch(&path, &tags);
                 let elapsed = write_start.elapsed();
                 match &result {
-                    Ok(_) => tracing::debug!(
+                    Ok(report) => tracing::debug!(
                         path = %display_path,
+                        strategy = report.strategy.as_str(),
+                        metadata_bytes_read = report.metadata_bytes_read,
+                        metadata_bytes_written = report.metadata_bytes_written,
                         elapsed_us = elapsed.as_micros(),
                         "extra tags write done"
                     ),
@@ -1010,22 +1053,24 @@ async fn batch_write_extra_tags_queued(
                 let mut failures = Vec::new();
                 for update in updates {
                     let write_start = std::time::Instant::now();
-                    if let Err(error) =
-                        write_extra_tags_dispatch(Path::new(&update.path), &update.tags)
-                    {
-                        tracing::warn!(
+                    match write_extra_tags_dispatch(Path::new(&update.path), &update.tags) {
+                        Ok(report) => tracing::debug!(
                             path = %update.path,
-                            elapsed_us = write_start.elapsed().as_micros(),
-                            error = %error,
-                            "batch extra tags write failed"
-                        );
-                        failures.push(format!("{}: {error}", update.path));
-                    } else {
-                        tracing::debug!(
-                            path = %update.path,
+                            strategy = report.strategy.as_str(),
+                            metadata_bytes_read = report.metadata_bytes_read,
+                            metadata_bytes_written = report.metadata_bytes_written,
                             elapsed_us = write_start.elapsed().as_micros(),
                             "batch extra tags write done"
-                        );
+                        ),
+                        Err(error) => {
+                            tracing::warn!(
+                                path = %update.path,
+                                elapsed_us = write_start.elapsed().as_micros(),
+                                error = %error,
+                                "batch extra tags write failed"
+                            );
+                            failures.push(format!("{}: {error}", update.path));
+                        }
                     }
                 }
                 if failures.is_empty() {
@@ -1069,14 +1114,15 @@ fn validate_extra_tag_extension(path: &Path) -> Result<String, ApiError> {
 fn write_extra_tags_dispatch(
     path: &Path,
     tags: &[ExtraTagUpdate],
-) -> Result<TrackWriteOutcome, ApiError> {
-    match validate_extra_tag_extension(path)?.as_str() {
+) -> Result<ExtraTagWriteReport, ApiError> {
+    let outcome = match validate_extra_tag_extension(path)?.as_str() {
         "mp3" => write_id3_extra_tags_atomic(path, tags, false),
         "wav" => write_id3_extra_tags_atomic(path, tags, true),
-        "flac" => write_flac_extra_tags_atomic(path, tags),
+        "flac" => return write_flac_extra_tags_atomic(path, tags),
         "ogg" | "opus" => write_ogg_extra_tags_atomic(path, tags),
         _ => write_ape_extra_tags_atomic(path, tags),
-    }
+    }?;
+    Ok(ExtraTagWriteReport::from_full_rewrite(outcome))
 }
 
 fn normalized_extra_tags(tags: &[ExtraTagUpdate]) -> Vec<ExtraTagUpdate> {
@@ -1236,6 +1282,445 @@ fn apply_ape_extra_tags(tag: &mut ApeTag, updates: &[ExtraTagUpdate]) -> Result<
     Ok(())
 }
 
+const FLAC_GHOST_PROBE_BYTES: usize = 64 * 1024;
+const FLAC_FAST_PATH_MAX_PREFIX_BYTES: usize = 32 * 1024 * 1024;
+
+#[derive(Debug)]
+struct FlacMetadataBlock {
+    block_type: u8,
+    data: Vec<u8>,
+}
+
+#[derive(Debug)]
+struct FlacPrefixLayout {
+    prefix: Vec<u8>,
+    marker_offset: usize,
+    audio_offset: usize,
+    file_len: u64,
+    blocks: Vec<FlacMetadataBlock>,
+    requires_full_rewrite: bool,
+    bytes_read: u64,
+}
+
+fn try_flac_extra_tags_inplace(
+    path: &Path,
+    updates: &[ExtraTagUpdate],
+) -> Result<Option<ExtraTagWriteReport>, ApiError> {
+    let Some(layout) = read_flac_prefix_layout(path)? else {
+        return Ok(None);
+    };
+    if layout.requires_full_rewrite {
+        return Ok(None);
+    }
+
+    let Some(mut comments) = read_flac_prefix_comments(&layout.prefix) else {
+        return Ok(None);
+    };
+    if !comments.pictures().is_empty() {
+        return Ok(None);
+    }
+    let before_vendor = comments.vendor().to_string();
+    let before_items = comments
+        .items()
+        .map(|(key, value)| (key.to_string(), value.to_string()))
+        .collect::<Vec<_>>();
+    apply_vorbis_extra_tags(&mut comments, updates);
+    let expected_vendor = comments.vendor().to_string();
+    let expected_items = comments
+        .items()
+        .map(|(key, value)| (key.to_string(), value.to_string()))
+        .collect::<Vec<_>>();
+
+    if before_vendor == expected_vendor && vorbis_items_equivalent(&before_items, &expected_items) {
+        return Ok(Some(ExtraTagWriteReport {
+            outcome: TrackWriteOutcome::Skipped,
+            strategy: ExtraTagWriteStrategy::Skipped,
+            metadata_bytes_read: layout.bytes_read,
+            metadata_bytes_written: 0,
+        }));
+    }
+
+    let encoded_comments = encode_flac_vorbis_comments(&comments)?;
+    let Some(candidate) = rebuild_flac_prefix(&layout, &encoded_comments) else {
+        return Ok(None);
+    };
+    let Some(candidate_comments) = read_flac_prefix_comments(&candidate) else {
+        return Ok(None);
+    };
+    if !vorbis_comments_match(&candidate_comments, &expected_vendor, &expected_items) {
+        return Ok(None);
+    }
+
+    let verify_vendor = expected_vendor;
+    let verify_items = expected_items;
+    commit_flac_metadata_prefix(
+        path,
+        &layout.prefix,
+        &candidate,
+        layout.file_len,
+        move |written_prefix| {
+            let parsed = read_flac_prefix_comments(written_prefix).ok_or_else(|| {
+                ApiError::MediaSafety(
+                    "FLAC metadata prefix is unreadable after in-place write".to_string(),
+                )
+            })?;
+            if !vorbis_comments_match(&parsed, &verify_vendor, &verify_items) {
+                return Err(ApiError::MediaSafety(
+                    "FLAC extra tags failed in-place readback".to_string(),
+                ));
+            }
+            Ok(())
+        },
+    )?;
+
+    Ok(Some(ExtraTagWriteReport {
+        outcome: TrackWriteOutcome::Replaced,
+        strategy: ExtraTagWriteStrategy::InPlace,
+        metadata_bytes_read: layout.bytes_read.saturating_add(candidate.len() as u64),
+        metadata_bytes_written: candidate.len() as u64,
+    }))
+}
+
+fn vorbis_items_equivalent(left: &[(String, String)], right: &[(String, String)]) -> bool {
+    fn normalized(items: &[(String, String)]) -> HashMap<String, Vec<String>> {
+        let mut grouped = HashMap::new();
+        for (key, value) in items {
+            grouped
+                .entry(key.to_ascii_uppercase())
+                .or_insert_with(Vec::new)
+                .push(value.clone());
+        }
+        grouped
+    }
+    normalized(left) == normalized(right)
+}
+
+fn read_flac_prefix_layout(path: &Path) -> Result<Option<FlacPrefixLayout>, ApiError> {
+    let mut file = File::open(path)?;
+    let file_len = file.metadata()?.len();
+    if file_len < 10 {
+        return Ok(None);
+    }
+
+    let mut header = [0_u8; 10];
+    file.read_exact(&mut header)?;
+    let marker_offset = if &header[..4] == b"fLaC" {
+        0
+    } else if &header[..3] == b"ID3" {
+        let Some(id3_size) = synchsafe_u32(&header[6..10]) else {
+            return Ok(None);
+        };
+        let footer_size = if header[5] & 0x10 != 0 { 10_u64 } else { 0 };
+        let marker = 10_u64
+            .checked_add(u64::from(id3_size))
+            .and_then(|value| value.checked_add(footer_size));
+        let Some(marker) = marker.and_then(|value| usize::try_from(value).ok()) else {
+            return Ok(None);
+        };
+        if marker as u64 + 4 > file_len {
+            return Ok(None);
+        }
+        file.seek(SeekFrom::Start(marker as u64))?;
+        let mut signature = [0_u8; 4];
+        file.read_exact(&mut signature)?;
+        if &signature != b"fLaC" {
+            return Ok(None);
+        }
+        marker
+    } else {
+        return Ok(None);
+    };
+
+    let metadata_start = marker_offset
+        .checked_add(4)
+        .ok_or_else(|| ApiError::MediaSafety("FLAC metadata offset overflow".to_string()))?;
+    let mut prefix = vec![0_u8; metadata_start];
+    file.seek(SeekFrom::Start(0))?;
+    file.read_exact(&mut prefix)?;
+    let mut blocks = Vec::new();
+    let mut vorbis_count = 0_usize;
+    let mut vorbis_valid = true;
+
+    loop {
+        let mut block_header = [0_u8; 4];
+        file.read_exact(&mut block_header)?;
+        let last = block_header[0] & 0x80 != 0;
+        let block_type = block_header[0] & 0x7f;
+        let block_len = (usize::from(block_header[1]) << 16)
+            | (usize::from(block_header[2]) << 8)
+            | usize::from(block_header[3]);
+        let next_len = prefix
+            .len()
+            .checked_add(4)
+            .and_then(|value| value.checked_add(block_len));
+        if next_len
+            .is_none_or(|value| value > FLAC_FAST_PATH_MAX_PREFIX_BYTES || value as u64 > file_len)
+        {
+            return Ok(None);
+        }
+        let mut data = vec![0_u8; block_len];
+        file.read_exact(&mut data)?;
+        prefix.extend_from_slice(&block_header);
+        prefix.extend_from_slice(&data);
+        if block_type == 4 {
+            vorbis_count += 1;
+            vorbis_valid &= valid_flac_vorbis_comments(&data);
+        }
+        blocks.push(FlacMetadataBlock { block_type, data });
+        if last {
+            break;
+        }
+    }
+
+    if blocks
+        .first()
+        .is_none_or(|block| block.block_type != 0 || block.data.len() != 34)
+    {
+        return Ok(None);
+    }
+
+    let audio_offset = prefix.len();
+    let mut bytes_read = 10_u64.saturating_add(prefix.len() as u64);
+    let trailing_ape = if file_len >= 32 {
+        file.seek(SeekFrom::End(-32))?;
+        let mut footer = [0_u8; 32];
+        file.read_exact(&mut footer)?;
+        bytes_read = bytes_read.saturating_add(footer.len() as u64);
+        &footer[..8] == b"APETAGEX"
+    } else {
+        false
+    };
+
+    let probe_len = usize::try_from(file_len.saturating_sub(audio_offset as u64))
+        .unwrap_or(usize::MAX)
+        .min(FLAC_GHOST_PROBE_BYTES);
+    let ghost_vorbis = if probe_len > 0 {
+        file.seek(SeekFrom::Start(audio_offset as u64))?;
+        let mut probe = vec![0_u8; probe_len];
+        file.read_exact(&mut probe)?;
+        bytes_read = bytes_read.saturating_add(probe.len() as u64);
+        neutralize_ghost_vorbis(&mut probe, 0)
+    } else {
+        false
+    };
+
+    Ok(Some(FlacPrefixLayout {
+        prefix,
+        marker_offset,
+        audio_offset,
+        file_len,
+        blocks,
+        requires_full_rewrite: vorbis_count > 1 || !vorbis_valid || trailing_ape || ghost_vorbis,
+        bytes_read,
+    }))
+}
+
+fn valid_flac_vorbis_comments(data: &[u8]) -> bool {
+    fn take_u32(data: &mut &[u8]) -> Option<usize> {
+        let value = u32::from_le_bytes(data.get(..4)?.try_into().ok()?) as usize;
+        *data = data.get(4..)?;
+        Some(value)
+    }
+
+    let mut remaining = data;
+    let Some(vendor_len) = take_u32(&mut remaining) else {
+        return false;
+    };
+    let Some(vendor) = remaining.get(..vendor_len) else {
+        return false;
+    };
+    if std::str::from_utf8(vendor).is_err() {
+        return false;
+    }
+    remaining = &remaining[vendor_len..];
+
+    let Some(item_count) = take_u32(&mut remaining) else {
+        return false;
+    };
+    for _ in 0..item_count {
+        let Some(item_len) = take_u32(&mut remaining) else {
+            return false;
+        };
+        let Some(item) = remaining.get(..item_len) else {
+            return false;
+        };
+        let Some(separator) = item.iter().position(|byte| *byte == b'=') else {
+            return false;
+        };
+        let key = &item[..separator];
+        if key.is_empty()
+            || key
+                .iter()
+                .any(|byte| !(0x20..=0x7d).contains(byte) || *byte == b'=')
+            || std::str::from_utf8(&item[separator + 1..]).is_err()
+        {
+            return false;
+        }
+        remaining = &remaining[item_len..];
+    }
+    remaining.is_empty()
+}
+
+fn synchsafe_u32(bytes: &[u8]) -> Option<u32> {
+    let [a, b, c, d]: [u8; 4] = bytes.try_into().ok()?;
+    if [a, b, c, d].iter().any(|byte| byte & 0x80 != 0) {
+        return None;
+    }
+    Some((u32::from(a) << 21) | (u32::from(b) << 14) | (u32::from(c) << 7) | u32::from(d))
+}
+
+fn read_flac_prefix_comments(prefix: &[u8]) -> Option<lofty::ogg::VorbisComments> {
+    let mut cursor = Cursor::new(prefix);
+    FlacFile::read_from(&mut cursor, ParseOptions::new().read_properties(false))
+        .ok()
+        .map(|flac| flac.vorbis_comments().cloned().unwrap_or_default())
+}
+
+fn encode_flac_vorbis_comments(comments: &lofty::ogg::VorbisComments) -> Result<Vec<u8>, ApiError> {
+    let vendor = comments.vendor().as_bytes();
+    let vendor_len = u32::try_from(vendor.len())
+        .map_err(|_| ApiError::MediaSafety("FLAC Vorbis vendor string is too large".to_string()))?;
+    let items = comments
+        .items()
+        .filter(|(_, value)| !value.is_empty())
+        .collect::<Vec<_>>();
+    let item_count = u32::try_from(items.len())
+        .map_err(|_| ApiError::MediaSafety("too many FLAC Vorbis comments".to_string()))?;
+
+    let mut encoded = Vec::new();
+    encoded.extend_from_slice(&vendor_len.to_le_bytes());
+    encoded.extend_from_slice(vendor);
+    encoded.extend_from_slice(&item_count.to_le_bytes());
+    for (key, value) in items {
+        let item = format!("{key}={value}");
+        let item_len = u32::try_from(item.len())
+            .map_err(|_| ApiError::MediaSafety("FLAC Vorbis item is too large".to_string()))?;
+        encoded.extend_from_slice(&item_len.to_le_bytes());
+        encoded.extend_from_slice(item.as_bytes());
+    }
+    if encoded.len() > 0x00ff_ffff {
+        return Err(ApiError::MediaSafety(
+            "FLAC Vorbis comment block is too large".to_string(),
+        ));
+    }
+    Ok(encoded)
+}
+
+fn rebuild_flac_prefix(layout: &FlacPrefixLayout, comments: &[u8]) -> Option<Vec<u8>> {
+    let metadata_start = layout.marker_offset.checked_add(4)?;
+    let available = layout.audio_offset.checked_sub(metadata_start)?;
+    let mut blocks = Vec::new();
+    let mut inserted_comments = false;
+    for block in &layout.blocks {
+        match block.block_type {
+            1 => {}
+            4 if !inserted_comments => {
+                blocks.push((4_u8, comments));
+                inserted_comments = true;
+            }
+            4 => return None,
+            _ => blocks.push((block.block_type, block.data.as_slice())),
+        }
+    }
+    if !inserted_comments {
+        let insert_at = usize::from(
+            blocks
+                .first()
+                .is_some_and(|(block_type, _)| *block_type == 0),
+        );
+        blocks.insert(insert_at, (4_u8, comments));
+    }
+
+    let required = blocks.iter().try_fold(0_usize, |sum, (_, data)| {
+        sum.checked_add(data.len().checked_add(4)?)
+    })?;
+    let leftover = available.checked_sub(required)?;
+    if (1..4).contains(&leftover) || leftover.saturating_sub(4) > 0x00ff_ffff {
+        return None;
+    }
+
+    let mut output = Vec::with_capacity(layout.audio_offset);
+    output.extend_from_slice(layout.prefix.get(..metadata_start)?);
+    let has_padding = leftover >= 4;
+    for (index, (block_type, data)) in blocks.iter().enumerate() {
+        let last = !has_padding && index + 1 == blocks.len();
+        push_flac_block(&mut output, *block_type, data, last)?;
+    }
+    if has_padding {
+        let padding = vec![0_u8; leftover - 4];
+        push_flac_block(&mut output, 1, &padding, true)?;
+    }
+    (output.len() == layout.audio_offset).then_some(output)
+}
+
+fn vorbis_comments_match(
+    comments: &lofty::ogg::VorbisComments,
+    expected_vendor: &str,
+    expected_items: &[(String, String)],
+) -> bool {
+    comments.vendor() == expected_vendor
+        && comments
+            .items()
+            .map(|(key, value)| (key.to_string(), value.to_string()))
+            .eq(expected_items.iter().cloned())
+}
+
+fn commit_flac_metadata_prefix<F>(
+    path: &Path,
+    original_prefix: &[u8],
+    candidate_prefix: &[u8],
+    expected_file_len: u64,
+    verify: F,
+) -> Result<(), ApiError>
+where
+    F: FnOnce(&[u8]) -> Result<(), ApiError>,
+{
+    let write_result = (|| -> Result<(), ApiError> {
+        let mut file = fs::OpenOptions::new()
+            .write(true)
+            .open(path)
+            .map_err(|error| {
+                ApiError::WriteTask(format!("open FLAC for in-place write: {error}"))
+            })?;
+        file.seek(SeekFrom::Start(0))
+            .map_err(|error| ApiError::WriteTask(format!("seek FLAC metadata prefix: {error}")))?;
+        file.write_all(candidate_prefix)
+            .map_err(|error| ApiError::WriteTask(format!("write FLAC metadata prefix: {error}")))?;
+        file.sync_all()
+            .map_err(|error| ApiError::WriteTask(format!("sync FLAC metadata prefix: {error}")))?;
+
+        if fs::metadata(path)?.len() != expected_file_len {
+            return Err(ApiError::MediaSafety(
+                "FLAC size changed during in-place metadata write".to_string(),
+            ));
+        }
+        let mut written_prefix = vec![0_u8; candidate_prefix.len()];
+        File::open(path)?.read_exact(&mut written_prefix)?;
+        if written_prefix != candidate_prefix {
+            return Err(ApiError::MediaSafety(
+                "FLAC metadata prefix differs after in-place write".to_string(),
+            ));
+        }
+        verify(&written_prefix)
+    })();
+
+    if let Err(error) = write_result {
+        let restore_result = (|| -> std::io::Result<()> {
+            let mut file = fs::OpenOptions::new().write(true).open(path)?;
+            file.seek(SeekFrom::Start(0))?;
+            file.write_all(original_prefix)?;
+            file.sync_all()
+        })();
+        return match restore_result {
+            Ok(()) => Err(error),
+            Err(restore_error) => Err(ApiError::WriteTask(format!(
+                "{error}; restoring original FLAC metadata also failed: {restore_error}"
+            ))),
+        };
+    }
+    Ok(())
+}
+
 fn write_id3_extra_tags_atomic(
     path: &Path,
     updates: &[ExtraTagUpdate],
@@ -1290,7 +1775,11 @@ fn write_id3_extra_tags_atomic(
 fn write_flac_extra_tags_atomic(
     path: &Path,
     updates: &[ExtraTagUpdate],
-) -> Result<TrackWriteOutcome, ApiError> {
+) -> Result<ExtraTagWriteReport, ApiError> {
+    if let Some(report) = try_flac_extra_tags_inplace(path, updates)? {
+        return Ok(report);
+    }
+
     let original = fs::read(path)?;
     let (prepared, repairs) = prepare_flac_source(&original)
         .ok_or_else(|| ApiError::MediaSafety("invalid FLAC metadata boundary".to_string()))?;
@@ -1329,7 +1818,7 @@ fn write_flac_extra_tags_atomic(
     if temporary.exists() {
         let _ = fs::remove_file(&temporary);
     }
-    result
+    result.map(ExtraTagWriteReport::from_full_rewrite)
 }
 
 fn write_ogg_extra_tags_atomic(
@@ -3103,6 +3592,7 @@ fn on_different_filesystem(path: &Path) -> bool {
 mod tests {
     use super::*;
     use lofty::id3::v2::BinaryFrame;
+    use lofty::picture::{MimeType, Picture, PictureInformation, PictureType};
 
     fn media_fixture(name: &str) -> PathBuf {
         PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -4157,9 +4647,6 @@ mod tests {
 
     #[test]
     fn flac_inplace_extra_tags_fits_with_padding() {
-        // Extra-tag in-place is currently disabled (fallback full rewrite).
-        // This test confirms the extra-tag fallback still preserves audio
-        // when padding is ample.
         let (root, path) =
             copy_to_temp(&writer_fixture("padded.flac"), "inplace-extra-padded.flac");
         let before_audio = flac_audio_payload(&fs::read(&path).unwrap())
@@ -4171,12 +4658,385 @@ mod tests {
             key: "CUSTOM_KEY".to_string(),
             value: "custom_value".to_string(),
         }];
-        write_flac_extra_tags_atomic(&path, &updates).unwrap();
+        let report = write_flac_extra_tags_atomic(&path, &updates).unwrap();
+        assert_eq!(report.outcome, TrackWriteOutcome::Replaced);
+        assert_eq!(report.strategy, ExtraTagWriteStrategy::InPlace);
+        assert!(
+            report.metadata_bytes_read <= (before_offset * 2 + FLAC_GHOST_PROBE_BYTES + 42) as u64
+        );
+        assert_eq!(report.metadata_bytes_written, before_offset as u64);
 
         let after = fs::read(&path).unwrap();
         assert_eq!(flac_audio_offset(&after).unwrap(), before_offset);
         assert_eq!(flac_audio_payload(&after).unwrap(), before_audio);
         fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn flac_extra_tags_shrink_into_zero_padding_uses_prefix_path() {
+        let (root, path) = copy_to_temp(&writer_fixture("padded.flac"), "extra-zero-padding.flac");
+
+        let mut flac = read_flac(&path).unwrap();
+        flac.vorbis_comments_mut()
+            .unwrap()
+            .push("CUSTOM_LONG".to_string(), "x".repeat(256));
+        flac.save_to_path(&path, WriteOptions::new()).unwrap();
+
+        let seeded = fs::read(&path).unwrap();
+        let seeded_audio = flac_audio_payload(&seeded).unwrap().to_vec();
+        let seeded_offset = flac_audio_offset(&seeded).unwrap();
+        let padding_len = read_flac_prefix_layout(&path)
+            .unwrap()
+            .unwrap()
+            .blocks
+            .into_iter()
+            .find(|block| block.block_type == 1)
+            .map(|block| block.data.len())
+            .unwrap();
+        let zero_padding_offset = seeded_offset - padding_len;
+        let zero_padded =
+            repack_flac_metadata(&seeded, zero_padding_offset, &seeded_audio).unwrap();
+        fs::write(&path, zero_padded).unwrap();
+
+        let before = fs::read(&path).unwrap();
+        let before_offset = flac_audio_offset(&before).unwrap();
+        assert_eq!(
+            read_flac_prefix_layout(&path)
+                .unwrap()
+                .unwrap()
+                .blocks
+                .into_iter()
+                .find(|block| block.block_type == 1)
+                .unwrap()
+                .data
+                .len(),
+            0
+        );
+
+        let report = write_flac_extra_tags_atomic(
+            &path,
+            &[ExtraTagUpdate {
+                key: "MOOD".to_string(),
+                value: "Calm".to_string(),
+            }],
+        )
+        .unwrap();
+        assert_eq!(report.strategy, ExtraTagWriteStrategy::InPlace);
+        assert_eq!(report.outcome, TrackWriteOutcome::Replaced);
+
+        let after = fs::read(&path).unwrap();
+        assert_eq!(flac_audio_offset(&after).unwrap(), before_offset);
+        assert_eq!(flac_audio_payload(&after).unwrap(), seeded_audio);
+        assert!(crate::commands::tracks::read_extra_tags(&path)
+            .iter()
+            .any(|row| row.key == "MOOD" && row.value == "Calm"));
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn flac_extra_tags_growth_without_space_falls_back() {
+        let (root, path) =
+            copy_to_temp(&writer_fixture("padded.flac"), "extra-growth-fallback.flac");
+        let before = fs::read(&path).unwrap();
+        let before_audio = flac_audio_payload(&before).unwrap().to_vec();
+        let before_offset = flac_audio_offset(&before).unwrap();
+        let no_padding =
+            repack_flac_metadata(&before, before_offset - 8192, &before_audio).unwrap();
+        fs::write(&path, no_padding).unwrap();
+
+        let report = write_flac_extra_tags_atomic(
+            &path,
+            &[ExtraTagUpdate {
+                key: "VERY_LARGE".to_string(),
+                value: "y".repeat(32 * 1024),
+            }],
+        )
+        .unwrap();
+        assert_eq!(report.strategy, ExtraTagWriteStrategy::FullRewrite);
+        assert_eq!(report.outcome, TrackWriteOutcome::Replaced);
+        assert_eq!(
+            flac_audio_payload(&fs::read(&path).unwrap()).unwrap(),
+            before_audio
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn flac_extra_tags_identical_update_skips_without_writing() {
+        let (root, path) = copy_to_temp(&writer_fixture("padded.flac"), "extra-noop-prefix.flac");
+        let updates = [ExtraTagUpdate {
+            key: "MOOD".to_string(),
+            value: "Calm".to_string(),
+        }];
+        write_flac_extra_tags_atomic(&path, &updates).unwrap();
+        let before = fs::read(&path).unwrap();
+
+        let report = write_flac_extra_tags_atomic(&path, &updates).unwrap();
+        assert_eq!(report.outcome, TrackWriteOutcome::Skipped);
+        assert_eq!(report.strategy, ExtraTagWriteStrategy::Skipped);
+        assert_eq!(report.metadata_bytes_written, 0);
+        assert_eq!(fs::read(&path).unwrap(), before);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn flac_extra_tags_reordered_repeated_values_are_not_skipped() {
+        let (root, path) = copy_to_temp(
+            &writer_fixture("padded.flac"),
+            "extra-reordered-artists.flac",
+        );
+        let original_order = [
+            ExtraTagUpdate {
+                key: "ARTISTS".to_string(),
+                value: "First Artist".to_string(),
+            },
+            ExtraTagUpdate {
+                key: "ARTISTS".to_string(),
+                value: "Second Artist".to_string(),
+            },
+        ];
+        write_flac_extra_tags_atomic(&path, &original_order).unwrap();
+
+        let reversed_order = [
+            ExtraTagUpdate {
+                key: "ARTISTS".to_string(),
+                value: "Second Artist".to_string(),
+            },
+            ExtraTagUpdate {
+                key: "ARTISTS".to_string(),
+                value: "First Artist".to_string(),
+            },
+        ];
+        let report = write_flac_extra_tags_atomic(&path, &reversed_order).unwrap();
+
+        assert_eq!(report.outcome, TrackWriteOutcome::Replaced);
+        assert_eq!(report.strategy, ExtraTagWriteStrategy::InPlace);
+        let artists = crate::commands::tracks::read_extra_tags(&path)
+            .into_iter()
+            .filter(|row| row.key == "ARTISTS")
+            .map(|row| row.value)
+            .collect::<Vec<_>>();
+        assert_eq!(artists, ["Second Artist", "First Artist"]);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn flac_extra_tags_bare_file_uses_existing_padding() {
+        let (root, path) =
+            copy_to_temp(&writer_fixture("flac-bare.flac"), "extra-bare-prefix.flac");
+        assert!(read_flac(&path).unwrap().vorbis_comments().is_none());
+        let before = fs::read(&path).unwrap();
+        let before_audio = flac_audio_payload(&before).unwrap().to_vec();
+        let before_offset = flac_audio_offset(&before).unwrap();
+
+        let report = write_flac_extra_tags_atomic(
+            &path,
+            &[ExtraTagUpdate {
+                key: "MOOD".to_string(),
+                value: "Calm".to_string(),
+            }],
+        )
+        .unwrap();
+        assert_eq!(report.strategy, ExtraTagWriteStrategy::InPlace);
+        let after = fs::read(&path).unwrap();
+        assert_eq!(flac_audio_offset(&after).unwrap(), before_offset);
+        assert_eq!(flac_audio_payload(&after).unwrap(), before_audio);
+        assert!(crate::commands::tracks::read_extra_tags(&path)
+            .iter()
+            .any(|row| row.key == "MOOD" && row.value == "Calm"));
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn flac_extra_tags_preserve_picture_and_non_comment_blocks() {
+        let (root, path) =
+            copy_to_temp(&writer_fixture("padded.flac"), "extra-picture-prefix.flac");
+        let mut flac = read_flac(&path).unwrap();
+        flac.insert_picture(
+            Picture::unchecked(vec![0x89, b'P', b'N', b'G'])
+                .pic_type(PictureType::CoverFront)
+                .mime_type(MimeType::Png)
+                .build(),
+            Some(PictureInformation::default()),
+        )
+        .unwrap();
+        flac.save_to_path(&path, WriteOptions::new()).unwrap();
+
+        let before_layout = read_flac_prefix_layout(&path).unwrap().unwrap();
+        let before_blocks = before_layout
+            .blocks
+            .iter()
+            .filter(|block| !matches!(block.block_type, 1 | 4))
+            .map(|block| (block.block_type, block.data.clone()))
+            .collect::<Vec<_>>();
+        let before_audio = flac_audio_payload(&fs::read(&path).unwrap())
+            .unwrap()
+            .to_vec();
+
+        let report = write_flac_extra_tags_atomic(
+            &path,
+            &[
+                ExtraTagUpdate {
+                    key: "BARCODE".to_string(),
+                    value: "111".to_string(),
+                },
+                ExtraTagUpdate {
+                    key: "BARCODE".to_string(),
+                    value: "222".to_string(),
+                },
+                ExtraTagUpdate {
+                    key: "TITLE".to_string(),
+                    value: "must remain editor-owned".to_string(),
+                },
+            ],
+        )
+        .unwrap();
+        assert_eq!(report.strategy, ExtraTagWriteStrategy::InPlace);
+
+        let after_layout = read_flac_prefix_layout(&path).unwrap().unwrap();
+        let after_blocks = after_layout
+            .blocks
+            .iter()
+            .filter(|block| !matches!(block.block_type, 1 | 4))
+            .map(|block| (block.block_type, block.data.clone()))
+            .collect::<Vec<_>>();
+        assert_eq!(after_blocks, before_blocks);
+        assert_eq!(
+            flac_audio_payload(&fs::read(&path).unwrap()).unwrap(),
+            before_audio
+        );
+        assert_eq!(read_flac(&path).unwrap().pictures().len(), 1);
+        let rows = crate::commands::tracks::read_extra_tags(&path);
+        assert_eq!(rows.iter().filter(|row| row.key == "BARCODE").count(), 2);
+        assert!(!rows.iter().any(|row| row.key == "TITLE"));
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn flac_extra_tags_preserve_picture_stored_in_vorbis_comments() {
+        let (root, path) =
+            copy_to_temp(&writer_fixture("padded.flac"), "extra-comment-picture.flac");
+        let layout = read_flac_prefix_layout(&path).unwrap().unwrap();
+        let mut comments = read_flac_prefix_comments(&layout.prefix).unwrap();
+        let picture = Picture::unchecked(vec![0x89, b'P', b'N', b'G'])
+            .pic_type(PictureType::CoverFront)
+            .mime_type(MimeType::Png)
+            .build();
+        let encoded_picture =
+            String::from_utf8(picture.as_flac_bytes(PictureInformation::default(), true)).unwrap();
+        comments.push("METADATA_BLOCK_PICTURE".to_string(), encoded_picture);
+        let encoded_comments = encode_flac_vorbis_comments(&comments).unwrap();
+        let seeded_prefix = rebuild_flac_prefix(&layout, &encoded_comments).unwrap();
+        commit_flac_metadata_prefix(
+            &path,
+            &layout.prefix,
+            &seeded_prefix,
+            layout.file_len,
+            |_| Ok(()),
+        )
+        .unwrap();
+
+        let seeded = read_flac(&path).unwrap();
+        assert_eq!(seeded.vorbis_comments().unwrap().pictures().len(), 1);
+        assert!(seeded.pictures().is_empty());
+
+        let updates = [ExtraTagUpdate {
+            key: "MOOD".to_string(),
+            value: "Calm".to_string(),
+        }];
+        assert!(try_flac_extra_tags_inplace(&path, &updates)
+            .unwrap()
+            .is_none());
+        let report = write_flac_extra_tags_atomic(&path, &updates).unwrap();
+
+        assert_eq!(report.strategy, ExtraTagWriteStrategy::FullRewrite);
+        let written = read_flac(&path).unwrap();
+        assert_eq!(
+            written.pictures().len()
+                + written
+                    .vorbis_comments()
+                    .map(|tag| tag.pictures().len())
+                    .unwrap_or_default(),
+            1
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn flac_extra_tags_repair_cases_bypass_prefix_path() {
+        for name in [
+            "flac-duplicate-vc.flac",
+            "flac-trailing-ape.flac",
+            "flac-ghost-vc.flac",
+        ] {
+            let (root, path) = copy_to_temp(&writer_fixture(name), name);
+            let attempt = try_flac_extra_tags_inplace(
+                &path,
+                &[ExtraTagUpdate {
+                    key: "MOOD".to_string(),
+                    value: "Calm".to_string(),
+                }],
+            )
+            .unwrap();
+            assert!(attempt.is_none(), "{name} must use the repair path");
+            fs::remove_dir_all(root).unwrap();
+        }
+    }
+
+    #[test]
+    fn flac_prefix_commit_restores_original_after_verification_failure() {
+        let (root, path) =
+            copy_to_temp(&writer_fixture("padded.flac"), "extra-restore-prefix.flac");
+        let original_file = fs::read(&path).unwrap();
+        let layout = read_flac_prefix_layout(&path).unwrap().unwrap();
+        let mut candidate = layout.prefix.clone();
+        candidate[layout.marker_offset + 8] ^= 0x01;
+
+        let error =
+            commit_flac_metadata_prefix(&path, &layout.prefix, &candidate, layout.file_len, |_| {
+                Err(ApiError::MediaSafety(
+                    "injected verification failure".to_string(),
+                ))
+            })
+            .unwrap_err();
+        assert!(error.to_string().contains("injected verification failure"));
+        assert_eq!(fs::read(&path).unwrap(), original_file);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn malformed_flac_extra_tags_never_use_prefix_path() {
+        let updates = [ExtraTagUpdate {
+            key: "MOOD".to_string(),
+            value: "Calm".to_string(),
+        }];
+
+        let (repair_root, repair_path) = copy_to_temp(
+            &media_fixture("malformed-vorbis-length.flac"),
+            "malformed-vorbis-length.flac",
+        );
+        assert!(try_flac_extra_tags_inplace(&repair_path, &updates)
+            .unwrap()
+            .is_none());
+        assert_eq!(
+            write_flac_extra_tags_atomic(&repair_path, &updates)
+                .unwrap()
+                .strategy,
+            ExtraTagWriteStrategy::FullRewrite
+        );
+        fs::remove_dir_all(repair_root).unwrap();
+
+        let (bad_root, bad_path) = copy_to_temp(
+            &media_fixture("malformed-truncated.flac"),
+            "malformed-truncated.flac",
+        );
+        let before = fs::read(&bad_path).unwrap();
+        assert!(try_flac_extra_tags_inplace(&bad_path, &updates)
+            .unwrap()
+            .is_none());
+        assert!(write_flac_extra_tags_atomic(&bad_path, &updates).is_err());
+        assert_eq!(fs::read(&bad_path).unwrap(), before);
+        fs::remove_dir_all(bad_root).unwrap();
     }
 
     #[test]

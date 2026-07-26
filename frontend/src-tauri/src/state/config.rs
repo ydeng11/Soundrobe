@@ -146,7 +146,12 @@ pub fn load_from(text: &str, env: &dyn Env) -> AutoTagConfig {
         config.lyrics_api_url = Some(v);
     }
     if let Some(v) = env.get("AUTO_TAG_CHINESE_SCRIPT") {
-        config.chinese_script = Some(v);
+        match v.as_str() {
+            "simplified" | "traditional" => config.chinese_script = Some(v),
+            other => tracing::warn!(
+                "ignored AUTO_TAG_CHINESE_SCRIPT={other}: expected 'simplified' or 'traditional'"
+            ),
+        }
     }
     if let Some(v) = env.get("THEAUDIODB_API_KEY") {
         config.theaudiodb_api_key = Some(v);
@@ -201,8 +206,12 @@ fn apply_yaml_key(config: &mut AutoTagConfig, key: &str, value: &str) {
         "chinese_script" => {
             if value == "null" || value.is_empty() {
                 config.chinese_script = None;
-            } else {
+            } else if value == "simplified" || value == "traditional" {
                 config.chinese_script = Some(value.to_string());
+            } else {
+                tracing::warn!(
+                    "ignored config key chinese_script={value}: expected 'simplified' or 'traditional'"
+                );
             }
         }
         "write_concurrency" => {
@@ -403,6 +412,10 @@ impl ConfigState {
     /// Load config from a given home dir + an injected env (tests).
     pub fn init_with_env(home: PathBuf, env: Arc<dyn Env>) -> Self {
         let config = load_from_disk(&home, env.as_ref());
+        tracing::info!(
+            "config loaded: chinese_script={:?}",
+            config.chinese_script
+        );
         Self {
             home,
             env,
@@ -889,6 +902,60 @@ mod tests {
         assert_eq!(
             c.chinese_script, None,
             "chinese_script: '' should yield None"
+        );
+    }
+
+    /// Intent: the real process env must propagate `AUTO_TAG_CHINESE_SCRIPT`
+    /// into the config so users who set it in `.env.local` / shell profile see
+    /// their choice reflected in the Settings UI without opening the dialogue.
+    /// Uses `std::env::set_var` because `ProcessEnv` has no other injection
+    /// point. Runs single-threaded within this function so no other test sees
+    /// the temporary var. Runs with `--test-threads=1` or in isolation.
+    #[test]
+    fn process_env_reads_auto_tag_chinese_script() {
+        let prior = std::env::var("AUTO_TAG_CHINESE_SCRIPT").ok();
+        std::env::set_var("AUTO_TAG_CHINESE_SCRIPT", "traditional");
+        let c = load_from("", &ProcessEnv);
+        assert_eq!(
+            c.chinese_script.as_deref(),
+            Some("traditional"),
+            "ProcessEnv must pick up AUTO_TAG_CHINESE_SCRIPT from the process env"
+        );
+        // Restore the prior state so parallel tests are not affected.
+        match prior {
+            Some(v) => std::env::set_var("AUTO_TAG_CHINESE_SCRIPT", v),
+            None => std::env::remove_var("AUTO_TAG_CHINESE_SCRIPT"),
+        }
+    }
+
+    /// Intent: unrecognised env var values like `"sc"` must NOT set
+    /// `chinese_script` so that the Settings UI never shows "Default" when
+    /// the user made a typo. A warning is traced instead.
+    #[test]
+    fn process_env_rejects_invalid_chinese_script() {
+        let prior = std::env::var("AUTO_TAG_CHINESE_SCRIPT").ok();
+        std::env::set_var("AUTO_TAG_CHINESE_SCRIPT", "sc");
+        let c = load_from("", &ProcessEnv);
+        assert_eq!(
+            c.chinese_script, None,
+            "'sc' must be rejected, not set on the config"
+        );
+        match prior {
+            Some(v) => std::env::set_var("AUTO_TAG_CHINESE_SCRIPT", v),
+            None => std::env::remove_var("AUTO_TAG_CHINESE_SCRIPT"),
+        }
+    }
+
+    /// Intent: a chinese_script value in the YAML that is neither
+    /// "simplified", "traditional", "null", nor empty must not set the
+    /// field. A warning is traced instead.
+    #[test]
+    fn yaml_rejects_invalid_chinese_script() {
+        let text = "chinese_script: foo\n";
+        let c = load_from(text, &EnvMap::new());
+        assert_eq!(
+            c.chinese_script, None,
+            "'foo' must be rejected, not set on the config"
         );
     }
 }

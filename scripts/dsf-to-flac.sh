@@ -22,7 +22,7 @@ ARTIST="${2:-$(basename "$(dirname "$SOURCE_DIR")")}"
 OUTPUT_BASE="${HOME}/Music/${ARTIST}"
 ALBUM_NAME="$(basename "${SOURCE_DIR}")"
 ALBUM_OUTPUT="${OUTPUT_BASE}/${ALBUM_NAME}"
-LOG_FILE="${HOME}/code/soundrobe/dsf-to-flac.log"
+LOG_FILE="$(dirname "$0")/dsf-to-flac.log"
 
 # DSD-to-PCM conversion settings
 TARGET_RATE="${TARGET_RATE:-88200}"
@@ -94,26 +94,43 @@ log "============================================================"
 errors=0
 for dsf in "${DSF_FILES[@]}"; do
     basename_dsf="$(basename "${dsf}")"
-    # Extract track number from filename
+
+    tn=""
+    tn_num=0
+    title=""
+
+    # Extract track number from filename if it starts with digits (e.g., "01 Title.dsf")
     if [[ "${basename_dsf}" =~ ^([0-9]+) ]]; then
         tn="${BASH_REMATCH[1]}"
-    else
-        continue
+        tn_num=$((10#${tn}))
     fi
 
-    # Use track name from txt file if available
-    tn_num=$((10#${tn}))
-    if [ -n "${TRACK_NAMES[${tn_num}]+x}" ]; then
+    if [ -n "${tn}" ] && [ -n "${TRACK_NAMES[${tn_num}]+x}" ]; then
+        # Known track number — use canonical title from txt listing
         title="${TRACK_NAMES[${tn_num}]}"
     else
-        # Fallback to filename parsing
-        if [[ "${basename_dsf}" =~ ^[0-9]+\ *-\ *[^-]*-\ *(.+)\.dsf$ ]]; then
-            title="${BASH_REMATCH[1]}"
-        elif [[ "${basename_dsf}" =~ ^[0-9]+\ *[-_]\ *(.+)\.dsf$ ]]; then
-            title="${BASH_REMATCH[1]}"
-        else
-            title="${basename_dsf%.dsf}"
-            title="${title%.DSF}"
+        # No track number in filename, or number not in listing
+        # Extract title from "Title - Artist.dsf" or "Title - Artist(N).dsf" pattern
+        clean_name="${basename_dsf%.*}"
+        # Remove trailing " - Artist" or " - Artist(N)" to get the title
+        title_from_filename="${clean_name% - *}"
+        [ "${title_from_filename}" = "${clean_name}" ] && title_from_filename="${clean_name}"
+
+        # Try to match extracted title against track listing
+        matched=0
+        for check_idx in "${!TRACK_NAMES[@]}"; do
+            if [ "${TRACK_NAMES[${check_idx}]}" = "${title_from_filename}" ]; then
+                tn="${check_idx}"
+                tn_num=$((10#${tn}))
+                title="${title_from_filename}"
+                matched=1
+                break
+            fi
+        done
+
+        if [ "${matched}" -eq 0 ]; then
+            # Not matched in listing — use extracted title as-is
+            title="${title_from_filename}"
         fi
     fi
 
@@ -121,10 +138,20 @@ for dsf in "${DSF_FILES[@]}"; do
     title=$(echo "${title}" | tr -d '\r' | sed 's/[\/:<>"|?*]//g' | sed 's/  */ /g' | sed 's/^ //;s/ $//')
     [ -z "${title}" ] && title="Track ${tn}"
 
-    out_file="${ALBUM_OUTPUT}/$(printf '%02d' "${tn_num}") ${title}.flac"
+    if [ -n "${tn}" ]; then
+        out_file="${ALBUM_OUTPUT}/$(printf '%02d' "${tn_num}") ${title}.flac"
+        track_meta="${tn_num}/${total_tracks}"
+    else
+        out_file="${ALBUM_OUTPUT}/${title}.flac"
+        track_meta=""
+    fi
     [ -f "${out_file}" ] && { log "  Skipping (exists): ${title}"; continue; }
 
     log "  Track ${tn_num}/${total_tracks}: ${title}..."
+
+    # Build ffmpeg metadata arguments
+    meta_args=(-metadata "artist=${ARTIST}" -metadata "album=${ALBUM_NAME}" -metadata "title=${title}")
+    [ -n "${track_meta}" ] && meta_args+=(-metadata "track=${track_meta}")
 
     # Convert DSD to PCM FLAC with proper downsampling
     if ffmpeg -y -i "${dsf}" \
@@ -132,10 +159,7 @@ for dsf in "${DSF_FILES[@]}"; do
         -af "lowpass=f=${LOWPASS_FREQ},aresample=osr=${TARGET_RATE}" \
         -c:a flac -compression_level 8 \
         -sample_fmt s32 -bits_per_raw_sample "${BITS_PER_SAMPLE}" \
-        -metadata "artist=${ARTIST}" \
-        -metadata "album=${ALBUM_NAME}" \
-        -metadata "track=${tn_num}/${total_tracks}" \
-        -metadata "title=${title}" \
+        "${meta_args[@]}" \
         "${out_file}" 2>>"${LOG_FILE}"; then
         log "    OK"
     else

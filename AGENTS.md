@@ -1,20 +1,5 @@
 # Soundrobe — Agent Guide
 
-These rules apply to every task in this project unless explicitly overridden. Bias toward caution on non-trivial work.
-
-## Working rules
-
-1. State assumptions and success criteria before substantial changes.
-2. Make the smallest change that solves the verified problem.
-3. Read exports, callers, and shared utilities before writing.
-4. Surface conflicting patterns; do not average them together.
-5. Use deterministic code for routing, retries, status handling, and transforms. Use a model only for judgment.
-6. Use TDD for every code change. Add integration coverage for structural changes.
-7. Tests must encode intent and fail when the business rule changes.
-8. Checkpoint after significant steps and fail loud about skipped or unverified work.
-9. Match existing conventions and preserve unrelated worktree changes.
-10. After changes exceeding 50 non-test lines, run `pi-simplify` and manually review the diff. If the command is unavailable, report that and perform the manual review.
-
 ## Project overview
 
 Soundrobe is a Tauri 2 + React desktop app for editing and enriching audio metadata. The maintained application is entirely under `frontend/`:

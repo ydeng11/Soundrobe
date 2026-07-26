@@ -211,16 +211,16 @@ export function AssistantPanel({
   }, [isOpen, onRefreshRequest, refreshSessionNumber, updatePendingMsg, loadPendingBatches]);
 
   // Fallback cancellation timer: if no terminal event clears sending after
-  // 150 seconds, force-cancel to prevent a permanently stuck UI.
+  // 30 seconds, force-cancel to prevent a permanently stuck UI.
   useEffect(() => {
     sendingRef.current = sending;
     if (!sending) return;
     const timerId = setTimeout(async () => {
       if (sendingRef.current) {
-        console.warn("[Assistant] Fallback cancellation timer fired (150 s)");
+        console.warn("[Assistant] Fallback cancellation timer fired (30 s)");
         try { await window.api.assistantCancel(); } catch { /* runtime may not exist */ }
       }
-    }, 150_000);
+    }, 30_000);
     return () => clearTimeout(timerId);
   }, [sending]);
 
