@@ -310,6 +310,18 @@ pub fn folder_candidate(request: &LookupRequest) -> AlbumCandidate {
         artist
     };
     let album_artists = album_artist.iter().cloned().collect::<Vec<_>>();
+    let album_artists = split_collaborative_artists(&album_artist, &album_artists);
+    let tracks = request
+        .tracks
+        .iter()
+        .map(|track| {
+            let artists = split_collaborative_artists(&track.artist, &track.artists);
+            TrackCandidate {
+                artists,
+                ..track.clone()
+            }
+        })
+        .collect();
     AlbumCandidate {
         artist: album_artist.clone(),
         artists: album_artists.clone(),
@@ -321,9 +333,34 @@ pub fn folder_candidate(request: &LookupRequest) -> AlbumCandidate {
         musicbrainz_artist_id: request.musicbrainz_artist_id.clone(),
         discogs_release_id: request.discogs_release_id.clone(),
         discogs_artist_id: request.discogs_artist_id.clone(),
-        tracks: request.tracks.clone(),
+        tracks,
         source: LookupSource::Folder,
         ..AlbumCandidate::default()
+    }
+}
+
+/// Normalize a fallback (Folder/LLM) artist list so a collaborative credit
+/// stored as a single concatenated string (e.g. "陶晶莹&张雨生") is split into
+/// individual ARTISTS entries. The display `artist` credit is the split
+/// source (preferred over a possibly stale one-item `artists` list left by an
+/// LLM correction); an already-explicit multi-artist list is left untouched,
+/// and a solo artist that does not match any collaborative separator stays
+/// as-is. When `artists` is empty and `artist` is set, the list is derived
+/// from `artist` so a solo credit still produces a single ARTISTS entry.
+fn split_collaborative_artists(artist: &Option<String>, artists: &[String]) -> Vec<String> {
+    if artists.len() > 1 {
+        return artists.to_vec();
+    }
+    let source = artist
+        .as_deref()
+        .filter(|value| !value.trim().is_empty())
+        .or_else(|| artists.first().map(String::as_str))
+        .unwrap_or_default();
+    let split = crate::state::providers::split_artist_names(&[source.to_string()]);
+    if split.is_empty() {
+        artists.to_vec()
+    } else {
+        split
     }
 }
 
@@ -1064,6 +1101,7 @@ pub fn llm_resolution_from_value(
             {
                 track.artist = Some(artist);
             }
+            track.artists = split_collaborative_artists(&track.artist, &track.artists);
             track
         })
         .collect();
@@ -1072,13 +1110,20 @@ pub fn llm_resolution_from_value(
     corrected_request.album_hint = corrected_album.clone();
     corrected_request.year_hint = corrected_year.clone();
     corrected_request.tracks = tracks.clone();
-    let album_artists = album_artist.iter().cloned().collect::<Vec<_>>();
+    let album_artists = split_collaborative_artists(
+        &album_artist,
+        &album_artist.iter().cloned().collect::<Vec<_>>(),
+    );
+    let artists = split_collaborative_artists(
+        &corrected_artist,
+        &corrected_artist.iter().cloned().collect::<Vec<_>>(),
+    );
 
     LlmTagResolution {
         corrected_request,
         fallback: AlbumCandidate {
             artist: corrected_artist.clone(),
-            artists: corrected_artist.iter().cloned().collect(),
+            artists,
             album: corrected_album,
             album_artist,
             album_artists,
@@ -1879,6 +1924,11 @@ mod tests {
             .join("../test/fixtures/tauri/media-corpus/minimal.aiff")
     }
 
+    fn corpus_flac() -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../test/fixtures/tauri/media-corpus/minimal.flac")
+    }
+
     fn track(title: &str, artist: &str) -> TrackCandidate {
         TrackCandidate {
             title: Some(title.into()),
@@ -2152,6 +2202,177 @@ mod tests {
             candidate.tracks[0].artist.as_deref(),
             Some("Per-track Artist")
         );
+    }
+
+    #[test]
+    fn folder_candidate_splits_collaborative_track_artists() {
+        let request = LookupRequest {
+            artist_hint: Some("陶晶莹".into()),
+            album_hint: Some("你又复活了".into()),
+            tracks: vec![track("执着", "陶晶莹&张雨生")],
+            ..LookupRequest::default()
+        };
+
+        let candidate = folder_candidate(&request);
+
+        // Display credit is preserved on the ARTIST tag.
+        assert_eq!(candidate.tracks[0].artist.as_deref(), Some("陶晶莹&张雨生"));
+        // ARTISTS list is split into individual collaborators.
+        assert_eq!(candidate.tracks[0].artists, vec!["陶晶莹", "张雨生"]);
+    }
+
+    #[test]
+    fn folder_candidate_splits_collaborative_album_artist_hint() {
+        let request = LookupRequest {
+            artist_hint: Some("陶晶莹&张雨生".into()),
+            album_hint: Some("执着".into()),
+            tracks: vec![TrackCandidate {
+                title: Some("执着".into()),
+                ..TrackCandidate::default()
+            }],
+            ..LookupRequest::default()
+        };
+
+        let candidate = folder_candidate(&request);
+
+        assert_eq!(candidate.album_artist.as_deref(), Some("陶晶莹&张雨生"));
+        assert_eq!(candidate.album_artists, vec!["陶晶莹", "张雨生"]);
+        assert_eq!(candidate.artists, vec!["陶晶莹", "张雨生"]);
+    }
+
+    #[test]
+    fn folder_candidate_preserves_explicit_multi_artist_list() {
+        let request = LookupRequest {
+            artist_hint: Some("陶晶莹".into()),
+            album_hint: Some("你又复活了".into()),
+            tracks: vec![TrackCandidate {
+                title: Some("执着".into()),
+                artist: Some("陶晶莹 & 张雨生".into()),
+                artists: vec!["陶晶莹".into(), "张雨生".into()],
+                ..TrackCandidate::default()
+            }],
+            ..LookupRequest::default()
+        };
+
+        let candidate = folder_candidate(&request);
+
+        assert_eq!(candidate.tracks[0].artists, vec!["陶晶莹", "张雨生"]);
+    }
+
+    #[test]
+    fn folder_candidate_keeps_solo_artist_unsplit() {
+        let request = LookupRequest {
+            artist_hint: Some("陶晶莹".into()),
+            album_hint: Some("你又复活了".into()),
+            tracks: vec![track("爱情悲喜剧", "陶晶莹")],
+            ..LookupRequest::default()
+        };
+
+        let candidate = folder_candidate(&request);
+
+        assert_eq!(candidate.tracks[0].artist.as_deref(), Some("陶晶莹"));
+        assert_eq!(candidate.tracks[0].artists, vec!["陶晶莹"]);
+    }
+
+    #[test]
+    fn llm_resolution_splits_collaborative_fallback_artists() {
+        let request = LookupRequest {
+            artist_hint: Some("陶晶莹&张雨生".into()),
+            album_hint: Some("执着".into()),
+            tracks: vec![track("执着", "陶晶莹&张雨生")],
+            ..LookupRequest::default()
+        };
+        let value = serde_json::json!({});
+
+        let resolution = llm_resolution_from_value(&request, &value);
+
+        assert_eq!(resolution.fallback.artist.as_deref(), Some("陶晶莹&张雨生"));
+        assert_eq!(resolution.fallback.artists, vec!["陶晶莹", "张雨生"]);
+        assert_eq!(resolution.fallback.album_artists, vec!["陶晶莹", "张雨生"]);
+        assert_eq!(
+            resolution.fallback.tracks[0].artist.as_deref(),
+            Some("陶晶莹&张雨生")
+        );
+        assert_eq!(
+            resolution.fallback.tracks[0].artists,
+            vec!["陶晶莹", "张雨生"]
+        );
+    }
+
+    #[test]
+    fn folder_candidate_splits_collaborative_artist_when_artists_list_empty() {
+        // `artist` credit set, `artists` empty: derive the list from `artist`.
+        let request = LookupRequest {
+            artist_hint: Some("陶晶莹".into()),
+            album_hint: Some("你又复活了".into()),
+            tracks: vec![TrackCandidate {
+                title: Some("执着".into()),
+                artist: Some("陶晶莹&张雨生".into()),
+                ..TrackCandidate::default()
+            }],
+            ..LookupRequest::default()
+        };
+
+        let candidate = folder_candidate(&request);
+
+        assert_eq!(candidate.tracks[0].artist.as_deref(), Some("陶晶莹&张雨生"));
+        assert_eq!(candidate.tracks[0].artists, vec!["陶晶莹", "张雨生"]);
+    }
+
+    #[test]
+    fn folder_candidate_derives_solo_artist_list_from_display_credit() {
+        // `artist` is solo and `artists` is empty: list is derived from `artist`.
+        let request = LookupRequest {
+            artist_hint: Some("陶晶莹".into()),
+            album_hint: Some("你又复活了".into()),
+            tracks: vec![TrackCandidate {
+                title: Some("爱情悲喜剧".into()),
+                artist: Some("陶晶莹".into()),
+                ..TrackCandidate::default()
+            }],
+            ..LookupRequest::default()
+        };
+
+        let candidate = folder_candidate(&request);
+
+        assert_eq!(candidate.tracks[0].artist.as_deref(), Some("陶晶莹"));
+        assert_eq!(candidate.tracks[0].artists, vec!["陶晶莹"]);
+    }
+
+    #[test]
+    fn llm_resolution_follows_corrected_artist_over_stale_artists_list() {
+        // An LLM correction changes `artist` from "Old Artist" to a
+        // collaborative credit; the stale one-item `artists` list must not win.
+        let request = LookupRequest {
+            artist_hint: Some("Old Artist".into()),
+            album_hint: Some("执着".into()),
+            tracks: vec![TrackCandidate {
+                title: Some("执着".into()),
+                artist: Some("Old Artist".into()),
+                artists: vec!["Old Artist".into()],
+                ..TrackCandidate::default()
+            }],
+            ..LookupRequest::default()
+        };
+        let value = serde_json::json!({
+            "artist": "陶晶莹&张雨生",
+            "albumArtist": "陶晶莹&张雨生",
+            "tracks": [{"index": 1, "artist": "陶晶莹&张雨生"}]
+        });
+
+        let resolution = llm_resolution_from_value(&request, &value);
+
+        assert_eq!(
+            resolution.fallback.tracks[0].artist.as_deref(),
+            Some("陶晶莹&张雨生")
+        );
+        assert_eq!(
+            resolution.fallback.tracks[0].artists,
+            vec!["陶晶莹", "张雨生"]
+        );
+        assert_eq!(resolution.fallback.artist.as_deref(), Some("陶晶莹&张雨生"));
+        assert_eq!(resolution.fallback.artists, vec!["陶晶莹", "张雨生"]);
+        assert_eq!(resolution.fallback.album_artists, vec!["陶晶莹", "张雨生"]);
     }
 
     #[test]
@@ -2897,6 +3118,51 @@ mod tests {
         assert_eq!(first.title.as_deref(), Some("First"));
         assert_eq!(second.title.as_deref(), Some("Second"));
         assert_eq!(second.artist.as_deref(), Some("Album Artist feat. Guest"));
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn folder_candidate_apply_splits_collaborative_artists_into_multi_value_flac() {
+        // Regression: a collaborative track whose ARTIST is a single concatenated
+        // credit ("陶晶莹&张雨生") must be written as two ARTISTS entries on the
+        // fallback (no-release) path, while the ARTIST display credit is kept.
+        let root = temp_root();
+        let album = root.join("陶晶莹/1999-你又复活了[flac]");
+        fs::create_dir_all(&album).unwrap();
+        let track_path = album.join("陶晶莹_张雨生-执着.flac");
+        fs::copy(corpus_flac(), &track_path).unwrap();
+
+        let request = LookupRequest {
+            path: album.to_string_lossy().into_owned(),
+            artist_hint: Some("陶晶莹".into()),
+            album_hint: Some("你又复活了".into()),
+            tracks: vec![TrackCandidate {
+                title: Some("执着".into()),
+                artist: Some("陶晶莹&张雨生".into()),
+                artists: vec!["陶晶莹&张雨生".into()],
+                ..TrackCandidate::default()
+            }],
+            ..LookupRequest::default()
+        };
+        let candidate = folder_candidate(&request);
+        // Sanity: the fallback candidate already split the per-track list.
+        assert_eq!(candidate.tracks[0].artists, vec!["陶晶莹", "张雨生"]);
+
+        let written = apply_candidate_tags(&album, &candidate, &WriteQueue::default())
+            .await
+            .unwrap();
+        assert_eq!(written, 1);
+
+        // The ARTIST display credit is preserved.
+        let read = crate::commands::tracks::read_track_metadata(&track_path).unwrap();
+        assert_eq!(read.artist.as_deref(), Some("陶晶莹&张雨生"));
+        // The ARTISTS multi-value field now carries one entry per collaborator.
+        let artists = crate::commands::tracks::read_extra_tags(&track_path)
+            .into_iter()
+            .filter(|row| row.key == "ARTISTS")
+            .map(|row| row.value)
+            .collect::<Vec<_>>();
+        assert_eq!(artists, vec!["陶晶莹", "张雨生"]);
         fs::remove_dir_all(root).unwrap();
     }
 

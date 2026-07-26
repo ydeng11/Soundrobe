@@ -810,7 +810,7 @@ fn clean_discogs_artist(name: &str) -> String {
         .to_string()
 }
 
-fn split_artist_names(names: &[String]) -> Vec<String> {
+pub(crate) fn split_artist_names(names: &[String]) -> Vec<String> {
     let separator = Regex::new(r"(?i)\s+(?:feat\.?|ft\.?|featuring)\s+|\s*[&/;,＋+、，；·‧]\s*")
         .expect("valid multi-artist regex");
     let mut output = Vec::new();
