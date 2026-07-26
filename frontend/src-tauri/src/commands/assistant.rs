@@ -818,8 +818,11 @@ fn build_assistant_messages(
                 "- Prefer toolCall over model-authored actionBatch.\n",
                 "- Ask one focused clarification **only** when materially different interpretations ",
                 "  would produce different actions.\n",
+                "- When you describe an action (inspect, search, look up), call the tool immediately.\n",
+                "  Do not say you'll do something without calling the tool.\n",
+                "- Message-only responses are for clarifications, answers, and limitations— ",
+                "  not for describing planned actions.\n",
                 "- When no catalog tool supports the request, explain the limitation normally.\n",
-                "- An answer without any action is valid. Not every request needs a tool.\n",
                 "- **Never claim an action was applied.** Previews still require user approval.\n",
                 "\n",
                 "toolCall — toolName from the list below, args matching its schema\n",
@@ -5148,20 +5151,34 @@ mod assistant_ai_tests {
     ) -> serde_json::Value {
         let tools = crate::commands::assistant_tools::context_tool_catalog();
         let schema = assistant_response_schema();
+        // Same system prompt as build_assistant_messages (without history).
         let system_prompt = format!(
             concat!(
-                "You are the Soundrobe desktop music-library assistant. You see the user's library context above.\n",
+                "You are the Soundrobe desktop music-library assistant. ",
+                "The user's current library selection is shown in the next user message.\n",
                 "\n",
                 "How to respond:\n",
-                "- If the user asks something the context already answers (\"what albums\", \"how many tracks\"), reply directly with just a message — no tool, no action batch.\n",
-                "- If you need data not visible in context (search for a specific artist, fetch remote info), use a read-only tool.\n",
-                "- If the user says \"change X to Y\", \"set X to Y\", or any concrete edit with a new value, output an actionBatch right away. Don't ask what value to use — it's already in their message.\n",
-                "- If the request is vague (\"edit the album\" without a value), explain what you need and ask.\n",
+                "- Infer intent from the current selection, library context, and prior turns below.\n",
+                "- Treat a short follow-up as an answer to the most recent clarification question.\n",
+                "- Combine prior turns with the current selection before choosing a tool.\n",
+                "- If the request is an explicit edit with concrete values (\"set title to X\", ",
+                "  \"remove genre\"), call metadata.patch with explicit values.\n",
+                "- If the request is a transformation (\"strip numbers from titles\", ",
+                "  \"lowercase all genres\", \"extract first word\", ",
+                "  \"convert Chinese to traditional\"), ",
+                "  call metadata.transform with the right operations pipeline.\n",
+                "- For filename/path renames, call files.transform.\n",
+                "- For multi-step library tasks like auto-tagging or auditing, call library.run_task.\n",
+                "- Prefer toolCall over model-authored actionBatch.\n",
+                "- Ask one focused clarification **only** when materially different interpretations ",
+                "  would produce different actions.\n",
+                "- When you describe an action (inspect, search, look up), call the tool immediately.\n",
+                "  Do not say you'll do something without calling the tool.\n",
+                "- Message-only responses are for clarifications, answers, and limitations— ",
+                "  not for describing planned actions.\n",
+                "- When no catalog tool supports the request, explain the limitation normally.\n",
+                "- **Never claim an action was applied.** Previews still require user approval.\n",
                 "\n",
-                "actionBatch fields:\n",
-                "  kind — one of: tag-update, extra-tag-update, metadata-update, folder-move, auto-tag-run, audit-run\n",
-                "  actions — each with trackPath from the active scope, tagKind (standard|extra), field, newValue (null to remove)\n",
-                "  riskLevel — low, medium, or high\n",
                 "toolCall — toolName from the list below, args matching its schema\n",
                 "Your message should be concise and user-facing.\n",
                 "Available tools: {tools}"
@@ -5372,6 +5389,224 @@ mod assistant_ai_tests {
             "unsupported task should explain limitation, got: {}",
             message
         );
+    }
+
+    // ── Tool-use correctness smoke tests ────────────────────────────
+
+    /// A concrete transformation request should produce a toolCall for
+    /// metadata.transform with valid operations.
+    #[ignore = "requires LLM_API_KEY, LLM_MODEL, and active OpenRouter access"]
+    #[tokio::test]
+    async fn live_transformation_calls_metadata_transform() {
+        let (key, model) = credentials().expect("set LLM_API_KEY and LLM_MODEL");
+        let context = test_library_context(2);
+        let data = assistant_llm_call(
+            "strip numbers from the front of all track titles",
+            &context,
+            &key,
+            &model,
+        )
+        .await;
+        let msg = data["message"].as_str().unwrap_or("");
+        let tool_call = &data["toolCall"];
+        let action_batch = &data["actionBatch"];
+
+        // Must include a toolCall or actionBatch (prefer toolCall).
+        assert!(
+            tool_call.is_object() || action_batch.is_object(),
+            "transformation request must produce toolCall or actionBatch, got message: {}",
+            msg
+        );
+
+        if let Some(name) = tool_call["toolName"].as_str() {
+            assert_eq!(name, "metadata.transform",
+                "expected metadata.transform, got tool: {name}");
+            let ops = tool_call["args"]["operations"].as_array();
+            assert!(
+                ops.is_some_and(|o| !o.is_empty()),
+                "metadata.transform must include non-empty operations, got args: {:?}",
+                tool_call["args"]
+            );
+        }
+        if let Some(kind) = action_batch["kind"].as_str() {
+            assert_eq!(kind, "metadata-update",
+                "expected metadata-update batch, got kind: {kind}");
+        }
+    }
+
+    /// A romanized-strip request should produce a toolCall (either
+    /// tracks.inspect to view titles first, or metadata.transform
+    /// with a regex operation).
+    #[ignore = "requires LLM_API_KEY, LLM_MODEL, and active OpenRouter access"]
+    #[tokio::test]
+    async fn live_romanized_strip_uses_inspect_or_transform() {
+        let (key, model) = credentials().expect("set LLM_API_KEY and LLM_MODEL");
+        let context = test_library_context(2);
+        let data = assistant_llm_call(
+            "strip the romanized parts from the track titles, keeping only the Chinese characters",
+            &context,
+            &key,
+            &model,
+        )
+        .await;
+        let msg = data["message"].as_str().unwrap_or("");
+        let tool_call = &data["toolCall"];
+        let action_batch = &data["actionBatch"];
+
+        // Must respond with a tool—not a message-only description of future action.
+        assert!(
+            tool_call.is_object() || action_batch.is_object(),
+            "romanized-strip must produce toolCall or actionBatch (not just talk about it), got: {}",
+            msg
+        );
+
+        if let Some(name) = tool_call["toolName"].as_str() {
+            assert!(
+                matches!(name, "tracks.inspect" | "metadata.transform"),
+                "expected tracks.inspect or metadata.transform, got: {name}"
+            );
+            if name == "metadata.transform" {
+                let ops = tool_call["args"]["operations"].as_array();
+                assert!(
+                    ops.is_some_and(|o| !o.is_empty()),
+                    "metadata.transform must have operations, got args: {:?}",
+                    tool_call["args"]
+                );
+            }
+        }
+        if let Some(kind) = action_batch["kind"].as_str() {
+            assert_eq!(kind, "metadata-update");
+        }
+    }
+
+    /// A question answered by context alone should NOT attempt a tool call.
+    #[ignore = "requires LLM_API_KEY, LLM_MODEL, and active OpenRouter access"]
+    #[tokio::test]
+    async fn live_context_answered_question_no_tool() {
+        let (key, model) = credentials().expect("set LLM_API_KEY and LLM_MODEL");
+        let context = test_library_context(2);
+        let data = assistant_llm_call(
+            "how many tracks do I have",
+            &context,
+            &key,
+            &model,
+        )
+        .await;
+        let msg = data["message"].as_str().unwrap_or("");
+        assert!(!msg.is_empty(), "must produce a message");
+        // Context includes 2 tracks, so answer should use context.
+        assert!(
+            !data["toolCall"].is_object() && !data["actionBatch"].is_object(),
+            "context-answerable question should not use toolCall or actionBatch, got: {}",
+            data
+        );
+        assert!(
+            msg.to_lowercase().contains("2") || msg.to_lowercase().contains("two"),
+            "response should mention track count, got: {}",
+            msg
+        );
+    }
+
+    /// Vague request → clarification → concrete follow-up → tool call:
+    /// simulates the full multi-turn flow.
+    #[ignore = "requires LLM_API_KEY, LLM_MODEL, and active OpenRouter access"]
+    #[tokio::test]
+    async fn live_vague_then_clarify_then_tool() {
+        let (key, model) = credentials().expect("set LLM_API_KEY and LLM_MODEL");
+        let tools = crate::commands::assistant_tools::context_tool_catalog();
+        let schema = assistant_response_schema();
+        let context = test_library_context(2);
+
+        // ---- Turn 1: vague request ----------------------------------
+        let turn1_prompt = format!(
+            concat!(
+                "You are the Soundrobe assistant.\n",
+                "\n",
+                "How to respond:\n",
+                "- If the user is vague, ask **one** focused clarification question.\n",
+                "- Do NOT produce an actionBatch or toolCall unless the intent is clear.\n",
+                "- Message-only responses are for clarifications, answers, and limitations.\n",
+                "- When you describe an action, call the tool immediately.\n",
+                "\n",
+                "toolCall — toolName from the list below, args matching its schema\n",
+                "Available tools: {tools}"
+            ),
+            tools = tools
+        );
+        let turn1: serde_json::Value = serde_json::from_value(
+            OpenRouterClient::new(&key, &model)
+                .with_generation(0.0, 4096)
+                .with_timeout(std::time::Duration::from_secs(60))
+                .complete_json(
+                    vec![
+                        ChatMessage::system(&turn1_prompt),
+                        ChatMessage::user(format!(
+                            "App context:\n{context}\n\nUser request:\nremove titles"
+                        )),
+                    ],
+                    "AssistantResponse",
+                    schema.clone(),
+                    &AtomicBool::new(false),
+                )
+                .await
+                .expect("turn1 should succeed")
+                .data,
+        )
+        .expect("turn1 should be valid JSON");
+        let msg1 = turn1["message"].as_str().unwrap_or("");
+        assert!(!msg1.is_empty(), "turn1: must produce a message");
+        // Must clarify, not produce an action.
+        assert!(
+            !turn1["actionBatch"].is_object(),
+            "turn1: vague request should not produce actionBatch"
+        );
+        assert!(
+            msg1.to_lowercase().contains("?") || msg1.to_lowercase().contains("mean") || msg1.to_lowercase().contains("clarify"),
+            "turn1: should ask a clarification question, got: {msg1}"
+        );
+
+        // ---- Turn 2: user clarifies ---------------------------------
+        let turn2: serde_json::Value = serde_json::from_value(
+            OpenRouterClient::new(&key, &model)
+                .with_generation(0.0, 4096)
+                .with_timeout(std::time::Duration::from_secs(60))
+                .complete_json(
+                    vec![
+                        ChatMessage::system(&turn1_prompt),
+                        ChatMessage::user(format!(
+                            "App context:\n{context}\n\nUser request:\nremove titles"
+                        )),
+                        ChatMessage {
+                            role: "assistant".into(),
+                            content: msg1.to_string(),
+                        },
+                        ChatMessage::user("I mean clear the title tags on the selected tracks"),
+                    ],
+                    "AssistantResponse",
+                    schema.clone(),
+                    &AtomicBool::new(false),
+                )
+                .await
+                .expect("turn2 should succeed")
+                .data,
+        )
+        .expect("turn2 should be valid JSON");
+        let tool_call = &turn2["toolCall"];
+        let action_batch = &turn2["actionBatch"];
+        assert!(
+            tool_call.is_object() || action_batch.is_object(),
+            "turn2: concrete follow-up should produce toolCall or actionBatch, got: {}",
+            turn2["message"].as_str().unwrap_or("")
+        );
+        if let Some(name) = tool_call["toolName"].as_str() {
+            assert!(
+                matches!(name, "metadata.patch" | "metadata.transform"),
+                "expected metadata.patch or metadata.transform, got: {name}"
+            );
+        }
+        if let Some(kind) = action_batch["kind"].as_str() {
+            assert_eq!(kind, "metadata-update");
+        }
     }
 }
 
