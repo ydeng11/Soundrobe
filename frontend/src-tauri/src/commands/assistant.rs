@@ -419,8 +419,24 @@ pub async fn assistant_send(
     let mut repaired_invalid_args = false;
     let mut final_draft = None;
     let mut pending_tool_batches = Vec::new();
+    let mut self_reviewed = false;
 
     for step_number in 1..=10 {
+        // Bounded total watchdog: fail if the whole session exceeds 120 s.
+        if session_start.elapsed() > std::time::Duration::from_secs(120) {
+            tracing::error!(
+                elapsed_us = session_start.elapsed().as_micros(),
+                session_id = %session_id,
+                "assistant session timed out (120 s)"
+            );
+            conversation.record_system("Session timed out after 120 seconds");
+            return assistant_error_event(
+                &app,
+                Some(session_id),
+                "The assistant session timed out. Please try again.",
+            );
+        }
+
         let step = AssistantEvent {
             session_id: session_id.clone(),
             event_type: "step",
@@ -488,6 +504,23 @@ pub async fn assistant_send(
             ));
         }
         let Some(tool_call) = draft.tool_call else {
+            // Self-review retry: when the LLM returns a message-only draft,
+            // give it one chance to convert a planned-action description
+            // into an actual tool call.  Genuine clarifications, answers,
+            // and limitations pass through unchanged.
+            if !self_reviewed {
+                self_reviewed = true;
+                messages.push(ChatMessage {
+                    role: "assistant".into(),
+                    content: draft.message.clone(),
+                });
+                messages.push(ChatMessage::system(
+                    "If your response above is a clarification, answer, or limitation, \
+                     finalize it unchanged.  If it announces an action (e.g. \"I'll inspect\" \
+                     or \"let me preview\"), call the tool now instead.".to_string(),
+                ));
+                continue;
+            }
             final_draft = Some(draft);
             break;
         };
