@@ -5141,8 +5141,8 @@ mod assistant_ai_tests {
         })
     }
 
-    /// Call the LLM with the same system prompt and tool catalog as the
-    /// real assistant_send, returning the parsed response.
+    /// Call the LLM using the production prompt construction (via
+    /// build_assistant_messages with empty history).
     async fn assistant_llm_call(
         user_message: &str,
         context: &Value,
@@ -5151,44 +5151,7 @@ mod assistant_ai_tests {
     ) -> serde_json::Value {
         let tools = crate::commands::assistant_tools::context_tool_catalog();
         let schema = assistant_response_schema();
-        // Same system prompt as build_assistant_messages (without history).
-        let system_prompt = format!(
-            concat!(
-                "You are the Soundrobe desktop music-library assistant. ",
-                "The user's current library selection is shown in the next user message.\n",
-                "\n",
-                "How to respond:\n",
-                "- Infer intent from the current selection, library context, and prior turns below.\n",
-                "- Treat a short follow-up as an answer to the most recent clarification question.\n",
-                "- Combine prior turns with the current selection before choosing a tool.\n",
-                "- If the request is an explicit edit with concrete values (\"set title to X\", ",
-                "  \"remove genre\"), call metadata.patch with explicit values.\n",
-                "- If the request is a transformation (\"strip numbers from titles\", ",
-                "  \"lowercase all genres\", \"extract first word\", ",
-                "  \"convert Chinese to traditional\"), ",
-                "  call metadata.transform with the right operations pipeline.\n",
-                "- For filename/path renames, call files.transform.\n",
-                "- For multi-step library tasks like auto-tagging or auditing, call library.run_task.\n",
-                "- Prefer toolCall over model-authored actionBatch.\n",
-                "- Ask one focused clarification **only** when materially different interpretations ",
-                "  would produce different actions.\n",
-                "- When you describe an action (inspect, search, look up), call the tool immediately.\n",
-                "  Do not say you'll do something without calling the tool.\n",
-                "- Message-only responses are for clarifications, answers, and limitations— ",
-                "  not for describing planned actions.\n",
-                "- When no catalog tool supports the request, explain the limitation normally.\n",
-                "- **Never claim an action was applied.** Previews still require user approval.\n",
-                "\n",
-                "toolCall — toolName from the list below, args matching its schema\n",
-                "Your message should be concise and user-facing.\n",
-                "Available tools: {tools}"
-            ),
-            tools = tools
-        );
-        let messages = vec![
-            ChatMessage::system(system_prompt),
-            ChatMessage::user(format!("App context:\n{context}\n\nUser request:\n{user_message}")),
-        ];
+        let messages = build_assistant_messages(context, &tools, &[], user_message);
         let client = OpenRouterClient::new(api_key, model)
             .with_generation(0.0, 4096)
             .with_timeout(std::time::Duration::from_secs(60));
@@ -5393,8 +5356,8 @@ mod assistant_ai_tests {
 
     // ── Tool-use correctness smoke tests ────────────────────────────
 
-    /// A concrete transformation request should produce a toolCall for
-    /// metadata.transform with valid operations.
+    /// A concrete transformation request must produce a toolCall
+    /// metadata.transform with non-empty operations.
     #[ignore = "requires LLM_API_KEY, LLM_MODEL, and active OpenRouter access"]
     #[tokio::test]
     async fn live_transformation_calls_metadata_transform() {
@@ -5407,76 +5370,193 @@ mod assistant_ai_tests {
             &model,
         )
         .await;
-        let msg = data["message"].as_str().unwrap_or("");
         let tool_call = &data["toolCall"];
-        let action_batch = &data["actionBatch"];
-
-        // Must include a toolCall or actionBatch (prefer toolCall).
         assert!(
-            tool_call.is_object() || action_batch.is_object(),
-            "transformation request must produce toolCall or actionBatch, got message: {}",
-            msg
+            tool_call.is_object(),
+            "transformation must produce a toolCall (not actionBatch, not message-only), got: {}",
+            data
         );
-
-        if let Some(name) = tool_call["toolName"].as_str() {
-            assert_eq!(name, "metadata.transform",
-                "expected metadata.transform, got tool: {name}");
-            let ops = tool_call["args"]["operations"].as_array();
-            assert!(
-                ops.is_some_and(|o| !o.is_empty()),
-                "metadata.transform must include non-empty operations, got args: {:?}",
-                tool_call["args"]
-            );
-        }
-        if let Some(kind) = action_batch["kind"].as_str() {
-            assert_eq!(kind, "metadata-update",
-                "expected metadata-update batch, got kind: {kind}");
-        }
+        let name = tool_call["toolName"].as_str().unwrap_or("");
+        assert_eq!(name, "metadata.transform",
+            "expected metadata.transform, got tool: {name}");
+        let ops = tool_call["args"]["operations"].as_array();
+        assert!(
+            ops.is_some_and(|o| !o.is_empty()),
+            "metadata.transform must include non-empty operations, got args: {:?}",
+            tool_call["args"]
+        );
+        // The first operation should act on "title" field.
+        let first_op = &ops.unwrap()[0];
+        assert!(
+            first_op.get("field").and_then(Value::as_str) == Some("title"),
+            "first operation should target 'title', got: {:?}",
+            first_op
+        );
     }
 
-    /// A romanized-strip request should produce a toolCall (either
-    /// tracks.inspect to view titles first, or metadata.transform
-    /// with a regex operation).
+    /// Full romanization scenario: fixture tracks with Chinese+romanized
+    /// titles → LLM inspects → LLM transforms → assert exact output values.
+    /// Walks the real assistant loop (tool calls → execute → feed back → repeat).
     #[ignore = "requires LLM_API_KEY, LLM_MODEL, and active OpenRouter access"]
     #[tokio::test]
-    async fn live_romanized_strip_uses_inspect_or_transform() {
+    async fn live_romanized_strip_full_scenario() {
         let (key, model) = credentials().expect("set LLM_API_KEY and LLM_MODEL");
-        let context = test_library_context(2);
-        let data = assistant_llm_call(
-            "strip the romanized parts from the track titles, keeping only the Chinese characters",
-            &context,
-            &key,
-            &model,
-        )
-        .await;
-        let msg = data["message"].as_str().unwrap_or("");
-        let tool_call = &data["toolCall"];
-        let action_batch = &data["actionBatch"];
+        let tools = crate::commands::assistant_tools::context_tool_catalog();
+        let schema = assistant_response_schema();
 
-        // Must respond with a tool—not a message-only description of future action.
-        assert!(
-            tool_call.is_object() || action_batch.is_object(),
-            "romanized-strip must produce toolCall or actionBatch (not just talk about it), got: {}",
-            msg
-        );
+        // Fixture tracks with deterministic Chinese+romanized titles.
+        let track1_path = "/music/artist/album/01 月亮代表我的心.flac";
+        let track2_path = "/music/artist/album/02 甜蜜蜜.flac";
+        let fixture_input = AssistantSendInput {
+            selected_track_paths: vec![track1_path.into(), track2_path.into()],
+            tracks: vec![
+                serde_json::json!({
+                    "path": track1_path,
+                    "title": "月亮代表我的心 (Yue Liang Dai Biao Wo De Xin)",
+                    "artist": "Various",
+                    "album": "Chinese Classics"
+                }),
+                serde_json::json!({
+                    "path": track2_path,
+                    "title": "甜蜜蜜 (Tian Mi Mi)",
+                    "artist": "Various",
+                    "album": "Chinese Classics"
+                }),
+            ],
+            albums: vec![serde_json::json!({
+                "path": "/music/artist/album",
+                "name": "Chinese Classics",
+                "artistHint": "Various",
+                "albumHint": "Chinese Classics",
+                "trackCount": 2
+            })],
+            autonomous: false,
+            ..Default::default()
+        };
+        let context = serde_json::json!({
+            "libraryPath": "/music",
+            "selectedTrackPaths": fixture_input.selected_track_paths,
+            "tracks": fixture_input.tracks,
+            "albums": fixture_input.albums,
+            "autonomous": false,
+        });
 
-        if let Some(name) = tool_call["toolName"].as_str() {
-            assert!(
-                matches!(name, "tracks.inspect" | "metadata.transform"),
-                "expected tracks.inspect or metadata.transform, got: {name}"
-            );
-            if name == "metadata.transform" {
-                let ops = tool_call["args"]["operations"].as_array();
+        let mut messages = build_assistant_messages(&context, &tools, &[],
+            "strip the romanized parts from the track titles, keeping only the Chinese characters");
+        let cancelled = AtomicBool::new(false);
+        let mut final_draft: Option<serde_json::Value> = None;
+        let mut signatures: Vec<(String, Value)> = Vec::new();
+
+        for _step in 1..=6 {
+            let response = OpenRouterClient::new(&key, &model)
+                .with_generation(0.0, 4096)
+                .with_timeout(std::time::Duration::from_secs(60))
+                .complete_json(messages.clone(), "AssistantResponse", schema.clone(), &cancelled)
+                .await
+                .expect("LLM call should succeed");
+            let draft: AssistantDraft = serde_json::from_value(response.data)
+                .expect("draft should deserialize");
+            let draft = normalize_noop_batch(draft);
+
+            let Some(tool_call) = draft.tool_call else {
+                // LLM responded with just a message — accept if it's a clarification
+                // or explanation, fail if it describes a planned action.
+                let msg = draft.message.to_lowercase();
                 assert!(
-                    ops.is_some_and(|o| !o.is_empty()),
-                    "metadata.transform must have operations, got args: {:?}",
-                    tool_call["args"]
+                    msg.contains("?") || msg.contains("can't") || msg.contains("not possible")
+                        || msg.contains("sorry") || msg.contains("don't have"),
+                    "LLM returned message-only instead of calling a tool: '{}'",
+                    draft.message
                 );
+                final_draft = Some(serde_json::json!({"message": draft.message}));
+                break;
+            };
+
+            // Validate and execute the tool call.
+            if let Err(e) = validate_registered_tool_args(&tool_call.tool_name, &tool_call.args) {
+                panic!("invalid args for {}: {}", tool_call.tool_name, e);
             }
+
+            let sig = (tool_call.tool_name.clone(), tool_call.args.clone());
+            if signatures.contains(&sig) {
+                panic!("repeated tool call: {} {:?}", tool_call.tool_name, tool_call.args);
+            }
+            signatures.push(sig);
+
+            if tool_call.tool_name == "tracks.inspect" {
+                // Execute tracks.inspect against the fixture input.
+                let result = execute_context_tool(
+                    &tool_call.tool_name,
+                    &tool_call.args,
+                    &fixture_input,
+                );
+                assert!(result.ok, "tracks.inspect failed: {}", result.error.unwrap_or_default());
+                messages.push(ChatMessage {
+                    role: "assistant".to_string(),
+                    content: serde_json::json!({
+                        "toolCall": {"toolName": &tool_call.tool_name, "args": &tool_call.args}
+                    }).to_string(),
+                });
+                messages.push(ChatMessage::user(tool_result_prompt(&result)));
+                continue;
+            }
+
+            if tool_call.tool_name == "metadata.transform" || tool_call.tool_name == "metadata.patch" {
+                let execution = execute_mutating_assistant_tool(
+                    &tool_call.tool_name,
+                    &tool_call.args,
+                    &fixture_input,
+                    "test-session",
+                );
+                assert!(execution.result.ok,
+                    "{} failed: {}", tool_call.tool_name,
+                    execution.result.error.as_deref().unwrap_or("unknown"));
+                assert!(!execution.batches.is_empty(), "must produce at least one action");
+                let batch = &execution.batches[0];
+                assert_eq!(batch.kind, "metadata-update");
+                assert_eq!(batch.actions.len(), 2, "expected 2 actions (one per track)");
+
+                // Track 1: "月亮代表我的心 (Yue Liang Dai Biao Wo De Xin)" → "月亮代表我的心"
+                let a0 = &batch.actions[0];
+                assert_eq!(a0.track_path.as_deref(), Some(track1_path));
+                assert_eq!(a0.field.as_deref(), Some("title"));
+                assert_eq!(a0.new_value.as_deref(), Some("月亮代表我的心"),
+                    "track 1 title should strip romanized part");
+
+                // Track 2: "甜蜜蜜 (Tian Mi Mi)" → "甜蜜蜜"
+                let a1 = &batch.actions[1];
+                assert_eq!(a1.track_path.as_deref(), Some(track2_path));
+                assert_eq!(a1.field.as_deref(), Some("title"));
+                assert_eq!(a1.new_value.as_deref(), Some("甜蜜蜜"),
+                    "track 2 title should strip romanized part");
+
+                final_draft = Some(serde_json::json!({
+                    "message": draft.message,
+                    "toolCall": {"toolName": &tool_call.tool_name, "args": &tool_call.args},
+                    "batch": batch
+                }));
+                break;
+            }
+
+            // Unknown tool — feed result back.
+            let result = execute_context_tool(
+                &tool_call.tool_name,
+                &tool_call.args,
+                &fixture_input,
+            );
+            messages.push(ChatMessage {
+                role: "assistant".to_string(),
+                content: serde_json::json!({
+                    "toolCall": {"toolName": &tool_call.tool_name, "args": &tool_call.args}
+                }).to_string(),
+            });
+            messages.push(ChatMessage::user(tool_result_prompt(&result)));
         }
-        if let Some(kind) = action_batch["kind"].as_str() {
-            assert_eq!(kind, "metadata-update");
-        }
+
+        assert!(
+            final_draft.is_some(),
+            "test completed without final draft (exceeded step limit or stuck)"
+        );
     }
 
     /// A question answered by context alone should NOT attempt a tool call.
@@ -5484,7 +5564,8 @@ mod assistant_ai_tests {
     #[tokio::test]
     async fn live_context_answered_question_no_tool() {
         let (key, model) = credentials().expect("set LLM_API_KEY and LLM_MODEL");
-        let context = test_library_context(2);
+        // test_library_context(0) = 2 base tracks.
+        let context = test_library_context(0);
         let data = assistant_llm_call(
             "how many tracks do I have",
             &context,
@@ -5502,7 +5583,7 @@ mod assistant_ai_tests {
         );
         assert!(
             msg.to_lowercase().contains("2") || msg.to_lowercase().contains("two"),
-            "response should mention track count, got: {}",
+            "response should mention track count \"2\", got: {}",
             msg
         );
     }
@@ -5515,84 +5596,72 @@ mod assistant_ai_tests {
         let (key, model) = credentials().expect("set LLM_API_KEY and LLM_MODEL");
         let tools = crate::commands::assistant_tools::context_tool_catalog();
         let schema = assistant_response_schema();
-        let context = test_library_context(2);
+        let context = test_library_context(0);
+        let fixture_input = AssistantSendInput {
+            selected_track_paths: vec!["/music/artist/album/track1.flac".into()],
+            tracks: vec![
+                serde_json::json!({
+                    "path": "/music/artist/album/track1.flac",
+                    "title": "Blue Train",
+                    "artist": "John Coltrane",
+                    "album": "Blue Train"
+                }),
+            ],
+            ..Default::default()
+        };
 
-        // ---- Turn 1: vague request ----------------------------------
-        let turn1_prompt = format!(
-            concat!(
-                "You are the Soundrobe assistant.\n",
-                "\n",
-                "How to respond:\n",
-                "- If the user is vague, ask **one** focused clarification question.\n",
-                "- Do NOT produce an actionBatch or toolCall unless the intent is clear.\n",
-                "- Message-only responses are for clarifications, answers, and limitations.\n",
-                "- When you describe an action, call the tool immediately.\n",
-                "\n",
-                "toolCall — toolName from the list below, args matching its schema\n",
-                "Available tools: {tools}"
-            ),
-            tools = tools
-        );
-        let turn1: serde_json::Value = serde_json::from_value(
-            OpenRouterClient::new(&key, &model)
-                .with_generation(0.0, 4096)
-                .with_timeout(std::time::Duration::from_secs(60))
-                .complete_json(
-                    vec![
-                        ChatMessage::system(&turn1_prompt),
-                        ChatMessage::user(format!(
-                            "App context:\n{context}\n\nUser request:\nremove titles"
-                        )),
-                    ],
-                    "AssistantResponse",
-                    schema.clone(),
-                    &AtomicBool::new(false),
-                )
-                .await
-                .expect("turn1 should succeed")
-                .data,
-        )
-        .expect("turn1 should be valid JSON");
+        // ---- Turn 1: vague request using production prompt ----------
+        let turn1_messages = build_assistant_messages(&context, &tools, &[], "remove titles");
+        let response = OpenRouterClient::new(&key, &model)
+            .with_generation(0.0, 4096)
+            .with_timeout(std::time::Duration::from_secs(60))
+            .complete_json(turn1_messages, "AssistantResponse", schema.clone(), &AtomicBool::new(false))
+            .await
+            .expect("turn1 should succeed");
+        let turn1: serde_json::Value = serde_json::from_value(response.data)
+            .expect("turn1 should be valid JSON");
         let msg1 = turn1["message"].as_str().unwrap_or("");
         assert!(!msg1.is_empty(), "turn1: must produce a message");
-        // Must clarify, not produce an action.
+        // Must clarify (message-only), not produce an action.
         assert!(
-            !turn1["actionBatch"].is_object(),
-            "turn1: vague request should not produce actionBatch"
+            !turn1["actionBatch"].is_object() && !turn1["toolCall"].is_object(),
+            "turn1: vague request should not produce actionBatch or toolCall"
         );
         assert!(
             msg1.to_lowercase().contains("?") || msg1.to_lowercase().contains("mean") || msg1.to_lowercase().contains("clarify"),
             "turn1: should ask a clarification question, got: {msg1}"
         );
 
-        // ---- Turn 2: user clarifies ---------------------------------
-        let turn2: serde_json::Value = serde_json::from_value(
-            OpenRouterClient::new(&key, &model)
-                .with_generation(0.0, 4096)
-                .with_timeout(std::time::Duration::from_secs(60))
-                .complete_json(
-                    vec![
-                        ChatMessage::system(&turn1_prompt),
-                        ChatMessage::user(format!(
-                            "App context:\n{context}\n\nUser request:\nremove titles"
-                        )),
-                        ChatMessage {
-                            role: "assistant".into(),
-                            content: msg1.to_string(),
-                        },
-                        ChatMessage::user("I mean clear the title tags on the selected tracks"),
-                    ],
-                    "AssistantResponse",
-                    schema.clone(),
-                    &AtomicBool::new(false),
-                )
-                .await
-                .expect("turn2 should succeed")
-                .data,
-        )
-        .expect("turn2 should be valid JSON");
+        // ---- Turn 2: user clarifies (production prompt + history) ----
+        let follow_up_history = vec![
+            ConversationEntry {
+                id: 1, session_uuid: "s".into(), session_number: "s".into(),
+                timestamp: "t1".into(), entry_type: "user_message".into(),
+                content: "remove titles".into(),
+                model: None, prompt_tokens: 0, completion_tokens: 0, total_tokens: 0, cost: 0.0, metadata: None,
+            },
+            ConversationEntry {
+                id: 2, session_uuid: "s".into(), session_number: "s".into(),
+                timestamp: "t2".into(), entry_type: "assistant_message".into(),
+                content: msg1.to_string(),
+                model: None, prompt_tokens: 0, completion_tokens: 0, total_tokens: 0, cost: 0.0, metadata: None,
+            },
+        ];
+        let turn2_messages = build_assistant_messages(
+            &context, &tools, &follow_up_history,
+            "I mean clear the title tags on the selected tracks",
+        );
+        let response = OpenRouterClient::new(&key, &model)
+            .with_generation(0.0, 4096)
+            .with_timeout(std::time::Duration::from_secs(60))
+            .complete_json(turn2_messages, "AssistantResponse", schema.clone(), &AtomicBool::new(false))
+            .await
+            .expect("turn2 should succeed");
+        let turn2: serde_json::Value = serde_json::from_value(response.data)
+            .expect("turn2 should be valid JSON");
         let tool_call = &turn2["toolCall"];
         let action_batch = &turn2["actionBatch"];
+        // Must produce a tool or action.
         assert!(
             tool_call.is_object() || action_batch.is_object(),
             "turn2: concrete follow-up should produce toolCall or actionBatch, got: {}",
@@ -5601,7 +5670,25 @@ mod assistant_ai_tests {
         if let Some(name) = tool_call["toolName"].as_str() {
             assert!(
                 matches!(name, "metadata.patch" | "metadata.transform"),
-                "expected metadata.patch or metadata.transform, got: {name}"
+                "turn2: expected metadata.patch or metadata.transform, got: {name}"
+            );
+            // Validate and execute the tool.
+            validate_registered_tool_args(name, &tool_call["args"])
+                .expect("turn2 tool args should be valid");
+            let execution = execute_mutating_assistant_tool(
+                name, &tool_call["args"], &fixture_input, "test-session",
+            );
+            assert!(execution.result.ok,
+                "turn2 {} failed: {}", name,
+                execution.result.error.as_deref().unwrap_or("unknown"));
+            assert!(!execution.batches.is_empty(), "turn2 must produce at least one action");
+            assert_eq!(execution.batches[0].kind, "metadata-update");
+            assert_eq!(execution.batches[0].actions.len(), 1,
+                "expected 1 action for the single selected track");
+            assert_eq!(
+                execution.batches[0].actions[0].field.as_deref(),
+                Some("title"),
+                "should clear the title field"
             );
         }
         if let Some(kind) = action_batch["kind"].as_str() {
