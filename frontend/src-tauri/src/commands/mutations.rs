@@ -1727,7 +1727,10 @@ fn write_id3_extra_tags_atomic(
     updates: &[ExtraTagUpdate],
     wav: bool,
 ) -> Result<TrackWriteOutcome, ApiError> {
-    let original = fs::read(path)?;
+    let mut original = fs::read(path)?;
+    if wav {
+        fix_wav_orphan_tail(&mut original);
+    }
     let mut file = File::open(path)?;
     let mut tag = if wav {
         WavFile::read_from(&mut file, ParseOptions::new().read_properties(false))?
@@ -2061,6 +2064,7 @@ pub fn write_ape_atomic(path: &Path, patch: &TrackPatch) -> Result<TrackWriteOut
 /// change, but every PCM `data` payload must remain exact.
 pub fn write_wav_atomic(path: &Path, patch: &TrackPatch) -> Result<TrackWriteOutcome, ApiError> {
     let mut original_bytes = fs::read(path)?;
+    fix_wav_orphan_tail(&mut original_bytes);
     let original_audio = wav_data_payloads(&original_bytes)
         .ok_or_else(|| ApiError::MediaSafety("invalid WAV chunk structure".to_string()))?;
 
@@ -2993,6 +2997,121 @@ fn ape_audio_core(bytes: &[u8]) -> Option<&[u8]> {
     (audio_end > 0).then(|| bytes.get(..audio_end)).flatten()
 }
 
+/// If the last declared WAV chunk (typically `data`) is followed by orphan
+/// bytes up to the RIFF end, expand the data chunk to include them.
+///
+/// Some WAV files have a few leftover PCM bytes after the declared data chunk
+/// end.  These are counted in the RIFF total size but not in any chunk's
+/// header, making `wav_data_payloads` reject them.  This function adopts them
+/// into the data chunk so the file is self-consistent.
+///
+/// Guards:
+/// - Valid RIFF/WAVE header
+/// - PCM fmt with known block_align
+/// - A single `data` chunk as the last valid chunk
+/// - Orphan tail is bounded (<= 4096 bytes)
+/// - Orphan tail is block-aligned
+/// - Truncated (incomplete) data is never repaired
+fn fix_wav_orphan_tail(data: &mut [u8]) -> bool {
+    if data.len() < 12 || &data[..4] != b"RIFF" || &data[8..12] != b"WAVE" {
+        return false;
+    }
+
+    let mut offset = 12_usize;
+    let mut last_chunk_end = 0_usize;
+    let mut data_chunk_pos: Option<usize> = None;
+    let mut fmt_block_align: Option<u16> = None;
+
+    while let Some(end) = offset.checked_add(8) {
+        if end > data.len() {
+            break;
+        }
+        let id = &data[offset..offset + 4];
+
+        // Stop at null FourCC (verified trailing padding)
+        if *id == [0u8; 4] {
+            break;
+        }
+
+        let size = u32::from_le_bytes(
+            data.get(offset + 4..offset + 8)
+                .and_then(|s| <[u8; 4]>::try_from(s).ok())
+                .unwrap_or([0; 4]),
+        ) as usize;
+        let chunk_total = 8 + size + (size & 1);
+        let Some(next) = offset.checked_add(chunk_total) else {
+            return false;
+        };
+
+        if next > data.len() {
+            // This chunk overflows — everything from `offset` onward is orphan
+            break;
+        }
+
+        if id == b"data" {
+            data_chunk_pos = Some(offset);
+        }
+        if id == b"fmt " && size >= 16 {
+            // block_align is at offset 20 within the fmt chunk
+            let ba_bytes: [u8; 2] = data
+                .get(offset + 20..offset + 22)
+                .and_then(|s| <[u8; 2]>::try_from(s).ok())
+                .unwrap_or([0; 2]);
+            fmt_block_align = Some(u16::from_le_bytes(ba_bytes));
+        }
+
+        last_chunk_end = next;
+        offset = next;
+    }
+
+    let orphan_start = last_chunk_end;
+    let Some(orphan_len) = data.len().checked_sub(orphan_start) else {
+        return false;
+    };
+    if orphan_len == 0 {
+        return false;
+    }
+
+    // Only repair when the data chunk was the last valid chunk
+    let data_pos = match data_chunk_pos {
+        Some(p) => p,
+        None => return false,
+    };
+    let old_data_size = match data
+        .get(data_pos + 4..data_pos + 8)
+        .and_then(|s| <[u8; 4]>::try_from(s).ok())
+    {
+        Some(s) => u32::from_le_bytes(s) as usize,
+        None => return false,
+    };
+    let data_chunk_end = data_pos + 8 + old_data_size + (old_data_size & 1);
+    if data_chunk_end != orphan_start {
+        return false;
+    }
+
+    // Bounded orphan tail (4 KiB)
+    const MAX_ORPHAN_TAIL: usize = 4096;
+    if orphan_len > MAX_ORPHAN_TAIL {
+        return false;
+    }
+
+    // Block-aligned (only when fmt block_align is available; default to 1)
+    let block_align = fmt_block_align.unwrap_or(1) as usize;
+    if orphan_len % block_align != 0 {
+        return false;
+    }
+
+    // All checks pass: expand the data chunk to absorb the orphan bytes
+    let new_data_size = old_data_size + orphan_len;
+    data[data_pos + 4..data_pos + 8].copy_from_slice(&(new_data_size as u32).to_le_bytes());
+
+    // Ensure RIFF total size is consistent
+    let riff_len = (data.len() as u32).wrapping_sub(8).to_le_bytes();
+    data[4..8].copy_from_slice(&riff_len);
+
+    true
+}
+
 fn wav_data_payloads(bytes: &[u8]) -> Option<Vec<Vec<u8>>> {
     if bytes.len() < 12 || bytes.get(..4)? != b"RIFF" || bytes.get(8..12)? != b"WAVE" {
         return None;
@@ -3005,14 +3124,14 @@ fn wav_data_payloads(bytes: &[u8]) -> Option<Vec<Vec<u8>>> {
         let data_start = offset.checked_add(8)?;
         let data_end = data_start.checked_add(size)?;
         if data_end > bytes.len() {
-            break;
+            return None;
         }
         if id == b"data" {
             payloads.push(bytes.get(data_start..data_end)?.to_vec());
         }
         offset = data_end.checked_add(size % 2)?;
     }
-    (!payloads.is_empty()).then_some(payloads)
+    (offset == bytes.len() && !payloads.is_empty()).then_some(payloads)
 }
 
 /// Strip the RIFF `LIST` chunk from a WAV byte buffer, returning a new
@@ -4286,63 +4405,118 @@ mod tests {
         assert!(saw_adtl, "strip_wav_list_chunk must preserve LIST adtl");
     }
 
-    /// Regression: a WAV whose RIFF size accounts for trailing junk bytes
-    /// after the last declared data chunk must be readable by both
-    /// `wav_data_payloads` and `write_wav_atomic`.  These bytes look like
-    /// a spurious chunk with a large size that overflows the file boundary
-    /// — the functions should stop iterating gracefully instead of failing.
+    /// Regression: a WAV whose RIFF total accounts for orphan bytes after
+    /// the last declared `data` chunk must be repairable via
+    /// `fix_wav_orphan_tail` so `write_wav_atomic` can validate and write.
+    ///
+    /// The repair expands the data chunk to absorb the orphan bytes (they
+    /// become part of the audio payload).  The test verifies:
+    /// - `wav_data_payloads` (strict) rejects the unrepaired buffer
+    /// - `fix_wav_orphan_tail` succeeds and expands the payload by 8 bytes
+    /// - The expanded payload ends with the exact orphan tail
+    /// - `write_wav_atomic` writes and preserves the expanded payload
+    /// - Truncated-data and non-block-aligned cases are correctly rejected
     #[test]
-    fn wav_data_payloads_handles_trailing_junk_bytes() {
+    fn fix_wav_orphan_tail_absorbs_block_aligned_tail() {
         let (root, path) = copy_to_temp(&media_fixture("minimal.wav"), "track.wav");
+        let original_clean = fs::read(&path).unwrap();
 
-        // Append trailing junk bytes (simulating real-world file defects).
-        // These mimic the pattern seen in the field: 6 bytes of 0xFF
-        // (leftover audio samples) followed by 2 null bytes.
-        let mut junked = fs::read(&path).unwrap();
-        junked.extend_from_slice(&[0xFFu8; 6]);
-        junked.extend_from_slice(&[0x00u8; 2]);
-        // Update RIFF size so the container is self-consistent (the junk
-        // is included in the total, just not in any declared chunk).
+        // Build a junked WAV: append 8 bytes (block-aligned for 16-bit mono
+        // — block_align=2 from fmt) after the data chunk, update RIFF total.
+        let orphan_bytes: [u8; 8] = [0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00];
+        let mut junked = original_clean.clone();
+        junked.extend_from_slice(&orphan_bytes);
         let riff_len = (junked.len() as u32).wrapping_sub(8).to_le_bytes();
         junked[4..8].copy_from_slice(&riff_len);
         fs::write(&path, &junked).unwrap();
+        let original_data_len = original_clean.len() - 44; // data payload size
 
-        // 1) wav_data_payloads must extract the data chunk despite trailing junk
-        let payloads = wav_data_payloads(&junked).unwrap();
+        // 1) Strict wav_data_payloads rejects the unrepaired buffer
+        assert!(
+            wav_data_payloads(&junked).is_none(),
+            "strict wav_data_payloads must reject orphan-tail WAV"
+        );
+
+        // 2) fix_wav_orphan_tail succeeds
+        let mut repaired = junked.clone();
+        assert!(fix_wav_orphan_tail(&mut repaired));
+
+        // 3) Expanded payload is 8 bytes longer and ends with orphan bytes
+        let payloads = wav_data_payloads(&repaired).unwrap();
         assert_eq!(payloads.len(), 1);
-        let data_size = payloads[0].len();
-        assert!(data_size > 0, "data payload must be non-empty");
+        assert_eq!(
+            payloads[0].len(),
+            original_data_len + orphan_bytes.len(),
+            "data payload must grow by orphan size"
+        );
+        assert_eq!(
+            &payloads[0][payloads[0].len() - orphan_bytes.len()..],
+            &orphan_bytes[..],
+            "expanded payload must end with the orphan bytes"
+        );
 
-        // 2) strip_wav_padding must not crash on junk bytes (they are not null)
-        let mut for_padding = junked.clone();
+        // 4) strip_wav_padding on the repaired buffer does nothing
+        //    (the orphan bytes are now inside the data chunk, not padding)
+        let mut for_padding = repaired.clone();
         strip_wav_padding(&mut for_padding);
-        // Pad is not zero, so the buffer should be unchanged
-        assert_eq!(for_padding.len(), junked.len(), "non-null junk not stripped");
+        assert_eq!(for_padding.len(), repaired.len());
 
-        // 3) write_wav_atomic must write metadata and preserve the audio payload
+        // 5) write_wav_atomic writes and preserves the expanded payload
         let patch: TrackPatch = serde_json::from_value(serde_json::json!({
-            "title": "After Write",
+            "title": "After Repair Write",
         }))
         .unwrap();
+        fs::write(&path, &junked).unwrap(); // restore junked original
         let outcome = write_wav_atomic(&path, &patch).unwrap();
         assert_eq!(outcome, TrackWriteOutcome::Replaced);
-
-        // Audio payload preserved through write
         let written = fs::read(&path).unwrap();
         let written_payloads = wav_data_payloads(&written).unwrap();
         assert_eq!(
             written_payloads[0], payloads[0],
-            "data payload must be preserved after write"
+            "expanded data payload must be preserved after write"
         );
-
-        // Title was written
         let track = read_track_metadata(&path).unwrap();
-        assert_eq!(track.title.as_deref(), Some("After Write"));
+        assert_eq!(track.title.as_deref(), Some("After Repair Write"));
 
-        // 4) Second identical write must be Skipped
-        let outcome2 = write_wav_atomic(&path, &patch).unwrap();
-        assert_eq!(outcome2, TrackWriteOutcome::Skipped);
+        // 6) Second identical write → Skipped
+        assert_eq!(
+            write_wav_atomic(&path, &patch).unwrap(),
+            TrackWriteOutcome::Skipped
+        );
         fs::remove_dir_all(root).unwrap();
+    }
+
+    /// `fix_wav_orphan_tail` must NOT repair truncated data (incomplete
+    /// data chunk) because the orphan bytes would be interpreted as part
+    /// of the incomplete chunk, not as a trailing tail.
+    #[test]
+    fn fix_wav_orphan_tail_rejects_truncated_data() {
+        let mut bytes = fs::read(&media_fixture("minimal.wav")).unwrap();
+        // Truncate in the middle of the data chunk (after first 100 bytes).
+        bytes.truncate(44 + 100);
+        assert!(!fix_wav_orphan_tail(&mut bytes));
+    }
+
+    /// `fix_wav_orphan_tail` must NOT repair a non-block-aligned tail.
+    #[test]
+    fn fix_wav_orphan_tail_rejects_non_aligned_tail() {
+        let (root, path) = copy_to_temp(&media_fixture("minimal.wav"), "track.wav");
+        let mut bytes = fs::read(&path).unwrap();
+        // Append 7 bytes (not block-aligned for block_align=2).
+        bytes.extend_from_slice(&[0xFFu8; 7]);
+        let riff_len = (bytes.len() as u32).wrapping_sub(8).to_le_bytes();
+        bytes[4..8].copy_from_slice(&riff_len);
+        assert!(!fix_wav_orphan_tail(&mut bytes));
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    /// `fix_wav_orphan_tail` must NOT repair a malformed chunk before data.
+    #[test]
+    fn fix_wav_orphan_tail_rejects_malformed_chunk_before_data() {
+        let mut bytes = fs::read(&media_fixture("minimal.wav")).unwrap();
+        // Corrupt the fmt chunk: set an impossible size that overflows.
+        bytes[16..20].copy_from_slice(&0xFFFF_FF00u32.to_le_bytes());
+        assert!(!fix_wav_orphan_tail(&mut bytes));
     }
 
     #[test]
