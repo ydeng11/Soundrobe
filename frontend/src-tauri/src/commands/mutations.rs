@@ -3005,14 +3005,14 @@ fn wav_data_payloads(bytes: &[u8]) -> Option<Vec<Vec<u8>>> {
         let data_start = offset.checked_add(8)?;
         let data_end = data_start.checked_add(size)?;
         if data_end > bytes.len() {
-            return None;
+            break;
         }
         if id == b"data" {
             payloads.push(bytes.get(data_start..data_end)?.to_vec());
         }
         offset = data_end.checked_add(size % 2)?;
     }
-    (offset == bytes.len() && !payloads.is_empty()).then_some(payloads)
+    (!payloads.is_empty()).then_some(payloads)
 }
 
 /// Strip the RIFF `LIST` chunk from a WAV byte buffer, returning a new
@@ -4284,6 +4284,65 @@ mod tests {
         }
         assert!(!saw_info, "strip_wav_list_chunk must remove LIST INFO");
         assert!(saw_adtl, "strip_wav_list_chunk must preserve LIST adtl");
+    }
+
+    /// Regression: a WAV whose RIFF size accounts for trailing junk bytes
+    /// after the last declared data chunk must be readable by both
+    /// `wav_data_payloads` and `write_wav_atomic`.  These bytes look like
+    /// a spurious chunk with a large size that overflows the file boundary
+    /// — the functions should stop iterating gracefully instead of failing.
+    #[test]
+    fn wav_data_payloads_handles_trailing_junk_bytes() {
+        let (root, path) = copy_to_temp(&media_fixture("minimal.wav"), "track.wav");
+
+        // Append trailing junk bytes (simulating real-world file defects).
+        // These mimic the pattern seen in the field: 6 bytes of 0xFF
+        // (leftover audio samples) followed by 2 null bytes.
+        let mut junked = fs::read(&path).unwrap();
+        junked.extend_from_slice(&[0xFFu8; 6]);
+        junked.extend_from_slice(&[0x00u8; 2]);
+        // Update RIFF size so the container is self-consistent (the junk
+        // is included in the total, just not in any declared chunk).
+        let riff_len = (junked.len() as u32).wrapping_sub(8).to_le_bytes();
+        junked[4..8].copy_from_slice(&riff_len);
+        fs::write(&path, &junked).unwrap();
+
+        // 1) wav_data_payloads must extract the data chunk despite trailing junk
+        let payloads = wav_data_payloads(&junked).unwrap();
+        assert_eq!(payloads.len(), 1);
+        let data_size = payloads[0].len();
+        assert!(data_size > 0, "data payload must be non-empty");
+
+        // 2) strip_wav_padding must not crash on junk bytes (they are not null)
+        let mut for_padding = junked.clone();
+        strip_wav_padding(&mut for_padding);
+        // Pad is not zero, so the buffer should be unchanged
+        assert_eq!(for_padding.len(), junked.len(), "non-null junk not stripped");
+
+        // 3) write_wav_atomic must write metadata and preserve the audio payload
+        let patch: TrackPatch = serde_json::from_value(serde_json::json!({
+            "title": "After Write",
+        }))
+        .unwrap();
+        let outcome = write_wav_atomic(&path, &patch).unwrap();
+        assert_eq!(outcome, TrackWriteOutcome::Replaced);
+
+        // Audio payload preserved through write
+        let written = fs::read(&path).unwrap();
+        let written_payloads = wav_data_payloads(&written).unwrap();
+        assert_eq!(
+            written_payloads[0], payloads[0],
+            "data payload must be preserved after write"
+        );
+
+        // Title was written
+        let track = read_track_metadata(&path).unwrap();
+        assert_eq!(track.title.as_deref(), Some("After Write"));
+
+        // 4) Second identical write must be Skipped
+        let outcome2 = write_wav_atomic(&path, &patch).unwrap();
+        assert_eq!(outcome2, TrackWriteOutcome::Skipped);
+        fs::remove_dir_all(root).unwrap();
     }
 
     #[test]
