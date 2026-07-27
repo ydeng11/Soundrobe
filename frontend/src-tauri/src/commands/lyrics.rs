@@ -3,7 +3,7 @@
 use crate::commands::mutations::{write_track_dispatch, Patch, TrackPatch};
 use crate::commands::tracks::read_track_metadata;
 use crate::error::ApiError;
-use crate::state::config::ConfigState;
+use crate::state::config::{AutoTagConfig, ConfigState};
 use crate::state::write_queue::WriteQueue;
 use chardetng::EncodingDetector;
 use serde::Deserialize;
@@ -24,6 +24,16 @@ const AUDIO_EXTENSIONS: &[&str] = &[
     "mp3", "flac", "m4a", "mp4", "wav", "ogg", "opus", "aiff", "ape",
 ];
 
+/// Resolve the lyrics API base URL from config, falling back to LRCLIB.
+fn resolve_lyrics_base_url(config: &AutoTagConfig) -> String {
+    config
+        .lyrics_api_url
+        .as_ref()
+        .filter(|url| !url.trim().is_empty())
+        .cloned()
+        .unwrap_or_else(|| DEFAULT_BASE_URL.to_string())
+}
+
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct LyricsResponse {
@@ -39,15 +49,17 @@ pub async fn lyrics_fetch(
     artist_name: String,
     album_name: Option<String>,
     duration: Option<f64>,
-) -> Option<String> {
-    fetch_lyrics_at(
-        DEFAULT_BASE_URL,
+    config: State<'_, ConfigState>,
+) -> Result<Option<String>, ApiError> {
+    let base_url = resolve_lyrics_base_url(&config.raw());
+    Ok(fetch_lyrics_at(
+        &base_url,
         &track_name,
         &artist_name,
         album_name.as_deref(),
         duration,
     )
-    .await
+    .await)
 }
 
 #[tauri::command]
@@ -56,10 +68,7 @@ pub async fn album_download_lyrics(
     config: State<'_, ConfigState>,
     queue: State<'_, WriteQueue>,
 ) -> Result<usize, ApiError> {
-    let base_url = config
-        .raw()
-        .lyrics_api_url
-        .unwrap_or_else(|| DEFAULT_BASE_URL.to_string());
+    let base_url = resolve_lyrics_base_url(&config.raw());
     Ok(download_album_lyrics_at(Path::new(&album_path), &base_url, &queue).await)
 }
 
@@ -424,5 +433,41 @@ mod tests {
             fetch_lyrics_at("http://unused", "Track", "", None, None).await,
             None
         );
+    }
+
+    #[test]
+    fn resolve_lyrics_base_url_uses_configured_value() {
+        let config = AutoTagConfig {
+            lyrics_api_url: Some("http://custom.lyrics/api".to_string()),
+            ..AutoTagConfig::default()
+        };
+        assert_eq!(
+            resolve_lyrics_base_url(&config),
+            "http://custom.lyrics/api"
+        );
+    }
+
+    #[test]
+    fn resolve_lyrics_base_url_falls_back_to_default() {
+        let config = AutoTagConfig::default();
+        assert_eq!(resolve_lyrics_base_url(&config), DEFAULT_BASE_URL);
+    }
+
+    #[test]
+    fn resolve_lyrics_base_url_rejects_empty_string() {
+        let config = AutoTagConfig {
+            lyrics_api_url: Some(String::new()),
+            ..AutoTagConfig::default()
+        };
+        assert_eq!(resolve_lyrics_base_url(&config), DEFAULT_BASE_URL);
+    }
+
+    #[test]
+    fn resolve_lyrics_base_url_rejects_whitespace() {
+        let config = AutoTagConfig {
+            lyrics_api_url: Some("   ".to_string()),
+            ..AutoTagConfig::default()
+        };
+        assert_eq!(resolve_lyrics_base_url(&config), DEFAULT_BASE_URL);
     }
 }
