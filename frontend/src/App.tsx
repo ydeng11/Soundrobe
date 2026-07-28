@@ -30,6 +30,8 @@ import {
 } from "./components/AuditPanel";
 import { SettingsModal } from "./components/SettingsModal";
 import { ConvertDialog } from "./components/ConvertDialog";
+import { SearchDialog } from "./components/SearchDialog";
+import { ConfirmWriteDialog } from "./components/ConfirmWriteDialog";
 import { ExtraTagsEditor } from "./components/ExtraTagsEditor";
 import { BatchExtraTagsEditor } from "./components/BatchExtraTagsEditor";
 import type { ConvertResult } from "./components/ConvertDialog";
@@ -48,6 +50,9 @@ import type {
   AlbumDetail,
   AuditRunSummary,
   AuditTrackResult,
+  PreviewMatchResult,
+  AlbumCandidate,
+  ProviderAlbum,
 } from "./shared/desktop-api";
 import {
   computeNumberedTracks,
@@ -85,6 +90,11 @@ function mapAuditResultForState(r: {
 export default function App() {
   const [state, dispatch] = useReducer(appReducer, initialAppState);
   const [showConvertDialog, setShowConvertDialog] = React.useState(false);
+  const [showSearchDialog, setShowSearchDialog] = React.useState(false);
+  const [showConfirmDialog, setShowConfirmDialog] = React.useState(false);
+  const [searchPreviewResult, setSearchPreviewResult] = React.useState<PreviewMatchResult | null>(null);
+  const [searchWriting, setSearchWriting] = React.useState(false);
+  const [searchWriteError, setSearchWriteError] = React.useState<string | null>(null);
   const [extraTagsTrack, setExtraTagsTrack] = React.useState<TrackData | null>(
     null,
   );
@@ -1329,6 +1339,83 @@ export default function App() {
     [state.activeAlbumPath, state.tracks],
   );
 
+  // --- Manual Search ---
+
+  const handleSearch = useCallback(() => {
+    if (state.autoTagging || state.saving || !state.activeAlbumPath) return;
+    setShowSearchDialog(true);
+  }, [state.autoTagging, state.saving, state.activeAlbumPath]);
+
+  const handleCloseSearch = useCallback(() => {
+    setShowSearchDialog(false);
+  }, []);
+
+  const handleSelectRelease = useCallback(
+    async (release: ProviderAlbum, provider: string) => {
+      setShowSearchDialog(false);
+      setShowConfirmDialog(true);
+      setSearchPreviewResult(null);
+      setSearchWriteError(null);
+      try {
+        const result = await window.api.previewReleaseMatch({
+          albumPath: state.activeAlbumPath!,
+          release,
+          provider,
+        });
+        setSearchPreviewResult(result);
+      } catch (err) {
+        setSearchWriteError(err instanceof Error ? err.message : String(err));
+        setShowConfirmDialog(true);
+      }
+    },
+    [state.activeAlbumPath],
+  );
+
+  const handleConfirmWrite = useCallback(
+    async (candidate: AlbumCandidate) => {
+      if (!state.activeAlbumPath) return;
+      setSearchWriting(true);
+      setSearchWriteError(null);
+
+      try {
+        // Capture undo snapshots (mirrors handleAutoTag)
+        const albumTracks = state.tracks.filter(
+          (t) => dirPath(t.path) === state.activeAlbumPath,
+        );
+        const snapshots = await buildAutoTagUndoSnapshots(
+          [state.activeAlbumPath],
+          albumTracks,
+          window.api.readAlbum,
+        );
+        dispatch({
+          type: "PUSH_UNDO",
+          description: "Manual search tag",
+          snapshots,
+        });
+
+        const written = await window.api.searchApplyCandidate(
+          state.activeAlbumPath,
+          candidate,
+        );
+        if (written > 0) {
+          await handleRefresh();
+        }
+        setShowConfirmDialog(false);
+      } catch (err) {
+        setSearchWriteError(err instanceof Error ? err.message : String(err));
+      } finally {
+        setSearchWriting(false);
+      }
+    },
+    [state.activeAlbumPath, state.tracks, handleRefresh],
+  );
+
+  const handleCancelConfirm = useCallback(() => {
+    setShowConfirmDialog(false);
+    setSearchPreviewResult(null);
+    setSearchWriteError(null);
+  }, []);
+
   // --- Settings ---
 
   const handleOpenSettings = useCallback(() => {
@@ -1852,6 +1939,7 @@ export default function App() {
         onRefresh={handleRefresh}
         onConvert={handleConvert}
         onAutoTag={handleAutoTag}
+        onSearch={handleSearch}
         onGetLyrics={handleGetLyrics}
         onAudit={handleAudit}
         onNumberTracks={handleNumberTracks}
@@ -2051,6 +2139,27 @@ export default function App() {
         onClose={() => setShowConvertDialog(false)}
         onConvert={handleConvertAction}
         tracks={selectedTracksForBatch.map(toConvertTrack)}
+      />
+
+      <SearchDialog
+        open={showSearchDialog}
+        albumPath={state.activeAlbumPath ?? ""}
+        onClose={handleCloseSearch}
+        onSelectRelease={handleSelectRelease}
+      />
+
+      <ConfirmWriteDialog
+        open={showConfirmDialog}
+        albumPath={state.activeAlbumPath ?? ""}
+        albumTracks={state.tracks.filter((t) =>
+          state.activeAlbumPath ? dirPath(t.path) === state.activeAlbumPath : false,
+        )}
+        previewResult={searchPreviewResult}
+        loading={showConfirmDialog && !searchPreviewResult && !searchWriteError}
+        writing={searchWriting}
+        writeError={searchWriteError}
+        onConfirm={handleConfirmWrite}
+        onCancel={handleCancelConfirm}
       />
 
       {extraTagsTrack && (

@@ -338,4 +338,83 @@ describe("Tauri desktop workflows", () => {
     expect(coverExists).toBe(false);
     expect(markerExists).toBe(true);
   });
+
+  it("opens the search dialog and cancels without writing metadata", async () => {
+    // Open the Search dialog
+    await clickButton("Search");
+    await browser.waitUntil(
+      () => browser.execute(() => document.querySelector("[aria-label='Search releases']") !== null),
+      { timeout: 5_000, timeoutMsg: "Search dialog did not open" },
+    );
+
+    // Verify dialog content
+    const hasMusicBrainz = await browser.execute(
+      () => document.body.innerText.includes("MusicBrainz"),
+    );
+    expect(hasMusicBrainz).toBe(true);
+    const hasDiscogs = await browser.execute(
+      () => document.body.innerText.includes("Discogs"),
+    );
+    expect(hasDiscogs).toBe(true);
+
+    // Switch provider to Discogs
+    await clickButton("Discogs");
+    // Fill artist and album
+    const artistInput = await browser.execute(() => {
+      const input = document.querySelector<HTMLInputElement>(
+        "input[placeholder='Artist name']",
+      );
+      if (input) {
+        input.value = "Radiohead";
+        input.dispatchEvent(new Event("change", { bubbles: true }));
+      }
+      return input !== null;
+    });
+    expect(artistInput).toBe(true);
+
+    const albumInput = await browser.execute(() => {
+      const input = document.querySelector<HTMLInputElement>(
+        "input[placeholder='Album title']",
+      );
+      if (input) {
+        input.value = "OK Computer";
+        input.dispatchEvent(new Event("change", { bubbles: true }));
+      }
+      return input !== null;
+    });
+    expect(albumInput).toBe(true);
+
+    // Verify Search button is enabled
+    const searchEnabled = await browser.execute(() => {
+      const btn = Array.from(document.querySelectorAll("button")).find(
+        (b) => b.textContent?.trim() === "Search",
+      );
+      return btn && !btn.disabled;
+    });
+    expect(searchEnabled).toBe(true);
+
+    // Close dialog via close button (top-right X)
+    const closed = await browser.execute(() => {
+      const dialog = document.querySelector("[aria-label='Search releases']");
+      const closeBtn = dialog?.querySelector("button:last-child");
+      (closeBtn as HTMLButtonElement)?.click();
+      return true;
+    });
+    expect(closed).toBe(true);
+
+    await browser.waitUntil(
+      () =>
+        browser.execute(
+          () => document.querySelector("[aria-label='Search releases']") === null,
+        ),
+      { timeout: 5_000, timeoutMsg: "Search dialog did not close" },
+    );
+
+    // Verify no write happened (album tracks unchanged)
+    const tracks = await browser.execute(
+      async (albumPath) => (await window.api.readAlbum(albumPath)).tracks,
+      manifest.workflowAlbum,
+    );
+    expect(tracks.length).toBe(2);
+  });
 });

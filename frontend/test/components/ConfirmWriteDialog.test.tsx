@@ -1,0 +1,220 @@
+// @vitest-environment jsdom
+import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
+import React from "react";
+import { render, screen, fireEvent, cleanup, waitFor } from "@testing-library/react";
+import { ConfirmWriteDialog } from "../../src/components/ConfirmWriteDialog";
+import type { TrackData, PreviewMatchResult, AlbumCandidate, TrackMappingRow } from "../../src/shared/desktop-api";
+
+afterEach(() => {
+  cleanup();
+});
+
+function makeTrack(path: string, overrides?: Partial<TrackData>): TrackData {
+  return {
+    path,
+    title: `Track ${path.slice(-5)}`,
+    artist: "Test Artist",
+    artists: [],
+    album: "Test Album",
+    albumArtist: null,
+    albumArtists: [],
+    trackNumber: 1,
+    trackTotal: 10,
+    discNumber: null,
+    discTotal: null,
+    year: "2024",
+    genre: "Pop",
+    composer: null,
+    comment: null,
+    lyrics: null,
+    compilation: null,
+    musicbrainzTrackId: null,
+    musicbrainzAlbumId: null,
+    musicbrainzArtistId: null,
+    discogsArtistId: null,
+    discogsReleaseId: null,
+    hasCover: false,
+    sizeBytes: 1000,
+    bitrate: null,
+    sampleRate: null,
+    codec: "MP3",
+    duration: 60,
+    ...overrides,
+  };
+}
+
+function makePreviewResult(overrides?: Partial<PreviewMatchResult>): PreviewMatchResult {
+  const candidates: TrackMappingRow[] = [
+    { localIndex: 0, localTitle: "Track One", localArtist: "Artist A", remoteIndex: 0, remoteTitle: "Track One", remoteArtist: "Artist A", remoteTrackNumber: 1, evidence: "TagTitle" },
+    { localIndex: 1, localTitle: "Track Two", localArtist: "Artist A", remoteIndex: 1, remoteTitle: "Track Two", remoteArtist: "Artist A", remoteTrackNumber: 2, evidence: "TagTitle" },
+  ];
+  return {
+    release: {
+      id: "mb-1",
+      title: "Test Album",
+      artist: "Artist A",
+      artists: ["Artist A"],
+      tracks: [
+        { title: "Track One", matchTitles: [], artists: ["Artist A"], trackNumber: 1, recordingId: "r1", length: 200 },
+        { title: "Track Two", matchTitles: [], artists: ["Artist A"], trackNumber: 2, recordingId: "r2", length: 200 },
+      ],
+    },
+    candidates,
+    unusedRemoteIndices: [],
+    albumCandidate: {
+      artist: "Artist A",
+      artists: ["Artist A"],
+      album: "Test Album",
+      albumArtist: "Artist A",
+      albumArtists: ["Artist A"],
+      year: "2024",
+      tracks: candidates.map((c) => ({
+        title: c.remoteTitle,
+        artist: c.remoteArtist,
+        artists: c.remoteArtist ? [c.remoteArtist] : [],
+        trackNumber: c.remoteTrackNumber,
+      })),
+    },
+    ...overrides,
+  };
+}
+
+describe("ConfirmWriteDialog", () => {
+  const onConfirm = vi.fn();
+  const onCancel = vi.fn();
+  const albumTracks = [
+    makeTrack("/music/Album/01.mp3", { title: "Track One", artist: "Artist A" }),
+    makeTrack("/music/Album/02.mp3", { title: "Track Two", artist: "Artist A" }),
+  ];
+  const previewResult = makePreviewResult();
+
+  const defaultProps = {
+    open: true,
+    albumPath: "/music/Album",
+    albumTracks,
+    previewResult,
+    loading: false,
+    writing: false,
+    writeError: null,
+    onConfirm,
+    onCancel,
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("renders the mapping table with local and remote tracks", () => {
+    render(<ConfirmWriteDialog {...defaultProps} />);
+    expect(screen.getByText("Track One")).toBeTruthy();
+    expect(screen.getByText("Track Two")).toBeTruthy();
+  });
+
+  it("shows match count", () => {
+    render(<ConfirmWriteDialog {...defaultProps} />);
+    expect(screen.getByText(/Matched/)).toBeTruthy();
+  });
+
+  it("calls onCancel when cancel button is clicked", () => {
+    render(<ConfirmWriteDialog {...defaultProps} />);
+    fireEvent.click(screen.getByText("Cancel"));
+    expect(onCancel).toHaveBeenCalledOnce();
+  });
+
+  it("calls onConfirm when confirm button is clicked", () => {
+    render(<ConfirmWriteDialog {...defaultProps} />);
+    fireEvent.click(screen.getByText("Confirm & Write"));
+    expect(onConfirm).toHaveBeenCalledOnce();
+    const candidate = onConfirm.mock.calls[0][0] as AlbumCandidate;
+    expect(candidate.album).toBe("Test Album");
+    expect(candidate.tracks.length).toBe(2);
+    expect(candidate.tracks[0].title).toBe("Track One");
+  });
+
+  it("does not call onConfirm when cancel is clicked on write-error dialog", () => {
+    render(<ConfirmWriteDialog {...defaultProps} />);
+    fireEvent.click(screen.getByText("Cancel"));
+    expect(onConfirm).not.toHaveBeenCalled();
+  });
+
+  it("shows loading state", () => {
+    render(<ConfirmWriteDialog {...defaultProps} loading={true} previewResult={null} />);
+    expect(screen.getByText(/Loading release details/)).toBeTruthy();
+  });
+
+  it("shows writing state and disables buttons", () => {
+    render(<ConfirmWriteDialog {...defaultProps} writing={true} />);
+    expect(screen.getByText("Writing tags…")).toBeTruthy();
+    const cancelBtn = screen.getByText("Cancel") as HTMLButtonElement;
+    expect(cancelBtn.disabled).toBe(true);
+  });
+
+  it("shows write error", () => {
+    render(<ConfirmWriteDialog {...defaultProps} writeError="Write failed" />);
+    expect(screen.getByText("Write failed")).toBeTruthy();
+  });
+
+  it("renders 'Do not update' option in remote track dropdown", () => {
+    render(<ConfirmWriteDialog {...defaultProps} />);
+    const selects = document.querySelectorAll("select");
+    expect(selects.length).toBe(2);
+    const firstOption = selects[0].querySelector("option");
+    expect(firstOption?.textContent).toBe("Do not update");
+  });
+
+  it("shows unused remote tracks section", () => {
+    const result = makePreviewResult({
+      unusedRemoteIndices: [2],
+      release: {
+        id: "mb-1",
+        title: "Test Album",
+        artist: "Artist A",
+        artists: ["Artist A"],
+        tracks: [
+          { title: "Track One", matchTitles: [], artists: ["Artist A"], trackNumber: 1, recordingId: "r1", length: 200 },
+          { title: "Track Two", matchTitles: [], artists: ["Artist A"], trackNumber: 2, recordingId: "r2", length: 200 },
+          { title: "Track Three", matchTitles: [], artists: ["Artist A"], trackNumber: 3, recordingId: "r3", length: 200 },
+        ],
+      },
+    });
+    render(<ConfirmWriteDialog {...defaultProps} previewResult={result} />);
+    expect(screen.getByText(/1 unused remote track/)).toBeTruthy();
+  });
+
+  it("allows editing remote title field", () => {
+    render(<ConfirmWriteDialog {...defaultProps} />);
+    const titleInputs = document.querySelectorAll<HTMLInputElement>(
+      "input[type='text']",
+    );
+    // First title input
+    if (titleInputs[0]) {
+      fireEvent.change(titleInputs[0], { target: { value: "Edited Title" } });
+      expect(titleInputs[0].value).toBe("Edited Title");
+    }
+  });
+
+  it("serializes edited values into the candidate", () => {
+    render(<ConfirmWriteDialog {...defaultProps} />);
+    const titleInputs = document.querySelectorAll<HTMLInputElement>(
+      "input[type='text']",
+    );
+    if (titleInputs[0]) {
+      fireEvent.change(titleInputs[0], { target: { value: "Edited Title" } });
+    }
+    fireEvent.click(screen.getByText("Confirm & Write"));
+    const candidate = onConfirm.mock.calls[0][0] as AlbumCandidate;
+    expect(candidate.tracks[0].title).toBe("Edited Title");
+  });
+
+  it("omits 'Do not update' tracks selected as empty", () => {
+    render(<ConfirmWriteDialog {...defaultProps} />);
+    // Set first row to "Do not update"
+    const selects = document.querySelectorAll("select");
+    fireEvent.change(selects[0], { target: { value: "" } });
+    fireEvent.click(screen.getByText("Confirm & Write"));
+    const candidate = onConfirm.mock.calls[0][0] as AlbumCandidate;
+    // "Do not update" rows send empty artists array as sentinel
+    expect(candidate.tracks[0].artists).toEqual([]);
+    expect(candidate.tracks[0].title).toBeUndefined();
+  });
+});

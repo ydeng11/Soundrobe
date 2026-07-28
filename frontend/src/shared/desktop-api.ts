@@ -184,6 +184,103 @@ export interface BatchWriteResult {
   failures: TrackWriteFailure[];
 }
 
+// ── Manual search types ────────────────────────────────────────────
+
+export interface ReleaseSearchResult {
+  provider: "musicbrainz" | "discogs";
+  id: string;
+  kind?: string;
+  title: string;
+  artist?: string;
+  year?: string;
+  country?: string;
+  formats: string[];
+  catalogNumber?: string;
+  barcode?: string;
+}
+
+export interface ReleaseSearchPage {
+  results: ReleaseSearchResult[];
+  page: number;
+  pageSize: number;
+  total?: number;
+  hasNext: boolean;
+}
+
+export interface TrackMappingRow {
+  localIndex: number;
+  localTitle?: string;
+  localArtist?: string;
+  remoteIndex?: number;
+  remoteTitle?: string;
+  remoteArtist?: string;
+  remoteTrackNumber?: number;
+  evidence?: string;
+}
+
+export interface PreviewMatchResult {
+  release: ProviderAlbum;
+  candidates: TrackMappingRow[];
+  unusedRemoteIndices: number[];
+  albumCandidate: AlbumCandidate;
+}
+
+export interface TrackEdit {
+  title?: string;
+  matchTitles?: string[];
+  artist?: string;
+  artists: string[];
+  trackNumber?: number;
+  trackTotal?: number;
+  discNumber?: number;
+  discTotal?: number;
+  musicbrainzTrackId?: string;
+  length?: number;
+  genre?: string;
+  filename?: string;
+}
+
+export interface ProviderTrack {
+  title?: string;
+  matchTitles: string[];
+  artist?: string;
+  artists: string[];
+  trackNumber?: number;
+  trackTotal?: number;
+  discNumber?: number;
+  recordingId?: string;
+  length?: number;
+}
+
+export interface ProviderAlbum {
+  id: string;
+  title: string;
+  artist?: string;
+  artists: string[];
+  artistId?: string;
+  year?: string;
+  genre?: string;
+  tracks: ProviderTrack[];
+}
+
+export interface AlbumCandidate {
+  artist?: string;
+  artists: string[];
+  album?: string;
+  albumArtist?: string;
+  albumArtists: string[];
+  year?: string;
+  genre?: string;
+  musicbrainzAlbumId?: string;
+  musicbrainzArtistId?: string;
+  discogsReleaseId?: string;
+  discogsArtistId?: string;
+  tracks: TrackEdit[];
+  source?: string;
+  distance?: number;
+  verification?: string;
+}
+
 export interface TrackWriteEvent {
   current: number;
   total: number;
@@ -480,6 +577,37 @@ export interface DesktopAPI {
     provider?: string,
     baseUrl?: string,
   ) => Promise<{ model: string }>;
+
+  // Manual search
+  searchReleases: (request: {
+    provider: "musicbrainz" | "discogs";
+    artist?: string;
+    album?: string;
+    year?: string;
+    country?: string;
+    format?: string;
+    catalogNumber?: string;
+    barcode?: string;
+    page?: number;
+    pageSize?: number;
+  }) => Promise<ReleaseSearchPage>;
+
+  resolveRelease: (
+    provider: "musicbrainz" | "discogs",
+    releaseId: string,
+    kind?: string
+  ) => Promise<ProviderAlbum>;
+
+  previewReleaseMatch: (request: {
+    albumPath: string;
+    release: ProviderAlbum;
+    provider: string;
+  }) => Promise<PreviewMatchResult>;
+
+  searchApplyCandidate: (
+    albumPath: string,
+    candidate: AlbumCandidate
+  ) => Promise<number>;
 
   // Window events
   onFocus: () => Promise<void>;

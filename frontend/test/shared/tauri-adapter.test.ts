@@ -75,6 +75,10 @@ const CHANNEL_PARITY: Array<{
   { method: "subscribeDebugLogs", command: "debug_subscribe", args: {} },
   { method: "setDebugMode", command: "debug_set_mode", args: { enabled: true } },
   { method: "onFocus", command: "window_focused", args: {} },
+  { method: "searchReleases", command: "album_search_releases", args: { _singleRequest_: { provider: "musicbrainz", artist: "Radiohead", album: "OK Computer", page: 1, pageSize: 10 } } },
+  { method: "resolveRelease", command: "album_resolve_release", args: { request: { provider: "musicbrainz", releaseId: "123", kind: null } } },
+  { method: "previewReleaseMatch", command: "album_preview_release_match", args: { _singleRequest_: { albumPath: "/a", release: { id: "1", title: "x", artists: [], tracks: [] }, provider: "musicbrainz" } } },
+  { method: "searchApplyCandidate", command: "album_search_apply_candidate", args: { request: { albumPath: "/a", candidate: { artists: [], albumArtists: [], tracks: [] } } } },
   { method: "sortByAlbum", command: "files_sort_by_album", args: { sourceDir: "/d", options: { copy: true } } },
   { method: "listSessions", command: "assistant_list_sessions", args: { limit: 5 } },
   { method: "getConversation", command: "assistant_get_conversation", args: { sessionUuidOrNumber: "s" } },
@@ -97,12 +101,35 @@ describe("tauri-adapter channel parity", () => {
     async ({ method, command, args }) => {
       const fn = (api as unknown as Record<string, (...a: unknown[]) => unknown>)[method];
       expect(typeof fn).toBe("function");
-      await fn(...Object.values(args));
+      // Call the method with the appropriate argument shape.
+      // Methods with a `request` wrapper spread the inner fields as positional
+      // args (e.g. resolveRelease(provider, releaseId, kind)).
+      // Methods with a `_singleRequest_` wrapper pass the single object as one
+      // positional arg (e.g. searchReleases(req)).
+      // Methods with flat keys spread as positional args.
+      // Empty-args methods get no arguments.
+      if (args && Object.keys(args).length > 0) {
+        if ('request' in args) {
+          await fn(...Object.values(args.request));
+        } else if ('_singleRequest_' in args) {
+          await fn(args._singleRequest_);
+        } else {
+          await fn(...Object.values(args));
+        }
+      } else {
+        await fn();
+      }
       expect(invokeMock).toHaveBeenCalledTimes(1);
       const [cmd, payload] = invokeMock.mock.calls[0];
       expect(cmd).toBe(command);
-      // single-positional payload object keyed by the renderer param names
-      const expected = Object.keys(args).length === 0 ? undefined : args;
+      // The expected payload is the same as the table's args, but without
+      // the _singleRequest_ wrapper key (it's transformed to request).
+      const expected =
+        args && '_singleRequest_' in args
+          ? { request: args._singleRequest_ }
+          : Object.keys(args).length === 0
+            ? undefined
+            : args;
       expect(payload).toEqual(expected);
     },
   );

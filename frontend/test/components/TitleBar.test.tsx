@@ -28,6 +28,7 @@ function defaultProps(overrides?: Record<string, unknown>) {
     onRefresh: vi.fn(),
     onConvert: vi.fn(),
     onAutoTag: vi.fn(),
+    onSearch: vi.fn(),
     onGetLyrics: vi.fn(),
     onAudit: vi.fn(),
     onNumberTracks: vi.fn(),

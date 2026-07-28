@@ -187,6 +187,16 @@ export function createTauriDesktopApi(): DesktopAPI {
     // Window events
     onFocus: () => invokeCommand("window:focused", undefined),
 
+    // Manual search
+    searchReleases: (req) =>
+      invokeCommand("album:search-releases", { request: req }),
+    resolveRelease: (provider, releaseId, kind) =>
+      invokeCommand("album:resolve-release", { request: { provider, releaseId, kind } }),
+    previewReleaseMatch: (req) =>
+      invokeCommand("album:preview-release-match", { request: req }),
+    searchApplyCandidate: (albumPath, candidate) =>
+      invokeCommand("album:search-apply-candidate", { request: { albumPath, candidate } }),
+
     // Organizer
     sortByAlbum: (sourceDir, options) =>
       invokeCommand("files:sort-by-album", { sourceDir, options }),

@@ -18,6 +18,8 @@ pub(crate) mod assistant_metadata_tools;
 mod assistant_tools;
 /// `audit:*` — `electron/handlers/audit.ts`.
 pub mod audit;
+/// `album:search-releases` / `album:resolve-release` / `album:preview-release-match` / `album:search-apply-candidate`
+pub mod album_search;
 /// `album:auto-tag` candidate normalization and orchestration.
 pub mod auto_tag;
 /// `config:get`/`config:set` (redacted) — `electron/handlers/auto-tag.ts`.

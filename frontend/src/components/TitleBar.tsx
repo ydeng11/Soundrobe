@@ -21,6 +21,7 @@ interface TitleBarProps {
   onRefresh: () => void;
   onConvert: () => void;
   onAutoTag: () => void;
+  onSearch: () => void;
   onGetLyrics: () => void;
   onAudit: () => void;
   onNumberTracks: (rule: OrderingRule) => void;
@@ -49,6 +50,7 @@ export function TitleBar({
   onRefresh,
   onConvert,
   onAutoTag,
+  onSearch,
   onGetLyrics,
   onAudit,
   onNumberTracks,
@@ -184,6 +186,24 @@ export function TitleBar({
           </svg>
         )}
         <span>{autoTagging ? "Tagging…" : "Auto-Tag"}</span>
+      </button>
+
+      {/* Search button */}
+      <button
+        onClick={onSearch}
+        disabled={!activeAlbumPath || autoTagging || saving}
+        className={`no-drag inline-flex items-center gap-1.5 px-3 py-1 text-[11.5px] font-medium rounded-md transition-all duration-200 active:scale-[0.95] hover:scale-[1.03] ${
+          !activeAlbumPath || autoTagging || saving
+            ? "text-text-muted/40 cursor-not-allowed"
+            : "text-[#5e5ce6] hover:bg-[#5e5ce6]/10"
+        }`}
+        title="Search for releases on MusicBrainz or Discogs"
+      >
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="11" cy="11" r="8" />
+          <path d="m21 21-4.3-4.3" />
+        </svg>
+        <span>Search</span>
       </button>
 
       {/* Get Lyrics button */}

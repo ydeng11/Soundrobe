@@ -89,7 +89,7 @@ impl ProviderState {
     }
 
     #[cfg(test)]
-    fn at(http: Client, musicbrainz_base: &str, discogs_base: &str) -> Self {
+    pub(crate) fn at(http: Client, musicbrainz_base: &str, discogs_base: &str) -> Self {
         Self {
             http,
             musicbrainz_base: musicbrainz_base.trim_end_matches('/').to_string(),
@@ -100,6 +100,14 @@ impl ProviderState {
 
     pub fn http(&self) -> Client {
         self.http.clone()
+    }
+
+    pub fn musicbrainz_base(&self) -> &str {
+        &self.musicbrainz_base
+    }
+
+    pub fn discogs_base(&self) -> &str {
+        &self.discogs_base
     }
 
     pub async fn resolve_artist_identity(
@@ -216,6 +224,30 @@ pub struct ProviderReleaseSummary {
     #[serde(rename = "type")]
     pub kind: Option<String>,
     pub artist_name: Option<String>,
+}
+
+/// Lightweight search result returned by `search_release_summaries`.
+/// Does not include tracks — use `release_by_id` / `release_metadata` for detail.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ReleaseSearchSummary {
+    pub provider: String,
+    pub id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub kind: Option<String>,
+    pub title: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub artist: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub year: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub country: Option<String>,
+    #[serde(default)]
+    pub formats: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub catalog_number: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub barcode: Option<String>,
 }
 
 pub struct MusicBrainzClient {
@@ -406,6 +438,64 @@ impl MusicBrainzClient {
             .collect();
         Some(ProviderArtist { id, name, aliases })
     }
+
+    /// Paged release search returning lightweight summaries (no track detail).
+    /// Returns `Err` for network/parse failures — unlike `search_album` which
+    /// silently returns an empty vec. Leaves existing `search_album` unchanged.
+    pub async fn search_release_summaries(
+        &self,
+        query_parts: &[(&str, &str)],
+        limit: u32,
+        offset: u32,
+    ) -> Result<(Vec<ReleaseSearchSummary>, u32), String> {
+        wait_for_musicbrainz().await;
+        let query: String = query_parts
+            .iter()
+            .filter(|(_, v)| !v.is_empty())
+            .map(|(k, v)| {
+                if v.contains(' ') {
+                    format!("{k}:\"{}\"", escape_musicbrainz_query(v))
+                } else {
+                    format!("{k}:{}", escape_musicbrainz_query(v))
+                }
+            })
+            .collect::<Vec<_>>()
+            .join(" AND ");
+        if query.is_empty() {
+            return Err("At least one search parameter is required".to_string());
+        }
+        let response = self
+            .http
+            .get(format!("{}/release", self.base_url))
+            .query(&[
+                ("query", query.as_str()),
+                ("limit", &limit.to_string()),
+                ("offset", &offset.to_string()),
+                ("fmt", "json"),
+            ])
+            .send()
+            .await
+            .map_err(|e| format!("MusicBrainz request failed: {e}"))?
+            .error_for_status()
+            .map_err(|e| format!("MusicBrainz HTTP error: {e}"))?
+            .json::<serde_json::Value>()
+            .await
+            .map_err(|e| format!("MusicBrainz parse error: {e}"))?;
+        let count = response
+            .get("release-count")
+            .and_then(|c| c.as_u64())
+            .unwrap_or(0) as u32;
+        let summaries = response
+            .get("releases")
+            .and_then(|r| r.as_array())
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(parse_musicbrainz_search_summary)
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default();
+        Ok((summaries, count))
+    }
 }
 
 /// Escape value for a quoted MusicBrainz Lucene field term.
@@ -497,6 +587,65 @@ fn parse_musicbrainz_search_release(value: &serde_json::Value) -> Option<Provide
             .map(|date| date[..4].to_string()),
         genre: None,
         tracks: Vec::new(),
+    })
+}
+
+/// Parse a single MusicBrainz search result into a lightweight `ReleaseSearchSummary`.
+/// Uses only the release-search response fields — does NOT fetch `/release/{id}`.
+fn parse_musicbrainz_search_summary(value: &serde_json::Value) -> Option<ReleaseSearchSummary> {
+    let id = value.get("id")?.as_str()?.to_string();
+    let title = value.get("title")?.as_str()?.to_string();
+    let credit = value
+        .get("artist-credit")
+        .and_then(serde_json::Value::as_array)
+        .and_then(|credit| credit.first());
+    let artist = credit
+        .and_then(|credit| credit.get("name"))
+        .and_then(serde_json::Value::as_str)
+        .map(str::to_string);
+    let year = value
+        .get("date")
+        .and_then(serde_json::Value::as_str)
+        .filter(|date| date.len() >= 4)
+        .map(|date| date[..4].to_string());
+    let country = value.get("country").and_then(serde_json::Value::as_str).map(str::to_string);
+    let formats = value
+        .get("media")
+        .and_then(serde_json::Value::as_array)
+        .map(|media| {
+            media
+                .iter()
+                .filter_map(|m| {
+                    m.get("format")
+                        .and_then(serde_json::Value::as_str)
+                        .map(str::to_string)
+                })
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    let barcode = value.get("barcode").and_then(serde_json::Value::as_str).map(str::to_string);
+    let catalog_number = value
+        .get("label-info")
+        .and_then(serde_json::Value::as_array)
+        .and_then(|labels| {
+            labels
+                .first()
+                .and_then(|li| li.get("catalog-number"))
+                .and_then(serde_json::Value::as_str)
+                .filter(|s| !s.is_empty())
+                .map(str::to_string)
+        });
+    Some(ReleaseSearchSummary {
+        provider: "musicbrainz".to_string(),
+        id,
+        kind: None,
+        title,
+        artist,
+        year,
+        country,
+        formats,
+        catalog_number,
+        barcode,
     })
 }
 
@@ -1034,6 +1183,13 @@ impl DiscogsClient {
         parse_discogs_release(&release, release_id)
     }
 
+    /// Resolve a Discogs master release. The master JSON has the same
+    /// structure as a release for our purposes (title, artists, tracklist).
+    pub async fn master_metadata(&self, master_id: &str) -> Option<ProviderAlbum> {
+        let master: serde_json::Value = self.get_json(&format!("masters/{master_id}")).await?;
+        parse_discogs_release(&master, master_id)
+    }
+
     pub async fn search_album(
         &self,
         artist: &str,
@@ -1316,6 +1472,111 @@ impl DiscogsClient {
             mime,
             url: url.to_string(),
         })
+    }
+
+    /// Paged release search returning lightweight summaries (no track detail).
+    /// Accepts Discogs `database/search` params: `q`, `artist`, `release_title`,
+    /// `year`, `country`, `format`, `catno`, `barcode`, `type`.
+    pub async fn search_release_summaries(
+        &self,
+        params: &[(&str, &str)],
+        page: u32,
+        per_page: u32,
+    ) -> Result<(Vec<ReleaseSearchSummary>, u32), String> {
+        let clean_params: Vec<(&str, String)> = params
+            .iter()
+            .filter(|(_, v)| !v.is_empty())
+            .map(|(k, v)| (*k, v.to_string()))
+            .collect();
+        let mut query_pairs: Vec<(&str, String)> = Vec::new();
+        for (k, v) in &clean_params {
+            query_pairs.push((k, v.clone()));
+        }
+        query_pairs.push(("per_page", per_page.to_string()));
+        query_pairs.push(("page", page.to_string()));
+        // No type filter by default so both releases and masters appear
+        // in search results. The renderer distinguishes them via `kind`.
+        let body = self
+            .get_json_with_query::<serde_json::Value>(
+                "database/search",
+                query_pairs
+                    .iter()
+                    .map(|(k, v)| (*k, v.clone()))
+                    .collect::<Vec<_>>()
+                    .as_slice(),
+            )
+            .await
+            .ok_or_else(|| "Discogs search returned no response".to_string())?;
+        let total = body
+            .get("pagination")
+            .and_then(|p| p.get("items"))
+            .and_then(|i| i.as_u64())
+            .unwrap_or(0) as u32;
+        let summaries = body
+            .get("results")
+            .and_then(|r| r.as_array())
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|r| {
+                        let id = r.get("id")?.as_u64()?.to_string();
+                        let title = r.get("title")?.as_str()?;
+                        let (result_artist, result_album) = title
+                            .split_once(" - ")
+                            .map(|(a, al)| (Some(a.trim().to_string()), Some(al.trim().to_string())))
+                            .unwrap_or((None, Some(title.to_string())));
+                        let kind = r.get("type").and_then(|t| t.as_str()).map(|t| t.to_string());
+                        let year = r
+                            .get("year")
+                            .and_then(|y| y.as_u64())
+                            .or_else(|| {
+                                r.get("year").and_then(|y| y.as_str()).and_then(|s| s.parse().ok())
+                            })
+                            .map(|y| y.to_string());
+                        let formats = r
+                            .get("format")
+                            .and_then(|f| f.as_array())
+                            .map(|arr| {
+                                arr.iter()
+                                    .filter_map(|f| f.as_str().map(|s| s.to_string()))
+                                    .collect::<Vec<_>>()
+                            })
+                            .unwrap_or_default();
+                        let barcode = r
+                            .get("barcode")
+                            .and_then(|b| b.as_array())
+                            .and_then(|arr| arr.first())
+                            .and_then(|b| b.as_str())
+                            .filter(|s| !s.is_empty())
+                            .map(|s| s.to_string());
+                        let catalog_number = r
+                            .get("catno")
+                            .and_then(|c| c.as_str())
+                            .filter(|s| !s.is_empty())
+                            .map(|s| s.to_string());
+                        let country = r.get("country").and_then(|c| c.as_str()).map(|s| s.to_string());
+                        Some(ReleaseSearchSummary {
+                            provider: "discogs".to_string(),
+                            id,
+                            kind,
+                            title: result_album.unwrap_or_default(),
+                            artist: result_artist.or_else(|| {
+                                r.get("title").and_then(|t| {
+                                    t.as_str()
+                                        .and_then(|s| s.split(" - ").next())
+                                        .map(|a| a.to_string())
+                                })
+                            }),
+                            year,
+                            country,
+                            formats,
+                            catalog_number,
+                            barcode,
+                        })
+                    })
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default();
+        Ok((summaries, total))
     }
 }
 
@@ -2809,5 +3070,54 @@ mod tests {
 
         // Unrelated releases should not match
         assert!(!album_names_match(folder_hint, "Unrelated Album"));
+    }
+
+    // ── search_release_summaries ─────────────────────────────────
+
+    #[tokio::test]
+    async fn musicbrainz_search_release_summaries_returns_paged_results() {
+        let (base, requests) = server(2, |path, _| -> (&'static str, String, &'static str) {
+            if path.starts_with("/ws/2/release?query=") {
+                return ("200 OK", r#"{"releases":[{"id":"mb-1","title":"OK Computer","artist-credit":[{"name":"Radiohead","artist":{"id":"art-1"}}],"date":"1997-05-21","country":"GB","media":[{"format":"CD"}],"barcode":"123","label-info":[{"catalog-number":"CAT-1"}]}],"release-count":1}"#.to_string(), "application/json");
+            }
+            ("404 Not Found", "{}".to_string(), "application/json")
+        });
+        let musicbrainz = MusicBrainzClient::at(ProviderState::new().http(), &format!("{base}/ws/2"));
+        let (summaries, count) = musicbrainz.search_release_summaries(&[("artist", "Radiohead"), ("release", "OK Computer")], 10, 0).await.unwrap();
+        assert_eq!(summaries.len(), 1);
+        assert_eq!(count, 1);
+        assert_eq!(summaries[0].title, "OK Computer");
+        assert_eq!(summaries[0].artist.as_deref(), Some("Radiohead"));
+        assert_eq!(summaries[0].year.as_deref(), Some("1997"));
+        assert_eq!(summaries[0].country.as_deref(), Some("GB"));
+        assert_eq!(summaries[0].formats, vec!["CD"]);
+        let req1 = requests.recv().unwrap();
+        assert!(req1.contains("query="));
+    }
+
+    #[tokio::test]
+    async fn discogs_search_release_summaries_returns_paged_results() {
+        let (base, requests) = server(2, |path, _| -> (&'static str, String, &'static str) {
+            if path.starts_with("/discogs/database/search?") {
+                return ("200 OK", r#"{"results":[{"id":123,"title":"Radiohead - OK Computer","type":"release","year":1997,"format":["CD"],"country":"Europe","barcode":["123456"],"catno":"CAT-1","artist":"Radiohead"}],"pagination":{"items":1,"pages":1}}"#.to_string(), "application/json");
+            }
+            ("404 Not Found", "{}".to_string(), "application/json")
+        });
+        let discogs = DiscogsClient::at(ProviderState::new().http(), None, &format!("{base}/discogs"));
+        let (summaries, total) = discogs.search_release_summaries(&[("artist", "Radiohead"), ("release_title", "OK Computer")], 1, 10).await.unwrap();
+        assert_eq!(summaries.len(), 1);
+        assert_eq!(total, 1);
+        assert_eq!(summaries[0].title, "OK Computer");
+        assert_eq!(summaries[0].artist.as_deref(), Some("Radiohead"));
+        assert_eq!(summaries[0].provider, "discogs");
+        let req1 = requests.recv().unwrap();
+        assert!(req1.contains("/database/search"));
+    }
+
+    #[tokio::test]
+    async fn search_release_summaries_empty_query_returns_err() {
+        let musicbrainz = MusicBrainzClient::new(ProviderState::new().http());
+        let result = musicbrainz.search_release_summaries(&[], 10, 0).await;
+        assert!(result.is_err());
     }
 }

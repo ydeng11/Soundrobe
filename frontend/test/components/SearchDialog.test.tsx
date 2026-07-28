@@ -1,0 +1,383 @@
+// @vitest-environment jsdom
+import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
+import React from "react";
+import { render, screen, fireEvent, cleanup, waitFor } from "@testing-library/react";
+import { SearchDialog } from "../../src/components/SearchDialog";
+import type { ReleaseSearchPage, ProviderAlbum } from "../../src/shared/desktop-api";
+
+afterEach(() => {
+  cleanup();
+  delete (window as unknown as Record<string, unknown>).api;
+});
+
+function makeSearchPage(overrides?: Partial<ReleaseSearchPage>): ReleaseSearchPage {
+  return {
+    results: [
+      {
+        provider: "musicbrainz",
+        id: "mb-1",
+        title: "OK Computer",
+        artist: "Radiohead",
+        year: "1997",
+        country: "GB",
+        formats: ["CD"],
+        catalogNumber: undefined,
+        barcode: undefined,
+      },
+      {
+        provider: "musicbrainz",
+        id: "mb-2",
+        title: "Kid A",
+        artist: "Radiohead",
+        year: "2000",
+        country: "GB",
+        formats: ["CD"],
+        catalogNumber: undefined,
+        barcode: undefined,
+      },
+    ],
+    page: 1,
+    pageSize: 10,
+    total: 2,
+    hasNext: false,
+    ...overrides,
+  };
+}
+
+function makeProviderAlbum(overrides?: Partial<ProviderAlbum>): ProviderAlbum {
+  return {
+    id: "mb-1",
+    title: "OK Computer",
+    artist: "Radiohead",
+    artists: ["Radiohead"],
+    artistId: "mb-artist-1",
+    year: "1997",
+    genre: "Alternative",
+    tracks: [
+      { title: "Airbag", matchTitles: [], artists: [], trackNumber: 1, recordingId: "t1", length: 4 * 60 },
+      { title: "Paranoid Android", matchTitles: [], artists: [], trackNumber: 2, recordingId: "t2", length: 6 * 60 },
+    ],
+    ...overrides,
+  };
+}
+
+beforeEach(() => {
+  window.api = {
+    searchReleases: vi.fn().mockResolvedValue(makeSearchPage()),
+    resolveRelease: vi.fn().mockResolvedValue(makeProviderAlbum()),
+  } as unknown as Window["api"];
+});
+
+describe("SearchDialog", () => {
+  const defaultProps = {
+    open: true,
+    albumPath: "/music/Album",
+    onClose: vi.fn(),
+    onSelectRelease: vi.fn(),
+  };
+
+  it("renders the search form with provider selector", () => {
+    render(<SearchDialog {...defaultProps} />);
+    expect(screen.getByText("MusicBrainz")).toBeTruthy();
+    expect(screen.getByText("Discogs")).toBeTruthy();
+    expect(screen.getByPlaceholderText("Artist name")).toBeTruthy();
+    expect(screen.getByPlaceholderText("Album title")).toBeTruthy();
+  });
+
+  it("renders optional fields: year, country, format, catalog, barcode", () => {
+    render(<SearchDialog {...defaultProps} />);
+    expect(screen.getByPlaceholderText("e.g. 2004")).toBeTruthy();
+    expect(screen.getByPlaceholderText("e.g. US")).toBeTruthy();
+    expect(screen.getByPlaceholderText("e.g. CD")).toBeTruthy();
+  });
+
+  it("disables search button when both artist and album are empty", () => {
+    render(<SearchDialog {...defaultProps} />);
+    const btn = screen.getByText("Search") as HTMLButtonElement;
+    expect(btn.disabled).toBe(true);
+  });
+
+  it("enables search button when artist is filled", () => {
+    render(<SearchDialog {...defaultProps} />);
+    fireEvent.change(screen.getByPlaceholderText("Artist name"), {
+      target: { value: "Radiohead" },
+    });
+    expect((screen.getByText("Search") as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it("calls searchReleases on submit and shows results", async () => {
+    render(<SearchDialog {...defaultProps} />);
+    fireEvent.change(screen.getByPlaceholderText("Artist name"), {
+      target: { value: "Radiohead" },
+    });
+    fireEvent.change(screen.getByPlaceholderText("Album title"), {
+      target: { value: "OK Computer" },
+    });
+    fireEvent.click(screen.getByText("Search"));
+
+    await waitFor(() => {
+      expect(window.api.searchReleases).toHaveBeenCalledWith(
+        expect.objectContaining({ provider: "musicbrainz", artist: "Radiohead", album: "OK Computer" }),
+      );
+    });
+    await waitFor(() => {
+      expect(screen.getByText("OK Computer")).toBeTruthy();
+      expect(screen.getByText("Kid A")).toBeTruthy();
+    });
+  });
+
+  it("shows empty state when no results", async () => {
+    window.api.searchReleases = vi.fn().mockResolvedValue({
+      results: [], page: 1, pageSize: 10, total: 0, hasNext: false,
+    });
+    render(<SearchDialog {...defaultProps} />);
+    fireEvent.change(screen.getByPlaceholderText("Artist name"), {
+      target: { value: "Unknown Artist" },
+    });
+    fireEvent.click(screen.getByText("Search"));
+    await waitFor(() => {
+      expect(screen.getByText(/No releases found/)).toBeTruthy();
+    });
+  });
+
+  it("shows error state and retry works", async () => {
+    window.api.searchReleases = vi.fn().mockRejectedValue(new Error("Network error"));
+    render(<SearchDialog {...defaultProps} />);
+    fireEvent.change(screen.getByPlaceholderText("Artist name"), {
+      target: { value: "Radiohead" },
+    });
+    fireEvent.click(screen.getByText("Search"));
+    await waitFor(() => {
+      expect(screen.getByText(/Network error/)).toBeTruthy();
+    });
+    // Retry works
+    window.api.searchReleases = vi.fn().mockResolvedValue(makeSearchPage());
+    fireEvent.click(screen.getByText("Search"));
+    await waitFor(() => {
+      expect(screen.getByText("OK Computer")).toBeTruthy();
+    });
+  });
+
+  it("opens detail view when clicking a result", async () => {
+    render(<SearchDialog {...defaultProps} />);
+    fireEvent.change(screen.getByPlaceholderText("Artist name"), {
+      target: { value: "Radiohead" },
+    });
+    fireEvent.click(screen.getByText("Search"));
+    await waitFor(() => {
+      expect(screen.getByText("OK Computer")).toBeTruthy();
+    });
+    fireEvent.click(screen.getByText("OK Computer"));
+    await waitFor(() => {
+      expect(window.api.resolveRelease).toHaveBeenCalledWith("musicbrainz", "mb-1", undefined);
+      expect(screen.getByText("Airbag")).toBeTruthy();
+    });
+  });
+
+  it("back from detail returns to results", async () => {
+    render(<SearchDialog {...defaultProps} />);
+    fireEvent.change(screen.getByPlaceholderText("Artist name"), {
+      target: { value: "Radiohead" },
+    });
+    fireEvent.click(screen.getByText("Search"));
+    await waitFor(() => {
+      expect(screen.getByText("OK Computer")).toBeTruthy();
+    });
+    fireEvent.click(screen.getByText("OK Computer"));
+    await waitFor(() => {
+      expect(screen.getByText("Airbag")).toBeTruthy();
+    });
+    // Back button
+    const backBtn = document.querySelector("[title='Back to results']");
+    expect(backBtn).toBeTruthy();
+    fireEvent.click(backBtn!);
+    await waitFor(() => {
+      expect(screen.getByText("OK Computer")).toBeTruthy();
+    });
+  });
+
+  it("selects a release and calls onSelectRelease", async () => {
+    render(<SearchDialog {...defaultProps} />);
+    fireEvent.change(screen.getByPlaceholderText("Artist name"), {
+      target: { value: "Radiohead" },
+    });
+    fireEvent.click(screen.getByText("Search"));
+    await waitFor(() => {
+      expect(screen.getByText("OK Computer")).toBeTruthy();
+    });
+    fireEvent.click(screen.getByText("OK Computer"));
+    await waitFor(() => {
+      expect(screen.getByText("Airbag")).toBeTruthy();
+    });
+    fireEvent.click(screen.getByText("Select this release"));
+    await waitFor(() => {
+      expect(defaultProps.onSelectRelease).toHaveBeenCalledWith(
+        expect.objectContaining({ id: "mb-1" }),
+        "musicbrainz",
+      );
+    });
+  });
+
+  it("cancels without calling write methods", () => {
+    render(<SearchDialog {...defaultProps} />);
+    const closeBtn = document.querySelector("[aria-label='Search releases'] button:last-child");
+    if (closeBtn) fireEvent.click(closeBtn);
+    expect(defaultProps.onClose).toHaveBeenCalled();
+    expect(window.api.resolveRelease).not.toHaveBeenCalled();
+  });
+
+  it("switches provider label for catalog number", () => {
+    render(<SearchDialog {...defaultProps} />);
+    // Default is MusicBrainz
+    const labels = screen.getAllByText(/Catalog Number/);
+    expect(labels.length).toBeGreaterThanOrEqual(1);
+    // Switch to Discogs
+    fireEvent.click(screen.getByText("Discogs"));
+    expect(screen.getByText(/Catalog Number/)).toBeTruthy();
+  });
+
+  it("accepts artist-only search on MusicBrainz", async () => {
+    const mockSearch = vi.fn().mockResolvedValue(makeSearchPage());
+    window.api.searchReleases = mockSearch;
+    render(<SearchDialog {...defaultProps} />);
+    fireEvent.change(screen.getByPlaceholderText("Artist name"), {
+      target: { value: "Radiohead" },
+    });
+    fireEvent.click(screen.getByText("Search"));
+    await waitFor(() => {
+      expect(mockSearch).toHaveBeenCalledWith(
+        expect.objectContaining({ artist: "Radiohead", album: undefined }),
+      );
+    });
+  });
+
+  it("accepts album-only search on MusicBrainz", async () => {
+    const mockSearch = vi.fn().mockResolvedValue(makeSearchPage());
+    window.api.searchReleases = mockSearch;
+    render(<SearchDialog {...defaultProps} />);
+    fireEvent.change(screen.getByPlaceholderText("Album title"), {
+      target: { value: "OK Computer" },
+    });
+    fireEvent.click(screen.getByText("Search"));
+    await waitFor(() => {
+      expect(mockSearch).toHaveBeenCalledWith(
+        expect.objectContaining({ album: "OK Computer", artist: undefined }),
+      );
+    });
+  });
+
+  it("accepts artist-only search on Discogs", async () => {
+    const mockSearch = vi.fn().mockResolvedValue(makeSearchPage());
+    window.api.searchReleases = mockSearch;
+    render(<SearchDialog {...defaultProps} />);
+    fireEvent.click(screen.getByText("Discogs"));
+    fireEvent.change(screen.getByPlaceholderText("Artist name"), {
+      target: { value: "Nirvana" },
+    });
+    fireEvent.click(screen.getByText("Search"));
+    await waitFor(() => {
+      expect(mockSearch).toHaveBeenCalledWith(
+        expect.objectContaining({ artist: "Nirvana", album: undefined }),
+      );
+    });
+  });
+
+  it("sends undefined for blank optional fields", async () => {
+    const mockSearch = vi.fn().mockResolvedValue(makeSearchPage());
+    window.api.searchReleases = mockSearch;
+    render(<SearchDialog {...defaultProps} />);
+    fireEvent.change(screen.getByPlaceholderText("Artist name"), {
+      target: { value: "Radiohead" },
+    });
+    fireEvent.change(screen.getByPlaceholderText("Album title"), {
+      target: { value: "OK Computer" },
+    });
+    fireEvent.click(screen.getByText("Search"));
+    await waitFor(() => {
+      const call = mockSearch.mock.calls[0][0];
+      expect(call.year).toBeUndefined();
+      expect(call.country).toBeUndefined();
+      expect(call.format).toBeUndefined();
+      expect(call.catalogNumber).toBeUndefined();
+      expect(call.barcode).toBeUndefined();
+    });
+  });
+
+  it("sends trim whitespace values", async () => {
+    const mockSearch = vi.fn().mockResolvedValue(makeSearchPage());
+    window.api.searchReleases = mockSearch;
+    render(<SearchDialog {...defaultProps} />);
+    fireEvent.change(screen.getByPlaceholderText("Artist name"), {
+      target: { value: "  Radiohead  " },
+    });
+    fireEvent.click(screen.getByText("Search"));
+    await waitFor(() => {
+      expect(mockSearch).toHaveBeenCalledWith(
+        expect.objectContaining({ artist: "Radiohead" }),
+      );
+    });
+  });
+
+  it("sends undefined for whitespace-only optional fields", async () => {
+    const mockSearch = vi.fn().mockResolvedValue(makeSearchPage());
+    window.api.searchReleases = mockSearch;
+    render(<SearchDialog {...defaultProps} />);
+    fireEvent.change(screen.getByPlaceholderText("Artist name"), {
+      target: { value: "Radiohead" },
+    });
+    fireEvent.change(screen.getByPlaceholderText("Album title"), {
+      target: { value: "OK Computer" },
+    });
+    fireEvent.change(screen.getByPlaceholderText("e.g. 2004"), {
+      target: { value: "  " },
+    });
+    fireEvent.click(screen.getByText("Search"));
+    await waitFor(() => {
+      const call = mockSearch.mock.calls[0][0];
+      expect(call.year).toBeUndefined();
+    });
+  });
+
+  it("shows Artist or Album is required hint", () => {
+    render(<SearchDialog {...defaultProps} />);
+    expect(screen.getByText(/Artist or Album is required/)).toBeTruthy();
+    expect(screen.getByText(/All other fields are optional/)).toBeTruthy();
+  });
+
+  // ── Discogs-specific ─────────────────────────────────────────
+
+  it("accepts album-only search on Discogs", async () => {
+    const mockSearch = vi.fn().mockResolvedValue(makeSearchPage());
+    window.api.searchReleases = mockSearch;
+    render(<SearchDialog {...defaultProps} />);
+    fireEvent.click(screen.getByText("Discogs"));
+    fireEvent.change(screen.getByPlaceholderText("Album title"), {
+      target: { value: "Nevermind" },
+    });
+    fireEvent.click(screen.getByText("Search"));
+    await waitFor(() => {
+      expect(mockSearch).toHaveBeenCalledWith(
+        expect.objectContaining({ album: "Nevermind", artist: undefined }),
+      );
+    });
+  });
+
+  it("accepts artist+album search on Discogs", async () => {
+    const mockSearch = vi.fn().mockResolvedValue(makeSearchPage());
+    window.api.searchReleases = mockSearch;
+    render(<SearchDialog {...defaultProps} />);
+    fireEvent.click(screen.getByText("Discogs"));
+    fireEvent.change(screen.getByPlaceholderText("Artist name"), {
+      target: { value: "Nirvana" },
+    });
+    fireEvent.change(screen.getByPlaceholderText("Album title"), {
+      target: { value: "Nevermind" },
+    });
+    fireEvent.click(screen.getByText("Search"));
+    await waitFor(() => {
+      expect(mockSearch).toHaveBeenCalledWith(
+        expect.objectContaining({ artist: "Nirvana", album: "Nevermind" }),
+      );
+    });
+  });
+});

@@ -57,6 +57,9 @@ pub struct MatchedCandidate {
     pub stats: MatchStats,
     pub evidence: Vec<Option<MatchEvidence>>,
     pub is_full_ordered_match: bool,
+    /// Remote track index for each local track (in local order).
+    /// `None` means the local track was unmatched.
+    pub remote_indices: Vec<Option<usize>>,
 }
 
 #[derive(Default)]
@@ -94,6 +97,7 @@ pub fn match_remote_candidate_tracks(
             evidence: vec![None; local_tracks.len()],
             stats,
             is_full_ordered_match: false,
+            remote_indices: vec![None; local_tracks.len()],
         };
     }
 
@@ -376,6 +380,7 @@ pub fn match_remote_candidate_tracks(
         stats,
         evidence,
         is_full_ordered_match: full_match,
+        remote_indices: matched_local.to_vec(),
     }
 }
 
