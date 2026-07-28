@@ -1744,6 +1744,7 @@ fn write_id3_extra_tags_atomic(
             .unwrap_or_default()
     };
     apply_id3_extra_tags(&mut tag, updates);
+    normalize_empty_id3_picture_descriptions(&mut tag);
     let temporary = sibling_temp_path(path);
     let result = (|| {
         copy_file_data(path, &temporary)?;
@@ -2390,6 +2391,7 @@ pub fn write_mp3_atomic(path: &Path, patch: &TrackPatch) -> Result<TrackWriteOut
     preserve_omitted_list(&mut tag, path, "ARTISTS", &patch.artists);
     preserve_omitted_list(&mut tag, path, "ALBUMARTISTS", &patch.album_artists);
     apply_patch(&mut tag, patch);
+    normalize_empty_id3_picture_descriptions(&mut tag);
 
     let temporary = sibling_temp_path(path);
     let result = (|| {
@@ -2431,6 +2433,27 @@ fn read_id3v2(path: &Path) -> Result<Id3v2Tag, ApiError> {
     let mut file = File::open(path)?;
     let parsed = MpegFile::read_from(&mut file, ParseOptions::new().read_properties(false))?;
     Ok(parsed.id3v2().cloned().unwrap_or_default())
+}
+
+/// Lofty serializes a missing APIC description as one zero byte regardless of
+/// its declared encoding. For UTF-16 pictures that creates a tag Lofty cannot
+/// read back. An empty description has no encoding-dependent content, so use
+/// UTF-8 while preserving the picture, frame flags, and all non-picture frames.
+fn normalize_empty_id3_picture_descriptions(tag: &mut Id3v2Tag) {
+    let pictures = tag.remove(&frame_id("APIC")).collect::<Vec<_>>();
+    for mut frame in pictures {
+        if let Frame::Picture(picture) = &mut frame {
+            if picture.picture.description().is_none()
+                && matches!(
+                    picture.encoding,
+                    TextEncoding::UTF16 | TextEncoding::UTF16BE
+                )
+            {
+                picture.encoding = TextEncoding::UTF8;
+            }
+        }
+        tag.insert(frame);
+    }
 }
 
 fn apply_ape_patch(tag: &mut ApeTag, patch: &TrackPatch) -> Result<(), ApiError> {
@@ -4036,6 +4059,86 @@ mod tests {
         assert_eq!(
             read_track_metadata(&path).unwrap().title.as_deref(),
             Some("Changed title")
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    fn install_legacy_utf16_empty_picture(path: &Path) {
+        let mut tag = read_id3v2(&path).unwrap();
+        let picture = Picture::unchecked(vec![0xff, 0xd8, 0xff, 0xd9])
+            .pic_type(PictureType::CoverFront)
+            .mime_type(MimeType::Jpeg)
+            .description("")
+            .build();
+        tag.insert(Frame::Picture(lofty::id3::v2::AttachedPictureFrame::new(
+            TextEncoding::UTF16,
+            picture,
+        )));
+        tag.save_to_path(&path, WriteOptions::new().use_id3v23(true))
+            .unwrap();
+        read_track_metadata(&path).unwrap();
+    }
+
+    #[test]
+    fn legacy_id3v23_utf16_empty_picture_remains_writable() {
+        let (root, path) = copy_fixture();
+        install_legacy_utf16_empty_picture(&path);
+        let patch: TrackPatch =
+            serde_json::from_value(serde_json::json!({"title": "Changed title"})).unwrap();
+        let before = fs::read(&path).unwrap();
+
+        assert_eq!(
+            write_mp3_atomic(&path, &patch).unwrap(),
+            TrackWriteOutcome::Replaced
+        );
+        assert_eq!(
+            read_track_metadata(&path).unwrap().title.as_deref(),
+            Some("Changed title")
+        );
+        assert_eq!(
+            mpeg_payload(&before),
+            mpeg_payload(&fs::read(&path).unwrap())
+        );
+        let written_tag = read_id3v2(&path).unwrap();
+        let written_picture = (&written_tag)
+            .into_iter()
+            .find_map(|frame| match frame {
+                Frame::Picture(picture) if picture.picture.data() == [0xff, 0xd8, 0xff, 0xd9] => {
+                    Some(picture)
+                }
+                _ => None,
+            })
+            .unwrap();
+        assert_eq!(written_picture.picture.data(), [0xff, 0xd8, 0xff, 0xd9]);
+        assert_eq!(written_picture.encoding, TextEncoding::UTF8);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn legacy_id3v23_utf16_empty_picture_accepts_extra_tag_updates() {
+        let (root, path) = copy_fixture();
+        install_legacy_utf16_empty_picture(&path);
+        let before = fs::read(&path).unwrap();
+
+        assert_eq!(
+            write_id3_extra_tags_atomic(
+                &path,
+                &[ExtraTagUpdate {
+                    key: "MOOD".to_string(),
+                    value: "Bright".to_string(),
+                }],
+                false,
+            )
+            .unwrap(),
+            TrackWriteOutcome::Replaced
+        );
+        assert_eq!(
+            read_id3v2(&path).unwrap().get_user_text("MOOD"),
+            Some("Bright")
+        );
+        assert_eq!(
+            mpeg_payload(&before),
+            mpeg_payload(&fs::read(&path).unwrap())
         );
         fs::remove_dir_all(root).unwrap();
     }
