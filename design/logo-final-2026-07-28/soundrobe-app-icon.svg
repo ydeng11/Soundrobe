@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <clipPath id="macos-icon-plate">
+      <rect x="100" y="100" width="824" height="824" rx="185" />
+    </clipPath>
+  </defs>
+  <image
+    href="soundrobe-ribbon-s-master.png"
+    x="100"
+    y="100"
+    width="824"
+    height="824"
+    preserveAspectRatio="xMidYMid slice"
+    clip-path="url(#macos-icon-plate)"
+  />
+</svg>
