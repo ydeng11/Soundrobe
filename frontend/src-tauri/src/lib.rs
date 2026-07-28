@@ -160,9 +160,27 @@ pub fn run() {
                 let cache = CacheState::new(home.clone());
                 let _ = cache.initialize(raw_config.cache_path.as_deref());
                 app.manage(DebugState::new(home.clone(), debug_enabled));
+
+                // Persistent task state for the assistant harness.
+                let task_path = raw_config
+                    .cache_path
+                    .as_deref()
+                    .map(std::path::PathBuf::from)
+                    .unwrap_or_else(|| home.join(".auto-tagger/cache.db"));
+                let task_state = crate::state::assistant_task::AssistantTaskState::new(task_path);
+                let _ = task_state.initialize();
+                app.manage(task_state);
+
                 app.manage(ConversationState::new(home));
                 app.manage(cache);
                 app.manage(config);
+            } else {
+                // Fallback: manage a default task state even without home.
+                let task_state = crate::state::assistant_task::AssistantTaskState::new(
+                    std::path::PathBuf::from(".auto-tagger/cache.db"),
+                );
+                let _ = task_state.initialize();
+                app.manage(task_state);
             }
             app.manage(AssistantRuntimeState::default());
             app.manage(AssistantServicesState::default());

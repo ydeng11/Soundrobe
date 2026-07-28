@@ -1,5 +1,6 @@
 //! Assistant service configuration shared by runtime/tools.
 
+use crate::state::assistant_task::AssistantTaskState;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
@@ -75,12 +76,34 @@ impl AssistantRuntimeState {
         self.inner.lock().is_ok_and(|state| state.active)
     }
 
+    /// Initialize the runtime and hydrate pending batches from the task store.
     pub fn initialize(&self) -> bool {
         let Ok(mut state) = self.inner.lock() else {
             return false;
         };
         state.active = true;
         state.cancellation.store(false, Ordering::Release);
+        true
+    }
+
+    /// Initialize with task state hydration.
+    /// Loads all pending batches from the persistent store and adds them
+    /// idempotently (skips already-stored batch IDs).
+    pub fn initialize_with_task_state(&self, task_state: &AssistantTaskState) -> bool {
+        let Ok(mut state) = self.inner.lock() else {
+            return false;
+        };
+        state.active = true;
+        state.cancellation.store(false, Ordering::Release);
+        drop(state); // release before potentially slow DB query
+
+        // Hydrate pending batches from persistent store.
+        let pending = task_state.load_all_pending_batches();
+        for (batch_id, _session_id, batch_json) in pending {
+            if let Ok(batch) = serde_json::from_value::<AssistantActionBatch>(batch_json) {
+                self.add_batch(batch);
+            }
+        }
         true
     }
 

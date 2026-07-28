@@ -269,7 +269,7 @@ impl OpenRouterClient {
 
     pub async fn complete_json(
         &self,
-        messages: Vec<ChatMessage>,
+        mut messages: Vec<ChatMessage>,
         schema_name: &str,
         schema: Value,
         cancelled: &AtomicBool,
@@ -343,6 +343,17 @@ impl OpenRouterClient {
                     if let Ok(data) = serde_json::from_str(extracted) {
                         return Ok(build_response(current, data, &self.model));
                     }
+                }
+                if repair_attempt == 0 {
+                    messages.push(ChatMessage {
+                        role: "assistant".into(),
+                        content: trimmed.to_string(),
+                    });
+                    messages.push(ChatMessage::system(format!(
+                        "Your previous response did not match the required {schema_name} JSON schema. Return only one JSON value that matches that schema. Put any clarification or question inside the schema instead of replying with plain text."
+                    )));
+                    payload = Some(response);
+                    continue;
                 }
                 return Err(OpenRouterError::NonJson(
                     trimmed.chars().take(120).collect(),
@@ -811,11 +822,63 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn retries_retryable_status_and_fails_loud_on_non_json_content() {
+    async fn retries_non_json_content_once_with_explicit_schema_feedback() {
+        let non_json =
+            "I found 102 tracks missing a genre. Would you like me to set them all to \"Cantopop, Pop\"?";
         let server = TestServer::start(vec![
             TestResponse::status(429, "busy"),
             TestResponse::json(json!({
-                "choices": [{ "finish_reason": "stop", "message": { "content": "not json" } }]
+                "choices": [{ "finish_reason": "stop", "message": { "content": non_json } }]
+            })),
+            TestResponse::json(json!({
+                "choices": [{ "finish_reason": "stop", "message": { "content": "{\"message\":\"I will prepare that change.\",\"toolCall\":null,\"actionBatch\":null}" } }]
+            })),
+        ]);
+        let client = OpenRouterClient::at("secret", "test/model", server.base_url())
+            .with_retry_delays(vec![0, 0]);
+
+        let response = client
+            .complete_json(
+                vec![ChatMessage::user("audit")],
+                "AssistantResponse",
+                json!({ "type": "object" }),
+                &AtomicBool::new(false),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(
+            response.data,
+            json!({
+                "message": "I will prepare that change.",
+                "toolCall": null,
+                "actionBatch": null
+            })
+        );
+        assert_eq!(server.request_count(), 3);
+        let repair = server.request(2);
+        assert_eq!(repair.body["reasoning"], json!({ "enabled": false }));
+        let messages = repair.body["messages"].as_array().unwrap();
+        assert_eq!(messages[messages.len() - 2]["role"], "assistant");
+        assert_eq!(messages[messages.len() - 2]["content"], non_json);
+        assert_eq!(messages[messages.len() - 1]["role"], "system");
+        assert!(
+            messages[messages.len() - 1]["content"]
+                .as_str()
+                .unwrap()
+                .contains("AssistantResponse"),
+            "repair feedback must restate which schema the model violated"
+        );
+    }
+
+    #[tokio::test]
+    async fn fails_loud_when_schema_repair_also_returns_non_json_content() {
+        let server = TestServer::start(vec![
+            TestResponse::json(json!({
+                "choices": [{ "finish_reason": "stop", "message": { "content": "Would you like me to continue?" } }]
+            })),
+            TestResponse::json(json!({
+                "choices": [{ "finish_reason": "stop", "message": { "content": "Yes or no?" } }]
             })),
         ]);
         let client = OpenRouterClient::at("secret", "test/model", server.base_url())
@@ -824,15 +887,22 @@ mod tests {
         let error = client
             .complete_json(
                 vec![ChatMessage::user("audit")],
-                "AuditResponse",
+                "AssistantResponse",
                 json!({ "type": "object" }),
                 &AtomicBool::new(false),
             )
             .await
             .unwrap_err();
 
-        assert!(error.to_string().contains("non-JSON content"));
-        assert_eq!(server.request_count(), 2);
+        assert_eq!(
+            error.to_string(),
+            "LLM returned non-JSON content: Yes or no?"
+        );
+        assert_eq!(
+            server.request_count(),
+            2,
+            "schema repair must stay bounded to one retry"
+        );
     }
 
     #[tokio::test]

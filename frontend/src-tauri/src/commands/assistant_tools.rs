@@ -114,7 +114,7 @@ pub(crate) fn assistant_tool_definitions() -> Vec<AssistantToolDefinition> {
         // ── Public mutating tools (the orthogonal set) ───────────────────
         ToolSpec {
             name: "metadata.patch",
-            description: "Apply uniform or per-track changes to tag fields. Supports set, remove, and upsert (extra tags only) actions. Use for explicit value changes where you know the new values.",
+            description: "Apply uniform or per-track changes to tag fields. Supports set, remove, and upsert (extra tags only) actions. Set only_if_missing on a standard-field change to preserve existing values. Use for explicit value changes where you know the new values.",
             read_only: false, public: true,
             operation_kind: Kind::MetadataEdit,
         },
@@ -378,7 +378,8 @@ fn tool_schema(name: &str) -> Value {
                             "tag_kind": {"type": "string", "enum": ["standard", "extra"]},
                             "field": {"type": "string"},
                             "action": {"type": "string", "enum": ["set", "remove", "upsert"]},
-                            "value": {}
+                            "value": {},
+                            "only_if_missing": {"type": "boolean"}
                         },
                         "required": ["field", "action"]
                     }

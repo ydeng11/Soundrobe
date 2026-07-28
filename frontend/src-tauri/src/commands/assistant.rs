@@ -40,9 +40,11 @@ const ASSISTANT_SESSION_TIMEOUT_SECS: u64 = 600;
 const ASSISTANT_MAX_STEPS: usize = 20;
 const ASSISTANT_PREVIEW_REPAIR_ATTEMPTS: usize = 3;
 const ASSISTANT_SESSION_TIMEOUT_LOG: &str = "Session timed out after 600 seconds";
-const ASSISTANT_SELF_REVIEW_PROMPT: &str = "If your response above is a clarification, answer, or \
-limitation, finalize it unchanged. If it announces an action (for example, \"I'll inspect\" or \
-\"let me preview\"), call the tool now instead.";
+const ASSISTANT_SELF_REVIEW_PROMPT: &str = "If your response above is a clarification because \
+action-defining details are missing, an answer, or a limitation, finalize it unchanged. If the user \
+already requested a supported edit, do not ask whether to proceed; call the tool now to create the \
+approval preview. If your response announces an action (for example, \"I'll inspect\" or \"let me \
+preview\"), call the tool now instead.";
 
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -355,6 +357,7 @@ pub async fn assistant_send(
     providers: State<'_, ProviderState>,
     config: State<'_, ConfigState>,
     conversation: State<'_, ConversationState>,
+    task_state: State<'_, crate::state::assistant_task::AssistantTaskState>,
 ) -> Result<AssistantEvent, ApiError> {
     let session_start = std::time::Instant::now();
     tracing::debug!(
@@ -363,7 +366,9 @@ pub async fn assistant_send(
         "assistant_send started"
     );
     let raw_config = config.raw();
-    if !conversation.initialize(raw_config.cache_path.as_deref()) || !runtime.initialize() {
+    if !conversation.initialize(raw_config.cache_path.as_deref())
+        || !runtime.initialize_with_task_state(&task_state)
+    {
         return Err(ApiError::Message(
             "Assistant runtime could not be initialized".into(),
         ));
@@ -371,6 +376,239 @@ pub async fn assistant_send(
     let current = conversation
         .current()
         .ok_or_else(|| ApiError::Message("No active assistant session".into()))?;
+
+    // ── Deterministic routing (runs before credential resolution) ──
+    // Try to route unambiguous operations without consulting an LLM.
+    let latest_session = task_state.load_latest_session();
+
+    // Run the deterministic router.
+    let session_id_for_state = current.session_id.clone();
+    if let Some(routed) =
+        crate::commands::assistant_intent::route_message(&input.message, latest_session.as_ref())
+    {
+        tracing::debug!(
+            intent = ?routed.intent,
+            field = ?routed.field,
+            has_value = routed.value.is_some(),
+            uses_referent = routed.uses_referent,
+            "deterministic routing matched"
+        );
+
+        if routed.uses_referent && routed.value.is_none() {
+            // "set them" without a value — need clarification
+            return assistant_error_event_with_conversation(
+                &app,
+                Some(&*conversation),
+                Some(session_id_for_state),
+                "What value should I set?",
+            );
+        }
+
+        // Persist the session state with routing info
+        let scope_predicate = crate::commands::assistant_intent::resolved_intent_from_command(&routed);
+        let now = crate::state::assistant_task::iso_now();
+        let session_state = crate::state::assistant_task::SessionState {
+            session_id: session_id_for_state.clone(),
+            intent: Some(format!("{:?}", routed.intent)),
+            scope_predicate: serde_json::to_value(&scope_predicate).ok(),
+            protocol: "routed".to_string(),
+            referent_count: 0,
+            referent_query: routed.field.clone().map(|f| format!("missing {}", f)),
+            referent_field: routed.field.clone(),
+            referent_value: routed.value.clone(),
+            pending_batch_ids: vec![],
+            mutation_required: true,
+            created_at: now.clone(),
+            updated_at: now,
+        };
+        let _ = task_state.upsert_session(&session_state);
+
+        // Execute the routed intent directly.
+        if let Some(field) = &routed.field {
+            let value = routed.value.as_deref();
+
+            // ── Resolve scope from input ───────────────────────────
+            let scope_paths = crate::commands::assistant_intent::resolve_scope(
+                &routed,
+                &input,
+                latest_session.as_ref(),
+            );
+            if scope_paths.is_empty() {
+                return assistant_error_event_with_conversation(
+                    &app,
+                    Some(&*conversation),
+                    Some(session_id_for_state),
+                    "No tracks match the requested scope.",
+                );
+            }
+
+            // ── Dispatch by intent kind ────────────────────────────
+            let execution = match routed.intent {
+                crate::commands::assistant_intent::IntentKind::SetField
+                | crate::commands::assistant_intent::IntentKind::SetMissing => {
+                    let value = match value {
+                        Some(v) => v,
+                        None => {
+                            // "set the missing genre" without a value — ask
+                            return assistant_error_event_with_conversation(
+                                &app,
+                                Some(&*conversation),
+                                Some(session_id_for_state),
+                                &format!("What value should I set for {} where it is missing?", field),
+                            );
+                        }
+                    };
+                    let command_args = if routed.only_if_missing {
+                        serde_json::json!({
+                            "target_scope": "explicit_paths",
+                            "paths": scope_paths,
+                            "changes": [{
+                                "field": field,
+                                "action": "set",
+                                "value": value,
+                                "only_if_missing": true
+                            }]
+                        })
+                    } else {
+                        serde_json::json!({
+                            "target_scope": "explicit_paths",
+                            "paths": scope_paths,
+                            "changes": [{
+                                "field": field,
+                                "action": "set",
+                                "value": value
+                            }]
+                        })
+                    };
+                    crate::commands::assistant_metadata_tools::execute_metadata_patch(
+                        &command_args,
+                        &input,
+                        &session_id_for_state,
+                    )
+                }
+                crate::commands::assistant_intent::IntentKind::RemoveField
+                | crate::commands::assistant_intent::IntentKind::ClearField => {
+                    let command_args = serde_json::json!({
+                        "target_scope": "explicit_paths",
+                        "paths": scope_paths,
+                        "changes": [{
+                            "field": field,
+                            "action": "remove"
+                        }]
+                    });
+                    crate::commands::assistant_metadata_tools::execute_metadata_patch(
+                        &command_args,
+                        &input,
+                        &session_id_for_state,
+                    )
+                }
+            };
+
+            if execution.batches.is_empty() && !execution.result.ok {
+                // Error — report it
+                return assistant_error_event_with_conversation(
+                    &app,
+                    Some(&*conversation),
+                    Some(session_id_for_state),
+                    &execution.result.summary,
+                );
+            }
+
+            // Store batches in the runtime and persist them.
+            let mut stored_batches = Vec::new();
+            for batch in &execution.batches {
+                if runtime.add_batch(batch.clone()) {
+                    let _ = task_state.save_batch(
+                        &batch.id,
+                        &session_id_for_state,
+                        &serde_json::to_value(batch).unwrap_or_default(),
+                        batch.actions.len(),
+                    );
+                    stored_batches.push(batch.clone());
+                }
+            }
+
+            // Update session state with batch info
+            let pending_ids: Vec<String> = stored_batches.iter().map(|b| b.id.clone()).collect();
+            let updated_state = crate::state::assistant_task::SessionState {
+                pending_batch_ids: pending_ids.clone(),
+                ..session_state
+            };
+            let _ = task_state.upsert_session(&updated_state);
+
+            // Update referent in session state
+            let referent_predicate = crate::state::assistant_task::ScopePredicate::LibraryAndMissing {
+                field: field.clone(),
+            };
+            let (_paths, count) = crate::state::assistant_task::evaluate_predicate(
+                &referent_predicate,
+                &input.tracks,
+                input.active_album_path.as_deref(),
+                &input.selected_track_paths,
+            );
+            let referent_session = crate::state::assistant_task::SessionState {
+                referent_count: count as i64,
+                referent_query: Some(format!("missing {}", field)),
+                referent_field: Some(field.clone()),
+                referent_value: routed.value.clone(),
+                ..updated_state
+            };
+            let _ = task_state.upsert_session(&referent_session);
+
+            if stored_batches.is_empty() {
+                // No changes needed
+                conversation.record_system(&execution.result.summary);
+                return Ok(AssistantEvent {
+                    session_id: session_id_for_state,
+                    event_type: "message",
+                    message: execution.result.summary.clone(),
+                    data: Some(serde_json::json!({
+                        "outcome": "no_changes",
+                        "summary": execution.result.summary
+                    })),
+                });
+            }
+
+            let first = &stored_batches[0];
+            let message = if stored_batches.len() == 1 {
+                format!(
+                    "Preview created ({}): {}",
+                    first.id, first.summary
+                )
+            } else {
+                format!(
+                    "Preview created ({} batches): {} changes",
+                    stored_batches.len(),
+                    stored_batches.iter().map(|b| b.actions.len()).sum::<usize>()
+                )
+            };
+
+            conversation.record("assistant_message", &message, None, 0, 0, 0);
+            let event = AssistantEvent {
+                session_id: session_id_for_state,
+                event_type: "action_batch_created",
+                message: message.clone(),
+                data: Some(serde_json::json!({
+                    "actionBatchId": first.id,
+                    "actionBatch": first,
+                    "actionBatches": stored_batches
+                })),
+            };
+            let _ = app.emit("assistant:event", &event);
+            return Ok(event);
+        }
+
+        // If the intent was routed but field was missing, clarify.
+        return assistant_error_event_with_conversation(
+            &app,
+            Some(&*conversation),
+            Some(session_id_for_state),
+            "I couldn't determine which field to change. Please specify the field name.",
+        );
+    }
+
+    // ── End deterministic routing — LLM fallthrough ──
+
     let snapshot = services.snapshot().unwrap_or_default();
     let (api_key, model) = resolve_credentials(
         raw_config.llm_api_key.as_deref(),
@@ -562,6 +800,24 @@ pub async fn assistant_send(
             // Message-only: self-review retry — give the LLM one chance to
             // convert a planned-action description into an actual tool call.
             // Genuine clarifications/answers/limitations pass through unchanged.
+            if requires_tool_after_invalid_preview(invalid_preview_repairs) {
+                if invalid_preview_repairs < ASSISTANT_PREVIEW_REPAIR_ATTEMPTS {
+                    invalid_preview_repairs += 1;
+                    messages.push(ChatMessage {
+                        role: "assistant".into(),
+                        content: draft.message.clone(),
+                    });
+                    messages.push(ChatMessage::system(invalid_model_preview_repair_prompt(
+                        "The repair returned only a message and did not create a valid preview",
+                    )));
+                    continue;
+                }
+                return assistant_error_event(
+                    &app,
+                    Some(session_id),
+                    "The assistant could not create a valid action preview after bounded repair attempts.",
+                );
+            }
             if !self_reviewed {
                 self_reviewed = true;
                 messages.push(ChatMessage {
@@ -833,32 +1089,8 @@ fn assistant_response_schema() -> Value {
         "properties": {
             "message": {"type": "string"},
             "actionBatch": {
-                "type": ["object", "null"],
-                "properties": {
-                    "kind": {
-                        "type": "string",
-                        "enum": ["tag-update", "extra-tag-update", "metadata-update",
-                                  "auto-tag-run", "audit-run"]
-                    },
-                    "title": {"type": "string"},
-                    "summary": {"type": "string"},
-                    "riskLevel": {"type": "string", "enum": ["low", "medium", "high"]},
-                    "actions": {
-                        "type": "array",
-                        "items": {
-                            "type": "object",
-                            "properties": {
-                                "tagKind": {"type": ["string", "null"]},
-                                "trackPath": {"type": "string"},
-                                "field": {"type": ["string", "null"]},
-                                "newValue": {"type": ["string", "null"]},
-                                "description": {"type": ["string", "null"]}
-                            },
-                            "required": ["trackPath"]
-                        }
-                    }
-                },
-                "required": ["kind", "title", "summary", "riskLevel", "actions"]
+                "type": "null",
+                "description": "Always null. Call a registered tool; the native app creates validated action batches."
             },
             "toolCall": {
                 "type": ["object", "null"],
@@ -1001,16 +1233,20 @@ fn build_assistant_messages(
                 "  Tool results are bounded; refine or repeat queries when more evidence is needed.\n",
                 "- If the request is an explicit edit with concrete values (\"set title to X\", ",
                 "  \"remove genre\"), call metadata.patch with explicit values.\n",
+                "- Treat a quoted metadata value as one literal value even when it contains commas; ",
+                "  do not split it into different values for different tracks.\n",
                 "- If the request is a transformation (\"strip numbers from titles\", ",
                 "  \"lowercase all genres\", \"extract first word\", ",
                 "  \"convert Chinese to traditional\"), ",
                 "  call metadata.transform with the right operations pipeline.\n",
-                "- To fix one missing metadata field, page through every matching track and call ",
-                "  metadata.patch with per_track_changes for only that field. Do not broaden a ",
-                "  field-specific request into library.run_task.\n",
+                "- tags.prettify is read-only and never edits tracks; do not use it for mutations.\n",
+                "- To fix one missing metadata field, call metadata.patch for the intended scope ",
+                "  with a set change whose only_if_missing field is true. This creates concrete ",
+                "  per-track preview actions without overwriting existing values. Do not broaden ",
+                "  a field-specific request into library.run_task.\n",
                 "- For filename/path renames, call files.transform.\n",
                 "- For multi-step library tasks like auto-tagging or auditing, call library.run_task.\n",
-                "- Prefer toolCall over model-authored actionBatch.\n",
+                "- Never author actionBatch. Call a registered tool; the native app creates it.\n",
                 "- Ask one focused clarification **only** when materially different interpretations ",
                 "  would produce different actions.\n",
                 "- When you describe an action (inspect, search, look up), call the tool immediately.\n",
@@ -2893,9 +3129,14 @@ fn invalid_model_preview_repair_prompt(error: &str) -> String {
          actionBatch. Call one registered mutating tool using its exact schema instead. For \
          auto-tagging or auditing, call library.run_task with both task and target_scope. If the \
          request directly edits tags, call metadata.patch with target_scope and changes whose \
-         entries contain field, action, and value. If the intended scope is unclear, ask one \
-         focused clarification."
+         entries contain field, action, and value. For a missing-field request, set \
+         only_if_missing to true instead of enumerating paths. If more scope evidence is needed, \
+         call a registered read-only tool; do not return another prose-only preview claim."
     )
+}
+
+fn requires_tool_after_invalid_preview(invalid_preview_repairs: usize) -> bool {
+    invalid_preview_repairs > 0
 }
 
 /// If the LLM returned an action batch with kind "noop", normalize it to
@@ -4599,6 +4840,23 @@ mod assistant_behaviour_tests {
     }
 
     #[test]
+    fn metadata_patch_accepts_only_if_missing_condition() {
+        crate::commands::assistant_tools::validate_registered_tool_args(
+            "metadata.patch",
+            &json!({
+                "target_scope": "library",
+                "changes": [{
+                    "field": "genre",
+                    "action": "set",
+                    "value": "Pop, Cantopop",
+                    "only_if_missing": true
+                }]
+            }),
+        )
+        .expect("missing-field patches must not require enumerating every matching path");
+    }
+
+    #[test]
     fn organize_files_requires_source_dir_and_criterion() {
         let err = crate::commands::assistant_tools::validate_registered_tool_args(
             "organize_files",
@@ -4939,6 +5197,11 @@ mod assistant_behaviour_tests {
         assert_eq!(schema["required"], json!(["message"]));
         // actionBatch and toolCall are nullable optional properties.
         assert!(schema["properties"]["actionBatch"].is_object());
+        assert_eq!(schema["properties"]["actionBatch"]["type"], "null");
+        assert!(schema["properties"]["actionBatch"]["description"]
+            .as_str()
+            .unwrap()
+            .contains("registered tool"));
         assert!(schema["properties"]["toolCall"].is_object());
         assert_eq!(schema["properties"]["message"]["type"], "string");
     }
@@ -5119,6 +5382,25 @@ mod assistant_behaviour_tests {
         assert!(
             ASSISTANT_PREVIEW_REPAIR_ATTEMPTS >= 3,
             "schema-constrained models need a bounded opportunity to repair repeated envelope mistakes"
+        );
+    }
+
+    #[test]
+    fn self_review_does_not_repeat_confirmation_for_an_explicit_edit_request() {
+        assert!(ASSISTANT_SELF_REVIEW_PROMPT.contains("already requested a supported edit"));
+        assert!(ASSISTANT_SELF_REVIEW_PROMPT.contains("approval preview"));
+        assert!(
+            ASSISTANT_SELF_REVIEW_PROMPT.contains("action-defining details are missing"),
+            "genuine ambiguity must still produce a clarification"
+        );
+    }
+
+    #[test]
+    fn invalid_preview_repair_cannot_finalize_as_message_only() {
+        assert!(!requires_tool_after_invalid_preview(0));
+        assert!(
+            requires_tool_after_invalid_preview(1),
+            "after rejecting an unsafe preview, prose must not claim that a preview exists"
         );
     }
 
@@ -5340,6 +5622,17 @@ mod assistant_behaviour_tests {
             .content
             .contains("fix one missing metadata field"));
         assert!(messages[0].content.contains("metadata.patch"));
+        assert!(messages[0].content.contains("only_if_missing"));
+        assert!(messages[0]
+            .content
+            .contains("one literal value even when it contains commas"));
+        assert!(messages[0].content.contains("tags.prettify is read-only"));
+        assert!(
+            !messages[0]
+                .content
+                .contains("page through every matching track"),
+            "missing-field edits should use a deterministic predicate instead of path enumeration"
+        );
         assert!(!messages
             .last()
             .unwrap()
@@ -6207,6 +6500,7 @@ mod assistant_ai_tests {
             "change the album title to New Title",
             "set the album tag to Greatest Hits",
             "set the artist to Testing",
+            "fix the missing genre",
         ];
         for variant in &variants {
             let data = assistant_llm_call(variant, &context, &key, &model).await;
@@ -6219,6 +6513,109 @@ mod assistant_ai_tests {
                 data
             );
         }
+    }
+
+    #[ignore = "requires LLM_API_KEY, LLM_MODEL, and active OpenRouter access"]
+    #[tokio::test]
+    async fn live_missing_genre_value_reaches_conditional_patch_after_inspection() {
+        let (key, model) = credentials().expect("set LLM_API_KEY and LLM_MODEL");
+        let input = AssistantSendInput {
+            active_album_path: Some("/music/artist/album".into()),
+            tracks: vec![
+                json!({
+                    "path": "/music/artist/album/01.flac",
+                    "title": "Blue Train",
+                    "artist": "John Coltrane",
+                    "album": "Blue Train",
+                    "genre": null
+                }),
+                json!({
+                    "path": "/music/artist/album/02.flac",
+                    "title": "Moment's Notice",
+                    "artist": "John Coltrane",
+                    "album": "Blue Train",
+                    "genre": null
+                }),
+            ],
+            albums: vec![json!({
+                "path": "/music/artist/album",
+                "name": "Blue Train",
+                "artistHint": "John Coltrane",
+                "albumHint": "Blue Train",
+                "trackCount": 2
+            })],
+            ..Default::default()
+        };
+        let tools = context_tool_catalog();
+        let mut messages = build_assistant_messages(
+            &build_assistant_context(&input),
+            &tools,
+            &[],
+            "set the missing genre to \"Pop, Cantopop\"",
+        );
+
+        for _ in 0..6 {
+            let response = OpenRouterClient::new(&key, &model)
+                .with_generation(0.0, 4096)
+                .with_timeout(std::time::Duration::from_secs(ASSISTANT_LLM_TIMEOUT_SECS))
+                .complete_json(
+                    messages.clone(),
+                    "AssistantResponse",
+                    assistant_response_schema(),
+                    &AtomicBool::new(false),
+                )
+                .await
+                .expect("LLM call should succeed");
+            let data = normalize_assistant_response_value(response.data)
+                .expect("LLM response should use a supported tool-call envelope");
+            assert!(
+                !data["actionBatch"].is_object(),
+                "the model must use registered tools instead of authoring wildcard batches: {data}"
+            );
+            let Some(tool_call) = data["toolCall"].as_object() else {
+                messages.push(ChatMessage {
+                    role: "assistant".into(),
+                    content: data["message"].as_str().unwrap_or_default().to_string(),
+                });
+                messages.push(ChatMessage::system(ASSISTANT_SELF_REVIEW_PROMPT));
+                continue;
+            };
+            let name = tool_call["toolName"].as_str().unwrap_or_default();
+            let args = &tool_call["args"];
+            if registered_tool_is_read_only(name) == Some(true) {
+                let result = execute_context_tool(name, args, &input);
+                assert!(result.ok, "read-only inspection failed: {}", result.summary);
+                messages.push(ChatMessage {
+                    role: "assistant".into(),
+                    content: json!({"toolCall": {"toolName": name, "args": args}}).to_string(),
+                });
+                messages.push(ChatMessage::user(tool_result_prompt(&result)));
+                continue;
+            }
+
+            assert_eq!(name, "metadata.patch");
+            assert!(
+                args["changes"]
+                    .as_array()
+                    .into_iter()
+                    .flatten()
+                    .any(|change| change["field"] == "genre"
+                        && change["value"] == "Pop, Cantopop"
+                        && change["only_if_missing"] == true),
+                "conditional genre patch arguments were incomplete: {args}"
+            );
+            let execution = execute_mutating_assistant_tool(name, args, &input, "live-session");
+            assert!(execution.result.ok, "{}", execution.result.summary);
+            let batch = execution.batches.first().expect("preview batch");
+            assert_eq!(batch.actions.len(), 2);
+            assert!(batch.actions.iter().all(|action| {
+                action.field.as_deref() == Some("genre")
+                    && action.new_value.as_deref() == Some("Pop, Cantopop")
+            }));
+            return;
+        }
+
+        panic!("assistant did not reach metadata.patch within six steps");
     }
 
     /// Judge: verify that equivalent prompts produce semantically similar

@@ -7,6 +7,7 @@
 //! Not yet ported — populated per slice.
 
 pub mod assistant;
+pub mod assistant_task;
 pub mod audit;
 pub mod config;
 pub mod conversation;

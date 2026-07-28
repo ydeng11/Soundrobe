@@ -303,6 +303,20 @@ pub(crate) fn execute_metadata_patch(
                 .get("action")
                 .and_then(Value::as_str)
                 .unwrap_or("set");
+            let only_if_missing = change
+                .get("only_if_missing")
+                .and_then(Value::as_bool)
+                .unwrap_or(false);
+            if only_if_missing && action_type != "set" {
+                return mutating_tool_error(
+                    "only_if_missing is supported only for set actions".to_string(),
+                );
+            }
+            if only_if_missing && tag_kind != "standard" {
+                return mutating_tool_error(
+                    "only_if_missing is supported only for standard fields".to_string(),
+                );
+            }
             if matches!(action_type, "set" | "upsert")
                 && change.get("value").is_none_or(Value::is_null)
             {
@@ -362,12 +376,24 @@ pub(crate) fn execute_metadata_patch(
                 .get("tag_kind")
                 .and_then(Value::as_str)
                 .unwrap_or("standard");
+            let only_if_missing = change
+                .get("only_if_missing")
+                .and_then(Value::as_bool)
+                .unwrap_or(false);
             let value = change.get("value");
 
             match action_type {
                 "set" => {
                     for path in &paths {
                         let track = tracks_map.get(path.as_str()).copied();
+                        if only_if_missing
+                            && !track.is_some_and(|track| {
+                                track_field_string(track, field)
+                                    .is_none_or(|value| value.trim().is_empty())
+                            })
+                        {
+                            continue;
+                        }
                         if let Some(v) = value {
                             if let Some(str_val) = v.as_str() {
                                 if str_val.trim().is_empty() && is_unique_field(field) {
@@ -506,10 +532,15 @@ pub(crate) fn execute_metadata_patch(
         return mutating_tool_no_changes("No metadata changes are needed.");
     }
 
+    let affected_tracks = actions
+        .iter()
+        .filter_map(|action| action.track_path.as_deref())
+        .collect::<HashSet<_>>()
+        .len();
     let summary = format!(
         "Update {} metadata field(s) across {} track(s)",
         actions.len(),
-        paths.len()
+        affected_tracks
     );
     let batch = assistant_batch(
         session_id,
@@ -1198,6 +1229,52 @@ mod tests {
         let batch = result.batches.first().unwrap();
         assert_eq!(batch.actions.len(), 1);
         assert_eq!(batch.actions[0].track_path.as_deref(), Some("/music/b.mp3"));
+    }
+
+    #[test]
+    fn metadata_patch_only_if_missing_preserves_existing_values() {
+        let mut input = test_input();
+        input.selected_track_paths.push("/music/c.mp3".into());
+        input.tracks[0].as_object_mut().unwrap().remove("genre");
+        input.tracks.push(serde_json::json!({
+            "path": "/music/c.mp3",
+            "title": "Third Song",
+            "genre": "   "
+        }));
+
+        let result = execute_metadata_patch(
+            &serde_json::json!({
+                "target_scope": "selected",
+                "changes": [{
+                    "field": "genre",
+                    "action": "set",
+                    "value": "Pop, Cantopop",
+                    "only_if_missing": true
+                }]
+            }),
+            &input,
+            "session-1",
+        );
+
+        assert!(result.result.ok);
+        let batch = result.batches.first().unwrap();
+        assert_eq!(batch.actions.len(), 2);
+        assert_eq!(
+            batch
+                .actions
+                .iter()
+                .filter_map(|action| action.track_path.as_deref())
+                .collect::<Vec<_>>(),
+            vec!["/music/a.mp3", "/music/c.mp3"]
+        );
+        assert!(batch
+            .actions
+            .iter()
+            .all(|action| action.new_value.as_deref() == Some("Pop, Cantopop")));
+        assert!(
+            result.result.summary.contains("across 2 track(s)"),
+            "summary must report affected tracks, not the three-track input scope"
+        );
     }
 
     #[test]
