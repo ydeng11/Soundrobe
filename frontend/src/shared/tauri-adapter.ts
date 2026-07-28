@@ -169,6 +169,11 @@ export function createTauriDesktopApi(): DesktopAPI {
     assistantClear: () => invokeCommand("assistant:clear", undefined),
     assistantApplyActions: (actionBatchId) =>
       invokeCommand("assistant:apply-actions", { actionBatchId }),
+    assistantCompleteTaskActions: (actionBatchId, error) =>
+      invokeCommand("assistant:complete-task-actions", {
+        actionBatchId,
+        error: error ?? null,
+      }),
     assistantRejectActions: (actionBatchId) =>
       invokeCommand("assistant:reject-actions", { actionBatchId }),
     assistantGetBatches: () => invokeCommand("assistant:get-batches", undefined),

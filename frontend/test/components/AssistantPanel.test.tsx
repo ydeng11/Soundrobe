@@ -1,12 +1,13 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
 import React from "react";
-import { render, screen, fireEvent, cleanup, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, cleanup, waitFor, act } from "@testing-library/react";
 import { AssistantPanel } from "../../src/components/AssistantPanel";
 import type { AssistantEvent } from "../../src/shared/desktop-api";
 
 afterEach(() => {
   cleanup();
+  vi.useRealTimers();
 });
 
 // Polyfill scrollIntoView for jsdom
@@ -20,6 +21,8 @@ const mockApi = {
   assistantGetBatches: vi.fn().mockResolvedValue([]),
   assistantSend: vi.fn().mockResolvedValue(undefined),
   assistantCancel: vi.fn().mockResolvedValue(undefined),
+  assistantApplyActions: vi.fn(),
+  assistantCompleteTaskActions: vi.fn().mockResolvedValue({ success: true }),
   onAssistantEvent: vi.fn().mockReturnValue(() => {}),
   getConfig: vi.fn().mockResolvedValue({ llmApiKey: "test-key", llmModel: "test-model" }),
   assistantClear: vi.fn().mockResolvedValue(undefined),
@@ -241,6 +244,59 @@ describe("AssistantPanel — status indicator", () => {
 });
 
 describe("AssistantPanel — core behavior preserved", () => {
+  it("finalizes delegated task batches only after the renderer task succeeds", async () => {
+    mockApi.assistantGetBatches.mockResolvedValueOnce([{
+      id: "batch-task",
+      createdAt: "now",
+      sessionId: "session",
+      kind: "auto-tag-run",
+      title: "Auto-tag album",
+      summary: "Auto-tag 1 track",
+      riskLevel: "medium",
+      actions: [{ trackPath: "/music/album/track.flac" }],
+      reversible: true,
+      status: "pending",
+    }]);
+    mockApi.assistantApplyActions.mockResolvedValueOnce({
+      success: true,
+      task: "auto_tag",
+      trackPaths: ["/music/album/track.flac"],
+    });
+    const runTask = vi.fn().mockResolvedValue(undefined);
+    renderPanel({ onAssistantRunTask: runTask });
+
+    fireEvent.click(await screen.findByRole("button", { name: "Apply" }));
+
+    await waitFor(() => {
+      expect(runTask).toHaveBeenCalledWith("auto_tag", ["/music/album/track.flac"]);
+      expect(mockApi.assistantCompleteTaskActions)
+        .toHaveBeenCalledWith("batch-task", null);
+    });
+  });
+
+  it("keeps the renderer watchdog beyond the native ten-minute session", async () => {
+    vi.useFakeTimers();
+    renderPanel();
+    const input = screen.getByPlaceholderText(/ask the assistant/i);
+    fireEvent.change(input, { target: { value: "Fill missing genres" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(30_000);
+    });
+    expect(mockApi.assistantCancel).not.toHaveBeenCalled();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(570_000);
+    });
+    expect(mockApi.assistantCancel).not.toHaveBeenCalled();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(30_000);
+    });
+    expect(mockApi.assistantCancel).toHaveBeenCalledTimes(1);
+  });
+
   it("shows session number when available", async () => {
     renderPanel();
     await waitFor(() => {

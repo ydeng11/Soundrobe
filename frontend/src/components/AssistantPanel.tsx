@@ -210,17 +210,17 @@ export function AssistantPanel({
     return () => unsub();
   }, [isOpen, onRefreshRequest, refreshSessionNumber, updatePendingMsg, loadPendingBatches]);
 
-  // Fallback cancellation timer: if no terminal event clears sending after
-  // 30 seconds, force-cancel to prevent a permanently stuck UI.
+  // Fallback cancellation timer: the native tool loop owns a 600-second
+  // deadline, so this renderer safety net must remain beyond it.
   useEffect(() => {
     sendingRef.current = sending;
     if (!sending) return;
     const timerId = setTimeout(async () => {
       if (sendingRef.current) {
-        console.warn("[Assistant] Fallback cancellation timer fired (30 s)");
+        console.warn("[Assistant] Fallback cancellation timer fired (630 s)");
         try { await window.api.assistantCancel(); } catch { /* runtime may not exist */ }
       }
-    }, 30_000);
+    }, 630_000);
     return () => clearTimeout(timerId);
   }, [sending]);
 
@@ -339,6 +339,34 @@ export function AssistantPanel({
               )
               .join("\n")
           : "";
+      if (result.success) {
+        // Push undo snapshots if available
+        if (result.undoSnapshots && result.undoSnapshots.length > 0) {
+          onAssistantApplyUndo?.("Assistant tag edit", result.undoSnapshots, "tag-update");
+        }
+        if (result.extraUndoSnapshots && result.extraUndoSnapshots.length > 0) {
+          onAssistantApplyUndo?.("Assistant extra tag edit", result.extraUndoSnapshots, "extra-tag-update");
+        }
+        if (result.task && result.trackPaths) {
+          if (!onAssistantRunTask) {
+            throw new Error("Assistant task runner is unavailable");
+          }
+          try {
+            await onAssistantRunTask(result.task, result.trackPaths);
+            await window.api.assistantCompleteTaskActions(batchId, null);
+          } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            try {
+              await window.api.assistantCompleteTaskActions(batchId, message);
+            } catch {
+              // The original task error is the useful failure to report.
+            }
+            throw error;
+          }
+        } else {
+          onRefreshRequest();
+        }
+      }
       setMessages((prev) => [
         ...prev,
         {
@@ -349,21 +377,6 @@ export function AssistantPanel({
           type: result.success ? "text" : "error",
         },
       ]);
-      loadPendingBatches();
-      if (result.success) {
-        // Push undo snapshots if available
-        if (result.undoSnapshots && result.undoSnapshots.length > 0) {
-          onAssistantApplyUndo?.("Assistant tag edit", result.undoSnapshots, "tag-update");
-        }
-        if (result.extraUndoSnapshots && result.extraUndoSnapshots.length > 0) {
-          onAssistantApplyUndo?.("Assistant extra tag edit", result.extraUndoSnapshots, "extra-tag-update");
-        }
-        if (result.task && result.trackPaths) {
-          await onAssistantRunTask?.(result.task, result.trackPaths);
-        } else {
-          onRefreshRequest();
-        }
-      }
     } catch (error) {
       setMessages((prev) => [
         ...prev,
@@ -374,6 +387,7 @@ export function AssistantPanel({
         },
       ]);
     }
+    loadPendingBatches();
     setApplying(false);
   };
 

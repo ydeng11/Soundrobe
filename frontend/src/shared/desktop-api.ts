@@ -561,6 +561,10 @@ export interface DesktopAPI {
     undoSnapshots?: TrackUndoSnapshot[];
     extraUndoSnapshots?: ExtraTagUndoSnapshot[];
   }>;
+  assistantCompleteTaskActions: (
+    actionBatchId: string,
+    error?: string | null,
+  ) => Promise<{ success: boolean; error?: string | null }>;
   assistantRejectActions: (actionBatchId: string) => Promise<void>;
   assistantGetBatches: () => Promise<AssistantActionBatch[]>;
   assistantInitRuntime: () => Promise<void>;

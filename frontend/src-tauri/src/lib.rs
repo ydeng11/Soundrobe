@@ -240,6 +240,7 @@ pub fn run() {
             commands::assistant::assistant_cancel,
             commands::assistant::assistant_clear,
             commands::assistant::assistant_apply_actions,
+            commands::assistant::assistant_complete_task_actions,
             commands::assistant::assistant_reject_actions,
             commands::assistant::assistant_get_batches,
             commands::audit::audit_run,

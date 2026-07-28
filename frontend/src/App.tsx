@@ -1496,10 +1496,14 @@ export default function App() {
 
   const handleAssistantRunTask = useCallback(
     async (task: "auto_tag" | "audit", trackPaths: string[]) => {
-      if (!state.libraryPath || trackPaths.length === 0) return;
+      if (!state.libraryPath || trackPaths.length === 0) {
+        throw new Error("No library tracks are available for the assistant task");
+      }
 
       if (task === "audit") {
-        if (state.auditing) return;
+        if (state.auditing) {
+          throw new Error("An audit is already running");
+        }
 
         dispatch({ type: "SET_AUDITING", auditing: true });
         dispatch({ type: "CLEAR_AUDIT_RESULTS" });
@@ -1547,6 +1551,7 @@ export default function App() {
         } catch (err: unknown) {
           const message = err instanceof Error ? err.message : "Audit failed";
           dispatch({ type: "SET_ERROR", error: message });
+          throw err;
         } finally {
           if (unsubscribe) unsubscribe();
           dispatch({ type: "SET_AUDITING", auditing: false });
@@ -1555,7 +1560,9 @@ export default function App() {
         return;
       }
 
-      if (state.autoTagging) return;
+      if (state.autoTagging) {
+        throw new Error("Auto-tagging is already running");
+      }
 
       const albumPaths = Array.from(new Set(trackPaths.map(dirPath)));
       const affectedAlbums = new Set(albumPaths);
@@ -1580,7 +1587,9 @@ export default function App() {
           let done = false;
           while (!done) {
             const progress = await window.api.getTaskProgress(taskId);
-            if (!progress) break;
+            if (!progress) {
+              throw new Error(`Auto-tag task progress disappeared: ${taskId}`);
+            }
 
             dispatch({
               type: "SET_AUTO_TAG_PROGRESS",
@@ -1596,6 +1605,9 @@ export default function App() {
               progress.status === "failed" ||
               progress.status === "cancelled"
             ) {
+              if (progress.status !== "completed") {
+                throw new Error(progress.message || `Auto-tag ${progress.status}`);
+              }
               done = true;
             } else {
               await new Promise((resolve) => setTimeout(resolve, 300));
@@ -1607,6 +1619,7 @@ export default function App() {
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : "Auto-tag failed";
         dispatch({ type: "SET_ERROR", error: message });
+        throw err;
       } finally {
         dispatch({ type: "SET_AUTO_TAGGING", autoTagging: false });
         dispatch({ type: "SET_AUTO_TAG_PROGRESS", progress: null });

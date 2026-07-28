@@ -59,7 +59,7 @@ pub(crate) fn assistant_tool_definitions() -> Vec<AssistantToolDefinition> {
         },
         ToolSpec {
             name: "tracks.search",
-            description: "Search loaded tracks by title, artist, album, genre, year, codec, missing tags, missing cover, or duplicates. Returns up to 20 matching tracks with paths.",
+            description: "Search loaded tracks by title, artist, album, genre, year, codec, missing tags, missing cover, or duplicates. Results are paginated with offset, limit, total, and nextOffset; follow nextOffset until it is null.",
             read_only: true, public: true,
             operation_kind: Kind::ReadOnly,
         },
@@ -222,7 +222,9 @@ fn tool_schema(name: &str) -> Value {
                 "missingYear": {"type": "boolean"},
                 "missingGenre": {"type": "boolean"},
                 "missingCover": {"type": "boolean"},
-                "hasDuplicates": {"type": "boolean"}
+                "hasDuplicates": {"type": "boolean"},
+                "offset": {"type": "number"},
+                "limit": {"type": "number"}
             },
             "required": []
         }),
@@ -336,7 +338,7 @@ fn tool_schema(name: &str) -> Value {
             },
             "required": ["source_dir", "criterion", "target_dir_name"]
         }),
-        "run_library_task" => serde_json::json!({
+        "library.run_task" | "run_library_task" => serde_json::json!({
             "type": "object",
             "properties": {
                 "task": {"type": "string", "enum": ["auto_tag", "audit"]},
@@ -857,12 +859,26 @@ fn search_tracks(input: &AssistantSendInput, args: &Value) -> AssistantToolResul
         .iter()
         .filter(|track| track_matches(track, args, &duplicate_keys))
         .collect::<Vec<_>>();
+    let offset = args
+        .get("offset")
+        .and_then(Value::as_f64)
+        .unwrap_or(0.0)
+        .round()
+        .max(0.0) as usize;
+    let limit = args
+        .get("limit")
+        .and_then(Value::as_f64)
+        .unwrap_or(20.0)
+        .round()
+        .clamp(1.0, 100.0) as usize;
     let limited = matches
         .iter()
-        .take(20)
+        .skip(offset)
+        .take(limit)
         .copied()
         .cloned()
         .collect::<Vec<_>>();
+    let next_offset = (offset + limited.len() < matches.len()).then_some(offset + limited.len());
     let summary = if matches.is_empty() {
         "No tracks match the query.".to_string()
     } else {
@@ -876,6 +892,9 @@ fn search_tracks(input: &AssistantSendInput, args: &Value) -> AssistantToolResul
         summary,
         Some(serde_json::json!({
             "total": matches.len(),
+            "offset": offset,
+            "limit": limit,
+            "nextOffset": next_offset,
             "tracks": limited,
             "paths": paths
         })),
@@ -1257,6 +1276,27 @@ mod tests {
         .unwrap();
     }
 
+    #[test]
+    fn public_library_task_schema_requires_task_and_target_scope() {
+        let missing_scope = validate_registered_tool_args(
+            "library.run_task",
+            &serde_json::json!({
+                "task": "auto_tag"
+            }),
+        )
+        .unwrap_err();
+        assert_eq!(missing_scope, "Missing required field: target_scope");
+
+        validate_registered_tool_args(
+            "library.run_task",
+            &serde_json::json!({
+                "task": "auto_tag",
+                "target_scope": "library"
+            }),
+        )
+        .unwrap();
+    }
+
     fn input() -> AssistantSendInput {
         AssistantSendInput {
             library_path: Some("/music".into()),
@@ -1332,6 +1372,48 @@ mod tests {
         );
         assert!(!invalid.ok);
         assert!(invalid.error.unwrap().contains("Unknown field"));
+    }
+
+    #[test]
+    fn deterministic_track_search_pages_through_every_match() {
+        let tracks = (0..45)
+            .map(|index| {
+                serde_json::json!({
+                    "path": format!("/music/Artist/Album/{index:02}.flac"),
+                    "title": format!("Track {index}"),
+                    "genre": null
+                })
+            })
+            .collect();
+        let input = AssistantSendInput {
+            tracks,
+            ..Default::default()
+        };
+
+        let first = execute_context_tool(
+            "tracks.search",
+            &serde_json::json!({"missingGenre": true, "limit": 20}),
+            &input,
+        );
+        let first = first.data.unwrap();
+        assert_eq!(first["total"], 45);
+        assert_eq!(first["tracks"].as_array().unwrap().len(), 20);
+        assert_eq!(first["offset"], 0);
+        assert_eq!(first["nextOffset"], 20);
+
+        let last = execute_context_tool(
+            "tracks.search",
+            &serde_json::json!({"missingGenre": true, "offset": 40, "limit": 20}),
+            &input,
+        );
+        let last = last.data.unwrap();
+        assert_eq!(last["tracks"].as_array().unwrap().len(), 5);
+        assert_eq!(last["offset"], 40);
+        assert!(last["nextOffset"].is_null());
+        assert_eq!(
+            last["paths"][0],
+            serde_json::json!("/music/Artist/Album/40.flac")
+        );
     }
 
     #[test]

@@ -35,6 +35,15 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::Ordering;
 use tauri::{AppHandle, Emitter, State};
 
+const ASSISTANT_LLM_TIMEOUT_SECS: u64 = 120;
+const ASSISTANT_SESSION_TIMEOUT_SECS: u64 = 600;
+const ASSISTANT_MAX_STEPS: usize = 20;
+const ASSISTANT_PREVIEW_REPAIR_ATTEMPTS: usize = 3;
+const ASSISTANT_SESSION_TIMEOUT_LOG: &str = "Session timed out after 600 seconds";
+const ASSISTANT_SELF_REVIEW_PROMPT: &str = "If your response above is a clarification, answer, or \
+limitation, finalize it unchanged. If it announces an action (for example, \"I'll inspect\" or \
+\"let me preview\"), call the tool now instead.";
+
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AssistantEvent {
@@ -399,14 +408,7 @@ pub async fn assistant_send(
         .begin_request()
         .ok_or_else(|| ApiError::Message("Assistant runtime is unavailable".into()))?;
     let session_id = current.session_id.clone();
-    let context = serde_json::json!({
-        "libraryPath": input.library_path,
-        "activeAlbumPath": input.active_album_path,
-        "selectedTrackPaths": input.selected_track_paths,
-        "tracks": input.tracks.iter().take(200).collect::<Vec<_>>(),
-        "albums": input.albums.iter().take(100).collect::<Vec<_>>(),
-        "autonomous": input.autonomous,
-    });
+    let context = build_assistant_context(&input);
     let tools = context_tool_catalog();
     let endpoint = crate::infra::openrouter::LlmEndpoint::from_config(
         raw_config.llm_provider.as_deref(),
@@ -414,24 +416,40 @@ pub async fn assistant_send(
     );
     let client = OpenRouterClient::at(&api_key, &model, &endpoint.base_url)
         .with_provider(endpoint.provider)
-        .with_generation(0.0, 4096);
+        .with_generation(0.0, 4096)
+        .with_timeout(std::time::Duration::from_secs(ASSISTANT_LLM_TIMEOUT_SECS));
     // Capture history before recording the current message so it is not duplicated.
     let history = conversation.conversation(&current.session_id);
     conversation.record("user_message", &input.message, None, 0, 0, 0);
     let mut messages = build_assistant_messages(&context, &tools, &history, &input.message);
+    tracing::debug!(
+        session_id = %session_id,
+        library_tracks = input.tracks.len(),
+        library_albums = input.albums.len(),
+        selected_tracks = input.selected_track_paths.len(),
+        context_chars = context.to_string().chars().count(),
+        prompt_chars = messages
+            .iter()
+            .map(|message| message.content.chars().count())
+            .sum::<usize>(),
+        history_entries = history.len(),
+        "assistant prompt prepared"
+    );
     let mut signatures = Vec::new();
     let mut repaired_invalid_args = false;
     let mut final_draft = None;
     let mut pending_tool_batches = Vec::new();
     let mut self_reviewed = false;
-    // Absolute deadline for the entire session (120 s).
-    let deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(120);
+    let mut invalid_preview_repairs = 0;
+    // Absolute deadline for the entire tool loop.
+    let deadline = tokio::time::Instant::now()
+        + std::time::Duration::from_secs(ASSISTANT_SESSION_TIMEOUT_SECS);
 
-    for step_number in 1..=10 {
+    for step_number in 1..=ASSISTANT_MAX_STEPS {
         let step = AssistantEvent {
             session_id: session_id.clone(),
             event_type: "step",
-            message: format!("Step {step_number}/10"),
+            message: assistant_step_message(step_number),
             data: None,
         };
         let _ = app.emit("assistant:event", step);
@@ -471,9 +489,9 @@ pub async fn assistant_send(
                 tracing::error!(
                     elapsed_us = session_start.elapsed().as_micros(),
                     session_id = %session_id,
-                    "assistant session timed out (120 s)"
+                    "assistant session timed out"
                 );
-                conversation.record_system("Session timed out after 120 seconds");
+                conversation.record_system(ASSISTANT_SESSION_TIMEOUT_LOG);
                 return assistant_error_event(
                     &app,
                     Some(session_id),
@@ -489,7 +507,17 @@ pub async fn assistant_send(
             response.usage.completion_tokens,
             response.usage.total_tokens,
         );
-        let draft: AssistantDraft = match serde_json::from_value(response.data) {
+        let normalized_response = match normalize_assistant_response_value(response.data) {
+            Ok(response) => response,
+            Err(error) => {
+                return assistant_error_event(
+                    &app,
+                    Some(session_id),
+                    &format!("Invalid assistant response: {error}"),
+                );
+            }
+        };
+        let draft: AssistantDraft = match serde_json::from_value(normalized_response.clone()) {
             Ok(draft) => draft,
             Err(error) => {
                 return assistant_error_event(
@@ -512,6 +540,22 @@ pub async fn assistant_send(
         let Some(tool_call) = draft.tool_call else {
             // Model-authored action batch: no tool call needed.
             if draft.action_batch.is_some() {
+                if let Err(error) =
+                    resolve_assistant_outcome(&draft, &pending_tool_batches, &session_id, &input)
+                {
+                    if invalid_preview_repairs < ASSISTANT_PREVIEW_REPAIR_ATTEMPTS {
+                        invalid_preview_repairs += 1;
+                        messages.push(ChatMessage {
+                            role: "assistant".into(),
+                            content: normalized_response.to_string(),
+                        });
+                        messages.push(ChatMessage::system(invalid_model_preview_repair_prompt(
+                            &error,
+                        )));
+                        continue;
+                    }
+                    return assistant_error_event(&app, Some(session_id), &error);
+                }
                 final_draft = Some(draft);
                 break;
             }
@@ -524,12 +568,7 @@ pub async fn assistant_send(
                     role: "assistant".into(),
                     content: draft.message.clone(),
                 });
-                messages.push(ChatMessage::system(
-                    "If your response above is a clarification, answer, or limitation, \
-                     finalize it unchanged.  If it announces an action (e.g. \"I'll inspect\" \
-                     or \"let me preview\"), call the tool now instead."
-                        .to_string(),
-                ));
+                messages.push(ChatMessage::system(ASSISTANT_SELF_REVIEW_PROMPT));
                 continue;
             }
             final_draft = Some(draft);
@@ -586,7 +625,7 @@ pub async fn assistant_send(
                 Ok(exec) => exec,
                 Err(_) => {
                     tracing::error!(tool = %tool_call.tool_name, "plan execution timed out");
-                    conversation.record_system("Session timed out after 120 seconds");
+                    conversation.record_system(ASSISTANT_SESSION_TIMEOUT_LOG);
                     return assistant_error_event(
                         &app,
                         Some(session_id),
@@ -615,7 +654,7 @@ pub async fn assistant_send(
                 Ok(result) => result,
                 Err(_) => {
                     tracing::error!(tool = %tool_call.tool_name, "native tool execution timed out");
-                    conversation.record_system("Session timed out after 120 seconds");
+                    conversation.record_system(ASSISTANT_SESSION_TIMEOUT_LOG);
                     return assistant_error_event(
                         &app,
                         Some(session_id),
@@ -697,7 +736,9 @@ pub async fn assistant_send(
         return assistant_error_event(
             &app,
             Some(session_id),
-            "I reached the maximum step limit (10) without a final response.",
+            &format!(
+                "I reached the maximum step limit ({ASSISTANT_MAX_STEPS}) without a final response."
+            ),
         );
     };
     match resolve_assistant_outcome(&draft, &pending_tool_batches, &session_id, &input) {
@@ -747,6 +788,10 @@ pub async fn assistant_send(
         }
         Err(error) => assistant_error_event(&app, Some(session_id), &error.to_string()),
     }
+}
+
+fn assistant_step_message(step_number: usize) -> String {
+    format!("Step {step_number}/{ASSISTANT_MAX_STEPS}")
 }
 
 fn assistant_error_event(
@@ -856,6 +901,78 @@ pub struct AssistantSendInput {
     pub llm_model: Option<String>,
 }
 
+/// Build a small bootstrap context for the model while retaining the complete
+/// library in `AssistantSendInput` for deterministic tool execution.
+///
+/// Coding agents work well on large repositories because they receive a
+/// summary and query details as needed. The music-library assistant follows
+/// the same pattern: counts and current scope are visible immediately, while
+/// individual track metadata remains behind `tracks.*`, `albums.inspect`, and
+/// `query.metadata`.
+fn build_assistant_context(input: &AssistantSendInput) -> Value {
+    const SELECTED_PATH_SAMPLE_LIMIT: usize = 20;
+
+    let library_summary = execute_context_tool(
+        "library.summarize",
+        &Value::Object(Default::default()),
+        input,
+    )
+    .data
+    .and_then(|data| data.get("summary").cloned())
+    .unwrap_or_else(|| {
+        serde_json::json!({
+            "albumCount": input.albums.len(),
+            "trackCount": input.tracks.len()
+        })
+    });
+    let selected_paths = input
+        .selected_track_paths
+        .iter()
+        .take(SELECTED_PATH_SAMPLE_LIMIT)
+        .cloned()
+        .collect::<Vec<_>>();
+    let active_album = input.active_album_path.as_deref().and_then(|active_path| {
+        input
+            .albums
+            .iter()
+            .find(|album| album.get("path").and_then(Value::as_str) == Some(active_path))
+            .map(|album| {
+                serde_json::json!({
+                    "path": active_path,
+                    "name": album.get("name"),
+                    "artistHint": album.get("artistHint"),
+                    "albumHint": album.get("albumHint"),
+                    "trackCount": album.get("trackCount")
+                })
+            })
+    });
+    let default_scope = if !input.selected_track_paths.is_empty() {
+        "selected"
+    } else if input.active_album_path.is_some() {
+        "active_album"
+    } else {
+        "library"
+    };
+
+    serde_json::json!({
+        "libraryPath": input.library_path,
+        "librarySummary": library_summary,
+        "activeAlbumPath": input.active_album_path,
+        "activeAlbum": active_album,
+        "selection": {
+            "count": input.selected_track_paths.len(),
+            "pathSample": selected_paths,
+            "truncated": input.selected_track_paths.len() > SELECTED_PATH_SAMPLE_LIMIT
+        },
+        "defaultScope": default_scope,
+        "autonomous": input.autonomous,
+        "dataAccess": {
+            "fullLibraryAvailableThroughTools": true,
+            "trackDetailsIncluded": false
+        }
+    })
+}
+
 /// Build the LLM message list: system prompt, bounded conversation history, current request.
 /// The current request is appended as the final user turn so the LLM sees it after prior context.
 fn build_assistant_messages(
@@ -878,12 +995,19 @@ fn build_assistant_messages(
                 "- Infer intent from the current selection, library context, and prior turns below.\n",
                 "- Treat a short follow-up as an answer to the most recent clarification question.\n",
                 "- Combine prior turns with the current selection before choosing a tool.\n",
+                "- The app context is intentionally compact. Use read-only tools to inspect ",
+                "  library or track details instead of guessing from omitted records.\n",
+                "- For large scopes, prefer scoped tools over enumerating every track path. ",
+                "  Tool results are bounded; refine or repeat queries when more evidence is needed.\n",
                 "- If the request is an explicit edit with concrete values (\"set title to X\", ",
                 "  \"remove genre\"), call metadata.patch with explicit values.\n",
                 "- If the request is a transformation (\"strip numbers from titles\", ",
                 "  \"lowercase all genres\", \"extract first word\", ",
                 "  \"convert Chinese to traditional\"), ",
                 "  call metadata.transform with the right operations pipeline.\n",
+                "- To fix one missing metadata field, page through every matching track and call ",
+                "  metadata.patch with per_track_changes for only that field. Do not broaden a ",
+                "  field-specific request into library.run_task.\n",
                 "- For filename/path renames, call files.transform.\n",
                 "- For multi-step library tasks like auto-tagging or auditing, call library.run_task.\n",
                 "- Prefer toolCall over model-authored actionBatch.\n",
@@ -1761,14 +1885,23 @@ fn execute_run_library_task(
     input: &AssistantSendInput,
     session_id: &str,
 ) -> MutatingToolExecution {
+    let task = args.get("task").and_then(Value::as_str).unwrap_or_default();
+    let auto_tag = task == "auto_tag";
+    let target_scope = args
+        .get("target_scope")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    if auto_tag && matches!(target_scope, "selected" | "explicit_paths") {
+        return mutating_tool_error(
+            "Auto-tagging currently runs whole albums; use active_album or library scope, or use metadata.patch for exact tracks and fields",
+        );
+    }
     let Ok(paths) = tool_scope_paths(input, args) else {
         return mutating_tool_error("Could not resolve library-task target scope");
     };
     if paths.is_empty() {
         return mutating_tool_no_changes("No tracks found for the requested scope.");
     }
-    let task = args.get("task").and_then(Value::as_str).unwrap_or_default();
-    let auto_tag = task == "auto_tag";
     let title = if auto_tag {
         "Auto-tag tracks"
     } else {
@@ -2546,6 +2679,162 @@ struct AssistantDraftToolCall {
     args: Value,
 }
 
+/// Normalize common agent tool-call envelopes into Soundrobe's canonical
+/// singular `toolCall` shape. Parallel read-only calls are converted to the
+/// existing sequential plan executor; mutations must remain one-at-a-time.
+fn normalize_assistant_response_value(mut response: Value) -> Result<Value, String> {
+    let object = response
+        .as_object_mut()
+        .ok_or_else(|| "assistant response should be an object".to_string())?;
+    if object.get("message").is_none_or(Value::is_null) {
+        object.insert("message".into(), Value::String(String::new()));
+    }
+
+    let camel_calls = object.remove("toolCalls").filter(|calls| !calls.is_null());
+    let snake_calls = object.remove("tool_calls").filter(|calls| !calls.is_null());
+    if camel_calls.is_some() && snake_calls.is_some() {
+        return Err("response included both toolCalls and tool_calls".into());
+    }
+    let alternate_calls = camel_calls.or(snake_calls);
+    let canonical_present = object.get("toolCall").is_some_and(|call| !call.is_null());
+    if canonical_present
+        && alternate_calls
+            .as_ref()
+            .is_some_and(|calls| !calls.is_null())
+    {
+        return Err("response included both toolCall and toolCalls".into());
+    }
+
+    if let Some(calls) = alternate_calls.filter(|calls| !calls.is_null()) {
+        let calls = calls
+            .as_array()
+            .ok_or_else(|| "toolCalls should be an array".to_string())?;
+        match calls.as_slice() {
+            [] => {}
+            [call] => {
+                object.insert("toolCall".into(), normalize_single_tool_call(call)?);
+            }
+            _ => {
+                let normalized = calls
+                    .iter()
+                    .map(normalize_single_tool_call)
+                    .collect::<Result<Vec<_>, _>>()?;
+                let classifications = normalized
+                    .iter()
+                    .map(|call| {
+                        let tool_name = call
+                            .get("toolName")
+                            .and_then(Value::as_str)
+                            .unwrap_or_default();
+                        registered_tool_is_read_only(tool_name)
+                            .ok_or_else(|| format!("Unknown tool: {tool_name}"))
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
+                if classifications.iter().any(|read_only| !read_only) {
+                    return Err(
+                        "assistant returned multiple mutating tool calls; call mutations one at a time"
+                            .into(),
+                    );
+                }
+                let steps = normalized
+                    .into_iter()
+                    .enumerate()
+                    .map(|(index, call)| {
+                        let tool = call
+                            .get("toolName")
+                            .and_then(Value::as_str)
+                            .unwrap_or_default();
+                        serde_json::json!({
+                            "id": format!("parallel_call_{}", index + 1),
+                            "label": tool,
+                            "tool": tool,
+                            "args": call.get("args").cloned().unwrap_or_default()
+                        })
+                    })
+                    .collect::<Vec<_>>();
+                object.insert(
+                    "toolCall".into(),
+                    serde_json::json!({
+                        "toolName": "create_plan",
+                        "args": {"steps": steps}
+                    }),
+                );
+            }
+        }
+    } else if let Some(call) = object
+        .get("toolCall")
+        .filter(|call| !call.is_null())
+        .cloned()
+    {
+        object.insert("toolCall".into(), normalize_single_tool_call(&call)?);
+    }
+
+    Ok(response)
+}
+
+fn normalize_single_tool_call(call: &Value) -> Result<Value, String> {
+    let call = call
+        .as_object()
+        .ok_or_else(|| "tool call should be an object".to_string())?;
+    let function = call.get("function").and_then(Value::as_object);
+    let tool_names = [
+        call.get("toolName"),
+        call.get("name"),
+        function.and_then(|function| function.get("name")),
+    ]
+    .into_iter()
+    .flatten()
+    .filter(|name| !name.is_null())
+    .map(|name| {
+        name.as_str()
+            .filter(|name| !name.trim().is_empty())
+            .ok_or_else(|| "tool call name should be a non-empty string".to_string())
+    })
+    .collect::<Result<Vec<_>, _>>()?;
+    let Some(tool_name) = tool_names.first().copied() else {
+        return Err("tool call is missing a name".into());
+    };
+    if tool_names.iter().any(|candidate| *candidate != tool_name) {
+        return Err("tool call included conflicting tool names".into());
+    }
+
+    let args = [
+        call.get("args"),
+        call.get("input"),
+        call.get("arguments"),
+        function.and_then(|function| function.get("arguments")),
+    ]
+    .into_iter()
+    .flatten()
+    .filter(|arguments| !arguments.is_null())
+    .map(normalize_tool_arguments)
+    .collect::<Result<Vec<_>, _>>()?;
+    let args = if let Some(first) = args.first() {
+        if args.iter().any(|candidate| candidate != first) {
+            return Err("tool call included conflicting tool arguments".into());
+        }
+        first.clone()
+    } else {
+        Value::Object(Default::default())
+    };
+    Ok(serde_json::json!({
+        "toolName": tool_name,
+        "args": args
+    }))
+}
+
+fn normalize_tool_arguments(arguments: &Value) -> Result<Value, String> {
+    let arguments = match arguments {
+        Value::String(arguments) => serde_json::from_str(arguments)
+            .map_err(|error| format!("tool arguments are not valid JSON: {error}"))?,
+        arguments => arguments.clone(),
+    };
+    if !arguments.is_object() {
+        return Err("tool arguments should be an object".into());
+    }
+    Ok(arguments)
+}
+
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct AssistantDraftBatch {
@@ -2596,6 +2885,17 @@ fn resolve_assistant_outcome(
         return Ok(AssistantOutcome::ModelPreview(validated));
     }
     Ok(AssistantOutcome::Message)
+}
+
+fn invalid_model_preview_repair_prompt(error: &str) -> String {
+    format!(
+        "Your actionBatch failed validation: {error}. Do not invent paths or author another \
+         actionBatch. Call one registered mutating tool using its exact schema instead. For \
+         auto-tagging or auditing, call library.run_task with both task and target_scope. If the \
+         request directly edits tags, call metadata.patch with target_scope and changes whose \
+         entries contain field, action, and value. If the intended scope is unclear, ask one \
+         focused clarification."
+    )
 }
 
 /// If the LLM returned an action batch with kind "noop", normalize it to
@@ -3197,7 +3497,6 @@ async fn apply_action_batch(
             apply_remove_embedded_cover(runtime, queue, &batch, batch_id).await
         }
         "auto-tag-run" | "audit-run" => {
-            runtime.mark_batch_applied(batch_id);
             let task = if batch.kind == "auto-tag-run" {
                 "auto_tag"
             } else {
@@ -3278,6 +3577,76 @@ pub async fn assistant_apply_actions(
         },
     );
     Ok(result)
+}
+
+fn complete_delegated_task_batch(
+    runtime: &AssistantRuntimeState,
+    batch_id: &str,
+    error: Option<&str>,
+) -> Result<AssistantActionBatch, String> {
+    let batch = runtime
+        .get_batch(batch_id)
+        .ok_or_else(|| format!("Action batch not found: {batch_id}"))?;
+    if batch.status != "pending" {
+        return Err(format!("Batch already {}", batch.status));
+    }
+    if !matches!(batch.kind.as_str(), "auto-tag-run" | "audit-run") {
+        return Err(format!(
+            "Batch {} is not a renderer-delegated task",
+            batch.kind
+        ));
+    }
+    if let Some(error) = error {
+        runtime.mark_batch_failed(batch_id, error);
+    } else {
+        runtime.mark_batch_applied(batch_id);
+    }
+    runtime
+        .get_batch(batch_id)
+        .ok_or_else(|| format!("Action batch not found after completion: {batch_id}"))
+}
+
+#[tauri::command]
+pub fn assistant_complete_task_actions(
+    app: AppHandle,
+    action_batch_id: String,
+    error: Option<String>,
+    runtime: State<'_, AssistantRuntimeState>,
+    conversation: State<'_, ConversationState>,
+) -> Result<Value, ApiError> {
+    let batch = complete_delegated_task_batch(&runtime, &action_batch_id, error.as_deref())
+        .map_err(ApiError::Message)?;
+    let succeeded = error.is_none();
+    let event_type = if succeeded {
+        "action_batch_applied"
+    } else {
+        "action_batch_failed"
+    };
+    let message = if let Some(error) = error.as_deref() {
+        format!("Failed: {}: {error}", batch.title)
+    } else {
+        format!("Applied: {}", batch.title)
+    };
+    if let Some(current) = conversation.current() {
+        conversation.record("system", &message, None, 0, 0, 0);
+        let _ = app.emit(
+            "assistant:event",
+            AssistantEvent {
+                session_id: current.session_id,
+                event_type,
+                message: message.clone(),
+                data: Some(serde_json::json!({
+                    "batchId": action_batch_id,
+                    "error": error
+                })),
+            },
+        );
+    }
+    Ok(serde_json::json!({
+        "success": succeeded,
+        "batchId": action_batch_id,
+        "error": error
+    }))
 }
 
 #[cfg(test)]
@@ -3760,6 +4129,58 @@ mod apply_contract_tests {
         );
         assert_eq!(runtime.get_batch("batch-1").unwrap().status, "applied");
         fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn delegated_task_batch_is_completed_only_after_renderer_confirmation() {
+        let runtime = AssistantRuntimeState::default();
+        assert!(runtime.initialize());
+        let batch = assistant_batch(
+            "session",
+            "auto-tag-run",
+            "Auto-tag album",
+            "Auto-tag 1 track",
+            "medium",
+            vec![AssistantAction {
+                track_path: Some("/music/album/track.flac".into()),
+                ..Default::default()
+            }],
+            true,
+        );
+        let batch_id = batch.id.clone();
+        assert!(runtime.add_batch(batch));
+
+        let dispatched = apply_action_batch(&runtime, &WriteQueue::default(), &batch_id).await;
+        assert_eq!(dispatched["success"], true);
+        assert_eq!(
+            runtime.get_batch(&batch_id).unwrap().status,
+            "pending",
+            "renderer-delegated work must not be marked applied before it finishes"
+        );
+
+        complete_delegated_task_batch(&runtime, &batch_id, None).unwrap();
+        assert_eq!(runtime.get_batch(&batch_id).unwrap().status, "applied");
+
+        let failed = assistant_batch(
+            "session",
+            "audit-run",
+            "Audit album",
+            "Audit 1 track",
+            "medium",
+            vec![AssistantAction {
+                track_path: Some("/music/album/track.flac".into()),
+                ..Default::default()
+            }],
+            true,
+        );
+        let failed_id = failed.id.clone();
+        assert!(runtime.add_batch(failed));
+        complete_delegated_task_batch(&runtime, &failed_id, Some("provider failed")).unwrap();
+        assert_eq!(runtime.get_batch(&failed_id).unwrap().status, "failed");
+        assert_eq!(
+            runtime.batch_error(&failed_id).as_deref(),
+            Some("provider failed")
+        );
     }
 
     #[tokio::test]
@@ -4522,6 +4943,185 @@ mod assistant_behaviour_tests {
         assert_eq!(schema["properties"]["message"]["type"], "string");
     }
 
+    #[test]
+    fn response_normalizes_common_single_tool_call_envelopes() {
+        let normalized = normalize_assistant_response_value(json!({
+            "message": "I will inspect the album.",
+            "toolCalls": [{
+                "name": "albums.inspect",
+                "args": {},
+                "operationKind": "read_only"
+            }]
+        }))
+        .unwrap();
+        assert_eq!(
+            normalized["toolCall"],
+            json!({"toolName": "albums.inspect", "args": {}})
+        );
+        assert!(normalized.get("toolCalls").is_none());
+
+        let anthropic = normalize_assistant_response_value(json!({
+            "toolCalls": [{
+                "toolName": null,
+                "name": "tracks.search",
+                "args": null,
+                "input": {"missingGenre": true}
+            }]
+        }))
+        .unwrap();
+        assert_eq!(anthropic["message"], "");
+        assert_eq!(
+            anthropic["toolCall"],
+            json!({
+                "toolName": "tracks.search",
+                "args": {"missingGenre": true}
+            })
+        );
+
+        let openai = normalize_assistant_response_value(json!({
+            "tool_calls": [{
+                "function": {
+                    "name": "query.metadata",
+                    "arguments": "{\"field\":\"genre\"}"
+                }
+            }]
+        }))
+        .unwrap();
+        assert_eq!(
+            openai["toolCall"],
+            json!({
+                "toolName": "query.metadata",
+                "args": {"field": "genre"}
+            })
+        );
+
+        let nullable_alias = normalize_assistant_response_value(json!({
+            "toolCalls": null,
+            "tool_calls": [{
+                "function": {
+                    "name": "tracks.search",
+                    "arguments": "{\"missingGenre\":true}"
+                }
+            }]
+        }))
+        .unwrap();
+        assert_eq!(
+            nullable_alias["toolCall"],
+            json!({
+                "toolName": "tracks.search",
+                "args": {"missingGenre": true}
+            })
+        );
+    }
+
+    #[test]
+    fn response_serializes_parallel_read_only_calls_and_rejects_ambiguous_calls() {
+        let parallel = normalize_assistant_response_value(json!({
+            "message": "",
+            "toolCalls": [
+                {"name": "library.summarize", "args": {}},
+                {"name": "tracks.search", "args": {"missingGenre": true}}
+            ]
+        }))
+        .unwrap();
+        assert_eq!(parallel["toolCall"]["toolName"], "create_plan");
+        assert_eq!(
+            parallel["toolCall"]["args"]["steps"],
+            json!([
+                {
+                    "id": "parallel_call_1",
+                    "label": "library.summarize",
+                    "tool": "library.summarize",
+                    "args": {}
+                },
+                {
+                    "id": "parallel_call_2",
+                    "label": "tracks.search",
+                    "tool": "tracks.search",
+                    "args": {"missingGenre": true}
+                }
+            ])
+        );
+
+        let mutating = normalize_assistant_response_value(json!({
+            "message": "",
+            "toolCalls": [
+                {"name": "tracks.search", "args": {"missingGenre": true}},
+                {
+                    "name": "library.run_task",
+                    "args": {"task": "auto_tag", "target_scope": "library"}
+                }
+            ]
+        }))
+        .unwrap_err();
+        assert!(mutating.contains("multiple mutating tool calls"));
+
+        let ambiguous = normalize_assistant_response_value(json!({
+            "message": "",
+            "toolCall": {"toolName": "library.summarize", "args": {}},
+            "toolCalls": [{"name": "tracks.search", "args": {}}]
+        }))
+        .unwrap_err();
+        assert!(ambiguous.contains("both toolCall and toolCalls"));
+
+        let unknown = normalize_assistant_response_value(json!({
+            "toolCalls": [
+                {"name": "library.summarize", "args": {}},
+                {"name": "not.a.registered.tool", "args": {}}
+            ]
+        }))
+        .unwrap_err();
+        assert!(unknown.contains("Unknown tool: not.a.registered.tool"));
+        assert!(!unknown.contains("mutating"));
+    }
+
+    #[test]
+    fn response_rejects_conflicting_tool_call_aliases() {
+        let conflicting_name = normalize_assistant_response_value(json!({
+            "toolCall": {
+                "toolName": "metadata.patch",
+                "name": "tracks.search",
+                "args": {}
+            }
+        }))
+        .unwrap_err();
+        assert!(conflicting_name.contains("conflicting tool names"));
+
+        let conflicting_args = normalize_assistant_response_value(json!({
+            "toolCall": {
+                "name": "tracks.search",
+                "args": {"missingGenre": true},
+                "input": {"missingTitle": true}
+            }
+        }))
+        .unwrap_err();
+        assert!(conflicting_args.contains("conflicting tool arguments"));
+    }
+
+    #[test]
+    fn assistant_step_progress_uses_the_configured_limit() {
+        assert_eq!(
+            assistant_step_message(ASSISTANT_MAX_STEPS),
+            format!("Step {ASSISTANT_MAX_STEPS}/{ASSISTANT_MAX_STEPS}")
+        );
+    }
+
+    #[test]
+    fn invalid_model_preview_repair_routes_library_tasks_through_registered_tool() {
+        let prompt =
+            invalid_model_preview_repair_prompt("Assistant action is outside the active scope");
+        assert!(prompt.contains("failed validation"));
+        assert!(prompt.contains("library.run_task"));
+        assert!(prompt.contains("target_scope"));
+        assert!(prompt.contains("metadata.patch"));
+        assert!(prompt.contains("field, action, and value"));
+        assert!(prompt.contains("one registered mutating tool"));
+        assert!(
+            ASSISTANT_PREVIEW_REPAIR_ATTEMPTS >= 3,
+            "schema-constrained models need a bounded opportunity to repair repeated envelope mistakes"
+        );
+    }
+
     // ── Mutating tool execution edge cases ──────────────────────────
 
     #[test]
@@ -4585,18 +5185,43 @@ mod assistant_behaviour_tests {
     #[test]
     fn run_library_task_auto_tag_creates_auto_tag_run_preview() {
         let input = AssistantSendInput {
-            selected_track_paths: vec!["/music/one.flac".into()],
-            tracks: vec![json!({"path": "/music/one.flac"})],
+            active_album_path: Some("/music/album".into()),
+            tracks: vec![
+                json!({"path": "/music/album/one.flac"}),
+                json!({"path": "/music/album/two.flac"}),
+            ],
             ..Default::default()
         };
         let execution = execute_mutating_assistant_tool(
             "run_library_task",
-            &json!({"task": "auto_tag", "target_scope": "selected"}),
+            &json!({"task": "auto_tag", "target_scope": "active_album"}),
             &input,
             "session",
         );
         assert!(execution.result.ok);
         assert_eq!(execution.batches[0].kind, "auto-tag-run");
+        assert_eq!(execution.batches[0].actions.len(), 2);
+    }
+
+    #[test]
+    fn run_library_task_rejects_auto_tag_scopes_that_expand_in_the_renderer() {
+        let input = AssistantSendInput {
+            selected_track_paths: vec!["/music/album/one.flac".into()],
+            tracks: vec![
+                json!({"path": "/music/album/one.flac"}),
+                json!({"path": "/music/album/two.flac"}),
+            ],
+            ..Default::default()
+        };
+        let execution = execute_mutating_assistant_tool(
+            "library.run_task",
+            &json!({"task": "auto_tag", "target_scope": "selected"}),
+            &input,
+            "session",
+        );
+        assert!(!execution.result.ok);
+        assert!(execution.result.summary.contains("whole albums"));
+        assert!(execution.batches.is_empty());
     }
 
     // ── assistant_batch ─────────────────────────────────────────────
@@ -4649,6 +5274,101 @@ mod assistant_behaviour_tests {
 
         assert_eq!(msgs.first().unwrap().role, "system");
         assert!(msgs.first().unwrap().content.contains("Soundrobe"));
+    }
+
+    #[test]
+    fn large_library_context_is_compact_and_requires_tools_for_track_details() {
+        let tracks = (0..788)
+            .map(|index| {
+                json!({
+                    "path": format!("/music/Artist/Album/track-{index}.flac"),
+                    "title": format!("Sentinel Track {index}"),
+                    "artist": "Artist",
+                    "album": "Album",
+                    "genre": if index % 2 == 0 { Value::Null } else { json!("Rock") },
+                    "duration": 180,
+                    "sizeBytes": 1_000_000
+                })
+            })
+            .collect::<Vec<_>>();
+        let input = AssistantSendInput {
+            library_path: Some("/music".into()),
+            active_album_path: Some("/music/Artist/Album".into()),
+            selected_track_paths: vec!["/music/Artist/Album/track-0.flac".into()],
+            tracks,
+            albums: vec![json!({
+                "path": "/music/Artist/Album",
+                "name": "Album",
+                "artistHint": "Artist",
+                "trackCount": 788
+            })],
+            ..Default::default()
+        };
+
+        let context = build_assistant_context(&input);
+        let serialized = serde_json::to_string(&context).unwrap();
+
+        assert_eq!(context["librarySummary"]["trackCount"], 788);
+        assert_eq!(context["librarySummary"]["missingGenre"], 394);
+        assert_eq!(context["selection"]["count"], 1);
+        assert!(
+            context.get("tracks").is_none(),
+            "full track objects must remain behind deterministic tools"
+        );
+        assert!(
+            !serialized.contains("Sentinel Track 787"),
+            "unselected track metadata leaked into bootstrap context"
+        );
+        assert!(
+            serialized.len() < 4_000,
+            "bootstrap context should remain bounded, got {} characters",
+            serialized.len()
+        );
+
+        let messages = build_assistant_messages(
+            &context,
+            &context_tool_catalog(),
+            &[],
+            "fill the missing Genre",
+        );
+        let prompt_chars = messages
+            .iter()
+            .map(|message| message.content.chars().count())
+            .sum::<usize>();
+        assert!(messages[0].content.contains("Use read-only tools"));
+        assert!(messages[0]
+            .content
+            .contains("fix one missing metadata field"));
+        assert!(messages[0].content.contains("metadata.patch"));
+        assert!(!messages
+            .last()
+            .unwrap()
+            .content
+            .contains("Sentinel Track 787"));
+        assert!(
+            prompt_chars < 50_000,
+            "complete bootstrap prompt should remain bounded, got {prompt_chars} characters"
+        );
+    }
+
+    #[test]
+    fn assistant_timeouts_leave_the_tool_loop_in_control() {
+        assert!(
+            ASSISTANT_LLM_TIMEOUT_SECS < ASSISTANT_SESSION_TIMEOUT_SECS,
+            "one provider call must not outlive the complete tool loop"
+        );
+        assert!(
+            ASSISTANT_SESSION_TIMEOUT_SECS >= 600,
+            "large-library tool loops need at least ten minutes"
+        );
+        assert!(
+            ASSISTANT_MAX_STEPS >= 20,
+            "large-library investigations need more than ten tool steps"
+        );
+        assert!(
+            ASSISTANT_SESSION_TIMEOUT_LOG.contains(&ASSISTANT_SESSION_TIMEOUT_SECS.to_string()),
+            "the persisted timeout explanation must match the configured session deadline"
+        );
     }
 
     #[test]
@@ -5308,7 +6028,8 @@ mod assistant_ai_tests {
         Some((key, model))
     }
 
-    /// Build a minimal context to send to the LLM.
+    /// Build a minimal input and pass it through the production compact-context
+    /// boundary before sending anything to the LLM.
     fn test_library_context(additional_tracks: usize) -> Value {
         let mut tracks = vec![
             json!({
@@ -5333,17 +6054,19 @@ mod assistant_ai_tests {
                 "album": "Other Album"
             }));
         }
-        json!({
-            "libraryPath": "/music",
-            "tracks": tracks,
-            "albums": [json!({
+        build_assistant_context(&AssistantSendInput {
+            library_path: Some("/music".into()),
+            active_album_path: Some("/music/artist/album".into()),
+            tracks,
+            albums: vec![json!({
                 "path": "/music/artist/album",
                 "name": "Blue Train",
                 "artistHint": "John Coltrane",
                 "albumHint": "Blue Train",
                 "trackCount": 2
             })],
-            "autonomous": false
+            autonomous: false,
+            ..Default::default()
         })
     }
 
@@ -5357,20 +6080,31 @@ mod assistant_ai_tests {
     ) -> serde_json::Value {
         let tools = crate::commands::assistant_tools::context_tool_catalog();
         let schema = assistant_response_schema();
-        let messages = build_assistant_messages(context, &tools, &[], user_message);
-        let client = OpenRouterClient::new(api_key, model)
-            .with_generation(0.0, 4096)
-            .with_timeout(std::time::Duration::from_secs(60));
-        let response = client
-            .complete_json(
-                messages,
-                "AssistantResponse",
-                schema,
-                &AtomicBool::new(false),
-            )
-            .await
-            .expect("LLM call should succeed");
-        response.data
+        let mut messages = build_assistant_messages(context, &tools, &[], user_message);
+        for attempt in 0..2 {
+            let response = OpenRouterClient::new(api_key, model)
+                .with_generation(0.0, 4096)
+                .with_timeout(std::time::Duration::from_secs(ASSISTANT_LLM_TIMEOUT_SECS))
+                .complete_json(
+                    messages.clone(),
+                    "AssistantResponse",
+                    schema.clone(),
+                    &AtomicBool::new(false),
+                )
+                .await
+                .expect("LLM call should succeed");
+            let data = normalize_assistant_response_value(response.data)
+                .expect("LLM response should use a supported tool-call envelope");
+            if data["toolCall"].is_object() || data["actionBatch"].is_object() || attempt == 1 {
+                return data;
+            }
+            messages.push(ChatMessage {
+                role: "assistant".into(),
+                content: data["message"].as_str().unwrap_or_default().to_string(),
+            });
+            messages.push(ChatMessage::system(ASSISTANT_SELF_REVIEW_PROMPT));
+        }
+        unreachable!("two-pass assistant smoke should return on its second response")
     }
 
     /// Judge whether a response satisfies the given semantic criteria.
@@ -5425,14 +6159,13 @@ mod assistant_ai_tests {
         }
     }
 
-    // ── Test: equivalent prompts produce same response shape ────────
+    // ── Test: equivalent read-only prompts stay non-mutating ────────
 
-    /// Equivalent read-only prompts should produce the same response
-    /// shape (all message or all actionBatch/toolCall) — behavioral
-    /// equivalence across phrasings, not a hard ban on tool use.
+    /// Equivalent read-only prompts may answer directly or use a read-only
+    /// tool, but must never produce a mutation preview.
     #[ignore = "requires LLM_API_KEY, LLM_MODEL, and active OpenRouter access"]
     #[tokio::test]
-    async fn same_intent_read_only_produces_consistent_shape() {
+    async fn same_intent_read_only_produces_safe_outcome() {
         let (key, model) = credentials().expect("set LLM_API_KEY and LLM_MODEL");
         let context = test_library_context(0);
         let variants = [
@@ -5440,27 +6173,28 @@ mod assistant_ai_tests {
             "show me my albums",
             "list my albums",
         ];
-        let mut shapes = Vec::new();
         for variant in &variants {
             let data = assistant_llm_call(variant, &context, &key, &model).await;
             let has_batch = data["actionBatch"].is_object();
             let has_tool = data["toolCall"].is_object();
-            let shape = if has_batch || has_tool {
-                "action"
+            assert!(
+                !has_batch,
+                "{variant} must not create a mutation preview: {data}"
+            );
+            if has_tool {
+                let tool_name = data["toolCall"]["toolName"].as_str().unwrap_or_default();
+                assert_eq!(
+                    registered_tool_is_read_only(tool_name),
+                    Some(true),
+                    "{variant} selected non-read-only tool {tool_name}"
+                );
             } else {
-                "message"
-            };
-            shapes.push(shape);
-            // All responses must produce a non-empty message.
-            let message = data["message"].as_str().unwrap_or("");
-            assert!(!message.is_empty(), "{} should produce a message", variant);
+                assert!(
+                    !data["message"].as_str().unwrap_or_default().is_empty(),
+                    "{variant} should produce a message or read-only tool call"
+                );
+            }
         }
-        // All variants must produce the same response shape.
-        assert!(
-            shapes.windows(2).all(|w| w[0] == w[1]),
-            "all read-only variants should produce the same response shape, got: {:?}",
-            shapes
-        );
     }
 
     /// Mutating requests should always include an actionBatch or toolCall.
@@ -5471,7 +6205,7 @@ mod assistant_ai_tests {
         let context = test_library_context(0);
         let variants = [
             "change the album title to New Title",
-            "rename the album to Greatest Hits",
+            "set the album tag to Greatest Hits",
             "set the artist to Testing",
         ];
         for variant in &variants {
@@ -5674,13 +6408,7 @@ mod assistant_ai_tests {
             autonomous: false,
             ..Default::default()
         };
-        let context = serde_json::json!({
-            "libraryPath": "/music",
-            "selectedTrackPaths": fixture_input.selected_track_paths,
-            "tracks": fixture_input.tracks,
-            "albums": fixture_input.albums,
-            "autonomous": false,
-        });
+        let context = build_assistant_context(&fixture_input);
 
         let mut messages = build_assistant_messages(
             &context,
@@ -5695,7 +6423,7 @@ mod assistant_ai_tests {
         for _step in 1..=6 {
             let response = OpenRouterClient::new(&key, &model)
                 .with_generation(0.0, 4096)
-                .with_timeout(std::time::Duration::from_secs(60))
+                .with_timeout(std::time::Duration::from_secs(ASSISTANT_LLM_TIMEOUT_SECS))
                 .complete_json(
                     messages.clone(),
                     "AssistantResponse",
@@ -5704,8 +6432,10 @@ mod assistant_ai_tests {
                 )
                 .await
                 .expect("LLM call should succeed");
+            let response = normalize_assistant_response_value(response.data)
+                .expect("tool-call envelope should normalize");
             let draft: AssistantDraft =
-                serde_json::from_value(response.data).expect("draft should deserialize");
+                serde_json::from_value(response).expect("draft should deserialize");
             let draft = normalize_noop_batch(draft);
 
             let Some(tool_call) = draft.tool_call else {
@@ -5876,7 +6606,7 @@ mod assistant_ai_tests {
         let turn1_messages = build_assistant_messages(&context, &tools, &[], "remove titles");
         let response = OpenRouterClient::new(&key, &model)
             .with_generation(0.0, 4096)
-            .with_timeout(std::time::Duration::from_secs(60))
+            .with_timeout(std::time::Duration::from_secs(ASSISTANT_LLM_TIMEOUT_SECS))
             .complete_json(
                 turn1_messages,
                 "AssistantResponse",
@@ -5885,8 +6615,8 @@ mod assistant_ai_tests {
             )
             .await
             .expect("turn1 should succeed");
-        let turn1: serde_json::Value =
-            serde_json::from_value(response.data).expect("turn1 should be valid JSON");
+        let turn1 = normalize_assistant_response_value(response.data)
+            .expect("turn1 should use a supported tool-call envelope");
         let msg1 = turn1["message"].as_str().unwrap_or("");
         assert!(!msg1.is_empty(), "turn1: must produce a message");
         // Must clarify (message-only), not produce an action.
@@ -5940,7 +6670,7 @@ mod assistant_ai_tests {
         );
         let response = OpenRouterClient::new(&key, &model)
             .with_generation(0.0, 4096)
-            .with_timeout(std::time::Duration::from_secs(60))
+            .with_timeout(std::time::Duration::from_secs(ASSISTANT_LLM_TIMEOUT_SECS))
             .complete_json(
                 turn2_messages,
                 "AssistantResponse",
@@ -5949,8 +6679,8 @@ mod assistant_ai_tests {
             )
             .await
             .expect("turn2 should succeed");
-        let turn2: serde_json::Value =
-            serde_json::from_value(response.data).expect("turn2 should be valid JSON");
+        let turn2 = normalize_assistant_response_value(response.data)
+            .expect("turn2 should use a supported tool-call envelope");
         let tool_call = &turn2["toolCall"];
         let action_batch = &turn2["actionBatch"];
         // Must produce a tool or action.

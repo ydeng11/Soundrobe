@@ -67,6 +67,7 @@ const CHANNEL_PARITY: Array<{
   { method: "assistantCancel", command: "assistant_cancel", args: {} },
   { method: "assistantClear", command: "assistant_clear", args: {} },
   { method: "assistantApplyActions", command: "assistant_apply_actions", args: { actionBatchId: "b1" } },
+  { method: "assistantCompleteTaskActions", command: "assistant_complete_task_actions", args: { actionBatchId: "b1", error: null } },
   { method: "assistantRejectActions", command: "assistant_reject_actions", args: { actionBatchId: "b1" } },
   { method: "assistantGetBatches", command: "assistant_get_batches", args: {} },
   { method: "assistantInitRuntime", command: "assistant_init_runtime", args: {} },
