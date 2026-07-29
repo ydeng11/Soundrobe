@@ -39,12 +39,17 @@ const ASSISTANT_LLM_TIMEOUT_SECS: u64 = 120;
 const ASSISTANT_SESSION_TIMEOUT_SECS: u64 = 600;
 const ASSISTANT_MAX_STEPS: usize = 20;
 const ASSISTANT_PREVIEW_REPAIR_ATTEMPTS: usize = 3;
+const ASSISTANT_ACTION_REPAIR_ATTEMPTS: usize = 3;
 const ASSISTANT_SESSION_TIMEOUT_LOG: &str = "Session timed out after 600 seconds";
 const ASSISTANT_SELF_REVIEW_PROMPT: &str = "If your response above is a clarification because \
 action-defining details are missing, an answer, or a limitation, finalize it unchanged. If the user \
 already requested a supported edit, do not ask whether to proceed; call the tool now to create the \
 approval preview. If your response announces an action (for example, \"I'll inspect\" or \"let me \
 preview\"), call the tool now instead.";
+const ASSISTANT_ACTION_REPAIR_PROMPT: &str = "You classified this response as an action, but did \
+not call a tool or create a preview. An action claim without execution evidence cannot be returned \
+to the user. Call the registered tool now. If the work cannot be performed, return a limitation \
+instead; if no action is needed, return an answer.";
 
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -679,6 +684,7 @@ pub async fn assistant_send(
     let mut pending_tool_batches = Vec::new();
     let mut self_reviewed = false;
     let mut invalid_preview_repairs = 0;
+    let mut action_repairs = 0;
     // Absolute deadline for the entire tool loop.
     let deadline = tokio::time::Instant::now()
         + std::time::Duration::from_secs(ASSISTANT_SESSION_TIMEOUT_SECS);
@@ -816,6 +822,22 @@ pub async fn assistant_send(
                     &app,
                     Some(session_id),
                     "The assistant could not create a valid action preview after bounded repair attempts.",
+                );
+            }
+            if draft.response_kind == AssistantResponseKind::Action {
+                if action_repairs < ASSISTANT_ACTION_REPAIR_ATTEMPTS {
+                    action_repairs += 1;
+                    messages.push(ChatMessage {
+                        role: "assistant".into(),
+                        content: draft.message.clone(),
+                    });
+                    messages.push(ChatMessage::system(ASSISTANT_ACTION_REPAIR_PROMPT));
+                    continue;
+                }
+                return assistant_error_event(
+                    &app,
+                    Some(session_id),
+                    "The assistant repeatedly announced an action without running it, so I stopped instead of claiming the task was complete.",
                 );
             }
             if !self_reviewed {
@@ -1088,6 +1110,11 @@ fn assistant_response_schema() -> Value {
         "type": "object",
         "properties": {
             "message": {"type": "string"},
+            "responseKind": {
+                "type": "string",
+                "enum": ["answer", "clarification", "limitation", "action"],
+                "description": "Classify the message. Use action for any statement that work will run or has run; action requires a toolCall or validated preview."
+            },
             "actionBatch": {
                 "type": "null",
                 "description": "Always null. Call a registered tool; the native app creates validated action batches."
@@ -1104,7 +1131,7 @@ fn assistant_response_schema() -> Value {
                 "required": ["toolName", "args"]
             }
         },
-        "required": ["message"]
+        "required": ["message", "responseKind"]
     })
 }
 
@@ -1253,6 +1280,10 @@ fn build_assistant_messages(
                 "  Do not say you'll do something without calling the tool.\n",
                 "- Message-only responses are for clarifications, answers, and limitations— ",
                 "  not for describing planned actions.\n",
+                "- Set responseKind to action whenever the message says work will run or has run, ",
+                "  including retrospective completion claims. An action response must include a toolCall.\n",
+                "- Quoted or hypothetical action language in an explanation remains an answer; ",
+                "  responseKind describes your own response, not quoted text.\n",
                 "- When no catalog tool supports the request, explain the limitation normally.\n",
                 "- **Never claim an action was applied.** Previews still require user approval.\n",
                 "\n",
@@ -2897,10 +2928,20 @@ fn would_repeat_tool_call(signatures: &[String], name: &str, args: &Value) -> bo
             .all(|seen| seen == &signature)
 }
 
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+enum AssistantResponseKind {
+    Answer,
+    Clarification,
+    Limitation,
+    Action,
+}
+
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct AssistantDraft {
     message: String,
+    response_kind: AssistantResponseKind,
     #[serde(default)]
     action_batch: Option<AssistantDraftBatch>,
     #[serde(default)]
@@ -3119,6 +3160,10 @@ fn resolve_assistant_outcome(
         let validated =
             validated_assistant_batch(session_id, input, batch).map_err(|e| e.to_string())?;
         return Ok(AssistantOutcome::ModelPreview(validated));
+    }
+    if draft.response_kind == AssistantResponseKind::Action {
+        return Err("The assistant claimed an action without running a tool or creating a preview"
+            .into());
     }
     Ok(AssistantOutcome::Message)
 }
@@ -5193,8 +5238,11 @@ mod assistant_behaviour_tests {
     fn assistant_response_schema_has_all_required_fields() {
         let schema = assistant_response_schema();
         assert_eq!(schema["type"], "object");
-        // Only message is required; actionBatch and toolCall are optional.
-        assert_eq!(schema["required"], json!(["message"]));
+        assert_eq!(schema["required"], json!(["message", "responseKind"]));
+        assert_eq!(
+            schema["properties"]["responseKind"]["enum"],
+            json!(["answer", "clarification", "limitation", "action"])
+        );
         // actionBatch and toolCall are nullable optional properties.
         assert!(schema["properties"]["actionBatch"].is_object());
         assert_eq!(schema["properties"]["actionBatch"]["type"], "null");
@@ -6006,6 +6054,38 @@ mod assistant_behaviour_tests {
     fn outcome_message_only_accepted() {
         let draft = AssistantDraft {
             message: "Hello, how can I help?".into(),
+            response_kind: AssistantResponseKind::Answer,
+            action_batch: None,
+            tool_call: None,
+        };
+        let result = resolve_assistant_outcome(&draft, &[], "s", &test_outcome_input());
+        assert_eq!(result, Ok(AssistantOutcome::Message));
+    }
+
+    #[test]
+    fn outcome_action_claim_without_evidence_is_rejected() {
+        for message in [
+            "Let me now apply the transformation.",
+            "I updated all 46 tracks.",
+            "The changes are now applied.",
+        ] {
+            let draft = AssistantDraft {
+                message: message.into(),
+                response_kind: AssistantResponseKind::Action,
+                action_batch: None,
+                tool_call: None,
+            };
+            let error =
+                resolve_assistant_outcome(&draft, &[], "s", &test_outcome_input()).unwrap_err();
+            assert!(error.contains("without running a tool"), "{error}");
+        }
+    }
+
+    #[test]
+    fn outcome_answer_may_quote_action_language() {
+        let draft = AssistantDraft {
+            message: "The log said “I'll update the tags,” but no change occurred.".into(),
+            response_kind: AssistantResponseKind::Answer,
             action_batch: None,
             tool_call: None,
         };
@@ -6017,6 +6097,7 @@ mod assistant_behaviour_tests {
     fn outcome_clarification_only_accepted() {
         let draft = AssistantDraft {
             message: "Do you mean clear the title tag or strip filenames?".into(),
+            response_kind: AssistantResponseKind::Clarification,
             action_batch: None,
             tool_call: None,
         };
@@ -6028,6 +6109,7 @@ mod assistant_behaviour_tests {
     fn outcome_informational_answer_accepted() {
         let draft = AssistantDraft {
             message: "There are 42 tracks in this album.".into(),
+            response_kind: AssistantResponseKind::Answer,
             action_batch: None,
             tool_call: None,
         };
@@ -6039,6 +6121,7 @@ mod assistant_behaviour_tests {
     fn outcome_explicit_noop_accepted() {
         let draft = AssistantDraft {
             message: "Nothing to change.".into(),
+            response_kind: AssistantResponseKind::Answer,
             action_batch: None,
             tool_call: None,
         };
@@ -6050,6 +6133,7 @@ mod assistant_behaviour_tests {
     fn outcome_unsupported_task_explained() {
         let draft = AssistantDraft {
             message: "No tool available for that.".into(),
+            response_kind: AssistantResponseKind::Limitation,
             action_batch: None,
             tool_call: None,
         };
@@ -6059,16 +6143,25 @@ mod assistant_behaviour_tests {
 
     #[test]
     fn outcome_deserializes_omitted_batch_and_tool() {
-        let json = json!({"message": "hello"});
+        let json = json!({"message": "hello", "responseKind": "answer"});
         let draft: AssistantDraft = serde_json::from_value(json).unwrap();
         assert!(draft.action_batch.is_none());
         assert!(draft.tool_call.is_none());
     }
 
     #[test]
+    fn outcome_rejects_missing_response_kind() {
+        let error = serde_json::from_value::<AssistantDraft>(json!({"message": "done"}))
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains("responseKind"), "{error}");
+    }
+
+    #[test]
     fn outcome_deserializes_null_batch_and_tool() {
         let json = json!({
             "message": "hello",
+            "responseKind": "answer",
             "actionBatch": null,
             "toolCall": null
         });
@@ -6081,6 +6174,7 @@ mod assistant_behaviour_tests {
     fn outcome_empty_noop_normalized_to_message() {
         let draft = AssistantDraft {
             message: "nothing to do".into(),
+            response_kind: AssistantResponseKind::Answer,
             action_batch: Some(AssistantDraftBatch {
                 kind: "noop".into(),
                 title: "noop".into(),
@@ -6099,6 +6193,7 @@ mod assistant_behaviour_tests {
     fn outcome_noop_with_actions_preserved_for_rejection() {
         let draft = AssistantDraft {
             message: "noop with actions".into(),
+            response_kind: AssistantResponseKind::Action,
             action_batch: Some(AssistantDraftBatch {
                 kind: "noop".into(),
                 title: "noop".into(),
@@ -6141,6 +6236,7 @@ mod assistant_behaviour_tests {
         let result = resolve_assistant_outcome(
             &AssistantDraft {
                 message: "updating title".into(),
+                response_kind: AssistantResponseKind::Action,
                 action_batch: None,
                 tool_call: None,
             },
@@ -6156,6 +6252,7 @@ mod assistant_behaviour_tests {
         let result = resolve_assistant_outcome(
             &AssistantDraft {
                 message: "updating title".into(),
+                response_kind: AssistantResponseKind::Action,
                 action_batch: Some(AssistantDraftBatch {
                     kind: "metadata-update".into(),
                     title: "Update title".into(),
@@ -6182,6 +6279,7 @@ mod assistant_behaviour_tests {
         let result = resolve_assistant_outcome(
             &AssistantDraft {
                 message: "both".into(),
+                response_kind: AssistantResponseKind::Action,
                 action_batch: Some(AssistantDraftBatch {
                     kind: "metadata-update".into(),
                     title: "x".into(),
@@ -6252,6 +6350,7 @@ mod assistant_behaviour_tests {
         let result = resolve_assistant_outcome(
             &AssistantDraft {
                 message: "tool done".into(),
+                response_kind: AssistantResponseKind::Action,
                 action_batch: None,
                 tool_call: None,
             },
@@ -6271,6 +6370,7 @@ mod assistant_behaviour_tests {
         let result = resolve_assistant_outcome(
             &AssistantDraft {
                 message: "test".into(),
+                response_kind: AssistantResponseKind::Action,
                 action_batch: Some(AssistantDraftBatch {
                     kind: "metadata-update".into(),
                     title: "x".into(),

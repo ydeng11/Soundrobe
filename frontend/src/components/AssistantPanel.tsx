@@ -12,7 +12,15 @@ interface StatusDetail {
   text: string;
 }
 
-type AssistantStatus = "sending" | "thinking" | "looking_up" | "applying_changes" | "completed" | "failed";
+type AssistantStatus =
+  | "sending"
+  | "thinking"
+  | "looking_up"
+  | "applying_changes"
+  | "ready_for_review"
+  | "responded"
+  | "completed"
+  | "failed";
 
 interface ChatMessage {
   role: "user" | "assistant" | "system";
@@ -25,6 +33,8 @@ interface ChatMessage {
   details?: StatusDetail[];
   /** Original user prompt stored on assistant reply for retry-from-failure */
   userMessage?: string;
+  /** Native batch represented by this preview message. */
+  actionBatchId?: string;
 }
 
 interface AssistantPanelProps {
@@ -121,16 +131,41 @@ export function AssistantPanel({
    * and rendered via displayMessages.
    */
   const updatePendingMsg = useCallback(
-    (updates: { status?: AssistantStatus; content?: string; detail?: StatusDetail }) => {
+    (updates: {
+      status?: AssistantStatus;
+      content?: string;
+      detail?: StatusDetail;
+      actionBatchId?: string;
+    }) => {
       const m = pendingMsgRef.current;
       if (!m) return;
       if (updates.status) m.status = updates.status;
       if (updates.content !== undefined) m.content = updates.content;
+      if (updates.actionBatchId) m.actionBatchId = updates.actionBatchId;
       if (updates.detail) {
         m.details = [...(m.details || []), updates.detail];
       }
       // Signal React to re-render (messages identity changes even though ref mutates)
       setMessages((prev) => [...prev]);
+    },
+    [],
+  );
+
+  const updateBatchMsg = useCallback(
+    (actionBatchId: string, updates: { status: AssistantStatus; detail?: StatusDetail }) => {
+      setMessages((prev) =>
+        prev.map((message) =>
+          message.actionBatchId === actionBatchId
+            ? {
+                ...message,
+                status: updates.status,
+                details: updates.detail
+                  ? [...(message.details || []), updates.detail]
+                  : message.details,
+              }
+            : message,
+        ),
+      );
     },
     [],
   );
@@ -156,16 +191,37 @@ export function AssistantPanel({
           updatePendingMsg({ status: "looking_up", detail: { icon: "📋", text: event.message } });
           break;
         case "action_batch_created":
-          updatePendingMsg({ status: "completed", content: event.message, detail: { icon: "📦", text: event.message } });
-          if (event.data && typeof event.data === "object" && "actionBatchId" in event.data) {
+          const actionBatchId =
+            event.data &&
+            typeof event.data === "object" &&
+            "actionBatchId" in event.data &&
+            typeof event.data.actionBatchId === "string"
+              ? event.data.actionBatchId
+              : undefined;
+          updatePendingMsg({
+            status: "ready_for_review",
+            content: event.message,
+            detail: { icon: "📦", text: event.message },
+            actionBatchId,
+          });
+          if (actionBatchId) {
             loadPendingBatches();
           }
           setSending(false);
           pendingMsgRef.current = null;
           break;
         case "action_batch_applied":
-          updatePendingMsg({ detail: { icon: "✅", text: event.message } });
-          updatePendingMsg({ status: "completed" });
+          if (
+            event.data &&
+            typeof event.data === "object" &&
+            "batchId" in event.data &&
+            typeof event.data.batchId === "string"
+          ) {
+            updateBatchMsg(event.data.batchId, {
+              status: "completed",
+              detail: { icon: "✅", text: event.message },
+            });
+          }
           loadPendingBatches();
           setSending(false);
           onRefreshRequest();
@@ -180,8 +236,8 @@ export function AssistantPanel({
           pendingMsgRef.current = null;
           break;
         case "message":
-          // Final assistant reply — set content and mark completed
-          updatePendingMsg({ status: "completed", content: event.message });
+          // A prose reply is an answer, not evidence that requested work ran.
+          updatePendingMsg({ status: "responded", content: event.message });
           setSending(false);
           pendingMsgRef.current = null;
           refreshSessionNumber();
@@ -208,7 +264,14 @@ export function AssistantPanel({
       }
     });
     return () => unsub();
-  }, [isOpen, onRefreshRequest, refreshSessionNumber, updatePendingMsg, loadPendingBatches]);
+  }, [
+    isOpen,
+    onRefreshRequest,
+    refreshSessionNumber,
+    updatePendingMsg,
+    updateBatchMsg,
+    loadPendingBatches,
+  ]);
 
   // Fallback cancellation timer: the native tool loop owns a 600-second
   // deadline, so this renderer safety net must remain beyond it.
@@ -642,6 +705,18 @@ const STATUS_CONFIG: Record<AssistantStatus, { icon: string; label: string; colo
     color: "text-[#a6e3a1]",
     bg: "bg-[#a6e3a1]/10",
   },
+  responded: {
+    icon: "💬",
+    label: "Answered",
+    color: "text-[#89b4fa]",
+    bg: "bg-[#89b4fa]/10",
+  },
+  ready_for_review: {
+    icon: "📦",
+    label: "Ready for review",
+    color: "text-[#f9e2af]",
+    bg: "bg-[#f9e2af]/10",
+  },
   failed: {
     icon: "❌",
     label: "Failed",
@@ -671,7 +746,12 @@ function MessageBubble({
 }) {
   const statusCfg = msg.role === "assistant" && msg.status ? STATUS_CONFIG[msg.status] : null;
   const isFailed = msg.status === "failed";
-  const isPending = msg.status && msg.status !== "completed" && msg.status !== "failed";
+  const isPending =
+    msg.status &&
+    msg.status !== "ready_for_review" &&
+    msg.status !== "responded" &&
+    msg.status !== "completed" &&
+    msg.status !== "failed";
 
   return (
     <div className={`group flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>

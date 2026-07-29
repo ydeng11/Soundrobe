@@ -115,7 +115,7 @@ describe("AssistantPanel — status indicator", () => {
     });
   });
 
-  it("transitions to 'completed' on action_batch_created event with batch summary", async () => {
+  it("labels an unapplied action batch as ready for review", async () => {
     renderPanel();
     const input = screen.getByPlaceholderText(/ask the assistant/i);
     fireEvent.change(input, { target: { value: "Fix tags" } });
@@ -129,11 +129,40 @@ describe("AssistantPanel — status indicator", () => {
     });
 
     await waitFor(() => {
+      expect(screen.getByText("Ready for review")).toBeTruthy();
+      expect(screen.queryByText("Completed")).toBeNull();
       expect(screen.getByText("Batch ready for review")).toBeTruthy();
     });
   });
 
-  it("transitions to 'completed' on message event", async () => {
+  it("marks the matching preview completed after its batch is applied", async () => {
+    renderPanel();
+    const input = screen.getByPlaceholderText(/ask the assistant/i);
+    fireEvent.change(input, { target: { value: "Fix tags" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+
+    emitEvent({
+      sessionId: "s1",
+      type: "action_batch_created",
+      message: "Batch ready for review",
+      data: { actionBatchId: "batch-1" },
+    });
+    await screen.findByText("Ready for review");
+
+    emitEvent({
+      sessionId: "s1",
+      type: "action_batch_applied",
+      message: "Applied: Fix tags",
+      data: { batchId: "batch-1" },
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText("Completed")).toBeTruthy();
+      expect(screen.queryByText("Ready for review")).toBeNull();
+    });
+  });
+
+  it("does not label a prose-only message as completed work", async () => {
     renderPanel();
     const input = screen.getByPlaceholderText(/ask the assistant/i);
     fireEvent.change(input, { target: { value: "Hi" } });
@@ -146,7 +175,8 @@ describe("AssistantPanel — status indicator", () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText("Completed")).toBeTruthy();
+      expect(screen.getByText("Answered")).toBeTruthy();
+      expect(screen.queryByText("Completed")).toBeNull();
       expect(screen.getByText("Hello! I'm the assistant.")).toBeTruthy();
     });
   });
@@ -203,7 +233,7 @@ describe("AssistantPanel — status indicator", () => {
     emitEvent({ sessionId: "s1", type: "message", message: "Done!" });
 
     await waitFor(() => {
-      expect(screen.getByText("Completed")).toBeTruthy();
+      expect(screen.getByText("Answered")).toBeTruthy();
     });
 
     // Only user message + assistant reply — no separate system messages
