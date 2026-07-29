@@ -11,7 +11,7 @@ use std::future::Future;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex, RwLock};
 
 /// All media mutations pass through one queue so two UI actions cannot race on
 /// the same file and lifecycle code can block quit while work waits or runs.
@@ -23,6 +23,9 @@ pub struct WriteQueue(Arc<WriteQueueInner>);
 
 #[derive(Default)]
 struct WriteQueueInner {
+    /// Shared operations may proceed under a read guard; assistant metadata
+    /// batches use the write guard to keep preflight, writes, and readback atomic.
+    coordination: RwLock<()>,
     /// Global serialisation gate for single-file and extra-tag operations.
     gate: Mutex<()>,
     /// Per-folder gates keyed by parent directory.
@@ -46,6 +49,7 @@ impl WriteQueue {
         F: Future<Output = T>,
     {
         let activity = ActivityGuard::new(&self.0.active);
+        let _coordination = self.0.coordination.read().await;
         let _gate = self.0.gate.lock().await;
         let output = operation.await;
         drop(activity);
@@ -64,6 +68,7 @@ impl WriteQueue {
         F: Future<Output = T>,
     {
         let activity = ActivityGuard::new(&self.0.active);
+        let _coordination = self.0.coordination.read().await;
         let folder_lock = {
             let mut gates = self.0.folder_gates.lock().await;
             gates
@@ -72,6 +77,20 @@ impl WriteQueue {
                 .clone()
         };
         let _guard = folder_lock.lock().await;
+        let output = operation.await;
+        drop(activity);
+        output
+    }
+
+    /// Runs a multi-step mutation while excluding every other queued write.
+    /// Callers must use the underlying dispatch functions inside this guard,
+    /// because calling `run` or `run_for_folder` recursively would deadlock.
+    pub async fn run_exclusive<F, T>(&self, operation: F) -> T
+    where
+        F: Future<Output = T>,
+    {
+        let activity = ActivityGuard::new(&self.0.active);
+        let _coordination = self.0.coordination.write().await;
         let output = operation.await;
         drop(activity);
         output
@@ -331,5 +350,55 @@ mod tests {
         global.await.unwrap();
         folder_op.await.unwrap();
         assert!(!queue.is_active());
+    }
+
+    #[tokio::test]
+    async fn exclusive_operation_blocks_global_and_folder_writes() {
+        let queue = WriteQueue::default();
+        let entered = Arc::new(Barrier::new(2));
+        let release = Arc::new(Notify::new());
+        let exclusive_queue = queue.clone();
+        let exclusive_entered = Arc::clone(&entered);
+        let exclusive_release = Arc::clone(&release);
+        let exclusive = tokio::spawn(async move {
+            exclusive_queue
+                .run_exclusive(async move {
+                    exclusive_entered.wait().await;
+                    exclusive_release.notified().await;
+                })
+                .await;
+        });
+        entered.wait().await;
+
+        let global_started = Arc::new(AtomicBool::new(false));
+        let global_flag = Arc::clone(&global_started);
+        let global_queue = queue.clone();
+        let global = tokio::spawn(async move {
+            global_queue
+                .run(async move {
+                    global_flag.store(true, Ordering::Release);
+                })
+                .await;
+        });
+        let folder_started = Arc::new(AtomicBool::new(false));
+        let folder_flag = Arc::clone(&folder_started);
+        let folder_queue = queue.clone();
+        let folder = tokio::spawn(async move {
+            folder_queue
+                .run_for_folder(Path::new("/album"), async move {
+                    folder_flag.store(true, Ordering::Release);
+                })
+                .await;
+        });
+        tokio::task::yield_now().await;
+        assert!(!global_started.load(Ordering::Acquire));
+        assert!(!folder_started.load(Ordering::Acquire));
+
+        release.notify_one();
+        exclusive.await.unwrap();
+        global.await.unwrap();
+        folder.await.unwrap();
+        assert!(global_started.load(Ordering::Acquire));
+        assert!(folder_started.load(Ordering::Acquire));
     }
 }

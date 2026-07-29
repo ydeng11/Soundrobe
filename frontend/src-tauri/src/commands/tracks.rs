@@ -312,6 +312,10 @@ pub fn track_extra_tags_read(track_path: String) -> Vec<ExtraTag> {
 }
 
 pub fn read_extra_tags(path: &Path) -> Vec<ExtraTag> {
+    try_read_extra_tags(path).unwrap_or_default()
+}
+
+pub fn try_read_extra_tags(path: &Path) -> Result<Vec<ExtraTag>, ApiError> {
     let extension = path
         .extension()
         .and_then(|extension| extension.to_str())
@@ -320,74 +324,146 @@ pub fn read_extra_tags(path: &Path) -> Vec<ExtraTag> {
     let mut rows = Vec::new();
     match extension.as_str() {
         "mp3" => {
-            if let Ok(mut file) = File::open(path) {
-                if let Ok(parsed) =
-                    MpegFile::read_from(&mut file, ParseOptions::new().read_properties(false))
-                {
-                    if let Some(tag) = parsed.id3v2() {
-                        collect_id3_extra_tags(tag, "ID3v2", &mut rows);
-                    }
-                }
+            let mut file = File::open(path)?;
+            let parsed =
+                MpegFile::read_from(&mut file, ParseOptions::new().read_properties(false))?;
+            if let Some(tag) = parsed.id3v2() {
+                collect_id3_extra_tags(tag, "ID3v2", &mut rows);
             }
         }
         "wav" => {
-            if let Ok(mut file) = File::open(path) {
-                if let Ok(parsed) =
-                    WavFile::read_from(&mut file, ParseOptions::new().read_properties(false))
-                {
-                    if let Some(tag) = parsed.id3v2() {
-                        collect_id3_extra_tags(tag, "ID3v2", &mut rows);
-                    }
-                }
+            let mut file = File::open(path)?;
+            let parsed =
+                WavFile::read_from(&mut file, ParseOptions::new().read_properties(false))?;
+            if let Some(tag) = parsed.id3v2() {
+                collect_id3_extra_tags(tag, "ID3v2", &mut rows);
             }
         }
         "flac" => {
-            if let Ok(mut file) = File::open(path) {
-                if let Ok(parsed) =
-                    FlacFile::read_from(&mut file, ParseOptions::new().read_properties(false))
-                {
-                    if let Some(tag) = parsed.vorbis_comments() {
-                        collect_vorbis_extra_tags(tag.items(), "vorbis", &mut rows);
-                    }
-                }
+            let mut file = File::open(path)?;
+            let parsed =
+                FlacFile::read_from(&mut file, ParseOptions::new().read_properties(false))?;
+            if let Some(tag) = parsed.vorbis_comments() {
+                collect_vorbis_extra_tags(tag.items(), "vorbis", &mut rows);
             }
         }
         "ogg" => {
-            if let Ok(mut file) = File::open(path) {
-                if let Ok(parsed) =
-                    VorbisFile::read_from(&mut file, ParseOptions::new().read_properties(false))
-                {
-                    collect_vorbis_extra_tags(
-                        parsed.vorbis_comments().items(),
-                        "vorbis",
-                        &mut rows,
-                    );
-                }
-            }
+            let mut file = File::open(path)?;
+            let parsed =
+                VorbisFile::read_from(&mut file, ParseOptions::new().read_properties(false))?;
+            collect_vorbis_extra_tags(parsed.vorbis_comments().items(), "vorbis", &mut rows);
         }
         "opus" => {
-            if let Ok(mut file) = File::open(path) {
-                if let Ok(parsed) =
-                    OpusFile::read_from(&mut file, ParseOptions::new().read_properties(false))
-                {
-                    collect_vorbis_extra_tags(
-                        parsed.vorbis_comments().items(),
-                        "vorbis",
-                        &mut rows,
-                    );
-                }
-            }
+            let mut file = File::open(path)?;
+            let parsed =
+                OpusFile::read_from(&mut file, ParseOptions::new().read_properties(false))?;
+            collect_vorbis_extra_tags(parsed.vorbis_comments().items(), "vorbis", &mut rows);
         }
         "ape" => {
-            if let Ok(bytes) = fs::read(path) {
-                for (key, value) in parse_ape_items(&bytes) {
-                    push_extra_tag(&mut rows, key, value, "APEv2");
-                }
+            let bytes = fs::read(path)?;
+            for (key, value) in parse_ape_items(&bytes) {
+                push_extra_tag(&mut rows, key, value, "APEv2");
             }
         }
-        _ => {}
+        _ => {
+            return Err(ApiError::UnsupportedFormat(format!(
+                "Extra tag reading is not supported for .{extension}"
+            )))
+        }
     }
-    deduplicate_extra_tags(rows)
+    Ok(deduplicate_extra_tags(rows))
+}
+
+pub fn read_plural_tag_values(path: &Path, field: &str) -> Result<Vec<String>, ApiError> {
+    let key = match field {
+        "artists" => "ARTISTS",
+        "albumArtists" => "ALBUMARTISTS",
+        _ => {
+            return Err(ApiError::Message(format!(
+                "{field} is not a plural artist field"
+            )))
+        }
+    };
+    let extension = path
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .unwrap_or_default()
+        .to_ascii_lowercase();
+    match extension.as_str() {
+        "mp3" => {
+            let mut file = File::open(path)?;
+            MpegFile::read_from(&mut file, ParseOptions::new().read_properties(false))?;
+            Ok(id3_user_text_values(path, key))
+        }
+        "wav" => {
+            let mut file = File::open(path)?;
+            WavFile::read_from(&mut file, ParseOptions::new().read_properties(false))?;
+            Ok(id3_user_text_values(path, key))
+        }
+        "flac" => {
+            let data = fs::read(path)?;
+            if !data.starts_with(b"fLaC") {
+                return Err(ApiError::Message(format!(
+                    "{} is not a FLAC file",
+                    path.display()
+                )));
+            }
+            Ok(flac_vorbis_comments(&data)
+                .remove(key)
+                .unwrap_or_default())
+        }
+        "ogg" => {
+            let mut file = File::open(path)?;
+            let parsed =
+                VorbisFile::read_from(&mut file, ParseOptions::new().read_properties(false))?;
+            Ok(parsed
+                .vorbis_comments()
+                .items()
+                .filter(|(item_key, _)| item_key.eq_ignore_ascii_case(key))
+                .map(|(_, value)| value.to_string())
+                .collect())
+        }
+        "opus" => {
+            let mut file = File::open(path)?;
+            let parsed =
+                OpusFile::read_from(&mut file, ParseOptions::new().read_properties(false))?;
+            Ok(parsed
+                .vorbis_comments()
+                .items()
+                .filter(|(item_key, _)| item_key.eq_ignore_ascii_case(key))
+                .map(|(_, value)| value.to_string())
+                .collect())
+        }
+        "m4a" | "mp4" => {
+            let mut file = File::open(path)?;
+            let parsed =
+                Mp4File::read_from(&mut file, ParseOptions::new().read_properties(false))?;
+            let Some(ilst) = parsed.ilst() else {
+                return Ok(Vec::new());
+            };
+            let ident = AtomIdent::Freeform {
+                mean: Cow::Borrowed("com.apple.iTunes"),
+                name: Cow::Owned(key.to_string()),
+            };
+            Ok(ilst
+                .get(&ident)
+                .into_iter()
+                .flat_map(|atom| atom.data())
+                .filter_map(|data| match data {
+                    AtomData::UTF8(value) | AtomData::UTF16(value) => Some(value.clone()),
+                    _ => None,
+                })
+                .collect())
+        }
+        "ape" => Ok(parse_ape_items(&fs::read(path)?)
+            .into_iter()
+            .filter(|(item_key, _)| item_key.eq_ignore_ascii_case(key))
+            .map(|(_, value)| value)
+            .collect()),
+        _ => Err(ApiError::UnsupportedFormat(format!(
+            "Plural artist tag reading is not supported for .{extension}"
+        ))),
+    }
 }
 
 fn collect_id3_extra_tags(tag: &Id3v2Tag, source: &str, rows: &mut Vec<ExtraTag>) {
@@ -1511,10 +1587,17 @@ fn read_flac_fallback(path: &Path, size_bytes: u64) -> Result<Option<TrackData>,
         path: path.to_string_lossy().into_owned(),
         title,
         artist: first_comment(&comments, "ARTIST"),
-        artists: comments.get("ARTIST").cloned().unwrap_or_default(),
+        artists: comments
+            .get("ARTISTS")
+            .cloned()
+            .unwrap_or_else(|| comments.get("ARTIST").cloned().unwrap_or_default()),
         album: first_comment(&comments, "ALBUM"),
         album_artist: album_artist.clone(),
-        album_artists: album_artist.into_iter().collect(),
+        album_artists: comments
+            .get("ALBUMARTISTS")
+            .or_else(|| comments.get("ALBUM ARTISTS"))
+            .cloned()
+            .unwrap_or_else(|| album_artist.into_iter().collect()),
         track_number: track.0,
         track_total: track.1,
         disc_number: disc.0,

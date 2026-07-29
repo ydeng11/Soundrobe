@@ -3,7 +3,7 @@
 use crate::state::assistant_task::AssistantTaskState;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
@@ -45,6 +45,43 @@ pub struct AssistantAction {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub enum AssistantCompletionPostcondition {
+    ExactMetadataActions,
+    SplitArtistsNormalized,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AssistantCompletionScopeSnapshot {
+    pub path: String,
+    pub standard_values: BTreeMap<String, Value>,
+    pub extra_values: BTreeMap<String, Value>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AssistantCompletionExpectation {
+    pub track_path: String,
+    pub tag_kind: String,
+    pub field: String,
+    pub operation: String,
+    pub expected_value: Value,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AssistantCompletionContract {
+    pub scope_paths: Vec<String>,
+    #[serde(default)]
+    pub scope_snapshot: Vec<AssistantCompletionScopeSnapshot>,
+    pub expected_action_paths: Vec<String>,
+    #[serde(default)]
+    pub expected_actions: Vec<AssistantCompletionExpectation>,
+    pub postcondition: AssistantCompletionPostcondition,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AssistantActionBatch {
     pub id: String,
     pub created_at: String,
@@ -56,6 +93,8 @@ pub struct AssistantActionBatch {
     pub actions: Vec<AssistantAction>,
     pub reversible: bool,
     pub status: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub completion_contract: Option<AssistantCompletionContract>,
 }
 
 #[derive(Default)]
@@ -99,7 +138,7 @@ impl AssistantRuntimeState {
 
         // Hydrate pending batches from persistent store.
         let pending = task_state.load_all_pending_batches();
-        for (batch_id, _session_id, batch_json) in pending {
+        for (_batch_id, _session_id, batch_json) in pending {
             if let Ok(batch) = serde_json::from_value::<AssistantActionBatch>(batch_json) {
                 self.add_batch(batch);
             }
@@ -291,6 +330,7 @@ mod tests {
             actions: Vec::new(),
             reversible: true,
             status: "pending".to_string(),
+            completion_contract: None,
         }
     }
 

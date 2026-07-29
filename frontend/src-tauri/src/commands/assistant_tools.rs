@@ -65,7 +65,7 @@ pub(crate) fn assistant_tool_definitions() -> Vec<AssistantToolDefinition> {
         },
         ToolSpec {
             name: "tracks.inspect",
-            description: "Inspect detailed metadata for specific tracks by path or for selected/active tracks. Accepts an optional path array and limit.",
+            description: "Inspect detailed metadata for specific tracks by path or for selected/active tracks. Results are paginated with offset, limit, total, and nextOffset; follow nextOffset until it is null.",
             read_only: true, public: true,
             operation_kind: Kind::ReadOnly,
         },
@@ -120,7 +120,7 @@ pub(crate) fn assistant_tool_definitions() -> Vec<AssistantToolDefinition> {
         },
         ToolSpec {
             name: "metadata.transform",
-            description: "Apply a pipeline of deterministic operations to a tag field. Supports regex_replace, regex_extract, strip_prefix, strip_suffix, trim, lowercase, uppercase, title_case, prettify, chinese_to_simplified, chinese_to_traditional. Source can be a tag field or filename stem.",
+            description: "Apply a pipeline of deterministic operations to a tag field. Supports regex_replace, regex_extract, strip_prefix, strip_suffix, trim, lowercase, uppercase, title_case, prettify, split_artists, chinese_to_simplified, chinese_to_traditional. Use split_artists on the plural artists field to repair every malformed single value in the requested scope without enumerating tracks. Source can be a tag field or filename stem.",
             read_only: false, public: true,
             operation_kind: Kind::MetadataEdit,
         },
@@ -232,6 +232,7 @@ fn tool_schema(name: &str) -> Value {
             "type": "object",
             "properties": {
                 "paths": {"type": "array", "items": {"type": "string"}},
+                "offset": {"type": "number"},
                 "limit": {"type": "number"}
             },
             "required": []
@@ -435,7 +436,7 @@ fn tool_schema(name: &str) -> Value {
                     "items": {
                         "type": "object",
                         "properties": {
-                            "op": {"type": "string", "enum": ["regex_replace", "regex_extract", "strip_prefix", "strip_suffix", "literal_replace", "trim", "lowercase", "uppercase", "title_case", "prettify", "chinese_to_simplified", "chinese_to_traditional"]},
+                            "op": {"type": "string", "enum": ["regex_replace", "regex_extract", "strip_prefix", "strip_suffix", "literal_replace", "trim", "lowercase", "uppercase", "title_case", "prettify", "split_artists", "chinese_to_simplified", "chinese_to_traditional"]},
                             "pattern": {"type": "string"},
                             "replacement": {"type": "string"},
                             "group_index": {"type": "number"},
@@ -687,13 +688,24 @@ fn inspect_tracks(input: &AssistantSendInput, args: &Value) -> AssistantToolResu
     if paths.is_empty() {
         return tool_ok("No tracks loaded in the library.".into(), None);
     }
+    let offset = args
+        .get("offset")
+        .and_then(Value::as_f64)
+        .unwrap_or(0.0)
+        .round()
+        .max(0.0) as usize;
     let limit = args
         .get("limit")
         .and_then(Value::as_f64)
         .unwrap_or(20.0)
         .round()
         .clamp(1.0, 500.0) as usize;
-    let paths = paths.into_iter().take(limit).collect::<Vec<_>>();
+    let total = paths.len();
+    let paths = paths
+        .into_iter()
+        .skip(offset)
+        .take(limit)
+        .collect::<Vec<_>>();
     let tracks = paths
         .iter()
         .filter_map(|path| {
@@ -704,9 +716,17 @@ fn inspect_tracks(input: &AssistantSendInput, args: &Value) -> AssistantToolResu
         })
         .cloned()
         .collect::<Vec<_>>();
+    let next_offset = (offset + paths.len() < total).then_some(offset + paths.len());
     tool_ok(
         format!("Inspecting {} track(s).", tracks.len()),
-        Some(serde_json::json!({"paths": paths, "tracks": tracks})),
+        Some(serde_json::json!({
+            "total": total,
+            "offset": offset,
+            "limit": limit,
+            "nextOffset": next_offset,
+            "paths": paths,
+            "tracks": tracks
+        })),
     )
 }
 
@@ -1266,6 +1286,16 @@ mod tests {
         assert_eq!(error, "Unknown field: standard_updates.madeUpTag");
 
         validate_registered_tool_args(
+            "metadata.transform",
+            &serde_json::json!({
+                "target_scope": "selected",
+                "source": {"kind": "tag", "field": "artists"},
+                "operations": [{"op": "split_artists"}]
+            }),
+        )
+        .unwrap();
+
+        validate_registered_tool_args(
             "create_plan",
             &serde_json::json!({
                 "steps": [{
@@ -1447,6 +1477,61 @@ mod tests {
         let album = execute_context_tool("albums.inspect", &serde_json::json!({}), &input());
         assert!(album.ok);
         assert_eq!(album.data.unwrap()["tracks"].as_array().unwrap().len(), 2);
+    }
+
+    #[test]
+    fn track_inspection_pages_through_selected_tracks_without_broadening_scope() {
+        let problematic_path =
+            "/Volumes/downloads/谭咏麟/1982 - 爱人女神/谭咏麟&彭健新-我爱大自然.flac";
+        let selected_track_paths = (0..46)
+            .map(|index| {
+                if index == 20 {
+                    problematic_path.to_string()
+                } else {
+                    format!("/music/selected/{index:02}.flac")
+                }
+            })
+            .collect::<Vec<_>>();
+        let mut tracks = selected_track_paths
+            .iter()
+            .map(|path| {
+                serde_json::json!({
+                    "path": path,
+                    "artist": "谭咏麟 & 彭健新",
+                    "artists": ["谭咏麟 & 彭健新"]
+                })
+            })
+            .collect::<Vec<_>>();
+        tracks.push(serde_json::json!({
+            "path": "/music/unselected.flac",
+            "artist": "Outside Artist",
+            "artists": ["Outside Artist"]
+        }));
+        let input = AssistantSendInput {
+            selected_track_paths,
+            tracks,
+            ..Default::default()
+        };
+
+        let page = execute_context_tool(
+            "tracks.inspect",
+            &serde_json::json!({"offset": 20, "limit": 50}),
+            &input,
+        );
+
+        assert!(page.ok, "{}", page.error.unwrap_or_default());
+        let data = page.data.unwrap();
+        assert_eq!(data["total"], 46);
+        assert_eq!(data["offset"], 20);
+        assert!(data["nextOffset"].is_null());
+        assert_eq!(data["tracks"].as_array().unwrap().len(), 26);
+        assert_eq!(data["paths"][0], problematic_path);
+        assert!(
+            data["paths"].as_array().unwrap().iter().all(|path| path
+                .as_str()
+                .is_some_and(|path| path != "/music/unselected.flac")),
+            "inspection must remain within selected-track scope"
+        );
     }
 
     #[test]

@@ -364,6 +364,38 @@ export interface AssistantActionBatch {
   actions: AssistantAction[];
   reversible: boolean;
   status: "pending" | "applied" | "rejected" | "failed";
+  completionContract?: {
+    scopePaths: string[];
+    scopeSnapshot: Array<{
+      path: string;
+      standardValues: Record<string, unknown>;
+      extraValues: Record<string, unknown>;
+    }>;
+    expectedActionPaths: string[];
+    expectedActions: Array<{
+      trackPath: string;
+      tagKind: string;
+      field: string;
+      operation: string;
+      expectedValue: unknown;
+    }>;
+    postcondition: "exactMetadataActions" | "splitArtistsNormalized";
+  };
+}
+
+export interface AssistantVerification {
+  status: "verified" | "failed";
+  phase: "preflight" | "write" | "readback" | "persistence";
+  scopeCount: number;
+  expectedActionCount: number;
+  verifiedActionCount: number;
+  failures: Array<{
+    trackPath?: string;
+    field?: string;
+    error: string;
+    expected?: unknown;
+    actual?: unknown;
+  }>;
 }
 
 export interface AssistantEvent {
@@ -560,6 +592,7 @@ export interface DesktopAPI {
     results?: unknown;
     undoSnapshots?: TrackUndoSnapshot[];
     extraUndoSnapshots?: ExtraTagUndoSnapshot[];
+    verification?: AssistantVerification;
   }>;
   assistantCompleteTaskActions: (
     actionBatchId: string,

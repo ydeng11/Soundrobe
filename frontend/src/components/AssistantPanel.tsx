@@ -61,6 +61,34 @@ interface AssistantPanelProps {
   ) => void;
 }
 
+function verificationFailureDetail(data: unknown): string | null {
+  if (!data || typeof data !== "object" || !("verification" in data)) return null;
+  const verification = data.verification;
+  if (
+    !verification ||
+    typeof verification !== "object" ||
+    !("failures" in verification) ||
+    !Array.isArray(verification.failures)
+  ) {
+    return null;
+  }
+  const details = verification.failures
+    .map((failure) => {
+      if (!failure || typeof failure !== "object") return null;
+      const path =
+        "trackPath" in failure && typeof failure.trackPath === "string"
+          ? failure.trackPath
+          : null;
+      const error =
+        "error" in failure && typeof failure.error === "string"
+          ? failure.error
+          : "Verification failed";
+      return path ? `${path}: ${error}` : error;
+    })
+    .filter((detail): detail is string => detail !== null);
+  return details.length > 0 ? details.join("\n") : null;
+}
+
 export function AssistantPanel({
   isOpen,
   onClose,
@@ -217,9 +245,21 @@ export function AssistantPanel({
             "batchId" in event.data &&
             typeof event.data.batchId === "string"
           ) {
+            const verificationRequired =
+              "verificationRequired" in event.data &&
+              event.data.verificationRequired === true;
+            const verified =
+              "verification" in event.data &&
+              event.data.verification !== null &&
+              typeof event.data.verification === "object" &&
+              "status" in event.data.verification &&
+              event.data.verification.status === "verified";
             updateBatchMsg(event.data.batchId, {
-              status: "completed",
-              detail: { icon: "✅", text: event.message },
+              status: verificationRequired && !verified ? "failed" : "completed",
+              detail:
+                verificationRequired && !verified
+                  ? { icon: "⚠️", text: "Native readback verification was not confirmed." }
+                  : { icon: "✅", text: event.message },
             });
           }
           loadPendingBatches();
@@ -231,7 +271,25 @@ export function AssistantPanel({
           loadPendingBatches();
           break;
         case "action_batch_failed":
-          updatePendingMsg({ status: "failed", detail: { icon: "⚠️", text: event.message } });
+          const failureDetail = verificationFailureDetail(event.data);
+          if (
+            event.data &&
+            typeof event.data === "object" &&
+            "batchId" in event.data &&
+            typeof event.data.batchId === "string"
+          ) {
+            updateBatchMsg(event.data.batchId, {
+              status: "failed",
+              detail: {
+                icon: "⚠️",
+                text: failureDetail
+                  ? `${event.message}\n${failureDetail}`
+                  : event.message,
+              },
+            });
+          } else {
+            updatePendingMsg({ status: "failed", detail: { icon: "⚠️", text: event.message } });
+          }
           setSending(false);
           pendingMsgRef.current = null;
           break;

@@ -13,9 +13,13 @@ use crate::commands::assistant::{
     mutating_tool_execution, mutating_tool_no_changes, push_string_action, track_field_string,
     track_path, MutatingToolExecution,
 };
-use crate::state::assistant::AssistantAction;
+use crate::state::assistant::{
+    AssistantAction, AssistantActionBatch, AssistantCompletionContract,
+    AssistantCompletionExpectation, AssistantCompletionPostcondition,
+    AssistantCompletionScopeSnapshot,
+};
 use serde_json::Value;
-use std::collections::{BTreeMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashSet};
 use std::path::Path;
 
 // ── Re-exported helpers from assistant.rs ────────────────────────────
@@ -110,6 +114,7 @@ pub(crate) enum PipelineOp {
     Uppercase,
     TitleCase,
     Prettify,
+    SplitArtists,
     ChineseToSimplified,
     ChineseToTraditional,
 }
@@ -204,6 +209,7 @@ pub(crate) fn compile_pipeline(operations: &[Value]) -> Result<Vec<PipelineOp>, 
             "uppercase" => PipelineOp::Uppercase,
             "title_case" => PipelineOp::TitleCase,
             "prettify" => PipelineOp::Prettify,
+            "split_artists" => PipelineOp::SplitArtists,
             "chinese_to_simplified" => PipelineOp::ChineseToSimplified,
             "chinese_to_traditional" => PipelineOp::ChineseToTraditional,
             _ => return Err(format!("Unknown pipeline operation: {op_name}")),
@@ -237,6 +243,7 @@ fn execute_pipeline(text: &str, pipeline: &[PipelineOp]) -> Option<String> {
             PipelineOp::Uppercase => op_uppercase(&current),
             PipelineOp::TitleCase => op_title_case(&current),
             PipelineOp::Prettify => op_prettify(&current),
+            PipelineOp::SplitArtists => op_split_artists(&current),
             PipelineOp::ChineseToSimplified => op_chinese_to_simplified(&current),
             PipelineOp::ChineseToTraditional => op_chinese_to_traditional(&current),
         };
@@ -254,6 +261,419 @@ fn execute_pipeline(text: &str, pipeline: &[PipelineOp]) -> Option<String> {
 pub(crate) fn op_prettify(text: &str) -> Option<String> {
     let prettified = crate::commands::assistant_tools::prettify_tag(text);
     (prettified != text).then_some(prettified)
+}
+
+pub(crate) fn op_split_artists(text: &str) -> Option<String> {
+    use std::sync::OnceLock;
+    static DELIMITER: OnceLock<regex::Regex> = OnceLock::new();
+    let delimiter = DELIMITER.get_or_init(|| {
+        regex::Regex::new(r"\s*[&,;，；]\s*").expect("valid plural Artists delimiter regex")
+    });
+    let mut seen = HashSet::new();
+    let artists = delimiter
+        .split(text)
+        .filter_map(|artist| {
+            let artist = artist.trim();
+            let key = artist.to_lowercase();
+            (!artist.is_empty() && seen.insert(key)).then(|| artist.to_string())
+        })
+        .collect::<Vec<_>>();
+    if artists.len() < 2 {
+        return None;
+    }
+    let split = artists.join("; ");
+    (split != text).then_some(split)
+}
+
+fn unique_action_paths(actions: &[AssistantAction]) -> Vec<String> {
+    let mut seen = HashSet::new();
+    actions
+        .iter()
+        .filter_map(|action| action.track_path.as_ref())
+        .filter(|path| seen.insert((*path).clone()))
+        .cloned()
+        .collect()
+}
+
+fn typed_action_value(action: &AssistantAction) -> Value {
+    let Some(value) = action.new_value.as_deref() else {
+        return Value::Null;
+    };
+    match action.field.as_deref() {
+        Some("artists" | "albumArtists") => Value::Array(
+            value
+                .split(';')
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .map(|value| Value::String(value.to_string()))
+                .collect(),
+        ),
+        Some("trackNumber" | "trackTotal" | "discNumber" | "discTotal") => value
+            .parse::<u64>()
+            .map(|value| Value::Number(value.into()))
+            .unwrap_or_else(|_| Value::String(value.to_string())),
+        Some("compilation") => value
+            .parse::<bool>()
+            .map(Value::Bool)
+            .unwrap_or_else(|_| Value::String(value.to_string())),
+        _ => Value::String(value.to_string()),
+    }
+}
+
+pub(crate) fn completion_expectations(
+    actions: &[AssistantAction],
+) -> Vec<AssistantCompletionExpectation> {
+    actions
+        .iter()
+        .filter_map(|action| {
+            Some(AssistantCompletionExpectation {
+                track_path: action.track_path.clone()?,
+                tag_kind: action.tag_kind.clone().unwrap_or_else(|| "standard".into()),
+                field: action.field.clone()?,
+                operation: action.operation.clone().unwrap_or_else(|| {
+                    if action.new_value.is_some() {
+                        "set".into()
+                    } else {
+                        "remove".into()
+                    }
+                }),
+                expected_value: typed_action_value(action),
+            })
+        })
+        .collect()
+}
+
+fn split_artists_expected_paths(input: &AssistantSendInput, scope_paths: &[String]) -> Vec<String> {
+    let tracks = input
+        .tracks
+        .iter()
+        .map(|track| (track_path(track), track))
+        .collect::<BTreeMap<_, _>>();
+    scope_paths
+        .iter()
+        .filter(|path| {
+            let Some(track) = tracks.get(path.as_str()) else {
+                return false;
+            };
+            let value = match track.get("artists") {
+                Some(Value::Array(values)) if values.len() == 1 => values[0].as_str(),
+                Some(Value::String(value)) => Some(value.as_str()),
+                _ => None,
+            };
+            value.is_some_and(|value| op_split_artists(value).is_some())
+        })
+        .cloned()
+        .collect()
+}
+
+fn extra_field_string(path: &str, field: &str) -> Result<Option<String>, String> {
+    crate::commands::tracks::try_read_extra_tags(Path::new(path))
+        .map_err(|error| format!("Could not read extra tags for {path}: {error}"))
+        .map(|tags| {
+            tags.into_iter()
+                .find(|tag| tag.key.trim().eq_ignore_ascii_case(field))
+                .map(|tag| tag.value)
+        })
+}
+
+fn completion_scope_snapshot(
+    input: &AssistantSendInput,
+    scope_paths: &[String],
+    standard_fields: &BTreeSet<String>,
+    extra_fields: &BTreeSet<String>,
+) -> Result<Vec<AssistantCompletionScopeSnapshot>, String> {
+    let tracks = input
+        .tracks
+        .iter()
+        .map(|track| (track_path(track), track))
+        .collect::<BTreeMap<_, _>>();
+    scope_paths
+        .iter()
+        .map(|path| {
+            let track = tracks.get(path.as_str()).copied();
+            let standard_values = standard_fields
+                .iter()
+                .map(|field| {
+                    let value = track
+                        .and_then(|track| track.get(field))
+                        .cloned()
+                        .unwrap_or(Value::Null);
+                    let value = if matches!(field.as_str(), "artists" | "albumArtists")
+                        && value.as_array().is_some_and(Vec::is_empty)
+                    {
+                        Value::Null
+                    } else {
+                        value
+                    };
+                    (
+                        field.clone(),
+                        value,
+                    )
+                })
+                .collect();
+            let current_extra = if extra_fields.is_empty() {
+                None
+            } else {
+                Some(
+                    crate::commands::tracks::try_read_extra_tags(Path::new(path))
+                        .map_err(|error| format!("Could not read extra tags for {path}: {error}"))?,
+                )
+            };
+            let extra_values = extra_fields
+                .iter()
+                .map(|field| {
+                    let value = current_extra
+                        .as_ref()
+                        .and_then(|tags| {
+                            tags.iter()
+                                .find(|tag| tag.key.trim().eq_ignore_ascii_case(field))
+                        })
+                        .map(|tag| Value::String(tag.value.clone()))
+                        .unwrap_or(Value::Null);
+                    (field.clone(), value)
+                })
+                .collect();
+            Ok(AssistantCompletionScopeSnapshot {
+                path: path.clone(),
+                standard_values,
+                extra_values,
+            })
+        })
+        .collect()
+}
+
+fn metadata_patch_contract_fields(args: &Value) -> (BTreeSet<String>, BTreeSet<String>) {
+    let mut standard = BTreeSet::new();
+    let mut extra = BTreeSet::new();
+    for change in args
+        .get("changes")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+    {
+        let Some(field) = change.get("field").and_then(Value::as_str) else {
+            continue;
+        };
+        if change.get("tag_kind").and_then(Value::as_str) == Some("extra") {
+            extra.insert(field.to_string());
+        } else {
+            standard.insert(field.to_string());
+        }
+    }
+    for entry in args
+        .get("per_track_changes")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+    {
+        for change in entry
+            .get("changes")
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten()
+        {
+            if let Some(field) = change.get("field").and_then(Value::as_str) {
+                standard.insert(field.to_string());
+            }
+        }
+    }
+    (standard, extra)
+}
+
+fn metadata_patch_expected_paths(
+    args: &Value,
+    input: &AssistantSendInput,
+    scope_paths: &[String],
+) -> Result<Vec<String>, String> {
+    let tracks = input
+        .tracks
+        .iter()
+        .map(|track| (track_path(track), track))
+        .collect::<BTreeMap<_, _>>();
+    let per_track = args
+        .get("per_track_changes")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+    let mut expected = Vec::new();
+    for path in scope_paths {
+        let track = tracks.get(path.as_str()).copied();
+        let mut uniform_affects = false;
+        for change in args
+            .get("changes")
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten()
+        {
+            let field = change
+                .get("field")
+                .and_then(Value::as_str)
+                .unwrap_or_default();
+            let tag_kind = change
+                .get("tag_kind")
+                .and_then(Value::as_str)
+                .unwrap_or("standard");
+            let old_value = if tag_kind == "extra" {
+                extra_field_string(path, field)?
+            } else {
+                track.and_then(|track| track_field_string(track, field))
+            };
+            let affects = match change
+                .get("action")
+                .and_then(Value::as_str)
+                .unwrap_or("set")
+            {
+                "set" => {
+                    let desired = change.get("value").and_then(action_value_string);
+                    desired.as_ref().is_some_and(|desired| {
+                        old_value.as_deref() != Some(desired)
+                            && (!change
+                                .get("only_if_missing")
+                                .and_then(Value::as_bool)
+                                .unwrap_or(false)
+                                || old_value
+                                    .as_deref()
+                                    .is_none_or(|value| value.trim().is_empty()))
+                    })
+                }
+                "remove" => old_value.is_some(),
+                "upsert" => true,
+                _ => false,
+            };
+            uniform_affects |= affects;
+        }
+            let per_track_affects = per_track.iter().any(|entry| {
+                entry.get("path").and_then(Value::as_str) == Some(path.as_str())
+                    && entry
+                        .get("changes")
+                        .and_then(Value::as_array)
+                        .is_some_and(|changes| {
+                            changes.iter().any(|change| {
+                                let field = change
+                                    .get("field")
+                                    .and_then(Value::as_str)
+                                    .unwrap_or_default();
+                                match change
+                                    .get("action")
+                                    .and_then(Value::as_str)
+                                    .unwrap_or("set")
+                                {
+                                    "set" => change
+                                        .get("value")
+                                        .and_then(action_value_string)
+                                        .is_some_and(|desired| {
+                                            track
+                                                .and_then(|track| {
+                                                    track_field_string(track, field)
+                                                })
+                                                .as_deref()
+                                                != Some(desired.as_str())
+                                        }),
+                                    "remove" => track
+                                        .and_then(|track| track_field_string(track, field))
+                                        .is_some(),
+                                    _ => false,
+                                }
+                            })
+                        })
+            });
+            if uniform_affects || per_track_affects {
+                expected.push(path.clone());
+            }
+    }
+    Ok(expected)
+}
+
+fn metadata_transform_expected_paths(
+    input: &AssistantSendInput,
+    scope_paths: &[String],
+    source_kind: &str,
+    source_field: &str,
+    destination_field: &str,
+    pipeline: &[PipelineOp],
+) -> Vec<String> {
+    let tracks = input
+        .tracks
+        .iter()
+        .map(|track| (track_path(track), track))
+        .collect::<BTreeMap<_, _>>();
+    scope_paths
+        .iter()
+        .filter(|path| {
+            let source = match source_kind {
+                "tag" => tracks
+                    .get(path.as_str())
+                    .and_then(|track| track_field_string(track, source_field))
+                    .filter(|value| !value.is_empty()),
+                "filename" => Path::new(path)
+                    .file_stem()
+                    .and_then(|stem| stem.to_str())
+                    .map(str::to_string)
+                    .filter(|value| !value.is_empty()),
+                _ => None,
+            };
+            source
+                .and_then(|source| execute_pipeline(&source, pipeline))
+                .is_some_and(|desired| {
+                    tracks
+                        .get(path.as_str())
+                        .and_then(|track| track_field_string(track, destination_field))
+                        .as_deref()
+                        != Some(desired.as_str())
+                })
+        })
+        .cloned()
+        .collect()
+}
+
+pub(crate) fn validate_native_completion_contract(
+    batch: &AssistantActionBatch,
+    input: &AssistantSendInput,
+) -> Result<(), String> {
+    let Some(contract) = batch.completion_contract.as_ref() else {
+        return Ok(());
+    };
+    let actual_paths = unique_action_paths(&batch.actions);
+    let actual_set = actual_paths.iter().collect::<HashSet<_>>();
+    let expected_set = contract.expected_action_paths.iter().collect::<HashSet<_>>();
+    if actual_set != expected_set {
+        let missing = contract
+            .expected_action_paths
+            .iter()
+            .filter(|path| !actual_paths.contains(path))
+            .cloned()
+            .collect::<Vec<_>>();
+        let unexpected = actual_paths
+            .iter()
+            .filter(|path| !contract.expected_action_paths.contains(path))
+            .cloned()
+            .collect::<Vec<_>>();
+        return Err(format!(
+            "Completion contract action coverage mismatch; missing: {}; unexpected: {}",
+            missing.join(", "),
+            unexpected.join(", ")
+        ));
+    }
+    if !contract.expected_actions.is_empty()
+        && completion_expectations(&batch.actions) != contract.expected_actions
+    {
+        return Err(
+            "Completion contract action values do not exactly match the native expectations"
+                .to_string(),
+        );
+    }
+    if contract.postcondition == AssistantCompletionPostcondition::SplitArtistsNormalized {
+        let expected = split_artists_expected_paths(input, &contract.scope_paths);
+        let derived_set = expected.iter().collect::<HashSet<_>>();
+        if derived_set != expected_set {
+            return Err(format!(
+                "Completion contract affected set changed; expected {}, derived {}",
+                contract.expected_action_paths.join(", "),
+                expected.join(", ")
+            ));
+        }
+    }
+    Ok(())
 }
 
 pub(crate) fn op_chinese_to_simplified(text: &str) -> Option<String> {
@@ -278,8 +698,9 @@ pub(crate) fn execute_metadata_patch(
     input: &AssistantSendInput,
     session_id: &str,
 ) -> MutatingToolExecution {
-    let Ok(paths) = tool_scope_paths(input, args) else {
-        return mutating_tool_error("Could not resolve metadata patch target scope");
+    let paths = match tool_scope_paths(input, args) {
+        Ok(paths) => paths,
+        Err(error) => return mutating_tool_error(error),
     };
     if paths.is_empty() {
         return mutating_tool_no_changes("No tracks found for the requested scope.");
@@ -386,6 +807,20 @@ pub(crate) fn execute_metadata_patch(
                 "set" => {
                     for path in &paths {
                         let track = tracks_map.get(path.as_str()).copied();
+                        if tag_kind == "extra" {
+                            let Some(v) = value else { continue };
+                            let desired = action_value_string(v).unwrap_or_default();
+                            let current = match extra_field_string(path, field) {
+                                Ok(current) => current,
+                                Err(error) => return mutating_tool_error(error),
+                            };
+                            if current.as_deref() != Some(desired.as_str()) {
+                                let mut action = extra_action(path, field, Some(&desired), "set");
+                                action.old_value = current;
+                                actions.push(action);
+                            }
+                            continue;
+                        }
                         if only_if_missing
                             && !track.is_some_and(|track| {
                                 track_field_string(track, field)
@@ -417,7 +852,14 @@ pub(crate) fn execute_metadata_patch(
                 "remove" => {
                     for path in &paths {
                         let track = tracks_map.get(path.as_str()).copied();
-                        let old_value = track.and_then(|t| track_field_string(t, field));
+                        let old_value = if tag_kind == "extra" {
+                            match extra_field_string(path, field) {
+                                Ok(value) => value,
+                                Err(error) => return mutating_tool_error(error),
+                            }
+                        } else {
+                            track.and_then(|t| track_field_string(t, field))
+                        };
                         if old_value.is_some() {
                             actions.push(AssistantAction {
                                 tag_kind: Some(tag_kind.into()),
@@ -542,7 +984,7 @@ pub(crate) fn execute_metadata_patch(
         actions.len(),
         affected_tracks
     );
-    let batch = assistant_batch(
+    let mut batch = assistant_batch(
         session_id,
         "metadata-update",
         "Patch metadata",
@@ -551,6 +993,27 @@ pub(crate) fn execute_metadata_patch(
         actions,
         true,
     );
+    let (standard_fields, extra_fields) = metadata_patch_contract_fields(args);
+    let expected_actions = completion_expectations(&batch.actions);
+    let scope_snapshot =
+        match completion_scope_snapshot(input, &paths, &standard_fields, &extra_fields) {
+            Ok(snapshot) => snapshot,
+            Err(error) => return mutating_tool_error(error),
+        };
+    let expected_action_paths = match metadata_patch_expected_paths(args, input, &paths) {
+        Ok(paths) => paths,
+        Err(error) => return mutating_tool_error(error),
+    };
+    batch.completion_contract = Some(AssistantCompletionContract {
+        scope_paths: paths.clone(),
+        scope_snapshot,
+        expected_action_paths,
+        expected_actions,
+        postcondition: AssistantCompletionPostcondition::ExactMetadataActions,
+    });
+    if let Err(error) = validate_native_completion_contract(&batch, input) {
+        return mutating_tool_error(error);
+    }
     mutating_tool_execution(
         format!("Preview created ({}): {summary}", batch.id),
         None,
@@ -564,8 +1027,9 @@ pub(crate) fn execute_metadata_transform(
     input: &AssistantSendInput,
     session_id: &str,
 ) -> MutatingToolExecution {
-    let Ok(paths) = tool_scope_paths(input, args) else {
-        return mutating_tool_error("Could not resolve metadata transform target scope");
+    let paths = match tool_scope_paths(input, args) {
+        Ok(paths) => paths,
+        Err(error) => return mutating_tool_error(error),
     };
     if paths.is_empty() {
         return mutating_tool_no_changes("No tracks found for the requested scope.");
@@ -612,6 +1076,21 @@ pub(crate) fn execute_metadata_transform(
         Ok(p) => p,
         Err(e) => return mutating_tool_error(e),
     };
+    let split_artists = pipeline
+        .iter()
+        .any(|operation| matches!(operation, PipelineOp::SplitArtists));
+    if split_artists
+        && (pipeline.len() != 1
+            || source_kind != "tag"
+            || source_field != "artists"
+            || dest_kind != "tag"
+            || dest_field != "artists")
+    {
+        return mutating_tool_error(
+            "split_artists must be the only operation and must read and write the plural artists field"
+                .to_string(),
+        );
+    }
 
     let tracks_map: BTreeMap<&str, &Value> = input
         .tracks
@@ -625,9 +1104,18 @@ pub(crate) fn execute_metadata_transform(
         let source_value = match source_kind {
             "tag" => {
                 let track = tracks_map.get(path.as_str()).copied();
-                track
-                    .and_then(|t| track_field_string(t, source_field))
-                    .filter(|v| !v.is_empty())
+                if split_artists
+                    && track
+                        .and_then(|track| track.get(source_field))
+                        .and_then(Value::as_array)
+                        .is_some_and(|artists| artists.len() != 1)
+                {
+                    None
+                } else {
+                    track
+                        .and_then(|t| track_field_string(t, source_field))
+                        .filter(|v| !v.is_empty())
+                }
             }
             "filename" => {
                 // Extract filename stem (without extension)
@@ -702,14 +1190,14 @@ pub(crate) fn execute_metadata_transform(
     let summary = format!(
         "Transform {} field(s) across {} track(s)",
         actions.len(),
-        paths.len()
+        actions.len()
     );
     let risk = if dest_kind == "filename" {
         "medium"
     } else {
         "low"
     };
-    let batch = assistant_batch(
+    let mut batch = assistant_batch(
         session_id,
         if dest_kind == "filename" {
             "folder-move"
@@ -722,6 +1210,44 @@ pub(crate) fn execute_metadata_transform(
         actions,
         true,
     );
+    if dest_kind == "tag" {
+        let postcondition = if split_artists {
+            AssistantCompletionPostcondition::SplitArtistsNormalized
+        } else {
+            AssistantCompletionPostcondition::ExactMetadataActions
+        };
+        let expected_action_paths = if split_artists {
+            split_artists_expected_paths(input, &paths)
+        } else {
+            metadata_transform_expected_paths(
+                input,
+                &paths,
+                source_kind,
+                source_field,
+                dest_field,
+                &pipeline,
+            )
+        };
+        let standard_fields = [source_field.to_string(), dest_field.to_string()]
+            .into_iter()
+            .collect();
+        let expected_actions = completion_expectations(&batch.actions);
+        let scope_snapshot =
+            match completion_scope_snapshot(input, &paths, &standard_fields, &BTreeSet::new()) {
+                Ok(snapshot) => snapshot,
+                Err(error) => return mutating_tool_error(error),
+            };
+        batch.completion_contract = Some(AssistantCompletionContract {
+            scope_paths: paths.clone(),
+            scope_snapshot,
+            expected_action_paths,
+            expected_actions,
+            postcondition,
+        });
+        if let Err(error) = validate_native_completion_contract(&batch, input) {
+            return mutating_tool_error(error);
+        }
+    }
     mutating_tool_execution(
         format!("Preview created ({}): {summary}", batch.id),
         None,
@@ -735,8 +1261,9 @@ pub(crate) fn execute_files_transform(
     input: &AssistantSendInput,
     session_id: &str,
 ) -> MutatingToolExecution {
-    let Ok(paths) = tool_scope_paths(input, args) else {
-        return mutating_tool_error("Could not resolve files transform target scope");
+    let paths = match tool_scope_paths(input, args) {
+        Ok(paths) => paths,
+        Err(error) => return mutating_tool_error(error),
     };
     if paths.is_empty() {
         return mutating_tool_no_changes("No tracks found for the requested scope.");
@@ -1114,6 +1641,44 @@ mod tests {
     }
 
     #[test]
+    fn metadata_patch_splits_plural_artists_without_changing_display_artist() {
+        let path = "/music/duet.flac";
+        let input = AssistantSendInput {
+            selected_track_paths: vec![path.into()],
+            tracks: vec![serde_json::json!({
+                "path": path,
+                "artist": "谭咏麟 & 丁菲飞",
+                "artists": ["谭咏麟 & 丁菲飞"]
+            })],
+            ..Default::default()
+        };
+        let result = execute_metadata_patch(
+            &serde_json::json!({
+                "target_scope": "selected",
+                "per_track_changes": [{
+                    "path": path,
+                    "changes": [{
+                        "field": "artists",
+                        "action": "set",
+                        "value": ["谭咏麟", "丁菲飞"]
+                    }]
+                }]
+            }),
+            &input,
+            "session-1",
+        );
+
+        assert!(result.result.ok);
+        let batch = result.batches.first().expect("preview batch");
+        assert_eq!(batch.actions.len(), 1);
+        let action = &batch.actions[0];
+        assert_eq!(action.field.as_deref(), Some("artists"));
+        assert_eq!(action.old_value.as_deref(), Some("谭咏麟 & 丁菲飞"));
+        assert_eq!(action.new_value.as_deref(), Some("谭咏麟; 丁菲飞"));
+        assert_ne!(action.field.as_deref(), Some("artist"));
+    }
+
+    #[test]
     fn metadata_patch_per_track_path_must_be_in_scope() {
         let result = execute_metadata_patch(
             &serde_json::json!({
@@ -1271,6 +1836,20 @@ mod tests {
             .actions
             .iter()
             .all(|action| action.new_value.as_deref() == Some("Pop, Cantopop")));
+        let contract = batch
+            .completion_contract
+            .as_ref()
+            .expect("native patch completion contract");
+        assert_eq!(
+            contract.expected_action_paths,
+            vec!["/music/a.mp3", "/music/c.mp3"]
+        );
+        assert_eq!(contract.scope_snapshot.len(), 3);
+        let mut incomplete = batch.clone();
+        incomplete.actions.pop();
+        let error = validate_native_completion_contract(&incomplete, &input)
+            .expect_err("omitting a matching track must invalidate the preview");
+        assert!(error.contains("/music/c.mp3"), "{error}");
         assert!(
             result.result.summary.contains("across 2 track(s)"),
             "summary must report affected tracks, not the three-track input scope"
@@ -1278,7 +1857,68 @@ mod tests {
     }
 
     #[test]
+    fn completion_contract_rejects_omitted_field_on_an_expected_path() {
+        let mut input = test_input();
+        input.selected_track_paths.truncate(1);
+        input.tracks.truncate(1);
+        let result = execute_metadata_patch(
+            &serde_json::json!({
+                "target_scope": "selected",
+                "changes": [
+                    {"field": "genre", "action": "set", "value": "Pop"},
+                    {"field": "year", "action": "set", "value": "2026"}
+                ]
+            }),
+            &input,
+            "session-1",
+        );
+        let batch = result.batches.first().unwrap();
+        assert_eq!(batch.actions.len(), 2);
+        let mut incomplete = batch.clone();
+        incomplete.actions.pop();
+        let error = validate_native_completion_contract(&incomplete, &input)
+            .expect_err("path-only coverage must not hide a missing field action");
+        assert!(error.contains("action values"), "{error}");
+    }
+
+    #[test]
+    fn selected_scope_rejects_missing_track_metadata_instead_of_reporting_no_change() {
+        let mut input = test_input();
+        input
+            .selected_track_paths
+            .push("/music/missing-at-end.flac".into());
+        let result = execute_metadata_patch(
+            &serde_json::json!({
+                "target_scope": "selected",
+                "changes": [{"field": "genre", "action": "set", "value": "Pop"}]
+            }),
+            &input,
+            "session-1",
+        );
+        assert!(!result.result.ok);
+        assert!(result.result.summary.contains("missing-at-end.flac"));
+    }
+
+    #[test]
     fn metadata_patch_extra_upsert_creates_extra_actions() {
+        let root = std::env::temp_dir().join(format!(
+            "soundrobe-extra-contract-{}",
+            uuid::Uuid::new_v4()
+        ));
+        std::fs::create_dir_all(&root).unwrap();
+        let fixture = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../test/fixtures/tauri/media-corpus/minimal.flac");
+        let first = root.join("a.flac");
+        let second = root.join("b.flac");
+        std::fs::copy(&fixture, &first).unwrap();
+        std::fs::copy(&fixture, &second).unwrap();
+        let mut input = test_input();
+        input.selected_track_paths = vec![
+            first.to_string_lossy().into_owned(),
+            second.to_string_lossy().into_owned(),
+        ];
+        input.tracks[0]["path"] = Value::String(input.selected_track_paths[0].clone());
+        input.tracks[1]["path"] = Value::String(input.selected_track_paths[1].clone());
         let result = execute_metadata_patch(
             &serde_json::json!({
                 "target_scope": "selected",
@@ -1286,7 +1926,7 @@ mod tests {
                     {"tag_kind": "extra", "field": "MOOD", "action": "upsert", "value": "Calm"}
                 ]
             }),
-            &test_input(),
+            &input,
             "session-1",
         );
         assert!(result.result.ok);
@@ -1300,6 +1940,7 @@ mod tests {
             .actions
             .iter()
             .all(|a| a.operation.as_deref() == Some("upsert")));
+        std::fs::remove_dir_all(root).unwrap();
     }
 
     #[test]
@@ -1357,6 +1998,159 @@ mod tests {
         assert_eq!(batch.actions.len(), 2);
         assert_eq!(batch.actions[0].new_value.as_deref(), Some("first song"));
         assert_eq!(batch.actions[1].new_value.as_deref(), Some("second song"));
+    }
+
+    #[test]
+    fn metadata_transform_splits_every_malformed_plural_artists_value_in_scope() {
+        let selected_track_paths = (1..=46)
+            .map(|index| format!("/music/{index:02}.flac"))
+            .collect::<Vec<_>>();
+        let tracks = selected_track_paths
+            .iter()
+            .enumerate()
+            .map(|(index, path)| {
+                if index == 44 {
+                    serde_json::json!({
+                        "path": path,
+                        "artist": "黎明 & 谭咏麟",
+                        "artists": ["黎明&谭咏麟"]
+                    })
+                } else if index == 45 {
+                    serde_json::json!({
+                        "path": path,
+                        "artist": "谭咏麟 & 김완선",
+                        "artists": ["谭咏麟&김완선"]
+                    })
+                } else {
+                    serde_json::json!({
+                        "path": path,
+                        "artist": format!("谭咏麟 & Collaborator {index}"),
+                        "artists": ["谭咏麟", format!("Collaborator {index}")]
+                    })
+                }
+            })
+            .collect();
+        let input = AssistantSendInput {
+            selected_track_paths,
+            tracks,
+            ..Default::default()
+        };
+
+        let result = execute_metadata_transform(
+            &serde_json::json!({
+                "target_scope": "selected",
+                "source": {"kind": "tag", "field": "artists"},
+                "operations": [{"op": "split_artists"}]
+            }),
+            &input,
+            "session-1",
+        );
+
+        assert!(result.result.ok, "{}", result.result.summary);
+        let batch = result.batches.first().expect("preview batch");
+        assert_eq!(
+            batch.actions.len(),
+            2,
+            "a scope-wide transform must not omit a malformed track at the end"
+        );
+        let contract = batch
+            .completion_contract
+            .as_ref()
+            .expect("native transform completion contract");
+        assert_eq!(contract.scope_paths.len(), 46);
+        assert_eq!(
+            contract.expected_action_paths,
+            vec!["/music/45.flac", "/music/46.flac"]
+        );
+        assert_eq!(
+            serde_json::to_value(&contract.postcondition).unwrap(),
+            serde_json::json!("splitArtistsNormalized")
+        );
+        assert_eq!(
+            batch
+                .actions
+                .iter()
+                .map(|action| (
+                    action.track_path.as_deref(),
+                    action.field.as_deref(),
+                    action.new_value.as_deref()
+                ))
+                .collect::<Vec<_>>(),
+            vec![
+                (
+                    Some("/music/45.flac"),
+                    Some("artists"),
+                    Some("黎明; 谭咏麟")
+                ),
+                (
+                    Some("/music/46.flac"),
+                    Some("artists"),
+                    Some("谭咏麟; 김완선")
+                ),
+            ]
+        );
+        assert!(
+            batch
+                .actions
+                .iter()
+                .all(|action| action.field.as_deref() != Some("artist")),
+            "the singular display Artist must remain unchanged"
+        );
+
+        let mut incomplete = batch.clone();
+        incomplete.actions.pop();
+        let error = validate_native_completion_contract(&incomplete, &input)
+            .expect_err("missing the final affected track must invalidate the preview");
+        assert!(error.contains("/music/46.flac"), "{error}");
+    }
+
+    #[test]
+    fn split_artists_contract_excludes_non_target_artist_fields_and_values() {
+        let input = AssistantSendInput {
+            selected_track_paths: vec![
+                "/music/singular.flac".into(),
+                "/music/album-artists.flac".into(),
+                "/music/correct.flac".into(),
+                "/music/atomic.flac".into(),
+            ],
+            tracks: vec![
+                serde_json::json!({
+                    "path": "/music/singular.flac",
+                    "artist": "Artist A & Artist B",
+                    "artists": ["Artist A", "Artist B"]
+                }),
+                serde_json::json!({
+                    "path": "/music/album-artists.flac",
+                    "artist": "Artist A",
+                    "artists": ["Artist A"],
+                    "albumArtists": ["Artist A & Artist B"]
+                }),
+                serde_json::json!({
+                    "path": "/music/correct.flac",
+                    "artist": "Artist A feat. Artist B",
+                    "artists": ["Artist A", "Artist B"]
+                }),
+                serde_json::json!({
+                    "path": "/music/atomic.flac",
+                    "artist": "AC/DC",
+                    "artists": ["AC/DC"]
+                }),
+            ],
+            ..Default::default()
+        };
+
+        let result = execute_metadata_transform(
+            &serde_json::json!({
+                "target_scope": "selected",
+                "source": {"kind": "tag", "field": "artists"},
+                "operations": [{"op": "split_artists"}]
+            }),
+            &input,
+            "session-1",
+        );
+
+        assert!(result.result.ok, "{}", result.result.summary);
+        assert!(result.batches.is_empty());
     }
 
     #[test]

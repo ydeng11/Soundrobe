@@ -747,6 +747,17 @@ pub(crate) async fn write_track_queued(
     Ok(())
 }
 
+pub(crate) async fn write_track_with_exclusive_queue_held(
+    path: PathBuf,
+    patch: TrackPatch,
+) -> Result<(), ApiError> {
+    validated_track_extension(&path)?;
+    tokio::task::spawn_blocking(move || write_track_dispatch(&path, &patch))
+        .await
+        .map_err(|error| ApiError::WriteTask(error.to_string()))??;
+    Ok(())
+}
+
 /// Remove all embedded cover art pictures from a single audio track file.
 /// Uses lofty's unified `Probe` + `TaggedFile` API to handle all formats.
 pub(crate) fn remove_embedded_cover_at(path: &Path) -> Result<(), ApiError> {
@@ -1041,6 +1052,17 @@ pub(crate) async fn write_extra_tags_queued(
             .map_err(|error| ApiError::WriteTask(error.to_string()))?
         })
         .await?;
+    Ok(())
+}
+
+pub(crate) async fn write_extra_tags_with_exclusive_queue_held(
+    path: PathBuf,
+    tags: Vec<ExtraTagUpdate>,
+) -> Result<(), ApiError> {
+    validate_extra_tag_extension(&path)?;
+    tokio::task::spawn_blocking(move || write_extra_tags_dispatch(&path, &tags))
+        .await
+        .map_err(|error| ApiError::WriteTask(error.to_string()))??;
     Ok(())
 }
 

@@ -444,6 +444,29 @@ impl AssistantTaskState {
         .map_err(|e| format!("Failed to record batch readback: {e}"))
     }
 
+    /// Atomically persist a terminal batch status and its readback evidence.
+    pub fn finalize_batch(
+        &self,
+        batch_id: &str,
+        status: &str,
+        readback_json: &Value,
+    ) -> Result<()> {
+        let guard = self.conn()?;
+        let conn = guard.as_ref().ok_or("AssistantTaskState not initialized")?;
+        let updated = conn
+            .execute(
+                "UPDATE assistant_batch
+                 SET status = ?1, readback_json = ?2, updated_at = ?3
+                 WHERE batch_id = ?4",
+                params![status, readback_json.to_string(), iso_now(), batch_id],
+            )
+            .map_err(|e| format!("Failed to finalize assistant batch: {e}"))?;
+        if updated == 0 {
+            return Err(format!("Assistant batch not found: {batch_id}"));
+        }
+        Ok(())
+    }
+
     /// Load all pending batches for a session.
     pub fn load_pending_batches(&self, session_id: &str) -> Vec<(String, Value)> {
         let guard = self.conn().ok();
@@ -789,6 +812,49 @@ mod tests {
         // All-pending query
         let all = state.load_all_pending_batches();
         assert!(!all.is_empty());
+    }
+
+    #[test]
+    fn finalized_batch_persists_verification_and_is_not_rehydrated() {
+        let (state, session_id) = setup();
+        let verification = serde_json::json!({
+            "status": "verified",
+            "scopeCount": 46,
+            "expectedActionCount": 2,
+            "verifiedActionCount": 2,
+            "failures": []
+        });
+        for status in ["applied", "rejected", "failed"] {
+            let batch_id = format!("batch-{status}");
+            let batch_json = serde_json::json!({
+                "id": batch_id,
+                "sessionId": session_id,
+                "kind": "metadata-update"
+            });
+            state
+                .save_batch(&batch_id, &session_id, &batch_json, 2)
+                .unwrap();
+            state
+                .finalize_batch(&batch_id, status, &verification)
+                .unwrap();
+        }
+
+        assert!(state.load_pending_batches(&session_id).is_empty());
+        assert!(state.load_all_pending_batches().is_empty());
+        let guard = state.conn().unwrap();
+        let conn = guard.as_ref().unwrap();
+        let (status, readback): (String, String) = conn
+            .query_row(
+                "SELECT status, readback_json FROM assistant_batch WHERE batch_id = ?1",
+                ["batch-applied"],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!(status, "applied");
+        assert_eq!(
+            serde_json::from_str::<Value>(&readback).unwrap(),
+            verification
+        );
     }
 
     #[test]

@@ -162,6 +162,108 @@ describe("AssistantPanel — status indicator", () => {
     });
   });
 
+  it("marks a metadata preview completed only with verified native readback", async () => {
+    renderPanel();
+    const input = screen.getByPlaceholderText(/ask the assistant/i);
+    fireEvent.change(input, { target: { value: "Fix tags" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    emitEvent({
+      sessionId: "s1",
+      type: "action_batch_created",
+      message: "Batch ready for review",
+      data: { actionBatchId: "batch-verified" },
+    });
+    await screen.findByText("Ready for review");
+
+    emitEvent({
+      sessionId: "s1",
+      type: "action_batch_applied",
+      message: "Applied: Fix tags",
+      data: {
+        batchId: "batch-verified",
+        verificationRequired: true,
+        verification: {
+          status: "verified",
+          phase: "readback",
+          scopeCount: 2,
+          expectedActionCount: 2,
+          verifiedActionCount: 2,
+          failures: [],
+        },
+      },
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText("Completed")).toBeTruthy();
+    });
+  });
+
+  it("fails a metadata preview when an applied event lacks verified readback", async () => {
+    renderPanel();
+    const input = screen.getByPlaceholderText(/ask the assistant/i);
+    fireEvent.change(input, { target: { value: "Fix tags" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    emitEvent({
+      sessionId: "s1",
+      type: "action_batch_created",
+      message: "Batch ready for review",
+      data: { actionBatchId: "batch-unverified" },
+    });
+    await screen.findByText("Ready for review");
+
+    emitEvent({
+      sessionId: "s1",
+      type: "action_batch_applied",
+      message: "Applied: Fix tags",
+      data: { batchId: "batch-unverified", verificationRequired: true },
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText("Failed")).toBeTruthy();
+      expect(screen.queryByText("Completed")).toBeNull();
+    });
+  });
+
+  it("shows affected track details for native verification failures", async () => {
+    renderPanel();
+    const input = screen.getByPlaceholderText(/ask the assistant/i);
+    fireEvent.change(input, { target: { value: "Fix tags" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    emitEvent({
+      sessionId: "s1",
+      type: "action_batch_created",
+      message: "Batch ready for review",
+      data: { actionBatchId: "batch-failed" },
+    });
+    await screen.findByText("Ready for review");
+
+    emitEvent({
+      sessionId: "s1",
+      type: "action_batch_failed",
+      message: "Failed: Fix tags",
+      data: {
+        batchId: "batch-failed",
+        verification: {
+          status: "failed",
+          phase: "readback",
+          failures: [
+            {
+              trackPath: "/music/problem.flac",
+              field: "artists",
+              error: "Metadata readback did not match",
+            },
+          ],
+        },
+      },
+    });
+
+    await screen.findByText("Failed");
+    fireEvent.click(screen.getByText("2 steps"));
+    expect(
+      screen.getByText(/\/music\/problem\.flac: Metadata readback did not match/),
+    ).toBeTruthy();
+  });
+
   it("does not label a prose-only message as completed work", async () => {
     renderPanel();
     const input = screen.getByPlaceholderText(/ask the assistant/i);

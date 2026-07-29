@@ -35,6 +35,7 @@ pub enum IntentKind {
     RemoveField,
     ClearField,
     SetMissing,
+    SplitArtists,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -387,6 +388,37 @@ pub fn route_message(
     message: &str,
     referent: Option<&SessionState>,
 ) -> Option<RoutedCommand> {
+    let lower = message.to_lowercase();
+    let requests_selected_artists_repair = lower.contains("selected")
+        && lower
+            .split(|character: char| !character.is_alphanumeric())
+            .any(|word| word == "artists")
+        && !lower.contains("album artists")
+        && !lower.contains("albumartists")
+        && ["fix", "repair", "split", "normalize"]
+            .iter()
+            .any(|word| lower.contains(word))
+        && [
+            "malformed",
+            "incorrect",
+            "joined",
+            "separator",
+            "split",
+            "separate values",
+        ]
+        .iter()
+        .any(|word| lower.contains(word));
+    if requests_selected_artists_repair {
+        return Some(RoutedCommand {
+            intent: IntentKind::SplitArtists,
+            field: Some("artists".to_string()),
+            value: None,
+            only_if_missing: false,
+            scope_hint: ScopeHint::Selected,
+            uses_referent: false,
+        });
+    }
+
     let tokens = parse_request_tokens(message);
 
     if tokens.action.is_empty() {
@@ -570,6 +602,7 @@ pub fn resolved_intent_from_command(command: &RoutedCommand) -> ResolvedIntent {
                 ResolvedIntent::NotRouted
             }
         }
+        IntentKind::SplitArtists => ResolvedIntent::NotRouted,
     }
 }
 
@@ -581,6 +614,33 @@ mod tests {
 
     fn empty_input() -> AssistantSendInput {
         AssistantSendInput::default()
+    }
+
+    #[test]
+    fn routes_selected_malformed_plural_artists_to_scope_wide_split() {
+        let routed = route_message(
+            "fix the malformed “Artists” tags from selected tracks",
+            None,
+        )
+        .expect("unambiguous plural Artists repair");
+
+        assert_eq!(routed.intent, IntentKind::SplitArtists);
+        assert_eq!(routed.field.as_deref(), Some("artists"));
+        assert_eq!(routed.scope_hint, ScopeHint::Selected);
+    }
+
+    #[test]
+    fn does_not_route_singular_artist_display_edits_as_plural_splits() {
+        assert!(
+            route_message(
+                "fix the singular Artist display field on selected tracks",
+                None
+            )
+            .is_none()
+        );
+        assert!(
+            route_message("fix malformed Album Artists tags on selected tracks", None).is_none()
+        );
     }
 
     // ── quote stripping ────────────────────────────────────────────

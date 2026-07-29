@@ -8,18 +8,19 @@ use crate::commands::{
     dataset::dataset_status_at,
     lyrics::{fetch_lyrics_at, DEFAULT_BASE_URL},
     mutations::{
-        remove_embedded_cover_queued, rename_track_queued, write_extra_tags_queued,
-        write_track_queued, ExtraTagUpdate, TrackPatch,
+        remove_embedded_cover_queued, rename_track_queued,
+        write_extra_tags_with_exclusive_queue_held, write_track_with_exclusive_queue_held,
+        ExtraTagUpdate, TrackPatch,
     },
     organizer::sanitize_dir_name,
-    tracks::{read_extra_tags, read_track_metadata},
+    tracks::{read_extra_tags, read_track_metadata, try_read_extra_tags},
 };
 use crate::error::ApiError;
 use crate::infra::is_not_redacted;
 use crate::infra::openrouter::{ChatMessage, OpenRouterClient};
 use crate::state::assistant::{
-    AssistantAction, AssistantActionBatch, AssistantRuntimeState, AssistantServicesConfig,
-    AssistantServicesSnapshot, AssistantServicesState,
+    AssistantAction, AssistantActionBatch, AssistantCompletionPostcondition, AssistantRuntimeState,
+    AssistantServicesConfig, AssistantServicesSnapshot, AssistantServicesState,
 };
 use crate::state::config::ConfigState;
 use crate::state::conversation::{ConversationEntry, ConversationState};
@@ -507,6 +508,19 @@ pub async fn assistant_send(
                         &session_id_for_state,
                     )
                 }
+                crate::commands::assistant_intent::IntentKind::SplitArtists => {
+                    let command_args = serde_json::json!({
+                        "target_scope": "explicit_paths",
+                        "paths": scope_paths,
+                        "source": {"kind": "tag", "field": "artists"},
+                        "operations": [{"op": "split_artists"}]
+                    });
+                    crate::commands::assistant_metadata_tools::execute_metadata_transform(
+                        &command_args,
+                        &input,
+                        &session_id_for_state,
+                    )
+                }
             };
 
             if execution.batches.is_empty() && !execution.result.ok {
@@ -523,12 +537,21 @@ pub async fn assistant_send(
             let mut stored_batches = Vec::new();
             for batch in &execution.batches {
                 if runtime.add_batch(batch.clone()) {
-                    let _ = task_state.save_batch(
+                    if let Err(error) = task_state.save_batch(
                         &batch.id,
                         &session_id_for_state,
                         &serde_json::to_value(batch).unwrap_or_default(),
                         batch.actions.len(),
-                    );
+                    )
+                    {
+                        runtime.mark_batch_failed(&batch.id, &error);
+                        return assistant_error_event_with_conversation(
+                            &app,
+                            Some(&*conversation),
+                            Some(session_id_for_state),
+                            &error,
+                        );
+                    }
                     stored_batches.push(batch.clone());
                 }
             }
@@ -955,6 +978,16 @@ pub async fn assistant_send(
                     "Failed to store assistant action preview".into(),
                 ));
             }
+            if let Err(error) = task_state.save_batch(
+                &batch.id,
+                &session_id,
+                &serde_json::to_value(batch).unwrap_or_default(),
+                batch.actions.len(),
+            )
+            {
+                runtime.mark_batch_failed(&batch.id, &error);
+                return Err(ApiError::Message(error));
+            }
             pending_tool_batches.push(batch.clone());
         }
         conversation.record("tool_result", &result.summary, None, 0, 0, 0);
@@ -1048,6 +1081,16 @@ pub async fn assistant_send(
                         return Err(ApiError::Message(
                             "Failed to store assistant action preview".into(),
                         ));
+                    }
+                    if let Err(error) = task_state.save_batch(
+                        &batch.id,
+                        &session_id,
+                        &serde_json::to_value(&batch).unwrap_or_default(),
+                        batch.actions.len(),
+                    )
+                    {
+                        runtime.mark_batch_failed(&batch.id, &error);
+                        return Err(ApiError::Message(error));
                     }
                     AssistantEvent {
                         session_id: session_id.clone(),
@@ -1232,6 +1275,42 @@ fn build_assistant_context(input: &AssistantSendInput) -> Value {
     })
 }
 
+/// Curated from Navidrome's official tagging guidelines. Keep this compact:
+/// it is included in every assistant request so tagging decisions do not
+/// depend on a model's incidental knowledge.
+const NAVIDROME_TAGGING_KNOWLEDGE: &str = "\
+Navidrome tagging knowledge:
+- Navidrome organizes music from embedded metadata, not file or folder names. Keep tags complete \
+and consistent. Essential fields are Title, Artist, Album, Album Artist, and Track Number; Date, \
+Disc Number, Genre, and Compilation are useful where applicable.
+- ARTIST and ARTISTS are different. ARTIST controls the display credit and may be one readable \
+string such as `A feat. B`. ARTISTS identifies the individual, browsable performers and should be \
+multi-valued: `ARTISTS=A` plus `ARTISTS=B`. ALBUMARTIST and ALBUMARTISTS have the same display \
+versus identity relationship.
+- When both singular and plural tags exist, Navidrome displays singular ARTIST or ALBUMARTIST \
+verbatim and gets individual identities from plural ARTISTS or ALBUMARTISTS. If only plural values \
+exist, Navidrome joins them for display. Never delete collaborators merely to make each plural \
+value contain one name.
+- Prefer true multi-valued ARTISTS and ALBUMARTISTS. Each plural value must contain one artist; \
+do not store `A & B` as one ARTISTS value. For a request to split malformed Artists tags, inspect \
+the intended scope, preserve every collaborator and already-atomic value, and set the Soundrobe \
+standard field `artists` to an array such as [\"A\", \"B\"] only on affected tracks. Do not change \
+ARTIST unless the user separately asks to change the display credit.
+- Singular ARTIST fallback parsing is less precise. Navidrome's default separators include \
+` / `, ` feat. `, ` feat `, ` ft. `, ` ft `, and `; ` (case-insensitive); multi-valued tags are \
+never separator-split. Treat a user-named separator such as ` & ` as an instruction for repairing \
+the malformed plural value, not as permission to rewrite singular ARTIST.
+- FLAC/Vorbis and Opus support repeated values directly. ID3v2.4 supports multiple values; \
+ID3v2.3 does not officially support them and may require a consistent singular-field separator. \
+Respect the file format and report unsupported writes rather than guessing.
+- Album must be identical across an album. Album Artist should also be consistent; use Various \
+Artists plus the compilation flag for compilations. Genre is multi-valued. DATE is recording date, \
+YEAR/RELEASEDATE is release date, and ORIGINALDATE/ORIGINALYEAR is original release date.
+- Keep artwork consistent across an album, review previews before writing, back up before bulk \
+retagging, rescan Navidrome after saving, and verify the result in Get Info > Raw Tags.
+Source: https://www.navidrome.org/docs/usage/library/tagging/
+";
+
 /// Build the LLM message list: system prompt, bounded conversation history, current request.
 /// The current request is appended as the final user turn so the LLM sees it after prior context.
 fn build_assistant_messages(
@@ -1266,6 +1345,10 @@ fn build_assistant_messages(
                 "  \"lowercase all genres\", \"extract first word\", ",
                 "  \"convert Chinese to traditional\"), ",
                 "  call metadata.transform with the right operations pipeline.\n",
+                "- To split malformed plural Artists values joined by &, comma, or semicolon, ",
+                "  call metadata.transform on source field artists with the single split_artists ",
+                "  operation for the intended scope. Do not enumerate affected paths or change ",
+                "  the singular display Artist.\n",
                 "- tags.prettify is read-only and never edits tracks; do not use it for mutations.\n",
                 "- To fix one missing metadata field, call metadata.patch for the intended scope ",
                 "  with a set change whose only_if_missing field is true. This creates concrete ",
@@ -1287,10 +1370,12 @@ fn build_assistant_messages(
                 "- When no catalog tool supports the request, explain the limitation normally.\n",
                 "- **Never claim an action was applied.** Previews still require user approval.\n",
                 "\n",
+                "{tagging_knowledge}\n",
                 "toolCall — toolName from the list below, args matching its schema\n",
                 "Your message should be concise and user-facing.\n",
                 "Available tools: {tools}"
             ),
+            tagging_knowledge = NAVIDROME_TAGGING_KNOWLEDGE,
             tools = serde_json::to_string(tools).unwrap_or_default()
         )),
     ];
@@ -1439,6 +1524,7 @@ pub(crate) fn assistant_batch(
         actions,
         reversible,
         status: "pending".into(),
+        completion_contract: None,
     }
 }
 
@@ -1455,7 +1541,6 @@ pub(crate) fn tool_scope_paths(
         .iter()
         .filter_map(|track| track.get("path").and_then(Value::as_str))
         .collect::<Vec<_>>();
-    let loaded = loaded_paths.iter().copied().collect::<HashSet<_>>();
     let paths = match scope {
         "selected" => input.selected_track_paths.clone(),
         "active_album" => input
@@ -1480,11 +1565,25 @@ pub(crate) fn tool_scope_paths(
             .into_iter()
             .flatten()
             .filter_map(Value::as_str)
-            .filter(|path| loaded.contains(path))
             .map(str::to_string)
             .collect(),
         _ => return Err(format!("Unsupported target_scope: {scope}")),
     };
+    let mut seen = HashSet::new();
+    for path in &paths {
+        if !seen.insert(path.as_str()) {
+            return Err(format!("Scope contains duplicate track path: {path}"));
+        }
+        match loaded_paths
+            .iter()
+            .filter(|loaded| **loaded == path.as_str())
+            .count()
+        {
+            1 => {}
+            0 => return Err(format!("Scope track metadata is missing: {path}")),
+            _ => return Err(format!("Scope track metadata is duplicated: {path}")),
+        }
+    }
     Ok(paths)
 }
 
@@ -3045,6 +3144,11 @@ fn normalize_assistant_response_value(mut response: Value) -> Result<Value, Stri
     {
         object.insert("toolCall".into(), normalize_single_tool_call(&call)?);
     }
+    if object.get("responseKind").is_none_or(Value::is_null)
+        && object.get("toolCall").is_some_and(|call| !call.is_null())
+    {
+        object.insert("responseKind".into(), Value::String("action".into()));
+    }
 
     Ok(response)
 }
@@ -3305,6 +3409,7 @@ fn validated_assistant_batch(
         actions: draft.actions,
         reversible: true,
         status: "pending".into(),
+        completion_contract: None,
     })
 }
 
@@ -3371,8 +3476,10 @@ pub fn assistant_reject_actions(
     action_batch_id: String,
     runtime: State<'_, AssistantRuntimeState>,
     conversation: State<'_, ConversationState>,
+    task_state: State<'_, crate::state::assistant_task::AssistantTaskState>,
 ) -> Result<(), ApiError> {
-    let Some(title) = runtime.reject_batch(&action_batch_id) else {
+    let title = reject_action_batch(&runtime, &task_state, &action_batch_id)?;
+    let Some(title) = title else {
         return Ok(());
     };
     let current = conversation
@@ -3389,6 +3496,30 @@ pub fn assistant_reject_actions(
         },
     )?;
     Ok(())
+}
+
+fn reject_action_batch(
+    runtime: &AssistantRuntimeState,
+    task_state: &crate::state::assistant_task::AssistantTaskState,
+    action_batch_id: &str,
+) -> Result<Option<String>, ApiError> {
+    let Some(batch) = runtime.get_batch(action_batch_id) else {
+        return Ok(None);
+    };
+    if batch.status != "pending" {
+        return Ok(None);
+    }
+    task_state
+        .finalize_batch(
+            action_batch_id,
+            "rejected",
+            &serde_json::json!({ "status": "rejected" }),
+        )
+        .map_err(ApiError::Message)?;
+    let title = runtime
+        .reject_batch(&action_batch_id)
+        .ok_or_else(|| ApiError::Message("Batch changed while it was being rejected".into()))?;
+    Ok(Some(title))
 }
 
 #[tauri::command]
@@ -3426,9 +3557,383 @@ fn action_patch(field: &str, new_value: Option<&str>) -> Result<TrackPatch, ApiE
         .map_err(|error| ApiError::Message(format!("Invalid assistant tag update: {error}")))
 }
 
+fn track_data_field_value(track: &crate::commands::tracks::TrackData, field: &str) -> Value {
+    match field {
+        "title" => serde_json::to_value(&track.title),
+        "artist" => serde_json::to_value(&track.artist),
+        "artists" => {
+            if track.artists.is_empty() {
+                Ok(Value::Null)
+            } else {
+                serde_json::to_value(&track.artists)
+            }
+        }
+        "album" => serde_json::to_value(&track.album),
+        "albumArtist" => serde_json::to_value(&track.album_artist),
+        "albumArtists" => {
+            if track.album_artists.is_empty() {
+                Ok(Value::Null)
+            } else {
+                serde_json::to_value(&track.album_artists)
+            }
+        }
+        "trackNumber" => serde_json::to_value(track.track_number),
+        "trackTotal" => serde_json::to_value(track.track_total),
+        "discNumber" => serde_json::to_value(track.disc_number),
+        "discTotal" => serde_json::to_value(track.disc_total),
+        "year" => serde_json::to_value(&track.year),
+        "genre" => serde_json::to_value(&track.genre),
+        "composer" => serde_json::to_value(&track.composer),
+        "comment" => serde_json::to_value(&track.comment),
+        "description" => serde_json::to_value(&track.description),
+        "lyrics" => serde_json::to_value(&track.lyrics),
+        "compilation" => serde_json::to_value(track.compilation),
+        "musicbrainzTrackId" => serde_json::to_value(&track.musicbrainz_track_id),
+        "musicbrainzAlbumId" => serde_json::to_value(&track.musicbrainz_album_id),
+        "musicbrainzArtistId" => serde_json::to_value(&track.musicbrainz_artist_id),
+        "discogsArtistId" => serde_json::to_value(&track.discogs_artist_id),
+        "discogsReleaseId" => serde_json::to_value(&track.discogs_release_id),
+        _ => Ok(Value::Null),
+    }
+    .unwrap_or(Value::Null)
+}
+
+fn verification_summary(
+    status: &str,
+    phase: &str,
+    batch: &AssistantActionBatch,
+    verified_action_count: usize,
+    failures: Vec<Value>,
+) -> Value {
+    let scope_count = batch
+        .completion_contract
+        .as_ref()
+        .map_or_else(
+            || {
+                batch
+                    .actions
+                    .iter()
+                    .filter_map(|action| action.track_path.as_deref())
+                    .collect::<HashSet<_>>()
+                    .len()
+            },
+            |contract| contract.scope_paths.len(),
+        );
+    let expected_action_count = batch
+        .completion_contract
+        .as_ref()
+        .filter(|contract| !contract.expected_actions.is_empty())
+        .map_or_else(
+            || {
+                batch
+                    .actions
+                    .iter()
+                    .filter(|action| action.track_path.is_some() && action.field.is_some())
+                    .count()
+            },
+            |contract| contract.expected_actions.len(),
+        );
+    serde_json::json!({
+        "status": status,
+        "phase": phase,
+        "scopeCount": scope_count,
+        "expectedActionCount": expected_action_count,
+        "verifiedActionCount": verified_action_count,
+        "failures": failures
+    })
+}
+
+fn preflight_metadata_contract(batch: &AssistantActionBatch) -> Option<Value> {
+    let contract = batch.completion_contract.as_ref()?;
+    let mut failures = Vec::new();
+    let current_expectations =
+        crate::commands::assistant_metadata_tools::completion_expectations(&batch.actions);
+    if !contract.expected_actions.is_empty() && current_expectations != contract.expected_actions {
+        failures.push(serde_json::json!({
+            "expected": contract.expected_actions,
+            "actual": current_expectations,
+            "error": "Preview actions no longer match the native completion contract"
+        }));
+    }
+    let current_paths = batch
+        .actions
+        .iter()
+        .filter_map(|action| action.track_path.clone())
+        .collect::<HashSet<_>>();
+    let expected_paths = contract
+        .expected_action_paths
+        .iter()
+        .cloned()
+        .collect::<HashSet<_>>();
+    if current_paths != expected_paths {
+        failures.push(serde_json::json!({
+            "expected": contract.expected_action_paths,
+            "actual": current_paths,
+            "error": "Preview action paths no longer match the native completion contract"
+        }));
+    }
+    for snapshot in &contract.scope_snapshot {
+        match read_track_metadata(Path::new(&snapshot.path)) {
+            Ok(track) => {
+                for (field, expected) in &snapshot.standard_values {
+                    let actual = track_data_field_value(&track, field);
+                    if actual != *expected {
+                        failures.push(serde_json::json!({
+                            "trackPath": snapshot.path,
+                            "field": field,
+                            "expected": expected,
+                            "actual": actual,
+                            "error": "Preview is stale because the on-disk value changed"
+                        }));
+                    }
+                }
+            }
+            Err(error) => failures.push(serde_json::json!({
+                "trackPath": snapshot.path,
+                "error": error.to_string()
+            })),
+        }
+        let current_extra = if snapshot.extra_values.is_empty() {
+            None
+        } else {
+            match try_read_extra_tags(Path::new(&snapshot.path)) {
+                Ok(tags) => Some(tags),
+                Err(error) => {
+                    failures.push(serde_json::json!({
+                        "trackPath": snapshot.path,
+                        "error": error.to_string()
+                    }));
+                    None
+                }
+            }
+        };
+        for (field, expected) in &snapshot.extra_values {
+            let actual = current_extra
+                .as_ref()
+                .and_then(|tags| {
+                    tags.iter()
+                        .find(|tag| tag.key.trim().eq_ignore_ascii_case(field))
+                })
+                .map(|tag| Value::String(tag.value.clone()))
+                .unwrap_or(Value::Null);
+            if actual != *expected {
+                failures.push(serde_json::json!({
+                    "trackPath": snapshot.path,
+                    "field": field,
+                    "expected": expected,
+                    "actual": actual,
+                    "error": "Preview is stale because the on-disk value changed"
+                }));
+            }
+        }
+    }
+    if contract.postcondition == AssistantCompletionPostcondition::SplitArtistsNormalized {
+        let mut malformed = Vec::new();
+        for path in &contract.scope_paths {
+            match read_track_metadata(Path::new(path)) {
+                Ok(track)
+                    if track.artists.len() == 1
+                        && crate::commands::assistant_metadata_tools::op_split_artists(
+                            &track.artists[0],
+                        )
+                        .is_some() =>
+                {
+                    malformed.push(path.clone())
+                }
+                Ok(_) => {}
+                Err(error) => failures.push(serde_json::json!({
+                    "trackPath": path,
+                    "field": "artists",
+                    "error": error.to_string()
+                })),
+            }
+        }
+        let malformed_set = malformed.iter().collect::<HashSet<_>>();
+        let expected_set = contract
+            .expected_action_paths
+            .iter()
+            .collect::<HashSet<_>>();
+        if malformed_set != expected_set {
+            failures.push(serde_json::json!({
+                "field": "artists",
+                "expected": contract.expected_action_paths,
+                "actual": malformed,
+                "error": "Preview is stale because the malformed Artists set changed"
+            }));
+        }
+    }
+    (!failures.is_empty()).then(|| verification_summary("failed", "preflight", batch, 0, failures))
+}
+
+fn verify_metadata_batch_readback(batch: &AssistantActionBatch) -> Value {
+    let mut failures = Vec::new();
+    let mut verified = 0usize;
+    let mut standard_tracks = BTreeMap::new();
+    let mut extra_tags = BTreeMap::new();
+    let contractless_expectations;
+    let expectations = if let Some(contract) = batch
+        .completion_contract
+        .as_ref()
+        .filter(|contract| !contract.expected_actions.is_empty())
+    {
+        &contract.expected_actions
+    } else {
+        contractless_expectations =
+            crate::commands::assistant_metadata_tools::completion_expectations(&batch.actions);
+        &contractless_expectations
+    };
+    for expectation in expectations {
+        let path = expectation.track_path.as_str();
+        let field = expectation.field.as_str();
+        if expectation.tag_kind == "extra" {
+            let tags = extra_tags
+                .entry(path.to_string())
+                .or_insert_with(|| try_read_extra_tags(Path::new(path)));
+            let actual = match tags {
+                Ok(tags) => tags
+                    .iter()
+                    .find(|tag| tag.key.trim().eq_ignore_ascii_case(field))
+                    .map(|tag| Value::String(tag.value.clone()))
+                    .unwrap_or(Value::Null),
+                Err(error) => {
+                    failures.push(serde_json::json!({
+                        "trackPath": path, "field": field, "error": error.to_string()
+                    }));
+                    continue;
+                }
+            };
+            let expected = expectation.expected_value.clone();
+            if actual == expected {
+                verified += 1;
+            } else {
+                failures.push(serde_json::json!({
+                    "trackPath": path, "field": field, "expected": expected,
+                    "actual": actual, "error": "Extra-tag readback did not match"
+                }));
+            }
+            continue;
+        }
+        if expectation.operation == "remove"
+            && matches!(field, "artists" | "albumArtists")
+        {
+            match crate::commands::tracks::read_plural_tag_values(Path::new(path), field) {
+                Ok(values) if values.is_empty() => verified += 1,
+                Ok(values) => failures.push(serde_json::json!({
+                    "trackPath": path, "field": field, "expected": Value::Null,
+                    "actual": values, "error": "Plural metadata tag removal was not persisted"
+                })),
+                Err(error) => failures.push(serde_json::json!({
+                    "trackPath": path, "field": field, "error": error.to_string()
+                })),
+            }
+            continue;
+        }
+        let track = standard_tracks
+            .entry(path.to_string())
+            .or_insert_with(|| read_track_metadata(Path::new(path)));
+        match track {
+            Ok(track) => {
+                let actual = track_data_field_value(track, field);
+                let expected = expectation.expected_value.clone();
+                if actual == expected {
+                    verified += 1;
+                } else {
+                    failures.push(serde_json::json!({
+                        "trackPath": path, "field": field, "expected": expected,
+                        "actual": actual, "error": "Metadata readback did not match"
+                    }));
+                }
+            }
+            Err(error) => failures.push(serde_json::json!({
+                "trackPath": path, "field": field, "error": error.to_string()
+            })),
+        }
+    }
+    if batch
+        .completion_contract
+        .as_ref()
+        .is_some_and(|contract| {
+            contract.postcondition == AssistantCompletionPostcondition::SplitArtistsNormalized
+        })
+    {
+        let contract = batch.completion_contract.as_ref().unwrap();
+        for path in &contract.scope_paths {
+            match read_track_metadata(Path::new(path)) {
+                Ok(track)
+                    if track.artists.len() == 1
+                        && crate::commands::assistant_metadata_tools::op_split_artists(
+                            &track.artists[0],
+                        )
+                        .is_some() =>
+                {
+                    failures.push(serde_json::json!({
+                        "trackPath": path, "field": "artists",
+                        "actual": track.artists,
+                        "error": "Malformed plural Artists value remains after apply"
+                    }));
+                }
+                Ok(_) => {}
+                Err(error) => failures.push(serde_json::json!({
+                    "trackPath": path, "field": "artists", "error": error.to_string()
+                })),
+            }
+        }
+    }
+    verification_summary(
+        if failures.is_empty() {
+            "verified"
+        } else {
+            "failed"
+        },
+        "readback",
+        batch,
+        verified,
+        failures,
+    )
+}
+
+fn finish_metadata_apply(
+    runtime: &AssistantRuntimeState,
+    batch: &AssistantActionBatch,
+    batch_id: &str,
+    mut result: Value,
+) -> Value {
+    if result["success"] == false {
+        let error = result
+            .get("error")
+            .and_then(Value::as_str)
+            .unwrap_or("Metadata write failed")
+            .to_string();
+        runtime.mark_batch_failed(batch_id, &error);
+        let mut failures = Vec::new();
+        match result.get("results") {
+            Some(Value::Array(results)) => failures.extend(results.iter().cloned()),
+            Some(Value::Object(groups)) => {
+                for results in groups.values().filter_map(Value::as_array) {
+                    failures.extend(results.iter().cloned());
+                }
+            }
+            _ => failures.push(serde_json::json!({ "error": error })),
+        }
+        result["verification"] =
+            verification_summary("failed", "write", batch, 0, failures);
+        return result;
+    }
+    let verification = verify_metadata_batch_readback(batch);
+    if verification["status"] == "verified" {
+        runtime.mark_batch_applied(batch_id);
+    } else {
+        let error = "Metadata readback verification failed";
+        runtime.mark_batch_failed(batch_id, error);
+        result["success"] = Value::Bool(false);
+        result["error"] = Value::String(error.to_string());
+    }
+    result["verification"] = verification;
+    result
+}
+
 async fn apply_standard_actions(
     runtime: &AssistantRuntimeState,
-    queue: &WriteQueue,
     batch: &AssistantActionBatch,
     batch_id: &str,
     metadata_only: bool,
@@ -3466,18 +3971,26 @@ async fn apply_standard_actions(
                 undo.push(serde_json::json!({ "path": path, "metadata": undo_metadata(&track) }))
             }
             Err(error) => {
-                tracing::warn!(
-                    "apply_standard_actions: could not read undo snapshot for {}: {}",
-                    path,
-                    error
-                );
-                undo.push(serde_json::json!({ "path": path, "metadata": null, "error": error.to_string() }));
+                let message = format!("Could not capture undo snapshot for {path}: {error}");
+                if mark_status {
+                    runtime.mark_batch_failed(batch_id, &message);
+                }
+                return serde_json::json!({
+                    "success": false,
+                    "error": message,
+                    "results": [{
+                        "trackPath": path,
+                        "success": false,
+                        "error": error.to_string()
+                    }],
+                    "undoSnapshots": undo
+                });
             }
         }
     }
     let mut results = Vec::new();
     for (path, patch) in updates {
-        match write_track_queued(queue, PathBuf::from(&path), patch).await {
+        match write_track_with_exclusive_queue_held(PathBuf::from(&path), patch).await {
             Ok(()) => match read_track_metadata(Path::new(&path)) {
                 Ok(track) => results.push(serde_json::json!({ "trackPath": path, "success": true, "updatedTrack": track })),
                 Err(error) => results.push(serde_json::json!({ "trackPath": path, "success": false, "error": error.to_string() })),
@@ -3530,7 +4043,6 @@ fn undo_metadata(track: &crate::commands::tracks::TrackData) -> Value {
 
 async fn apply_extra_actions(
     runtime: &AssistantRuntimeState,
-    queue: &WriteQueue,
     batch: &AssistantActionBatch,
     batch_id: &str,
     mark_status: bool,
@@ -3554,11 +4066,29 @@ async fn apply_extra_actions(
             }
         }
     }
-    let mut undo = Vec::new();
-    let mut results = Vec::new();
+    let mut prepared = Vec::new();
     for path in paths {
-        let current = read_extra_tags(Path::new(&path));
-        undo.push(serde_json::json!({ "path": path, "extraTags": current }));
+        let current = match try_read_extra_tags(Path::new(&path)) {
+            Ok(tags) => tags,
+            Err(error) => {
+                let message = format!("Could not capture extra-tag undo snapshot for {path}: {error}");
+                if mark_status {
+                    runtime.mark_batch_failed(batch_id, &message);
+                }
+                return serde_json::json!({
+                    "success": false,
+                    "error": message,
+                    "results": [{
+                        "trackPath": path,
+                        "success": false,
+                        "error": error.to_string()
+                    }],
+                    "extraUndoSnapshots": prepared.iter().map(|(prepared_path, tags, _)| {
+                        serde_json::json!({ "path": prepared_path, "extraTags": tags })
+                    }).collect::<Vec<_>>()
+                });
+            }
+        };
         let mut final_tags = current
             .iter()
             .map(|tag| ExtraTagUpdate {
@@ -3585,8 +4115,16 @@ async fn apply_extra_actions(
                 }
             }
         }
+        prepared.push((path, current, final_tags));
+    }
+    let undo = prepared
+        .iter()
+        .map(|(path, current, _)| serde_json::json!({ "path": path, "extraTags": current }))
+        .collect::<Vec<_>>();
+    let mut results = Vec::new();
+    for (path, _, final_tags) in prepared {
         tracing::debug!(path = %path, tag_count = final_tags.len(), "writing extra tags");
-        match write_extra_tags_queued(queue, PathBuf::from(&path), final_tags).await {
+        match write_extra_tags_with_exclusive_queue_held(PathBuf::from(&path), final_tags).await {
             Ok(()) => results.push(serde_json::json!({ "trackPath": path, "success": true })),
             Err(error) => results.push(serde_json::json!({ "trackPath": path, "success": false, "error": error.to_string() })),
         }
@@ -3695,6 +4233,101 @@ async fn apply_remove_embedded_cover(
     }
 }
 
+async fn apply_metadata_action_batch(
+    runtime: &AssistantRuntimeState,
+    batch: &AssistantActionBatch,
+    batch_id: &str,
+) -> Value {
+    if let Some(verification) = preflight_metadata_contract(batch) {
+        let error = "Metadata preview is stale or incomplete";
+        runtime.mark_batch_failed(batch_id, error);
+        return serde_json::json!({
+            "success": false,
+            "error": error,
+            "verification": verification
+        });
+    }
+    let mut undo_failures = Vec::new();
+    let mut standard_paths = HashSet::new();
+    let mut extra_paths = HashSet::new();
+    for action in &batch.actions {
+        let Some(path) = action.track_path.as_deref() else {
+            continue;
+        };
+        if action.tag_kind.as_deref().unwrap_or("standard") == "extra" {
+            extra_paths.insert(path);
+        } else {
+            standard_paths.insert(path);
+        }
+    }
+    for path in standard_paths {
+        if let Err(error) = read_track_metadata(Path::new(path)) {
+            undo_failures.push(serde_json::json!({
+                "trackPath": path,
+                "error": format!("Could not capture undo snapshot: {error}")
+            }));
+        }
+    }
+    for path in extra_paths {
+        if let Err(error) = try_read_extra_tags(Path::new(path)) {
+            undo_failures.push(serde_json::json!({
+                "trackPath": path,
+                "error": format!("Could not capture extra-tag undo snapshot: {error}")
+            }));
+        }
+    }
+    if !undo_failures.is_empty() {
+        let error = "Could not capture complete undo evidence";
+        runtime.mark_batch_failed(batch_id, error);
+        return serde_json::json!({
+            "success": false,
+            "error": error,
+            "results": undo_failures.clone(),
+            "verification": verification_summary("failed", "write", batch, 0, undo_failures)
+        });
+    }
+    match batch.kind.as_str() {
+        "tag-update" => {
+            let result = apply_standard_actions(runtime, batch, batch_id, false, false).await;
+            finish_metadata_apply(runtime, batch, batch_id, result)
+        }
+        "extra-tag-update" => {
+            let result = apply_extra_actions(runtime, batch, batch_id, false).await;
+            finish_metadata_apply(runtime, batch, batch_id, result)
+        }
+        "metadata-update" => {
+            let standard = apply_standard_actions(runtime, batch, batch_id, true, false).await;
+            let extra = apply_extra_actions(runtime, batch, batch_id, false).await;
+            let standard_failed = standard["success"] == false;
+            let extra_failed = extra["success"] == false;
+            if standard_failed || extra_failed {
+                let failed_standard = if standard_failed {
+                    standard["results"].clone()
+                } else {
+                    serde_json::json!([])
+                };
+                let failed_extra = if extra_failed {
+                    extra["results"].clone()
+                } else {
+                    serde_json::json!([])
+                };
+                let failed = failed_standard.as_array().map_or(0, Vec::len)
+                    + failed_extra.as_array().map_or(0, Vec::len);
+                let error = format!("Failed to update {failed} track(s)");
+                let result = serde_json::json!({ "success": false, "error": error, "results": { "standard": failed_standard, "extra": failed_extra }, "undoSnapshots": standard["undoSnapshots"], "extraUndoSnapshots": extra["extraUndoSnapshots"] });
+                finish_metadata_apply(runtime, batch, batch_id, result)
+            } else {
+                let result = serde_json::json!({ "success": true, "results": { "standard": standard["results"], "extra": extra["results"] }, "undoSnapshots": standard["undoSnapshots"], "extraUndoSnapshots": extra["extraUndoSnapshots"] });
+                finish_metadata_apply(runtime, batch, batch_id, result)
+            }
+        }
+        _ => serde_json::json!({
+            "success": false,
+            "error": format!("Unsupported metadata batch kind: {}", batch.kind)
+        }),
+    }
+}
+
 fn merge_assistant_patch(target: &mut TrackPatch, incoming: TrackPatch) {
     macro_rules! merge {
         ($field:ident) => {
@@ -3748,36 +4381,15 @@ async fn apply_action_batch(
         action_count = batch.actions.len(),
         "applying action batch"
     );
+    if matches!(
+        batch.kind.as_str(),
+        "tag-update" | "extra-tag-update" | "metadata-update"
+    ) {
+        return queue
+            .run_exclusive(apply_metadata_action_batch(runtime, &batch, batch_id))
+            .await;
+    }
     match batch.kind.as_str() {
-        "tag-update" => apply_standard_actions(runtime, queue, &batch, batch_id, false, true).await,
-        "extra-tag-update" => apply_extra_actions(runtime, queue, &batch, batch_id, true).await,
-        "metadata-update" => {
-            let standard =
-                apply_standard_actions(runtime, queue, &batch, batch_id, true, false).await;
-            let extra = apply_extra_actions(runtime, queue, &batch, batch_id, false).await;
-            let standard_failed = standard["success"] == false;
-            let extra_failed = extra["success"] == false;
-            if standard_failed || extra_failed {
-                let failed_standard = if standard_failed {
-                    standard["results"].clone()
-                } else {
-                    serde_json::json!([])
-                };
-                let failed_extra = if extra_failed {
-                    extra["results"].clone()
-                } else {
-                    serde_json::json!([])
-                };
-                let failed = failed_standard.as_array().map_or(0, Vec::len)
-                    + failed_extra.as_array().map_or(0, Vec::len);
-                let error = format!("Failed to update {failed} track(s)");
-                runtime.mark_batch_failed(batch_id, &error);
-                serde_json::json!({ "success": false, "error": error, "results": { "standard": failed_standard, "extra": failed_extra }, "undoSnapshots": standard["undoSnapshots"], "extraUndoSnapshots": extra["extraUndoSnapshots"] })
-            } else {
-                runtime.mark_batch_applied(batch_id);
-                serde_json::json!({ "success": true, "results": { "standard": standard["results"], "extra": extra["results"] }, "undoSnapshots": standard["undoSnapshots"], "extraUndoSnapshots": extra["extraUndoSnapshots"] })
-            }
-        }
         "folder-move" => apply_folder_moves(runtime, queue, &batch, batch_id).await,
         "embedded-cover-remove" => {
             apply_remove_embedded_cover(runtime, queue, &batch, batch_id).await
@@ -3810,19 +4422,54 @@ pub async fn assistant_apply_actions(
     runtime: State<'_, AssistantRuntimeState>,
     conversation: State<'_, ConversationState>,
     queue: State<'_, WriteQueue>,
+    task_state: State<'_, crate::state::assistant_task::AssistantTaskState>,
 ) -> Result<Value, ApiError> {
-    let result = apply_action_batch(&runtime, &queue, &action_batch_id).await;
+    let mut result = apply_action_batch(&runtime, &queue, &action_batch_id).await;
+    let Some(batch) = runtime.get_batch(&action_batch_id) else {
+        return Ok(result);
+    };
+    if matches!(batch.status.as_str(), "applied" | "failed") {
+        let evidence = result
+            .get("verification")
+            .cloned()
+            .unwrap_or_else(|| result.clone());
+        if let Err(error) = task_state.finalize_batch(&action_batch_id, &batch.status, &evidence) {
+            runtime.mark_batch_failed(&action_batch_id, &error);
+            let verified = evidence
+                .get("verifiedActionCount")
+                .and_then(Value::as_u64)
+                .and_then(|count| usize::try_from(count).ok())
+                .unwrap_or_default();
+            result["success"] = Value::Bool(false);
+            result["error"] = Value::String(error.clone());
+            result["verification"] = verification_summary(
+                "failed",
+                "persistence",
+                &batch,
+                verified,
+                vec![serde_json::json!({ "error": error })],
+            );
+        }
+    }
     let Some(batch) = runtime.get_batch(&action_batch_id) else {
         return Ok(result);
     };
     let Some(current) = conversation.current() else {
         return Ok(result);
     };
+    let verification_required = matches!(
+        batch.kind.as_str(),
+        "tag-update" | "extra-tag-update" | "metadata-update"
+    );
     let (event_type, message, data) = match batch.status.as_str() {
         "applied" => (
             "action_batch_applied",
             format!("Applied: {}", batch.title),
-            serde_json::json!({ "batchId": action_batch_id }),
+            serde_json::json!({
+                "batchId": action_batch_id,
+                "verificationRequired": verification_required,
+                "verification": result.get("verification")
+            }),
         ),
         "failed" => {
             let error = runtime.batch_error(&action_batch_id).unwrap_or_default();
@@ -3847,7 +4494,13 @@ pub async fn assistant_apply_actions(
             (
                 "action_batch_failed",
                 format!("Failed: {}: {error}", batch.title),
-                serde_json::json!({ "batchId": action_batch_id, "error": error, "results": result.get("results") }),
+                serde_json::json!({
+                    "batchId": action_batch_id,
+                    "error": error,
+                    "results": result.get("results"),
+                    "verificationRequired": verification_required,
+                    "verification": result.get("verification")
+                }),
             )
         }
         _ => return Ok(result),
@@ -3899,16 +4552,28 @@ pub fn assistant_complete_task_actions(
     error: Option<String>,
     runtime: State<'_, AssistantRuntimeState>,
     conversation: State<'_, ConversationState>,
+    task_state: State<'_, crate::state::assistant_task::AssistantTaskState>,
 ) -> Result<Value, ApiError> {
-    let batch = complete_delegated_task_batch(&runtime, &action_batch_id, error.as_deref())
+    let mut batch = complete_delegated_task_batch(&runtime, &action_batch_id, error.as_deref())
         .map_err(ApiError::Message)?;
-    let succeeded = error.is_none();
+    let evidence = serde_json::json!({
+        "status": if error.is_none() { "applied" } else { "failed" },
+        "error": error.as_deref()
+    });
+    let mut persistence_error = None;
+    if let Err(message) = task_state.finalize_batch(&action_batch_id, &batch.status, &evidence) {
+        runtime.mark_batch_failed(&action_batch_id, &message);
+        batch.status = "failed".into();
+        persistence_error = Some(message);
+    }
+    let succeeded = error.is_none() && persistence_error.is_none();
+    let terminal_error = error.as_deref().or(persistence_error.as_deref());
     let event_type = if succeeded {
         "action_batch_applied"
     } else {
         "action_batch_failed"
     };
-    let message = if let Some(error) = error.as_deref() {
+    let message = if let Some(error) = terminal_error {
         format!("Failed: {}: {error}", batch.title)
     } else {
         format!("Applied: {}", batch.title)
@@ -3923,7 +4588,8 @@ pub fn assistant_complete_task_actions(
                 message: message.clone(),
                 data: Some(serde_json::json!({
                     "batchId": action_batch_id,
-                    "error": error
+                    "error": terminal_error,
+                    "verificationRequired": false
                 })),
             },
         );
@@ -3931,14 +4597,14 @@ pub fn assistant_complete_task_actions(
     Ok(serde_json::json!({
         "success": succeeded,
         "batchId": action_batch_id,
-        "error": error
+        "error": terminal_error
     }))
 }
 
 #[cfg(test)]
 mod apply_contract_tests {
     use super::*;
-    use crate::commands::mutations::{write_track_dispatch, Patch, TrackPatch};
+    use crate::commands::mutations::{write_track_dispatch, Patch, StringList, TrackPatch};
     use crate::commands::tracks::read_track_metadata;
     use crate::state::assistant::AssistantAction;
     use crate::state::write_queue::WriteQueue;
@@ -4396,6 +5062,7 @@ mod apply_contract_tests {
             risk_level: "low".into(),
             reversible: true,
             status: "pending".into(),
+            completion_contract: None,
             actions: vec![AssistantAction {
                 tag_kind: None,
                 track_path: Some(path.to_string_lossy().into_owned()),
@@ -4414,6 +5081,323 @@ mod apply_contract_tests {
             Some("After")
         );
         assert_eq!(runtime.get_batch("batch-1").unwrap().status, "applied");
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn split_artists_contract_applies_and_verifies_copied_flac_readback() {
+        let root = temp_dir();
+        let malformed = root.join("45.flac");
+        let correct = root.join("46.flac");
+        fs::copy(flac_fixture(), &malformed).unwrap();
+        fs::copy(flac_fixture(), &correct).unwrap();
+        write_track_dispatch(
+            &malformed,
+            &TrackPatch {
+                artist: Patch::Value("黎明 & 谭咏麟".into()),
+                artists: Patch::Value(StringList::Many(vec!["黎明&谭咏麟".into()])),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        write_track_dispatch(
+            &correct,
+            &TrackPatch {
+                artist: Patch::Value("谭咏麟 & 김완선".into()),
+                artists: Patch::Value(StringList::Many(vec![
+                    "谭咏麟".into(),
+                    "김완선".into(),
+                ])),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        let input = AssistantSendInput {
+            selected_track_paths: vec![
+                malformed.to_string_lossy().into_owned(),
+                correct.to_string_lossy().into_owned(),
+            ],
+            tracks: vec![
+                serde_json::to_value(read_track_metadata(&malformed).unwrap()).unwrap(),
+                serde_json::to_value(read_track_metadata(&correct).unwrap()).unwrap(),
+            ],
+            ..Default::default()
+        };
+        let execution =
+            crate::commands::assistant_metadata_tools::execute_metadata_transform(
+                &serde_json::json!({
+                    "target_scope": "selected",
+                    "source": {"kind": "tag", "field": "artists"},
+                    "operations": [{"op": "split_artists"}]
+                }),
+                &input,
+                "verified-session",
+            );
+        let batch = execution.batches.first().expect("preview batch").clone();
+        let batch_id = batch.id.clone();
+        let runtime = AssistantRuntimeState::default();
+        assert!(runtime.initialize());
+        assert!(runtime.add_batch(batch));
+
+        let result = apply_action_batch(&runtime, &WriteQueue::default(), &batch_id).await;
+
+        assert_eq!(result["success"], true, "{result}");
+        assert_eq!(result["verification"]["status"], "verified");
+        assert_eq!(result["verification"]["scopeCount"], 2);
+        assert_eq!(result["verification"]["expectedActionCount"], 1);
+        assert_eq!(result["verification"]["verifiedActionCount"], 1);
+        let updated = read_track_metadata(&malformed).unwrap();
+        assert_eq!(updated.artist.as_deref(), Some("黎明 & 谭咏麟"));
+        assert_eq!(updated.artists, vec!["黎明", "谭咏麟"]);
+        assert_eq!(runtime.get_batch(&batch_id).unwrap().status, "applied");
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn split_artists_contract_rejects_stale_preview_before_writing() {
+        let root = temp_dir();
+        let path = root.join("stale.flac");
+        fs::copy(flac_fixture(), &path).unwrap();
+        write_track_dispatch(
+            &path,
+            &TrackPatch {
+                artist: Patch::Value("黎明 & 谭咏麟".into()),
+                artists: Patch::Value(StringList::Many(vec!["黎明&谭咏麟".into()])),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        let input = AssistantSendInput {
+            selected_track_paths: vec![path.to_string_lossy().into_owned()],
+            tracks: vec![serde_json::to_value(read_track_metadata(&path).unwrap()).unwrap()],
+            ..Default::default()
+        };
+        let execution =
+            crate::commands::assistant_metadata_tools::execute_metadata_transform(
+                &serde_json::json!({
+                    "target_scope": "selected",
+                    "source": {"kind": "tag", "field": "artists"},
+                    "operations": [{"op": "split_artists"}]
+                }),
+                &input,
+                "stale-session",
+            );
+        let batch = execution.batches.first().expect("preview batch").clone();
+        let batch_id = batch.id.clone();
+        write_track_dispatch(
+            &path,
+            &TrackPatch {
+                artist: Patch::Value("Externally changed".into()),
+                artists: Patch::Value(StringList::Many(vec!["Externally changed".into()])),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        let runtime = AssistantRuntimeState::default();
+        assert!(runtime.initialize());
+        assert!(runtime.add_batch(batch));
+
+        let result = apply_action_batch(&runtime, &WriteQueue::default(), &batch_id).await;
+
+        assert_eq!(result["success"], false, "{result}");
+        assert_eq!(result["verification"]["status"], "failed");
+        assert_eq!(result["verification"]["phase"], "preflight", "{result}");
+        assert_eq!(
+            read_track_metadata(&path).unwrap().artists,
+            vec!["Externally changed"]
+        );
+        assert_eq!(runtime.get_batch(&batch_id).unwrap().status, "failed");
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn extra_tag_removal_is_planned_applied_and_verified_from_disk() {
+        let root = temp_dir();
+        let path = root.join("extra-remove.flac");
+        fs::copy(flac_fixture(), &path).unwrap();
+        let queue = WriteQueue::default();
+        crate::commands::mutations::write_extra_tags_queued(
+            &queue,
+            path.clone(),
+            vec![ExtraTagUpdate {
+                key: "MOOD".into(),
+                value: "Calm".into(),
+            }],
+        )
+        .await
+        .unwrap();
+        let input = AssistantSendInput {
+            selected_track_paths: vec![path.to_string_lossy().into_owned()],
+            tracks: vec![serde_json::to_value(read_track_metadata(&path).unwrap()).unwrap()],
+            ..Default::default()
+        };
+        let execution = crate::commands::assistant_metadata_tools::execute_metadata_patch(
+            &serde_json::json!({
+                "target_scope": "selected",
+                "changes": [{
+                    "tag_kind": "extra",
+                    "field": "MOOD",
+                    "action": "remove"
+                }]
+            }),
+            &input,
+            "extra-remove-session",
+        );
+        let batch = execution.batches.first().expect("extra removal preview").clone();
+        assert_eq!(batch.actions[0].tag_kind.as_deref(), Some("extra"));
+        let batch_id = batch.id.clone();
+        let runtime = AssistantRuntimeState::default();
+        assert!(runtime.initialize());
+        assert!(runtime.add_batch(batch));
+
+        let result = apply_action_batch(&runtime, &queue, &batch_id).await;
+
+        assert_eq!(result["success"], true, "{result}");
+        assert_eq!(result["verification"]["status"], "verified");
+        assert!(!try_read_extra_tags(&path)
+            .unwrap()
+            .iter()
+            .any(|tag| tag.key.eq_ignore_ascii_case("MOOD")));
+        assert_eq!(
+            result["extraUndoSnapshots"].as_array().map(Vec::len),
+            Some(1)
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn plural_artist_removal_verifies_physical_absence_and_preserves_singular_artist() {
+        let root = temp_dir();
+        let path = root.join("plural-remove.flac");
+        fs::copy(flac_fixture(), &path).unwrap();
+        write_track_dispatch(
+            &path,
+            &TrackPatch {
+                artist: Patch::Value("Display Artist".into()),
+                artists: Patch::Value(StringList::Many(vec![
+                    "Artist A".into(),
+                    "Artist B".into(),
+                ])),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        let input = AssistantSendInput {
+            selected_track_paths: vec![path.to_string_lossy().into_owned()],
+            tracks: vec![serde_json::to_value(read_track_metadata(&path).unwrap()).unwrap()],
+            ..Default::default()
+        };
+        let execution = crate::commands::assistant_metadata_tools::execute_metadata_patch(
+            &serde_json::json!({
+                "target_scope": "selected",
+                "changes": [{"field": "artists", "action": "remove"}]
+            }),
+            &input,
+            "plural-remove-session",
+        );
+        let batch = execution.batches.first().expect("plural removal preview").clone();
+        let batch_id = batch.id.clone();
+        let runtime = AssistantRuntimeState::default();
+        assert!(runtime.initialize());
+        assert!(runtime.add_batch(batch));
+
+        let result = apply_action_batch(&runtime, &WriteQueue::default(), &batch_id).await;
+
+        assert_eq!(result["success"], true, "{result}");
+        assert_eq!(result["verification"]["status"], "verified");
+        let updated = read_track_metadata(&path).unwrap();
+        assert_eq!(updated.artist.as_deref(), Some("Display Artist"));
+        assert!(crate::commands::tracks::read_plural_tag_values(&path, "artists")
+            .unwrap()
+            .is_empty());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn semantic_readback_mismatch_fails_and_retains_undo_evidence() {
+        let root = temp_dir();
+        let path = root.join("mismatch.mp3");
+        fs::copy(media_fixture(), &path).unwrap();
+        let runtime = AssistantRuntimeState::default();
+        assert!(runtime.initialize());
+        assert!(runtime.add_batch(AssistantActionBatch {
+            id: "batch-readback-mismatch".into(),
+            created_at: "now".into(),
+            session_id: "session".into(),
+            kind: "tag-update".into(),
+            title: "Mismatch".into(),
+            summary: "one".into(),
+            risk_level: "low".into(),
+            reversible: true,
+            status: "pending".into(),
+            completion_contract: None,
+            actions: vec![AssistantAction {
+                track_path: Some(path.to_string_lossy().into_owned()),
+                field: Some("unsupportedTestField".into()),
+                new_value: Some("Expected".into()),
+                ..Default::default()
+            }],
+        }));
+
+        let result = apply_action_batch(
+            &runtime,
+            &WriteQueue::default(),
+            "batch-readback-mismatch",
+        )
+        .await;
+
+        assert_eq!(result["success"], false);
+        assert_eq!(result["verification"]["phase"], "readback");
+        assert_eq!(result["verification"]["verifiedActionCount"], 0);
+        assert_eq!(
+            result["undoSnapshots"].as_array().map(Vec::len),
+            Some(1)
+        );
+        assert_eq!(
+            runtime
+                .get_batch("batch-readback-mismatch")
+                .unwrap()
+                .status,
+            "failed"
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn missing_undo_snapshot_aborts_before_any_metadata_write() {
+        let root = temp_dir();
+        let missing = root.join("missing.flac");
+        let runtime = AssistantRuntimeState::default();
+        assert!(runtime.initialize());
+        assert!(runtime.add_batch(AssistantActionBatch {
+            id: "batch-missing-undo".into(),
+            created_at: "now".into(),
+            session_id: "session".into(),
+            kind: "tag-update".into(),
+            title: "Missing undo".into(),
+            summary: "one".into(),
+            risk_level: "low".into(),
+            reversible: true,
+            status: "pending".into(),
+            completion_contract: None,
+            actions: vec![AssistantAction {
+                track_path: Some(missing.to_string_lossy().into_owned()),
+                field: Some("genre".into()),
+                new_value: Some("Pop".into()),
+                ..Default::default()
+            }],
+        }));
+
+        let result =
+            apply_action_batch(&runtime, &WriteQueue::default(), "batch-missing-undo").await;
+
+        assert_eq!(result["success"], false);
+        assert_eq!(result["verification"]["phase"], "write");
+        assert!(!missing.exists());
+        assert_eq!(
+            runtime.get_batch("batch-missing-undo").unwrap().status,
+            "failed"
+        );
         fs::remove_dir_all(root).unwrap();
     }
 
@@ -4469,6 +5453,38 @@ mod apply_contract_tests {
         );
     }
 
+    #[test]
+    fn rejection_does_not_change_runtime_when_terminal_persistence_fails() {
+        let runtime = AssistantRuntimeState::default();
+        assert!(runtime.initialize());
+        let batch = assistant_batch(
+            "session",
+            "metadata-update",
+            "Reject safely",
+            "one",
+            "low",
+            vec![AssistantAction {
+                track_path: Some("/music/a.flac".into()),
+                field: Some("genre".into()),
+                new_value: Some("Pop".into()),
+                ..Default::default()
+            }],
+            true,
+        );
+        let batch_id = batch.id.clone();
+        assert!(runtime.add_batch(batch));
+        let root = temp_dir();
+        let task_state =
+            crate::state::assistant_task::AssistantTaskState::new(root.join("ledger.db"));
+
+        let error = reject_action_batch(&runtime, &task_state, &batch_id)
+            .expect_err("uninitialized persistence must fail");
+
+        assert!(error.to_string().contains("not initialized"));
+        assert_eq!(runtime.get_batch(&batch_id).unwrap().status, "pending");
+        fs::remove_dir_all(root).unwrap();
+    }
+
     #[tokio::test]
     async fn approved_metadata_batch_applies_standard_and_extra_with_both_undo_shapes() {
         let root = temp_dir();
@@ -4505,6 +5521,7 @@ mod apply_contract_tests {
             risk_level: "low".into(),
             reversible: true,
             status: "pending".into(),
+            completion_contract: None,
             actions: vec![
                 AssistantAction {
                     tag_kind: Some("standard".into()),
@@ -4560,6 +5577,7 @@ mod apply_contract_tests {
             risk_level: "medium".into(),
             reversible: true,
             status: "pending".into(),
+            completion_contract: None,
             actions: vec![AssistantAction {
                 source_path: Some(source.to_string_lossy().into_owned()),
                 destination_path: Some(destination.to_string_lossy().into_owned()),
@@ -4580,12 +5598,10 @@ mod apply_contract_tests {
     }
 
     #[tokio::test]
-    async fn mixed_batch_reports_only_failed_side_and_retains_partial_undo() {
+    async fn mixed_batch_readback_failure_retains_both_undo_shapes() {
         let root = temp_dir();
         let good = root.join("good.mp3");
-        let unsupported = root.join("bad.aiff");
         fs::copy(media_fixture(), &good).unwrap();
-        fs::write(&unsupported, b"FORM").unwrap();
         let runtime = AssistantRuntimeState::default();
         assert!(runtime.initialize());
         assert!(runtime.add_batch(AssistantActionBatch {
@@ -4598,6 +5614,7 @@ mod apply_contract_tests {
             risk_level: "medium".into(),
             reversible: true,
             status: "pending".into(),
+            completion_contract: None,
             actions: vec![
                 AssistantAction {
                     tag_kind: Some("standard".into()),
@@ -4608,8 +5625,8 @@ mod apply_contract_tests {
                 },
                 AssistantAction {
                     tag_kind: Some("extra".into()),
-                    track_path: Some(unsupported.to_string_lossy().into_owned()),
-                    field: Some("MOOD".into()),
+                    track_path: Some(good.to_string_lossy().into_owned()),
+                    field: Some(String::new()),
                     new_value: Some("Calm".into()),
                     ..Default::default()
                 },
@@ -4619,9 +5636,20 @@ mod apply_contract_tests {
         let result = apply_action_batch(&runtime, &WriteQueue::default(), "batch-partial").await;
 
         assert_eq!(result["success"], false);
-        assert_eq!(result["error"], "Failed to update 1 track(s)");
-        assert_eq!(result["results"]["standard"], serde_json::json!([]));
-        assert_eq!(result["results"]["extra"].as_array().map(Vec::len), Some(1));
+        assert_eq!(result["error"], "Metadata readback verification failed");
+        assert_eq!(result["verification"]["status"], "failed");
+        assert_eq!(result["verification"]["phase"], "readback");
+        assert_eq!(result["verification"]["verifiedActionCount"], 1);
+        assert_eq!(
+            result["undoSnapshots"].as_array().map(Vec::len),
+            Some(1),
+            "partial writes retain standard undo evidence"
+        );
+        assert_eq!(
+            result["extraUndoSnapshots"].as_array().map(Vec::len),
+            Some(1),
+            "failed extra writes retain their pre-write snapshot"
+        );
         assert_eq!(
             read_track_metadata(&good).unwrap().title.as_deref(),
             Some("Updated")
@@ -4633,6 +5661,11 @@ mod apply_contract_tests {
     fn media_fixture() -> PathBuf {
         PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("../test/fixtures/tauri/media-corpus/minimal.mp3")
+    }
+
+    fn flac_fixture() -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../test/fixtures/tauri/media-corpus/minimal.flac")
     }
 
     fn temp_dir() -> PathBuf {
@@ -4739,6 +5772,7 @@ mod apply_contract_tests {
             risk_level: "low".into(),
             reversible: true,
             status: "pending".into(),
+            completion_contract: None,
             actions,
         }));
 
@@ -5001,17 +6035,17 @@ mod assistant_behaviour_tests {
     }
 
     #[test]
-    fn tool_scope_paths_explicit_paths_filters_to_loaded() {
+    fn tool_scope_paths_explicit_paths_rejects_missing_metadata() {
         let input = AssistantSendInput {
             tracks: vec![json!({"path": "/a.mp3"}), json!({"path": "/b.mp3"})],
             ..Default::default()
         };
-        let paths = tool_scope_paths(
+        let error = tool_scope_paths(
             &input,
             &json!({"target_scope": "explicit_paths", "paths": ["/a.mp3", "/missing.mp3"]}),
         )
-        .unwrap();
-        assert_eq!(paths, vec!["/a.mp3"]);
+        .expect_err("explicit scope must never silently omit a requested path");
+        assert!(error.contains("/missing.mp3"), "{error}");
     }
 
     #[test]
@@ -5326,6 +6360,27 @@ mod assistant_behaviour_tests {
     }
 
     #[test]
+    fn response_infers_action_kind_for_tool_call_when_provider_omits_it() {
+        let normalized = normalize_assistant_response_value(json!({
+            "toolCall": {
+                "toolName": "tracks.inspect",
+                "args": {"paths": ["/music/collaboration.flac"]}
+            }
+        }))
+        .unwrap();
+
+        assert_eq!(normalized["message"], "");
+        assert_eq!(normalized["responseKind"], "action");
+        let draft: AssistantDraft = serde_json::from_value(normalized).unwrap();
+        assert_eq!(draft.response_kind, AssistantResponseKind::Action);
+        assert_eq!(
+            draft.tool_call.unwrap().tool_name,
+            "tracks.inspect",
+            "the provider's registered tool call must remain executable"
+        );
+    }
+
+    #[test]
     fn response_serializes_parallel_read_only_calls_and_rejects_ambiguous_calls() {
         let parallel = normalize_assistant_response_value(json!({
             "message": "",
@@ -5604,6 +6659,22 @@ mod assistant_behaviour_tests {
 
         assert_eq!(msgs.first().unwrap().role, "system");
         assert!(msgs.first().unwrap().content.contains("Soundrobe"));
+    }
+
+    #[test]
+    fn messages_include_navidrome_tagging_knowledge() {
+        let messages =
+            build_assistant_messages(&json!({}), &json!([]), &[], "fix the Artists tags");
+        let system_prompt = &messages[0].content;
+
+        assert!(system_prompt.contains("Navidrome tagging knowledge"));
+        assert!(system_prompt.contains("ARTIST controls the display credit"));
+        assert!(system_prompt.contains("ARTISTS=A"));
+        assert!(system_prompt.contains("ARTISTS=B"));
+        assert!(system_prompt.contains("Do not change ARTIST"));
+        assert!(system_prompt.contains("field `artists`"));
+        assert!(system_prompt.contains("split_artists"));
+        assert!(system_prompt.contains("https://www.navidrome.org/docs/usage/library/tagging/"));
     }
 
     #[test]
@@ -6232,6 +7303,7 @@ mod assistant_behaviour_tests {
             }],
             reversible: true,
             status: "pending".into(),
+            completion_contract: None,
         };
         let result = resolve_assistant_outcome(
             &AssistantDraft {
@@ -6305,6 +7377,7 @@ mod assistant_behaviour_tests {
                 actions: vec![],
                 reversible: false,
                 status: String::new(),
+                completion_contract: None,
             }],
             "s",
             &test_outcome_input(),
@@ -6346,6 +7419,7 @@ mod assistant_behaviour_tests {
             }],
             reversible: true,
             status: "pending".into(),
+            completion_contract: None,
         };
         let result = resolve_assistant_outcome(
             &AssistantDraft {
@@ -6716,6 +7790,131 @@ mod assistant_ai_tests {
         }
 
         panic!("assistant did not reach metadata.patch within six steps");
+    }
+
+    #[ignore = "requires LLM_API_KEY, LLM_MODEL, and active OpenRouter access"]
+    #[tokio::test]
+    async fn live_navidrome_artists_intent_preserves_display_credit_and_collaborators() {
+        let (key, model) = credentials().expect("set LLM_API_KEY and LLM_MODEL");
+        let malformed_paths = ["/music/alan/duets/45.flac", "/music/alan/duets/46.flac"];
+        let selected_track_paths = (1..=46)
+            .map(|index| format!("/music/alan/duets/{index:02}.flac"))
+            .collect::<Vec<_>>();
+        let tracks = selected_track_paths
+            .iter()
+            .enumerate()
+            .map(|(index, path)| {
+                if index == 44 {
+                    json!({
+                        "path": path,
+                        "title": "星之歌",
+                        "artist": "黎明 & 谭咏麟",
+                        "artists": ["黎明&谭咏麟"],
+                        "album": "Duets"
+                    })
+                } else if index == 45 {
+                    json!({
+                        "path": path,
+                        "title": "爱上风雨中走来的你",
+                        "artist": "谭咏麟 & 김완선",
+                        "artists": ["谭咏麟&김완선"],
+                        "album": "Duets"
+                    })
+                } else {
+                    json!({
+                        "path": path,
+                        "title": format!("Correct collaboration {index}"),
+                        "artist": format!("谭咏麟 & Collaborator {index}"),
+                        "artists": ["谭咏麟", format!("Collaborator {index}")],
+                        "album": "Duets"
+                    })
+                }
+            })
+            .collect();
+        let input = AssistantSendInput {
+            selected_track_paths,
+            tracks,
+            ..Default::default()
+        };
+        let tools = context_tool_catalog();
+        let mut messages = build_assistant_messages(
+            &build_assistant_context(&input),
+            &tools,
+            &[],
+            "fix malformed plural “Artists” tags from the selected tracks by splitting values \
+             joined with &, comma, or semicolon; preserve the singular Artist display credit",
+        );
+
+        for _ in 0..6 {
+            let response = OpenRouterClient::new(&key, &model)
+                .with_generation(0.0, 4096)
+                .with_timeout(std::time::Duration::from_secs(ASSISTANT_LLM_TIMEOUT_SECS))
+                .complete_json(
+                    messages.clone(),
+                    "AssistantResponse",
+                    assistant_response_schema(),
+                    &AtomicBool::new(false),
+                )
+                .await
+                .expect("LLM call should succeed");
+            let data = normalize_assistant_response_value(response.data)
+                .expect("LLM response should use a supported tool-call envelope");
+            assert!(
+                !data["actionBatch"].is_object(),
+                "the model must use native tools instead of authoring a batch: {data}"
+            );
+            let Some(tool_call) = data["toolCall"].as_object() else {
+                messages.push(ChatMessage {
+                    role: "assistant".into(),
+                    content: data["message"].as_str().unwrap_or_default().to_string(),
+                });
+                messages.push(ChatMessage::system(ASSISTANT_SELF_REVIEW_PROMPT));
+                continue;
+            };
+            let name = tool_call["toolName"].as_str().unwrap_or_default();
+            let args = &tool_call["args"];
+            if registered_tool_is_read_only(name) == Some(true) {
+                let result = execute_context_tool(name, args, &input);
+                assert!(result.ok, "read-only inspection failed: {}", result.summary);
+                messages.push(ChatMessage {
+                    role: "assistant".into(),
+                    content: json!({"toolCall": {"toolName": name, "args": args}}).to_string(),
+                });
+                messages.push(ChatMessage::user(tool_result_prompt(&result)));
+                continue;
+            }
+
+            assert_eq!(name, "metadata.transform", "got {name}: {args}");
+            assert_eq!(args["target_scope"], "selected");
+            assert_eq!(args["source"]["field"], "artists");
+            assert_eq!(args["operations"], json!([{"op": "split_artists"}]));
+            let execution = execute_mutating_assistant_tool(name, args, &input, "live-session");
+            assert!(execution.result.ok, "{}", execution.result.summary);
+            let batch = execution.batches.first().expect("preview batch");
+            assert_eq!(
+                batch.actions.len(),
+                2,
+                "every malformed plural Artists value should change: {args}"
+            );
+            assert_eq!(
+                batch
+                    .actions
+                    .iter()
+                    .filter_map(|action| action.track_path.as_deref())
+                    .collect::<Vec<_>>(),
+                malformed_paths
+            );
+            assert!(
+                batch
+                    .actions
+                    .iter()
+                    .all(|candidate| candidate.field.as_deref() == Some("artists")),
+                "singular ARTIST is the display credit and must stay unchanged"
+            );
+            return;
+        }
+
+        panic!("assistant did not reach metadata.transform within six steps");
     }
 
     /// Judge: verify that equivalent prompts produce semantically similar

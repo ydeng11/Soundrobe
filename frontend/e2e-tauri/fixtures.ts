@@ -18,6 +18,8 @@ export interface E2eManifest {
   convertTrack: string;
   numberAlbum: string;
   numberTracks: string[];
+  assistantRepairAlbum: string;
+  assistantRepairTracks: string[];
 }
 
 export interface E2eWorkspace {
@@ -151,6 +153,7 @@ export function prepareE2eWorkspace(): E2eWorkspace {
   const autoTagAlbum = path.join(library, "Offline Artist", "Offline Album");
   const convertAlbum = path.join(library, "Convert Artist", "Convert Album");
   const numberAlbum = path.join(library, "Number Artist", "Number Album");
+  const assistantRepairAlbum = path.join(library, "Assistant Artist", "Assistant Repair");
   for (const directory of [
     home,
     workflowAlbum,
@@ -159,6 +162,7 @@ export function prepareE2eWorkspace(): E2eWorkspace {
     autoTagAlbum,
     convertAlbum,
     numberAlbum,
+    assistantRepairAlbum,
   ]) {
     fs.mkdirSync(directory, { recursive: true });
   }
@@ -241,6 +245,28 @@ export function prepareE2eWorkspace(): E2eWorkspace {
     },
   );
 
+  const assistantRepairTracks = Array.from({ length: 46 }, (_, index) => {
+    const number = index + 1;
+    const collaborator = `Collaborator ${number}`;
+    const filePath = path.join(
+      assistantRepairAlbum,
+      `${String(number).padStart(2, "0")}. Collaboration ${number}.flac`,
+    );
+    const artists =
+      index >= 44
+        ? [`ARTISTS=Artist A & ${collaborator}`]
+        : ["ARTISTS=Artist A", `ARTISTS=${collaborator}`];
+    createFlacWithComments(filePath, [
+      `TITLE=Collaboration ${number}`,
+      `ARTIST=Artist A & ${collaborator}`,
+      ...artists,
+      "ALBUM=Assistant Repair",
+      `TRACKNUMBER=${number}`,
+      "TRACKTOTAL=46",
+    ]);
+    return filePath;
+  });
+
   // Write a cover image so the Remove button appears in the right panel
   createCoverPng(path.join(workflowAlbum, "cover.png"));
 
@@ -259,6 +285,8 @@ export function prepareE2eWorkspace(): E2eWorkspace {
     convertTrack,
     numberAlbum,
     numberTracks,
+    assistantRepairAlbum,
+    assistantRepairTracks,
   };
   const xdgConfig = path.join(home, ".config");
   const xdgCache = path.join(home, ".cache");
