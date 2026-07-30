@@ -8,11 +8,11 @@
 //! All tables coexist with the existing `conversation_log` schema in the same
 //! `cache.db` database. No existing data is modified or migrated.
 
+use rusqlite::{params, Connection, OpenFlags};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::path::PathBuf;
 use std::sync::Mutex;
-use rusqlite::{params, Connection, OpenFlags};
 
 const TASK_SCHEMA: &str = r#"
 CREATE TABLE IF NOT EXISTS assistant_session (
@@ -135,9 +135,7 @@ pub enum ResolvedIntent {
         only_if_missing: bool,
     },
     /// Remove/clear a field across the scope.
-    RemoveField {
-        field: String,
-    },
+    RemoveField { field: String },
     /// Could not determine intent — LLM should decide.
     NotRouted,
 }
@@ -234,8 +232,16 @@ impl AssistantTaskState {
             params![
                 state.session_id,
                 state.intent,
-                state.scope_predicate.as_ref().and_then(|v| v.as_str()).unwrap_or_default(),
-                state.scope_predicate.as_ref().map(Value::to_string).unwrap_or_default(),
+                state
+                    .scope_predicate
+                    .as_ref()
+                    .and_then(|v| v.as_str())
+                    .unwrap_or_default(),
+                state
+                    .scope_predicate
+                    .as_ref()
+                    .map(Value::to_string)
+                    .unwrap_or_default(),
                 state.protocol,
                 state.referent_count,
                 state.referent_query,
@@ -256,32 +262,54 @@ impl AssistantTaskState {
         let guard = self.conn().ok()?;
         let conn = guard.as_ref()?;
 
-        let (intent, scope_json, protocol, referent_count,
-             referent_query, referent_field, referent_value, pending_ids,
-             mutation_required, created_at, updated_at): (
-            Option<String>, String, String, i64,
-            Option<String>, Option<String>, Option<String>, String,
-            i64, String, String,
-        ) = conn.query_row(
-            "SELECT intent, scope_predicate_json, protocol,
+        let (
+            intent,
+            scope_json,
+            protocol,
+            referent_count,
+            referent_query,
+            referent_field,
+            referent_value,
+            pending_ids,
+            mutation_required,
+            created_at,
+            updated_at,
+        ): (
+            Option<String>,
+            String,
+            String,
+            i64,
+            Option<String>,
+            Option<String>,
+            Option<String>,
+            String,
+            i64,
+            String,
+            String,
+        ) = conn
+            .query_row(
+                "SELECT intent, scope_predicate_json, protocol,
                     referent_count, referent_query, referent_field, referent_value,
                     pending_batch_ids, mutation_required, created_at, updated_at
              FROM assistant_session WHERE session_id = ?1",
-            [session_id],
-            |row| Ok((
-                row.get(0)?,
-                row.get::<_, String>(1).unwrap_or_default(),
-                row.get::<_, String>(2).unwrap_or_default(),
-                row.get(3)?,
-                row.get(4)?,
-                row.get(5)?,
-                row.get(6)?,
-                row.get::<_, String>(7).unwrap_or_default(),
-                row.get(8)?,
-                row.get::<_, String>(9).unwrap_or_default(),
-                row.get::<_, String>(10).unwrap_or_default(),
-            )),
-        ).ok()?;
+                [session_id],
+                |row| {
+                    Ok((
+                        row.get(0)?,
+                        row.get::<_, String>(1).unwrap_or_default(),
+                        row.get::<_, String>(2).unwrap_or_default(),
+                        row.get(3)?,
+                        row.get(4)?,
+                        row.get(5)?,
+                        row.get(6)?,
+                        row.get::<_, String>(7).unwrap_or_default(),
+                        row.get(8)?,
+                        row.get::<_, String>(9).unwrap_or_default(),
+                        row.get::<_, String>(10).unwrap_or_default(),
+                    ))
+                },
+            )
+            .ok()?;
 
         let scope_predicate = if scope_json.is_empty() || scope_json == "null" {
             None
@@ -570,9 +598,7 @@ pub fn evaluate_predicate(
     selected: &[String],
 ) -> (Vec<String>, usize) {
     match predicate {
-        ScopePredicate::Selected => {
-            (selected.to_vec(), selected.len())
-        }
+        ScopePredicate::Selected => (selected.to_vec(), selected.len()),
         ScopePredicate::ActiveAlbum => {
             let paths: Vec<String> = tracks
                 .iter()
@@ -642,8 +668,8 @@ pub fn evaluate_predicate(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::atomic::{AtomicU64, Ordering};
     use std::fs;
+    use std::sync::atomic::{AtomicU64, Ordering};
 
     static SEQUENCE: AtomicU64 = AtomicU64::new(0);
 
@@ -675,7 +701,11 @@ mod tests {
 
         // Verify tables exist
         let conn = Connection::open(&path).unwrap();
-        for table in ["assistant_session", "assistant_tool_call", "assistant_batch"] {
+        for table in [
+            "assistant_session",
+            "assistant_tool_call",
+            "assistant_batch",
+        ] {
             let exists: i64 = conn
                 .query_row(
                     "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=?1",
@@ -729,7 +759,12 @@ mod tests {
         let record = SessionState {
             session_id: session_id.clone(),
             intent: Some("set_field".to_string()),
-            scope_predicate: Some(ScopePredicate::LibraryAndMissing { field: "genre".into() }.to_json()),
+            scope_predicate: Some(
+                ScopePredicate::LibraryAndMissing {
+                    field: "genre".into(),
+                }
+                .to_json(),
+            ),
             protocol: "native".to_string(),
             referent_count: 102,
             referent_query: Some("missing genre".to_string()),
@@ -762,11 +797,22 @@ mod tests {
         let (state, session_id) = setup();
 
         state
-            .record_tool_call(&session_id, "call_1", 1, "metadata.patch", &serde_json::json!({"target_scope": "selected"}))
+            .record_tool_call(
+                &session_id,
+                "call_1",
+                1,
+                "metadata.patch",
+                &serde_json::json!({"target_scope": "selected"}),
+            )
             .unwrap();
 
         state
-            .record_tool_result(&session_id, "call_1", true, &serde_json::json!({"ok": true, "summary": "Updated 2 tracks"}))
+            .record_tool_result(
+                &session_id,
+                "call_1",
+                true,
+                &serde_json::json!({"ok": true, "summary": "Updated 2 tracks"}),
+            )
             .unwrap();
     }
 
@@ -783,7 +829,9 @@ mod tests {
             "actions": [{"field": "genre", "newValue": "Pop"}]
         });
 
-        state.save_batch("batch-1", &session_id, &batch_json, 2).unwrap();
+        state
+            .save_batch("batch-1", &session_id, &batch_json, 2)
+            .unwrap();
 
         // Update status
         state.update_batch_status("batch-1", "applied").unwrap();
@@ -803,7 +851,9 @@ mod tests {
         let (state, session_id) = setup();
 
         let batch_json = serde_json::json!({"id": "batch-pending", "kind": "metadata-update"});
-        state.save_batch("batch-pending", &session_id, &batch_json, 3).unwrap();
+        state
+            .save_batch("batch-pending", &session_id, &batch_json, 3)
+            .unwrap();
 
         let pending = state.load_pending_batches(&session_id);
         assert_eq!(pending.len(), 1);
@@ -865,7 +915,9 @@ mod tests {
             serde_json::json!({"path": "/music/c.mp3"}), // no genre key
         ];
 
-        let predicate = ScopePredicate::LibraryAndMissing { field: "genre".into() };
+        let predicate = ScopePredicate::LibraryAndMissing {
+            field: "genre".into(),
+        };
         let (paths, count) = evaluate_predicate(&predicate, &tracks, None, &[]);
 
         assert_eq!(count, 2);
@@ -882,12 +934,8 @@ mod tests {
         ];
 
         let predicate = ScopePredicate::Selected;
-        let (paths, count) = evaluate_predicate(
-            &predicate,
-            &tracks,
-            None,
-            &["/music/a.mp3".to_string()],
-        );
+        let (paths, count) =
+            evaluate_predicate(&predicate, &tracks, None, &["/music/a.mp3".to_string()]);
 
         assert_eq!(count, 1);
         assert_eq!(paths, vec!["/music/a.mp3"]);
@@ -895,7 +943,9 @@ mod tests {
 
     #[test]
     fn scope_predicate_json_serialization() {
-        let pred = ScopePredicate::LibraryAndMissing { field: "genre".into() };
+        let pred = ScopePredicate::LibraryAndMissing {
+            field: "genre".into(),
+        };
         let json = pred.to_json();
         let back = ScopePredicate::from_json(&json).unwrap();
         assert_eq!(pred, back);

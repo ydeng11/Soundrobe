@@ -12,6 +12,8 @@ pub mod meta;
 pub mod shell;
 
 // ── Parity owners (slices; wired as they turn green) ────────────────
+/// `album:search-releases` / `album:resolve-release` / `album:preview-release-match` / `album:search-apply-candidate`
+pub mod album_search;
 /// `assistant:*` — `electron/handlers/assistant.ts`.
 pub mod assistant;
 pub(crate) mod assistant_intent;
@@ -19,8 +21,6 @@ pub(crate) mod assistant_metadata_tools;
 pub(crate) mod assistant_tools;
 /// `audit:*` — `electron/handlers/audit.ts`.
 pub mod audit;
-/// `album:search-releases` / `album:resolve-release` / `album:preview-release-match` / `album:search-apply-candidate`
-pub mod album_search;
 /// `album:auto-tag` candidate normalization and orchestration.
 pub mod auto_tag;
 /// `config:get`/`config:set` (redacted) — `electron/handlers/auto-tag.ts`.

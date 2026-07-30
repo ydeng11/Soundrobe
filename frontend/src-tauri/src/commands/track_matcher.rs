@@ -1087,9 +1087,16 @@ mod tests {
         // numeric prefix).  Each local has tag title = "Artist - Title"
         // from filename_track_title, and the remote has clean "Title".
         let titles = &[
-            "男孩不哭", "嘿!你写日记吗", "做我的新舞伴吧!", "热雷雨",
-            "改变你", "我的烦恼", "沙丘魔堡", "我想先离开",
-            "年轻的英雄", "男孩不哭(伴唱曲)",
+            "男孩不哭",
+            "嘿!你写日记吗",
+            "做我的新舞伴吧!",
+            "热雷雨",
+            "改变你",
+            "我的烦恼",
+            "沙丘魔堡",
+            "我想先离开",
+            "年轻的英雄",
+            "男孩不哭(伴唱曲)",
         ];
         let local: Vec<_> = titles
             .iter()
@@ -1100,10 +1107,7 @@ mod tests {
                 ..TrackCandidate::default()
             })
             .collect();
-        let filenames: Vec<_> = titles
-            .iter()
-            .map(|t| format!("小虎队 - {t}.wav"))
-            .collect();
+        let filenames: Vec<_> = titles.iter().map(|t| format!("小虎队 - {t}.wav")).collect();
         let remote: Vec<_> = titles
             .iter()
             .map(|t| TrackCandidate {
@@ -1123,10 +1127,7 @@ mod tests {
             &[],
         );
 
-        assert!(
-            matched.stats.matched > 0,
-            "expected at least 1 title match"
-        );
+        assert!(matched.stats.matched > 0, "expected at least 1 title match");
         for (i, t) in titles.iter().copied().enumerate() {
             assert_eq!(
                 matched.evidence[i],
@@ -1258,7 +1259,7 @@ mod tests {
             "年轻的英雄",
             "改变你",
             "我想先离开",
-            "沙丘魔堡",    // <-- local uses 沙 (U+6C99)
+            "沙丘魔堡", // <-- local uses 沙 (U+6C99)
             "男孩不哭(伴唱曲)",
         ];
         let filenames: Vec<String> = local_titles
@@ -1286,7 +1287,7 @@ mod tests {
             ("年輕的英雄", None),
             ("改變你", None),
             ("我想先離開", None),
-            ("砂丘魔堡", None),  // <-- MB uses 砂 (U+7802)
+            ("砂丘魔堡", None), // <-- MB uses 砂 (U+7802)
             ("男孩不哭 (伴唱曲)", None),
         ];
         let remote: Vec<TrackCandidate> = remote_titles_and_durations

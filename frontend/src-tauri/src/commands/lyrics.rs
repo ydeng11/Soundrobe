@@ -441,10 +441,7 @@ mod tests {
             lyrics_api_url: Some("http://custom.lyrics/api".to_string()),
             ..AutoTagConfig::default()
         };
-        assert_eq!(
-            resolve_lyrics_base_url(&config),
-            "http://custom.lyrics/api"
-        );
+        assert_eq!(resolve_lyrics_base_url(&config), "http://custom.lyrics/api");
     }
 
     #[test]

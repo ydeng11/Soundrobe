@@ -57,23 +57,47 @@ pub struct AgentTokenUsage {
 /// Structured history message types.
 #[derive(Debug, Clone, PartialEq)]
 pub enum AgentMessage {
-    System { content: String },
-    User { content: String },
-    Assistant { content: Option<String>, tool_calls: Vec<AgentToolCall> },
-    ToolResult { tool_call_id: String, canonical_name: String, content: String, is_error: bool },
+    System {
+        content: String,
+    },
+    User {
+        content: String,
+    },
+    Assistant {
+        content: Option<String>,
+        tool_calls: Vec<AgentToolCall>,
+    },
+    ToolResult {
+        tool_call_id: String,
+        canonical_name: String,
+        content: String,
+        is_error: bool,
+    },
 }
 
 impl AgentMessage {
     pub fn system(content: impl Into<String>) -> Self {
-        AgentMessage::System { content: content.into() }
+        AgentMessage::System {
+            content: content.into(),
+        }
     }
     pub fn user(content: impl Into<String>) -> Self {
-        AgentMessage::User { content: content.into() }
+        AgentMessage::User {
+            content: content.into(),
+        }
     }
     pub fn assistant(content: Option<String>, tool_calls: Vec<AgentToolCall>) -> Self {
-        AgentMessage::Assistant { content, tool_calls }
+        AgentMessage::Assistant {
+            content,
+            tool_calls,
+        }
     }
-    pub fn tool_result(tool_call_id: impl Into<String>, canonical_name: impl Into<String>, content: impl Into<String>, is_error: bool) -> Self {
+    pub fn tool_result(
+        tool_call_id: impl Into<String>,
+        canonical_name: impl Into<String>,
+        content: impl Into<String>,
+        is_error: bool,
+    ) -> Self {
         AgentMessage::ToolResult {
             tool_call_id: tool_call_id.into(),
             canonical_name: canonical_name.into(),
@@ -152,12 +176,16 @@ impl AgentToolRegistry {
 
     /// Look up the transport-safe name for a canonical name.
     pub fn transport_name(&self, canonical_name: &str) -> Option<&str> {
-        self.canonical_to_transport.get(canonical_name).map(String::as_str)
+        self.canonical_to_transport
+            .get(canonical_name)
+            .map(String::as_str)
     }
 
     /// Look up the canonical name for a transport-safe name.
     pub fn canonical_name(&self, transport_name: &str) -> Option<&str> {
-        self.transport_to_canonical.get(transport_name).map(String::as_str)
+        self.transport_to_canonical
+            .get(transport_name)
+            .map(String::as_str)
     }
 
     /// Get a tool definition by canonical name.
@@ -268,7 +296,10 @@ pub enum ToolRejectionKind {
 /// Classify an HTTP error to determine whether to fall back to JSON mode.
 pub fn classify_tool_error(status: u16, body: &str, provider: &str) -> ToolRejectionKind {
     match status {
-        400 if body.contains("tools") || body.contains("function") || body.contains("not supported") => {
+        400 if body.contains("tools")
+            || body.contains("function")
+            || body.contains("not supported") =>
+        {
             ToolRejectionKind::UnsupportedTools
         }
         400 if body.contains("provider_name") && provider == "openrouter" => {
@@ -298,10 +329,7 @@ pub fn build_openai_tool_request(
     temperature: f64,
     max_tokens: u32,
 ) -> Value {
-    let openai_messages: Vec<Value> = messages
-        .iter()
-        .map(agent_message_to_openai)
-        .collect();
+    let openai_messages: Vec<Value> = messages.iter().map(agent_message_to_openai).collect();
 
     let tool_defs: Vec<Value> = tools
         .iter()
@@ -335,7 +363,10 @@ fn agent_message_to_openai(msg: &AgentMessage) -> Value {
         AgentMessage::User { content } => {
             serde_json::json!({"role": "user", "content": content})
         }
-        AgentMessage::Assistant { content, tool_calls } => {
+        AgentMessage::Assistant {
+            content,
+            tool_calls,
+        } => {
             let mut entry = serde_json::json!({"role": "assistant"});
             if let Some(text) = content {
                 entry["content"] = Value::String(text.clone());
@@ -360,7 +391,12 @@ fn agent_message_to_openai(msg: &AgentMessage) -> Value {
             }
             entry
         }
-        AgentMessage::ToolResult { tool_call_id, content, is_error, .. } => {
+        AgentMessage::ToolResult {
+            tool_call_id,
+            content,
+            is_error,
+            ..
+        } => {
             serde_json::json!({
                 "role": "tool",
                 "tool_call_id": tool_call_id,
@@ -372,7 +408,10 @@ fn agent_message_to_openai(msg: &AgentMessage) -> Value {
 }
 
 /// Parse an OpenAI-compatible response into an [`AgentCompletion`].
-pub fn parse_openai_completion(response: &Value, fallback_model: &str) -> Result<AgentCompletion, String> {
+pub fn parse_openai_completion(
+    response: &Value,
+    fallback_model: &str,
+) -> Result<AgentCompletion, String> {
     let choices = response
         .pointer("/choices")
         .and_then(Value::as_array)
@@ -450,9 +489,18 @@ fn parse_openai_tool_call(call: &Value) -> Option<AgentToolCall> {
 
 fn parse_usage_openai(usage: &Value) -> AgentTokenUsage {
     AgentTokenUsage {
-        prompt_tokens: usage.get("prompt_tokens").and_then(Value::as_u64).unwrap_or(0),
-        completion_tokens: usage.get("completion_tokens").and_then(Value::as_u64).unwrap_or(0),
-        total_tokens: usage.get("total_tokens").and_then(Value::as_u64).unwrap_or(0),
+        prompt_tokens: usage
+            .get("prompt_tokens")
+            .and_then(Value::as_u64)
+            .unwrap_or(0),
+        completion_tokens: usage
+            .get("completion_tokens")
+            .and_then(Value::as_u64)
+            .unwrap_or(0),
+        total_tokens: usage
+            .get("total_tokens")
+            .and_then(Value::as_u64)
+            .unwrap_or(0),
     }
 }
 
@@ -510,7 +558,10 @@ fn agent_message_to_anthropic(msg: &AgentMessage) -> Option<Value> {
         AgentMessage::User { content } => {
             Some(serde_json::json!({"role": "user", "content": content}))
         }
-        AgentMessage::Assistant { content, tool_calls } => {
+        AgentMessage::Assistant {
+            content,
+            tool_calls,
+        } => {
             let mut blocks = Vec::new();
             if let Some(text) = content {
                 blocks.push(serde_json::json!({
@@ -528,21 +579,26 @@ fn agent_message_to_anthropic(msg: &AgentMessage) -> Option<Value> {
             }
             Some(serde_json::json!({"role": "assistant", "content": blocks}))
         }
-        AgentMessage::ToolResult { tool_call_id, content, .. } => {
-            Some(serde_json::json!({
-                "role": "user",
-                "content": [{
-                    "type": "tool_result",
-                    "tool_use_id": tool_call_id,
-                    "content": content,
-                }]
-            }))
-        }
+        AgentMessage::ToolResult {
+            tool_call_id,
+            content,
+            ..
+        } => Some(serde_json::json!({
+            "role": "user",
+            "content": [{
+                "type": "tool_result",
+                "tool_use_id": tool_call_id,
+                "content": content,
+            }]
+        })),
     }
 }
 
 /// Parse an Anthropic response into an [`AgentCompletion`].
-pub fn parse_anthropic_completion(response: &Value, fallback_model: &str) -> Result<AgentCompletion, String> {
+pub fn parse_anthropic_completion(
+    response: &Value,
+    fallback_model: &str,
+) -> Result<AgentCompletion, String> {
     let content = response
         .get("content")
         .and_then(Value::as_array)
@@ -561,8 +617,16 @@ pub fn parse_anthropic_completion(response: &Value, fallback_model: &str) -> Res
                 }
             }
             "tool_use" => {
-                let id = block.get("id").and_then(Value::as_str).unwrap_or("").to_string();
-                let transport_name = block.get("name").and_then(Value::as_str).unwrap_or("").to_string();
+                let id = block
+                    .get("id")
+                    .and_then(Value::as_str)
+                    .unwrap_or("")
+                    .to_string();
+                let transport_name = block
+                    .get("name")
+                    .and_then(Value::as_str)
+                    .unwrap_or("")
+                    .to_string();
                 // Resolve via registry for correct bidirectional mapping.
                 let canonical_name = global_registry()
                     .canonical_name(&transport_name)
@@ -659,8 +723,9 @@ pub fn validate_turn(tool_calls: &[AgentToolCall]) -> TurnValidation {
     for call in tool_calls {
         let canonical_name = &call.canonical_name;
         if registry.definition(canonical_name).is_some() {
-            let is_read_only = crate::commands::assistant_tools::registered_tool_is_read_only(canonical_name)
-                .unwrap_or(false);
+            let is_read_only =
+                crate::commands::assistant_tools::registered_tool_is_read_only(canonical_name)
+                    .unwrap_or(false);
             if is_read_only {
                 read_only_calls.push(call.clone());
             } else {
@@ -682,17 +747,20 @@ pub fn validate_turn(tool_calls: &[AgentToolCall]) -> TurnValidation {
 
 /// Normalize the tool-call state: if we detected mutations in the turn,
 /// the first (and only) mutation is used; everything else is discarded.
-pub fn normalize_turn_for_execution(tool_calls: Vec<AgentToolCall>) -> Result<Vec<AgentToolCall>, String> {
+pub fn normalize_turn_for_execution(
+    tool_calls: Vec<AgentToolCall>,
+) -> Result<Vec<AgentToolCall>, String> {
     match validate_turn(&tool_calls) {
         TurnValidation::AllReadOnly(calls) => Ok(calls),
         TurnValidation::SingleMutation(call) => Ok(vec![call]),
         TurnValidation::MessageOnly => Ok(vec![]),
-        TurnValidation::MultipleMutations(_) => {
-            Err("Model returned multiple mutating tool calls; call mutations one at a time".to_string())
-        }
-        TurnValidation::MixedCalls => {
-            Err("Model mixed read-only and mutating calls in one turn; call them separately".to_string())
-        }
+        TurnValidation::MultipleMutations(_) => Err(
+            "Model returned multiple mutating tool calls; call mutations one at a time".to_string(),
+        ),
+        TurnValidation::MixedCalls => Err(
+            "Model mixed read-only and mutating calls in one turn; call them separately"
+                .to_string(),
+        ),
     }
 }
 
@@ -707,9 +775,18 @@ mod tests {
 
     #[test]
     fn transports_are_underscore_dotted_round_trips() {
-        assert_eq!(canonical_to_transport_name("metadata.patch"), "metadata_patch");
-        assert_eq!(canonical_to_transport_name("api.lyricsSearch"), "api_lyricsSearch");
-        assert_eq!(canonical_to_transport_name("tracks.search"), "tracks_search");
+        assert_eq!(
+            canonical_to_transport_name("metadata.patch"),
+            "metadata_patch"
+        );
+        assert_eq!(
+            canonical_to_transport_name("api.lyricsSearch"),
+            "api_lyricsSearch"
+        );
+        assert_eq!(
+            canonical_to_transport_name("tracks.search"),
+            "tracks_search"
+        );
         // Registry-based resolution:
         assert_eq!(
             global_registry().canonical_name("metadata_patch"),
@@ -745,14 +822,12 @@ mod tests {
 
     #[test]
     fn registry_detects_collisions() {
-        let tools = vec![
-            AgentToolDef {
-                canonical_name: "a.b".to_string(),
-                transport_name: "a_b".to_string(),
-                description: "".to_string(),
-                input_schema: json!({}),
-            },
-        ];
+        let tools = vec![AgentToolDef {
+            canonical_name: "a.b".to_string(),
+            transport_name: "a_b".to_string(),
+            description: "".to_string(),
+            input_schema: json!({}),
+        }];
         // No collision — one tool.
         let reg = AgentToolRegistry::new(tools.clone());
         assert_eq!(reg.len(), 1);
@@ -768,7 +843,10 @@ mod tests {
         let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
             AgentToolRegistry::new(colliding);
         }));
-        assert!(result.is_err(), "registry must panic on transport name collision");
+        assert!(
+            result.is_err(),
+            "registry must panic on transport name collision"
+        );
     }
 
     #[test]
@@ -815,7 +893,10 @@ mod tests {
     #[test]
     fn single_read_only_turn_accepted() {
         let calls = vec![read_only_call("library.summarize")];
-        assert!(matches!(validate_turn(&calls), TurnValidation::AllReadOnly(_)));
+        assert!(matches!(
+            validate_turn(&calls),
+            TurnValidation::AllReadOnly(_)
+        ));
     }
 
     #[test]
@@ -824,13 +905,19 @@ mod tests {
             read_only_call("library.summarize"),
             read_only_call("tracks.search"),
         ];
-        assert!(matches!(validate_turn(&calls), TurnValidation::AllReadOnly(_)));
+        assert!(matches!(
+            validate_turn(&calls),
+            TurnValidation::AllReadOnly(_)
+        ));
     }
 
     #[test]
     fn single_mutating_call_accepted() {
         let calls = vec![mutating_call("metadata.patch")];
-        assert!(matches!(validate_turn(&calls), TurnValidation::SingleMutation(_)));
+        assert!(matches!(
+            validate_turn(&calls),
+            TurnValidation::SingleMutation(_)
+        ));
     }
 
     #[test]
@@ -839,7 +926,10 @@ mod tests {
             mutating_call("metadata.patch"),
             mutating_call("metadata.transform"),
         ];
-        assert!(matches!(validate_turn(&calls), TurnValidation::MultipleMutations(_)));
+        assert!(matches!(
+            validate_turn(&calls),
+            TurnValidation::MultipleMutations(_)
+        ));
     }
 
     #[test]
@@ -940,7 +1030,10 @@ mod tests {
         assert_eq!(completion.tool_calls.len(), 1);
         assert_eq!(completion.tool_calls[0].id, "call_abc123");
         assert_eq!(completion.tool_calls[0].canonical_name, "metadata.patch");
-        assert!(completion.tool_calls[0].arguments.get("target_scope").is_some());
+        assert!(completion.tool_calls[0]
+            .arguments
+            .get("target_scope")
+            .is_some());
     }
 
     #[test]
@@ -990,9 +1083,7 @@ mod tests {
 
         let tools_arr = request["tools"].as_array().unwrap();
         assert!(!tools_arr.is_empty());
-        let has_metadata_patch = tools_arr
-            .iter()
-            .any(|t| t["name"] == "metadata_patch");
+        let has_metadata_patch = tools_arr.iter().any(|t| t["name"] == "metadata_patch");
         assert!(has_metadata_patch);
     }
 
@@ -1018,7 +1109,10 @@ mod tests {
 
         let completion = parse_anthropic_completion(&response, "fallback").unwrap();
 
-        assert_eq!(completion.text.as_deref(), Some("I'll set the missing genres."));
+        assert_eq!(
+            completion.text.as_deref(),
+            Some("I'll set the missing genres.")
+        );
         assert_eq!(completion.finish_reason, "tool_calls");
         assert_eq!(completion.model, "claude-3-5-sonnet-20241022");
         assert_eq!(completion.usage.prompt_tokens, 10);
@@ -1076,7 +1170,10 @@ mod tests {
         assert_eq!(openai["role"], "assistant");
         assert_eq!(openai["content"], "I'll do that.");
         assert_eq!(openai["tool_calls"][0]["id"], "call_1");
-        assert_eq!(openai["tool_calls"][0]["function"]["name"], "metadata_patch");
+        assert_eq!(
+            openai["tool_calls"][0]["function"]["name"],
+            "metadata_patch"
+        );
 
         let anthropic = agent_message_to_anthropic(&msg).unwrap();
         assert_eq!(anthropic["role"], "assistant");

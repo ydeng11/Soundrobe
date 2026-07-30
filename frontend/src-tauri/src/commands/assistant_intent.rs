@@ -41,6 +41,7 @@ pub enum IntentKind {
 #[derive(Debug, Clone, PartialEq)]
 pub enum ScopeHint {
     Selected,
+    #[allow(dead_code)]
     ActiveAlbum,
     Library,
     FromPredicate(ScopePredicate),
@@ -67,9 +68,22 @@ pub fn strip_outer_quotes(value: &str) -> String {
 
 /// Known metadata fields that can be set/removed.
 const KNOWN_FIELDS: &[&str] = &[
-    "title", "artist", "album", "genre", "year", "composer",
-    "comment", "description", "lyrics", "albumArtist", "albumArtists",
-    "artists", "trackNumber", "trackTotal", "discNumber", "discTotal",
+    "title",
+    "artist",
+    "album",
+    "genre",
+    "year",
+    "composer",
+    "comment",
+    "description",
+    "lyrics",
+    "albumArtist",
+    "albumArtists",
+    "artists",
+    "trackNumber",
+    "trackTotal",
+    "discNumber",
+    "discTotal",
     "compilation",
 ];
 
@@ -98,9 +112,8 @@ fn parse_request_tokens(message: &str) -> ParsedRequest {
     let lower = trimmed.to_lowercase();
 
     // Detect "them" referent usage (case-insensitive)
-    let them_referent = lower.starts_with("set them ")
-        || lower.starts_with("change them ")
-        || lower == "set them";
+    let them_referent =
+        lower.starts_with("set them ") || lower.starts_with("change them ") || lower == "set them";
 
     // Detect "missing" qualifier (case-insensitive)
     let missing_qualifier = lower.contains(" where missing")
@@ -140,7 +153,11 @@ fn parse_request_tokens(message: &str) -> ParsedRequest {
             String::new()
         }
     } else if lower.starts_with("set the ") {
-        trimmed.strip_prefix("set the ").or_else(|| trimmed.strip_prefix("Set the ")).unwrap_or("").to_string()
+        trimmed
+            .strip_prefix("set the ")
+            .or_else(|| trimmed.strip_prefix("Set the "))
+            .unwrap_or("")
+            .to_string()
     } else if lower.starts_with("set ") {
         // Use original case: strip the word "set" (case-insensitive)
         let prefix_len = if trimmed.len() >= 4 && trimmed[..4].eq_ignore_ascii_case("set ") {
@@ -152,25 +169,59 @@ fn parse_request_tokens(message: &str) -> ParsedRequest {
         };
         trimmed[prefix_len.min(trimmed.len())..].to_string()
     } else if lower.starts_with("change the ") {
-        let prefix_len = if trimmed.len() >= 10 && trimmed[..10].eq_ignore_ascii_case("change the ") { 10 } else { 7 };
+        let prefix_len = if trimmed.len() >= 10 && trimmed[..10].eq_ignore_ascii_case("change the ")
+        {
+            10
+        } else {
+            7
+        };
         trimmed[prefix_len.min(trimmed.len())..].to_string()
     } else if lower.starts_with("change ") {
-        trimmed.strip_prefix("change ").or_else(|| trimmed.strip_prefix("Change ")).unwrap_or("").to_string()
+        trimmed
+            .strip_prefix("change ")
+            .or_else(|| trimmed.strip_prefix("Change "))
+            .unwrap_or("")
+            .to_string()
     } else if lower.starts_with("remove the ") {
-        let prefix_len = if trimmed.len() >= 10 && trimmed[..10].eq_ignore_ascii_case("remove the ") { 10 } else { 7 };
+        let prefix_len = if trimmed.len() >= 10 && trimmed[..10].eq_ignore_ascii_case("remove the ")
+        {
+            10
+        } else {
+            7
+        };
         trimmed[prefix_len.min(trimmed.len())..].to_string()
     } else if lower.starts_with("remove ") {
-        trimmed.strip_prefix("remove ").or_else(|| trimmed.strip_prefix("Remove ")).unwrap_or("").to_string()
+        trimmed
+            .strip_prefix("remove ")
+            .or_else(|| trimmed.strip_prefix("Remove "))
+            .unwrap_or("")
+            .to_string()
     } else if lower.starts_with("clear the ") {
-        let prefix_len = if trimmed.len() >= 9 && trimmed[..9].eq_ignore_ascii_case("clear the ") { 9 } else { 6 };
+        let prefix_len = if trimmed.len() >= 9 && trimmed[..9].eq_ignore_ascii_case("clear the ") {
+            9
+        } else {
+            6
+        };
         trimmed[prefix_len.min(trimmed.len())..].to_string()
     } else if lower.starts_with("clear ") {
-        trimmed.strip_prefix("clear ").or_else(|| trimmed.strip_prefix("Clear ")).unwrap_or("").to_string()
+        trimmed
+            .strip_prefix("clear ")
+            .or_else(|| trimmed.strip_prefix("Clear "))
+            .unwrap_or("")
+            .to_string()
     } else if lower.starts_with("fix the ") {
-        let prefix_len = if trimmed.len() >= 8 && trimmed[..8].eq_ignore_ascii_case("fix the ") { 8 } else { 4 };
+        let prefix_len = if trimmed.len() >= 8 && trimmed[..8].eq_ignore_ascii_case("fix the ") {
+            8
+        } else {
+            4
+        };
         trimmed[prefix_len.min(trimmed.len())..].to_string()
     } else if lower.starts_with("fix ") {
-        trimmed.strip_prefix("fix ").or_else(|| trimmed.strip_prefix("Fix ")).unwrap_or("").to_string()
+        trimmed
+            .strip_prefix("fix ")
+            .or_else(|| trimmed.strip_prefix("Fix "))
+            .unwrap_or("")
+            .to_string()
     } else {
         return ParsedRequest {
             action: String::new(),
@@ -384,10 +435,7 @@ fn identify_field(text: &str) -> Option<String> {
 ///
 /// When a referent is provided (from a previous session), `set them X`
 /// commands can be resolved.
-pub fn route_message(
-    message: &str,
-    referent: Option<&SessionState>,
-) -> Option<RoutedCommand> {
+pub fn route_message(message: &str, referent: Option<&SessionState>) -> Option<RoutedCommand> {
     let lower = message.to_lowercase();
     let requests_selected_artists_repair = lower.contains("selected")
         && lower
@@ -529,23 +577,24 @@ pub fn resolve_scope(
 ) -> Vec<String> {
     match &command.scope_hint {
         ScopeHint::Selected => input.selected_track_paths.clone(),
-        ScopeHint::ActiveAlbum => {
-            input
-                .tracks
-                .iter()
-                .filter_map(|t| t.get("path").and_then(Value::as_str))
-                .filter(|p| input.active_album_path.as_deref().is_some_and(|a| p.starts_with(a)))
-                .map(str::to_string)
-                .collect()
-        }
-        ScopeHint::Library => {
-            input
-                .tracks
-                .iter()
-                .filter_map(|t| t.get("path").and_then(Value::as_str))
-                .map(str::to_string)
-                .collect()
-        }
+        ScopeHint::ActiveAlbum => input
+            .tracks
+            .iter()
+            .filter_map(|t| t.get("path").and_then(Value::as_str))
+            .filter(|p| {
+                input
+                    .active_album_path
+                    .as_deref()
+                    .is_some_and(|a| p.starts_with(a))
+            })
+            .map(str::to_string)
+            .collect(),
+        ScopeHint::Library => input
+            .tracks
+            .iter()
+            .filter_map(|t| t.get("path").and_then(Value::as_str))
+            .map(str::to_string)
+            .collect(),
         ScopeHint::FromPredicate(predicate) => {
             let (paths, _count) = crate::state::assistant_task::evaluate_predicate(
                 predicate,
@@ -631,13 +680,11 @@ mod tests {
 
     #[test]
     fn does_not_route_singular_artist_display_edits_as_plural_splits() {
-        assert!(
-            route_message(
-                "fix the singular Artist display field on selected tracks",
-                None
-            )
-            .is_none()
-        );
+        assert!(route_message(
+            "fix the singular Artist display field on selected tracks",
+            None
+        )
+        .is_none());
         assert!(
             route_message("fix malformed Album Artists tags on selected tracks", None).is_none()
         );
@@ -813,7 +860,10 @@ mod tests {
     #[test]
     fn routes_them_without_referent_falls_through() {
         let cmd = route_message(r#"set them "Pop, Cantopop""#, None);
-        assert!(cmd.is_none(), "without referent, them command should not route");
+        assert!(
+            cmd.is_none(),
+            "without referent, them command should not route"
+        );
     }
 
     #[test]

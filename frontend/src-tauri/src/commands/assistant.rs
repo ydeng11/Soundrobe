@@ -411,7 +411,8 @@ pub async fn assistant_send(
         }
 
         // Persist the session state with routing info
-        let scope_predicate = crate::commands::assistant_intent::resolved_intent_from_command(&routed);
+        let scope_predicate =
+            crate::commands::assistant_intent::resolved_intent_from_command(&routed);
         let now = crate::state::assistant_task::iso_now();
         let session_state = crate::state::assistant_task::SessionState {
             session_id: session_id_for_state.clone(),
@@ -460,7 +461,10 @@ pub async fn assistant_send(
                                 &app,
                                 Some(&*conversation),
                                 Some(session_id_for_state),
-                                &format!("What value should I set for {} where it is missing?", field),
+                                &format!(
+                                    "What value should I set for {} where it is missing?",
+                                    field
+                                ),
                             );
                         }
                     };
@@ -542,8 +546,7 @@ pub async fn assistant_send(
                         &session_id_for_state,
                         &serde_json::to_value(batch).unwrap_or_default(),
                         batch.actions.len(),
-                    )
-                    {
+                    ) {
                         runtime.mark_batch_failed(&batch.id, &error);
                         return assistant_error_event_with_conversation(
                             &app,
@@ -565,9 +568,10 @@ pub async fn assistant_send(
             let _ = task_state.upsert_session(&updated_state);
 
             // Update referent in session state
-            let referent_predicate = crate::state::assistant_task::ScopePredicate::LibraryAndMissing {
-                field: field.clone(),
-            };
+            let referent_predicate =
+                crate::state::assistant_task::ScopePredicate::LibraryAndMissing {
+                    field: field.clone(),
+                };
             let (_paths, count) = crate::state::assistant_task::evaluate_predicate(
                 &referent_predicate,
                 &input.tracks,
@@ -599,15 +603,15 @@ pub async fn assistant_send(
 
             let first = &stored_batches[0];
             let message = if stored_batches.len() == 1 {
-                format!(
-                    "Preview created ({}): {}",
-                    first.id, first.summary
-                )
+                format!("Preview created ({}): {}", first.id, first.summary)
             } else {
                 format!(
                     "Preview created ({} batches): {} changes",
                     stored_batches.len(),
-                    stored_batches.iter().map(|b| b.actions.len()).sum::<usize>()
+                    stored_batches
+                        .iter()
+                        .map(|b| b.actions.len())
+                        .sum::<usize>()
                 )
             };
 
@@ -983,8 +987,7 @@ pub async fn assistant_send(
                 &session_id,
                 &serde_json::to_value(batch).unwrap_or_default(),
                 batch.actions.len(),
-            )
-            {
+            ) {
                 runtime.mark_batch_failed(&batch.id, &error);
                 return Err(ApiError::Message(error));
             }
@@ -1087,8 +1090,7 @@ pub async fn assistant_send(
                         &session_id,
                         &serde_json::to_value(&batch).unwrap_or_default(),
                         batch.actions.len(),
-                    )
-                    {
+                    ) {
                         runtime.mark_batch_failed(&batch.id, &error);
                         return Err(ApiError::Message(error));
                     }
@@ -3266,8 +3268,9 @@ fn resolve_assistant_outcome(
         return Ok(AssistantOutcome::ModelPreview(validated));
     }
     if draft.response_kind == AssistantResponseKind::Action {
-        return Err("The assistant claimed an action without running a tool or creating a preview"
-            .into());
+        return Err(
+            "The assistant claimed an action without running a tool or creating a preview".into(),
+        );
     }
     Ok(AssistantOutcome::Message)
 }
@@ -3605,20 +3608,17 @@ fn verification_summary(
     verified_action_count: usize,
     failures: Vec<Value>,
 ) -> Value {
-    let scope_count = batch
-        .completion_contract
-        .as_ref()
-        .map_or_else(
-            || {
-                batch
-                    .actions
-                    .iter()
-                    .filter_map(|action| action.track_path.as_deref())
-                    .collect::<HashSet<_>>()
-                    .len()
-            },
-            |contract| contract.scope_paths.len(),
-        );
+    let scope_count = batch.completion_contract.as_ref().map_or_else(
+        || {
+            batch
+                .actions
+                .iter()
+                .filter_map(|action| action.track_path.as_deref())
+                .collect::<HashSet<_>>()
+                .len()
+        },
+        |contract| contract.scope_paths.len(),
+    );
     let expected_action_count = batch
         .completion_contract
         .as_ref()
@@ -3813,9 +3813,7 @@ fn verify_metadata_batch_readback(batch: &AssistantActionBatch) -> Value {
             }
             continue;
         }
-        if expectation.operation == "remove"
-            && matches!(field, "artists" | "albumArtists")
-        {
+        if expectation.operation == "remove" && matches!(field, "artists" | "albumArtists") {
             match crate::commands::tracks::read_plural_tag_values(Path::new(path), field) {
                 Ok(values) if values.is_empty() => verified += 1,
                 Ok(values) => failures.push(serde_json::json!({
@@ -3849,13 +3847,9 @@ fn verify_metadata_batch_readback(batch: &AssistantActionBatch) -> Value {
             })),
         }
     }
-    if batch
-        .completion_contract
-        .as_ref()
-        .is_some_and(|contract| {
-            contract.postcondition == AssistantCompletionPostcondition::SplitArtistsNormalized
-        })
-    {
+    if batch.completion_contract.as_ref().is_some_and(|contract| {
+        contract.postcondition == AssistantCompletionPostcondition::SplitArtistsNormalized
+    }) {
         let contract = batch.completion_contract.as_ref().unwrap();
         for path in &contract.scope_paths {
             match read_track_metadata(Path::new(path)) {
@@ -3915,8 +3909,7 @@ fn finish_metadata_apply(
             }
             _ => failures.push(serde_json::json!({ "error": error })),
         }
-        result["verification"] =
-            verification_summary("failed", "write", batch, 0, failures);
+        result["verification"] = verification_summary("failed", "write", batch, 0, failures);
         return result;
     }
     let verification = verify_metadata_batch_readback(batch);
@@ -4071,7 +4064,8 @@ async fn apply_extra_actions(
         let current = match try_read_extra_tags(Path::new(&path)) {
             Ok(tags) => tags,
             Err(error) => {
-                let message = format!("Could not capture extra-tag undo snapshot for {path}: {error}");
+                let message =
+                    format!("Could not capture extra-tag undo snapshot for {path}: {error}");
                 if mark_status {
                     runtime.mark_batch_failed(batch_id, &message);
                 }
@@ -5104,10 +5098,7 @@ mod apply_contract_tests {
             &correct,
             &TrackPatch {
                 artist: Patch::Value("谭咏麟 & 김완선".into()),
-                artists: Patch::Value(StringList::Many(vec![
-                    "谭咏麟".into(),
-                    "김완선".into(),
-                ])),
+                artists: Patch::Value(StringList::Many(vec!["谭咏麟".into(), "김완선".into()])),
                 ..Default::default()
             },
         )
@@ -5123,16 +5114,15 @@ mod apply_contract_tests {
             ],
             ..Default::default()
         };
-        let execution =
-            crate::commands::assistant_metadata_tools::execute_metadata_transform(
-                &serde_json::json!({
-                    "target_scope": "selected",
-                    "source": {"kind": "tag", "field": "artists"},
-                    "operations": [{"op": "split_artists"}]
-                }),
-                &input,
-                "verified-session",
-            );
+        let execution = crate::commands::assistant_metadata_tools::execute_metadata_transform(
+            &serde_json::json!({
+                "target_scope": "selected",
+                "source": {"kind": "tag", "field": "artists"},
+                "operations": [{"op": "split_artists"}]
+            }),
+            &input,
+            "verified-session",
+        );
         let batch = execution.batches.first().expect("preview batch").clone();
         let batch_id = batch.id.clone();
         let runtime = AssistantRuntimeState::default();
@@ -5172,16 +5162,15 @@ mod apply_contract_tests {
             tracks: vec![serde_json::to_value(read_track_metadata(&path).unwrap()).unwrap()],
             ..Default::default()
         };
-        let execution =
-            crate::commands::assistant_metadata_tools::execute_metadata_transform(
-                &serde_json::json!({
-                    "target_scope": "selected",
-                    "source": {"kind": "tag", "field": "artists"},
-                    "operations": [{"op": "split_artists"}]
-                }),
-                &input,
-                "stale-session",
-            );
+        let execution = crate::commands::assistant_metadata_tools::execute_metadata_transform(
+            &serde_json::json!({
+                "target_scope": "selected",
+                "source": {"kind": "tag", "field": "artists"},
+                "operations": [{"op": "split_artists"}]
+            }),
+            &input,
+            "stale-session",
+        );
         let batch = execution.batches.first().expect("preview batch").clone();
         let batch_id = batch.id.clone();
         write_track_dispatch(
@@ -5243,7 +5232,11 @@ mod apply_contract_tests {
             &input,
             "extra-remove-session",
         );
-        let batch = execution.batches.first().expect("extra removal preview").clone();
+        let batch = execution
+            .batches
+            .first()
+            .expect("extra removal preview")
+            .clone();
         assert_eq!(batch.actions[0].tag_kind.as_deref(), Some("extra"));
         let batch_id = batch.id.clone();
         let runtime = AssistantRuntimeState::default();
@@ -5274,10 +5267,7 @@ mod apply_contract_tests {
             &path,
             &TrackPatch {
                 artist: Patch::Value("Display Artist".into()),
-                artists: Patch::Value(StringList::Many(vec![
-                    "Artist A".into(),
-                    "Artist B".into(),
-                ])),
+                artists: Patch::Value(StringList::Many(vec!["Artist A".into(), "Artist B".into()])),
                 ..Default::default()
             },
         )
@@ -5295,7 +5285,11 @@ mod apply_contract_tests {
             &input,
             "plural-remove-session",
         );
-        let batch = execution.batches.first().expect("plural removal preview").clone();
+        let batch = execution
+            .batches
+            .first()
+            .expect("plural removal preview")
+            .clone();
         let batch_id = batch.id.clone();
         let runtime = AssistantRuntimeState::default();
         assert!(runtime.initialize());
@@ -5307,9 +5301,11 @@ mod apply_contract_tests {
         assert_eq!(result["verification"]["status"], "verified");
         let updated = read_track_metadata(&path).unwrap();
         assert_eq!(updated.artist.as_deref(), Some("Display Artist"));
-        assert!(crate::commands::tracks::read_plural_tag_values(&path, "artists")
-            .unwrap()
-            .is_empty());
+        assert!(
+            crate::commands::tracks::read_plural_tag_values(&path, "artists")
+                .unwrap()
+                .is_empty()
+        );
         fs::remove_dir_all(root).unwrap();
     }
 
@@ -5339,25 +5335,15 @@ mod apply_contract_tests {
             }],
         }));
 
-        let result = apply_action_batch(
-            &runtime,
-            &WriteQueue::default(),
-            "batch-readback-mismatch",
-        )
-        .await;
+        let result =
+            apply_action_batch(&runtime, &WriteQueue::default(), "batch-readback-mismatch").await;
 
         assert_eq!(result["success"], false);
         assert_eq!(result["verification"]["phase"], "readback");
         assert_eq!(result["verification"]["verifiedActionCount"], 0);
+        assert_eq!(result["undoSnapshots"].as_array().map(Vec::len), Some(1));
         assert_eq!(
-            result["undoSnapshots"].as_array().map(Vec::len),
-            Some(1)
-        );
-        assert_eq!(
-            runtime
-                .get_batch("batch-readback-mismatch")
-                .unwrap()
-                .status,
+            runtime.get_batch("batch-readback-mismatch").unwrap().status,
             "failed"
         );
         fs::remove_dir_all(root).unwrap();

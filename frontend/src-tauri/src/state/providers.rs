@@ -608,7 +608,10 @@ fn parse_musicbrainz_search_summary(value: &serde_json::Value) -> Option<Release
         .and_then(serde_json::Value::as_str)
         .filter(|date| date.len() >= 4)
         .map(|date| date[..4].to_string());
-    let country = value.get("country").and_then(serde_json::Value::as_str).map(str::to_string);
+    let country = value
+        .get("country")
+        .and_then(serde_json::Value::as_str)
+        .map(str::to_string);
     let formats = value
         .get("media")
         .and_then(serde_json::Value::as_array)
@@ -623,7 +626,10 @@ fn parse_musicbrainz_search_summary(value: &serde_json::Value) -> Option<Release
                 .collect::<Vec<_>>()
         })
         .unwrap_or_default();
-    let barcode = value.get("barcode").and_then(serde_json::Value::as_str).map(str::to_string);
+    let barcode = value
+        .get("barcode")
+        .and_then(serde_json::Value::as_str)
+        .map(str::to_string);
     let catalog_number = value
         .get("label-info")
         .and_then(serde_json::Value::as_array)
@@ -1522,14 +1528,21 @@ impl DiscogsClient {
                         let title = r.get("title")?.as_str()?;
                         let (result_artist, result_album) = title
                             .split_once(" - ")
-                            .map(|(a, al)| (Some(a.trim().to_string()), Some(al.trim().to_string())))
+                            .map(|(a, al)| {
+                                (Some(a.trim().to_string()), Some(al.trim().to_string()))
+                            })
                             .unwrap_or((None, Some(title.to_string())));
-                        let kind = r.get("type").and_then(|t| t.as_str()).map(|t| t.to_string());
+                        let kind = r
+                            .get("type")
+                            .and_then(|t| t.as_str())
+                            .map(|t| t.to_string());
                         let year = r
                             .get("year")
                             .and_then(|y| y.as_u64())
                             .or_else(|| {
-                                r.get("year").and_then(|y| y.as_str()).and_then(|s| s.parse().ok())
+                                r.get("year")
+                                    .and_then(|y| y.as_str())
+                                    .and_then(|s| s.parse().ok())
                             })
                             .map(|y| y.to_string());
                         let formats = r
@@ -1553,7 +1566,10 @@ impl DiscogsClient {
                             .and_then(|c| c.as_str())
                             .filter(|s| !s.is_empty())
                             .map(|s| s.to_string());
-                        let country = r.get("country").and_then(|c| c.as_str()).map(|s| s.to_string());
+                        let country = r
+                            .get("country")
+                            .and_then(|c| c.as_str())
+                            .map(|s| s.to_string());
                         Some(ReleaseSearchSummary {
                             provider: "discogs".to_string(),
                             id,
@@ -3082,8 +3098,16 @@ mod tests {
             }
             ("404 Not Found", "{}".to_string(), "application/json")
         });
-        let musicbrainz = MusicBrainzClient::at(ProviderState::new().http(), &format!("{base}/ws/2"));
-        let (summaries, count) = musicbrainz.search_release_summaries(&[("artist", "Radiohead"), ("release", "OK Computer")], 10, 0).await.unwrap();
+        let musicbrainz =
+            MusicBrainzClient::at(ProviderState::new().http(), &format!("{base}/ws/2"));
+        let (summaries, count) = musicbrainz
+            .search_release_summaries(
+                &[("artist", "Radiohead"), ("release", "OK Computer")],
+                10,
+                0,
+            )
+            .await
+            .unwrap();
         assert_eq!(summaries.len(), 1);
         assert_eq!(count, 1);
         assert_eq!(summaries[0].title, "OK Computer");
@@ -3103,8 +3127,19 @@ mod tests {
             }
             ("404 Not Found", "{}".to_string(), "application/json")
         });
-        let discogs = DiscogsClient::at(ProviderState::new().http(), None, &format!("{base}/discogs"));
-        let (summaries, total) = discogs.search_release_summaries(&[("artist", "Radiohead"), ("release_title", "OK Computer")], 1, 10).await.unwrap();
+        let discogs = DiscogsClient::at(
+            ProviderState::new().http(),
+            None,
+            &format!("{base}/discogs"),
+        );
+        let (summaries, total) = discogs
+            .search_release_summaries(
+                &[("artist", "Radiohead"), ("release_title", "OK Computer")],
+                1,
+                10,
+            )
+            .await
+            .unwrap();
         assert_eq!(summaries.len(), 1);
         assert_eq!(total, 1);
         assert_eq!(summaries[0].title, "OK Computer");

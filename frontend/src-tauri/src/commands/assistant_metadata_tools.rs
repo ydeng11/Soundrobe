@@ -405,18 +405,16 @@ fn completion_scope_snapshot(
                     } else {
                         value
                     };
-                    (
-                        field.clone(),
-                        value,
-                    )
+                    (field.clone(), value)
                 })
                 .collect();
             let current_extra = if extra_fields.is_empty() {
                 None
             } else {
                 Some(
-                    crate::commands::tracks::try_read_extra_tags(Path::new(path))
-                        .map_err(|error| format!("Could not read extra tags for {path}: {error}"))?,
+                    crate::commands::tracks::try_read_extra_tags(Path::new(path)).map_err(
+                        |error| format!("Could not read extra tags for {path}: {error}"),
+                    )?,
                 )
             };
             let extra_values = extra_fields
@@ -542,44 +540,42 @@ fn metadata_patch_expected_paths(
             };
             uniform_affects |= affects;
         }
-            let per_track_affects = per_track.iter().any(|entry| {
-                entry.get("path").and_then(Value::as_str) == Some(path.as_str())
-                    && entry
-                        .get("changes")
-                        .and_then(Value::as_array)
-                        .is_some_and(|changes| {
-                            changes.iter().any(|change| {
-                                let field = change
-                                    .get("field")
-                                    .and_then(Value::as_str)
-                                    .unwrap_or_default();
-                                match change
-                                    .get("action")
-                                    .and_then(Value::as_str)
-                                    .unwrap_or("set")
-                                {
-                                    "set" => change
-                                        .get("value")
-                                        .and_then(action_value_string)
-                                        .is_some_and(|desired| {
-                                            track
-                                                .and_then(|track| {
-                                                    track_field_string(track, field)
-                                                })
-                                                .as_deref()
-                                                != Some(desired.as_str())
-                                        }),
-                                    "remove" => track
-                                        .and_then(|track| track_field_string(track, field))
-                                        .is_some(),
-                                    _ => false,
-                                }
-                            })
+        let per_track_affects = per_track.iter().any(|entry| {
+            entry.get("path").and_then(Value::as_str) == Some(path.as_str())
+                && entry
+                    .get("changes")
+                    .and_then(Value::as_array)
+                    .is_some_and(|changes| {
+                        changes.iter().any(|change| {
+                            let field = change
+                                .get("field")
+                                .and_then(Value::as_str)
+                                .unwrap_or_default();
+                            match change
+                                .get("action")
+                                .and_then(Value::as_str)
+                                .unwrap_or("set")
+                            {
+                                "set" => change
+                                    .get("value")
+                                    .and_then(action_value_string)
+                                    .is_some_and(|desired| {
+                                        track
+                                            .and_then(|track| track_field_string(track, field))
+                                            .as_deref()
+                                            != Some(desired.as_str())
+                                    }),
+                                "remove" => track
+                                    .and_then(|track| track_field_string(track, field))
+                                    .is_some(),
+                                _ => false,
+                            }
                         })
-            });
-            if uniform_affects || per_track_affects {
-                expected.push(path.clone());
-            }
+                    })
+        });
+        if uniform_affects || per_track_affects {
+            expected.push(path.clone());
+        }
     }
     Ok(expected)
 }
@@ -635,7 +631,10 @@ pub(crate) fn validate_native_completion_contract(
     };
     let actual_paths = unique_action_paths(&batch.actions);
     let actual_set = actual_paths.iter().collect::<HashSet<_>>();
-    let expected_set = contract.expected_action_paths.iter().collect::<HashSet<_>>();
+    let expected_set = contract
+        .expected_action_paths
+        .iter()
+        .collect::<HashSet<_>>();
     if actual_set != expected_set {
         let missing = contract
             .expected_action_paths
@@ -1901,10 +1900,8 @@ mod tests {
 
     #[test]
     fn metadata_patch_extra_upsert_creates_extra_actions() {
-        let root = std::env::temp_dir().join(format!(
-            "soundrobe-extra-contract-{}",
-            uuid::Uuid::new_v4()
-        ));
+        let root =
+            std::env::temp_dir().join(format!("soundrobe-extra-contract-{}", uuid::Uuid::new_v4()));
         std::fs::create_dir_all(&root).unwrap();
         let fixture = Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../test/fixtures/tauri/media-corpus/minimal.flac");

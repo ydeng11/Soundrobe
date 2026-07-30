@@ -2,8 +2,7 @@
 //! format's pure writer passes differential and payload-safety tests.
 
 use crate::commands::tracks::{
-    id3_user_text_values, read_track_metadata, strip_wav_padding, unreadable_track_data,
-    TrackData,
+    id3_user_text_values, read_track_metadata, strip_wav_padding, unreadable_track_data, TrackData,
 };
 use crate::error::ApiError;
 use crate::state::write_queue::WriteQueue;
@@ -2855,7 +2854,16 @@ fn apply_patch(tag: &mut Id3v2Tag, patch: &TrackPatch) {
         Patch::Null => tag.remove_album(),
         Patch::Value(value) => tag.set_album(value.clone()),
     }
+    let album_artist_active = !patch.album_artist.is_omitted();
     apply_text_frame(tag, "TPE2", &patch.album_artist);
+    // Remove legacy TXXX frames that Lofty maps to ItemKey::AlbumArtist
+    // ("ALBUM ARTIST", "ALBUMARTIST"). These shadow TPE2 during readback
+    // via first_string() because they appear earlier in the frame order.
+    if album_artist_active {
+        for desc in ["ALBUM ARTIST", "ALBUMARTIST"] {
+            tag.remove_user_text(desc);
+        }
+    }
     apply_year(tag, &patch.year);
     apply_text_frame(tag, "TCOM", &patch.composer);
     match &patch.genre {
@@ -3193,12 +3201,12 @@ fn strip_wav_list_chunk(bytes: &[u8]) -> Vec<u8> {
             .unwrap_or([0; 4]);
         let chunk_size = u32::from_le_bytes(chunk_size_bytes) as usize;
         let chunk_total = 8 + chunk_size + (chunk_size % 2); // header + data + padding
-        // Stop at trailing null-byte padding (Lofty's IFF chunk parser
-    // rejects null FourCCs, and we don't want to preserve junk).
-    if id == [0u8; 4] {
-        break;
-    }
-    if id == b"LIST" {
+                                                             // Stop at trailing null-byte padding (Lofty's IFF chunk parser
+                                                             // rejects null FourCCs, and we don't want to preserve junk).
+        if id == [0u8; 4] {
+            break;
+        }
+        if id == b"LIST" {
             // Only strip LIST chunks with INFO type (metadata), preserving
             // other LIST chunks such as adtl (cue labels).
             let list_type = bytes.get(offset + 8..offset + 12).unwrap_or_default();
@@ -4162,6 +4170,103 @@ mod tests {
             mpeg_payload(&before),
             mpeg_payload(&fs::read(&path).unwrap())
         );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    /// Regression: TXXX "ALBUM ARTIST" / "ALBUMARTIST" must not shadow TPE2.
+    /// Lofty maps these descriptions to ItemKey::AlbumArtist and they appear
+    /// before TPE2 in frame order, so first_string() returns the stale value
+    /// and same_metadata skips the write.
+    #[test]
+    fn album_artist_patch_removes_legacy_txxx_aliases() {
+        let (root, path) = copy_fixture();
+
+        // Install legacy aliases into a fresh copy of minimal.mp3
+        fn install_aliases(path: &Path) {
+            let mut tag = read_id3v2(path).unwrap();
+            let val = Patch::Value("Legacy Artist".to_string());
+            apply_text_frame(&mut tag, "TPE2", &val);
+            tag.insert_user_text("ALBUM ARTIST".to_string(), "Legacy Artist".to_string());
+            tag.insert_user_text("ALBUMARTIST".to_string(), "Legacy Artist".to_string());
+            // Unrelated TXXX with underscore — must survive
+            tag.insert_user_text("ALBUM_ARTIST".to_string(), "Preserved".to_string());
+            tag.save_to_path(path, WriteOptions::new()).unwrap();
+        }
+        install_aliases(&path);
+        let before = read_track_metadata(&path).unwrap();
+        assert_eq!(before.album_artist.as_deref(), Some("Legacy Artist"));
+
+        // Patch albumArtist to a different value
+        let sentinel = "Sentinel Artist";
+        let patch: TrackPatch = serde_json::from_value(serde_json::json!({
+            "albumArtist": sentinel
+        }))
+        .unwrap();
+        let before_bytes = fs::read(&path).unwrap();
+
+        assert_eq!(
+            write_mp3_atomic(&path, &patch).unwrap(),
+            TrackWriteOutcome::Replaced
+        );
+
+        // Readback reflects the new value
+        let after = read_track_metadata(&path).unwrap();
+        assert_eq!(after.album_artist.as_deref(), Some(sentinel));
+        assert_eq!(
+            read_id3v2(&path).unwrap().get_user_text("ALBUM ARTIST"),
+            None
+        );
+        assert_eq!(
+            read_id3v2(&path).unwrap().get_user_text("ALBUMARTIST"),
+            None
+        );
+        // Unrelated ALBUM_ARTIST (underscore) survives
+        assert_eq!(
+            read_id3v2(&path).unwrap().get_user_text("ALBUM_ARTIST"),
+            Some("Preserved")
+        );
+
+        // MPEG payload unchanged
+        let after_bytes = fs::read(&path).unwrap();
+        assert_eq!(mpeg_payload(&before_bytes), mpeg_payload(&after_bytes));
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    /// Clearing album_artist (null) also removes legacy TXXX aliases.
+    #[test]
+    fn album_artist_null_clears_legacy_txxx_aliases() {
+        let (root, path) = copy_fixture();
+
+        let mut tag = read_id3v2(&path).unwrap();
+        let val = Patch::Value("Existing".to_string());
+        apply_text_frame(&mut tag, "TPE2", &val);
+        tag.insert_user_text("ALBUM ARTIST".to_string(), "Existing".to_string());
+        tag.insert_user_text("ALBUMARTIST".to_string(), "Existing".to_string());
+        tag.save_to_path(&path, WriteOptions::new()).unwrap();
+        assert_eq!(
+            read_track_metadata(&path).unwrap().album_artist.as_deref(),
+            Some("Existing")
+        );
+
+        // Null the album artist
+        let patch: TrackPatch = serde_json::from_value(serde_json::json!({
+            "albumArtist": null
+        }))
+        .unwrap();
+        write_mp3_atomic(&path, &patch).unwrap();
+
+        let after = read_track_metadata(&path).unwrap();
+        assert_eq!(after.album_artist, None);
+        // Aliases are gone too
+        assert_eq!(
+            read_id3v2(&path).unwrap().get_user_text("ALBUM ARTIST"),
+            None
+        );
+        assert_eq!(
+            read_id3v2(&path).unwrap().get_user_text("ALBUMARTIST"),
+            None
+        );
+
         fs::remove_dir_all(root).unwrap();
     }
 

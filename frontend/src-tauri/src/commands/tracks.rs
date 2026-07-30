@@ -333,8 +333,7 @@ pub fn try_read_extra_tags(path: &Path) -> Result<Vec<ExtraTag>, ApiError> {
         }
         "wav" => {
             let mut file = File::open(path)?;
-            let parsed =
-                WavFile::read_from(&mut file, ParseOptions::new().read_properties(false))?;
+            let parsed = WavFile::read_from(&mut file, ParseOptions::new().read_properties(false))?;
             if let Some(tag) = parsed.id3v2() {
                 collect_id3_extra_tags(tag, "ID3v2", &mut rows);
             }
@@ -408,9 +407,7 @@ pub fn read_plural_tag_values(path: &Path, field: &str) -> Result<Vec<String>, A
                     path.display()
                 )));
             }
-            Ok(flac_vorbis_comments(&data)
-                .remove(key)
-                .unwrap_or_default())
+            Ok(flac_vorbis_comments(&data).remove(key).unwrap_or_default())
         }
         "ogg" => {
             let mut file = File::open(path)?;
@@ -436,8 +433,7 @@ pub fn read_plural_tag_values(path: &Path, field: &str) -> Result<Vec<String>, A
         }
         "m4a" | "mp4" => {
             let mut file = File::open(path)?;
-            let parsed =
-                Mp4File::read_from(&mut file, ParseOptions::new().read_properties(false))?;
+            let parsed = Mp4File::read_from(&mut file, ParseOptions::new().read_properties(false))?;
             let Some(ilst) = parsed.ilst() else {
                 return Ok(Vec::new());
             };
@@ -632,12 +628,12 @@ pub fn read_track_metadata(path: &Path) -> Result<TrackData, ApiError> {
     // parser rejects null FourCCs and logs a WARN.  Strip the padding
     // before Lofty sees the data so the warning never fires and the
     // tag reader doesn't stop early.
-    let read_result: std::result::Result<lofty::file::TaggedFile, ApiError> =
-        if extension == "wav" {
-            read_wav_safe(path)
-        } else {
-            lofty::read_from_path(path).map_err(ApiError::from)
-        };
+    let read_result: std::result::Result<lofty::file::TaggedFile, ApiError> = if extension == "wav"
+    {
+        read_wav_safe(path)
+    } else {
+        lofty::read_from_path(path).map_err(ApiError::from)
+    };
     match read_result {
         Ok(tagged) => {
             let mut track = from_lofty(path, size_bytes, &extension, &tagged);
@@ -2289,7 +2285,11 @@ mod tests {
         let original = raw.len();
         strip_wav_padding(&mut raw);
 
-        assert_eq!(raw.len(), original, "zero-filled data not treated as padding");
+        assert_eq!(
+            raw.len(),
+            original,
+            "zero-filled data not treated as padding"
+        );
         let sz = u32::from_le_bytes(raw[4..8].try_into().unwrap()) as usize;
         assert_eq!(sz, raw.len() - 8, "RIFF size unchanged");
     }
@@ -2303,8 +2303,8 @@ mod tests {
         raw.extend_from_slice(b"fmt ");
         raw.extend_from_slice(&16u32.to_le_bytes());
         raw.extend_from_slice(&[
-            0x01, 0x00, 0x02, 0x00, 0x44, 0xac, 0x00, 0x00,
-            0x10, 0xb1, 0x02, 0x00, 0x04, 0x00, 0x10, 0x00,
+            0x01, 0x00, 0x02, 0x00, 0x44, 0xac, 0x00, 0x00, 0x10, 0xb1, 0x02, 0x00, 0x04, 0x00,
+            0x10, 0x00,
         ]);
         raw.extend_from_slice(b"data");
         raw.extend_from_slice(&8u32.to_le_bytes()); // placeholder

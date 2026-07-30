@@ -22,8 +22,7 @@ use crate::{
     state::{
         config::ConfigState,
         providers::{
-            DiscogsClient, MusicBrainzClient, ProviderAlbum, ProviderState,
-            ReleaseSearchSummary,
+            DiscogsClient, MusicBrainzClient, ProviderAlbum, ProviderState, ReleaseSearchSummary,
         },
         write_queue::WriteQueue,
     },
@@ -129,13 +128,34 @@ async fn search_releases_inner(
     discogs_token: Option<String>,
 ) -> Result<SearchReleasesResponse, String> {
     // Normalise every string input: trim and omit empty.
-    let artist = trimmed_artist.as_deref().map(|s| s.trim().to_string()).filter(|s| !s.is_empty());
-    let album = trimmed_album.as_deref().map(|s| s.trim().to_string()).filter(|s| !s.is_empty());
-    let year = year.as_deref().map(|s| s.trim().to_string()).filter(|s| !s.is_empty());
-    let country = country.as_deref().map(|s| s.trim().to_string()).filter(|s| !s.is_empty());
-    let format = format.as_deref().map(|s| s.trim().to_string()).filter(|s| !s.is_empty());
-    let catno = catalog_number.as_deref().map(|s| s.trim().to_string()).filter(|s| !s.is_empty());
-    let bc = barcode.as_deref().map(|s| s.trim().to_string()).filter(|s| !s.is_empty());
+    let artist = trimmed_artist
+        .as_deref()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty());
+    let album = trimmed_album
+        .as_deref()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty());
+    let year = year
+        .as_deref()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty());
+    let country = country
+        .as_deref()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty());
+    let format = format
+        .as_deref()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty());
+    let catno = catalog_number
+        .as_deref()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty());
+    let bc = barcode
+        .as_deref()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty());
     if artist.is_none() && album.is_none() {
         return Err("Artist or album is required".into());
     }
@@ -149,14 +169,25 @@ async fn search_releases_inner(
             if let Some(ref a) = trimmed_album {
                 query_parts.push(("release", a.as_str()));
             }
-            if let Some(ref y) = year { query_parts.push(("date", y.as_str())); }
-            if let Some(ref c) = country { query_parts.push(("country", c.as_str())); }
-            if let Some(ref f) = format { query_parts.push(("format", f.as_str())); }
-            if let Some(ref cn) = catno { query_parts.push(("catno", cn.as_str())); }
-            if let Some(ref b) = bc { query_parts.push(("barcode", b.as_str())); }
+            if let Some(ref y) = year {
+                query_parts.push(("date", y.as_str()));
+            }
+            if let Some(ref c) = country {
+                query_parts.push(("country", c.as_str()));
+            }
+            if let Some(ref f) = format {
+                query_parts.push(("format", f.as_str()));
+            }
+            if let Some(ref cn) = catno {
+                query_parts.push(("catno", cn.as_str()));
+            }
+            if let Some(ref b) = bc {
+                query_parts.push(("barcode", b.as_str()));
+            }
             let offset = (page - 1) * page_size;
-            let (summaries, total) =
-                client.search_release_summaries(&query_parts, page_size, offset).await?;
+            let (summaries, total) = client
+                .search_release_summaries(&query_parts, page_size, offset)
+                .await?;
             let has_next = offset + page_size < total;
             Ok(SearchReleasesResponse {
                 results: summaries,
@@ -167,17 +198,33 @@ async fn search_releases_inner(
             })
         }
         "discogs" => {
-            let client = DiscogsClient::at(providers.http(), discogs_token, providers.discogs_base());
+            let client =
+                DiscogsClient::at(providers.http(), discogs_token, providers.discogs_base());
             let mut params: Vec<(&str, &str)> = Vec::new();
-            if let Some(ref a) = artist { params.push(("artist", a.as_str())); }
-            if let Some(ref a) = album { params.push(("release_title", a.as_str())); }
-            if let Some(ref y) = year { params.push(("year", y.as_str())); }
-            if let Some(ref c) = country { params.push(("country", c.as_str())); }
-            if let Some(ref f) = format { params.push(("format", f.as_str())); }
-            if let Some(ref cn) = catno { params.push(("catno", cn.as_str())); }
-            if let Some(ref b) = bc { params.push(("barcode", b.as_str())); }
-            let (summaries, total) =
-                client.search_release_summaries(&params, page, page_size).await?;
+            if let Some(ref a) = artist {
+                params.push(("artist", a.as_str()));
+            }
+            if let Some(ref a) = album {
+                params.push(("release_title", a.as_str()));
+            }
+            if let Some(ref y) = year {
+                params.push(("year", y.as_str()));
+            }
+            if let Some(ref c) = country {
+                params.push(("country", c.as_str()));
+            }
+            if let Some(ref f) = format {
+                params.push(("format", f.as_str()));
+            }
+            if let Some(ref cn) = catno {
+                params.push(("catno", cn.as_str()));
+            }
+            if let Some(ref b) = bc {
+                params.push(("barcode", b.as_str()));
+            }
+            let (summaries, total) = client
+                .search_release_summaries(&params, page, page_size)
+                .await?;
             let has_next = (page * page_size) < total;
             Ok(SearchReleasesResponse {
                 results: summaries,
@@ -216,7 +263,8 @@ pub async fn album_search_releases(
         page_size,
         &providers,
         token,
-    ).await
+    )
+    .await
 }
 
 /// Resolve a single release by provider + ID, returning full `ProviderAlbum` with tracks.
@@ -249,15 +297,11 @@ async fn resolve_release_inner(
                 Some("master") => client
                     .master_metadata(&request.release_id)
                     .await
-                    .ok_or_else(|| {
-                        format!("Discogs master not found: {}", request.release_id)
-                    }),
+                    .ok_or_else(|| format!("Discogs master not found: {}", request.release_id)),
                 _ => client
                     .release_metadata(&request.release_id)
                     .await
-                    .ok_or_else(|| {
-                        format!("Discogs release not found: {}", request.release_id)
-                    }),
+                    .ok_or_else(|| format!("Discogs release not found: {}", request.release_id)),
             }
         }
         other => Err(format!("Unknown provider: {other}")),
@@ -347,15 +391,16 @@ pub async fn album_preview_release_match(
             local_title: local_t.title.clone(),
             local_artist: local_t.artist.clone(),
             remote_index: remote_idx,
-            remote_title: remote_idx.and_then(|ri| {
-                album_candidate.tracks.get(ri).and_then(|t| t.title.clone())
-            }),
+            remote_title: remote_idx
+                .and_then(|ri| album_candidate.tracks.get(ri).and_then(|t| t.title.clone())),
             remote_artist: remote_idx.and_then(|ri| {
-                album_candidate.tracks.get(ri).and_then(|t| t.artist.clone())
+                album_candidate
+                    .tracks
+                    .get(ri)
+                    .and_then(|t| t.artist.clone())
             }),
-            remote_track_number: remote_idx.and_then(|ri| {
-                album_candidate.tracks.get(ri).and_then(|t| t.track_number)
-            }),
+            remote_track_number: remote_idx
+                .and_then(|ri| album_candidate.tracks.get(ri).and_then(|t| t.track_number)),
             evidence: ev.map(|e| format!("{e:?}")),
         });
     }
@@ -381,7 +426,10 @@ pub async fn album_search_apply_candidate(
 ) -> Result<usize, String> {
     let album_path = PathBuf::from(&request.album_path);
     if !album_path.is_dir() {
-        return Err(format!("Album directory does not exist: {}", request.album_path));
+        return Err(format!(
+            "Album directory does not exist: {}",
+            request.album_path
+        ));
     }
 
     let local_files = collect_audio_files(&album_path);
@@ -428,16 +476,28 @@ mod tests {
                 };
                 let mut buf = [0; 4096];
                 let n = stream.read(&mut buf).unwrap_or(0);
-                if n == 0 { continue; }
+                if n == 0 {
+                    continue;
+                }
                 let request = String::from_utf8_lossy(&buf[..n]);
                 let _ = send.send(request.to_string());
-                let (body_str, _is_mb) = if request.contains("/ws/2/release?") || request.contains("/release?") {
-                    (format!("{{\"releases\":[{}],\"release-count\":1}}", MB_RESULT), true)
-                } else if request.contains("/database/search") {
-                    (format!("{{\"results\":[{}],\"pagination\":{{\"items\":1,\"pages\":1}}}}", DG_RESULT), false)
-                } else {
-                    ("{}".to_string(), false)
-                };
+                let (body_str, _is_mb) =
+                    if request.contains("/ws/2/release?") || request.contains("/release?") {
+                        (
+                            format!("{{\"releases\":[{}],\"release-count\":1}}", MB_RESULT),
+                            true,
+                        )
+                    } else if request.contains("/database/search") {
+                        (
+                            format!(
+                                "{{\"results\":[{}],\"pagination\":{{\"items\":1,\"pages\":1}}}}",
+                                DG_RESULT
+                            ),
+                            false,
+                        )
+                    } else {
+                        ("{}".to_string(), false)
+                    };
                 let response = format!(
                     "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nContent-Type: application/json\r\nConnection: close\r\n\r\n{body_str}",
                     body_str.len()
@@ -480,25 +540,44 @@ mod tests {
             format.map(|s| s.to_string()),
             catalog_number.map(|s| s.to_string()),
             barcode.map(|s| s.to_string()),
-            page, page_size,
+            page,
+            page_size,
             &providers,
             None,
-        ).await.unwrap();
+        )
+        .await
+        .unwrap();
         let req = rx.recv().unwrap();
         (result, req)
     }
 
     // ── Validation (no HTTP) ───────────────────────────────────────
 
-    async fn run_validation(provider: &str, artist: Option<&str>, album: Option<&str>) -> Result<SearchReleasesResponse, String> {
-        let http = reqwest::Client::builder().timeout(std::time::Duration::from_secs(1)).build().unwrap();
+    async fn run_validation(
+        provider: &str,
+        artist: Option<&str>,
+        album: Option<&str>,
+    ) -> Result<SearchReleasesResponse, String> {
+        let http = reqwest::Client::builder()
+            .timeout(std::time::Duration::from_secs(1))
+            .build()
+            .unwrap();
         let providers = ProviderState::at(http, "http://localhost:1", "http://localhost:2");
         search_releases_inner(
             provider,
             artist.map(|s| s.to_string()),
             album.map(|s| s.to_string()),
-            None, None, None, None, None, 1, 10, &providers, None,
-        ).await
+            None,
+            None,
+            None,
+            None,
+            None,
+            1,
+            10,
+            &providers,
+            None,
+        )
+        .await
     }
 
     #[tokio::test]
@@ -511,7 +590,9 @@ mod tests {
 
     #[tokio::test]
     async fn validation_rejects_whitespace_only() {
-        let err = run_validation("musicbrainz", Some("   "), None).await.unwrap_err();
+        let err = run_validation("musicbrainz", Some("   "), None)
+            .await
+            .unwrap_err();
         assert!(err.contains("Artist or album is required"), "{err}");
         let err = run_validation("discogs", None, Some("")).await.unwrap_err();
         assert!(err.contains("Artist or album is required"), "{err}");
@@ -520,25 +601,57 @@ mod tests {
     #[tokio::test]
     async fn validation_accepts_artist_only() {
         // Dummy endpoints will fail, but validation should pass.
-        let err = run_validation("musicbrainz", Some("Radiohead"), None).await.unwrap_err();
-        assert!(!err.contains("Artist or album is required"), "validation should pass: {err}");
-        let err = run_validation("discogs", Some("Nirvana"), None).await.unwrap_err();
-        assert!(!err.contains("Artist or album is required"), "validation should pass: {err}");
+        let err = run_validation("musicbrainz", Some("Radiohead"), None)
+            .await
+            .unwrap_err();
+        assert!(
+            !err.contains("Artist or album is required"),
+            "validation should pass: {err}"
+        );
+        let err = run_validation("discogs", Some("Nirvana"), None)
+            .await
+            .unwrap_err();
+        assert!(
+            !err.contains("Artist or album is required"),
+            "validation should pass: {err}"
+        );
     }
 
     #[tokio::test]
     async fn validation_accepts_album_only() {
-        let err = run_validation("musicbrainz", None, Some("OK Computer")).await.unwrap_err();
-        assert!(!err.contains("Artist or album is required"), "validation should pass: {err}");
-        let err = run_validation("discogs", None, Some("Nevermind")).await.unwrap_err();
-        assert!(!err.contains("Artist or album is required"), "validation should pass: {err}");
+        let err = run_validation("musicbrainz", None, Some("OK Computer"))
+            .await
+            .unwrap_err();
+        assert!(
+            !err.contains("Artist or album is required"),
+            "validation should pass: {err}"
+        );
+        let err = run_validation("discogs", None, Some("Nevermind"))
+            .await
+            .unwrap_err();
+        assert!(
+            !err.contains("Artist or album is required"),
+            "validation should pass: {err}"
+        );
     }
 
     // ── MusicBrainz provider-level searches ────────────────────────
 
     #[tokio::test]
     async fn musicbrainz_search_artist_only() {
-        let (res, req) = inner_search("musicbrainz", Some("Radiohead"), None, None, None, None, None, None, 1, 10).await;
+        let (res, req) = inner_search(
+            "musicbrainz",
+            Some("Radiohead"),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            1,
+            10,
+        )
+        .await;
         assert_eq!(res.results.len(), 1);
         assert_eq!(res.results[0].title, "OK Computer");
         assert!(req.contains("query="));
@@ -547,7 +660,19 @@ mod tests {
 
     #[tokio::test]
     async fn musicbrainz_search_album_only() {
-        let (res, req) = inner_search("musicbrainz", None, Some("OK Computer"), None, None, None, None, None, 1, 10).await;
+        let (res, req) = inner_search(
+            "musicbrainz",
+            None,
+            Some("OK Computer"),
+            None,
+            None,
+            None,
+            None,
+            None,
+            1,
+            10,
+        )
+        .await;
         assert_eq!(res.results.len(), 1);
         assert_eq!(res.results[0].title, "OK Computer");
         assert!(req.contains("query="));
@@ -555,14 +680,38 @@ mod tests {
 
     #[tokio::test]
     async fn musicbrainz_search_artist_and_album() {
-        let (res, _) = inner_search("musicbrainz", Some("Radiohead"), Some("OK Computer"), None, None, None, None, None, 1, 10).await;
+        let (res, _) = inner_search(
+            "musicbrainz",
+            Some("Radiohead"),
+            Some("OK Computer"),
+            None,
+            None,
+            None,
+            None,
+            None,
+            1,
+            10,
+        )
+        .await;
         assert_eq!(res.results.len(), 1);
         assert_eq!(res.results[0].title, "OK Computer");
     }
 
     #[tokio::test]
     async fn musicbrainz_search_with_optional_params() {
-        let (res, req) = inner_search("musicbrainz", Some("Radiohead"), Some("OK Computer"), Some("1997"), Some("GB"), Some("CD"), Some("CDP-1"), Some("12345"), 2, 5).await;
+        let (res, req) = inner_search(
+            "musicbrainz",
+            Some("Radiohead"),
+            Some("OK Computer"),
+            Some("1997"),
+            Some("GB"),
+            Some("CD"),
+            Some("CDP-1"),
+            Some("12345"),
+            2,
+            5,
+        )
+        .await;
         assert_eq!(res.results.len(), 1);
         assert_eq!(res.page, 2);
         assert_eq!(res.page_size, 5);
@@ -574,7 +723,19 @@ mod tests {
 
     #[tokio::test]
     async fn discogs_search_artist_only() {
-        let (res, req) = inner_search("discogs", Some("Radiohead"), None, None, None, None, None, None, 1, 10).await;
+        let (res, req) = inner_search(
+            "discogs",
+            Some("Radiohead"),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            1,
+            10,
+        )
+        .await;
         assert_eq!(res.results.len(), 1);
         assert_eq!(res.results[0].title, "OK Computer");
         assert!(req.contains("/database/search"));
@@ -582,21 +743,57 @@ mod tests {
 
     #[tokio::test]
     async fn discogs_search_album_only() {
-        let (res, _) = inner_search("discogs", None, Some("OK Computer"), None, None, None, None, None, 1, 10).await;
+        let (res, _) = inner_search(
+            "discogs",
+            None,
+            Some("OK Computer"),
+            None,
+            None,
+            None,
+            None,
+            None,
+            1,
+            10,
+        )
+        .await;
         assert_eq!(res.results.len(), 1);
         assert_eq!(res.results[0].title, "OK Computer");
     }
 
     #[tokio::test]
     async fn discogs_search_artist_and_album() {
-        let (res, _) = inner_search("discogs", Some("Radiohead"), Some("OK Computer"), None, None, None, None, None, 1, 10).await;
+        let (res, _) = inner_search(
+            "discogs",
+            Some("Radiohead"),
+            Some("OK Computer"),
+            None,
+            None,
+            None,
+            None,
+            None,
+            1,
+            10,
+        )
+        .await;
         assert_eq!(res.results.len(), 1);
         assert_eq!(res.results[0].title, "OK Computer");
     }
 
     #[tokio::test]
     async fn discogs_search_with_optional_params() {
-        let (res, req) = inner_search("discogs", Some("Radiohead"), Some("OK Computer"), Some("1997"), Some("EU"), Some("CD"), Some("CAT-1"), Some("12345"), 1, 20).await;
+        let (res, req) = inner_search(
+            "discogs",
+            Some("Radiohead"),
+            Some("OK Computer"),
+            Some("1997"),
+            Some("EU"),
+            Some("CD"),
+            Some("CAT-1"),
+            Some("12345"),
+            1,
+            20,
+        )
+        .await;
         assert_eq!(res.results.len(), 1);
         assert_eq!(res.page_size, 20);
         assert!(req.contains("year"));
@@ -612,10 +809,20 @@ mod tests {
         // MB uses offset=page*size
         let r = search_releases_inner(
             "musicbrainz",
-            Some("Radiohead".to_string()), None,
-            None, None, None, None, None,
-            3, 25, &providers, None,
-        ).await.unwrap();
+            Some("Radiohead".to_string()),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            3,
+            25,
+            &providers,
+            None,
+        )
+        .await
+        .unwrap();
         assert_eq!(r.page, 3);
         assert_eq!(r.page_size, 25);
     }
@@ -634,24 +841,20 @@ mod tests {
                 artist_id: None,
                 year: None,
                 genre: None,
-                tracks: vec![
-                    crate::state::providers::ProviderTrack {
-                        title: Some("Track 1".into()),
-                        match_titles: vec![],
-                        artist: Some("Artist".into()),
-                        artists: vec!["Artist".into()],
-                        track_number: Some(1),
-                        track_total: None,
-                        disc_number: None,
-                        recording_id: None,
-                        length: None,
-                    },
-                ],
+                tracks: vec![crate::state::providers::ProviderTrack {
+                    title: Some("Track 1".into()),
+                    match_titles: vec![],
+                    artist: Some("Artist".into()),
+                    artists: vec!["Artist".into()],
+                    track_number: Some(1),
+                    track_total: None,
+                    disc_number: None,
+                    recording_id: None,
+                    length: None,
+                }],
             },
         };
         let result = album_preview_release_match(request).await;
         assert!(result.is_err());
     }
 }
-
-
