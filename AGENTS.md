@@ -56,6 +56,21 @@ Targeted checks:
 
 `just fe-check` is the deterministic default gate and does not run credentialed or real-display smoke tests. Run the relevant smoke explicitly when changing OpenRouter, assistant loopback, native dialogs, or packaged-app integration.
 
+## Media toolbox scripts
+
+`scripts/toolbox.sh` is the single entry point for media/library utility scripts: the bash tools are embedded as subcommand functions, and the FLAC QA pipeline delegates to the node tools in `scripts/`. Run `scripts/toolbox.sh <command> -h` for command-specific options.
+
+- `cue-split <album-dir>...` — split single-file FLAC/WAV album images into per-track FLACs from the `.cue` sheet; copies album images alongside the tracks. `-r` recursive, `-a` artist mode (`<artist>-processed/`), `-o` custom output, `-f` force re-slice, `-n` dry-run, `--doctor` runs the FLAC doctor over each sliced output. Requires python3, ffmpeg, ffprobe.
+- `dsf-to-flac <source_dir> [artist]` — convert DSF (DSD/SACD) files to FLAC with metadata; reads track titles from a GBK-aware track listing and copies album images. Env overrides: `TARGET_RATE`, `LOWPASS_FREQ`, `BITS_PER_SAMPLE`.
+- `slice-iso [source_dir]` — slice audio ISO images into FLAC tracks (K2HD SACD UDF with `2C_AUDIO/TRACK*.2CH`, and raw CD PCM); reads titles from 专辑曲目.txt, copies images. `--artist`, `--output`. Requires hdiutil.
+- `unrar <dir|--file F>` — extract RAR archives (unar primary, 7z fallback); `-p` password, `-r` recursive, `-o` output dir.
+- `doctor <dir> [opts]` — FLAC metadata scan/diagnose/fix; delegates to `fix-flac-metadata.js`, and auto-renders the HTML corruption report next to any saved report (via `generate-corruption-report.js`).
+- `corpus [--source DIR] [--dest DIR] [--count N]` — build a reproducible FLAC test corpus; delegates to `build-flac-test-corpus.js`.
+- `corruption-report <report> [output.html]` — render a doctor scan into an HTML corruption report; delegates to `generate-corruption-report.js`.
+- `aggregate-checkpoint <checkpoint-dir> [output.json]` — merge checkpoint batches into one report JSON; delegates to `aggregate-checkpoint.js`.
+
+The node-backed commands are thin delegates by design: the JS tools must stay standalone files — the doctor forks worker processes by path, and `frontend/test/scripts/` runs them directly (see `frontend/test/scripts/toolbox.test.ts` for dispatcher and cue-split coverage). Do not fold the node tools into `toolbox.sh`. Script tests: `cd frontend && npx vitest run test/scripts`.
+
 ## Changelog
 
 `CHANGELOG.md` at the repository root follows

@@ -14,6 +14,13 @@ desktop release.
 
 ### Added
 
+- **Unified media toolbox script** — `scripts/toolbox.sh` is now the single
+  entry point for media/library utilities: cue-splitting (FLAC/WAV album
+  images per CUE sheet, with image copies and optional doctor health check),
+  DSF/DSD-to-FLAC conversion, audio ISO slicing (K2HD SACD and raw CD), RAR
+  extraction, and the FLAC doctor/QA pipeline. The `doctor` command renders
+  an HTML corruption report automatically whenever it saves a scan report.
+
 - **Tauri 2 desktop application** — Rust backend with a React/TypeScript
   renderer, replacing the legacy Python CLI and the intermediate Electron
   prototype. Renderer code talks to the native process exclusively through the
@@ -92,6 +99,8 @@ desktop release.
 
 ### Removed
 
+- Standalone `fix-medium` toolbox command (the underlying
+  `fix-medium-flac-tracks.js` tool remains available in `scripts/`).
 - Legacy Python CLI and Electron prototype artifacts (2026-07-18).
 
 ## [1.0.0] - 2026-05-10
