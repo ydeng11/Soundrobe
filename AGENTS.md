@@ -56,6 +56,22 @@ Targeted checks:
 
 `just fe-check` is the deterministic default gate and does not run credentialed or real-display smoke tests. Run the relevant smoke explicitly when changing OpenRouter, assistant loopback, native dialogs, or packaged-app integration.
 
+## Changelog
+
+`CHANGELOG.md` at the repository root follows
+[Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and documents
+user-visible changes between releases.
+
+- Every commit that changes behavior — a `feat`, `fix`, `perf`, breaking
+  change, or removed feature — must add or update an entry under
+  `[Unreleased]` in the same commit. Test-only, refactor, docs, and chore
+  commits that do not change behavior need no entry.
+- Entries describe what a user or operator observes; leave internal plumbing,
+  commit hashes, and implementation details out.
+- When cutting a release (see `docs/release-checklist.md`), move the
+  `[Unreleased]` entries into a new dated section for the released version and
+  start a fresh, empty `[Unreleased]` heading on top.
+
 ## Configuration, persistence, and logs
 
 The root `.env.local` is ignored by Git and loaded by `just` for local commands. Use it for development-only process environment variables such as `LLM_API_KEY` and `LLM_MODEL`; never commit it, print its values, or expose them through renderer responses. User-editable application settings remain in `~/.auto-tagger/config.yaml`, with process environment precedence handled by the Rust config state.

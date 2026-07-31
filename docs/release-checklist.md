@@ -7,6 +7,9 @@ Set the same semantic version in `frontend/package.json`,
 test suite rejects drift between these manifests, and the Settings footer reads
 the compiled Cargo version through the native `app_info` command.
 
+Finalize `CHANGELOG.md` before tagging: move the `[Unreleased]` entries into a
+dated section for the new version and leave an empty `[Unreleased]` heading.
+
 ## Tauri Desktop
 
 Run the local quality and credentialed production-client gates:
