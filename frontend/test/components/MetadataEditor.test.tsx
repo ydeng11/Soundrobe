@@ -123,7 +123,7 @@ describe("MetadataEditor", () => {
     expect(screen.getByDisplayValue("Manual Album")).toBeTruthy();
   });
 
-  it("calls onSave with changed fields when focus leaves the panel", () => {
+  it("does not call onSave when focus leaves the panel — only the Apply Changes button persists", () => {
     const onSave = vi.fn();
     render(
       <MetadataEditor {...baseProps} onSave={onSave} />
@@ -141,11 +141,68 @@ describe("MetadataEditor", () => {
     expect(container).toBeTruthy();
     fireEvent.blur(container!, { relatedTarget: null });
 
+    // Nothing is persisted until the Apply Changes button is clicked
+    expect(onSave).not.toHaveBeenCalled();
+  });
+
+  it("calls onSave with changed fields when Apply Changes is clicked", () => {
+    const onSave = vi.fn();
+    render(
+      <MetadataEditor {...baseProps} onSave={onSave} />
+    );
+
+    const titleInput = screen.getByDisplayValue("Test Title");
+    fireEvent.change(titleInput, { target: { value: "New Title" } });
+
+    const artistInput = screen.getByDisplayValue("Test Artist");
+    fireEvent.change(artistInput, { target: { value: "New Artist" } });
+
+    fireEvent.click(screen.getByRole("button", { name: "Apply Changes" }));
+
     expect(onSave).toHaveBeenCalledTimes(1);
     expect(onSave).toHaveBeenCalledWith({
       title: "New Title",
       artist: "New Artist",
     });
+  });
+
+  it("discards unsaved edits when navigating to another track without saving", () => {
+    const onSave = vi.fn();
+    const { rerender } = render(
+      <MetadataEditor {...baseProps} onSave={onSave} />
+    );
+
+    const titleInput = screen.getByDisplayValue("Test Title");
+    fireEvent.change(titleInput, { target: { value: "New Title" } });
+
+    // Navigate to a different track (path changes)
+    rerender(
+      <MetadataEditor
+        {...baseProps}
+        onSave={onSave}
+        track={makeTrack({ path: "/music/other.mp3", title: "Other Title" })}
+      />
+    );
+
+    // The draft is discarded and nothing was persisted
+    expect(screen.getByDisplayValue("Other Title")).toBeTruthy();
+    expect(screen.queryByDisplayValue("New Title")).toBeNull();
+    expect(onSave).not.toHaveBeenCalled();
+  });
+
+  it("does not call onSave when the component unmounts with unsaved edits", () => {
+    const onSave = vi.fn();
+    const { unmount } = render(
+      <MetadataEditor {...baseProps} onSave={onSave} />
+    );
+
+    const titleInput = screen.getByDisplayValue("Test Title");
+    fireEvent.change(titleInput, { target: { value: "New Title" } });
+
+    unmount();
+
+    // Unmounting must not persist — only the Apply Changes button does
+    expect(onSave).not.toHaveBeenCalled();
   });
 
   it("does not call onSave when focus moves between fields within the panel", () => {
@@ -169,7 +226,7 @@ describe("MetadataEditor", () => {
     expect(onSave).not.toHaveBeenCalled();
   });
 
-  it("calls onSave when year is edited and focus leaves the panel", () => {
+  it("calls onSave when year is edited and Apply Changes is clicked", () => {
     const onSave = vi.fn();
     render(
       <MetadataEditor {...baseProps} onSave={onSave} />
@@ -178,9 +235,7 @@ describe("MetadataEditor", () => {
     const yearInput = screen.getByDisplayValue("2023");
     fireEvent.change(yearInput, { target: { value: "1999" } });
 
-    const container = yearInput.closest('[class*="flex flex-col h-full overflow-y-auto"]');
-    expect(container).toBeTruthy();
-    fireEvent.blur(container!, { relatedTarget: null });
+    fireEvent.click(screen.getByRole("button", { name: "Apply Changes" }));
 
     expect(onSave).toHaveBeenCalledWith({ year: "1999" });
   });
@@ -276,7 +331,7 @@ describe("MetadataEditor", () => {
     expect(emptyInputs.length).toBeGreaterThanOrEqual(6);
   });
 
-  it("calls onSave when composer (textarea) is edited and focus leaves panel", () => {
+  it("calls onSave when composer (textarea) is edited and Apply Changes is clicked", () => {
     const onSave = vi.fn();
     render(
       <MetadataEditor {...baseProps} onSave={onSave} />
@@ -285,9 +340,7 @@ describe("MetadataEditor", () => {
     expect(composerInputs.length).toBeGreaterThanOrEqual(1);
     fireEvent.change(composerInputs[0], { target: { value: "New Composer" } });
 
-    const container = composerInputs[0].closest('[class*="flex flex-col h-full overflow-y-auto"]');
-    expect(container).toBeTruthy();
-    fireEvent.blur(container!, { relatedTarget: null });
+    fireEvent.click(screen.getByRole("button", { name: "Apply Changes" }));
 
     expect(onSave).toHaveBeenCalledWith({ composer: "New Composer" });
   });
@@ -299,7 +352,7 @@ describe("MetadataEditor", () => {
     fireEvent.change(screen.getByDisplayValue("Rock"), {
       target: { value: "Jazz" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+    fireEvent.click(screen.getByRole("button", { name: "Apply Changes" }));
 
     expect(onSave).toHaveBeenCalledWith({ genre: "Jazz" });
   });

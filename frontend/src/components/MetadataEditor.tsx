@@ -13,7 +13,7 @@ interface MetadataEditorProps {
   onDownloadCover?: () => Promise<void>;
   /** Download artist image from online providers. */
   onDownloadArtistArt?: () => Promise<void>;
-  /** Called to write changed fields to disk. Fires when focus leaves the panel. */
+  /** Called to write changed fields to disk when the user clicks Apply Changes. */
   onSave: (fields: Record<string, string>) => void;
 }
 
@@ -45,7 +45,6 @@ export function MetadataEditor({
   // Local draft fields — reset whenever the user selects a different track
   const [draft, setDraft] = useState<Record<string, string>>({});
   const [dirty, setDirty] = useState(false);
-  const panelRef = useRef<HTMLDivElement>(null);
   const draftRef = useRef<Record<string, string>>({});
   const previousTrackPathRef = useRef(track.path);
   const previousOriginalsRef = useRef<Record<string, string> | null>(null);
@@ -101,17 +100,7 @@ export function MetadataEditor({
     setDirty(false);
   }, [onSave, orig]);
 
-  // Reset on track change and flush any pending changes from previous track
-  useEffect(() => {
-    return () => {
-      // Flush if there are pending changes when navigating away
-      if (dirty && Object.keys(draftRef.current).length > 0) {
-        flushChanges();
-      }
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [track.path]);
-
+  // Reset on track change (unsaved edits are discarded)
   useEffect(() => {
     setDraft({});
     draftRef.current = {};
@@ -152,20 +141,6 @@ export function MetadataEditor({
     });
   }, [track.path, originalValues]);
 
-  // Save when focus leaves the panel
-  const handleBlur = useCallback(
-    (e: React.FocusEvent) => {
-      // Only save if focus moved outside the entire panel
-      if (
-        panelRef.current &&
-        !panelRef.current.contains(e.relatedTarget as Node)
-      ) {
-        flushChanges();
-      }
-    },
-    [flushChanges],
-  );
-
   const setField = useCallback((field: string, value: string) => {
     setDraft((prev) => ({ ...prev, [field]: value }));
     draftRef.current = { ...draftRef.current, [field]: value };
@@ -182,9 +157,7 @@ export function MetadataEditor({
 
   return (
     <div
-      ref={panelRef}
       className="flex flex-col h-full overflow-y-auto bg-white border-l border-border"
-      onBlur={handleBlur}
     >
       {/* Inspector header */}
       <div className="px-5 py-3.5 bg-surface-alt/40 border-b border-border/60">
@@ -362,7 +335,7 @@ export function MetadataEditor({
           disabled={!hasChanges || saving}
           className="w-full rounded-lg bg-accent px-3 py-2 text-[12px] font-medium text-white transition-opacity disabled:cursor-not-allowed disabled:opacity-40"
         >
-          Save changes
+          Apply Changes
         </button>
 
         {/* Format Details */}
