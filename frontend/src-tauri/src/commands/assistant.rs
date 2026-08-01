@@ -85,49 +85,29 @@ folder(s), or run auto-tagging."
         .to_string()
 }
 
-/// Deterministic signal that a question offers two materially different
-/// actions rather than asking for confirmation or a single value. Matches the
-/// either/or phrasing the model repeated in the failing session ("…by exact
-/// title …, or do you want … in the same folder …?").
-fn contains_explicit_alternative(message: &str) -> bool {
-    let lower = message.to_lowercase();
-    [
-        " or ",
-        " or\n",
-        " vs ",
-        " versus ",
-        "either",
-        "还是",
-        "或",
-    ]
-    .iter()
-    .any(|token| lower.contains(token))
-}
-
 /// The guard message returned instead of executing a guessed mutating tool:
 /// a normal limitation/choice message, not an error event, so the UI keeps
 /// the conversation alive and the user can pick one of the options.
 fn ambiguity_guard_message(question: &str) -> String {
     format!(
-        "I asked which interpretation you wanted and you have not answered, so I won't guess \
-between the two materially different actions. You asked: \"{question}\" — \
-please reply with the option you want, or rephrase the request as one specific operation."
+        "I've asked a clarifying question and you have not answered it, so I won't guess \
+the action for you. You asked: \"{question}\" — please reply with the option you want, \
+or rephrase the request as one specific operation."
     )
 }
 
 /// Decide whether a mutating tool call proposed after the clarification repair
-/// fired on an unresolved either/or question must be blocked. The model has
-/// repeated the same ambiguity without new user input; executing the tool
-/// would guess between materially different actions. Read-only tools are
-/// always allowed (they gather evidence and never mutate).
-fn block_mutating_after_unresolved_ambiguity(
+/// fired must be blocked. The repair only fires when the model repeated a
+/// question after the user already answered an earlier question this session —
+/// no new user input arrived between that question and this tool call, so a
+/// mutating action now would be a guess, regardless of how the question was
+/// phrased. Read-only tools are always allowed (they gather evidence and
+/// never mutate); a plain message is always allowed.
+fn block_mutating_after_repeated_clarification(
     clarify_trigger_question: Option<&str>,
     tool_is_read_only: bool,
 ) -> bool {
-    matches!(
-        clarify_trigger_question,
-        Some(question) if !tool_is_read_only && contains_explicit_alternative(question)
-    )
+    clarify_trigger_question.is_some() && !tool_is_read_only
 }
 
 /// State transition for the consecutive-clarification counter: a question
@@ -993,14 +973,14 @@ pub async fn assistant_send(
             final_draft = Some(draft);
             break;
         };
-        if block_mutating_after_unresolved_ambiguity(
+        if block_mutating_after_repeated_clarification(
             clarify_trigger_question.as_deref(),
             registered_tool_is_read_only(&tool_call.tool_name) == Some(true),
         ) {
-            // The model repeated an unresolved either/or question (the repair
-            // fired), then proposed a mutating tool call without new user input.
-            // Executing it would guess between materially different actions, so
-            // return a normal limitation/choice message instead of a preview.
+            // The model repeated a clarifying question (the repair fired) and
+            // then proposed a mutating tool call without new user input.
+            // Executing it would guess the action, so return a normal
+            // limitation/choice message instead of a preview.
             let question = clarify_trigger_question.as_deref().unwrap_or_default();
             let event = AssistantEvent {
                 session_id: session_id.clone(),
@@ -1511,7 +1491,12 @@ fn build_assistant_messages(
                 "  per-track preview actions without overwriting existing values. Do not broaden ",
                 "  a field-specific request into library.run_task.\n",
                 "- For filename/path renames, call files.transform. To group tracks into album ",
-                "  folders, call files.relocate with a destination template.\n",
+                "  folders, call files.relocate with a destination template. {{value}} is the only ",
+                "  placeholder in that template.\n",
+                "- When a request groups tracks by a title prefix (e.g. everything before '(' or \"\n",
+                "  '（'), the extraction pattern must match EVERY title, including titles without ",
+                "  the separator — a pattern that requires '(' skips paren-less tracks entirely. ",
+                "  regex_extract also needs a capturing group: without one nothing is extracted.\n",
                 "- For multi-step library tasks like auto-tagging or auditing, call library.run_task.\n",
                 "- Never author actionBatch. Call a registered tool; the native app creates it.\n",
                 "- Ask one focused clarification **only** when materially different interpretations ",
@@ -6606,29 +6591,6 @@ mod assistant_behaviour_tests {
     }
 
     #[test]
-    fn explicit_alternative_detection_marks_either_or_questions_only() {
-        // The exact question the model repeated in session 1785598016869-256359
-        // before guessing a files.relocate: two materially different actions.
-        let session_question = "when you say \"grouped together,\" do you mean you \
-want to move these tracks into subfolders by exact title (e.g., all tracks titled \"长安记\" \
-into one folder, all titled \"长安记(伴奏)\" into another), or do you want instrumental/backing \
-versions like \"长安记(伴奏)\" to be placed in the same folder as their main track \"长安记\"?";
-        assert!(contains_explicit_alternative(session_question));
-        // English alternatives.
-        assert!(contains_explicit_alternative("Should I group them separately or merge them?"));
-        assert!(contains_explicit_alternative("Keep the folders separate versus merging them?"));
-        assert!(contains_explicit_alternative("Either keep exact-title folders or merge versions?"));
-        // Chinese alternatives (或 / 还是).
-        assert!(contains_explicit_alternative("按标题分组还是合并到一起？"));
-        assert!(contains_explicit_alternative("分组或合并？"));
-        // Procedural questions that do not choose between materially different
-        // actions must NOT be treated as either/or ambiguity.
-        assert!(!contains_explicit_alternative("Should I proceed?"));
-        assert!(!contains_explicit_alternative("Do you want me to apply this to all selected tracks?"));
-        assert!(!contains_explicit_alternative("What value should I set?"));
-    }
-
-    #[test]
     fn ambiguity_guard_message_repeats_the_question_and_refuses_to_guess() {
         let message = ambiguity_guard_message("keep them separate or merge them?");
         assert!(message.contains("keep them separate or merge them?"));
@@ -6636,32 +6598,28 @@ versions like \"长安记(伴奏)\" to be placed in the same folder as their mai
     }
 
     #[test]
-    fn clarification_repair_blocks_guessed_mutating_tool_but_not_read_only_or_procedural() {
+    fn clarification_repair_blocks_guessed_mutating_tool_but_allows_read_only() {
         // Regression for session 1785598016869-256359 (log rows 1211-1216):
-        // the model asked the same either/or question twice after the user's
-        // answer, the repair forced it to act, and it then GUESSED a
-        // files.relocate (exact-title grouping) without new user input.
-        // The guard must block that mutating call (no batch is created), allow
-        // read-only inspection, and allow mutating calls after procedural
-        // questions.
-        let repeated_ambiguity = "do you mean you want to move these tracks into subfolders \
-by exact title (e.g. all tracks titled \"长安记\" into one folder), or do you want \
-instrumental/backing versions like \"长安记(伴奏)\" to be placed in the same folder as \
-their main track \"长安记\"?";
-        // The guessed files.relocate is mutating → blocked (no batch).
-        assert!(block_mutating_after_unresolved_ambiguity(
-            Some(repeated_ambiguity),
+        // the model repeated a clarifying question after the user's answer,
+        // the repair fired, and it then GUESSED a files.relocate without new
+        // user input. The guard must block that mutating call (no batch is
+        // created) regardless of how the question was phrased, while still
+        // allowing read-only inspection and mutating calls when no repair
+        // fired this turn.
+        let repeated_question = "should I group them by exact title?";
+        // A mutating tool after the repair fired → blocked, even for a
+        // procedural-sounding question (no new user input arrived).
+        assert!(block_mutating_after_repeated_clarification(
+            Some(repeated_question),
             false
         ));
         // tracks.inspect is read-only → allowed to run.
-        assert!(!block_mutating_after_unresolved_ambiguity(
-            Some(repeated_ambiguity),
+        assert!(!block_mutating_after_repeated_clarification(
+            Some(repeated_question),
             true
         ));
-        // No pending ambiguity → mutating tools are allowed.
-        assert!(!block_mutating_after_unresolved_ambiguity(None, false));
-        // Procedural questions (no alternatives) never block a mutating tool.
-        assert!(!block_mutating_after_unresolved_ambiguity(Some("Should I proceed?"), false));
+        // No repair fired this turn → mutating tools are allowed.
+        assert!(!block_mutating_after_repeated_clarification(None, false));
     }
 
     #[test]
@@ -8592,8 +8550,10 @@ mod assistant_ai_tests {
         // model (deepseek-v4-flash) emitted four invalid plan.create calls
         // (empty steps, or steps missing id) and never produced a preview.
         // This smoke drives the real prompt/schema/tool-executor pipeline and
-        // requires the model to reach a schema-valid mutating tool call whose
-        // execution yields a native preview batch.
+        // requires the FULL workflow to complete against a real temp library:
+        // the Album tag set to the base title before the first '(' or '（' AND
+        // version tracks (e.g. 红昭愿(伴奏)) relocated into the base-title
+        // folder (红昭愿). A single direct mutation does not count as success.
         let (key, model) = credentials().expect("set LLM_API_KEY and LLM_MODEL");
         // A real temp library: the mutating executors require the library root
         // to exist on disk, and files.relocate canonicalizes the source files.
@@ -8627,6 +8587,21 @@ mod assistant_ai_tests {
             tracks,
             ..Default::default()
         };
+        // Base title = everything before the first '(' or '（'.
+        let base_of = |title: &str| -> String {
+            title.split(['(', '（']).next().unwrap_or(title).trim().to_string()
+        };
+        let path_to_base: std::collections::HashMap<String, String> = input
+            .tracks
+            .iter()
+            .map(|track| {
+                (
+                    track["path"].as_str().unwrap_or_default().to_string(),
+                    base_of(track["title"].as_str().unwrap_or_default()),
+                )
+            })
+            .collect();
+
         let tools = context_tool_catalog();
         let mut messages = build_assistant_messages(
             &build_assistant_context(&input),
@@ -8639,8 +8614,12 @@ mod assistant_ai_tests {
         // Mirror the app's one-shot invalid-args repair: a single malformed
         // mutating call is fed back with the repair prompt; a second one fails.
         let mut invalid_args_repaired = false;
+        // Evidence collected across the multi-turn loop; BOTH must be present.
+        let mut album_actions: Vec<AssistantAction> = Vec::new();
+        let mut relocate_moves: Vec<(String, String)> = Vec::new();
 
-        for _ in 0..8 {
+        let mut completed = false;
+        for _ in 0..10 {
             let response = OpenRouterClient::new(&key, &model)
                 .with_generation(0.0, 4096)
                 .with_timeout(std::time::Duration::from_secs(ASSISTANT_LLM_TIMEOUT_SECS))
@@ -8663,14 +8642,23 @@ mod assistant_ai_tests {
                     role: "assistant".into(),
                     content: data["message"].as_str().unwrap_or_default().to_string(),
                 });
-                messages.push(ChatMessage::system(ASSISTANT_SELF_REVIEW_PROMPT));
+                // Mirror the app loop: a message-only response first gets the
+                // self-review nudge, and a repeated clarifying question gets
+                // the clarification-repair nudge that pushes it to act.
+                if is_clarification_question(data["message"].as_str().unwrap_or_default()) {
+                    messages.push(ChatMessage::system(ASSISTANT_CLARIFY_REPAIR_PROMPT));
+                } else {
+                    messages.push(ChatMessage::system(ASSISTANT_SELF_REVIEW_PROMPT));
+                }
                 continue;
             };
             let name = tool_call["toolName"].as_str().unwrap_or_default();
             let args = &tool_call["args"];
             if registered_tool_is_read_only(name) == Some(true) {
                 let result = execute_context_tool(name, args, &input);
-                assert!(result.ok, "read-only inspection failed: {}", result.summary);
+                if !result.ok {
+                    println!("[smoke] read-only {name} failed (fed back): {}", result.summary);
+                }
                 messages.push(ChatMessage {
                     role: "assistant".into(),
                     content: json!({"toolCall": {"toolName": name, "args": args}}).to_string(),
@@ -8690,47 +8678,32 @@ mod assistant_ai_tests {
                 )));
                 continue;
             }
-            match name {
+            let executed: AssistantToolResult = match name {
                 "plan.create" => {
                     let steps = args["steps"].as_array().unwrap_or_else(|| {
                         panic!("plan.create steps must be an array, got: {args}")
                     });
-                    println!(
-                        "[smoke] {} reached plan.create with {} steps: {:?}",
-                        model,
-                        steps.len(),
-                        steps
-                            .iter()
-                            .map(|s| s["tool"].as_str().unwrap_or_default())
-                            .collect::<Vec<_>>()
-                    );
-                    assert!(!steps.is_empty(), "plan.create must not have empty steps: {args}");
                     let step_tools: Vec<&str> = steps
                         .iter()
                         .map(|step| step["tool"].as_str().unwrap_or_default())
                         .collect();
-                    assert!(
-                        step_tools.contains(&"metadata.transform")
-                            || step_tools.contains(&"files.relocate"),
-                        "plan must chain metadata.transform and/or files.relocate: {step_tools:?}"
+                    println!(
+                        "[smoke] {} reached plan.create with {} steps: {:?}",
+                        model, steps.len(), step_tools
                     );
-                    // Each step's args must be schema-valid; steps whose args
-                    // pass variables via $ref resolve during plan execution.
-                    for step in steps {
-                        let step_tool = step["tool"].as_str().unwrap_or_default();
-                        let step_args = &step["args"];
-                        let uses_refs = step_args
-                            .as_object()
-                            .is_some_and(|object| {
-                                object
-                                    .values()
-                                    .any(|value| value.as_object().is_some_and(|inner| inner.contains_key("$ref")))
-                            });
-                        if !uses_refs {
-                            validate_registered_tool_args(step_tool, step_args)
-                                .expect("plan step args must be schema-valid");
-                        }
-                    }
+                    println!("[smoke] plan args: {}", serde_json::to_string(args).unwrap_or_default());
+                    // The workflow needs the Album-tag change AND the folder
+                    // relocation; the tag step may be metadata.transform or
+                    // metadata.patch (correct values are enforced by the
+                    // semantic assertions below). Step args are validated
+                    // natively by plan execution (incl. resolved $ref vars).
+                    assert!(
+                        step_tools.contains(&"files.relocate")
+                            && (step_tools.contains(&"metadata.transform")
+                                || step_tools.contains(&"metadata.patch")),
+                        "plan must chain a tag step (metadata.transform/patch) with \
+                        files.relocate: {step_tools:?}"
+                    );
                     let execution = execute_create_plan(
                         args,
                         &input,
@@ -8743,35 +8716,173 @@ mod assistant_ai_tests {
                         },
                     )
                     .await;
-                    assert!(
-                        execution.result.ok,
-                        "plan execution failed: {}",
-                        execution
-                            .result
-                            .error
-                            .as_deref()
-                            .unwrap_or("unknown error")
+                    if !execution.result.ok {
+                        // Step args are only validated during plan execution
+                        // (the plan schema leaves them untyped), so a schema
+                        // violation surfaces here — mirror the app's one-shot
+                        // invalid-args repair instead of failing immediately.
+                        let error = execution.result.error.as_deref().unwrap_or_default();
+                        if error.contains("Invalid arguments") && !invalid_args_repaired {
+                            invalid_args_repaired = true;
+                            println!("[smoke] plan step args invalid (repaired): {error}");
+                            messages.push(ChatMessage::system(format!(
+                                "Tool argument validation failed for the plan: {error}. \
+                                Retry once using only fields allowed by each step's tool schema."
+                            )));
+                            continue;
+                        }
+                        panic!("plan execution failed: {error}");
+                    }
+                    collect_album_and_relocate(
+                        &execution.batches,
+                        &mut album_actions,
+                        &mut relocate_moves,
                     );
-                    assert!(
-                        !execution.batches.is_empty(),
-                        "plan must produce native preview batches"
-                    );
+                    execution.result
                 }
-                "metadata.transform" | "files.relocate" | "metadata.patch" => {
-                    println!("[smoke] {} reached {name} directly with schema-valid args", model);
-                    let execution = execute_mutating_assistant_tool(name, args, &input, "live-session");
-                    assert!(execution.result.ok, "{}", execution.result.summary);
-                    assert!(
-                        !execution.batches.is_empty(),
-                        "{name} must produce a preview batch: {args}"
+                "metadata.transform" | "metadata.patch" | "files.relocate" => {
+                    println!(
+                        "[smoke] {} reached {name} directly with schema-valid args",
+                        model
                     );
+                    let execution =
+                        execute_mutating_assistant_tool(name, args, &input, "live-session");
+                    if !execution.result.ok {
+                        let error = execution.result.error.as_deref().unwrap_or_default();
+                        if error.contains("Invalid arguments") && !invalid_args_repaired {
+                            invalid_args_repaired = true;
+                            println!("[smoke] {name} args invalid (repaired): {error}");
+                            messages.push(ChatMessage::system(format!(
+                                "Tool argument validation failed for \"{name}\": {error}. \
+                                Retry once using only fields allowed by that tool schema."
+                            )));
+                            continue;
+                        }
+                        panic!("{name} failed: {error}");
+                    }
+                    // An ok-but-empty result ("no changes produced") is fed
+                    // back to the model exactly like the app does; only the
+                    // completion check below decides success.
+                    collect_album_and_relocate(
+                        &execution.batches,
+                        &mut album_actions,
+                        &mut relocate_moves,
+                    );
+                    execution.result
                 }
                 other => panic!("model reached unexpected mutating tool {other}: {data}"),
+            };
+            // Feed the tool result back so the model can continue the workflow
+            // (simulated multi-turn approval; the app returns after the first
+            // preview, so plan.create is the only single-turn way to get both).
+            messages.push(ChatMessage {
+                role: "assistant".into(),
+                content: json!({"toolCall": {"toolName": name, "args": args}}).to_string(),
+            });
+            messages.push(ChatMessage::user(tool_result_prompt(&executed)));
+            if !album_actions.is_empty() && !relocate_moves.is_empty() {
+                completed = true;
+                break;
             }
-            return;
         }
 
-        panic!("assistant did not reach a valid mutating tool within eight steps");
+        assert!(
+            completed,
+            "assistant did not complete the full workflow (Album tag + relocation) within ten \
+            steps: {} album actions, {} relocations",
+            album_actions.len(),
+            relocate_moves.len()
+        );
+        println!(
+            "[smoke] collected {} album actions, {} relocations",
+            album_actions.len(),
+            relocate_moves.len()
+        );
+        // ── Semantic assertions ────────────────────────────────────────────
+        // No track keeps the flat "Loose" album.
+        assert!(
+            album_actions
+                .iter()
+                .all(|action| action.new_value.as_deref() != Some("Loose")),
+            "album must not stay Loose: {album_actions:?}"
+        );
+        for track in &input.tracks {
+            let path = track["path"].as_str().unwrap_or_default();
+            let title = track["title"].as_str().unwrap_or_default();
+            let base_title = path_to_base.get(path).expect("path in input");
+            // Every track's Album becomes the base title before '(' — vocal and
+            // instrumental versions of the same song share one Album value.
+            let album_action = album_actions
+                .iter()
+                .find(|action| action.track_path.as_deref() == Some(path))
+                .unwrap_or_else(|| {
+                    panic!(
+                        "no Album action for {path} (title {title}, expected {base_title}): \
+                        {album_actions:?}"
+                    )
+                });
+            assert_eq!(
+                album_action.new_value.as_deref(),
+                Some(base_title.as_str()),
+                "Album for {title} must be the base title before ("
+            );
+            // Tracks not already in their base folder must be relocated there
+            // (the relocate tool skips same-folder moves).
+            let current_dir = std::path::Path::new(path).parent();
+            let base_dir = base.join(base_title);
+            if current_dir != Some(base_dir.as_path()) {
+                let relocation = relocate_moves
+                    .iter()
+                    .find(|(from, _)| from == path)
+                    .unwrap_or_else(|| {
+                        panic!(
+                            "no relocation for {path} (title {title}, expected folder {base_title}): \
+                            {relocate_moves:?}"
+                        )
+                    });
+                assert_eq!(
+                    std::path::Path::new(&relocation.1).parent(),
+                    Some(base_dir.as_path()),
+                    "{title} must land in its base-title folder"
+                );
+            }
+        }
+        // Both instrumental versions were actually relocated (they started in
+        // their own (伴奏) folders).
+        for (folder, _, _) in entries.iter().filter(|(folder, _, _)| folder.contains('(')) {
+            assert!(
+                relocate_moves.iter().any(|(from, _)| {
+                    std::path::Path::new(from)
+                        .parent()
+                        .is_some_and(|parent| parent == base.join(folder).as_path())
+                }),
+                "{folder} tracks were not relocated"
+            );
+        }
+    }
+
+    /// Collect Album-tag actions and relocation moves out of created preview
+    /// batches (both plan-produced and direct tool batches share this shape).
+    fn collect_album_and_relocate(
+        batches: &[AssistantActionBatch],
+        album_actions: &mut Vec<AssistantAction>,
+        relocate_moves: &mut Vec<(String, String)>,
+    ) {
+        for batch in batches {
+            match batch.kind.as_str() {
+                "metadata-update" => album_actions.extend(
+                    batch
+                        .actions
+                        .iter()
+                        .filter(|action| action.field.as_deref() == Some("album"))
+                        .cloned(),
+                ),
+                "folder-move" => relocate_moves.extend(batch.actions.iter().filter_map(|action| {
+                    Some((action.source_path.clone()?, action.destination_path.clone()?))
+                })),
+                _ => {}
+            }
+        }
     }
 
     #[ignore = "requires LLM_API_KEY, LLM_MODEL, and active OpenRouter access"]
