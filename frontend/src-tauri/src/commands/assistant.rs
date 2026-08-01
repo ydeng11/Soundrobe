@@ -85,6 +85,51 @@ folder(s), or run auto-tagging."
         .to_string()
 }
 
+/// Deterministic signal that a question offers two materially different
+/// actions rather than asking for confirmation or a single value. Matches the
+/// either/or phrasing the model repeated in the failing session ("…by exact
+/// title …, or do you want … in the same folder …?").
+fn contains_explicit_alternative(message: &str) -> bool {
+    let lower = message.to_lowercase();
+    [
+        " or ",
+        " or\n",
+        " vs ",
+        " versus ",
+        "either",
+        "还是",
+        "或",
+    ]
+    .iter()
+    .any(|token| lower.contains(token))
+}
+
+/// The guard message returned instead of executing a guessed mutating tool:
+/// a normal limitation/choice message, not an error event, so the UI keeps
+/// the conversation alive and the user can pick one of the options.
+fn ambiguity_guard_message(question: &str) -> String {
+    format!(
+        "I asked which interpretation you wanted and you have not answered, so I won't guess \
+between the two materially different actions. You asked: \"{question}\" — \
+please reply with the option you want, or rephrase the request as one specific operation."
+    )
+}
+
+/// Decide whether a mutating tool call proposed after the clarification repair
+/// fired on an unresolved either/or question must be blocked. The model has
+/// repeated the same ambiguity without new user input; executing the tool
+/// would guess between materially different actions. Read-only tools are
+/// always allowed (they gather evidence and never mutate).
+fn block_mutating_after_unresolved_ambiguity(
+    clarify_trigger_question: Option<&str>,
+    tool_is_read_only: bool,
+) -> bool {
+    matches!(
+        clarify_trigger_question,
+        Some(question) if !tool_is_read_only && contains_explicit_alternative(question)
+    )
+}
+
 /// State transition for the consecutive-clarification counter: a question
 /// increments the streak, anything else (preview, answer, limitation) resets it.
 fn next_clarification_count(prior: i64, is_question: bool) -> i64 {
@@ -755,6 +800,9 @@ pub async fn assistant_send(
     let mut pending_tool_batches = Vec::new();
     let mut self_reviewed = false;
     let mut clarify_repaired = false;
+    // The question that triggered the clarification repair, kept so a mutating
+    // tool call proposed right after the repair can be recognized as a guess.
+    let mut clarify_trigger_question: Option<String> = None;
     let mut invalid_preview_repairs = 0;
     let mut action_repairs = 0;
     // Consecutive clarification-only responses already persisted for this session.
@@ -934,6 +982,7 @@ pub async fn assistant_send(
                 && !clarify_repaired
             {
                 clarify_repaired = true;
+                clarify_trigger_question = Some(draft.message.clone());
                 messages.push(ChatMessage {
                     role: "assistant".into(),
                     content: draft.message.clone(),
@@ -944,6 +993,25 @@ pub async fn assistant_send(
             final_draft = Some(draft);
             break;
         };
+        if block_mutating_after_unresolved_ambiguity(
+            clarify_trigger_question.as_deref(),
+            registered_tool_is_read_only(&tool_call.tool_name) == Some(true),
+        ) {
+            // The model repeated an unresolved either/or question (the repair
+            // fired), then proposed a mutating tool call without new user input.
+            // Executing it would guess between materially different actions, so
+            // return a normal limitation/choice message instead of a preview.
+            let question = clarify_trigger_question.as_deref().unwrap_or_default();
+            let event = AssistantEvent {
+                session_id: session_id.clone(),
+                event_type: "message",
+                message: ambiguity_guard_message(question),
+                data: None,
+            };
+            conversation.record("assistant_message", &event.message, Some(&model), 0, 0, 0);
+            let _ = app.emit("assistant:event", &event);
+            return Ok(event);
+        }
         if would_repeat_tool_call(&signatures, &tool_call.tool_name, &tool_call.args) {
             return assistant_error_event(
                 &app,
@@ -1451,6 +1519,9 @@ fn build_assistant_messages(
                 "- If you asked a clarifying question earlier in this session and the user answered ",
                 "  it, do not ask another clarifying question about the same operation. Call the ",
                 "  tool now, or state clearly what the app cannot do.\n",
+                "- Never guess between materially different actions: if a clarification is still ",
+                "  unanswered and the two interpretations would create different actions, do not ",
+                "  call a mutating tool — state the limitation and repeat the concrete options.\n",
                 "- When you describe an action (inspect, search, look up), call the tool immediately.\n",
                 "  Do not say you'll do something without calling the tool.\n",
                 "- Message-only responses are for clarifications, answers, and limitations— ",
@@ -6417,6 +6488,51 @@ mod assistant_behaviour_tests {
     }
 
     #[test]
+    fn plan_create_schema_rejects_the_session_failures() {
+        // Regression for session 1785602227090-101537: the public plan.create
+        // schema was never registered in tool_schema (only the legacy
+        // create_plan name), so the LLM catalog showed an empty schema and
+        // validation accepted anything. The failing model's four attempts must
+        // now be rejected deterministically.
+        let validate = crate::commands::assistant_tools::validate_registered_tool_args;
+        // Empty args → missing steps.
+        let err = validate("plan.create", &json!({})).unwrap_err();
+        assert!(err.contains("Missing required field: steps"), "{err}");
+        // Steps missing the required id field (the session's second failure).
+        let err = validate(
+            "plan.create",
+            &json!({"steps": [{"tool": "metadata.transform", "args": {}}]}),
+        )
+        .unwrap_err();
+        assert!(err.contains("steps[0].id"), "{err}");
+        // Steps using the legacy params/description shape are rejected as
+        // unknown fields so the model is steered to id/tool/args.
+        let err = validate(
+            "plan.create",
+            &json!({"steps": [{"id": "a", "tool": "metadata.transform", "params": {}}]}),
+        )
+        .unwrap_err();
+        assert!(err.contains("Unknown field"), "{err}");
+        // A valid two-step chain passes and is what the smoke test requires.
+        assert!(validate(
+            "plan.create",
+            &json!({"steps": [
+                {"id": "album", "tool": "metadata.transform", "args": {
+                    "target_scope": "selected",
+                    "source": {"kind": "tag", "field": "title"},
+                    "destination": {"kind": "tag", "field": "album"},
+                    "operations": [{"op": "regex_extract", "pattern": "^([^(（]+)"}]
+                }},
+                {"id": "group", "tool": "files.relocate", "args": {
+                    "target_scope": "selected",
+                    "destination": {"template": "{value}", "source": {"kind": "tag", "field": "album"}}
+                }}
+            ]})
+        )
+        .is_ok());
+    }
+
+    #[test]
     fn context_tool_catalog_matches_public_registry() {
         let catalog = crate::commands::assistant_tools::context_tool_catalog();
         let catalog_names = catalog
@@ -6487,6 +6603,65 @@ mod assistant_behaviour_tests {
         // The streak is what blocks, not the raw question flag.
         assert!(next_clarification_count(1, true) >= ASSISTANT_CLARIFY_LIMIT);
         assert!(next_clarification_count(0, true) < ASSISTANT_CLARIFY_LIMIT);
+    }
+
+    #[test]
+    fn explicit_alternative_detection_marks_either_or_questions_only() {
+        // The exact question the model repeated in session 1785598016869-256359
+        // before guessing a files.relocate: two materially different actions.
+        let session_question = "when you say \"grouped together,\" do you mean you \
+want to move these tracks into subfolders by exact title (e.g., all tracks titled \"长安记\" \
+into one folder, all titled \"长安记(伴奏)\" into another), or do you want instrumental/backing \
+versions like \"长安记(伴奏)\" to be placed in the same folder as their main track \"长安记\"?";
+        assert!(contains_explicit_alternative(session_question));
+        // English alternatives.
+        assert!(contains_explicit_alternative("Should I group them separately or merge them?"));
+        assert!(contains_explicit_alternative("Keep the folders separate versus merging them?"));
+        assert!(contains_explicit_alternative("Either keep exact-title folders or merge versions?"));
+        // Chinese alternatives (或 / 还是).
+        assert!(contains_explicit_alternative("按标题分组还是合并到一起？"));
+        assert!(contains_explicit_alternative("分组或合并？"));
+        // Procedural questions that do not choose between materially different
+        // actions must NOT be treated as either/or ambiguity.
+        assert!(!contains_explicit_alternative("Should I proceed?"));
+        assert!(!contains_explicit_alternative("Do you want me to apply this to all selected tracks?"));
+        assert!(!contains_explicit_alternative("What value should I set?"));
+    }
+
+    #[test]
+    fn ambiguity_guard_message_repeats_the_question_and_refuses_to_guess() {
+        let message = ambiguity_guard_message("keep them separate or merge them?");
+        assert!(message.contains("keep them separate or merge them?"));
+        assert!(message.to_lowercase().contains("guess"));
+    }
+
+    #[test]
+    fn clarification_repair_blocks_guessed_mutating_tool_but_not_read_only_or_procedural() {
+        // Regression for session 1785598016869-256359 (log rows 1211-1216):
+        // the model asked the same either/or question twice after the user's
+        // answer, the repair forced it to act, and it then GUESSED a
+        // files.relocate (exact-title grouping) without new user input.
+        // The guard must block that mutating call (no batch is created), allow
+        // read-only inspection, and allow mutating calls after procedural
+        // questions.
+        let repeated_ambiguity = "do you mean you want to move these tracks into subfolders \
+by exact title (e.g. all tracks titled \"长安记\" into one folder), or do you want \
+instrumental/backing versions like \"长安记(伴奏)\" to be placed in the same folder as \
+their main track \"长安记\"?";
+        // The guessed files.relocate is mutating → blocked (no batch).
+        assert!(block_mutating_after_unresolved_ambiguity(
+            Some(repeated_ambiguity),
+            false
+        ));
+        // tracks.inspect is read-only → allowed to run.
+        assert!(!block_mutating_after_unresolved_ambiguity(
+            Some(repeated_ambiguity),
+            true
+        ));
+        // No pending ambiguity → mutating tools are allowed.
+        assert!(!block_mutating_after_unresolved_ambiguity(None, false));
+        // Procedural questions (no alternatives) never block a mutating tool.
+        assert!(!block_mutating_after_unresolved_ambiguity(Some("Should I proceed?"), false));
     }
 
     #[test]
@@ -8407,6 +8582,196 @@ mod assistant_ai_tests {
         }
 
         panic!("assistant did not reach metadata.patch within six steps");
+    }
+
+    #[ignore = "requires LLM_API_KEY, LLM_MODEL, and active OpenRouter access"]
+    #[tokio::test]
+    async fn live_group_by_base_title_reaches_schema_valid_mutation() {
+        // Live regression for session 1785602227090-101537: the request
+        // "group tracks into albums by the title before '('". The failing
+        // model (deepseek-v4-flash) emitted four invalid plan.create calls
+        // (empty steps, or steps missing id) and never produced a preview.
+        // This smoke drives the real prompt/schema/tool-executor pipeline and
+        // requires the model to reach a schema-valid mutating tool call whose
+        // execution yields a native preview batch.
+        let (key, model) = credentials().expect("set LLM_API_KEY and LLM_MODEL");
+        // A real temp library: the mutating executors require the library root
+        // to exist on disk, and files.relocate canonicalizes the source files.
+        let base = std::env::temp_dir().join(format!(
+            "soundrobe-smoke-group-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let entries = [
+            ("红昭愿", "音阙诗听-红昭愿.flac", "红昭愿"),
+            ("红昭愿(伴奏)", "音阙诗听-红昭愿(伴奏).flac", "红昭愿(伴奏)"),
+            ("长安记", "李佳思_音阙诗听-长安记.flac", "长安记"),
+            ("长安记(伴奏)", "李佳思_音阙诗听-长安记(伴奏).flac", "长安记(伴奏)"),
+        ];
+        let mut tracks = Vec::new();
+        for (folder, file, title) in &entries {
+            let dir = base.join(folder);
+            std::fs::create_dir_all(&dir).unwrap();
+            std::fs::write(dir.join(file), b"test").unwrap();
+            tracks.push(json!({
+                "path": dir.join(file).to_string_lossy(),
+                "title": title,
+                "album": "Loose"
+            }));
+        }
+        let input = AssistantSendInput {
+            library_path: Some(base.to_string_lossy().into_owned()),
+            tracks,
+            ..Default::default()
+        };
+        let tools = context_tool_catalog();
+        let mut messages = build_assistant_messages(
+            &build_assistant_context(&input),
+            &tools,
+            &[],
+            "i want to group the tracks into the albums based on title to the best \
+            instead of using Loose for every track. As long as the track is same before \
+            '(' in the title, they should be grouped together.",
+        );
+        // Mirror the app's one-shot invalid-args repair: a single malformed
+        // mutating call is fed back with the repair prompt; a second one fails.
+        let mut invalid_args_repaired = false;
+
+        for _ in 0..8 {
+            let response = OpenRouterClient::new(&key, &model)
+                .with_generation(0.0, 4096)
+                .with_timeout(std::time::Duration::from_secs(ASSISTANT_LLM_TIMEOUT_SECS))
+                .complete_json(
+                    messages.clone(),
+                    "AssistantResponse",
+                    assistant_response_schema(),
+                    &AtomicBool::new(false),
+                )
+                .await
+                .expect("LLM call should succeed");
+            let data = normalize_assistant_response_value(response.data)
+                .expect("LLM response should use a supported tool-call envelope");
+            assert!(
+                !data["actionBatch"].is_object(),
+                "the model must use registered tools instead of authoring wildcard batches: {data}"
+            );
+            let Some(tool_call) = data["toolCall"].as_object() else {
+                messages.push(ChatMessage {
+                    role: "assistant".into(),
+                    content: data["message"].as_str().unwrap_or_default().to_string(),
+                });
+                messages.push(ChatMessage::system(ASSISTANT_SELF_REVIEW_PROMPT));
+                continue;
+            };
+            let name = tool_call["toolName"].as_str().unwrap_or_default();
+            let args = &tool_call["args"];
+            if registered_tool_is_read_only(name) == Some(true) {
+                let result = execute_context_tool(name, args, &input);
+                assert!(result.ok, "read-only inspection failed: {}", result.summary);
+                messages.push(ChatMessage {
+                    role: "assistant".into(),
+                    content: json!({"toolCall": {"toolName": name, "args": args}}).to_string(),
+                });
+                messages.push(ChatMessage::user(tool_result_prompt(&result)));
+                continue;
+            }
+            if let Err(validation_error) = validate_registered_tool_args(name, args) {
+                assert!(
+                    !invalid_args_repaired,
+                    "{name} produced schema-invalid args a second time ({validation_error}): {args}"
+                );
+                invalid_args_repaired = true;
+                messages.push(ChatMessage::system(format!(
+                    "Tool argument validation failed for \"{name}\": {validation_error}. \
+                    Retry once using only fields allowed by that tool schema."
+                )));
+                continue;
+            }
+            match name {
+                "plan.create" => {
+                    let steps = args["steps"].as_array().unwrap_or_else(|| {
+                        panic!("plan.create steps must be an array, got: {args}")
+                    });
+                    println!(
+                        "[smoke] {} reached plan.create with {} steps: {:?}",
+                        model,
+                        steps.len(),
+                        steps
+                            .iter()
+                            .map(|s| s["tool"].as_str().unwrap_or_default())
+                            .collect::<Vec<_>>()
+                    );
+                    assert!(!steps.is_empty(), "plan.create must not have empty steps: {args}");
+                    let step_tools: Vec<&str> = steps
+                        .iter()
+                        .map(|step| step["tool"].as_str().unwrap_or_default())
+                        .collect();
+                    assert!(
+                        step_tools.contains(&"metadata.transform")
+                            || step_tools.contains(&"files.relocate"),
+                        "plan must chain metadata.transform and/or files.relocate: {step_tools:?}"
+                    );
+                    // Each step's args must be schema-valid; steps whose args
+                    // pass variables via $ref resolve during plan execution.
+                    for step in steps {
+                        let step_tool = step["tool"].as_str().unwrap_or_default();
+                        let step_args = &step["args"];
+                        let uses_refs = step_args
+                            .as_object()
+                            .is_some_and(|object| {
+                                object
+                                    .values()
+                                    .any(|value| value.as_object().is_some_and(|inner| inner.contains_key("$ref")))
+                            });
+                        if !uses_refs {
+                            validate_registered_tool_args(step_tool, step_args)
+                                .expect("plan step args must be schema-valid");
+                        }
+                    }
+                    let execution = execute_create_plan(
+                        args,
+                        &input,
+                        "live-session",
+                        NativeAssistantToolServices {
+                            input: &input,
+                            providers: &ProviderState::default(),
+                            config: &crate::state::config::AutoTagConfig::default(),
+                            assistant: &AssistantServicesSnapshot::default(),
+                        },
+                    )
+                    .await;
+                    assert!(
+                        execution.result.ok,
+                        "plan execution failed: {}",
+                        execution
+                            .result
+                            .error
+                            .as_deref()
+                            .unwrap_or("unknown error")
+                    );
+                    assert!(
+                        !execution.batches.is_empty(),
+                        "plan must produce native preview batches"
+                    );
+                }
+                "metadata.transform" | "files.relocate" | "metadata.patch" => {
+                    println!("[smoke] {} reached {name} directly with schema-valid args", model);
+                    let execution = execute_mutating_assistant_tool(name, args, &input, "live-session");
+                    assert!(execution.result.ok, "{}", execution.result.summary);
+                    assert!(
+                        !execution.batches.is_empty(),
+                        "{name} must produce a preview batch: {args}"
+                    );
+                }
+                other => panic!("model reached unexpected mutating tool {other}: {data}"),
+            }
+            return;
+        }
+
+        panic!("assistant did not reach a valid mutating tool within eight steps");
     }
 
     #[ignore = "requires LLM_API_KEY, LLM_MODEL, and active OpenRouter access"]

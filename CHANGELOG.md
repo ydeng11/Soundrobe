@@ -93,6 +93,13 @@ desktop release.
   field or filename transformation), and it stops asking the same clarifying
   question repeatedly — after a user answers, it either creates an approval
   preview or states the limitation.
+- Assistant no longer guesses between two materially different actions: if the
+  model repeats an unanswered either/or question, the app refuses to run a
+  guessed mutating tool and asks the user to pick an option instead.
+- Assistant `plan.create` now shows its real step schema to the model and to
+  validation (it previously fell through to an empty schema), so multi-step
+  requests like "group tracks into albums by the title before (" produce a
+  valid two-step preview instead of repeatedly failing argument validation.
 - Undo: auto-tag and batch writes are now correctly undoable.
 - Tag hygiene: stale TXXX album-artist aliases shadowing TPE2 and leftover
   Vorbis ALBUMARTIST variants are cleared before writes.

@@ -132,7 +132,7 @@ pub(crate) fn assistant_tool_definitions() -> Vec<AssistantToolDefinition> {
         },
         ToolSpec {
             name: "files.relocate",
-            description: "Move tracks into sub-folders under the library root. The destination template is a relative path with an optional {value} placeholder filled from a tag field or the filename stem, transformed by the operations pipeline (same ops as metadata.transform). Use for requests like \"group tracks into album folders\".",
+            description: "Move tracks into sub-folders under the library root. The destination template is a relative path with an optional {value} placeholder filled from a tag field or the filename stem, transformed by the operations pipeline (same ops as metadata.transform). With no operations, each unique {value} becomes its own folder (exact-value grouping). To group versions of the same song into one folder (e.g. \"长安记(伴奏)\" alongside \"长安记\"), pass operations that strip the version suffix, e.g. strip_suffix with suffix \"(伴奏)\" (longest suffix first). Folder moves alone do not change tag values; when both the Album tag and the folder must change, use plan.create to chain metadata.transform with files.relocate. Use for requests like \"group tracks into album folders\".",
             read_only: false, public: true,
             operation_kind: Kind::FileMove,
         },
@@ -354,7 +354,7 @@ fn tool_schema(name: &str) -> Value {
             },
             "required": ["task", "target_scope"]
         }),
-        "create_plan" => serde_json::json!({
+        "create_plan" | "plan.create" => serde_json::json!({
             "type": "object",
             "properties": {
                 "plan_description": {"type": "string"},

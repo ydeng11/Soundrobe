@@ -88,7 +88,14 @@ fe-smoke-openrouter:
 #        mutating_request_always_has_action_batch_or_tool_call, ...
 # For judge-based tests set LLM_JUDGE_MODEL too.
 fe-smoke-assistant-ai:
-    cd frontend/src-tauri && cargo test --all-features -- --ignored --nocapture same_intent_read_only_produces_safe_outcome mutating_request_always_has_action_batch_or_tool_call live_missing_genre_value_reaches_conditional_patch_after_inspection live_navidrome_artists_intent_preserves_display_credit_and_collaborators
+    cd frontend/src-tauri && cargo test --all-features -- --ignored --nocapture same_intent_read_only_produces_safe_outcome mutating_request_always_has_action_batch_or_tool_call live_missing_genre_value_reaches_conditional_patch_after_inspection live_navidrome_artists_intent_preserves_display_credit_and_collaborators live_group_by_base_title_reaches_schema_valid_mutation
+
+# Live regression for the "group tracks into albums by the title before ("
+# workflow (session 1785602227090-101537). Verifies the model reaches a
+# schema-valid mutating tool call that executes to a native preview batch.
+# Override the model with LLM_MODEL=... (default openai/gpt-4o).
+fe-smoke-group-albums:
+    cd frontend/src-tauri && cargo test --all-features -- --ignored --nocapture live_group_by_base_title_reaches_schema_valid_mutation
 
 # Exercise the packaged renderer adapter, Tauri command, assistant runtime,
 # OpenRouter transport, response schema, and conversation persistence together.
