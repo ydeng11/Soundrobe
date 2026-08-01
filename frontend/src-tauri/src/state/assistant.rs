@@ -93,6 +93,11 @@ pub struct AssistantActionBatch {
     pub actions: Vec<AssistantAction>,
     pub reversible: bool,
     pub status: String,
+    /// Library root under which folder-move destinations must stay. Set on
+    /// file-move batches so the apply path can fail-closed re-validate
+    /// containment immediately before each rename.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub library_root: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub completion_contract: Option<AssistantCompletionContract>,
 }
@@ -330,6 +335,7 @@ mod tests {
             actions: Vec::new(),
             reversible: true,
             status: "pending".to_string(),
+            library_root: None,
             completion_contract: None,
         }
     }

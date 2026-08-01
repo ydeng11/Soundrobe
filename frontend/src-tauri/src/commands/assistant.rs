@@ -8,7 +8,7 @@ use crate::commands::{
     dataset::dataset_status_at,
     lyrics::{fetch_lyrics_at, DEFAULT_BASE_URL},
     mutations::{
-        remove_embedded_cover_queued, rename_track_queued,
+        remove_embedded_cover_queued,
         write_extra_tags_with_exclusive_queue_held, write_track_with_exclusive_queue_held,
         ExtraTagUpdate, TrackPatch,
     },
@@ -51,6 +51,49 @@ const ASSISTANT_ACTION_REPAIR_PROMPT: &str = "You classified this response as an
 not call a tool or create a preview. An action claim without execution evidence cannot be returned \
 to the user. Call the registered tool now. If the work cannot be performed, return a limitation \
 instead; if no action is needed, return an answer.";
+const ASSISTANT_CLARIFY_REPAIR_PROMPT: &str = "You already asked a clarifying question earlier in \
+this session and the user answered it. Do not ask another clarifying question. Call a registered \
+tool now to create the approval preview, or if no tool can perform the request, state the limitation \
+clearly and say what the app can do instead.";
+/// Consecutive clarification-only responses after which the assistant must stop
+/// asking and either act or declare the limitation. The agreed invariant is one
+/// clarification, then act or state a limitation; the bounded repair inside the
+/// turn gives the model one more chance, so two finalized questions already
+/// mean the user answered and the assistant still only asked.
+const ASSISTANT_CLARIFY_LIMIT: i64 = 2;
+
+/// Deterministic signal that a finalized message is another clarifying question
+/// rather than an answer, limitation, or completion. Matches the phrasing the
+/// model actually produced in the failing session ("Just to clarify — …",
+/// "What would you like to do first?").
+fn is_clarification_question(message: &str) -> bool {
+    let trimmed = message.trim();
+    if trimmed.ends_with('?') {
+        return true;
+    }
+    let lower = trimmed.to_lowercase();
+    lower.starts_with("just to clarify")
+        || lower.starts_with("to clarify")
+        || lower.starts_with("clarify")
+}
+
+fn clarification_limit_message() -> String {
+    "I've asked clarifying questions repeatedly without being able to act, so I'm stopping. \
+Please rephrase the request as a specific operation the app supports — for example: set a tag \
+field to a value, transform tag values, rename files within their folder, group tracks into album \
+folder(s), or run auto-tagging."
+        .to_string()
+}
+
+/// State transition for the consecutive-clarification counter: a question
+/// increments the streak, anything else (preview, answer, limitation) resets it.
+fn next_clarification_count(prior: i64, is_question: bool) -> i64 {
+    if is_question {
+        prior + 1
+    } else {
+        0
+    }
+}
 
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -425,6 +468,7 @@ pub async fn assistant_send(
             referent_value: routed.value.clone(),
             pending_batch_ids: vec![],
             mutation_required: true,
+            consecutive_clarifications: 0,
             created_at: now.clone(),
             updated_at: now,
         };
@@ -710,8 +754,14 @@ pub async fn assistant_send(
     let mut final_draft = None;
     let mut pending_tool_batches = Vec::new();
     let mut self_reviewed = false;
+    let mut clarify_repaired = false;
     let mut invalid_preview_repairs = 0;
     let mut action_repairs = 0;
+    // Consecutive clarification-only responses already persisted for this session.
+    let prior_clarifications = task_state
+        .load_session(&session_id)
+        .map(|state| state.consecutive_clarifications)
+        .unwrap_or(0);
     // Absolute deadline for the entire tool loop.
     let deadline = tokio::time::Instant::now()
         + std::time::Duration::from_secs(ASSISTANT_SESSION_TIMEOUT_SECS);
@@ -876,6 +926,21 @@ pub async fn assistant_send(
                 messages.push(ChatMessage::system(ASSISTANT_SELF_REVIEW_PROMPT));
                 continue;
             }
+            // One chance to break a clarification loop: the user already answered
+            // an earlier question this session, so a second question about the same
+            // operation is a stall, not a step forward.
+            if prior_clarifications >= 1
+                && is_clarification_question(&draft.message)
+                && !clarify_repaired
+            {
+                clarify_repaired = true;
+                messages.push(ChatMessage {
+                    role: "assistant".into(),
+                    content: draft.message.clone(),
+                });
+                messages.push(ChatMessage::system(ASSISTANT_CLARIFY_REPAIR_PROMPT));
+                continue;
+            }
             final_draft = Some(draft);
             break;
         };
@@ -1023,6 +1088,8 @@ pub async fn assistant_send(
             return assistant_error_event(&app, Some(session_id), &result.summary);
         }
         if !input.autonomous && !created_batches.is_empty() {
+            // A successful preview ends any clarification streak.
+            let _ = task_state.save_clarification_count(&session_id, 0);
             let event = AssistantEvent {
                 session_id,
                 event_type: "action_batch_created",
@@ -1055,6 +1122,25 @@ pub async fn assistant_send(
             ),
         );
     };
+    // Persist the consecutive-clarification counter and stop a question loop:
+    // after the user answered and the assistant still only asks, the session
+    // must not return another question to the user.
+    let is_question = is_clarification_question(&draft.message);
+    let clarification_count = next_clarification_count(prior_clarifications, is_question);
+    let _ = task_state.save_clarification_count(&session_id, clarification_count);
+    if is_question && clarification_count >= ASSISTANT_CLARIFY_LIMIT {
+        // Return a normal limitation message, not an error event, so the UI
+        // does not enter a failed state.
+        let event = AssistantEvent {
+            session_id: session_id.clone(),
+            event_type: "message",
+            message: clarification_limit_message(),
+            data: None,
+        };
+        conversation.record("assistant_message", &event.message, Some(&model), 0, 0, 0);
+        let _ = app.emit("assistant:event", &event);
+        return Ok(event);
+    }
     match resolve_assistant_outcome(&draft, &pending_tool_batches, &session_id, &input) {
         Ok(outcome) => {
             let event = match outcome {
@@ -1356,11 +1442,15 @@ fn build_assistant_messages(
                 "  with a set change whose only_if_missing field is true. This creates concrete ",
                 "  per-track preview actions without overwriting existing values. Do not broaden ",
                 "  a field-specific request into library.run_task.\n",
-                "- For filename/path renames, call files.transform.\n",
+                "- For filename/path renames, call files.transform. To group tracks into album ",
+                "  folders, call files.relocate with a destination template.\n",
                 "- For multi-step library tasks like auto-tagging or auditing, call library.run_task.\n",
                 "- Never author actionBatch. Call a registered tool; the native app creates it.\n",
                 "- Ask one focused clarification **only** when materially different interpretations ",
                 "  would produce different actions.\n",
+                "- If you asked a clarifying question earlier in this session and the user answered ",
+                "  it, do not ask another clarifying question about the same operation. Call the ",
+                "  tool now, or state clearly what the app cannot do.\n",
                 "- When you describe an action (inspect, search, look up), call the tool immediately.\n",
                 "  Do not say you'll do something without calling the tool.\n",
                 "- Message-only responses are for clarifications, answers, and limitations— ",
@@ -1526,6 +1616,7 @@ pub(crate) fn assistant_batch(
         actions,
         reversible,
         status: "pending".into(),
+        library_root: None,
         completion_contract: None,
     }
 }
@@ -1609,6 +1700,9 @@ fn execute_mutating_assistant_tool(
         }
         "files.transform" => {
             super::assistant_metadata_tools::execute_files_transform(args, input, session_id)
+        }
+        "files.relocate" => {
+            super::assistant_metadata_tools::execute_files_relocate(args, input, session_id)
         }
         "library.run_task" => execute_run_library_task(args, input, session_id),
         // Legacy tools (kept for backward compatibility)
@@ -2422,7 +2516,7 @@ fn execute_organize_files(
         "Move {} file(s) by {criterion}; {skipped} skipped",
         actions.len()
     );
-    let batch = assistant_batch(
+    let mut batch = assistant_batch(
         session_id,
         "folder-move",
         format!("Organize files by {criterion}"),
@@ -2431,6 +2525,7 @@ fn execute_organize_files(
         actions,
         true,
     );
+    batch.library_root = input.library_path.clone();
     mutating_tool_execution(
         format!("Preview created ({}): {summary}", batch.id),
         None,
@@ -2958,7 +3053,7 @@ pub(crate) fn path_is_inside(path: &Path, root: &Path) -> bool {
     }
 }
 
-fn unique_planned_destination(
+pub(crate) fn unique_planned_destination(
     source: &Path,
     destination: PathBuf,
     reserved: &mut HashSet<PathBuf>,
@@ -3412,6 +3507,7 @@ fn validated_assistant_batch(
         actions: draft.actions,
         reversible: true,
         status: "pending".into(),
+        library_root: None,
         completion_contract: None,
     })
 }
@@ -4152,7 +4248,30 @@ async fn apply_folder_moves(
         action_count = batch.actions.len(),
         "applying folder moves"
     );
-    let mut results = Vec::new();
+    // The library root is required to re-validate containment at apply time.
+    // Preview-time checks are not enough: a destination ancestor can become an
+    // external symlink between preview and approval (TOCTOU).
+    let Some(library_root) = batch.library_root.as_deref().map(Path::new) else {
+        let error = "Folder-move batch is missing its library root; refusing to move files"
+            .to_string();
+        runtime.mark_batch_failed(batch_id, &error);
+        return serde_json::json!({ "success": false, "error": error, "results": [] });
+    };
+    let library_canonical = match library_root.canonicalize() {
+        Ok(path) => path,
+        Err(error) => {
+            let message = format!(
+                "Library root '{}' cannot be resolved: {error}",
+                library_root.display()
+            );
+            runtime.mark_batch_failed(batch_id, &message);
+            return serde_json::json!({ "success": false, "error": message, "results": [] });
+        }
+    };
+
+    // Phase 1 — preflight every action before any file is moved, so a failure
+    // anywhere cannot leave a partially applied batch.
+    let mut plan = Vec::new();
     for action in &batch.actions {
         let (Some(source), Some(destination)) = (
             action.source_path.as_ref(),
@@ -4163,33 +4282,192 @@ async fn apply_folder_moves(
         if action.skip_reason.is_some() {
             continue;
         }
-        tracing::debug!(from = %source, to = %destination, "renaming track");
-        let source = source.clone();
-        let destination = destination.clone();
-        match rename_track_queued(
-            queue,
-            PathBuf::from(&source),
-            PathBuf::from(&destination),
-        )
-        .await
+        let source_path = PathBuf::from(source);
+        let destination_path = PathBuf::from(destination);
+        if let Err(error) = preflight_relocation(&source_path, &destination_path, &library_canonical)
         {
-            Ok(_) => results.push(serde_json::json!({ "sourcePath": source, "destinationPath": destination, "success": true })),
-            Err(error) => results.push(serde_json::json!({ "sourcePath": source, "destinationPath": destination, "success": false, "error": error.to_string() })),
+            runtime.mark_batch_failed(batch_id, &error);
+            return serde_json::json!({ "success": false, "error": error, "results": [] });
+        }
+        plan.push((source_path, destination_path));
+    }
+    if plan.is_empty() {
+        runtime.mark_batch_applied(batch_id);
+        return serde_json::json!({ "success": true, "results": [], "manifest": [] });
+    }
+
+    // Phase 2 — apply sequentially; Phase 3 — best-effort rollback of the
+    // completed moves if a later move fails.
+    let mut results = Vec::new();
+    let mut completed: Vec<(PathBuf, PathBuf)> = Vec::new();
+    for (source_path, destination_path) in &plan {
+        let source = source_path.clone();
+        let destination = destination_path.clone();
+        tracing::debug!(from = %source.display(), to = %destination.display(), "relocating track");
+        match relocate_file_queued(queue, source.clone(), destination.clone(), &library_canonical)
+            .await
+        {
+            Ok(()) => {
+                completed.push((source_path.clone(), destination_path.clone()));
+                // Readback is best-effort: a metadata-read failure must not undo
+                // a move that already succeeded.
+                let readback = read_track_metadata(&destination).is_ok();
+                results.push(serde_json::json!({
+                    "sourcePath": source,
+                    "destinationPath": destination,
+                    "success": true,
+                    "readback": readback
+                }));
+            }
+            Err(error) => {
+                results.push(serde_json::json!({
+                    "sourcePath": source,
+                    "destinationPath": destination,
+                    "success": false,
+                    "error": error.to_string()
+                }));
+                let mut rollback = Vec::new();
+                for (done_source, done_destination) in completed.iter().rev() {
+                    match relocate_file_queued(
+                        queue,
+                        done_destination.clone(),
+                        done_source.clone(),
+                        &library_canonical,
+                    )
+                    .await
+                    {
+                        Ok(()) => rollback.push(serde_json::json!({
+                            "from": done_destination,
+                            "to": done_source,
+                            "success": true
+                        })),
+                        Err(rollback_error) => rollback.push(serde_json::json!({
+                            "from": done_destination,
+                            "to": done_source,
+                            "success": false,
+                            "error": rollback_error.to_string()
+                        })),
+                    }
+                }
+                let message = format!(
+                    "Failed to move '{}': {}. Rolled back {} completed move(s).",
+                    source_path.display(),
+                    error,
+                    rollback.len()
+                );
+                runtime.mark_batch_failed(batch_id, &message);
+                return serde_json::json!({
+                    "success": false,
+                    "error": message,
+                    "results": results,
+                    "rollback": rollback
+                });
+            }
         }
     }
-    let failed = results
+    runtime.mark_batch_applied(batch_id);
+    let manifest = results
         .iter()
-        .filter(|result| result["success"] == false)
-        .count();
-    if failed > 0 {
-        let error = format!("Failed to move {failed} file(s)");
-        runtime.mark_batch_failed(batch_id, &error);
-        serde_json::json!({ "success": false, "error": error, "results": results.into_iter().filter(|result| result["success"] == false).collect::<Vec<_>>() })
-    } else {
-        runtime.mark_batch_applied(batch_id);
-        let manifest = results.iter().map(|result| serde_json::json!({ "from": result["sourcePath"], "to": result["destinationPath"] })).collect::<Vec<_>>();
-        serde_json::json!({ "success": true, "results": results, "manifest": manifest })
+        .map(|result| {
+            serde_json::json!({ "from": result["sourcePath"], "to": result["destinationPath"] })
+        })
+        .collect::<Vec<_>>();
+    serde_json::json!({ "success": true, "results": results, "manifest": manifest })
+}
+
+/// Fail-closed relocation preflight: both ends must resolve inside the
+/// (canonicalized) library. Canonicalization failure is a rejection, never a
+/// lexical fallback, because a lexical check can be defeated by symlinks.
+fn preflight_relocation(
+    source: &Path,
+    destination: &Path,
+    library_canonical: &Path,
+) -> Result<(), String> {
+    let source_canonical = source
+        .canonicalize()
+        .map_err(|error| format!("Source '{}' cannot be resolved: {error}", source.display()))?;
+    if !source_canonical.starts_with(library_canonical) {
+        return Err(format!(
+            "Source '{}' resolves outside the library root",
+            source.display()
+        ));
     }
+    let mut probe = destination
+        .parent()
+        .map(Path::to_path_buf)
+        .unwrap_or_else(|| PathBuf::from("."));
+    while !probe.exists() {
+        match probe.parent() {
+            Some(parent) => probe = parent.to_path_buf(),
+            None => {
+                return Err(format!(
+                    "Destination '{}' has no resolvable ancestor",
+                    destination.display()
+                ))
+            }
+        }
+    }
+    let ancestor_canonical = probe.canonicalize().map_err(|error| {
+        format!(
+            "Destination ancestor '{}' cannot be resolved: {error}",
+            probe.display()
+        )
+    })?;
+    if !ancestor_canonical.starts_with(library_canonical) {
+        return Err(format!(
+            "Destination '{}' resolves outside the library root",
+            destination.display()
+        ));
+    }
+    Ok(())
+}
+
+/// Queued relocation with fail-closed containment re-validation immediately
+/// before the rename: the source and the (created) destination parent must both
+/// resolve inside the canonicalized library, otherwise the move is rejected.
+async fn relocate_file_queued(
+    queue: &WriteQueue,
+    source: PathBuf,
+    destination: PathBuf,
+    library_canonical: &Path,
+) -> Result<(), ApiError> {
+    let library = library_canonical.to_path_buf();
+    queue
+        .run(async move {
+            tokio::task::spawn_blocking(move || {
+                if let Some(parent) = destination.parent() {
+                    fs::create_dir_all(parent).map_err(ApiError::Io)?;
+                    let parent_canonical = parent.canonicalize().map_err(|error| {
+                        ApiError::Message(format!(
+                            "Destination parent '{}' cannot be resolved: {error}",
+                            parent.display()
+                        ))
+                    })?;
+                    if !parent_canonical.starts_with(&library) {
+                        return Err(ApiError::Message(format!(
+                            "Destination '{}' resolves outside the library root; move rejected",
+                            destination.display()
+                        )));
+                    }
+                }
+                let source_canonical = source.canonicalize().map_err(|error| {
+                    ApiError::Message(format!(
+                        "Source '{}' cannot be resolved: {error}",
+                        source.display()
+                    ))
+                })?;
+                if !source_canonical.starts_with(&library) {
+                    return Err(ApiError::Message(format!(
+                        "Source '{}' resolves outside the library root; move rejected",
+                        source.display()
+                    )));
+                }
+                fs::rename(&source, &destination).map_err(ApiError::Io)
+            })
+            .await
+            .map_err(|error| ApiError::WriteTask(error.to_string()))?
+        })
+        .await
 }
 
 async fn apply_remove_embedded_cover(
@@ -4625,12 +4903,13 @@ mod apply_contract_tests {
         let names = schema["properties"]["toolCall"]["properties"]["toolName"]["enum"]
             .as_array()
             .unwrap();
-        // Public catalog has 15 tools
-        assert_eq!(names.len(), 15);
+        // Public catalog has 16 tools
+        assert_eq!(names.len(), 16);
         // New tools are present
         assert!(names.contains(&serde_json::json!("metadata.patch")));
         assert!(names.contains(&serde_json::json!("metadata.transform")));
         assert!(names.contains(&serde_json::json!("files.transform")));
+        assert!(names.contains(&serde_json::json!("files.relocate")));
         assert!(names.contains(&serde_json::json!("library.run_task")));
         assert!(names.contains(&serde_json::json!("plan.create")));
         // Legacy tools are NOT advertised
@@ -4859,6 +5138,97 @@ mod apply_contract_tests {
     }
 
     #[tokio::test]
+    async fn plan_chains_metadata_transform_with_files_relocate_for_album_grouping() {
+        // The original failing workflow: group vocal + instrumental versions of
+        // the same song into one album folder, deriving both the Album tag and
+        // the destination folder from the title minus its `(伴奏)` suffix.
+        let dir = std::env::temp_dir().join(format!(
+            "soundrobe-test-plan-relocate-{}",
+            std::process::id()
+        ));
+        let _ = fs::create_dir_all(&dir);
+        let vocal = dir.join("vocal.mp3");
+        let instrumental = dir.join("instrumental.mp3");
+        let _ = fs::write(&vocal, b"test");
+        let _ = fs::write(&instrumental, b"test");
+        let paths = vec![
+            vocal.to_string_lossy().into_owned(),
+            instrumental.to_string_lossy().into_owned(),
+        ];
+        let input = AssistantSendInput {
+            selected_track_paths: vec![],
+            tracks: vec![
+                serde_json::json!({"path": vocal.to_string_lossy(), "title": "喜剧演员"}),
+                serde_json::json!({"path": instrumental.to_string_lossy(), "title": "喜剧演员(伴奏)"}),
+            ],
+            library_path: Some(dir.to_string_lossy().into_owned()),
+            ..Default::default()
+        };
+        let providers = ProviderState::default();
+        let config = crate::state::config::AutoTagConfig::default();
+        let assistant = AssistantServicesSnapshot::default();
+
+        let execution = execute_create_plan(
+            &serde_json::json!({
+                "steps": [
+                    {"id": "album", "tool": "metadata.transform", "args": {
+                        "target_scope": "explicit_paths", "paths": paths,
+                        "source": {"kind": "tag", "field": "title"},
+                        "destination": {"kind": "tag", "field": "album"},
+                        "operations": [{"op": "strip_suffix", "suffix": "(伴奏)"}]
+                    }},
+                    {"id": "group", "tool": "files.relocate", "args": {
+                        "target_scope": "explicit_paths", "paths": paths,
+                        "destination": {
+                            "template": "{value}",
+                            "source": {"kind": "tag", "field": "title"},
+                            "operations": [{"op": "strip_suffix", "suffix": "(伴奏)"}]
+                        }
+                    }}
+                ]
+            }),
+            &input,
+            "session",
+            NativeAssistantToolServices {
+                input: &input,
+                providers: &providers,
+                config: &config,
+                assistant: &assistant,
+            },
+        )
+        .await;
+
+        assert!(
+            execution.result.ok,
+            "plan failed: {}",
+            execution.result.error.as_deref().unwrap_or("unknown")
+        );
+        // Two native preview batches: the tag change and the folder move.
+        assert_eq!(execution.batches.len(), 2);
+        assert_eq!(execution.batches[0].kind, "metadata-update");
+        assert_eq!(execution.batches[1].kind, "folder-move");
+        // The Album batch only contains the track that actually changed (the
+        // vocal title has no `(伴奏)` suffix to strip, so it needs no Album
+        // update) — the stripped value is the shared album name.
+        let album_actions = &execution.batches[0].actions;
+        assert_eq!(album_actions.len(), 1);
+        assert_eq!(album_actions[0].new_value.as_deref(), Some("喜剧演员"));
+        assert_eq!(album_actions[0].field.as_deref(), Some("album"));
+        // Both tracks are grouped into the same album folder.
+        let move_actions = &execution.batches[1].actions;
+        assert_eq!(move_actions.len(), 2);
+        let album_dir = dir.join("喜剧演员");
+        assert!(move_actions.iter().all(|a| a
+            .destination_path
+            .as_deref()
+            .is_some_and(|d| d.starts_with(album_dir.to_string_lossy().as_ref()))));
+        assert!(move_actions
+            .iter()
+            .all(|a| a.operation.as_deref() == Some("relocate")));
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[tokio::test]
     async fn read_only_plan_does_not_count_as_mutation_completion_evidence() {
         let input = AssistantSendInput::default();
         let providers = ProviderState::default();
@@ -5056,6 +5426,7 @@ mod apply_contract_tests {
             risk_level: "low".into(),
             reversible: true,
             status: "pending".into(),
+            library_root: None,
             completion_contract: None,
             actions: vec![AssistantAction {
                 tag_kind: None,
@@ -5326,6 +5697,7 @@ mod apply_contract_tests {
             risk_level: "low".into(),
             reversible: true,
             status: "pending".into(),
+            library_root: None,
             completion_contract: None,
             actions: vec![AssistantAction {
                 track_path: Some(path.to_string_lossy().into_owned()),
@@ -5365,6 +5737,7 @@ mod apply_contract_tests {
             risk_level: "low".into(),
             reversible: true,
             status: "pending".into(),
+            library_root: None,
             completion_contract: None,
             actions: vec![AssistantAction {
                 track_path: Some(missing.to_string_lossy().into_owned()),
@@ -5507,6 +5880,7 @@ mod apply_contract_tests {
             risk_level: "low".into(),
             reversible: true,
             status: "pending".into(),
+            library_root: None,
             completion_contract: None,
             actions: vec![
                 AssistantAction {
@@ -5563,6 +5937,7 @@ mod apply_contract_tests {
             risk_level: "medium".into(),
             reversible: true,
             status: "pending".into(),
+            library_root: Some(root.to_string_lossy().into_owned()),
             completion_contract: None,
             actions: vec![AssistantAction {
                 source_path: Some(source.to_string_lossy().into_owned()),
@@ -5584,6 +5959,196 @@ mod apply_contract_tests {
     }
 
     #[tokio::test]
+    async fn folder_move_rolls_back_completed_moves_when_later_move_fails() {
+        let root = temp_dir();
+        let one = root.join("one.mp3");
+        let two = root.join("two.mp3");
+        let three = root.join("three.mp3");
+        fs::copy(media_fixture(), &one).unwrap();
+        fs::copy(media_fixture(), &two).unwrap();
+        fs::copy(media_fixture(), &three).unwrap();
+        // A regular FILE in the destination path forces create_dir_all to fail
+        // for the third move, after the first two have already succeeded.
+        fs::write(root.join("blocker"), b"block").unwrap();
+        let runtime = AssistantRuntimeState::default();
+        assert!(runtime.initialize());
+        let destination_of = |path: &Path| {
+            root.join("out")
+                .join(path.file_name().unwrap().to_string_lossy().as_ref())
+        };
+        assert!(runtime.add_batch(AssistantActionBatch {
+            id: "batch-rollback".into(),
+            created_at: "now".into(),
+            session_id: "session".into(),
+            kind: "folder-move".into(),
+            title: "Move".into(),
+            summary: "three".into(),
+            risk_level: "medium".into(),
+            reversible: true,
+            status: "pending".into(),
+            library_root: Some(root.to_string_lossy().into_owned()),
+            completion_contract: None,
+            actions: vec![
+                AssistantAction {
+                    source_path: Some(one.to_string_lossy().into_owned()),
+                    destination_path: Some(destination_of(&one).to_string_lossy().into_owned()),
+                    ..Default::default()
+                },
+                AssistantAction {
+                    source_path: Some(two.to_string_lossy().into_owned()),
+                    destination_path: Some(destination_of(&two).to_string_lossy().into_owned()),
+                    ..Default::default()
+                },
+                AssistantAction {
+                    source_path: Some(three.to_string_lossy().into_owned()),
+                    destination_path: Some(root.join("blocker").join("three.mp3").to_string_lossy().into_owned()),
+                    ..Default::default()
+                },
+            ],
+        }));
+
+        let result =
+            apply_action_batch(&runtime, &WriteQueue::default(), "batch-rollback").await;
+
+        assert_eq!(result["success"], false);
+        assert_eq!(result["rollback"].as_array().map(Vec::len), Some(2));
+        // The completed moves were rolled back to their sources.
+        assert!(one.exists());
+        assert!(two.exists());
+        assert!(three.exists());
+        assert!(!root.join("out").join("one.mp3").exists());
+        assert!(!root.join("out").join("two.mp3").exists());
+        assert_eq!(
+            runtime.get_batch("batch-rollback").unwrap().status,
+            "failed"
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn folder_move_apply_rejects_destination_outside_library() {
+        let root = temp_dir();
+        let outside = std::env::temp_dir().join(format!(
+            "soundrobe-assistant-outside-{}",
+            std::process::id()
+        ));
+        fs::create_dir_all(&outside).unwrap();
+        let source = root.join("source.mp3");
+        fs::copy(media_fixture(), &source).unwrap();
+        let runtime = AssistantRuntimeState::default();
+        assert!(runtime.initialize());
+        assert!(runtime.add_batch(AssistantActionBatch {
+            id: "batch-escape".into(),
+            created_at: "now".into(),
+            session_id: "session".into(),
+            kind: "folder-move".into(),
+            title: "Move".into(),
+            summary: "one".into(),
+            risk_level: "medium".into(),
+            reversible: true,
+            status: "pending".into(),
+            library_root: Some(root.to_string_lossy().into_owned()),
+            completion_contract: None,
+            actions: vec![AssistantAction {
+                source_path: Some(source.to_string_lossy().into_owned()),
+                destination_path: Some(outside.join("source.mp3").to_string_lossy().into_owned()),
+                ..Default::default()
+            }],
+        }));
+
+        let result = apply_action_batch(&runtime, &WriteQueue::default(), "batch-escape").await;
+
+        assert_eq!(result["success"], false);
+        assert!(result["error"].as_str().unwrap_or("").contains("outside the library"));
+        // Nothing moved.
+        assert!(source.exists());
+        assert!(!outside.join("source.mp3").exists());
+        fs::remove_dir_all(&outside).unwrap();
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn folder_move_apply_rejects_symlinked_destination() {
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::symlink;
+            let root = temp_dir();
+            let outside = std::env::temp_dir().join(format!(
+                "soundrobe-assistant-symlink-{}",
+                std::process::id()
+            ));
+            fs::create_dir_all(&outside).unwrap();
+            let link = root.join("linked");
+            symlink(&outside, &link).unwrap();
+            let source = root.join("source.mp3");
+            fs::copy(media_fixture(), &source).unwrap();
+            let runtime = AssistantRuntimeState::default();
+            assert!(runtime.initialize());
+            assert!(runtime.add_batch(AssistantActionBatch {
+                id: "batch-symlink".into(),
+                created_at: "now".into(),
+                session_id: "session".into(),
+                kind: "folder-move".into(),
+                title: "Move".into(),
+                summary: "one".into(),
+                risk_level: "medium".into(),
+                reversible: true,
+                status: "pending".into(),
+                library_root: Some(root.to_string_lossy().into_owned()),
+                completion_contract: None,
+                actions: vec![AssistantAction {
+                    source_path: Some(source.to_string_lossy().into_owned()),
+                    destination_path: Some(link.join("source.mp3").to_string_lossy().into_owned()),
+                    ..Default::default()
+                }],
+            }));
+
+            let result =
+                apply_action_batch(&runtime, &WriteQueue::default(), "batch-symlink").await;
+
+            assert_eq!(result["success"], false);
+            assert!(result["error"].as_str().unwrap_or("").contains("outside the library"));
+            assert!(source.exists());
+            fs::remove_dir_all(&outside).unwrap();
+            fs::remove_dir_all(root).unwrap();
+        }
+    }
+
+    #[tokio::test]
+    async fn folder_move_apply_refuses_without_library_root() {
+        let root = temp_dir();
+        let source = root.join("source.mp3");
+        fs::copy(media_fixture(), &source).unwrap();
+        let runtime = AssistantRuntimeState::default();
+        assert!(runtime.initialize());
+        assert!(runtime.add_batch(AssistantActionBatch {
+            id: "batch-noroot".into(),
+            created_at: "now".into(),
+            session_id: "session".into(),
+            kind: "folder-move".into(),
+            title: "Move".into(),
+            summary: "one".into(),
+            risk_level: "medium".into(),
+            reversible: true,
+            status: "pending".into(),
+            library_root: None,
+            completion_contract: None,
+            actions: vec![AssistantAction {
+                source_path: Some(source.to_string_lossy().into_owned()),
+                destination_path: Some(root.join("nested").join("source.mp3").to_string_lossy().into_owned()),
+                ..Default::default()
+            }],
+        }));
+
+        let result = apply_action_batch(&runtime, &WriteQueue::default(), "batch-noroot").await;
+
+        assert_eq!(result["success"], false);
+        assert!(result["error"].as_str().unwrap_or("").contains("missing its library root"));
+        assert!(source.exists());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
     async fn mixed_batch_readback_failure_retains_both_undo_shapes() {
         let root = temp_dir();
         let good = root.join("good.mp3");
@@ -5600,6 +6165,7 @@ mod apply_contract_tests {
             risk_level: "medium".into(),
             reversible: true,
             status: "pending".into(),
+            library_root: None,
             completion_contract: None,
             actions: vec![
                 AssistantAction {
@@ -5758,6 +6324,7 @@ mod apply_contract_tests {
             risk_level: "low".into(),
             reversible: true,
             status: "pending".into(),
+            library_root: None,
             completion_contract: None,
             actions,
         }));
@@ -5818,9 +6385,9 @@ mod assistant_behaviour_tests {
     #[test]
     fn all_registered_tools_have_valid_schemas() {
         let defs = crate::commands::assistant_tools::assistant_tool_definitions();
-        assert_eq!(defs.len(), 27, "expected 27 registered tools total");
+        assert_eq!(defs.len(), 28, "expected 28 registered tools total");
         let public = crate::commands::assistant_tools::public_tool_definitions();
-        assert_eq!(public.len(), 15, "expected 15 public tools");
+        assert_eq!(public.len(), 16, "expected 16 public tools");
         assert!(public.iter().all(|d| d.public));
         for tool in &defs {
             assert!(!tool.name.is_empty(), "all tools need a name");
@@ -5858,17 +6425,78 @@ mod assistant_behaviour_tests {
             .iter()
             .filter_map(|t| t.get("name").and_then(Value::as_str))
             .collect::<Vec<_>>();
-        assert_eq!(catalog_names.len(), 15);
+        assert_eq!(catalog_names.len(), 16);
         // Must include public tools
         assert!(catalog_names.contains(&"metadata.patch"));
         assert!(catalog_names.contains(&"metadata.transform"));
         assert!(catalog_names.contains(&"files.transform"));
+        assert!(catalog_names.contains(&"files.relocate"));
         assert!(catalog_names.contains(&"library.summarize"));
         assert!(catalog_names.contains(&"library.run_task"));
         assert!(catalog_names.contains(&"plan.create"));
         // Must NOT include legacy tools
         assert!(!catalog_names.contains(&"edit_metadata"));
         assert!(!catalog_names.contains(&"create_plan"));
+        assert!(!catalog_names.contains(&"group_by_album"));
+    }
+
+    #[test]
+    fn clarification_question_detection() {
+        // Questions end with `?`.
+        assert!(is_clarification_question(
+            "Just to clarify — do you mean 1 or 2?"
+        ));
+        assert!(is_clarification_question("What would you like to do first?"));
+        assert!(is_clarification_question(
+            "Which direction would you like to go?"
+        ));
+        assert!(is_clarification_question("What's your goal here?"));
+        // Leading clarify phrasing counts even without a question mark.
+        assert!(is_clarification_question(
+            "Clarify: keep the part before the paren."
+        ));
+        assert!(is_clarification_question("To clarify, this is a question"));
+        // Answers, limitations, and completions are NOT clarifications.
+        assert!(!is_clarification_question(
+            "Done. Preview created (batch-1): 3 changes"
+        ));
+        assert!(!is_clarification_question(
+            "The app cannot move files into new folders."
+        ));
+        assert!(!is_clarification_question("1."));
+        assert!(!is_clarification_question(
+            "I'll group them into album folders"
+        ));
+    }
+
+    #[test]
+    fn clarification_limit_message_guides_the_user() {
+        let message = clarification_limit_message();
+        assert!(message.contains("rephrase"));
+        assert!(message.contains("folder"));
+    }
+
+    #[test]
+    fn clarification_streak_state_transition() {
+        // A question increments the streak; anything else resets it.
+        assert_eq!(next_clarification_count(0, true), 1);
+        assert_eq!(next_clarification_count(1, true), 2);
+        assert_eq!(next_clarification_count(2, true), 3);
+        assert_eq!(next_clarification_count(2, false), 0);
+        assert_eq!(next_clarification_count(1, false), 0);
+        // The streak is what blocks, not the raw question flag.
+        assert!(next_clarification_count(1, true) >= ASSISTANT_CLARIFY_LIMIT);
+        assert!(next_clarification_count(0, true) < ASSISTANT_CLARIFY_LIMIT);
+    }
+
+    #[test]
+    fn files_relocate_schema_requires_destination() {
+        let err = crate::commands::assistant_tools::validate_registered_tool_args(
+            "files.relocate",
+            &json!({"target_scope": "library"}),
+        )
+        .unwrap_err();
+        assert!(err.contains("Missing required field: destination"));
     }
 
     // ── Tool argument validation ────────────────────────────────────
@@ -7289,6 +7917,7 @@ mod assistant_behaviour_tests {
             }],
             reversible: true,
             status: "pending".into(),
+            library_root: None,
             completion_contract: None,
         };
         let result = resolve_assistant_outcome(
@@ -7363,7 +7992,8 @@ mod assistant_behaviour_tests {
                 actions: vec![],
                 reversible: false,
                 status: String::new(),
-                completion_contract: None,
+                library_root: None,
+            completion_contract: None,
             }],
             "s",
             &test_outcome_input(),
@@ -7405,6 +8035,7 @@ mod assistant_behaviour_tests {
             }],
             reversible: true,
             status: "pending".into(),
+            library_root: None,
             completion_contract: None,
         };
         let result = resolve_assistant_outcome(

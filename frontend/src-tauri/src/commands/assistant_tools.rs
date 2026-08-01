@@ -131,6 +131,12 @@ pub(crate) fn assistant_tool_definitions() -> Vec<AssistantToolDefinition> {
             operation_kind: Kind::FileMove,
         },
         ToolSpec {
+            name: "files.relocate",
+            description: "Move tracks into sub-folders under the library root. The destination template is a relative path with an optional {value} placeholder filled from a tag field or the filename stem, transformed by the operations pipeline (same ops as metadata.transform). Use for requests like \"group tracks into album folders\".",
+            read_only: false, public: true,
+            operation_kind: Kind::FileMove,
+        },
+        ToolSpec {
             name: "library.run_task",
             description: "Run the auto-tagging or audit task on a scope (selected, active_album, library).",
             read_only: false, public: true,
@@ -481,6 +487,45 @@ fn tool_schema(name: &str) -> Value {
                 }
             },
             "required": ["target_scope", "operations"]
+        }),
+        "files.relocate" => serde_json::json!({
+            "type": "object",
+            "properties": {
+                "target_scope": {"type": "string", "enum": ["selected", "active_album", "library", "explicit_paths"]},
+                "paths": {"type": "array", "items": {"type": "string"}},
+                "destination": {
+                    "type": "object",
+                    "properties": {
+                        "template": {"type": "string"},
+                        "source": {
+                            "type": "object",
+                            "properties": {
+                                "kind": {"type": "string", "enum": ["tag", "filename"]},
+                                "field": {"type": "string"}
+                            }
+                        },
+                        "operations": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "op": {"type": "string", "enum": ["regex_replace", "regex_extract", "strip_prefix", "strip_suffix", "literal_replace", "trim", "lowercase", "uppercase", "title_case", "prettify", "chinese_to_simplified", "chinese_to_traditional"]},
+                                    "pattern": {"type": "string"},
+                                    "replacement": {"type": "string"},
+                                    "group_index": {"type": "number"},
+                                    "prefix": {"type": "string"},
+                                    "suffix": {"type": "string"},
+                                    "find": {"type": "string"}
+                                },
+                                "required": ["op"]
+                            }
+                        },
+                        "collision": {"type": "string", "enum": ["suffix", "skip", "error"], "default": "suffix"}
+                    },
+                    "required": ["template"]
+                }
+            },
+            "required": ["target_scope", "destination"]
         }),
         _ => serde_json::json!({"type": "object", "properties": {}, "required": []}),
     }
@@ -1218,13 +1263,13 @@ mod tests {
             .copied()
             .collect::<std::collections::HashSet<_>>();
 
-        // All definitions (27 total) still present for internal dispatch
-        assert_eq!(names.len(), 27);
+        // All definitions (28 total) still present for internal dispatch
+        assert_eq!(names.len(), 28);
         assert_eq!(unique.len(), names.len());
         // All definitions must have descriptions
         assert!(definitions.iter().all(|d| !d.description.is_empty()));
 
-        // Public tools are the orthogonal set (10 read-only + 5 mutating = 15)
+        // Public tools are the orthogonal set (10 read-only + 6 mutating = 16)
         let public_count = definitions.iter().filter(|d| d.public).count();
         let public_read_only = definitions
             .iter()
@@ -1234,23 +1279,24 @@ mod tests {
             .iter()
             .filter(|d| d.public && !d.read_only)
             .count();
-        assert_eq!(public_count, 15, "public tool count should be 15");
+        assert_eq!(public_count, 16, "public tool count should be 16");
         assert_eq!(public_read_only, 10, "10 public read-only tools");
-        assert_eq!(public_mutating, 5, "5 public mutating tools");
+        assert_eq!(public_mutating, 6, "6 public mutating tools");
 
         // New tools are present in the full definitions
         assert!(names.contains(&"metadata.patch"));
         assert!(names.contains(&"metadata.transform"));
         assert!(names.contains(&"files.transform"));
+        assert!(names.contains(&"files.relocate"));
         // Public catalog only exposes the orthogonal set
-        assert_eq!(context_tool_catalog().as_array().map(Vec::len), Some(15));
+        assert_eq!(context_tool_catalog().as_array().map(Vec::len), Some(16));
     }
 
     #[test]
     fn catalog_entries_include_descriptions() {
         let catalog = context_tool_catalog();
         let entries = catalog.as_array().unwrap();
-        assert_eq!(entries.len(), 15, "public catalog should have 15 tools");
+        assert_eq!(entries.len(), 16, "public catalog should have 16 tools");
         for entry in entries {
             let desc = entry
                 .get("description")

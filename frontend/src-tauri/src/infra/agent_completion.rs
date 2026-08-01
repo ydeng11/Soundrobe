@@ -852,10 +852,11 @@ mod tests {
     #[test]
     fn default_registry_has_all_public_tools() {
         let reg = default_tool_registry();
-        // 15 public tools
-        assert_eq!(reg.len(), 15);
+        // 16 public tools
+        assert_eq!(reg.len(), 16);
         assert!(reg.transport_name("metadata.patch").is_some());
         assert!(reg.transport_name("library.summarize").is_some());
+        assert!(reg.transport_name("files.relocate").is_some());
         assert_eq!(reg.transport_name("metadata.patch"), Some("metadata_patch"));
         assert_eq!(reg.canonical_name("metadata_patch"), Some("metadata.patch"));
     }

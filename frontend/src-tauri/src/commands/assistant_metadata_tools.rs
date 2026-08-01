@@ -11,8 +11,9 @@ pub(crate) use crate::commands::assistant::AssistantSendInput;
 use crate::commands::assistant::{
     action_value_string, assistant_batch, extra_action, mutating_tool_error,
     mutating_tool_execution, mutating_tool_no_changes, push_string_action, track_field_string,
-    track_path, MutatingToolExecution,
+    track_path, unique_planned_destination, MutatingToolExecution,
 };
+use crate::commands::organizer::sanitize_dir_name;
 use crate::state::assistant::{
     AssistantAction, AssistantActionBatch, AssistantCompletionContract,
     AssistantCompletionExpectation, AssistantCompletionPostcondition,
@@ -20,7 +21,7 @@ use crate::state::assistant::{
 };
 use serde_json::Value;
 use std::collections::{BTreeMap, BTreeSet, HashSet};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 // ── Re-exported helpers from assistant.rs ────────────────────────────
 
@@ -1428,7 +1429,7 @@ pub(crate) fn execute_files_transform(
         actions.len(),
         paths.len()
     );
-    let batch = assistant_batch(
+    let mut batch = assistant_batch(
         session_id,
         "folder-move",
         "Transform files",
@@ -1437,11 +1438,273 @@ pub(crate) fn execute_files_transform(
         actions,
         true,
     );
+    batch.library_root = input.library_path.clone();
     mutating_tool_execution(
         format!("Preview created ({}): {summary}", batch.id),
         None,
         Some(batch),
     )
+}
+
+/// Move tracks into sub-folders under the library root, with destination names
+/// derived from a tag field or the filename stem via a transformation pipeline.
+///
+/// `destination.template` is a relative path; `{value}` is replaced with the
+/// transformed source value (the template may also be a literal path shared by
+/// every track). Every destination is validated to stay inside the library root
+/// (lexically and through symlink canonicalization) before a preview is created.
+pub(crate) fn execute_files_relocate(
+    args: &Value,
+    input: &AssistantSendInput,
+    session_id: &str,
+) -> MutatingToolExecution {
+    let paths = match tool_scope_paths(input, args) {
+        Ok(paths) => paths,
+        Err(error) => return mutating_tool_error(error),
+    };
+    if paths.is_empty() {
+        return mutating_tool_no_changes("No tracks found for the requested scope.");
+    }
+
+    let Some(library) = input.library_path.as_deref().map(Path::new) else {
+        return mutating_tool_error("Library root is required for file operations");
+    };
+    if !library.exists() || !library.is_dir() {
+        return mutating_tool_error(format!(
+            "Library path '{}' does not exist or is not a directory",
+            library.display()
+        ));
+    }
+
+    let destination = args.get("destination").and_then(Value::as_object).cloned();
+    let Some(destination) = destination else {
+        return mutating_tool_error("files.relocate requires a 'destination' object");
+    };
+    let template = destination
+        .get("template")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .trim();
+    if template.is_empty() {
+        return mutating_tool_error("destination.template is required and must not be empty");
+    }
+    if template.starts_with('/') || template.starts_with('\\') {
+        return mutating_tool_error(
+            "destination.template must be a relative path under the library root",
+        );
+    }
+
+    let source = destination
+        .get("source")
+        .and_then(Value::as_object)
+        .cloned()
+        .unwrap_or_default();
+    let source_kind = source
+        .get("kind")
+        .and_then(Value::as_str)
+        .unwrap_or("filename");
+    let source_field = source
+        .get("field")
+        .and_then(Value::as_str)
+        .unwrap_or("title");
+
+    let collision = destination
+        .get("collision")
+        .and_then(Value::as_str)
+        .unwrap_or("suffix");
+    if !matches!(collision, "suffix" | "skip" | "error") {
+        return mutating_tool_error(format!("Unsupported collision policy: {collision}"));
+    }
+
+    let pipeline = match destination.get("operations").and_then(Value::as_array) {
+        None => Vec::new(),
+        Some(operations) => match compile_pipeline(operations) {
+            Ok(pipeline) => pipeline,
+            Err(error) => return mutating_tool_error(error),
+        },
+    };
+
+    let tracks_map: BTreeMap<&str, &Value> = input
+        .tracks
+        .iter()
+        .map(|track| (track_path(track), track))
+        .collect();
+    let mut reserved = HashSet::new();
+    let mut actions = Vec::new();
+    let mut skipped = 0usize;
+
+    for path in &paths {
+        let source_path = Path::new(path);
+        if !path_is_inside(source_path, library) {
+            return mutating_tool_error(format!("Path '{}' is outside the library root", path));
+        }
+        if !path_is_inside_canonical(source_path, library) {
+            return mutating_tool_error(format!(
+                "Path '{}' resolves outside the library root (symlink escape)",
+                path
+            ));
+        }
+        let Some(filename) = source_path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .map(str::to_string)
+        else {
+            skipped += 1;
+            continue;
+        };
+
+        let source_value = match source_kind {
+            "tag" => tracks_map
+                .get(path.as_str())
+                .copied()
+                .and_then(|track| track_field_string(track, source_field))
+                .filter(|value| !value.is_empty()),
+            "filename" => source_path
+                .file_stem()
+                .and_then(|stem| stem.to_str())
+                .map(str::to_string)
+                .filter(|value| !value.is_empty()),
+            other => {
+                return mutating_tool_error(format!("Unsupported relocate source kind: {other}"))
+            }
+        };
+        let Some(current) = source_value else {
+            skipped += 1;
+            continue;
+        };
+
+        let new_value = if pipeline.is_empty() {
+            current.clone()
+        } else {
+            // A pipeline op that leaves the value unchanged returns None; the
+            // unchanged value is still the destination folder name.
+            execute_pipeline(&current, &pipeline).unwrap_or_else(|| current.clone())
+        };
+        if new_value.trim().is_empty() {
+            skipped += 1;
+            continue;
+        }
+
+        let relative_dir = match resolve_destination_dir(template, &new_value) {
+            Ok(dir) => dir,
+            Err(error) => return mutating_tool_error(error),
+        };
+        let destination_dir = library.join(&relative_dir);
+        if !path_is_inside(&destination_dir, library) {
+            return mutating_tool_error(format!(
+                "Destination '{}' escapes the library root",
+                destination_dir.display()
+            ));
+        }
+        if !canonical_ancestor_inside(&destination_dir, library) {
+            return mutating_tool_error(format!(
+                "Destination '{}' resolves outside the library root",
+                destination_dir.display()
+            ));
+        }
+        if source_path.parent() == Some(destination_dir.as_path()) {
+            skipped += 1;
+            continue;
+        }
+
+        let planned = destination_dir.join(&filename);
+        let collides = planned.exists() || reserved.contains(&planned);
+        let destination = match (collision, collides) {
+            ("skip", true) => {
+                skipped += 1;
+                continue;
+            }
+            ("error", true) => {
+                return mutating_tool_error(format!(
+                    "Destination collision at '{}'; no file was moved",
+                    planned.display()
+                ));
+            }
+            _ => unique_planned_destination(source_path, planned, &mut reserved),
+        };
+        if destination == source_path {
+            skipped += 1;
+            continue;
+        }
+        actions.push(AssistantAction {
+            operation: Some("relocate".into()),
+            source_path: Some(path.clone()),
+            destination_path: Some(destination.to_string_lossy().into_owned()),
+            description: Some(format!("Move into folder: {}", relative_dir.display())),
+            ..Default::default()
+        });
+    }
+
+    if actions.is_empty() {
+        return mutating_tool_no_changes(format!(
+            "No file relocations produced changes; {skipped} skipped."
+        ));
+    }
+
+    let summary = format!("Relocate {} file(s) across {} track(s)", actions.len(), paths.len());
+    let mut batch = assistant_batch(
+        session_id,
+        "folder-move",
+        "Relocate files",
+        &summary,
+        "medium",
+        actions,
+        true,
+    );
+    batch.library_root = input.library_path.clone();
+    mutating_tool_execution(
+        format!("Preview created ({}): {summary}", batch.id),
+        None,
+        Some(batch),
+    )
+}
+
+/// Resolve a relative destination directory from a template plus a substituted
+/// value. Path separators in the TEMPLATE create hierarchy; `{value}` is
+/// substituted inside its own segment and the whole segment is sanitized as a
+/// single directory name — so a value like `AC/DC` becomes `AC_DC`, never
+/// nested folders. Literal traversal segments in the template are rejected.
+fn resolve_destination_dir(template: &str, value: &str) -> Result<PathBuf, String> {
+    if template.starts_with('/') || template.starts_with('\\') {
+        return Err("destination.template must be relative to the library root".to_string());
+    }
+    let mut result = PathBuf::new();
+    for raw_segment in template.split(['/', '\\']) {
+        if raw_segment == "." || raw_segment == ".." {
+            return Err("destination.template escapes the library root".to_string());
+        }
+        let segment = sanitize_dir_name(&raw_segment.replace("{value}", value));
+        if segment.is_empty() {
+            continue;
+        }
+        result.push(segment);
+    }
+    if result.as_os_str().is_empty() {
+        return Err("destination.template produced an empty folder name".to_string());
+    }
+    Ok(result)
+}
+
+/// Containment check that resolves symlinks on both sides; falls back to the
+/// lexical check when canonicalization is unavailable (e.g. non-existent paths).
+fn path_is_inside_canonical(path: &Path, root: &Path) -> bool {
+    match (path.canonicalize(), root.canonicalize()) {
+        (Ok(path), Ok(root)) => path.starts_with(root),
+        _ => path_is_inside(path, root),
+    }
+}
+
+/// For a not-yet-existing destination directory, canonicalize the nearest
+/// existing ancestor and verify it stays inside the (canonicalized) library root.
+fn canonical_ancestor_inside(destination_dir: &Path, library: &Path) -> bool {
+    let mut probe = destination_dir.to_path_buf();
+    while !probe.exists() {
+        match probe.parent() {
+            Some(parent) => probe = parent.to_path_buf(),
+            None => return path_is_inside(destination_dir, library),
+        }
+    }
+    path_is_inside_canonical(&probe, library)
 }
 
 /// Standard tag fields that can be set/removed via metadata.patch.
@@ -2367,6 +2630,311 @@ mod tests {
         assert!(!result.result.ok);
         assert!(result.result.summary.contains("outside the library"));
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    // ── files.relocate ────────────────────────────────────────────────────
+
+    fn relocate_input(dir: &Path, paths: &[&str]) -> AssistantSendInput {
+        AssistantSendInput {
+            selected_track_paths: vec![],
+            tracks: paths
+                .iter()
+                .map(|path| serde_json::json!({"path": path}))
+                .collect(),
+            library_path: Some(dir.to_string_lossy().into_owned()),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn files_relocate_filename_template_groups_into_folder() {
+        let dir = std::env::temp_dir().join("soundrobe-test-relocate-basic");
+        let _ = std::fs::create_dir_all(&dir);
+        let file_path = dir.join("01_song.mp3");
+        let _ = std::fs::write(&file_path, b"test");
+
+        let result = execute_files_relocate(
+            &serde_json::json!({
+                "target_scope": "explicit_paths",
+                "paths": [file_path.to_string_lossy().as_ref()],
+                "destination": {
+                    "template": "{value}",
+                    "source": {"kind": "filename"},
+                    "operations": [
+                        {"op": "strip_prefix", "prefix": "01_"}
+                    ]
+                }
+            }),
+            &relocate_input(&dir, &[file_path.to_string_lossy().as_ref()]),
+            "session-1",
+        );
+        assert!(
+            result.result.ok,
+            "relocate failed: {}",
+            result.result.error.as_deref().unwrap_or("unknown")
+        );
+        let batch = result.batches.first().unwrap();
+        assert_eq!(batch.actions.len(), 1);
+        assert_eq!(batch.kind, "folder-move");
+        let expected = dir.join("song").join("01_song.mp3").to_string_lossy().into_owned();
+        assert_eq!(batch.actions[0].destination_path.as_deref(), Some(expected.as_str()));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn files_relocate_tag_source_groups_instrumental_with_vocal() {
+        // The failing-session scenario: titles with a `(伴奏)` suffix must group
+        // into the same album folder as their vocal version.
+        let dir = std::env::temp_dir().join("soundrobe-test-relocate-instrumental");
+        let _ = std::fs::create_dir_all(&dir);
+        let vocal = dir.join("vocal.mp3");
+        let instrumental = dir.join("instrumental.mp3");
+        let _ = std::fs::write(&vocal, b"test");
+        let _ = std::fs::write(&instrumental, b"test");
+        let input = AssistantSendInput {
+            selected_track_paths: vec![],
+            tracks: vec![
+                serde_json::json!({"path": vocal.to_string_lossy(), "title": "喜剧演员"}),
+                serde_json::json!({"path": instrumental.to_string_lossy(), "title": "喜剧演员(伴奏)"}),
+            ],
+            library_path: Some(dir.to_string_lossy().into_owned()),
+            ..Default::default()
+        };
+
+        let result = execute_files_relocate(
+            &serde_json::json!({
+                "target_scope": "explicit_paths",
+                "paths": [
+                    vocal.to_string_lossy().as_ref(),
+                    instrumental.to_string_lossy().as_ref()
+                ],
+                "destination": {
+                    "template": "{value}",
+                    "source": {"kind": "tag", "field": "title"},
+                    "operations": [
+                        {"op": "strip_suffix", "suffix": "(伴奏)"}
+                    ]
+                }
+            }),
+            &input,
+            "session-1",
+        );
+        assert!(
+            result.result.ok,
+            "relocate failed: {}",
+            result.result.error.as_deref().unwrap_or("unknown")
+        );
+        let batch = result.batches.first().unwrap();
+        let mut destinations = batch
+            .actions
+            .iter()
+            .filter_map(|a| a.destination_path.clone())
+            .collect::<Vec<_>>();
+        destinations.sort();
+        let album_dir = dir.join("喜剧演员");
+        assert_eq!(
+            destinations,
+            vec![
+                album_dir.join("instrumental.mp3").to_string_lossy().into_owned(),
+                album_dir.join("vocal.mp3").to_string_lossy().into_owned(),
+            ]
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn files_relocate_literal_template_moves_all_into_one_folder() {
+        let dir = std::env::temp_dir().join("soundrobe-test-relocate-literal");
+        let _ = std::fs::create_dir_all(&dir);
+        let a = dir.join("a.mp3");
+        let b = dir.join("b.mp3");
+        let _ = std::fs::write(&a, b"test");
+        let _ = std::fs::write(&b, b"test");
+
+        let result = execute_files_relocate(
+            &serde_json::json!({
+                "target_scope": "explicit_paths",
+                "paths": [a.to_string_lossy().as_ref(), b.to_string_lossy().as_ref()],
+                "destination": {"template": "Albums/2024"}
+            }),
+            &relocate_input(&dir, &[a.to_string_lossy().as_ref(), b.to_string_lossy().as_ref()]),
+            "session-1",
+        );
+        assert!(result.result.ok, "{}", result.result.error.as_deref().unwrap_or(""));
+        let batch = result.batches.first().unwrap();
+        assert_eq!(batch.actions.len(), 2);
+        let target = dir.join("Albums").join("2024");
+        assert!(batch.actions.iter().all(|a| a
+            .destination_path
+            .as_deref()
+            .is_some_and(|d| d.starts_with(target.to_string_lossy().as_ref()))));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn files_relocate_traversal_template_rejected() {
+        let dir = std::env::temp_dir().join("soundrobe-test-relocate-traversal");
+        let _ = std::fs::create_dir_all(&dir);
+        let file_path = dir.join("song.mp3");
+        let _ = std::fs::write(&file_path, b"test");
+
+        let result = execute_files_relocate(
+            &serde_json::json!({
+                "target_scope": "explicit_paths",
+                "paths": [file_path.to_string_lossy().as_ref()],
+                "destination": {"template": "../escape"}
+            }),
+            &relocate_input(&dir, &[file_path.to_string_lossy().as_ref()]),
+            "session-1",
+        );
+        assert!(!result.result.ok);
+        assert!(result.result.summary.contains("escapes the library root"));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn files_relocate_absolute_template_rejected() {
+        let dir = std::env::temp_dir().join("soundrobe-test-relocate-absolute");
+        let _ = std::fs::create_dir_all(&dir);
+        let file_path = dir.join("song.mp3");
+        let _ = std::fs::write(&file_path, b"test");
+
+        let result = execute_files_relocate(
+            &serde_json::json!({
+                "target_scope": "explicit_paths",
+                "paths": [file_path.to_string_lossy().as_ref()],
+                "destination": {"template": "/etc"}
+            }),
+            &relocate_input(&dir, &[file_path.to_string_lossy().as_ref()]),
+            "session-1",
+        );
+        assert!(!result.result.ok);
+        assert!(result.result.summary.contains("relative path"));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn files_relocate_symlink_escape_rejected() {
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::symlink;
+            let dir = std::env::temp_dir().join("soundrobe-test-relocate-symlink");
+            let outside = std::env::temp_dir().join("soundrobe-test-relocate-outside");
+            let _ = std::fs::create_dir_all(&dir);
+            let _ = std::fs::create_dir_all(&outside);
+            let link = dir.join("linked");
+            let _ = symlink(&outside, &link);
+            let file_path = link.join("song.mp3");
+            let _ = std::fs::write(&file_path, b"test");
+
+            let result = execute_files_relocate(
+                &serde_json::json!({
+                    "target_scope": "explicit_paths",
+                    "paths": [file_path.to_string_lossy().as_ref()],
+                    "destination": {"template": "{value}"}
+                }),
+                &relocate_input(&dir, &[file_path.to_string_lossy().as_ref()]),
+                "session-1",
+            );
+            assert!(!result.result.ok);
+            assert!(result.result.summary.contains("resolves outside the library root"));
+            let _ = std::fs::remove_dir_all(&dir);
+            let _ = std::fs::remove_dir_all(&outside);
+        }
+    }
+
+    #[test]
+    fn files_relocate_collision_renames_second_file() {
+        let dir = std::env::temp_dir().join("soundrobe-test-relocate-collision");
+        let _ = std::fs::create_dir_all(dir.join("sub1"));
+        let _ = std::fs::create_dir_all(dir.join("sub2"));
+        let a = dir.join("sub1").join("song.mp3");
+        let b = dir.join("sub2").join("song.mp3");
+        let _ = std::fs::write(&a, b"test");
+        let _ = std::fs::write(&b, b"test");
+
+        let result = execute_files_relocate(
+            &serde_json::json!({
+                "target_scope": "explicit_paths",
+                "paths": [a.to_string_lossy().as_ref(), b.to_string_lossy().as_ref()],
+                "destination": {"template": "{value}", "source": {"kind": "filename"}}
+            }),
+            &relocate_input(&dir, &[a.to_string_lossy().as_ref(), b.to_string_lossy().as_ref()]),
+            "session-1",
+        );
+        assert!(result.result.ok, "{}", result.result.error.as_deref().unwrap_or(""));
+        let batch = result.batches.first().unwrap();
+        assert_eq!(batch.actions.len(), 2);
+        let album = dir.join("song");
+        let mut destinations = batch
+            .actions
+            .iter()
+            .filter_map(|action| action.destination_path.clone())
+            .collect::<Vec<_>>();
+        destinations.sort();
+        assert_eq!(
+            destinations,
+            vec![
+                album.join("song.mp3").to_string_lossy().into_owned(),
+                album.join("song_1.mp3").to_string_lossy().into_owned(),
+            ]
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn files_relocate_requires_library_root() {
+        let result = execute_files_relocate(
+            &serde_json::json!({
+                "target_scope": "explicit_paths",
+                "paths": ["/music/song.mp3"],
+                "destination": {"template": "{value}"}
+            }),
+            &AssistantSendInput {
+                selected_track_paths: vec![],
+                tracks: vec![serde_json::json!({"path": "/music/song.mp3", "title": "Song"})],
+                ..Default::default()
+            },
+            "session-1",
+        );
+        assert!(!result.result.ok);
+        assert!(result.result.summary.contains("Library root is required"));
+    }
+
+    #[test]
+    fn resolve_destination_dir_sanitizes_segments() {
+        assert_eq!(
+            resolve_destination_dir("Albums/{value}", "红昭愿").unwrap(),
+            PathBuf::from("Albums").join("红昭愿")
+        );
+        // Filesystem-hostile characters map to safe separators (collapsed).
+        let safe = resolve_destination_dir("{value}", "A:B?* C").unwrap();
+        assert_eq!(safe, PathBuf::from("A B C"));
+        // Blank template values fall back to the organizer's "Unknown Album"
+        // folder name (consistent with sanitize_dir_name) instead of a root move.
+        assert_eq!(
+            resolve_destination_dir("{value}", "  ").unwrap(),
+            PathBuf::from("Unknown Album")
+        );
+        // Only separators in the TEMPLATE create hierarchy: a value such as
+        // `AC/DC` becomes a single `AC_DC` folder, never nested folders.
+        assert_eq!(
+            resolve_destination_dir("{value}", "AC/DC").unwrap(),
+            PathBuf::from("AC DC")
+        );
+        assert_eq!(
+            resolve_destination_dir("{value}", "A / B").unwrap(),
+            PathBuf::from("A B")
+        );
+        // Traversal inside a VALUE is sanitized into a safe single segment.
+        assert_eq!(
+            resolve_destination_dir("{value}", "a/../b").unwrap(),
+            PathBuf::from("a .. b")
+        );
+        // Traversal as a literal TEMPLATE segment is rejected outright.
+        assert!(resolve_destination_dir("..", "x").is_err());
+        assert!(resolve_destination_dir("a/../b", "x").is_err());
+        assert!(resolve_destination_dir("{value}", "x").is_ok());
     }
 
     // ── Compatibility tests: old macro behavior via new tools ─────────────

@@ -6,7 +6,9 @@
 //!   - `assistant_batch` — pending/preview batches with status.
 //!
 //! All tables coexist with the existing `conversation_log` schema in the same
-//! `cache.db` database. No existing data is modified or migrated.
+//! `cache.db` database. Only additive changes are made to existing tables: a
+//! new `assistant_session` column is added via `ALTER TABLE ... ADD COLUMN`
+//! when a legacy database lacks it (see `migrate_clarification_column`).
 
 use rusqlite::{params, Connection, OpenFlags};
 use serde::{Deserialize, Serialize};
@@ -27,6 +29,7 @@ CREATE TABLE IF NOT EXISTS assistant_session (
   referent_value TEXT,
   pending_batch_ids TEXT DEFAULT '',
   mutation_required INTEGER NOT NULL DEFAULT 0,
+  consecutive_clarifications INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
@@ -154,6 +157,10 @@ pub struct SessionState {
     pub referent_value: Option<String>,
     pub pending_batch_ids: Vec<String>,
     pub mutation_required: bool,
+    /// Consecutive message-only clarification responses in this session.
+    /// Reset to 0 whenever a turn produces a tool preview or a non-question answer.
+    #[serde(default)]
+    pub consecutive_clarifications: i64,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -206,6 +213,8 @@ impl AssistantTaskState {
             .execute_batch(TASK_SCHEMA)
             .map_err(|e| format!("Failed to create assistant task tables: {e}"))?;
 
+        migrate_clarification_column(&connection)?;
+
         *guard = Some(connection);
         Ok(())
     }
@@ -227,8 +236,9 @@ impl AssistantTaskState {
             "INSERT OR REPLACE INTO assistant_session
              (session_id, intent, scope_predicate, scope_predicate_json, protocol,
               referent_count, referent_query, referent_field, referent_value,
-              pending_batch_ids, mutation_required, created_at, updated_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
+              pending_batch_ids, mutation_required, consecutive_clarifications,
+              created_at, updated_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
             params![
                 state.session_id,
                 state.intent,
@@ -249,6 +259,7 @@ impl AssistantTaskState {
                 state.referent_value,
                 pending_ids,
                 state.mutation_required as i64,
+                state.consecutive_clarifications,
                 state.created_at,
                 state.updated_at,
             ],
@@ -272,6 +283,7 @@ impl AssistantTaskState {
             referent_value,
             pending_ids,
             mutation_required,
+            consecutive_clarifications,
             created_at,
             updated_at,
         ): (
@@ -284,13 +296,15 @@ impl AssistantTaskState {
             Option<String>,
             String,
             i64,
+            i64,
             String,
             String,
         ) = conn
             .query_row(
                 "SELECT intent, scope_predicate_json, protocol,
                     referent_count, referent_query, referent_field, referent_value,
-                    pending_batch_ids, mutation_required, created_at, updated_at
+                    pending_batch_ids, mutation_required, consecutive_clarifications,
+                    created_at, updated_at
              FROM assistant_session WHERE session_id = ?1",
                 [session_id],
                 |row| {
@@ -304,8 +318,9 @@ impl AssistantTaskState {
                         row.get(6)?,
                         row.get::<_, String>(7).unwrap_or_default(),
                         row.get(8)?,
-                        row.get::<_, String>(9).unwrap_or_default(),
+                        row.get::<_, i64>(9).unwrap_or_default(),
                         row.get::<_, String>(10).unwrap_or_default(),
+                        row.get::<_, String>(11).unwrap_or_default(),
                     ))
                 },
             )
@@ -334,9 +349,30 @@ impl AssistantTaskState {
             referent_value,
             pending_batch_ids,
             mutation_required: mutation_required != 0,
+            consecutive_clarifications,
             created_at,
             updated_at,
         })
+    }
+
+    /// Persist the consecutive-clarification counter without clobbering the
+    /// deterministic router's referent/intent fields (INSERT OR REPLACE would
+    /// wipe them). Creates the row if the LLM path has never written one.
+    pub fn save_clarification_count(&self, session_id: &str, count: i64) -> Result<()> {
+        let guard = self.conn()?;
+        let conn = guard.as_ref().ok_or("AssistantTaskState not initialized")?;
+        let now = iso_now();
+        conn.execute(
+            "INSERT INTO assistant_session
+             (session_id, protocol, consecutive_clarifications, created_at, updated_at)
+             VALUES (?1, 'llm', ?2, ?3, ?3)
+             ON CONFLICT(session_id) DO UPDATE SET
+               consecutive_clarifications = excluded.consecutive_clarifications,
+               updated_at = excluded.updated_at",
+            params![session_id, count, now],
+        )
+        .map(|_| ())
+        .map_err(|e| format!("Failed to save clarification count: {e}"))
     }
 
     /// Load the most recent session state (for `them` referents across turns).
@@ -587,6 +623,27 @@ pub fn iso_now() -> String {
     )
 }
 
+/// Add the `consecutive_clarifications` column to pre-existing databases.
+/// `CREATE TABLE IF NOT EXISTS` cannot alter an existing table, so legacy
+/// `cache.db` files need an explicit additive migration.
+fn migrate_clarification_column(connection: &Connection) -> Result<()> {
+    let columns: Vec<String> = connection
+        .prepare("PRAGMA table_info(assistant_session)")
+        .map_err(|e| format!("Failed to inspect assistant_session schema: {e}"))?
+        .query_map([], |row| row.get(1))
+        .map_err(|e| format!("Failed to read assistant_session schema: {e}"))?
+        .collect::<std::result::Result<Vec<_>, _>>()
+        .map_err(|e| format!("Failed to read assistant_session schema: {e}"))?;
+    if !columns.iter().any(|column| column == "consecutive_clarifications") {
+        connection
+            .execute_batch(
+                "ALTER TABLE assistant_session ADD COLUMN consecutive_clarifications INTEGER NOT NULL DEFAULT 0",
+            )
+            .map_err(|e| format!("Failed to add consecutive_clarifications column: {e}"))?;
+    }
+    Ok(())
+}
+
 // ── Predicate evaluation ───────────────────────────────────────────
 
 /// Evaluate a scope predicate against the currently loaded tracks.
@@ -736,6 +793,7 @@ mod tests {
             referent_value: Some("Pop, Cantopop".to_string()),
             pending_batch_ids: vec!["batch-1".to_string()],
             mutation_required: true,
+            consecutive_clarifications: 0,
             created_at: "2026-01-01T00:00:00.000Z".to_string(),
             updated_at: "2026-01-01T00:00:00.000Z".to_string(),
         };
@@ -749,6 +807,93 @@ mod tests {
         assert_eq!(loaded.referent_value, Some("Pop, Cantopop".to_string()));
         assert_eq!(loaded.pending_batch_ids, vec!["batch-1"]);
         assert!(loaded.mutation_required);
+    }
+
+    #[test]
+    fn clarification_count_persists_without_clobbering_referent_fields() {
+        let (state, session_id) = setup();
+
+        let record = SessionState {
+            session_id: session_id.clone(),
+            intent: Some("set_field".to_string()),
+            scope_predicate: None,
+            protocol: "native".to_string(),
+            referent_count: 7,
+            referent_query: Some("missing album".to_string()),
+            referent_field: Some("album".to_string()),
+            referent_value: Some("红昭愿".to_string()),
+            pending_batch_ids: vec![],
+            mutation_required: true,
+            consecutive_clarifications: 0,
+            created_at: "2026-01-01T00:00:00.000Z".to_string(),
+            updated_at: "2026-01-01T00:00:00.000Z".to_string(),
+        };
+        state.upsert_session(&record).unwrap();
+
+        state.save_clarification_count(&session_id, 2).unwrap();
+        let loaded = state.load_session(&session_id).unwrap();
+        assert_eq!(loaded.consecutive_clarifications, 2);
+        // The deterministic router's referent fields must survive the LLM-path update.
+        assert_eq!(loaded.referent_value.as_deref(), Some("红昭愿"));
+        assert_eq!(loaded.referent_query.as_deref(), Some("missing album"));
+        assert_eq!(loaded.intent.as_deref(), Some("set_field"));
+        assert_eq!(loaded.protocol, "native");
+    }
+
+    #[test]
+    fn clarification_count_creates_llm_path_row_when_absent() {
+        let (state, session_id) = setup();
+        assert!(state.load_session(&session_id).is_none());
+
+        state.save_clarification_count(&session_id, 1).unwrap();
+        let loaded = state.load_session(&session_id).unwrap();
+        assert_eq!(loaded.consecutive_clarifications, 1);
+        assert_eq!(loaded.protocol, "llm");
+    }
+
+    #[test]
+    fn legacy_schema_gains_clarification_column_on_initialize() {
+        let path = db_path();
+        // Build a DB with the pre-column assistant_session schema.
+        let connection = Connection::open(&path).unwrap();
+        connection
+            .execute_batch(
+                "CREATE TABLE assistant_session (
+                   session_id TEXT PRIMARY KEY,
+                   intent TEXT,
+                   scope_predicate TEXT,
+                   scope_predicate_json TEXT,
+                   protocol TEXT NOT NULL DEFAULT 'native',
+                   referent_count INTEGER DEFAULT 0,
+                   referent_query TEXT,
+                   referent_field TEXT,
+                   referent_value TEXT,
+                   pending_batch_ids TEXT DEFAULT '',
+                   mutation_required INTEGER NOT NULL DEFAULT 0,
+                   created_at TEXT NOT NULL,
+                   updated_at TEXT NOT NULL
+                 );",
+            )
+            .unwrap();
+        drop(connection);
+
+        let state = AssistantTaskState::new(path.clone());
+        state.initialize().unwrap();
+
+        let conn = Connection::open(&path).unwrap();
+        let mut stmt = conn.prepare("PRAGMA table_info(assistant_session)").unwrap();
+        let rows: std::result::Result<Vec<String>, _> = stmt
+            .query_map([], |row| row.get::<_, String>(1))
+            .unwrap()
+            .collect();
+        let has_column = rows
+            .unwrap()
+            .iter()
+            .any(|name| name == "consecutive_clarifications");
+        assert!(has_column, "migration must add the column");
+        drop(stmt);
+        drop(conn);
+        let _ = fs::remove_file(&path);
     }
 
     #[test]
@@ -772,6 +917,7 @@ mod tests {
             referent_value: None,
             pending_batch_ids: vec![],
             mutation_required: false,
+            consecutive_clarifications: 0,
             created_at: "2026-01-01T00:00:00.000Z".to_string(),
             updated_at: "2026-01-01T00:00:00.000Z".to_string(),
         };
@@ -979,6 +1125,7 @@ mod tests {
             referent_value: None,
             pending_batch_ids: vec![],
             mutation_required: false,
+            consecutive_clarifications: 0,
             created_at: "2025-01-01T00:00:00.000Z".to_string(),
             updated_at: "2025-01-01T00:00:00.000Z".to_string(),
         };
@@ -995,6 +1142,7 @@ mod tests {
             referent_value: Some("Pop".to_string()),
             pending_batch_ids: vec![],
             mutation_required: true,
+            consecutive_clarifications: 0,
             created_at: "2026-01-01T00:00:00.000Z".to_string(),
             updated_at: "2026-01-01T00:00:00.000Z".to_string(),
         };

@@ -88,6 +88,11 @@ desktop release.
   SMB volume failures (data-only copy instead of `fs::copy`).
 - Assistant reliability: false completions, LLM timeouts, malformed JSON,
   planned-action verbosity, and low-confidence candidate rejection.
+- Assistant folder grouping: the assistant can now group tracks into album
+  folders via the new `files.relocate` tool (destination derived from a tag
+  field or filename transformation), and it stops asking the same clarifying
+  question repeatedly — after a user answers, it either creates an approval
+  preview or states the limitation.
 - Undo: auto-tag and batch writes are now correctly undoable.
 - Tag hygiene: stale TXXX album-artist aliases shadowing TPE2 and leftover
   Vorbis ALBUMARTIST variants are cleared before writes.
