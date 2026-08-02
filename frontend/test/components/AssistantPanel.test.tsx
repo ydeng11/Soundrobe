@@ -198,6 +198,93 @@ describe("AssistantPanel — status indicator", () => {
     });
   });
 
+  it("surfaces semantic verification warnings even when readback is verified", async () => {
+    // A derived batch or a uniform literal across many folders reports a
+    // semantic warning alongside a verified readback; the panel must show it.
+    renderPanel();
+    const input = screen.getByPlaceholderText(/ask the assistant/i);
+    fireEvent.change(input, { target: { value: "Set album from folder" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    emitEvent({
+      sessionId: "s1",
+      type: "action_batch_created",
+      message: "Batch ready for review",
+      data: { actionBatchId: "batch-warning" },
+    });
+    await screen.findByText("Ready for review");
+
+    emitEvent({
+      sessionId: "s1",
+      type: "action_batch_applied",
+      message: "Applied: Set album from folder",
+      data: {
+        batchId: "batch-warning",
+        verificationRequired: true,
+        verification: {
+          status: "verified",
+          phase: "readback",
+          scopeCount: 381,
+          expectedActionCount: 381,
+          verifiedActionCount: 381,
+          failures: [],
+          warnings: [
+            "Disk write verified, but a semantic warning was raised: the same value 'based on their folder name' was written across 14 different folders. Confirm this was intended rather than folder-derived.",
+          ],
+        },
+      },
+    });
+
+    await screen.findByText("Completed");
+    fireEvent.click(screen.getByText("2 steps"));
+    expect(
+      screen.getByText(/semantic warning was raised/),
+    ).toBeTruthy();
+  });
+
+  it("shows folder-derived informational confirmation as a success", async () => {
+    // A derived batch whose source verification passed reports informational
+    // text, which must render as a success, not a warning.
+    renderPanel();
+    const input = screen.getByPlaceholderText(/ask the assistant/i);
+    fireEvent.change(input, { target: { value: "Set album from folder" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    emitEvent({
+      sessionId: "s1",
+      type: "action_batch_created",
+      message: "Batch ready for review",
+      data: { actionBatchId: "batch-informational" },
+    });
+    await screen.findByText("Ready for review");
+
+    emitEvent({
+      sessionId: "s1",
+      type: "action_batch_applied",
+      message: "Applied: Set album from folder",
+      data: {
+        batchId: "batch-informational",
+        verificationRequired: true,
+        verification: {
+          status: "verified",
+          phase: "readback",
+          scopeCount: 381,
+          expectedActionCount: 381,
+          verifiedActionCount: 381,
+          failures: [],
+          informational: [
+            "Disk write verified; values matched their containing folder sources.",
+          ],
+        },
+      },
+    });
+
+    await screen.findByText("Completed");
+    fireEvent.click(screen.getByText("2 steps"));
+    expect(
+      screen.getByText(/values matched their containing folder sources/),
+    ).toBeTruthy();
+    expect(screen.queryByText(/semantic warning/)).toBeNull();
+  });
+
   it("fails a metadata preview when an applied event lacks verified readback", async () => {
     renderPanel();
     const input = screen.getByPlaceholderText(/ask the assistant/i);

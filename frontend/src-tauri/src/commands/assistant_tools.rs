@@ -114,7 +114,7 @@ pub(crate) fn assistant_tool_definitions() -> Vec<AssistantToolDefinition> {
         // ── Public mutating tools (the orthogonal set) ───────────────────
         ToolSpec {
             name: "metadata.patch",
-            description: "Apply uniform or per-track changes to tag fields. Supports set, remove, and upsert (extra tags only) actions. Set only_if_missing on a standard-field change to preserve existing values. Use for explicit value changes where you know the new values.",
+            description: "Apply uniform or per-track changes to tag fields. Supports set, remove, and upsert (extra tags only) actions. Set only_if_missing on a standard-field change to preserve existing values. Use for explicit value changes where you know the new values. To derive a field from each track's containing folder (e.g. \"set album based on their folder name\"), use a set change with valueFrom: \"folder_name\" instead of a literal value.",
             read_only: false, public: true,
             operation_kind: Kind::MetadataEdit,
         },
@@ -386,6 +386,7 @@ fn tool_schema(name: &str) -> Value {
                             "field": {"type": "string"},
                             "action": {"type": "string", "enum": ["set", "remove", "upsert"]},
                             "value": {},
+                            "valueFrom": {"type": "string", "enum": ["folder_name"]},
                             "only_if_missing": {"type": "boolean"}
                         },
                         "required": ["field", "action"]

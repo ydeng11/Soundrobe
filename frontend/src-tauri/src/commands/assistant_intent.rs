@@ -7,9 +7,13 @@
 //!   - `remove/clear <field>`
 //!   - `set <field> where missing` / `fix the missing <field>` (requires follow-up for value)
 //!   - `set them <literal>` — refers to the previous result-set referent.
+//!   - `set/change <field> based on [their/the/its] folder name` — native
+//!     derivation from each track's containing folder (`valueFrom: folder_name`).
 //!
 //! All quoted values are preserved exactly (outer quotes removed, commas kept).
-//! Ambiguous requests fall through to `NotRouted` so the LLM decides.
+//! Derivation-shaped text in the value position must never become a literal
+//! value: supported derivations route to a native source-based intent, and
+//! unsupported ones fall through to `NotRouted` so the LLM decides.
 
 use crate::commands::assistant::AssistantSendInput;
 use crate::state::assistant_task::{ResolvedIntent, ScopePredicate, SessionState};
@@ -22,6 +26,9 @@ pub struct RoutedCommand {
     pub intent: IntentKind,
     pub field: Option<String>,
     pub value: Option<String>,
+    /// Native derivation source when the "value" position is a derivation
+    /// instruction instead of a literal (e.g. `based on their folder name`).
+    pub value_from: Option<ValueSource>,
     pub only_if_missing: bool,
     pub scope_hint: ScopeHint,
     /// Whether this was a referent-referencing command ("set them X").
@@ -32,10 +39,28 @@ pub struct RoutedCommand {
 #[allow(dead_code)]
 pub enum IntentKind {
     SetField,
+    /// Set a field to a value derived from a native source (e.g. the track's
+    /// containing folder) instead of a literal.
+    SetFieldFrom,
     RemoveField,
     ClearField,
     SetMissing,
     SplitArtists,
+}
+
+/// Native per-track sources a field value can be derived from.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ValueSource {
+    FolderName,
+}
+
+impl ValueSource {
+    /// Wire name used by `metadata.patch`'s `valueFrom` field.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            ValueSource::FolderName => "folder_name",
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -98,6 +123,12 @@ struct ParsedRequest {
     field: Option<String>,
     /// The value, if provided.
     value: Option<String>,
+    /// Native derivation source when the value position is a derivation
+    /// instruction instead of a literal.
+    value_from: Option<ValueSource>,
+    /// Whether the value position is derivation-shaped but not supported
+    /// natively; the request must fall through to the LLM.
+    derivation_unsupported: bool,
     /// Whether "missing" was mentioned.
     missing_qualifier: bool,
     /// Whether "them" was used as the target.
@@ -136,6 +167,8 @@ fn parse_request_tokens(message: &str) -> ParsedRequest {
             action: String::new(),
             field: None,
             value: None,
+            value_from: None,
+            derivation_unsupported: false,
             missing_qualifier: false,
             them_referent: false,
         };
@@ -227,6 +260,8 @@ fn parse_request_tokens(message: &str) -> ParsedRequest {
             action: String::new(),
             field: None,
             value: None,
+            value_from: None,
+            derivation_unsupported: false,
             missing_qualifier: false,
             them_referent: false,
         };
@@ -243,6 +278,8 @@ fn parse_request_tokens(message: &str) -> ParsedRequest {
             action,
             field: None,
             value,
+            value_from: None,
+            derivation_unsupported: false,
             missing_qualifier: false,
             them_referent: true,
         };
@@ -264,6 +301,8 @@ fn parse_request_tokens(message: &str) -> ParsedRequest {
             action,
             field,
             value,
+            value_from: None,
+            derivation_unsupported: false,
             missing_qualifier: true,
             them_referent: false,
         };
@@ -278,6 +317,8 @@ fn parse_request_tokens(message: &str) -> ParsedRequest {
             action,
             field,
             value,
+            value_from: None,
+            derivation_unsupported: false,
             missing_qualifier: true,
             them_referent: false,
         };
@@ -289,6 +330,8 @@ fn parse_request_tokens(message: &str) -> ParsedRequest {
             action: action.to_string(),
             field: None,
             value: None,
+            value_from: None,
+            derivation_unsupported: false,
             missing_qualifier: true,
             them_referent: false,
         };
@@ -316,21 +359,44 @@ fn parse_request_tokens(message: &str) -> ParsedRequest {
                     action,
                     field: Some(field.clone()),
                     value: None,
+                    value_from: None,
+                    derivation_unsupported: false,
                     missing_qualifier: true,
                     them_referent: false,
                 };
             }
-            // Try "to <value>"
-            let value = if let Some(val) = trimmed_rest.strip_prefix("to ") {
-                Some(val.to_string())
-            } else {
-                // Otherwise the whole rest is the value
-                Some(trimmed_rest.to_string())
-            };
+            // A quoted value is always a literal escape hatch ("set comment
+            // \"based on their folder name\""). A "to " prefix keeps ordinary
+            // values literal ("set album to Based on a True Story"), but
+            // folder-shaped text still expresses a derivation ("change the
+            // album to their folder name"). Otherwise a derivation
+            // instruction must never become a literal value: supported
+            // folder-name derivations become a native source, and unsupported
+            // derivation shapes fall through to the LLM.
+            let (value, value_from, derivation_unsupported) =
+                if is_quoted_value(trimmed_rest) {
+                    (Some(trimmed_rest.to_string()), None, false)
+                } else if let Some(after_to) = trimmed_rest.strip_prefix("to ") {
+                    if is_quoted_value(after_to) {
+                        (Some(after_to.to_string()), None, false)
+                    } else if is_folder_name_derivation(after_to) {
+                        (None, Some(ValueSource::FolderName), false)
+                    } else {
+                        (Some(after_to.to_string()), None, false)
+                    }
+                } else if is_folder_name_derivation(trimmed_rest) {
+                    (None, Some(ValueSource::FolderName), false)
+                } else if is_unsupported_derivation(trimmed_rest) {
+                    (None, None, true)
+                } else {
+                    (Some(trimmed_rest.to_string()), None, false)
+                };
             return ParsedRequest {
                 action,
                 field: Some(field.clone()),
                 value,
+                value_from,
+                derivation_unsupported,
                 missing_qualifier,
                 them_referent: false,
             };
@@ -341,9 +407,19 @@ fn parse_request_tokens(message: &str) -> ParsedRequest {
         action,
         field,
         value: None,
+        value_from: None,
+        derivation_unsupported: false,
         missing_qualifier,
         them_referent: false,
     }
+}
+
+/// Strip a case-insensitive ASCII prefix, preserving the original case of
+/// the remaining text. Returns `None` when the prefix does not match.
+fn strip_ascii_case_insensitive_prefix<'a>(text: &'a str, prefix: &str) -> Option<&'a str> {
+    let head = text.get(..prefix.len())?;
+    head.eq_ignore_ascii_case(prefix)
+        .then(|| &text[prefix.len()..])
 }
 
 /// Try to identify a known field at the start of the body text.
@@ -359,7 +435,7 @@ fn extract_field_and_rest(body: &str) -> (Option<String>, Option<String>) {
         ("disc total", "discTotal"),
     ];
     for (field, canonical) in multi_fields {
-        if let Some(raw_rest) = body.strip_prefix(field) {
+        if let Some(raw_rest) = strip_ascii_case_insensitive_prefix(body, field) {
             if raw_rest.is_empty() || raw_rest.starts_with(' ') || raw_rest.starts_with(" to ") {
                 let val = raw_rest.trim().to_string();
                 let rest = if val.is_empty() { None } else { Some(val) };
@@ -370,7 +446,7 @@ fn extract_field_and_rest(body: &str) -> (Option<String>, Option<String>) {
 
     for known in KNOWN_FIELDS {
         let lower_known: String = known.chars().flat_map(|c| c.to_lowercase()).collect();
-        if let Some(raw_rest) = body.strip_prefix(&lower_known) {
+        if let Some(raw_rest) = strip_ascii_case_insensitive_prefix(body, &lower_known) {
             // Check the UNTRIMMED rest: must be empty, start with space, or start with " to ".
             if raw_rest.is_empty() || raw_rest.starts_with(' ') || raw_rest.starts_with(" to ") {
                 let val = raw_rest.trim().to_string();
@@ -380,7 +456,7 @@ fn extract_field_and_rest(body: &str) -> (Option<String>, Option<String>) {
         }
         // Also check with "the" prefix
         let the_prefix = format!("the {lower_known}");
-        if let Some(raw_rest) = body.strip_prefix(&the_prefix) {
+        if let Some(raw_rest) = strip_ascii_case_insensitive_prefix(body, &the_prefix) {
             if raw_rest.is_empty() || raw_rest.starts_with(' ') || raw_rest.starts_with(" to ") {
                 let val = raw_rest.trim().to_string();
                 let rest = if val.is_empty() { None } else { Some(val) };
@@ -426,6 +502,73 @@ fn identify_field(text: &str) -> Option<String> {
     None
 }
 
+// ── Derivation-shape detection ───────────────────────────────────
+
+/// Lowercase, whitespace-collapsed form of a value-position string with
+/// trailing punctuation removed, used for derivation-shape detection.
+fn normalized_derivation_text(text: &str) -> String {
+    let collapsed = text.split_whitespace().collect::<Vec<_>>().join(" ");
+    collapsed
+        .trim_matches(|character: char| {
+            character.is_ascii_punctuation() || character.is_whitespace()
+        })
+        .to_lowercase()
+}
+
+/// True when the text is wrapped in balanced quotes (the literal escape hatch).
+fn is_quoted_value(text: &str) -> bool {
+    let trimmed = text.trim();
+    (trimmed.starts_with('"') && trimmed.ends_with('"'))
+        || (trimmed.starts_with('\'') && trimmed.ends_with('\''))
+}
+
+/// True when the value position is a folder-name derivation instruction the
+/// native harness can execute: "based on [their/the/its] folder name",
+/// "from the containing/parent folder", "use [the] folder name", etc.
+fn is_folder_name_derivation(text: &str) -> bool {
+    let normalized = normalized_derivation_text(text);
+    if !normalized.contains("folder") {
+        return false;
+    }
+    normalized.contains("based on")
+        || normalized.starts_with("from the ")
+        || normalized.starts_with("from ")
+        || normalized.starts_with("use ")
+        || normalized.starts_with("using ")
+        || normalized.contains("derive")
+        || normalized.contains("same as")
+        || normalized.contains("folder's name")
+        || normalized == "their folder name"
+        || normalized == "the folder name"
+        || normalized == "its folder name"
+        || normalized == "folder name"
+}
+
+/// True when the value position is derivation-shaped but the native harness
+/// cannot execute it; the request must fall through to the LLM instead of
+/// becoming a literal value.
+fn is_unsupported_derivation(text: &str) -> bool {
+    let normalized = normalized_derivation_text(text);
+    const MARKERS: &[&str] = &[
+        "based on",
+        "derived from",
+        "derive",
+        "according to",
+        "same as",
+        "folder name",
+        "filename",
+        "file name",
+        "use the title",
+        "using the title",
+        "based on title",
+        "from the title",
+        "by title",
+        "from the",
+        "using ",
+    ];
+    MARKERS.iter().any(|marker| normalized.contains(marker))
+}
+
 // ── Main routing entry point ──────────────────────────────────────
 
 /// Route a user message deterministically.
@@ -461,6 +604,7 @@ pub fn route_message(message: &str, referent: Option<&SessionState>) -> Option<R
             intent: IntentKind::SplitArtists,
             field: Some("artists".to_string()),
             value: None,
+            value_from: None,
             only_if_missing: false,
             scope_hint: ScopeHint::Selected,
             uses_referent: false,
@@ -481,6 +625,29 @@ pub fn route_message(message: &str, referent: Option<&SessionState>) -> Option<R
     match tokens.action.as_str() {
         "set" | "change" => {
             let field = tokens.field.clone()?;
+            if tokens.derivation_unsupported {
+                // Derivation-shaped but not natively supported — let the LLM
+                // decide instead of literalizing the instruction.
+                return None;
+            }
+            if let Some(source) = tokens.value_from {
+                let scope_hint = if tokens.missing_qualifier {
+                    ScopeHint::FromPredicate(ScopePredicate::LibraryAndMissing {
+                        field: field.clone(),
+                    })
+                } else {
+                    ScopeHint::Library
+                };
+                return Some(RoutedCommand {
+                    intent: IntentKind::SetFieldFrom,
+                    field: Some(field),
+                    value: None,
+                    value_from: Some(source),
+                    only_if_missing: tokens.missing_qualifier,
+                    scope_hint,
+                    uses_referent: false,
+                });
+            }
             let value = tokens.value.as_ref().map(|v| strip_outer_quotes(v));
 
             let scope_hint = if tokens.missing_qualifier {
@@ -501,6 +668,7 @@ pub fn route_message(message: &str, referent: Option<&SessionState>) -> Option<R
                 },
                 field: Some(field),
                 value,
+                value_from: None,
                 only_if_missing: tokens.missing_qualifier,
                 scope_hint,
                 uses_referent: false,
@@ -513,6 +681,7 @@ pub fn route_message(message: &str, referent: Option<&SessionState>) -> Option<R
                 intent: IntentKind::RemoveField,
                 field: Some(field),
                 value: None,
+                value_from: None,
                 only_if_missing: false,
                 scope_hint: ScopeHint::Library,
                 uses_referent: false,
@@ -528,6 +697,7 @@ pub fn route_message(message: &str, referent: Option<&SessionState>) -> Option<R
                         intent: IntentKind::SetMissing,
                         field: Some(f.clone()),
                         value: None, // needs follow-up for value
+                        value_from: None,
                         only_if_missing: true,
                         scope_hint: ScopeHint::FromPredicate(ScopePredicate::LibraryAndMissing {
                             field: f.clone(),
@@ -557,12 +727,31 @@ fn route_them_command(
     }
 
     let field = referent.referent_field.clone();
+
+    // Referent commands share the same governing rule: derivation-shaped text
+    // must never become a literal value, including after a "to " prefix.
+    // Without a natively resolvable source (the referent may span many
+    // folders), fall through to the LLM.
+    if let Some(value) = tokens.value.as_deref() {
+        let trimmed = value.trim();
+        let derivation_shaped = if is_quoted_value(trimmed) {
+            false
+        } else if let Some(after_to) = trimmed.strip_prefix("to ") {
+            !is_quoted_value(after_to) && is_folder_name_derivation(after_to)
+        } else {
+            is_folder_name_derivation(trimmed) || is_unsupported_derivation(trimmed)
+        };
+        if derivation_shaped {
+            return None;
+        }
+    }
     let value = tokens.value.as_ref().map(|v| strip_outer_quotes(v));
 
     Some(RoutedCommand {
         intent: IntentKind::SetField,
         field,
         value,
+        value_from: None,
         only_if_missing: true, // referent-based changes are typically only-if-missing
         scope_hint: ScopeHint::Referent,
         uses_referent: true,
@@ -636,6 +825,14 @@ pub fn resolved_intent_from_command(command: &RoutedCommand) -> ResolvedIntent {
             field: command.field.clone().unwrap_or_default(),
             value: command.value.clone().unwrap_or_default(),
             only_if_missing: command.only_if_missing,
+        },
+        IntentKind::SetFieldFrom => ResolvedIntent::SetFieldFrom {
+            field: command.field.clone().unwrap_or_default(),
+            source: command
+                .value_from
+                .map(ValueSource::as_str)
+                .unwrap_or("folder_name")
+                .to_string(),
         },
         IntentKind::RemoveField | IntentKind::ClearField => ResolvedIntent::RemoveField {
             field: command.field.clone().unwrap_or_default(),
@@ -889,6 +1086,155 @@ mod tests {
         assert_eq!(cmd.field.as_deref(), Some("genre"));
         assert!(cmd.value.is_none(), "no value specified yet");
         assert!(cmd.only_if_missing);
+    }
+
+    // ── derivation routing (folder-derived values are never literals) ──
+
+    #[test]
+    fn derivation_language_must_not_be_routed_as_literal_metadata() {
+        // Regression for assistant session #1785632786862-761543: the user
+        // said "change the album based on their folder name" and the router
+        // wrote the literal string "based on their folder name" onto 381
+        // tracks. A derivation instruction must never become a literal value.
+        let cmd = route_message("change the album based on their folder name", None)
+            .expect("folder-name derivation must route natively");
+        assert_eq!(cmd.intent, IntentKind::SetFieldFrom);
+        assert_eq!(cmd.field.as_deref(), Some("album"));
+        assert!(cmd.value.is_none(), "no literal value may be captured");
+        assert_eq!(cmd.value_from, Some(ValueSource::FolderName));
+    }
+
+    #[test]
+    fn routes_album_from_containing_folder_variants() {
+        for message in [
+            "set album from the containing folder",
+            "set album from the parent folder",
+            "set album based on their folder name",
+            "set album based on the folder name",
+            "set album use the folder name",
+            "set album using folder name",
+            "change the album based on their folder name.",
+            "CHANGE THE ALBUM BASED ON THEIR FOLDER NAME",
+            "set Album from the folder name",
+        ] {
+            let cmd = route_message(message, None)
+                .unwrap_or_else(|| panic!("{message:?} must route natively"));
+            assert_eq!(cmd.intent, IntentKind::SetFieldFrom, "{message}");
+            assert_eq!(cmd.field.as_deref(), Some("album"), "{message}");
+            assert!(cmd.value.is_none(), "{message}");
+            assert_eq!(cmd.value_from, Some(ValueSource::FolderName), "{message}");
+        }
+    }
+
+    #[test]
+    fn unsupported_derivation_falls_through_to_llm() {
+        for message in [
+            "derive album according to the catalog structure",
+            "set album based on the title",
+            "set album from the track filename",
+            "set album according to the track titles",
+            "set genre based on their mood",
+        ] {
+            assert!(
+                route_message(message, None).is_none(),
+                "{message:?} must fall through to the LLM, never become a literal"
+            );
+        }
+    }
+
+    #[test]
+    fn literal_values_containing_derivation_words_stay_literal() {
+        // Quoted values are the explicit literal escape hatch even when they
+        // contain derivation words; "to " keeps ordinary (non-folder) values
+        // literal.
+        let cmd = route_message("set album to Based on a True Story", None).unwrap();
+        assert_eq!(cmd.intent, IntentKind::SetField);
+        assert_eq!(cmd.value.as_deref(), Some("Based on a True Story"));
+        assert!(cmd.value_from.is_none());
+
+        let cmd = route_message("set comment \"based on their folder name\"", None).unwrap();
+        assert_eq!(cmd.intent, IntentKind::SetField);
+        assert_eq!(cmd.value.as_deref(), Some("based on their folder name"));
+
+        let cmd = route_message("set comment 'folder name'", None).unwrap();
+        assert_eq!(cmd.intent, IntentKind::SetField);
+        assert_eq!(cmd.value.as_deref(), Some("folder name"));
+
+        let cmd = route_message("set comment to \"their folder name\"", None).unwrap();
+        assert_eq!(cmd.intent, IntentKind::SetField);
+        assert_eq!(cmd.value.as_deref(), Some("their folder name"));
+        assert!(cmd.value_from.is_none());
+    }
+
+    #[test]
+    fn folder_derivation_after_to_prefix_routes_natively() {
+        // "to <folder-shaped text>" is still a derivation instruction, not a
+        // literal: the "to " literal escape hatch only applies to ordinary
+        // values ("set album to Based on a True Story").
+        for message in [
+            "change the album to their folder name",
+            "set album to the folder name",
+            "set album to the containing folder's name",
+            "set album to their folder's name",
+        ] {
+            let cmd = route_message(message, None)
+                .unwrap_or_else(|| panic!("{message:?} must route natively"));
+            assert_eq!(cmd.intent, IntentKind::SetFieldFrom, "{message}");
+            assert_eq!(cmd.field.as_deref(), Some("album"), "{message}");
+            assert!(cmd.value.is_none(), "{message}");
+            assert_eq!(cmd.value_from, Some(ValueSource::FolderName), "{message}");
+        }
+    }
+
+    #[test]
+    fn derivation_with_missing_qualifier_preserves_only_if_missing() {
+        // "…where missing" combined with a folder-name derivation must keep
+        // the only_if_missing semantics so existing values are preserved.
+        let cmd = route_message(
+            "set album based on their folder name where missing",
+            None,
+        )
+        .expect("folder-name derivation with missing qualifier must route natively");
+        assert_eq!(cmd.intent, IntentKind::SetFieldFrom);
+        assert_eq!(cmd.field.as_deref(), Some("album"));
+        assert_eq!(cmd.value_from, Some(ValueSource::FolderName));
+        assert!(cmd.only_if_missing);
+        assert_eq!(
+            cmd.scope_hint,
+            ScopeHint::FromPredicate(ScopePredicate::LibraryAndMissing {
+                field: "album".to_string()
+            })
+        );
+    }
+
+    #[test]
+    fn plain_literals_without_derivation_markers_stay_literal() {
+        let cmd = route_message("set album Loose", None).unwrap();
+        assert_eq!(cmd.intent, IntentKind::SetField);
+        assert_eq!(cmd.value.as_deref(), Some("Loose"));
+        assert!(cmd.value_from.is_none());
+    }
+
+    #[test]
+    fn them_referent_derivation_falls_through_to_llm() {
+        let referent = SessionState {
+            session_id: "s".to_string(),
+            intent: Some("set_field".to_string()),
+            scope_predicate: None,
+            protocol: "native".to_string(),
+            referent_count: 381,
+            referent_query: Some("missing album".to_string()),
+            referent_field: Some("album".to_string()),
+            referent_value: None,
+            pending_batch_ids: vec![],
+            mutation_required: false,
+            consecutive_clarifications: 0,
+            created_at: "2026-01-01T00:00:00.000Z".to_string(),
+            updated_at: "2026-01-01T00:00:00.000Z".to_string(),
+        };
+        assert!(route_message("set them based on their folder name", Some(&referent)).is_none());
+        // "to " before folder-shaped text must not literalize either.
+        assert!(route_message("set them to their folder name", Some(&referent)).is_none());
     }
 
     // ── scope resolution ───────────────────────────────────────────

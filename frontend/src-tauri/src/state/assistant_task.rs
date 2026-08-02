@@ -137,6 +137,9 @@ pub enum ResolvedIntent {
         value: String,
         only_if_missing: bool,
     },
+    /// Derive a field from a native per-track source (e.g. the containing
+    /// folder) instead of a literal value.
+    SetFieldFrom { field: String, source: String },
     /// Remove/clear a field across the scope.
     RemoveField { field: String },
     /// Could not determine intent — LLM should decide.

@@ -254,12 +254,36 @@ export function AssistantPanel({
               typeof event.data.verification === "object" &&
               "status" in event.data.verification &&
               event.data.verification.status === "verified";
+            const warnings =
+              "verification" in event.data &&
+              event.data.verification !== null &&
+              typeof event.data.verification === "object" &&
+              "warnings" in event.data.verification &&
+              Array.isArray(event.data.verification.warnings)
+                ? event.data.verification.warnings.filter(
+                    (warning): warning is string => typeof warning === "string"
+                  )
+                : [];
+            const informational =
+              "verification" in event.data &&
+              event.data.verification !== null &&
+              typeof event.data.verification === "object" &&
+              "informational" in event.data.verification &&
+              Array.isArray(event.data.verification.informational)
+                ? event.data.verification.informational.filter(
+                    (message): message is string => typeof message === "string"
+                  )
+                : [];
             updateBatchMsg(event.data.batchId, {
               status: verificationRequired && !verified ? "failed" : "completed",
               detail:
                 verificationRequired && !verified
                   ? { icon: "⚠️", text: "Native readback verification was not confirmed." }
-                  : { icon: "✅", text: event.message },
+                  : warnings.length > 0
+                    ? { icon: "⚠️", text: warnings[0] }
+                    : informational.length > 0
+                      ? { icon: "✅", text: informational[0] }
+                      : { icon: "✅", text: event.message },
             });
           }
           loadPendingBatches();

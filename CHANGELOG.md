@@ -74,6 +74,13 @@ desktop release.
 
 ### Fixed
 
+- Assistant folder-derived metadata: instructions like "set album based on
+  their folder name" now derive each track's album from its containing
+  folder instead of writing the instruction text as a literal tag value. The
+  preview shows the derived per-track values, verification re-checks the
+  folder source after writing, and one identical literal value planned across
+  many different folders raises a preview and post-write warning.
+
 - WAV metadata: garbled LIST INFO reads, trailing junk/null-byte padding,
   over-eager orphan-tail repair, and reads preferring ID3v2 over stale LIST
   INFO.

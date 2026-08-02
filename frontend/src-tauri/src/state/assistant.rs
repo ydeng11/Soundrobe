@@ -48,6 +48,9 @@ pub struct AssistantAction {
 pub enum AssistantCompletionPostcondition {
     ExactMetadataActions,
     SplitArtistsNormalized,
+    /// Every planned set value was derived from the track's containing folder
+    /// (`valueFrom: folder_name`); readback must also match the folder source.
+    DerivedFolderName,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

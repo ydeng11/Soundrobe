@@ -30,7 +30,7 @@ use crate::state::write_queue::WriteQueue;
 use lofty::file::TaggedFileExt;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::collections::{BTreeMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::Ordering;
@@ -464,6 +464,7 @@ pub async fn assistant_send(
             intent = ?routed.intent,
             field = ?routed.field,
             has_value = routed.value.is_some(),
+            value_from = ?routed.value_from,
             uses_referent = routed.uses_referent,
             "deterministic routing matched"
         );
@@ -565,6 +566,41 @@ pub async fn assistant_send(
                         &session_id_for_state,
                     )
                 }
+                crate::commands::assistant_intent::IntentKind::SetFieldFrom => {
+                    let source = routed
+                        .value_from
+                        .map(crate::commands::assistant_intent::ValueSource::as_str)
+                        .unwrap_or("folder_name");
+                    // Mirror the literal SetField arm: a derivation combined
+                    // with "where missing" must preserve existing values.
+                    let command_args = if routed.only_if_missing {
+                        serde_json::json!({
+                            "target_scope": "explicit_paths",
+                            "paths": scope_paths,
+                            "changes": [{
+                                "field": field,
+                                "action": "set",
+                                "valueFrom": source,
+                                "only_if_missing": true
+                            }]
+                        })
+                    } else {
+                        serde_json::json!({
+                            "target_scope": "explicit_paths",
+                            "paths": scope_paths,
+                            "changes": [{
+                                "field": field,
+                                "action": "set",
+                                "valueFrom": source
+                            }]
+                        })
+                    };
+                    crate::commands::assistant_metadata_tools::execute_metadata_patch(
+                        &command_args,
+                        &input,
+                        &session_id_for_state,
+                    )
+                }
                 crate::commands::assistant_intent::IntentKind::RemoveField
                 | crate::commands::assistant_intent::IntentKind::ClearField => {
                     let command_args = serde_json::json!({
@@ -636,25 +672,29 @@ pub async fn assistant_send(
             };
             let _ = task_state.upsert_session(&updated_state);
 
-            // Update referent in session state
-            let referent_predicate =
-                crate::state::assistant_task::ScopePredicate::LibraryAndMissing {
-                    field: field.clone(),
+            // Update referent in session state. Derived writes have no literal
+            // value to resolve a later "set them X" against, so they must not
+            // poison the referent with the derivation instruction.
+            if let Some(literal_value) = &routed.value {
+                let referent_predicate =
+                    crate::state::assistant_task::ScopePredicate::LibraryAndMissing {
+                        field: field.clone(),
+                    };
+                let (_paths, count) = crate::state::assistant_task::evaluate_predicate(
+                    &referent_predicate,
+                    &input.tracks,
+                    input.active_album_path.as_deref(),
+                    &input.selected_track_paths,
+                );
+                let referent_session = crate::state::assistant_task::SessionState {
+                    referent_count: count as i64,
+                    referent_query: Some(format!("missing {}", field)),
+                    referent_field: Some(field.clone()),
+                    referent_value: Some(literal_value.clone()),
+                    ..updated_state
                 };
-            let (_paths, count) = crate::state::assistant_task::evaluate_predicate(
-                &referent_predicate,
-                &input.tracks,
-                input.active_album_path.as_deref(),
-                &input.selected_track_paths,
-            );
-            let referent_session = crate::state::assistant_task::SessionState {
-                referent_count: count as i64,
-                referent_query: Some(format!("missing {}", field)),
-                referent_field: Some(field.clone()),
-                referent_value: routed.value.clone(),
-                ..updated_state
-            };
-            let _ = task_state.upsert_session(&referent_session);
+                let _ = task_state.upsert_session(&referent_session);
+            }
 
             if stored_batches.is_empty() {
                 // No changes needed
@@ -1475,6 +1515,10 @@ fn build_assistant_messages(
                 "  Tool results are bounded; refine or repeat queries when more evidence is needed.\n",
                 "- If the request is an explicit edit with concrete values (\"set title to X\", ",
                 "  \"remove genre\"), call metadata.patch with explicit values.\n",
+                "- A derivation instruction (e.g. \"set album based on their folder name\", ",
+                "  \"set album from the containing folder\") must never become a literal value. ",
+                "  Call metadata.patch with a set change carrying valueFrom: \"folder_name\" ",
+                "  so each track's value is derived from its containing folder.\n",
                 "- Treat a quoted metadata value as one literal value even when it contains commas; ",
                 "  do not split it into different values for different tracks.\n",
                 "- If the request is a transformation (\"strip numbers from titles\", ",
@@ -4025,7 +4069,75 @@ fn verify_metadata_batch_readback(batch: &AssistantActionBatch) -> Value {
             }
         }
     }
-    verification_summary(
+    let derived = batch.completion_contract.as_ref().is_some_and(|contract| {
+        contract.postcondition == AssistantCompletionPostcondition::DerivedFolderName
+    });
+    let mut warnings: Vec<Value> = Vec::new();
+    let mut informational: Vec<Value> = Vec::new();
+    if derived {
+        // Source verification: the planned value must equal the track's
+        // containing folder at readback time, not just the written bytes.
+        for expectation in expectations {
+            if expectation.operation != "set" {
+                continue;
+            }
+            let Some(expected) = expectation.expected_value.as_str() else {
+                continue;
+            };
+            match crate::commands::assistant_metadata_tools::folder_name_for_path(
+                &expectation.track_path,
+            ) {
+                Some(folder) if folder == expected => {}
+                Some(folder) => failures.push(serde_json::json!({
+                    "trackPath": expectation.track_path,
+                    "field": expectation.field,
+                    "expected": expected,
+                    "actualFolder": folder,
+                    "error": "Derived value no longer matches its source folder"
+                })),
+                None => failures.push(serde_json::json!({
+                    "trackPath": expectation.track_path,
+                    "field": expectation.field,
+                    "error": "Source folder could not be resolved during verification"
+                })),
+            }
+        }
+        if failures.is_empty() {
+            // Informational (rendered as success), not a warning: source
+            // verification already gates correctness through failures.
+            informational.push(Value::String(
+                "Disk write verified; values matched their containing folder sources.".into(),
+            ));
+        }
+    } else {
+        // Uniform-literal guard: one identical value across many distinct
+        // folders is exactly the shape of the folder-derivation bug, so
+        // verification reports it as a semantic warning, not a bare success.
+        // Count folders only among the actions actually written, so the
+        // message cannot claim more folders than changed tracks.
+        let distinct_values = expectations
+            .iter()
+            .filter_map(|expectation| expectation.expected_value.as_str())
+            .collect::<BTreeSet<_>>();
+        if distinct_values.len() == 1 && expectations.len() > 1 {
+            let distinct_folders = expectations
+                .iter()
+                .filter_map(|expectation| {
+                    crate::commands::assistant_metadata_tools::folder_name_for_path(
+                        &expectation.track_path,
+                    )
+                })
+                .collect::<BTreeSet<String>>();
+            if distinct_folders.len() > 1 {
+                let value = distinct_values.iter().next().unwrap_or(&"");
+                warnings.push(Value::String(format!(
+                    "Disk write verified, but a semantic warning was raised: the same value '{value}' was written across {} different folders. Confirm this was intended rather than folder-derived.",
+                    distinct_folders.len()
+                )));
+            }
+        }
+    }
+    let mut summary = verification_summary(
         if failures.is_empty() {
             "verified"
         } else {
@@ -4035,7 +4147,14 @@ fn verify_metadata_batch_readback(batch: &AssistantActionBatch) -> Value {
         batch,
         verified,
         failures,
-    )
+    );
+    if !warnings.is_empty() {
+        summary["warnings"] = Value::Array(warnings);
+    }
+    if !informational.is_empty() {
+        summary["informational"] = Value::Array(informational);
+    }
+    summary
 }
 
 fn finish_metadata_apply(
@@ -5733,6 +5852,203 @@ mod apply_contract_tests {
                 .unwrap()
                 .is_empty()
         );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn folder_derived_album_is_applied_and_source_verified() {
+        // Regression for assistant session #1785632786862-761543: deriving
+        // album from the containing folder must write each track's folder
+        // name and verify against the folder source, not a literal string.
+        let root = temp_dir();
+        let album_dir = root.join("红昭愿");
+        fs::create_dir_all(&album_dir).unwrap();
+        let path = album_dir.join("track.flac");
+        fs::copy(flac_fixture(), &path).unwrap();
+        let input = AssistantSendInput {
+            selected_track_paths: vec![path.to_string_lossy().into_owned()],
+            tracks: vec![serde_json::to_value(read_track_metadata(&path).unwrap()).unwrap()],
+            ..Default::default()
+        };
+        let execution = crate::commands::assistant_metadata_tools::execute_metadata_patch(
+            &serde_json::json!({
+                "target_scope": "selected",
+                "changes": [{"field": "album", "action": "set", "valueFrom": "folder_name"}]
+            }),
+            &input,
+            "derived-album-session",
+        );
+        let batch = execution.batches.first().expect("derived preview").clone();
+        assert_eq!(
+            batch.completion_contract.as_ref().unwrap().postcondition,
+            AssistantCompletionPostcondition::DerivedFolderName
+        );
+        assert_eq!(batch.actions[0].new_value.as_deref(), Some("红昭愿"));
+        let batch_id = batch.id.clone();
+        let runtime = AssistantRuntimeState::default();
+        assert!(runtime.initialize());
+        assert!(runtime.add_batch(batch));
+
+        let result = apply_action_batch(&runtime, &WriteQueue::default(), &batch_id).await;
+
+        assert_eq!(result["success"], true, "{result}");
+        assert_eq!(result["verification"]["status"], "verified", "{result}");
+        assert_eq!(
+            result["verification"]["informational"][0],
+            "Disk write verified; values matched their containing folder sources."
+        );
+        assert_eq!(
+            read_track_metadata(&path).unwrap().album.as_deref(),
+            Some("红昭愿")
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn uniform_literal_verification_warning_counts_only_written_folders() {
+        // A track that already matches the literal must not inflate the
+        // folder count of the post-write uniform-literal warning: only the
+        // folders whose tracks actually changed may count.
+        let root = temp_dir();
+        let folder_a = root.join("folder-a");
+        let folder_b = root.join("folder-b");
+        let folder_c = root.join("folder-c");
+        fs::create_dir_all(&folder_a).unwrap();
+        fs::create_dir_all(&folder_b).unwrap();
+        fs::create_dir_all(&folder_c).unwrap();
+        let path_a = folder_a.join("track.flac");
+        let path_b = folder_b.join("track.flac");
+        let path_c = folder_c.join("track.flac");
+        for path in [&path_a, &path_b, &path_c] {
+            fs::copy(flac_fixture(), path).unwrap();
+        }
+        // Track A already has the literal; B and C get rewritten to it.
+        write_track_dispatch(
+            &path_a,
+            &TrackPatch {
+                album: Patch::Value("Loose".into()),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        write_track_dispatch(
+            &path_b,
+            &TrackPatch {
+                album: Patch::Value("Old".into()),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        write_track_dispatch(
+            &path_c,
+            &TrackPatch {
+                album: Patch::Value("Old".into()),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        let input = AssistantSendInput {
+            selected_track_paths: vec![
+                path_a.to_string_lossy().into_owned(),
+                path_b.to_string_lossy().into_owned(),
+                path_c.to_string_lossy().into_owned(),
+            ],
+            tracks: vec![
+                serde_json::to_value(read_track_metadata(&path_a).unwrap()).unwrap(),
+                serde_json::to_value(read_track_metadata(&path_b).unwrap()).unwrap(),
+                serde_json::to_value(read_track_metadata(&path_c).unwrap()).unwrap(),
+            ],
+            ..Default::default()
+        };
+        let execution = crate::commands::assistant_metadata_tools::execute_metadata_patch(
+            &serde_json::json!({
+                "target_scope": "selected",
+                "changes": [{"field": "album", "action": "set", "value": "Loose"}]
+            }),
+            &input,
+            "uniform-literal-session",
+        );
+        let batch = execution.batches.first().expect("preview batch").clone();
+        assert_eq!(batch.actions.len(), 2, "track A already matches the literal");
+        let batch_id = batch.id.clone();
+        let runtime = AssistantRuntimeState::default();
+        assert!(runtime.initialize());
+        assert!(runtime.add_batch(batch));
+
+        let result = apply_action_batch(&runtime, &WriteQueue::default(), &batch_id).await;
+
+        assert_eq!(result["success"], true, "{result}");
+        assert_eq!(result["verification"]["status"], "verified", "{result}");
+        let warnings = result["verification"]["warnings"]
+            .as_array()
+            .cloned()
+            .unwrap_or_default();
+        assert!(
+            warnings.iter().any(|warning| {
+                warning
+                    .as_str()
+                    .is_some_and(|warning| warning.contains("across 2 different folders"))
+            }),
+            "{result}"
+        );
+        assert!(
+            !warnings.iter().any(|warning| {
+                warning
+                    .as_str()
+                    .is_some_and(|warning| warning.contains("across 3 different folders"))
+            }),
+            "{result}"
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn folder_derived_album_detects_folder_source_drift_after_planning() {
+        // The completion contract was planned against a folder name; moving
+        // the file to another folder before apply must fail source
+        // verification rather than silently report success.
+        let root = temp_dir();
+        let album_dir = root.join("album-a");
+        fs::create_dir_all(&album_dir).unwrap();
+        let path = album_dir.join("track.flac");
+        fs::copy(flac_fixture(), &path).unwrap();
+        let input = AssistantSendInput {
+            selected_track_paths: vec![path.to_string_lossy().into_owned()],
+            tracks: vec![serde_json::to_value(read_track_metadata(&path).unwrap()).unwrap()],
+            ..Default::default()
+        };
+        let execution = crate::commands::assistant_metadata_tools::execute_metadata_patch(
+            &serde_json::json!({
+                "target_scope": "selected",
+                "changes": [{"field": "album", "action": "set", "valueFrom": "folder_name"}]
+            }),
+            &input,
+            "derived-album-drift-session",
+        );
+        let batch = execution.batches.first().expect("derived preview").clone();
+        let batch_id = batch.id.clone();
+        let runtime = AssistantRuntimeState::default();
+        assert!(runtime.initialize());
+        assert!(runtime.add_batch(batch));
+
+        // Move the track into a different folder after planning.
+        let moved = root.join("album-b").join("track.flac");
+        fs::create_dir_all(root.join("album-b")).unwrap();
+        fs::rename(&path, &moved).unwrap();
+
+        let result = apply_action_batch(&runtime, &WriteQueue::default(), &batch_id).await;
+
+        // Moving the file invalidates the preview; the derived batch must
+        // fail loudly instead of silently writing against a stale source.
+        assert_eq!(result["success"], false, "{result}");
+        assert_eq!(result["verification"]["status"], "failed", "{result}");
+        assert!(
+            !result["verification"]["failures"].as_array().unwrap().is_empty(),
+            "{result}"
+        );
+        // The moved file must not have been touched by the failed batch.
+        let updated = read_track_metadata(&moved).unwrap();
+        assert_ne!(updated.album.as_deref(), Some("album-a"));
         fs::remove_dir_all(root).unwrap();
     }
 

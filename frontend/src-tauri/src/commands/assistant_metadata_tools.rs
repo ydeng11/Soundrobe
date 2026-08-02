@@ -523,7 +523,15 @@ fn metadata_patch_expected_paths(
                 .unwrap_or("set")
             {
                 "set" => {
-                    let desired = change.get("value").and_then(action_value_string);
+                    let desired = if change
+                        .get("valueFrom")
+                        .and_then(Value::as_str)
+                        == Some("folder_name")
+                    {
+                        folder_name_for_path(path)
+                    } else {
+                        change.get("value").and_then(action_value_string)
+                    };
                     desired.as_ref().is_some_and(|desired| {
                         old_value.as_deref() != Some(desired)
                             && (!change
@@ -692,6 +700,18 @@ pub(crate) fn op_chinese_to_traditional(text: &str) -> Option<String> {
 
 // ── Tool executors ──────────────────────────────────────────────────
 
+/// The containing folder name for a track path, used by
+/// `valueFrom: "folder_name"`. Returns `None` when the path has no named
+/// parent (e.g. a bare filename or a filesystem root).
+pub(crate) fn folder_name_for_path(path: &str) -> Option<String> {
+    Path::new(path)
+        .parent()
+        .and_then(|parent| parent.file_name())
+        .and_then(|name| name.to_str())
+        .map(str::to_string)
+        .filter(|name| !name.is_empty())
+}
+
 /// Execute `metadata.patch`: apply uniform and/or per-track changes to tag fields.
 pub(crate) fn execute_metadata_patch(
     args: &Value,
@@ -738,12 +758,31 @@ pub(crate) fn execute_metadata_patch(
                     "only_if_missing is supported only for standard fields".to_string(),
                 );
             }
-            if matches!(action_type, "set" | "upsert")
-                && change.get("value").is_none_or(Value::is_null)
-            {
-                return mutating_tool_error(format!(
-                    "Action '{action_type}' requires a 'value' for field '{field}'"
-                ));
+            if matches!(action_type, "set" | "upsert") {
+                let has_value = change.get("value").is_some_and(|v| !v.is_null());
+                let has_value_from = change.get("valueFrom").is_some_and(|v| !v.is_null());
+                if has_value == has_value_from {
+                    return mutating_tool_error(format!(
+                        "Action '{action_type}' for field '{field}' must specify exactly one of 'value' or 'valueFrom'"
+                    ));
+                }
+                if let Some(source) = change.get("valueFrom").and_then(Value::as_str) {
+                    if source != "folder_name" {
+                        return mutating_tool_error(format!(
+                            "Unsupported valueFrom source: '{source}'"
+                        ));
+                    }
+                    if action_type != "set" {
+                        return mutating_tool_error(format!(
+                            "valueFrom is supported only for set actions (field '{field}')"
+                        ));
+                    }
+                    if tag_kind != "standard" {
+                        return mutating_tool_error(format!(
+                            "valueFrom is supported only for standard fields (field '{field}')"
+                        ));
+                    }
+                }
             }
         }
     }
@@ -780,7 +819,32 @@ pub(crate) fn execute_metadata_patch(
         .map(|track| (track_path(track), track))
         .collect();
 
+    // Pre-resolve folder-name sources before planning any action so an
+    // unresolvable path aborts the whole plan with no partial batch.
+    let mut folder_name_sources: BTreeMap<String, String> = BTreeMap::new();
+    let uses_folder_name_source = args
+        .get("changes")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .any(|change| change.get("valueFrom").and_then(Value::as_str) == Some("folder_name"));
+    if uses_folder_name_source {
+        for path in &paths {
+            match folder_name_for_path(path) {
+                Some(name) => {
+                    folder_name_sources.insert(path.clone(), name);
+                }
+                None => {
+                    return mutating_tool_error(format!(
+                        "Cannot derive values from a folder name for '{path}': no containing folder could be resolved; no actions were planned."
+                    ));
+                }
+            }
+        }
+    }
+
     let mut actions: Vec<AssistantAction> = Vec::new();
+    let mut derived_fields: Vec<String> = Vec::new();
 
     // Uniform changes
     if let Some(changes) = args.get("changes").and_then(Value::as_array) {
@@ -802,6 +866,10 @@ pub(crate) fn execute_metadata_patch(
                 .and_then(Value::as_bool)
                 .unwrap_or(false);
             let value = change.get("value");
+            let value_from = change.get("valueFrom").and_then(Value::as_str);
+            if value_from.is_some() && !derived_fields.iter().any(|f| f == field) {
+                derived_fields.push(field.to_string());
+            }
 
             match action_type {
                 "set" => {
@@ -845,6 +913,23 @@ pub(crate) fn execute_metadata_patch(
                                 field,
                                 &desired,
                                 &format!("Set {field} to {desired}"),
+                            );
+                        } else if value_from == Some("folder_name") {
+                            let desired = match folder_name_sources.get(path.as_str()) {
+                                Some(name) => name.clone(),
+                                None => {
+                                    return mutating_tool_error(format!(
+                                        "Cannot derive '{field}' from a folder name for '{path}': no containing folder could be resolved; no actions were planned."
+                                    ));
+                                }
+                            };
+                            push_string_action(
+                                &mut actions,
+                                track,
+                                path,
+                                field,
+                                &desired,
+                                &format!("Set {field} from containing folder"),
                             );
                         }
                     }
@@ -979,11 +1064,58 @@ pub(crate) fn execute_metadata_patch(
         .filter_map(|action| action.track_path.as_deref())
         .collect::<HashSet<_>>()
         .len();
-    let summary = format!(
-        "Update {} metadata field(s) across {} track(s)",
-        actions.len(),
-        affected_tracks
-    );
+    let summary = if !derived_fields.is_empty() {
+        let distinct_values = actions
+            .iter()
+            .filter_map(|action| action.new_value.as_deref())
+            .collect::<BTreeSet<_>>();
+        let examples = distinct_values.iter().take(5).cloned().collect::<Vec<_>>();
+        let mut summary = format!(
+            "{} will be derived from each track's containing folder: {} track(s), {} distinct value(s)",
+            derived_fields.join(", "),
+            affected_tracks,
+            distinct_values.len()
+        );
+        if !examples.is_empty() {
+            summary.push_str(&format!("; examples: {}", examples.join(", ")));
+            let remaining = distinct_values.len().saturating_sub(examples.len());
+            if remaining > 0 {
+                summary.push_str(&format!(" (+{remaining} more)"));
+            }
+        }
+        summary
+    } else {
+        let mut summary = format!(
+            "Update {} metadata field(s) across {} track(s)",
+            actions.len(),
+            affected_tracks
+        );
+        // Uniform-literal guard: one identical literal across tracks in many
+        // distinct folders is exactly the shape of the folder-derivation bug,
+        // so the preview must surface it before the user approves.
+        let distinct_values = actions
+            .iter()
+            .filter_map(|action| action.new_value.as_deref())
+            .collect::<BTreeSet<_>>();
+        if distinct_values.len() == 1 && actions.len() > 1 {
+            // Count folders only among the actions actually planned, so the
+            // message cannot claim more folders than changed tracks.
+            let distinct_folders = actions
+                .iter()
+                .filter_map(|action| action.track_path.as_deref())
+                .filter_map(folder_name_for_path)
+                .collect::<BTreeSet<String>>();
+            if distinct_folders.len() > 1 {
+                let value = distinct_values.iter().next().unwrap_or(&"");
+                summary.push_str(&format!(
+                    " — Warning: writing the same value '{value}' to {} track(s) across {} different folders. If you meant to derive per-track values from folder names, cancel and rephrase (e.g. \"based on the folder name\").",
+                    actions.len(),
+                    distinct_folders.len()
+                ));
+            }
+        }
+        summary
+    };
     let mut batch = assistant_batch(
         session_id,
         "metadata-update",
@@ -1004,12 +1136,17 @@ pub(crate) fn execute_metadata_patch(
         Ok(paths) => paths,
         Err(error) => return mutating_tool_error(error),
     };
+    let postcondition = if derived_fields.is_empty() {
+        AssistantCompletionPostcondition::ExactMetadataActions
+    } else {
+        AssistantCompletionPostcondition::DerivedFolderName
+    };
     batch.completion_contract = Some(AssistantCompletionContract {
         scope_paths: paths.clone(),
         scope_snapshot,
         expected_action_paths,
         expected_actions,
-        postcondition: AssistantCompletionPostcondition::ExactMetadataActions,
+        postcondition,
     });
     if let Err(error) = validate_native_completion_contract(&batch, input) {
         return mutating_tool_error(error);
@@ -1826,6 +1963,251 @@ mod tests {
     }
 
     #[test]
+    fn metadata_patch_value_from_folder_name_produces_per_track_actions() {
+        let mut input = test_input();
+        input.selected_track_paths = vec!["/music/album1/a.mp3".into(), "/music/album2/b.mp3".into()];
+        input.tracks = vec![
+            serde_json::json!({"path": "/music/album1/a.mp3", "album": "Old"}),
+            serde_json::json!({"path": "/music/album2/b.mp3", "album": "Old"}),
+        ];
+        let result = execute_metadata_patch(
+            &serde_json::json!({
+                "target_scope": "selected",
+                "changes": [
+                    {"field": "album", "action": "set", "valueFrom": "folder_name"}
+                ]
+            }),
+            &input,
+            "session-1",
+        );
+        assert!(result.result.ok, "{}", result.result.summary);
+        let batch = result.batches.first().expect("derived preview batch");
+        assert_eq!(batch.actions.len(), 2);
+        let values = batch
+            .actions
+            .iter()
+            .map(|action| (action.track_path.as_deref().unwrap(), action.new_value.as_deref().unwrap()))
+            .collect::<Vec<_>>();
+        assert_eq!(
+            values,
+            vec![("/music/album1/a.mp3", "album1"), ("/music/album2/b.mp3", "album2")]
+        );
+        // Preview must surface derivation semantics, not just a count.
+        assert!(
+            result.result.summary.contains("derived from each track's containing folder"),
+            "{}",
+            result.result.summary
+        );
+        assert!(result.result.summary.contains("2 distinct value(s)"), "{}", result.result.summary);
+        // Completion contract must be marked as folder-derived and cover both paths.
+        let contract = batch.completion_contract.as_ref().unwrap();
+        assert_eq!(
+            contract.postcondition,
+            AssistantCompletionPostcondition::DerivedFolderName
+        );
+        assert_eq!(contract.expected_action_paths.len(), 2);
+    }
+
+    #[test]
+    fn metadata_patch_value_from_skips_tracks_already_matching_their_folder() {
+        let mut input = test_input();
+        input.selected_track_paths = vec!["/music/album1/a.mp3".into(), "/music/album1/b.mp3".into()];
+        input.tracks = vec![
+            serde_json::json!({"path": "/music/album1/a.mp3", "album": "album1"}),
+            serde_json::json!({"path": "/music/album1/b.mp3", "album": "Old"}),
+        ];
+        let result = execute_metadata_patch(
+            &serde_json::json!({
+                "target_scope": "selected",
+                "changes": [
+                    {"field": "album", "action": "set", "valueFrom": "folder_name"}
+                ]
+            }),
+            &input,
+            "session-1",
+        );
+        assert!(result.result.ok, "{}", result.result.summary);
+        let batch = result.batches.first().expect("derived preview batch");
+        assert_eq!(batch.actions.len(), 1);
+        assert_eq!(batch.actions[0].track_path.as_deref(), Some("/music/album1/b.mp3"));
+        assert_eq!(batch.actions[0].new_value.as_deref(), Some("album1"));
+    }
+
+    #[test]
+    fn metadata_patch_value_and_value_from_both_rejected() {
+        let result = execute_metadata_patch(
+            &serde_json::json!({
+                "target_scope": "selected",
+                "changes": [
+                    {"field": "album", "action": "set", "value": "Loose", "valueFrom": "folder_name"}
+                ]
+            }),
+            &test_input(),
+            "session-1",
+        );
+        assert!(!result.result.ok);
+        assert!(result.result.summary.contains("exactly one of 'value' or 'valueFrom'"));
+    }
+
+    #[test]
+    fn metadata_patch_unknown_value_from_source_rejected() {
+        let result = execute_metadata_patch(
+            &serde_json::json!({
+                "target_scope": "selected",
+                "changes": [
+                    {"field": "album", "action": "set", "valueFrom": "filename"}
+                ]
+            }),
+            &test_input(),
+            "session-1",
+        );
+        assert!(!result.result.ok);
+        assert!(result.result.summary.contains("Unsupported valueFrom source: 'filename'"));
+    }
+
+    #[test]
+    fn metadata_patch_value_from_unresolvable_path_aborts_planning() {
+        // A path with no named parent folder must abort the whole plan with
+        // no partial batch, never guess a value.
+        let result = execute_metadata_patch(
+            &serde_json::json!({
+                "target_scope": "selected",
+                "changes": [
+                    {"field": "album", "action": "set", "valueFrom": "folder_name"}
+                ]
+            }),
+            &AssistantSendInput {
+                selected_track_paths: vec!["a.mp3".into()],
+                tracks: vec![serde_json::json!({"path": "a.mp3"})],
+                ..Default::default()
+            },
+            "session-1",
+        );
+        assert!(!result.result.ok);
+        assert!(result.result.summary.contains("no actions were planned"));
+        assert!(result.batches.is_empty());
+    }
+
+    #[test]
+    fn metadata_patch_value_from_only_if_missing_preserves_existing_values() {
+        // "set album based on their folder name where missing" must derive
+        // only into tracks without an existing album; present values survive.
+        let mut input = test_input();
+        input.selected_track_paths = vec!["/music/album1/a.mp3".into(), "/music/album2/b.mp3".into()];
+        input.tracks = vec![
+            serde_json::json!({"path": "/music/album1/a.mp3", "album": "Existing"}),
+            serde_json::json!({"path": "/music/album2/b.mp3"}), // missing album
+        ];
+        let result = execute_metadata_patch(
+            &serde_json::json!({
+                "target_scope": "selected",
+                "changes": [
+                    {"field": "album", "action": "set", "valueFrom": "folder_name", "only_if_missing": true}
+                ]
+            }),
+            &input,
+            "session-1",
+        );
+        assert!(result.result.ok, "{}", result.result.summary);
+        let batch = result.batches.first().expect("derived preview batch");
+        assert_eq!(batch.actions.len(), 1);
+        assert_eq!(
+            batch.actions[0].track_path.as_deref(),
+            Some("/music/album2/b.mp3")
+        );
+        assert_eq!(batch.actions[0].new_value.as_deref(), Some("album2"));
+    }
+
+    #[test]
+    fn metadata_patch_uniform_literal_warning_counts_only_affected_folders() {
+        // A track that already matches the literal must not inflate the
+        // folder count in the uniform-literal preview warning.
+        let input = AssistantSendInput {
+            selected_track_paths: vec!["/music/a/x.mp3".into(), "/music/b/y.mp3".into()],
+            tracks: vec![
+                serde_json::json!({"path": "/music/a/x.mp3", "album": "Loose"}),
+                serde_json::json!({"path": "/music/b/y.mp3", "album": "Old"}),
+            ],
+            ..Default::default()
+        };
+        let result = execute_metadata_patch(
+            &serde_json::json!({
+                "target_scope": "selected",
+                "changes": [
+                    {"field": "album", "action": "set", "value": "Loose"}
+                ]
+            }),
+            &input,
+            "session-1",
+        );
+        assert!(result.result.ok, "{}", result.result.summary);
+        assert!(
+            !result.result.summary.contains("Warning:"),
+            "only one track changes in one folder; no cross-folder warning expected: {}",
+            result.result.summary
+        );
+    }
+
+    #[test]
+    fn metadata_patch_uniform_literal_across_folders_warns_in_preview() {
+        // The exact shape of the folder-derivation bug: one identical literal
+        // planned across tracks in many distinct folders. The preview must
+        // surface it before the user approves.
+        let input = AssistantSendInput {
+            selected_track_paths: vec!["/music/a/a.mp3".into(), "/music/b/b.mp3".into()],
+            tracks: vec![
+                serde_json::json!({"path": "/music/a/a.mp3", "album": "Old"}),
+                serde_json::json!({"path": "/music/b/b.mp3", "album": "Old"}),
+            ],
+            ..Default::default()
+        };
+        let result = execute_metadata_patch(
+            &serde_json::json!({
+                "target_scope": "selected",
+                "changes": [
+                    {"field": "album", "action": "set", "value": "Loose"}
+                ]
+            }),
+            &input,
+            "session-1",
+        );
+        assert!(result.result.ok, "{}", result.result.summary);
+        assert!(
+            result.result.summary.contains("Warning: writing the same value 'Loose'"),
+            "{}",
+            result.result.summary
+        );
+    }
+
+    #[test]
+    fn metadata_patch_uniform_literal_within_one_folder_does_not_warn() {
+        let input = AssistantSendInput {
+            selected_track_paths: vec!["/music/album/x.mp3".into(), "/music/album/y.mp3".into()],
+            tracks: vec![
+                serde_json::json!({"path": "/music/album/x.mp3", "album": "Old"}),
+                serde_json::json!({"path": "/music/album/y.mp3", "album": "Old"}),
+            ],
+            ..Default::default()
+        };
+        let result = execute_metadata_patch(
+            &serde_json::json!({
+                "target_scope": "selected",
+                "changes": [
+                    {"field": "album", "action": "set", "value": "Loose"}
+                ]
+            }),
+            &input,
+            "session-1",
+        );
+        assert!(result.result.ok, "{}", result.result.summary);
+        assert!(
+            !result.result.summary.contains("Warning:"),
+            "{}",
+            result.result.summary
+        );
+    }
+
+    #[test]
     fn metadata_patch_uniform_remove_produces_actions() {
         let result = execute_metadata_patch(
             &serde_json::json!({
@@ -1993,6 +2375,8 @@ mod tests {
 
     #[test]
     fn metadata_patch_set_missing_value_rejected() {
+        // A set action without either a literal value or a derivation source
+        // must be rejected instead of guessing.
         let result = execute_metadata_patch(
             &serde_json::json!({
                 "target_scope": "selected",
@@ -2004,7 +2388,11 @@ mod tests {
             "session-1",
         );
         assert!(!result.result.ok);
-        assert!(result.result.summary.contains("requires a 'value'"));
+        assert!(
+            result.result.summary.contains("exactly one of 'value' or 'valueFrom'"),
+            "{}",
+            result.result.summary
+        );
     }
 
     #[test]
