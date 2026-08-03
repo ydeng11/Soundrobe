@@ -268,6 +268,14 @@ impl MusicBrainzClient {
     }
 
     pub async fn release_by_id(&self, release_id: &str) -> Option<ProviderAlbum> {
+        self.release_by_id_result(release_id).await.ok()
+    }
+
+    /// Like [`Self::release_by_id`], but returns the failure reason instead of
+    /// collapsing every transport/HTTP/parse error into "not found". Used by
+    /// the manual Search dialog so a rate limit or network error is not
+    /// misreported as a missing release.
+    pub async fn release_by_id_result(&self, release_id: &str) -> Result<ProviderAlbum, String> {
         wait_for_musicbrainz().await;
         let response = self
             .http
@@ -275,13 +283,28 @@ impl MusicBrainzClient {
             .query(&[("fmt", "json"), ("inc", "recordings+artist-credits")])
             .send()
             .await
-            .ok()?
-            .error_for_status()
-            .ok()?
+            .map_err(|e| format!("MusicBrainz request failed: {e}"))?;
+        let status = response.status();
+        if status == reqwest::StatusCode::NOT_FOUND {
+            return Err(format!("MusicBrainz release not found: {release_id}"));
+        }
+        if !status.is_success() {
+            let retry_hint = response
+                .headers()
+                .get(reqwest::header::RETRY_AFTER)
+                .and_then(|value| value.to_str().ok())
+                .map(|value| format!(" (retry after {value}s)"))
+                .unwrap_or_default();
+            return Err(format!(
+                "MusicBrainz request failed with HTTP {status}{retry_hint}"
+            ));
+        }
+        let value = response
             .json::<serde_json::Value>()
             .await
-            .ok()?;
-        parse_musicbrainz_release(&response, release_id)
+            .map_err(|e| format!("MusicBrainz response could not be parsed: {e}"))?;
+        parse_musicbrainz_release(&value, release_id)
+            .ok_or_else(|| format!("MusicBrainz release not found: {release_id}"))
     }
 
     pub async fn search_album(
@@ -2454,6 +2477,14 @@ mod tests {
         )
     }
 
+    fn musicbrainz_release_not_found_route(
+        path: &str,
+        _base: &str,
+    ) -> (&'static str, String, &'static str) {
+        assert!(path.starts_with("/release/missing?"));
+        ("404 Not Found", "{}".to_string(), "application/json")
+    }
+
     fn musicbrainz_identical_media_route(
         path: &str,
         _base: &str,
@@ -2730,6 +2761,55 @@ mod tests {
         assert!(
             request.contains("GET /release/release-id?fmt=json&inc=recordings%2Bartist-credits")
         );
+    }
+
+    #[tokio::test]
+    async fn musicbrainz_release_404_reports_not_found_and_wrapper_stays_none() {
+        let (base, _requests) = server(2, musicbrainz_release_not_found_route);
+        let client = MusicBrainzClient::at(ProviderState::new().http(), &base);
+
+        let err = client.release_by_id_result("missing").await.unwrap_err();
+        assert_eq!(err, "MusicBrainz release not found: missing");
+        assert_eq!(client.release_by_id("missing").await, None);
+    }
+
+    #[tokio::test]
+    async fn musicbrainz_release_rate_limit_reports_status_and_retry_hint() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let base = format!("http://{}", listener.local_addr().unwrap());
+        thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            let mut request = [0_u8; 4096];
+            let _ = stream.read(&mut request).unwrap();
+            let body = "{}";
+            write!(
+                stream,
+                "HTTP/1.1 503 Service Unavailable\r\nRetry-After: 60\r\nContent-Length: {}\r\nContent-Type: application/json\r\nConnection: close\r\n\r\n{body}",
+                body.len()
+            )
+            .unwrap();
+        });
+        let client = MusicBrainzClient::at(ProviderState::new().http(), &base);
+
+        let err = client.release_by_id_result("busy").await.unwrap_err();
+        assert!(err.contains("HTTP 503"), "{err}");
+        assert!(err.contains("retry after 60"), "{err}");
+        assert!(!err.contains("not found"), "{err}");
+    }
+
+    #[tokio::test]
+    async fn musicbrainz_release_transport_failure_reports_request_failed() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let base = format!("http://{}", listener.local_addr().unwrap());
+        drop(listener);
+
+        let client = MusicBrainzClient::at(ProviderState::new().http(), &base);
+
+        let err = client
+            .release_by_id_result("unreachable")
+            .await
+            .unwrap_err();
+        assert!(err.contains("MusicBrainz request failed"), "{err}");
     }
 
     #[tokio::test]

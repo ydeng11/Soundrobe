@@ -284,11 +284,11 @@ async fn resolve_release_inner(
 ) -> Result<ProviderAlbum, String> {
     match request.provider.as_str() {
         "musicbrainz" => {
-            let client = MusicBrainzClient::new(providers.http());
+            let client =
+                MusicBrainzClient::at(providers.http(), providers.musicbrainz_base());
             client
-                .release_by_id(&request.release_id)
+                .release_by_id_result(&request.release_id)
                 .await
-                .ok_or_else(|| format!("MusicBrainz release not found: {}", request.release_id))
         }
         "discogs" => {
             let token = discogs_token(config);
@@ -717,6 +717,45 @@ mod tests {
         assert_eq!(res.page_size, 5);
         assert!(req.contains("date"));
         assert!(req.contains("format"));
+    }
+
+    #[tokio::test]
+    async fn resolve_musicbrainz_rate_limit_reports_status_not_not_found() {
+        let port = PORT_SEQ.fetch_add(1, Ordering::Relaxed);
+        let base = format!("http://127.0.0.1:{port}");
+        thread::spawn(move || {
+            let listener = TcpListener::bind(format!("127.0.0.1:{port}")).unwrap();
+            let (mut stream, _) = listener.accept().unwrap();
+            let mut buf = [0; 4096];
+            let _ = stream.read(&mut buf).unwrap();
+            let body = "{}";
+            let response = format!(
+                "HTTP/1.1 503 Service Unavailable\r\nRetry-After: 60\r\nContent-Length: {}\r\nContent-Type: application/json\r\nConnection: close\r\n\r\n{body}",
+                body.len()
+            );
+            let _ = stream.write_all(response.as_bytes());
+        });
+
+        let http = reqwest::Client::builder()
+            .timeout(std::time::Duration::from_secs(5))
+            .build()
+            .unwrap();
+        let providers = ProviderState::at(http, &format!("{base}/ws/2"), &base);
+        let config = ConfigState::init_with_env(
+            std::env::temp_dir(),
+            std::sync::Arc::new(crate::state::config::EnvMap::new()),
+        );
+        let request = ResolveReleaseRequest {
+            provider: "musicbrainz".to_string(),
+            release_id: "8ffc5477-b08a-4f4d-8e0b-304dee3cd59d".to_string(),
+            kind: None,
+        };
+
+        let err = resolve_release_inner(&request, &providers, &config)
+            .await
+            .unwrap_err();
+        assert!(err.contains("HTTP 503"), "{err}");
+        assert!(!err.contains("not found"), "{err}");
     }
 
     // ── Discogs provider-level searches ────────────────────────────

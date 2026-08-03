@@ -74,6 +74,12 @@ desktop release.
 
 ### Fixed
 
+- Manual MusicBrainz release search: resolving a release that exists no
+  longer reports "MusicBrainz release not found" when the failure is a
+  transient network error or a MusicBrainz rate limit — the dialog now shows
+  the actual HTTP status (including the `Retry-After` hint when present)
+  instead of claiming the release is missing.
+
 - Assistant folder-derived metadata: instructions like "set album based on
   their folder name" now derive each track's album from its containing
   folder instead of writing the instruction text as a literal tag value. The
