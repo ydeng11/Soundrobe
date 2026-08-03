@@ -41,7 +41,11 @@ pub(crate) fn op_regex_replace(text: &str, pattern: &str, replacement: &str) -> 
 pub(crate) fn op_regex_extract(text: &str, pattern: &str, group_index: usize) -> Option<String> {
     let re = regex::Regex::new(pattern).ok()?;
     let extracted = re.captures(text)?.get(group_index)?.as_str().to_string();
-    (extracted != text).then_some(extracted)
+    // The extracted value is always a meaningful write target even when it
+    // equals the source text (e.g. a paren-less title with a `^([^(]+)`
+    // pattern). Whether the destination field actually changes is decided by
+    // the caller comparing against the destination's current value.
+    Some(extracted)
 }
 
 pub(crate) fn op_strip_prefix(text: &str, prefix: &str) -> Option<String> {
@@ -1236,6 +1240,10 @@ pub(crate) fn execute_metadata_transform(
         .collect();
 
     let mut actions: Vec<AssistantAction> = Vec::new();
+    let mut skipped_no_source = 0usize;
+    let mut skipped_no_value = 0usize;
+    let mut already_equal = 0usize;
+    let mut renamed_to_same = 0usize;
 
     for path in &paths {
         let source_value = match source_kind {
@@ -1269,6 +1277,7 @@ pub(crate) fn execute_metadata_transform(
 
         let Some(current) = source_value else {
             // No source value available, skip track
+            skipped_no_source += 1;
             continue;
         };
 
@@ -1276,19 +1285,29 @@ pub(crate) fn execute_metadata_transform(
 
         let Some(new_value) = result else {
             // Pipeline produced no change
+            skipped_no_value += 1;
             continue;
         };
 
         match dest_kind {
             "tag" => {
                 let track = tracks_map.get(path.as_str()).copied();
+                let dest_current = track.and_then(|t| track_field_string(t, dest_field));
+                if dest_current.as_deref() == Some(new_value.as_str()) {
+                    already_equal += 1;
+                    continue;
+                }
+                let description = match dest_current {
+                    Some(old) => format!("Transform {dest_field} from '{old}' to '{new_value}'"),
+                    None => format!("Transform {dest_field} to '{new_value}'"),
+                };
                 push_string_action(
                     &mut actions,
                     track,
                     path,
                     dest_field,
                     &new_value,
-                    &format!("Transform {dest_field} from '{current}' to '{new_value}'"),
+                    &description,
                 );
             }
             "filename" => {
@@ -1301,6 +1320,10 @@ pub(crate) fn execute_metadata_transform(
                     .unwrap_or_default();
                 let new_filename = format!("{new_value}{extension}");
                 let dest_path = old_dir.join(&new_filename);
+                if dest_path == Path::new(path) {
+                    renamed_to_same += 1;
+                    continue;
+                }
                 actions.push(AssistantAction {
                     tag_kind: None,
                     track_path: Some(path.clone()),
@@ -1321,7 +1344,16 @@ pub(crate) fn execute_metadata_transform(
     }
 
     if actions.is_empty() {
-        return mutating_tool_no_changes("No transformations produced changes.");
+        return mutating_tool_no_changes(format!(
+            "No transformations produced changes. Scanned {} track(s): {} had no source value, \
+             {} produced no extracted value (e.g. the pattern did not match), {} already had \
+             the target value, {} resolved to the same filename.",
+            paths.len(),
+            skipped_no_source,
+            skipped_no_value,
+            already_equal,
+            renamed_to_same
+        ));
     }
 
     let summary = format!(
@@ -3407,6 +3439,158 @@ mod tests {
         let batch = result.batches.first().unwrap();
         assert_eq!(batch.actions.len(), 1);
         assert_eq!(batch.actions[0].new_value.as_deref(), Some("Song Title"));
+    }
+
+    #[test]
+    fn regex_extract_full_source_match_still_yields_value_for_cross_field_write() {
+        // Regression for session #1785647941055-728246: "album must be based on
+        // the common string from the title - everything before '('". A paren-less
+        // title like 红昭愿 matches `^([^(（]+)` with the extracted group equal to
+        // the whole source, and the transform still must be able to write it to
+        // the destination field (the destination comparison decides whether an
+        // action is actually needed).
+        assert_eq!(
+            op_regex_extract("红昭愿", r"^([^(（]+)", 1),
+            Some("红昭愿".into())
+        );
+        assert_eq!(
+            op_regex_extract("36.5℃", r"^([^(]+)", 1),
+            Some("36.5℃".into())
+        );
+    }
+
+    #[test]
+    fn metadata_transform_before_paren_groups_vocal_and_instrumental_versions() {
+        // Regression for session #1785647941055-728246: the requested transform
+        // "album = title before '('" must produce actions for BOTH the original
+        // version (paren-less title, placeholder album) and the instrumental
+        // version (title with (伴奏) suffix), so both land in the same album.
+        let original = "/music/音阙诗听/36.5℃/音阙诗听_李佳思-36.5℃.flac";
+        let instrumental = "/music/音阙诗听/喜剧演员(伴奏)/常柏松_音阙诗听-喜剧演员(伴奏).flac";
+        let input = AssistantSendInput {
+            selected_track_paths: vec![original.into(), instrumental.into()],
+            tracks: vec![
+                serde_json::json!({
+                    "path": original,
+                    "title": "36.5℃",
+                    "album": "based on their folder name"
+                }),
+                serde_json::json!({
+                    "path": instrumental,
+                    "title": "喜剧演员(伴奏)",
+                    "album": "based on their folder name"
+                }),
+            ],
+            ..Default::default()
+        };
+        let result = execute_metadata_transform(
+            &serde_json::json!({
+                "target_scope": "selected",
+                "source": {"kind": "tag", "field": "title"},
+                "destination": {"kind": "tag", "field": "album"},
+                "operations": [{"op": "regex_extract", "pattern": "^([^(（]+)"}]
+            }),
+            &input,
+            "session-transform",
+        );
+        assert!(result.result.ok, "{}", result.result.summary);
+        let batch = result.batches.first().expect("preview batch");
+        assert_eq!(batch.actions.len(), 2, "both versions must get an album action");
+        for action in &batch.actions {
+            let path = action.track_path.as_deref().unwrap();
+            let expected = if path == original { "36.5℃" } else { "喜剧演员" };
+            assert_eq!(action.field.as_deref(), Some("album"));
+            assert_eq!(action.old_value.as_deref(), Some("based on their folder name"));
+            assert_eq!(action.new_value.as_deref(), Some(expected));
+            // The preview description must describe the real destination change
+            // (old album value), not the source title value.
+            let expected_description =
+                format!("Transform album from 'based on their folder name' to '{expected}'");
+            assert_eq!(
+                action.description.as_deref(),
+                Some(expected_description.as_str())
+            );
+        }
+    }
+
+    #[test]
+    fn metadata_transform_regex_extract_skips_when_destination_already_equal() {
+        // Same-field style guard: when the destination already holds the
+        // extracted value, no action is produced even though the pattern matched
+        // and the extraction equals the source.
+        let input = AssistantSendInput {
+            selected_track_paths: vec!["/music/红昭愿.flac".into()],
+            tracks: vec![serde_json::json!({
+                "path": "/music/红昭愿.flac",
+                "title": "红昭愿",
+                "album": "红昭愿"
+            })],
+            ..Default::default()
+        };
+        let result = execute_metadata_transform(
+            &serde_json::json!({
+                "target_scope": "selected",
+                "source": {"kind": "tag", "field": "title"},
+                "destination": {"kind": "tag", "field": "album"},
+                "operations": [{"op": "regex_extract", "pattern": "^([^(（]+)"}]
+            }),
+            &input,
+            "session-transform",
+        );
+        assert!(result.result.ok, "{}", result.result.summary);
+        assert!(result.batches.is_empty(), "no preview batch when nothing changes");
+        assert!(
+            result.result.summary.contains("already had the target value"),
+            "no-changes summary should explain why: {}",
+            result.result.summary
+        );
+    }
+
+    #[test]
+    fn metadata_transform_before_paren_library_scope_fixes_originals_and_instrumentals() {
+        // Regression for session #1785647941055-728246's final failing shape:
+        // "album tag must be based on the common string from title tag -
+        // everything before '('" with target_scope "library". The pattern
+        // `^([^(（]+)` must produce actions for BOTH the paren-less original
+        // (extraction equals the whole title) and the instrumental version,
+        // so the two versions share one album.
+        let original = "/music/音阙诗听/36.5℃/音阙诗听_李佳思-36.5℃.flac";
+        let instrumental = "/music/音阙诗听/红昭愿(伴奏)/音阙诗听-红昭愿(伴奏).flac";
+        let input = AssistantSendInput {
+            tracks: vec![
+                serde_json::json!({
+                    "path": original,
+                    "title": "36.5℃",
+                    "album": "based on their folder name"
+                }),
+                serde_json::json!({
+                    "path": instrumental,
+                    "title": "红昭愿(伴奏)",
+                    "album": "based on their folder name"
+                }),
+            ],
+            ..Default::default()
+        };
+        let result = execute_metadata_transform(
+            &serde_json::json!({
+                "target_scope": "library",
+                "source": {"kind": "tag", "field": "title"},
+                "destination": {"kind": "tag", "field": "album"},
+                "operations": [{"op": "regex_extract", "pattern": "^([^(（]+)"}]
+            }),
+            &input,
+            "session-transform",
+        );
+        assert!(result.result.ok, "{}", result.result.summary);
+        let batch = result.batches.first().expect("preview batch");
+        assert_eq!(batch.actions.len(), 2, "both versions must get an album action");
+        let by_path: std::collections::HashMap<&str, &AssistantAction> = batch
+            .actions
+            .iter()
+            .map(|action| (action.track_path.as_deref().unwrap(), action))
+            .collect();
+        assert_eq!(by_path[original].new_value.as_deref(), Some("36.5℃"));
+        assert_eq!(by_path[instrumental].new_value.as_deref(), Some("红昭愿"));
     }
 
     // ── Catalog and schema validation tests ──────────────────────────────

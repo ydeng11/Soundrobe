@@ -68,7 +68,7 @@ const ASSISTANT_CLARIFY_LIMIT: i64 = 2;
 /// "What would you like to do first?").
 fn is_clarification_question(message: &str) -> bool {
     let trimmed = message.trim();
-    if trimmed.ends_with('?') {
+    if trimmed.ends_with('?') || trimmed.ends_with('？') {
         return true;
     }
     let lower = trimmed.to_lowercase();
@@ -1539,8 +1539,11 @@ fn build_assistant_messages(
                 "  placeholder in that template.\n",
                 "- When a request groups tracks by a title prefix (e.g. everything before '(' or \"\n",
                 "  '（'), the extraction pattern must match EVERY title, including titles without ",
-                "  the separator — a pattern that requires '(' skips paren-less tracks entirely. ",
-                "  regex_extract also needs a capturing group: without one nothing is extracted.\n",
+                "  the separator — a pattern that requires '(' (e.g. '^(.+)[（(]') skips paren-less ",
+                "  tracks entirely, while '^([^(（]+)' also matches paren-less titles and extracts the ",
+                "  whole title for them. The extracted value is written to the destination field, so a ",
+                "  paren-less track with a placeholder album still gets an action. regex_extract also ",
+                "  needs a capturing group: without one nothing is extracted.\n",
                 "- For multi-step library tasks like auto-tagging or auditing, call library.run_task.\n",
                 "- Never author actionBatch. Call a registered tool; the native app creates it.\n",
                 "- Ask one focused clarification **only** when materially different interpretations ",
@@ -6873,6 +6876,11 @@ mod assistant_behaviour_tests {
             "Clarify: keep the part before the paren."
         ));
         assert!(is_clarification_question("To clarify, this is a question"));
+        // Chinese questions end with the full-width `？` (session
+        // #1785647941055-728246: "请问你希望修复哪种范围？"), which the
+        // clarification loop guard must also detect.
+        assert!(is_clarification_question("请问你希望修复哪种范围？"));
+        assert!(is_clarification_question("你想修复所有 211 首吗？"));
         // Answers, limitations, and completions are NOT clarifications.
         assert!(!is_clarification_question(
             "Done. Preview created (batch-1): 3 changes"

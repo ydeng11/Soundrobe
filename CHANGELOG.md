@@ -112,6 +112,14 @@ desktop release.
   documents the regex_extract capture-group requirement and the {value}-only
   destination placeholder, so grouping by a title prefix no longer silently
   skips paren-less tracks or creates placeholder-named folders.
+- Assistant title-based album grouping: `metadata.transform` regex extraction
+  now writes the captured value even when it equals the whole source string,
+  so setting the album to the title before '(' works for paren-less original
+  tracks too (previously only version-suffixed tracks such as `(伴奏)` were
+  fixed, or the request reported no changes at all). No-change tool results
+  now state how many tracks were scanned, skipped, or already correct, and
+  the assistant's clarification guard recognizes Chinese questions ending in
+  the full-width `？`.
 - Undo: auto-tag and batch writes are now correctly undoable.
 - Tag hygiene: stale TXXX album-artist aliases shadowing TPE2 and leftover
   Vorbis ALBUMARTIST variants are cleared before writes.
