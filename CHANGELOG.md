@@ -74,6 +74,16 @@ desktop release.
 
 ### Fixed
 
+- Manual release search: confirming a track match now writes the exact
+  disc/track numbers and titles shown in the match table, honors the
+  Simplified/Traditional Chinese script setting like auto-tag, and no longer
+  clears existing per-track tags for rows left as "Do not update". Track
+  totals from MusicBrainz and Discogs are now per disc (e.g. 14/14 for a
+  two-CD set) instead of the whole-release count.
+- A candidate without a year no longer removes an existing year tag when
+  writing auto-tag or manual-search results; a year is written only when the
+  matched release provides one.
+
 - Manual MusicBrainz release search: resolving a release that exists no
   longer reports "MusicBrainz release not found" when the failure is a
   transient network error or a MusicBrainz rate limit — the dialog now shows

@@ -713,6 +713,9 @@ fn parse_musicbrainz_release(
             .and_then(serde_json::Value::as_array)
             .map(Vec::as_slice)
             .unwrap_or_default();
+        // Each track's total is its medium's track count (per-disc), not the
+        // whole release count.
+        let track_total = u32::try_from(medium_tracks.len()).ok();
 
         // Skip empty mediums (no tracks to contribute).
         if medium_tracks.is_empty() {
@@ -788,7 +791,7 @@ fn parse_musicbrainz_release(
                 artists: track_artists,
                 track_number: positive_integer(track.get("number"))
                     .or_else(|| positive_integer(track.get("position"))),
-                track_total: None,
+                track_total,
                 disc_number,
                 recording_id: recording
                     .and_then(|recording| recording.get("id"))
@@ -879,27 +882,29 @@ fn parse_discogs_release(value: &serde_json::Value, fallback_id: &str) -> Option
         .and_then(serde_json::Value::as_array)
         .map(Vec::as_slice)
         .unwrap_or_default();
-    let track_total = u32::try_from(
-        raw_tracks
-            .iter()
-            .filter(|track| {
-                track
-                    .get("position")
-                    .and_then(serde_json::Value::as_str)
-                    .is_some_and(|position| !position.trim().is_empty())
-            })
-            .count(),
-    )
-    .ok();
-    let mut tracks = Vec::new();
-    for (index, track) in raw_tracks
-        .iter()
-        .filter(|track| {
+    let position_bearing = |track: &&serde_json::Value| {
+        track
+            .get("position")
+            .and_then(serde_json::Value::as_str)
+            .is_some_and(|position| !position.trim().is_empty())
+    };
+    // Track totals are per disc: count position-bearing tracks grouped by the
+    // parsed disc number. Tracks without a disc prefix form one group (the
+    // whole tracklist), preserving the previous single-disc behavior.
+    let mut disc_track_counts: HashMap<Option<u32>, u32> = HashMap::new();
+    for track in raw_tracks.iter().filter(position_bearing) {
+        let (disc_number, _) = parse_discogs_position(
             track
                 .get("position")
                 .and_then(serde_json::Value::as_str)
-                .is_some_and(|position| !position.trim().is_empty())
-        })
+                .unwrap_or_default(),
+        );
+        *disc_track_counts.entry(disc_number).or_default() += 1;
+    }
+    let mut tracks = Vec::new();
+    for (index, track) in raw_tracks
+        .iter()
+        .filter(position_bearing)
         .enumerate()
     {
         let position = track
@@ -907,6 +912,7 @@ fn parse_discogs_release(value: &serde_json::Value, fallback_id: &str) -> Option
             .and_then(serde_json::Value::as_str)
             .unwrap_or_default();
         let (disc_number, parsed_track_number) = parse_discogs_position(position);
+        let track_total = disc_track_counts.get(&disc_number).copied();
         let track_artists = discogs_artists(track.get("artists"), artist.as_deref());
         tracks.push(ProviderTrack {
             title: track
@@ -2515,6 +2521,33 @@ mod tests {
         )
     }
 
+    fn musicbrainz_two_disc_route(
+        path: &str,
+        _base: &str,
+    ) -> (&'static str, String, &'static str) {
+        assert!(path.starts_with("/release/two-disc?"));
+        (
+            "200 OK",
+            r#"{
+              "id":"two-disc","title":"Live Concert","date":"2008-08-01",
+              "artist-credit":[{"name":"Artist","artist":{"id":"artist-id"}}],
+              "media":[
+                {"position":1,"track-count":2,"tracks":[
+                  {"number":"1","position":1,"title":"Song A1"},
+                  {"number":"2","position":2,"title":"Song A2"}
+                ]},
+                {"position":2,"track-count":3,"tracks":[
+                  {"number":"1","position":1,"title":"Song B1"},
+                  {"number":"2","position":2,"title":"Song B2"},
+                  {"number":"3","position":3,"title":"Song B3"}
+                ]}
+              ]
+            }"#
+            .to_string(),
+            "application/json",
+        )
+    }
+
     fn discogs_metadata_route(path: &str, _base: &str) -> (&'static str, String, &'static str) {
         assert_eq!(path, "/releases/42");
         (
@@ -2527,6 +2560,26 @@ mod tests {
                 {"position":"CD1-01","title":"Solo","duration":"3:01"},
                 {"position":"CD2-03","title":"Featured","duration":"3:22",
                  "artists":[{"name":"Album Artist (2)"},{"name":"Guest"}]}
+              ]
+            }"#
+            .to_string(),
+            "application/json",
+        )
+    }
+
+    fn discogs_two_disc_route(path: &str, _base: &str) -> (&'static str, String, &'static str) {
+        assert_eq!(path, "/releases/43");
+        (
+            "200 OK",
+            r#"{
+              "id":43,"title":"Two Disc Album","year":2008,
+              "artists":[{"name":"Album Artist"}],
+              "tracklist":[
+                {"position":"CD1-01","title":"Solo One","duration":"3:01"},
+                {"position":"CD1-02","title":"Solo Two","duration":"3:02"},
+                {"position":"CD2-01","title":"Side Two One","duration":"3:03"},
+                {"position":"CD2-02","title":"Side Two Two","duration":"3:04"},
+                {"position":"CD2-03","title":"Side Two Three","duration":"3:05"}
               ]
             }"#
             .to_string(),
@@ -2724,8 +2777,10 @@ mod tests {
         assert_eq!(album.genre.as_deref(), Some("Rock, Pop, Indie Rock"));
         assert_eq!(album.tracks[0].track_number, Some(1));
         assert_eq!(album.tracks[0].disc_number, Some(1));
+        assert_eq!(album.tracks[0].track_total, Some(1));
         assert_eq!(album.tracks[1].track_number, Some(3));
         assert_eq!(album.tracks[1].disc_number, Some(2));
+        assert_eq!(album.tracks[1].track_total, Some(1));
         assert_eq!(album.tracks[1].length, Some(202.0));
         assert_eq!(
             album.tracks[1].artist.as_deref(),
@@ -2736,6 +2791,47 @@ mod tests {
             .unwrap()
             .to_ascii_lowercase()
             .contains("authorization: discogs token=secret"));
+    }
+
+    #[tokio::test]
+    async fn discogs_two_disc_tracks_carry_per_disc_totals() {
+        // Position-bearing tracks are grouped by parsed disc number, so a
+        // 2-CD release yields per-disc totals (2 on disc 1, 3 on disc 2),
+        // not the whole-release count (5).
+        let (base, _requests) = server(1, discogs_two_disc_route);
+        let client = DiscogsClient::at(ProviderState::new().http(), None, &base);
+
+        let album = client.release_metadata("43").await.unwrap();
+
+        assert_eq!(album.tracks.len(), 5);
+        assert_eq!(album.tracks[0].disc_number, Some(1));
+        assert_eq!(album.tracks[0].track_total, Some(2));
+        assert_eq!(album.tracks[1].track_total, Some(2));
+        assert_eq!(album.tracks[2].disc_number, Some(2));
+        assert_eq!(album.tracks[2].track_total, Some(3));
+        assert_eq!(album.tracks[4].track_total, Some(3));
+    }
+
+    #[test]
+    fn discogs_undisc_positioned_tracks_share_one_total_group() {
+        // Positions without a disc prefix (e.g. "1", "2") keep a single group:
+        // the whole tracklist count, matching the previous behavior.
+        let value = serde_json::json!({
+            "id": 44,
+            "title": "Single Disc",
+            "artists": [{"name": "Artist"}],
+            "tracklist": [
+                {"position": "1", "title": "Track 1"},
+                {"position": "2", "title": "Track 2"},
+                {"position": "3", "title": "Track 3"}
+            ]
+        });
+
+        let album = parse_discogs_release(&value, "44").unwrap();
+
+        assert_eq!(album.tracks.len(), 3);
+        assert_eq!(album.tracks[0].track_total, Some(3));
+        assert_eq!(album.tracks[2].track_total, Some(3));
     }
 
     #[tokio::test]
@@ -2833,6 +2929,24 @@ mod tests {
         assert_eq!(album.tracks[1].track_number, Some(2));
         assert_eq!(album.tracks[1].disc_number, Some(1));
         assert_eq!(album.tracks[1].recording_id.as_deref(), Some("rec-b1"));
+    }
+
+    #[tokio::test]
+    async fn musicbrainz_two_disc_tracks_carry_per_medium_totals() {
+        // Each track's track_total must be its medium's track count, not the
+        // whole release count (2-CD album: 2 on disc 1, 3 on disc 2).
+        let (base, _requests) = server(1, musicbrainz_two_disc_route);
+        let client = MusicBrainzClient::at(ProviderState::new().http(), &base);
+
+        let album = client.release_by_id("two-disc").await.unwrap();
+
+        assert_eq!(album.tracks.len(), 5);
+        assert_eq!(album.tracks[0].disc_number, Some(1));
+        assert_eq!(album.tracks[0].track_total, Some(2));
+        assert_eq!(album.tracks[1].track_total, Some(2));
+        assert_eq!(album.tracks[2].disc_number, Some(2));
+        assert_eq!(album.tracks[2].track_total, Some(3));
+        assert_eq!(album.tracks[4].track_total, Some(3));
     }
 
     #[tokio::test]

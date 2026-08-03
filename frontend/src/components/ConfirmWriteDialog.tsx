@@ -26,6 +26,7 @@ interface RowState {
   editedTitle: string;
   editedArtist: string;
   editedTrackNumber: string;
+  editedTrackTotal: string;
   editedDiscNumber: string;
 }
 
@@ -57,6 +58,7 @@ export function ConfirmWriteDialog({
         editedTitle: remoteTrack?.title ?? "",
         editedArtist: remoteTrack?.artist ?? "",
         editedTrackNumber: remoteTrack?.trackNumber?.toString() ?? "",
+        editedTrackTotal: remoteTrack?.trackTotal?.toString() ?? "",
         editedDiscNumber: remoteTrack?.discNumber?.toString() ?? "",
       };
     });
@@ -78,6 +80,7 @@ export function ConfirmWriteDialog({
         editedTitle: remoteTrack?.title ?? "",
         editedArtist: remoteTrack?.artist ?? "",
         editedTrackNumber: remoteTrack?.trackNumber?.toString() ?? "",
+        editedTrackTotal: remoteTrack?.trackTotal?.toString() ?? "",
         editedDiscNumber: remoteTrack?.discNumber?.toString() ?? "",
       };
       setHasEdited(true);
@@ -121,17 +124,21 @@ export function ConfirmWriteDialog({
     if (!previewResult) return null;
     const tracks: TrackEdit[] = rows.map((r) => {
       if (r.selectedRemoteIndex == null) {
-        // "Do not update" — return null-like sentinel
-        // We use a special marker: empty artists array and all fields undefined
-        // The Rust side skips tracks with no title or artist
+        // "Do not update" — leave the local file's per-track tags untouched.
+        // Sentinel: all per-track fields empty; the native writer skips tracks
+        // with no patchable per-track data while still applying album fields.
         return { artists: [] };
       }
       return {
         title: r.editedTitle || undefined,
         artist: r.editedArtist || undefined,
         artists: r.editedArtist ? [r.editedArtist] : [],
-        trackNumber: r.editedTrackNumber ? parseInt(r.editedTrackNumber, 10) || undefined : undefined,
-        discNumber: r.editedDiscNumber ? parseInt(r.editedDiscNumber, 10) || undefined : undefined,
+        // Native contract is snake_case (TrackCandidate); camelCase keys are
+        // silently dropped by serde, so disc/track numbers never reached the
+        // writer before.
+        track_number: r.editedTrackNumber ? parseInt(r.editedTrackNumber, 10) || undefined : undefined,
+        track_total: r.editedTrackTotal ? parseInt(r.editedTrackTotal, 10) || undefined : undefined,
+        disc_number: r.editedDiscNumber ? parseInt(r.editedDiscNumber, 10) || undefined : undefined,
       };
     });
     return {
@@ -217,6 +224,7 @@ export function ConfirmWriteDialog({
                       <th className="text-left py-2 px-2 text-text-muted font-medium">Remote title</th>
                       <th className="text-left py-2 px-2 text-text-muted font-medium w-[130px]">Remote artist</th>
                       <th className="text-left py-2 px-2 text-text-muted font-medium w-16">#</th>
+                      <th className="text-left py-2 px-2 text-text-muted font-medium w-16">Total</th>
                       <th className="text-left py-2 px-2 text-text-muted font-medium w-16">Disc</th>
                     </tr>
                   </thead>
@@ -283,6 +291,16 @@ export function ConfirmWriteDialog({
                               onChange={(e) => handleFieldEdit(row.localIndex, "editedTrackNumber", e.target.value)}
                               disabled={row.selectedRemoteIndex == null}
                               placeholder="#"
+                              className="w-12 h-7 px-2 text-[11px] border border-border rounded-md outline-none focus:border-accent/60 bg-white disabled:opacity-40"
+                            />
+                          </td>
+                          <td className="py-2 px-2">
+                            <input
+                              type="text"
+                              value={row.editedTrackTotal}
+                              onChange={(e) => handleFieldEdit(row.localIndex, "editedTrackTotal", e.target.value)}
+                              disabled={row.selectedRemoteIndex == null}
+                              placeholder="Total"
                               className="w-12 h-7 px-2 text-[11px] border border-border rounded-md outline-none focus:border-accent/60 bg-white disabled:opacity-40"
                             />
                           </td>

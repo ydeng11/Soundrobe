@@ -1803,7 +1803,11 @@ async fn apply_candidate_tags_reported(
     insert_option(&mut album_fields, "album", &candidate.album);
     album_fields.insert("albumArtist".into(), album_artist.into());
     album_fields.insert("albumArtists".into(), serde_json::json!(album_artists));
-    insert_option(&mut album_fields, "year", &candidate.year);
+    // Only write year when the candidate has one; a missing year must not
+    // remove an existing YEAR tag (insert_option would emit `null` → Patch::Null).
+    if let Some(year) = &candidate.year {
+        album_fields.insert("year".into(), year.clone().into());
+    }
     if let Some(genre) = &candidate.genre {
         album_fields.insert("genre".into(), genre.clone().into());
     }
@@ -1833,17 +1837,30 @@ async fn apply_candidate_tags_reported(
     for (index, file_path) in collect_audio_files(album_path).into_iter().enumerate() {
         let mut fields = album_fields.clone();
         if let Some(track) = candidate.tracks.get(index) {
-            insert_option(&mut fields, "title", &track.title);
-            insert_option(&mut fields, "artist", &track.artist);
-            if !track.artists.is_empty() {
-                fields.insert("artists".into(), serde_json::json!(track.artists));
-            }
-            insert_number(&mut fields, "trackNumber", track.track_number);
-            insert_number(&mut fields, "trackTotal", track.track_total);
-            insert_number(&mut fields, "discNumber", track.disc_number);
-            insert_number(&mut fields, "discTotal", track.disc_total);
-            if let Some(track_id) = &track.musicbrainz_track_id {
-                fields.insert("musicbrainzTrackId".into(), track_id.clone().into());
+            // A track with no patchable per-track data is the "do not update"
+            // sentinel from the manual-search UI: leave the file's per-track
+            // tags untouched (album fields still apply to every file).
+            let has_track_fields = track.title.is_some()
+                || track.artist.is_some()
+                || !track.artists.is_empty()
+                || track.track_number.is_some()
+                || track.track_total.is_some()
+                || track.disc_number.is_some()
+                || track.disc_total.is_some()
+                || track.musicbrainz_track_id.is_some();
+            if has_track_fields {
+                insert_option(&mut fields, "title", &track.title);
+                insert_option(&mut fields, "artist", &track.artist);
+                if !track.artists.is_empty() {
+                    fields.insert("artists".into(), serde_json::json!(track.artists));
+                }
+                insert_number(&mut fields, "trackNumber", track.track_number);
+                insert_number(&mut fields, "trackTotal", track.track_total);
+                insert_number(&mut fields, "discNumber", track.disc_number);
+                insert_number(&mut fields, "discTotal", track.disc_total);
+                if let Some(track_id) = &track.musicbrainz_track_id {
+                    fields.insert("musicbrainzTrackId".into(), track_id.clone().into());
+                }
             }
         }
         // Include lyrics in the same write pass, avoiding a separate file rewrite.
@@ -3188,6 +3205,118 @@ mod tests {
         assert!(error.to_string().contains("02.aiff"));
         let first = crate::commands::tracks::read_track_metadata(&album.join("01.mp3")).unwrap();
         assert_eq!(first.title.as_deref(), Some("First"));
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn candidate_apply_leaves_empty_sentinel_track_fields_untouched() {
+        // Regression: the manual-search UI sends an all-empty TrackCandidate as
+        // its "Do not update" sentinel. The writer must leave that file's
+        // per-track tags alone (previously `title: null` / `artist: null`
+        // cleared them) while album fields still apply to every file.
+        let root = temp_root();
+        let album = root.join("Artist/Album");
+        fs::create_dir_all(&album).unwrap();
+        let track_path = album.join("01.mp3");
+        fs::copy(corpus_mp3(), &track_path).unwrap();
+        let seed: TrackPatch = serde_json::from_value(serde_json::json!({
+            "title": "Original Title",
+            "artist": "Original Artist",
+            "trackNumber": 5,
+            "trackTotal": 10,
+            "discNumber": 1,
+            "discTotal": 2,
+        }))
+        .unwrap();
+        crate::commands::mutations::write_track_dispatch(&track_path, &seed).unwrap();
+
+        let candidate = AlbumCandidate {
+            album: Some("Canonical Album".into()),
+            album_artists: vec!["Artist".into()],
+            tracks: vec![TrackCandidate::default()],
+            source: LookupSource::Musicbrainz,
+            ..AlbumCandidate::default()
+        };
+
+        let written = apply_candidate_tags(&album, &candidate, &WriteQueue::default())
+            .await
+            .unwrap();
+
+        assert_eq!(written, 1);
+        let read = crate::commands::tracks::read_track_metadata(&track_path).unwrap();
+        assert_eq!(read.album.as_deref(), Some("Canonical Album"));
+        assert_eq!(read.title.as_deref(), Some("Original Title"));
+        assert_eq!(read.artist.as_deref(), Some("Original Artist"));
+        assert_eq!(read.track_number, Some(5));
+        assert_eq!(read.disc_number, Some(1));
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn candidate_apply_preserves_existing_year_when_candidate_year_missing() {
+        // A candidate with no year must not remove an existing YEAR tag
+        // (previously `year: null` became Patch::Null and deleted it).
+        let root = temp_root();
+        let album = root.join("Artist/Album");
+        fs::create_dir_all(&album).unwrap();
+        let track_path = album.join("01.mp3");
+        fs::copy(corpus_mp3(), &track_path).unwrap();
+        let seed: TrackPatch = serde_json::from_value(serde_json::json!({
+            "title": "Original Title",
+            "year": "2004",
+        }))
+        .unwrap();
+        crate::commands::mutations::write_track_dispatch(&track_path, &seed).unwrap();
+
+        let candidate = AlbumCandidate {
+            album: Some("Canonical Album".into()),
+            album_artists: vec!["Artist".into()],
+            year: None,
+            tracks: vec![track("First", "Artist")],
+            source: LookupSource::Musicbrainz,
+            ..AlbumCandidate::default()
+        };
+
+        let written = apply_candidate_tags(&album, &candidate, &WriteQueue::default())
+            .await
+            .unwrap();
+
+        assert_eq!(written, 1);
+        let read = crate::commands::tracks::read_track_metadata(&track_path).unwrap();
+        assert_eq!(read.year.as_deref(), Some("2004"));
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn candidate_apply_updates_existing_year_when_candidate_year_present() {
+        let root = temp_root();
+        let album = root.join("Artist/Album");
+        fs::create_dir_all(&album).unwrap();
+        let track_path = album.join("01.mp3");
+        fs::copy(corpus_mp3(), &track_path).unwrap();
+        let seed: TrackPatch = serde_json::from_value(serde_json::json!({
+            "title": "Original Title",
+            "year": "1999",
+        }))
+        .unwrap();
+        crate::commands::mutations::write_track_dispatch(&track_path, &seed).unwrap();
+
+        let candidate = AlbumCandidate {
+            album: Some("Canonical Album".into()),
+            album_artists: vec!["Artist".into()],
+            year: Some("2008".into()),
+            tracks: vec![track("First", "Artist")],
+            source: LookupSource::Musicbrainz,
+            ..AlbumCandidate::default()
+        };
+
+        let written = apply_candidate_tags(&album, &candidate, &WriteQueue::default())
+            .await
+            .unwrap();
+
+        assert_eq!(written, 1);
+        let read = crate::commands::tracks::read_track_metadata(&track_path).unwrap();
+        assert_eq!(read.year.as_deref(), Some("2008"));
         fs::remove_dir_all(root).unwrap();
     }
 

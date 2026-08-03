@@ -55,8 +55,8 @@ function makePreviewResult(overrides?: Partial<PreviewMatchResult>): PreviewMatc
       artist: "Artist A",
       artists: ["Artist A"],
       tracks: [
-        { title: "Track One", matchTitles: [], artists: ["Artist A"], trackNumber: 1, recordingId: "r1", length: 200 },
-        { title: "Track Two", matchTitles: [], artists: ["Artist A"], trackNumber: 2, recordingId: "r2", length: 200 },
+        { title: "Track One", matchTitles: [], artists: ["Artist A"], trackNumber: 1, trackTotal: 2, discNumber: 2, recordingId: "r1", length: 200 },
+        { title: "Track Two", matchTitles: [], artists: ["Artist A"], trackNumber: 2, trackTotal: 2, discNumber: 2, recordingId: "r2", length: 200 },
       ],
     },
     candidates,
@@ -72,7 +72,10 @@ function makePreviewResult(overrides?: Partial<PreviewMatchResult>): PreviewMatc
         title: c.remoteTitle,
         artist: c.remoteArtist,
         artists: c.remoteArtist ? [c.remoteArtist] : [],
-        trackNumber: c.remoteTrackNumber,
+        // Wire contract: the native TrackCandidate round-trips snake_case keys.
+        track_number: c.remoteTrackNumber,
+        track_total: 2,
+        disc_number: 2,
       })),
     },
     ...overrides,
@@ -129,6 +132,35 @@ describe("ConfirmWriteDialog", () => {
     expect(candidate.album).toBe("Test Album");
     expect(candidate.tracks.length).toBe(2);
     expect(candidate.tracks[0].title).toBe("Track One");
+  });
+
+  it("emits snake_case track fields matching the native candidate contract", () => {
+    // Regression: trackNumber/discNumber (camelCase) are silently dropped by
+    // the native TrackCandidate deserializer, so the manual disc/track match
+    // never reached the writer. The candidate must use snake_case keys.
+    render(<ConfirmWriteDialog {...defaultProps} />);
+    fireEvent.click(screen.getByText("Confirm & Write"));
+    const candidate = onConfirm.mock.calls[0][0] as AlbumCandidate;
+    const first = candidate.tracks[0] as Record<string, unknown>;
+    expect(first.track_number).toBe(1);
+    expect(first.disc_number).toBe(2);
+    expect(first.track_total).toBe(2);
+    expect(first.trackNumber).toBeUndefined();
+    expect(first.discNumber).toBeUndefined();
+    expect(first.trackTotal).toBeUndefined();
+  });
+
+  it("emits edited track total from the total input", () => {
+    render(<ConfirmWriteDialog {...defaultProps} />);
+    // Total inputs follow the disc inputs in each row's input group.
+    const totalInputs = document.querySelectorAll<HTMLInputElement>(
+      "input[placeholder='Total']",
+    );
+    expect(totalInputs.length).toBe(2);
+    fireEvent.change(totalInputs[0], { target: { value: "14" } });
+    fireEvent.click(screen.getByText("Confirm & Write"));
+    const candidate = onConfirm.mock.calls[0][0] as AlbumCandidate;
+    expect(candidate.tracks[0].track_total).toBe(14);
   });
 
   it("does not call onConfirm when cancel is clicked on write-error dialog", () => {
@@ -204,6 +236,9 @@ describe("ConfirmWriteDialog", () => {
     fireEvent.click(screen.getByText("Confirm & Write"));
     const candidate = onConfirm.mock.calls[0][0] as AlbumCandidate;
     expect(candidate.tracks[0].title).toBe("Edited Title");
+    expect(candidate.tracks[0].track_number).toBe(1);
+    expect(candidate.tracks[0].track_total).toBe(2);
+    expect(candidate.tracks[0].disc_number).toBe(2);
   });
 
   it("omits 'Do not update' tracks selected as empty", () => {
@@ -216,5 +251,8 @@ describe("ConfirmWriteDialog", () => {
     // "Do not update" rows send empty artists array as sentinel
     expect(candidate.tracks[0].artists).toEqual([]);
     expect(candidate.tracks[0].title).toBeUndefined();
+    expect(candidate.tracks[0].track_number).toBeUndefined();
+    expect(candidate.tracks[0].track_total).toBeUndefined();
+    expect(candidate.tracks[0].disc_number).toBeUndefined();
   });
 });

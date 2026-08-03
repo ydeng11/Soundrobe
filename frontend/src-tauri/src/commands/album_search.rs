@@ -12,8 +12,8 @@ use tauri::State;
 use crate::{
     commands::{
         auto_tag::{
-            apply_candidate_tags, discogs_candidate, musicbrainz_candidate, AlbumCandidate,
-            TrackCandidate,
+            apply_candidate_tags, convert_candidate_chinese, discogs_candidate,
+            musicbrainz_candidate, AlbumCandidate, TrackCandidate,
         },
         library::collect_audio_files,
         track_matcher::match_remote_candidate_tracks,
@@ -83,6 +83,7 @@ pub struct TrackMappingRow {
     pub remote_title: Option<String>,
     pub remote_artist: Option<String>,
     pub remote_track_number: Option<u32>,
+    pub remote_track_total: Option<u32>,
     pub evidence: Option<String>,
 }
 
@@ -401,6 +402,8 @@ pub async fn album_preview_release_match(
             }),
             remote_track_number: remote_idx
                 .and_then(|ri| album_candidate.tracks.get(ri).and_then(|t| t.track_number)),
+            remote_track_total: remote_idx
+                .and_then(|ri| album_candidate.tracks.get(ri).and_then(|t| t.track_total)),
             evidence: ev.map(|e| format!("{e:?}")),
         });
     }
@@ -418,11 +421,21 @@ pub async fn album_preview_release_match(
 }
 
 /// Apply a user-edited album candidate to the given album directory.
-/// Validates track count, then calls the existing `apply_candidate_tags`.
+/// Validates track count, applies the configured Chinese-script conversion
+/// (same as the auto-tag path), then calls the existing `apply_candidate_tags`.
 #[tauri::command]
 pub async fn album_search_apply_candidate(
     request: ApplyCandidateRequest,
+    config: State<'_, ConfigState>,
     queue: State<'_, WriteQueue>,
+) -> Result<usize, String> {
+    apply_search_candidate(&request, &config, &queue).await
+}
+
+async fn apply_search_candidate(
+    request: &ApplyCandidateRequest,
+    config: &ConfigState,
+    queue: &WriteQueue,
 ) -> Result<usize, String> {
     let album_path = PathBuf::from(&request.album_path);
     if !album_path.is_dir() {
@@ -443,7 +456,10 @@ pub async fn album_search_apply_candidate(
         ));
     }
 
-    apply_candidate_tags(&album_path, &request.candidate, &queue)
+    let candidate =
+        convert_candidate_chinese(&request.candidate, config.raw().chinese_script.as_deref());
+
+    apply_candidate_tags(&album_path, &candidate, queue)
         .await
         .map_err(|e| format!("Failed to apply candidate tags: {e}"))
 }
@@ -451,10 +467,13 @@ pub async fn album_search_apply_candidate(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::state::config::EnvMap;
     use crate::state::providers::ProviderState;
+    use std::fs;
     use std::io::{Read, Write};
     use std::net::TcpListener;
     use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::Arc;
     use std::thread;
 
     static PORT_SEQ: AtomicUsize = AtomicUsize::new(21000);
@@ -895,5 +914,246 @@ mod tests {
         };
         let result = album_preview_release_match(request).await;
         assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn preview_match_exposes_remote_track_totals_in_mapping_rows() {
+        // The confirm dialog initializes its track-total input from the matched
+        // remote track's total, so the preview row must carry it.
+        let root = temp_root();
+        let album = root.join("Artist/Album");
+        std::fs::create_dir_all(&album).unwrap();
+        fs::copy(corpus_flac(), album.join("01.flac")).unwrap();
+        fs::copy(corpus_flac(), album.join("02.flac")).unwrap();
+
+        let request = PreviewMatchRequest {
+            album_path: album.to_string_lossy().into_owned(),
+            provider: "musicbrainz".into(),
+            release: ProviderAlbum {
+                id: "1".into(),
+                title: "Test Album".into(),
+                artist: Some("Artist".into()),
+                artists: vec!["Artist".into()],
+                artist_id: None,
+                year: Some("2008".into()),
+                genre: None,
+                tracks: vec![
+                    crate::state::providers::ProviderTrack {
+                        title: Some("Track 1".into()),
+                        match_titles: vec![],
+                        artist: Some("Artist".into()),
+                        artists: vec!["Artist".into()],
+                        track_number: Some(1),
+                        track_total: Some(2),
+                        disc_number: Some(1),
+                        recording_id: None,
+                        length: None,
+                    },
+                    crate::state::providers::ProviderTrack {
+                        title: Some("Track 2".into()),
+                        match_titles: vec![],
+                        artist: Some("Artist".into()),
+                        artists: vec!["Artist".into()],
+                        track_number: Some(2),
+                        track_total: Some(2),
+                        disc_number: Some(1),
+                        recording_id: None,
+                        length: None,
+                    },
+                ],
+            },
+        };
+
+        let result = album_preview_release_match(request).await.unwrap();
+
+        assert_eq!(result.candidates.len(), 2);
+        assert_eq!(result.candidates[0].remote_track_number, Some(1));
+        assert_eq!(result.candidates[0].remote_track_total, Some(2));
+        assert_eq!(result.candidates[1].remote_track_total, Some(2));
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    // ── apply candidate ─────────────────────────────────────────────
+
+    fn temp_root() -> PathBuf {
+        static SEQUENCE: AtomicUsize = AtomicUsize::new(0);
+        let root = std::env::temp_dir().join(format!(
+            "soundrobe-album-search-{}-{}",
+            std::process::id(),
+            SEQUENCE.fetch_add(1, Ordering::Relaxed)
+        ));
+        std::fs::create_dir_all(&root).unwrap();
+        root
+    }
+
+    fn corpus_flac() -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../test/fixtures/tauri/media-corpus/minimal.flac")
+    }
+
+    fn config_with_chinese_script(target: Option<&str>) -> ConfigState {
+        let home = temp_root();
+        std::fs::create_dir_all(home.join(".auto-tagger")).unwrap();
+        let text = target
+            .map(|target| format!("chinese_script: {target}\n"))
+            .unwrap_or_default();
+        std::fs::write(crate::state::config::config_file_path(&home), text).unwrap();
+        ConfigState::init_with_env(home, Arc::new(EnvMap::new()))
+    }
+
+    /// Renderer-shaped apply payload (snake_case album fields round-tripped
+    /// from the preview, snake_case per-track fields from the manual match).
+    fn renderer_apply_payload(
+        album_path: &std::path::Path,
+        candidate: serde_json::Value,
+    ) -> ApplyCandidateRequest {
+        serde_json::from_value(serde_json::json!({
+            "albumPath": album_path.to_string_lossy(),
+            "candidate": candidate,
+        }))
+        .unwrap()
+    }
+
+    #[tokio::test]
+    async fn apply_search_candidate_writes_manual_disc_and_track_numbers() {
+        // Regression: the manual match emits snake_case track keys that match
+        // the native TrackCandidate contract; disc/track numbers must land on
+        // disk. camelCase keys were previously dropped silently by serde.
+        let root = temp_root();
+        let album = root.join("Artist/Album");
+        std::fs::create_dir_all(&album).unwrap();
+        fs::copy(corpus_flac(), album.join("01.flac")).unwrap();
+
+        let request = renderer_apply_payload(&album, serde_json::json!({
+            "artist": "Artist",
+            "artists": ["Artist"],
+            "album": "Canonical Album",
+            "album_artist": "Artist",
+            "album_artists": ["Artist"],
+            "year": "2008",
+            "source": "musicbrainz",
+            "tracks": [{
+                "title": "背叛",
+                "artist": "Artist",
+                "artists": ["Artist"],
+                "track_number": 22,
+                "disc_number": 1
+            }]
+        }));
+        let config = config_with_chinese_script(None);
+
+        let written = apply_search_candidate(&request, &config, &WriteQueue::default())
+            .await
+            .unwrap();
+
+        assert_eq!(written, 1);
+        let read = crate::commands::tracks::read_track_metadata(&album.join("01.flac")).unwrap();
+        assert_eq!(read.title.as_deref(), Some("背叛"));
+        assert_eq!(read.track_number, Some(22));
+        assert_eq!(read.disc_number, Some(1));
+        assert_eq!(read.album.as_deref(), Some("Canonical Album"));
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn apply_search_candidate_respects_chinese_script_conversion() {
+        // The manual-search apply must honor chinese_script like auto-tag does.
+        let root = temp_root();
+        let album = root.join("Artist/Album");
+        std::fs::create_dir_all(&album).unwrap();
+        fs::copy(corpus_flac(), album.join("01.flac")).unwrap();
+
+        let request = renderer_apply_payload(&album, serde_json::json!({
+            "artist": "楊宗緯",
+            "artists": ["楊宗緯"],
+            "album": "星空傳奇演唱會",
+            "album_artist": "楊宗緯",
+            "album_artists": ["楊宗緯"],
+            "year": "2008",
+            "source": "musicbrainz",
+            "tracks": [{
+                "title": "背叛",
+                "artist": "楊宗緯",
+                "artists": ["楊宗緯"],
+                "track_number": 1,
+                "disc_number": 1
+            }]
+        }));
+        // chinese_script=simplified is the config this user has set.
+        let config = config_with_chinese_script(Some("simplified"));
+
+        let written = apply_search_candidate(&request, &config, &WriteQueue::default())
+            .await
+            .unwrap();
+
+        assert_eq!(written, 1);
+        let read = crate::commands::tracks::read_track_metadata(&album.join("01.flac")).unwrap();
+        assert_eq!(read.artist.as_deref(), Some("杨宗纬"));
+        assert_eq!(read.album_artist.as_deref(), Some("杨宗纬"));
+        assert_eq!(read.album.as_deref(), Some("星空传奇演唱会"));
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn apply_search_candidate_without_chinese_script_preserves_text() {
+        // No chinese_script configured: the writer must not rewrite text.
+        let root = temp_root();
+        let album = root.join("Artist/Album");
+        std::fs::create_dir_all(&album).unwrap();
+        fs::copy(corpus_flac(), album.join("01.flac")).unwrap();
+
+        let request = renderer_apply_payload(&album, serde_json::json!({
+            "artist": "楊宗緯",
+            "artists": ["楊宗緯"],
+            "album": "星空傳奇演唱會",
+            "album_artist": "楊宗緯",
+            "album_artists": ["楊宗緯"],
+            "year": "2008",
+            "source": "musicbrainz",
+            "tracks": [{
+                "title": "背叛",
+                "artist": "楊宗緯",
+                "artists": ["楊宗緯"],
+                "track_number": 1,
+                "disc_number": 1
+            }]
+        }));
+        let config = config_with_chinese_script(None);
+
+        let written = apply_search_candidate(&request, &config, &WriteQueue::default())
+            .await
+            .unwrap();
+
+        assert_eq!(written, 1);
+        let read = crate::commands::tracks::read_track_metadata(&album.join("01.flac")).unwrap();
+        assert_eq!(read.artist.as_deref(), Some("楊宗緯"));
+        assert_eq!(read.album_artist.as_deref(), Some("楊宗緯"));
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn apply_search_candidate_rejects_track_count_mismatch() {
+        let root = temp_root();
+        let album = root.join("Artist/Album");
+        std::fs::create_dir_all(&album).unwrap();
+        fs::copy(corpus_flac(), album.join("01.flac")).unwrap();
+        fs::copy(corpus_flac(), album.join("02.flac")).unwrap();
+
+        let request = renderer_apply_payload(&album, serde_json::json!({
+            "artist": "Artist",
+            "artists": ["Artist"],
+            "album": "Canonical Album",
+            "album_artist": "Artist",
+            "album_artists": ["Artist"],
+            "source": "musicbrainz",
+            "tracks": [{ "title": "Only One", "artists": [] }]
+        }));
+        let config = config_with_chinese_script(None);
+
+        let error = apply_search_candidate(&request, &config, &WriteQueue::default())
+            .await
+            .unwrap_err();
+        assert!(error.contains("Track count mismatch"), "{error}");
+        fs::remove_dir_all(root).unwrap();
     }
 }

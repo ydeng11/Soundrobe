@@ -215,6 +215,7 @@ export interface TrackMappingRow {
   remoteTitle?: string;
   remoteArtist?: string;
   remoteTrackNumber?: number;
+  remoteTrackTotal?: number;
   evidence?: string;
 }
 
@@ -227,14 +228,14 @@ export interface PreviewMatchResult {
 
 export interface TrackEdit {
   title?: string;
-  matchTitles?: string[];
+  match_titles?: string[];
   artist?: string;
   artists: string[];
-  trackNumber?: number;
-  trackTotal?: number;
-  discNumber?: number;
-  discTotal?: number;
-  musicbrainzTrackId?: string;
+  track_number?: number;
+  track_total?: number;
+  disc_number?: number;
+  disc_total?: number;
+  musicbrainz_trackid?: string;
   length?: number;
   genre?: string;
   filename?: string;
