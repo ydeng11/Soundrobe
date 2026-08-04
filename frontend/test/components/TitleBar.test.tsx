@@ -23,6 +23,7 @@ function defaultProps(overrides?: Record<string, unknown>) {
     lyricsGetting: false,
     auditing: false,
     darkMode: false,
+    assistantOpen: false,
     error: null,
     onOpenLibrary: vi.fn(),
     onRefresh: vi.fn(),
@@ -345,6 +346,24 @@ describe("TitleBar — all buttons", () => {
       render(<TitleBar {...defaultProps({ onOpenSettings })} />);
       fireEvent.click(screen.getByTitle("Settings"));
       expect(onOpenSettings).toHaveBeenCalledOnce();
+    });
+  });
+
+  describe("Assistant toggle button", () => {
+    it("exposes and styles the open state", () => {
+      render(<TitleBar {...defaultProps({ assistantOpen: true })} />);
+
+      const button = screen.getByRole("button", { name: "AI Assistant" });
+      expect(button.getAttribute("aria-pressed")).toBe("true");
+      expect(button.className).toContain("bg-accent/10");
+    });
+
+    it("calls onToggleAssistant", () => {
+      const onToggleAssistant = vi.fn();
+      render(<TitleBar {...defaultProps({ onToggleAssistant })} />);
+
+      fireEvent.click(screen.getByRole("button", { name: "AI Assistant" }));
+      expect(onToggleAssistant).toHaveBeenCalledOnce();
     });
   });
 

@@ -79,6 +79,11 @@ desktop release.
 
 ### Changed
 
+- **AI Assistant side sheet** — the assistant now uses Soundrobe's native
+  light and dark styling, a responsive overlay layout, context-aware composer,
+  prompt suggestions, clearer progress states, and streamlined review cards
+  for approval-gated changes.
+
 - **Application rewritten** — the project moved from the Python `auto-tag`
   CLI to the Tauri desktop application; the intermediate Electron prototype
   was dropped in favor of the native Rust shell.

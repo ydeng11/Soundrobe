@@ -1958,6 +1958,7 @@ export default function App() {
         onNumberTracks={handleNumberTracks}
         activeAlbumPath={state.activeAlbumPath}
         darkMode={state.darkMode}
+        assistantOpen={showAssistant}
         onToggleDarkMode={handleToggleDarkMode}
         onOpenSettings={handleOpenSettings}
         onToggleAssistant={handleToggleAssistant}
@@ -2131,6 +2132,7 @@ export default function App() {
         <AssistantPanel
           isOpen={showAssistant}
           onClose={handleCloseAssistant}
+          onOpenSettings={handleOpenSettings}
           keyConfigured={assistantApiKeyConfigured}
           model={assistantModel}
           libraryPath={state.libraryPath}

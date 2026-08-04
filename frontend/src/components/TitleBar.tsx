@@ -16,6 +16,7 @@ interface TitleBarProps {
   lyricsGetting: boolean;
   auditing: boolean;
   darkMode: boolean;
+  assistantOpen: boolean;
   error: string | null;
   onOpenLibrary: () => void;
   onRefresh: () => void;
@@ -45,6 +46,7 @@ export function TitleBar({
   lyricsGetting,
   auditing,
   darkMode,
+  assistantOpen,
   error,
   onOpenLibrary,
   onRefresh,
@@ -318,8 +320,14 @@ export function TitleBar({
       {/* Assistant toggle */}
       <button
         onClick={onToggleAssistant}
-        className="no-drag inline-flex items-center justify-center w-7 h-7 text-[#b4befe] hover:text-white rounded-lg hover:bg-[#b4befe]/10 transition-all"
-        title="Assistant"
+        aria-label="AI Assistant"
+        aria-pressed={assistantOpen}
+        className={`no-drag inline-flex h-7 w-7 items-center justify-center rounded-lg transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 ${
+          assistantOpen
+            ? "bg-accent/10 text-accent"
+            : "text-text-muted hover:bg-surface-hover hover:text-text-primary"
+        }`}
+        title={assistantOpen ? "Close AI Assistant" : "Open AI Assistant"}
       >
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
           <path d="M12 8V4m0 0L9 7m3-3l3 3" />

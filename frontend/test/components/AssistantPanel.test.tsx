@@ -40,6 +40,7 @@ function renderPanel(props?: Partial<React.ComponentProps<typeof AssistantPanel>
     <AssistantPanel
       isOpen={true}
       onClose={vi.fn()}
+      onOpenSettings={vi.fn()}
       keyConfigured={true}
       libraryPath="/music"
       activeAlbumPath={null}
@@ -52,6 +53,180 @@ function renderPanel(props?: Partial<React.ComponentProps<typeof AssistantPanel>
     />,
   );
 }
+
+describe("AssistantPanel — refreshed side sheet", () => {
+  it("renders as an accessible responsive side sheet beneath the title bar", () => {
+    renderPanel({ model: "deepseek/deepseek-v3" });
+
+    const panel = screen.getByRole("complementary", { name: "AI Assistant" });
+    expect(panel.className).toContain("top-[38px]");
+    expect(panel.className).toContain("w-[420px]");
+    expect(panel.className).toContain("max-w-[calc(100vw-24px)]");
+    expect(screen.getByText("AI Assistant")).toBeTruthy();
+    expect(screen.getByText("deepseek/deepseek-v3")).toBeTruthy();
+  });
+
+  it("prefills suggested prompts without sending them", () => {
+    renderPanel();
+
+    fireEvent.click(screen.getByRole("button", { name: "Summarize my library" }));
+
+    expect(
+      (screen.getByPlaceholderText(/ask the assistant/i) as HTMLTextAreaElement)
+        .value,
+    ).toBe("Summarize my library");
+    expect(mockApi.assistantSend).not.toHaveBeenCalled();
+  });
+
+  it("opens Settings from the no-key empty state", () => {
+    const onOpenSettings = vi.fn();
+    renderPanel({ keyConfigured: false, onOpenSettings });
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Configure AI in Settings" }),
+    );
+
+    expect(onOpenSettings).toHaveBeenCalledOnce();
+  });
+
+  it("shows selected tracks as the highest-priority context", () => {
+    renderPanel({
+      selectedTrackPaths: ["/music/one.flac", "/music/two.flac"],
+      activeAlbumPath: "/music/Album",
+      libraryPath: "/music",
+    });
+
+    expect(screen.getByText("2 selected tracks")).toBeTruthy();
+    expect(screen.queryByText("Album: Album")).toBeNull();
+  });
+
+  it("falls back from album to library to no-library context", () => {
+    const { rerender } = renderPanel({
+      activeAlbumPath: "/music/Artist/Album",
+      libraryPath: "/music",
+    });
+    expect(screen.getByText("Album: Album")).toBeTruthy();
+
+    rerender(
+      <AssistantPanel
+        isOpen={true}
+        onClose={vi.fn()}
+        onOpenSettings={vi.fn()}
+        keyConfigured={true}
+        libraryPath="/music"
+        activeAlbumPath={null}
+        selectedTrackPaths={[]}
+        allTracks={[]}
+        allAlbums={[]}
+        autonomous={false}
+        onRefreshRequest={vi.fn()}
+      />,
+    );
+    expect(screen.getByText("Entire library")).toBeTruthy();
+
+    rerender(
+      <AssistantPanel
+        isOpen={true}
+        onClose={vi.fn()}
+        onOpenSettings={vi.fn()}
+        keyConfigured={true}
+        libraryPath={null}
+        activeAlbumPath={null}
+        selectedTrackPaths={[]}
+        allTracks={[]}
+        allAlbums={[]}
+        autonomous={false}
+        onRefreshRequest={vi.fn()}
+      />,
+    );
+    expect(screen.getByText("No library context")).toBeTruthy();
+  });
+
+  it("grows the composer up to its five-line cap", () => {
+    renderPanel();
+    const input = screen.getByPlaceholderText(/ask the assistant/i) as HTMLTextAreaElement;
+    Object.defineProperty(input, "scrollHeight", {
+      configurable: true,
+      value: 180,
+    });
+
+    fireEvent.input(input);
+
+    expect(input.style.height).toBe("112px");
+  });
+
+  it("returns the composer to one-line height after sending a multiline prompt", async () => {
+    renderPanel();
+    const input = screen.getByPlaceholderText(/ask the assistant/i) as HTMLTextAreaElement;
+    Object.defineProperty(input, "scrollHeight", {
+      configurable: true,
+      get: () => input.value.includes("\n") ? 112 : 40,
+    });
+
+    fireEvent.change(input, { target: { value: "Find missing genres\nin this album" } });
+    fireEvent.input(input);
+    expect(input.style.height).toBe("112px");
+
+    fireEvent.keyDown(input, { key: "Enter" });
+
+    await waitFor(() => {
+      expect(input.value).toBe("");
+      expect(input.style.height).toBe("40px");
+    });
+  });
+
+  it("resizes the composer when editing a multiline message", async () => {
+    renderPanel();
+    const input = screen.getByPlaceholderText(/ask the assistant/i) as HTMLTextAreaElement;
+    Object.defineProperty(input, "scrollHeight", {
+      configurable: true,
+      get: () => input.value.includes("\n") ? 112 : 40,
+    });
+    const prompt = "Find missing genres\nin this album";
+
+    fireEvent.change(input, { target: { value: prompt } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    emitEvent({ sessionId: "s1", type: "message", message: "I found two tracks." });
+    await screen.findByRole("button", { name: "Edit and resend" });
+
+    // Editing begins from the standard one-line composer height.
+    input.style.height = "40px";
+    fireEvent.click(screen.getByRole("button", { name: "Edit and resend" }));
+
+    await waitFor(() => {
+      expect(input.value).toBe(prompt);
+      expect(input.style.height).toBe("112px");
+    });
+  });
+
+  it("presents pending actions as an explicit bounded review card", async () => {
+    mockApi.assistantGetBatches.mockResolvedValueOnce([{
+      id: "batch-review",
+      createdAt: "now",
+      sessionId: "session",
+      kind: "metadata-edit",
+      title: "Fill missing genre",
+      summary: "Add one missing genre without replacing existing tags",
+      riskLevel: "medium",
+      actions: [{
+        trackPath: "/music/track.flac",
+        field: "genre",
+        newValue: "Pop",
+      }],
+      reversible: true,
+      status: "pending",
+    }]);
+
+    renderPanel();
+
+    expect(await screen.findByText("Review changes")).toBeTruthy();
+    expect(screen.queryByText("Ask about your music library")).toBeNull();
+    expect(screen.getByText("Medium risk")).toBeTruthy();
+    expect(screen.getByText("1 change on 1 track")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Apply changes" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Reject" })).toBeTruthy();
+  });
+});
 
 /** Simulate an assistant event being emitted by the API. */
 function emitEvent(event: AssistantEvent) {
@@ -77,7 +252,7 @@ describe("AssistantPanel — status indicator", () => {
     expect(screen.getByText("Summarize my library")).toBeTruthy();
 
     // Pending assistant message with 'sending' status
-    expect(screen.getByText("Sending…")).toBeTruthy();
+    expect(screen.getByRole("status").textContent).toContain("Sending…");
     expect(screen.getByText("Waiting for response…")).toBeTruthy();
   });
 
@@ -585,7 +760,7 @@ describe("AssistantPanel — new conversation button", () => {
     );
     renderPanel();
 
-    fireEvent.click(await screen.findByRole("button", { name: "Apply" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Apply changes" }));
 
     await waitFor(() => {
       expect((screen.getByRole("button", { name: /new chat/i }) as HTMLButtonElement).disabled).toBe(true);
@@ -620,7 +795,7 @@ describe("AssistantPanel — core behavior preserved", () => {
     const runTask = vi.fn().mockResolvedValue(undefined);
     renderPanel({ onAssistantRunTask: runTask });
 
-    fireEvent.click(await screen.findByRole("button", { name: "Apply" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Apply changes" }));
 
     await waitFor(() => {
       expect(runTask).toHaveBeenCalledWith("auto_tag", ["/music/album/track.flac"]);
@@ -664,6 +839,7 @@ describe("AssistantPanel — core behavior preserved", () => {
       <AssistantPanel
         isOpen={true}
         onClose={vi.fn()}
+        onOpenSettings={vi.fn()}
         keyConfigured={false}
         libraryPath="/music"
         activeAlbumPath={null}
