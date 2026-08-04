@@ -14,6 +14,15 @@ desktop release.
 
 ### Added
 
+- **Isolated advisor consultations** — project agents can explicitly consult a
+  separate Codex or Claude session with bounded evidence, filtered environment
+  access, and no workspace tools before the main agent decides how to proceed.
+
+- **Multi-disc cue-splitting** — `cue-split` now detects folders holding
+  multiple CUE sheets (2CD/3CD sets) and slices each disc into its own
+  subfolder under `<album>-tracks/<disc>` with `disc=N/M` tags, instead of
+  overwriting tracks when discs restart at track 01.
+
 - **Unified media toolbox script** — `scripts/toolbox.sh` is now the single
   entry point for media/library utilities: cue-splitting (FLAC/WAV album
   images per CUE sheet, with image copies and optional doctor health check),
@@ -73,6 +82,10 @@ desktop release.
   `~/.auto-tagger/config.yaml`; renderer responses redact secrets.
 
 ### Fixed
+
+- **Assistant IME input** — confirming a candidate with Enter in Chinese and
+  other input methods no longer sends the message prematurely, including the
+  post-composition Enter sequence emitted by macOS WebKit.
 
 - Batch edit: tag changes are no longer written when you click anywhere
   inside the batch editor panel — edits persist only when the Apply changes
@@ -150,6 +163,9 @@ desktop release.
   rejection, and optimistic updates shown before writes complete.
 
 ### Removed
+
+- **Legacy `grill-with-docs` agent skill** — the retired planning interview
+  workflow is no longer installed in the project skill catalog.
 
 - Standalone `fix-medium` toolbox command (the underlying
   `fix-medium-flac-tracks.js` tool remains available in `scripts/`).

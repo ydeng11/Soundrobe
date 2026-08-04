@@ -265,7 +265,34 @@ def run_doctor(out_dir):
     except Exception as e:
         print(f"  (doctor skipped: {e})")
 
-def split_album(album_dir, artist_root, cue_path):
+def _group_cues_by_dir(cues):
+    """Group a flat list of cue paths by their album directory, preserving order."""
+    groups = {}
+    for cue in cues:
+        groups.setdefault(os.path.dirname(cue), []).append(cue)
+    return groups
+
+
+DISC_SUFFIX_RE = re.compile(
+    r'(?i)(?:\s*[-–—]?\s*)?[\[(]?\s*(?:CD|DISC)\s*0*(\d+)\s*[\])]?\s*$'
+)
+
+
+def split_disc_title(title):
+    """Return an album title and disc number only for a recognized suffix."""
+    match = DISC_SUFFIX_RE.search(title)
+    if not match:
+        return title, None
+    album_title = title[:match.start()].strip()
+    if not album_title:
+        return title, None
+    return album_title, int(match.group(1))
+
+
+def split_album(album_dir, artist_root, cue_path, disc_label='', disc_num=0,
+                disc_total=0, album_tag=None):
+    """Slice one cue's tracks into FLACs. Multi-disc folders pass a disc_label
+    so each disc lands in its own subfolder with disc metadata."""
     album_dir = os.path.abspath(album_dir)
     album, tracks = parse_cue(cue_path)
     if not tracks:
@@ -298,6 +325,14 @@ def split_album(album_dir, artist_root, cue_path):
         out_dir = os.path.join(artist_root.rstrip('/') + '-processed', rel)
     else:
         out_dir = album_dir.rstrip('/') + '-tracks'
+    if disc_label:
+        output_root = os.path.abspath(out_dir)
+        out_dir = os.path.abspath(os.path.join(output_root, disc_label))
+        if os.path.commonpath((output_root, out_dir)) != output_root:
+            print(f"⚠  SKIP: unsafe disc output label: {disc_label}")
+            return False
+
+    album_tag = album['title'] if album_tag is None else album_tag
 
     n = len(tracks)
     if not FORCE and os.path.isdir(out_dir):
@@ -347,10 +382,12 @@ def split_album(album_dir, artist_root, cue_path):
         cmd += ['-i', src]
         cmd += ['-c:a', 'flac', '-compression_level', '8']
         cmd += ['-metadata', f'artist={artist}',
-                '-metadata', f'album={album["title"]}',
+                '-metadata', f'album={album_tag}',
                 '-metadata', f'album_artist={album["performer"]}',
                 '-metadata', f'title={t["title"]}',
                 '-metadata', f'track={t["num"]}/{n}']
+        if disc_total > 0:
+            cmd += ['-metadata', f'disc={disc_num}/{disc_total}']
         if album['genre']:
             cmd += ['-metadata', f'genre={album["genre"]}']
         if album['date']:
@@ -398,7 +435,12 @@ total_cues = sum(len(cues) for _, cues in target_info)
 if total_cues == 0:
     print("No .cue files found.")
     sys.exit(1)
-if OUTPUT and total_cues > 1:
+album_dirs = {
+    os.path.dirname(cue)
+    for _, cues in target_info
+    for cue in cues
+}
+if OUTPUT and len(album_dirs) > 1:
     print("Error: --output with multiple albums is ambiguous; "
           "use one album per -o or omit -o for per-album defaults")
     sys.exit(1)
@@ -423,10 +465,32 @@ for target, cues in target_info:
         if not has_albums:
             artist_root = os.path.dirname(target)
 
-    for cue in cues:
-        album_dir = os.path.dirname(cue)
-        if not split_album(album_dir, artist_root, cue):
-            failures += 1
+    for album_dir, dir_cues in _group_cues_by_dir(cues).items():
+        parsed_cues = []
+        for cue in dir_cues:
+            alb, _ = parse_cue(cue)
+            album_tag, disc_num = split_disc_title(alb['title'])
+            parsed_cues.append((cue, alb['title'], album_tag, disc_num))
+
+        expected_disc_nums = set(range(1, len(parsed_cues) + 1))
+        parsed_disc_nums = {item[3] for item in parsed_cues}
+        use_parsed_order = (
+            len(parsed_cues) > 1
+            and None not in parsed_disc_nums
+            and parsed_disc_nums == expected_disc_nums
+        )
+        if use_parsed_order:
+            parsed_cues.sort(key=lambda item: item[3])
+
+        for i, (cue, original_title, parsed_title, _) in enumerate(parsed_cues, start=1):
+            is_multi_disc = len(parsed_cues) > 1
+            album_tag = parsed_title if use_parsed_order else original_title
+            if not split_album(album_dir, artist_root, cue,
+                               f'CD{i}' if is_multi_disc else '',
+                               i if is_multi_disc else 0,
+                               len(parsed_cues) if is_multi_disc else 0,
+                               album_tag):
+                failures += 1
         print()
 
 print("═" * 60)

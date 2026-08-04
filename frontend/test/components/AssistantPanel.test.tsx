@@ -81,6 +81,28 @@ describe("AssistantPanel — status indicator", () => {
     expect(screen.getByText("Waiting for response…")).toBeTruthy();
   });
 
+  it("does not send the message when Enter commits an IME composition (selecting a word in the input method)", () => {
+    renderPanel();
+    const input = screen.getByPlaceholderText(/ask the assistant/i);
+    fireEvent.change(input, { target: { value: "你好" } });
+    // Enter to confirm the candidate word while the input method is composing
+    fireEvent.keyDown(input, { key: "Enter", isComposing: true });
+
+    expect(mockApi.assistantSend).not.toHaveBeenCalled();
+    expect(screen.queryByText("Sending…")).toBeNull();
+  });
+
+  it("does not send WebKit's post-composition Enter event", () => {
+    renderPanel();
+    const input = screen.getByPlaceholderText(/ask the assistant/i);
+    fireEvent.change(input, { target: { value: "你好" } });
+    // WebKit can report isComposing=false while retaining the IME keyCode.
+    fireEvent.keyDown(input, { key: "Enter", keyCode: 229, isComposing: false });
+
+    expect(mockApi.assistantSend).not.toHaveBeenCalled();
+    expect(screen.queryByText("Sending…")).toBeNull();
+  });
+
   it("transitions to 'thinking' on tool_running event", async () => {
     renderPanel();
     const input = screen.getByPlaceholderText(/ask the assistant/i);

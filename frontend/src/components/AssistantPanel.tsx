@@ -451,7 +451,14 @@ export function AssistantPanel({
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey) {
+    // Enter during an input-method composition (e.g. confirming a candidate
+    // word in a Chinese IME) must go to the input, not send the message.
+    if (
+      e.key === "Enter" &&
+      !e.shiftKey &&
+      !e.nativeEvent.isComposing &&
+      e.keyCode !== 229
+    ) {
       e.preventDefault();
       handleSend();
     }

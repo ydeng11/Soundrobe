@@ -22,11 +22,16 @@ function writeFile(filePath: string, contents = "") {
   fs.writeFileSync(filePath, contents);
 }
 
-function makeCue(albumDir: string, flacName: string, tracks: Array<[number, string, string]>) {
+function makeCue(
+  albumDir: string,
+  flacName: string,
+  tracks: Array<[number, string, string]>,
+  opts: { cueName?: string; title?: string; performer?: string } = {},
+) {
   // tracks: [trackNum, title, index01]
   const lines = [
-    `PERFORMER "Test Artist"`,
-    `TITLE "${path.basename(albumDir)}"`,
+    `PERFORMER "${opts.performer ?? "Test Artist"}"`,
+    `TITLE "${opts.title ?? path.basename(albumDir)}"`,
     `FILE "${flacName}" WAVE`,
   ];
   for (const [num, title, index01] of tracks) {
@@ -34,7 +39,7 @@ function makeCue(albumDir: string, flacName: string, tracks: Array<[number, stri
     lines.push(`    TITLE "${title}"`);
     lines.push(`    INDEX 01 ${index01}`);
   }
-  writeFile(path.join(albumDir, "album.cue"), lines.join("\n") + "\n");
+  writeFile(path.join(albumDir, opts.cueName ?? "album.cue"), lines.join("\n") + "\n");
 }
 
 function makeSineFlac(filePath: string, seconds: number) {
@@ -236,5 +241,149 @@ describe("toolbox.sh cue-split slicing", () => {
     expect(partial.status).toBe(0);
     expect(partial.stdout).toContain("Incomplete output (1/2 FLACs)");
     expect(fs.existsSync(path.join(outDir, "02. Beta.flac"))).toBe(true);
+  });
+
+  it("slices each disc of a multi-cue folder into its own subfolder with disc tags", () => {
+    const album = path.join(tmpDir, "MultiDisc");
+    fs.mkdirSync(album, { recursive: true });
+    makeSineFlac(path.join(album, "X.flac"), 20);
+    makeSineFlac(path.join(album, "Y.flac"), 20);
+    makeCue(album, "X.flac", [
+      [1, "Alpha", "00:00:00"],
+      [2, "Beta", "00:10:00"],
+    ], { cueName: "Album CD1.cue", title: "MultiDisc CD1" });
+    makeCue(album, "Y.flac", [
+      [1, "Gamma", "00:00:00"],
+      [2, "Delta", "00:10:00"],
+    ], { cueName: "Album CD2.cue", title: "MultiDisc CD2" });
+    writeFile(path.join(album, "cover.jpg"), "jpeg-bytes");
+
+    const r = runTool(["cue-split", album]);
+    expect(r.status).toBe(0);
+
+    const outRoot = path.join(tmpDir, "MultiDisc-tracks");
+    const cd1 = path.join(outRoot, "CD1");
+    const cd2 = path.join(outRoot, "CD2");
+    expect(fs.existsSync(path.join(cd1, "01. Alpha.flac"))).toBe(true);
+    expect(fs.existsSync(path.join(cd1, "02. Beta.flac"))).toBe(true);
+    expect(fs.existsSync(path.join(cd2, "01. Gamma.flac"))).toBe(true);
+    expect(fs.existsSync(path.join(cd2, "02. Delta.flac"))).toBe(true);
+    expect(fs.existsSync(path.join(cd1, "cover.jpg"))).toBe(true);
+    expect(fs.existsSync(path.join(cd2, "cover.jpg"))).toBe(true);
+
+    const tags1 = execFileSync(
+      "ffprobe",
+      ["-v", "error", "-show_entries", "format_tags", "-of", "default=noprint_wrappers=1", path.join(cd1, "01. Alpha.flac")],
+      { encoding: "utf8" },
+    );
+    expect(tags1).toContain("TAG:disc=1/2");
+    expect(tags1).toContain("TAG:album=MultiDisc");
+    const tags2 = execFileSync(
+      "ffprobe",
+      ["-v", "error", "-show_entries", "format_tags", "-of", "default=noprint_wrappers=1", path.join(cd2, "01. Gamma.flac")],
+      { encoding: "utf8" },
+    );
+    expect(tags2).toContain("TAG:disc=2/2");
+    expect(tags2).toContain("TAG:album=MultiDisc");
+  });
+
+  it("orders discs by a validated title suffix instead of cue filename", () => {
+    const album = path.join(tmpDir, "ReverseDiscOrder");
+    fs.mkdirSync(album, { recursive: true });
+    makeSineFlac(path.join(album, "disc1.flac"), 10);
+    makeSineFlac(path.join(album, "disc2.flac"), 10);
+    makeCue(album, "disc2.flac", [[1, "Second", "00:00:00"]], {
+      cueName: "a.cue",
+      title: "ReverseDiscOrder Disc 2",
+    });
+    makeCue(album, "disc1.flac", [[1, "First", "00:00:00"]], {
+      cueName: "b.cue",
+      title: "ReverseDiscOrder Disc 1",
+    });
+
+    const r = runTool(["cue-split", album]);
+    expect(r.status).toBe(0);
+
+    const outRoot = path.join(tmpDir, "ReverseDiscOrder-tracks");
+    const first = path.join(outRoot, "CD1", "01. First.flac");
+    const second = path.join(outRoot, "CD2", "01. Second.flac");
+    expect(fs.existsSync(first)).toBe(true);
+    expect(fs.existsSync(second)).toBe(true);
+    const tags1 = execFileSync(
+      "ffprobe",
+      ["-v", "error", "-show_entries", "format_tags", "-of", "default=noprint_wrappers=1", first],
+      { encoding: "utf8" },
+    );
+    const tags2 = execFileSync(
+      "ffprobe",
+      ["-v", "error", "-show_entries", "format_tags", "-of", "default=noprint_wrappers=1", second],
+      { encoding: "utf8" },
+    );
+    expect(tags1).toContain("TAG:disc=1/2");
+    expect(tags1).toContain("TAG:album=ReverseDiscOrder");
+    expect(tags2).toContain("TAG:disc=2/2");
+    expect(tags2).toContain("TAG:album=ReverseDiscOrder");
+  });
+
+  it("uses safe generated labels when cue titles have no recognized disc suffix", () => {
+    const album = path.join(tmpDir, "UnsafeLabels");
+    fs.mkdirSync(album, { recursive: true });
+    makeSineFlac(path.join(album, "X.flac"), 10);
+    makeSineFlac(path.join(album, "Y.flac"), 10);
+    makeCue(album, "X.flac", [[1, "Alpha", "00:00:00"]], {
+      cueName: "a.cue",
+      title: "Collection /private/tmp/escaped-disc",
+    });
+    makeCue(album, "Y.flac", [[1, "Beta", "00:00:00"]], {
+      cueName: "b.cue",
+      title: "Collection Finale",
+    });
+
+    const r = runTool(["cue-split", "--dry-run", album]);
+    expect(r.status).toBe(0);
+    expect(r.stdout).toContain(path.join("UnsafeLabels-tracks", "CD1"));
+    expect(r.stdout).toContain(path.join("UnsafeLabels-tracks", "CD2"));
+    expect(r.stdout).not.toContain("Output:  /private/tmp/escaped-disc");
+  });
+
+  it("accepts a custom output for one multi-disc album", () => {
+    const album = path.join(tmpDir, "CustomOutput");
+    const output = path.join(tmpDir, "custom-tracks");
+    fs.mkdirSync(album, { recursive: true });
+    makeSineFlac(path.join(album, "X.flac"), 10);
+    makeSineFlac(path.join(album, "Y.flac"), 10);
+    makeCue(album, "X.flac", [[1, "Alpha", "00:00:00"]], {
+      cueName: "Album CD1.cue",
+      title: "CustomOutput CD1",
+    });
+    makeCue(album, "Y.flac", [[1, "Beta", "00:00:00"]], {
+      cueName: "Album CD2.cue",
+      title: "CustomOutput CD2",
+    });
+
+    const r = runTool(["cue-split", "--dry-run", "--output", output, album]);
+    expect(r.status).toBe(0);
+    expect(r.stdout).toContain(path.join(output, "CD1"));
+    expect(r.stdout).toContain(path.join(output, "CD2"));
+  });
+
+  it("skips both discs of a multi-cue folder on a second run", () => {
+    const album = path.join(tmpDir, "MultiDisc2");
+    fs.mkdirSync(album, { recursive: true });
+    makeSineFlac(path.join(album, "X.flac"), 20);
+    makeSineFlac(path.join(album, "Y.flac"), 20);
+    makeCue(album, "X.flac", [
+      [1, "Alpha", "00:00:00"],
+      [2, "Beta", "00:10:00"],
+    ], { cueName: "Album CD1.cue", title: "MultiDisc2 CD1" });
+    makeCue(album, "Y.flac", [
+      [1, "Gamma", "00:00:00"],
+      [2, "Delta", "00:10:00"],
+    ], { cueName: "Album CD2.cue", title: "MultiDisc2 CD2" });
+
+    expect(runTool(["cue-split", album]).status).toBe(0);
+    const second = runTool(["cue-split", album]);
+    expect(second.status).toBe(0);
+    expect(second.stdout).toContain("SKIP: output already has 2 FLAC(s)");
   });
 });
