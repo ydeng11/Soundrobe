@@ -484,6 +484,120 @@ describe("AssistantPanel — status indicator", () => {
   });
 });
 
+describe("AssistantPanel — new conversation button", () => {
+  it("clears the conversation when the New chat button is clicked", async () => {
+    renderPanel();
+    // Start a conversation and let the request finish
+    const input = screen.getByPlaceholderText(/ask the assistant/i);
+    fireEvent.change(input, { target: { value: "Summarize my library" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    emitEvent({ sessionId: "s1", type: "message", message: "Here's your summary." });
+    await screen.findByText("Here's your summary.");
+
+    fireEvent.click(screen.getByRole("button", { name: /new chat/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/session cleared/i)).toBeTruthy();
+    });
+    expect(screen.queryByText("Summarize my library")).toBeNull();
+    expect(screen.queryByText("Here's your summary.")).toBeNull();
+    expect(mockApi.assistantClear).toHaveBeenCalled();
+  });
+
+  it("refreshes the session number after starting a new conversation", async () => {
+    mockApi.getCurrentSession
+      .mockResolvedValueOnce({ sessionNumber: "old-session" })
+      .mockResolvedValueOnce({ sessionNumber: "new-session" });
+    renderPanel();
+    await screen.findByText("#old-session");
+
+    fireEvent.click(screen.getByRole("button", { name: /new chat/i }));
+
+    expect(await screen.findByText("#new-session")).toBeTruthy();
+    expect(mockApi.assistantClear).toHaveBeenCalledTimes(1);
+  });
+
+  it("preserves the current conversation and surfaces an error when reset fails", async () => {
+    mockApi.assistantClear.mockRejectedValueOnce(new Error("reset failed"));
+    renderPanel();
+    const input = screen.getByPlaceholderText(/ask the assistant/i);
+    fireEvent.change(input, { target: { value: "Keep this message" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    emitEvent({ sessionId: "s1", type: "message", message: "Keep this answer" });
+    await screen.findByText("Keep this answer");
+
+    fireEvent.click(screen.getByRole("button", { name: /new chat/i }));
+
+    expect(await screen.findByText(/failed to start a new conversation: reset failed/i)).toBeTruthy();
+    expect(screen.getByText("Keep this message")).toBeTruthy();
+    expect(screen.getByText("Keep this answer")).toBeTruthy();
+    expect(screen.queryByText(/session cleared/i)).toBeNull();
+  });
+
+  it("disables conversation input while the native reset is in flight", async () => {
+    let resolveClear!: () => void;
+    mockApi.assistantClear.mockImplementationOnce(
+      () => new Promise<void>((resolve) => { resolveClear = resolve; }),
+    );
+    renderPanel();
+
+    fireEvent.click(screen.getByRole("button", { name: /new chat/i }));
+
+    await waitFor(() => {
+      expect((screen.getByRole("button", { name: /new chat/i }) as HTMLButtonElement).disabled).toBe(true);
+      expect((screen.getByPlaceholderText(/ask the assistant/i) as HTMLTextAreaElement).disabled).toBe(true);
+    });
+
+    resolveClear();
+    expect(await screen.findByText(/session cleared/i)).toBeTruthy();
+  });
+
+  it("disables the New chat button while a request is sending", async () => {
+    renderPanel();
+    const input = screen.getByPlaceholderText(/ask the assistant/i);
+    fireEvent.change(input, { target: { value: "Summarize" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+
+    await waitFor(() => {
+      expect(
+        (screen.getByRole("button", { name: /new chat/i }) as HTMLButtonElement)
+          .disabled,
+      ).toBe(true);
+    });
+  });
+
+  it("disables the New chat button while an action batch is applying", async () => {
+    mockApi.assistantGetBatches.mockResolvedValueOnce([{
+      id: "batch-applying",
+      createdAt: "now",
+      sessionId: "session",
+      kind: "metadata-edit",
+      title: "Apply tags",
+      summary: "Apply one tag",
+      riskLevel: "low",
+      actions: [{ trackPath: "/music/track.flac", field: "genre", newValue: "Pop" }],
+      reversible: true,
+      status: "pending",
+    }]);
+    let resolveApply!: (result: { success: boolean; error: string; results: unknown[] }) => void;
+    mockApi.assistantApplyActions.mockImplementationOnce(
+      () => new Promise((resolve) => { resolveApply = resolve; }),
+    );
+    renderPanel();
+
+    fireEvent.click(await screen.findByRole("button", { name: "Apply" }));
+
+    await waitFor(() => {
+      expect((screen.getByRole("button", { name: /new chat/i }) as HTMLButtonElement).disabled).toBe(true);
+    });
+
+    resolveApply({ success: false, error: "apply failed", results: [] });
+    await waitFor(() => {
+      expect((screen.getByRole("button", { name: /new chat/i }) as HTMLButtonElement).disabled).toBe(false);
+    });
+  });
+});
+
 describe("AssistantPanel — core behavior preserved", () => {
   it("finalizes delegated task batches only after the renderer task succeeds", async () => {
     mockApi.assistantGetBatches.mockResolvedValueOnce([{

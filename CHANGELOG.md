@@ -18,6 +18,10 @@ desktop release.
   separate Codex or Claude session with bounded evidence, filtered environment
   access, and no workspace tools before the main agent decides how to proceed.
 
+- **New-conversation button in the AI Assistant** — the panel header now has
+  a "New chat" button that starts a fresh conversation (same reset as the
+  `/clear` command), disabled while a request is in flight.
+
 - **Multi-disc cue-splitting** — `cue-split` now detects folders holding
   multiple CUE sheets (2CD/3CD sets) and slices each disc into its own
   subfolder under `<album>-tracks/<disc>` with `disc=N/M` tags, instead of

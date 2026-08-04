@@ -110,6 +110,7 @@ export function AssistantPanel({
   const sendingRef = useRef(false);
   const [pendingBatches, setPendingBatches] = useState<AssistantActionBatch[]>([]);
   const [applying, setApplying] = useState(false);
+  const [clearing, setClearing] = useState(false);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [sessionNumber, setSessionNumber] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -376,13 +377,18 @@ export function AssistantPanel({
     }
   }, [isOpen, loadPendingBatches]);
 
-  const handleSend = async () => {
-    const text = inputText.trim();
-    if (!text || sending) return;
-
-    if (text === "/clear") {
-      console.log("[Assistant] /clear — resetting session");
+  /**
+   * Start a fresh conversation: reset the renderer transcript and reset the
+   * native session (a new current session in cache.db).
+   * Shared by the /clear command and the header "New chat" button.
+   */
+  const handleNewConversation = useCallback(async () => {
+    if (sending || applying || clearing) return false;
+    setClearing(true);
+    try {
+      await window.api.assistantClear();
       setInputText("");
+      setEditingIndex(null);
       setSending(false);
       pendingMsgRef.current = null;
       setMessages([
@@ -393,13 +399,33 @@ export function AssistantPanel({
         },
       ]);
       setSessionNumber(null);
-      setEditingIndex(null);
-      try {
-        await window.api.assistantClear();
+      await refreshSessionNumber();
+      return true;
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "system",
+          content: `Failed to start a new conversation: ${detail}`,
+          type: "error",
+        },
+      ]);
+      return false;
+    } finally {
+      setClearing(false);
+    }
+  }, [applying, clearing, refreshSessionNumber, sending]);
+
+  const handleSend = async () => {
+    const text = inputText.trim();
+    if (!text || sending || clearing) return;
+
+    if (text === "/clear") {
+      console.log("[Assistant] /clear — resetting session");
+      if (await handleNewConversation()) {
         console.log("[Assistant] Session reset complete");
-        await refreshSessionNumber();
-        console.log("[Assistant] Refreshed session number");
-      } catch { /* runtime may not exist yet */ }
+      }
       return;
     }
 
@@ -590,14 +616,27 @@ export function AssistantPanel({
             </span>
           )}
         </div>
-        <button
-          onClick={onClose}
-          className="shrink-0 text-[#6c7086] hover:text-[#cdd6f4] transition-colors p-1"
-        >
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M12 4L4 12M4 4l8 8" />
-          </svg>
-        </button>
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={handleNewConversation}
+            disabled={sending || applying || clearing}
+            title="Start a new conversation"
+            className="shrink-0 flex items-center gap-1 text-[11px] text-[#6c7086] hover:text-[#cdd6f4] hover:bg-[#313244] rounded px-1.5 py-1 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <path d="M8 3v10M3 8h10" />
+            </svg>
+            New chat
+          </button>
+          <button
+            onClick={onClose}
+            className="shrink-0 text-[#6c7086] hover:text-[#cdd6f4] transition-colors p-1"
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M12 4L4 12M4 4l8 8" />
+            </svg>
+          </button>
+        </div>
       </div>
 
       {/* Messages */}
@@ -728,7 +767,7 @@ export function AssistantPanel({
             onChange={(e) => setInputText(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder={keyConfigured ? "Ask the assistant..." : "Configure an LLM API key in Settings"}
-            disabled={sending || !keyConfigured}
+            disabled={sending || clearing || !keyConfigured}
             rows={2}
             className="flex-1 bg-[#313244] text-[#cdd6f4] text-sm rounded-lg px-3 py-2 resize-none outline-none focus:ring-1 focus:ring-[#89b4fa] placeholder-[#6c7086] disabled:opacity-50"
           />
@@ -743,7 +782,7 @@ export function AssistantPanel({
             ) : (
               <button
                 onClick={handleSend}
-                disabled={!inputText.trim() || !keyConfigured}
+                disabled={!inputText.trim() || clearing || !keyConfigured}
                 className="px-3 py-2 bg-[#89b4fa] text-[#1e1e2e] rounded-lg text-sm hover:bg-[#b4befe] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Send
