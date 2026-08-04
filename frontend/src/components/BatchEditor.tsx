@@ -63,7 +63,6 @@ export function BatchEditor({
 
   const [values, setValues] = useState<Record<string, string>>({});
   const [dirty, setDirty] = useState(false);
-  const panelRef = useRef<HTMLDivElement>(null);
   const valuesRef = useRef<Record<string, string>>({});
 
   const selectionKey = tracks.map((track) => track.path).sort().join("\n");
@@ -89,19 +88,6 @@ export function BatchEditor({
     valuesRef.current = {};
     setDirty(false);
   }, [onSave]);
-
-  // Save when focus leaves the panel
-  const handleBlur = useCallback(
-    (e: React.FocusEvent) => {
-      if (
-        panelRef.current &&
-        !panelRef.current.contains(e.relatedTarget as Node)
-      ) {
-        flushChanges();
-      }
-    },
-    [flushChanges],
-  );
 
   const setField = useCallback((key: string, value: string) => {
     setValues((prev) => ({ ...prev, [key]: value }));
@@ -141,11 +127,7 @@ export function BatchEditor({
   }, [tracks]);
 
   return (
-    <div
-      ref={panelRef}
-      className="flex flex-col h-full overflow-y-auto bg-white border-l border-border"
-      onBlur={handleBlur}
-    >
+    <div className="flex flex-col h-full overflow-y-auto bg-white border-l border-border">
       {/* Header */}
       <div className="px-5 py-3.5 bg-surface-alt/40 border-b border-border/60">
         <div className="flex items-center gap-2.5">
@@ -244,7 +226,7 @@ export function BatchEditor({
         <div className="text-[11px] text-text-muted leading-relaxed px-1">
           Set common values for all {trackCount} selected files.
           <br />
-          Changes save when you click outside this panel.
+          Changes apply when you click Apply changes.
         </div>
 
         {/* Batch fields with suggestions */}

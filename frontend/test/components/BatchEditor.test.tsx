@@ -104,7 +104,7 @@ describe("BatchEditor", () => {
     expect(screen.getByText(/Unsaved/i)).toBeTruthy();
   });
 
-  it("calls onSave with filled fields when focus leaves the panel", () => {
+  it("does not call onSave when focus leaves the panel — only Apply changes persists", () => {
     const tracks = [makeTrack("/music/a.mp3"), makeTrack("/music/b.mp3")];
     const onSave = vi.fn();
     render(
@@ -121,15 +121,14 @@ describe("BatchEditor", () => {
     fireEvent.change(artistInput, { target: { value: "New Artist" } });
     fireEvent.change(albumInput, { target: { value: "New Album" } });
 
-    // Simulate focus leaving the panel
+    // Simulate focus leaving the panel (relatedTarget null = click on
+    // a non-focusable spot inside the panel)
     const container = artistInput.closest('[class*="flex flex-col h-full overflow-y-auto"]');
     expect(container).toBeTruthy();
     fireEvent.blur(container!, { relatedTarget: null });
 
-    expect(onSave).toHaveBeenCalledWith({
-      artist: "New Artist",
-      album: "New Album",
-    });
+    // Nothing is persisted until the Apply changes button is clicked
+    expect(onSave).not.toHaveBeenCalled();
   });
 
   it("does not call onSave when focus moves between fields within the panel", () => {
@@ -278,7 +277,7 @@ describe("BatchEditor", () => {
     expect(onRemoveCover).toHaveBeenCalledOnce();
   });
 
-  it("clears unsaved indicator after blur triggers save", () => {
+  it("clears unsaved indicator only after Apply changes is clicked", () => {
     const tracks = [makeTrack("/music/a.mp3"), makeTrack("/music/b.mp3")];
     const onSave = vi.fn();
     render(
@@ -294,12 +293,19 @@ describe("BatchEditor", () => {
     fireEvent.change(artistInput, { target: { value: "New Artist" } });
     expect(screen.getByText(/Unsaved/i)).toBeTruthy();
 
-    // Blur the panel
+    // Blur the panel — unsaved edits are kept and nothing is persisted
     const container = artistInput.closest('[class*="flex flex-col h-full overflow-y-auto"]');
     expect(container).toBeTruthy();
     fireEvent.blur(container!, { relatedTarget: null });
 
-    // Indicator should be gone
+    expect(onSave).not.toHaveBeenCalled();
+    expect(screen.getByText(/Unsaved/i)).toBeTruthy();
+
+    // Only the explicit Apply changes click persists and clears the indicator
+    fireEvent.click(screen.getByRole("button", { name: "Apply changes" }));
+
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect(onSave).toHaveBeenCalledWith({ artist: "New Artist" });
     expect(screen.queryByText(/Unsaved/i)).toBeFalsy();
   });
 

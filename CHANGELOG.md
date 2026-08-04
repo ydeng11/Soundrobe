@@ -74,6 +74,10 @@ desktop release.
 
 ### Fixed
 
+- Batch edit: tag changes are no longer written when you click anywhere
+  inside the batch editor panel — edits persist only when the Apply changes
+  button is clicked, matching the single-track inspector.
+
 - Manual release search: confirming a track match now writes the exact
   disc/track numbers and titles shown in the match table, honors the
   Simplified/Traditional Chinese script setting like auto-tag, and no longer
