@@ -92,6 +92,11 @@ desktop release.
 
 ### Fixed
 
+- **Auto-tag genre fallback** — structured LLM genre responses now retain
+  numeric confidence values serialized as text, allow longer repair responses,
+  and explicitly disclose when genre inference fails or remains below the
+  confidence threshold instead of ending with a silent missing genre.
+
 - **Assistant IME input** — confirming a candidate with Enter in Chinese and
   other input methods no longer sends the message prematurely, including the
   post-composition Enter sequence emitted by macOS WebKit.

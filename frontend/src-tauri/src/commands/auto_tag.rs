@@ -1061,18 +1061,56 @@ fn auto_tag_event(
     }
 }
 
+fn auto_tag_completion_message(candidate: &AlbumCandidate) -> &'static str {
+    if candidate.genre.is_some() {
+        "Complete"
+    } else {
+        "Complete — genre remains missing"
+    }
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct LlmTagResolution {
     pub corrected_request: LookupRequest,
     pub fallback: AlbumCandidate,
 }
 
+#[derive(Debug, PartialEq)]
+enum GenreFillOutcome {
+    Applied(String),
+    Rejected {
+        genre: Option<String>,
+        confidence: Option<f64>,
+    },
+    Failed(String),
+}
+
+fn llm_confidence(value: Option<&serde_json::Value>) -> Option<f64> {
+    let value = value?;
+    value
+        .as_f64()
+        .or_else(|| value.as_str()?.trim().parse::<f64>().ok())
+}
+
 pub fn genre_from_value(value: &serde_json::Value) -> Option<String> {
-    let confidence = value.get("confidence")?.as_f64()?;
+    let confidence = llm_confidence(value.get("confidence"))?;
     if confidence < 0.6 {
         return None;
     }
     llm_string(value.get("genre"))
+}
+
+fn genre_fill_outcome(result: Result<serde_json::Value, String>) -> GenreFillOutcome {
+    match result {
+        Ok(value) => match genre_from_value(&value) {
+            Some(genre) => GenreFillOutcome::Applied(genre),
+            None => GenreFillOutcome::Rejected {
+                genre: llm_string(value.get("genre")),
+                confidence: llm_confidence(value.get("confidence")),
+            },
+        },
+        Err(error) => GenreFillOutcome::Failed(error),
+    }
 }
 
 pub fn llm_resolution_from_value(
@@ -1280,12 +1318,12 @@ async fn fill_genre_if_missing(
     request: &LookupRequest,
     config: &AutoTagConfig,
     cancelled: &AtomicBool,
-) -> AlbumCandidate {
+) -> (AlbumCandidate, Option<GenreFillOutcome>) {
     if candidate.genre.is_some() {
-        return candidate.clone();
+        return (candidate.clone(), None);
     }
     let Some(api_key) = config.llm_api_key.as_deref().filter(|key| !key.is_empty()) else {
-        return candidate.clone();
+        return (candidate.clone(), None);
     };
     let model = config
         .llm_model
@@ -1317,20 +1355,19 @@ async fn fill_genre_if_missing(
         config.llm_provider.as_deref(),
         config.llm_base_url.as_deref(),
     );
-    let Ok(response) = OpenRouterClient::at(api_key, model, &endpoint.base_url)
+    let result = OpenRouterClient::at(api_key, model, &endpoint.base_url)
         .with_provider(endpoint.provider)
-        .with_generation(0.2, 256)
+        .with_generation(0.2, 1024)
         .complete_json(messages, "GenreFillResponse", schema, cancelled)
         .await
-    else {
-        return candidate.clone();
-    };
-    let Some(genre) = genre_from_value(&response.data) else {
-        return candidate.clone();
-    };
+        .map(|response| response.data)
+        .map_err(|error| error.to_string());
+    let outcome = genre_fill_outcome(result);
     let mut filled = candidate.clone();
-    filled.genre = Some(genre);
-    filled
+    if let GenreFillOutcome::Applied(genre) = &outcome {
+        filled.genre = Some(genre.clone());
+    }
+    (filled, Some(outcome))
 }
 
 pub async fn resolve_and_apply_album(
@@ -1557,7 +1594,43 @@ pub async fn resolve_and_apply_album(
     check_cancelled(cancelled)?;
     progress(8, "Resolving genre...");
     let candidate = protect_candidate_tracks(&request, &candidate);
-    let candidate = fill_genre_if_missing(&candidate, &request, config, cancelled).await;
+    let (candidate, genre_outcome) =
+        fill_genre_if_missing(&candidate, &request, config, cancelled).await;
+    match genre_outcome {
+        Some(GenreFillOutcome::Applied(genre)) => report(
+            "source",
+            format!("Genre inferred by LLM: {genre}"),
+            Some(serde_json::json!({"source": "llm", "genre": genre})),
+        ),
+        Some(GenreFillOutcome::Rejected { genre, confidence }) => {
+            tracing::warn!(
+                genre = ?genre,
+                confidence = ?confidence,
+                threshold = 0.6,
+                "auto-tag genre fill rejected"
+            );
+            report(
+                "warning",
+                "Genre remains missing: LLM response was empty or below the confidence threshold"
+                    .to_string(),
+                Some(serde_json::json!({
+                    "source": "llm",
+                    "genre": genre,
+                    "confidence": confidence,
+                    "threshold": 0.6
+                })),
+            );
+        }
+        Some(GenreFillOutcome::Failed(error)) => {
+            tracing::warn!(%error, "auto-tag genre fill failed");
+            report(
+                "warning",
+                format!("Genre remains missing: {error}"),
+                Some(serde_json::json!({"source": "llm", "error": error})),
+            );
+        }
+        None => {}
+    }
     report(
         "source",
         format!(
@@ -1712,15 +1785,16 @@ pub fn album_auto_tag(
         match operation {
             Ok(result) => {
                 let data = serde_json::to_value(&result.candidate).unwrap_or_default();
+                let message = auto_tag_completion_message(&result.candidate);
                 tasks.finish(
                     &spawned_task_id,
                     TaskStatus::Completed,
-                    "Complete",
+                    message,
                     data.clone(),
                 );
                 let _ = app.emit(
                     "auto-tag:event",
-                    auto_tag_event(&spawned_task_id, "completed", "Complete", 9, Some(data)),
+                    auto_tag_event(&spawned_task_id, "completed", message, 9, Some(data)),
                 );
             }
             Err(error) if cancelled.load(Ordering::Acquire) => {
@@ -3028,6 +3102,39 @@ mod tests {
             })),
             None
         );
+        assert_eq!(
+            genre_from_value(&serde_json::json!({
+                "genre": "Mandopop, Pop",
+                "confidence": "0.85"
+            })),
+            Some("Mandopop, Pop".into()),
+            "a numeric confidence serialized as text must not discard a valid genre"
+        );
+    }
+
+    #[test]
+    fn genre_fill_outcome_distinguishes_applied_rejected_and_failed_attempts() {
+        assert_eq!(
+            genre_fill_outcome(Ok(serde_json::json!({
+                "genre": "Mandopop, Pop",
+                "confidence": 0.85
+            }))),
+            GenreFillOutcome::Applied("Mandopop, Pop".into())
+        );
+        assert_eq!(
+            genre_fill_outcome(Ok(serde_json::json!({
+                "genre": "Pop",
+                "confidence": 0.4
+            }))),
+            GenreFillOutcome::Rejected {
+                genre: Some("Pop".into()),
+                confidence: Some(0.4),
+            }
+        );
+        assert_eq!(
+            genre_fill_outcome(Err("LLM returned malformed JSON".into())),
+            GenreFillOutcome::Failed("LLM returned malformed JSON".into())
+        );
     }
 
     #[test]
@@ -3050,6 +3157,21 @@ mod tests {
                 "total": 9,
                 "data": {"artist": "Artist"}
             })
+        );
+    }
+
+    #[test]
+    fn completion_message_discloses_when_genre_remains_missing() {
+        assert_eq!(
+            auto_tag_completion_message(&AlbumCandidate::default()),
+            "Complete — genre remains missing"
+        );
+        assert_eq!(
+            auto_tag_completion_message(&AlbumCandidate {
+                genre: Some("Mandopop, Pop".into()),
+                ..AlbumCandidate::default()
+            }),
+            "Complete"
         );
     }
 
