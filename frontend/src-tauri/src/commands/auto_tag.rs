@@ -230,11 +230,29 @@ fn non_empty(value: String) -> Option<String> {
 }
 
 fn extract_folder_year(name: &str) -> Option<String> {
-    Regex::new(r"(?:^|[《〈「『])\s*((?:19|20)\d{2})(?:\s*[-.]|[^\d]|$)")
-        .expect("valid folder year regex")
-        .captures(name)
-        .and_then(|captures| captures.get(1))
-        .map(|year| year.as_str().to_string())
+    let year_prefix =
+        Regex::new(r"^\s*((?:19|20)\d{2})(?:\s*[-.]|[^\d]|$)").expect("valid folder year regex");
+    let extract_prefix = |value: &str| {
+        year_prefix
+            .captures(value)
+            .and_then(|captures| captures.get(1))
+            .map(|year| year.as_str().to_string())
+    };
+    if let Some(year) = extract_prefix(name) {
+        return Some(year);
+    }
+
+    for (open, close) in [('《', '》'), ('〈', '〉'), ('「', '」'), ('『', '』')] {
+        for remainder in name.split(open).skip(1) {
+            let Some((quoted_title, _)) = remainder.split_once(close) else {
+                continue;
+            };
+            if let Some(year) = extract_prefix(quoted_title) {
+                return Some(year);
+            }
+        }
+    }
+    None
 }
 
 fn clean_folder_name(name: &str) -> String {
@@ -385,9 +403,26 @@ pub fn merge_candidate_fields(candidates: Vec<AlbumCandidate>) -> Vec<AlbumCandi
     else {
         return Vec::new();
     };
+    let provider_year = candidates
+        .iter()
+        .filter(|candidate| {
+            matches!(
+                candidate.source,
+                LookupSource::Musicbrainz | LookupSource::Discogs
+            )
+        })
+        .filter_map(|candidate| {
+            candidate
+                .year
+                .as_ref()
+                .map(|year| (candidate_priority(candidate), year))
+        })
+        .min_by_key(|(priority, _)| *priority)
+        .map(|(_, year)| year.clone());
     let mut merged = AlbumCandidate {
         source: preferred.source,
         verification: preferred.verification.clone(),
+        year: provider_year,
         ..AlbumCandidate::default()
     };
 
@@ -2043,6 +2078,28 @@ mod tests {
     }
 
     #[test]
+    fn folder_year_reads_year_from_supported_paired_title_quotes() {
+        for name in [
+            "Artist-《1993-Album》",
+            "Artist-〈1993-Album〉",
+            "Artist-「1993-Album」",
+            "Artist-『1993-Album』",
+        ] {
+            assert_eq!(extract_folder_year(name).as_deref(), Some("1993"));
+        }
+    }
+
+    #[test]
+    fn folder_year_requires_a_closing_title_quote() {
+        assert_eq!(extract_folder_year("Album《1993 remaster"), None);
+    }
+
+    #[test]
+    fn folder_year_requires_the_matching_closing_title_quote() {
+        assert_eq!(extract_folder_year("Album《1993 remaster」"), None);
+    }
+
+    #[test]
     fn folder_year_does_not_read_parenthesized_remaster_annotation() {
         assert_eq!(extract_folder_year("Album (2004 remaster)"), None);
     }
@@ -2096,6 +2153,33 @@ mod tests {
             Some("Canonical Title")
         );
         assert_eq!(merged[1], llm);
+    }
+
+    #[test]
+    fn accepted_provider_year_fills_gap_before_folder_year() {
+        let preferred = AlbumCandidate {
+            album: Some("Album".into()),
+            year: None,
+            source: LookupSource::Musicbrainz,
+            ..AlbumCandidate::default()
+        };
+        let cached = AlbumCandidate {
+            album: Some("Album".into()),
+            year: Some("1994".into()),
+            source: LookupSource::Discogs,
+            ..AlbumCandidate::default()
+        };
+        let folder = AlbumCandidate {
+            album: Some("Album".into()),
+            year: Some("1993".into()),
+            source: LookupSource::Folder,
+            ..AlbumCandidate::default()
+        };
+
+        let merged = combine_candidate_sources(vec![preferred], vec![cached], folder);
+
+        assert_eq!(merged[0].source, LookupSource::Musicbrainz);
+        assert_eq!(merged[0].year.as_deref(), Some("1994"));
     }
 
     #[test]
