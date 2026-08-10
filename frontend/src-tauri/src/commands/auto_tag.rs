@@ -230,7 +230,7 @@ fn non_empty(value: String) -> Option<String> {
 }
 
 fn extract_folder_year(name: &str) -> Option<String> {
-    Regex::new(r"^((?:19|20)\d{2})(?:\s*[-.]|[^\d]|$)")
+    Regex::new(r"(?:^|[《「【\[(（])\s*((?:19|20)\d{2})(?:\s*[-.]|[^\d]|$)")
         .expect("valid folder year regex")
         .captures(name)
         .and_then(|captures| captures.get(1))
@@ -2027,6 +2027,27 @@ mod tests {
             artists: vec![artist.into()],
             ..TrackCandidate::default()
         }
+    }
+
+    #[test]
+    fn folder_year_reads_year_at_start_of_bracketed_album_title() {
+        assert_eq!(
+            extract_folder_year("张卫健-《1993-真挚的朋友精选》[WAV 分轨]").as_deref(),
+            Some("1993")
+        );
+    }
+
+    #[test]
+    fn folder_year_keeps_leading_year_support() {
+        assert_eq!(
+            extract_folder_year("2004 - Folder Album [FLAC]").as_deref(),
+            Some("2004")
+        );
+    }
+
+    #[test]
+    fn folder_year_does_not_treat_unbracketed_name_number_as_year() {
+        assert_eq!(extract_folder_year("The 1975 [WAV]"), None);
     }
 
     #[test]

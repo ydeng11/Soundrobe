@@ -96,6 +96,8 @@ desktop release.
   exact source and destination paths, approved moves refuse newly occupied
   destinations, dependent plan steps enforce approval order, and ordinary
   answers ending in a question no longer trigger the clarification-loop guard.
+- **Auto-tag folder years** — release years at the start of a bracketed album
+  title are now detected even when the artist name precedes the title.
 
 - **Faster WAV library reads** — WAV metadata loading now reuses one buffered
   parse for tags, audio properties, and provider IDs instead of repeatedly
