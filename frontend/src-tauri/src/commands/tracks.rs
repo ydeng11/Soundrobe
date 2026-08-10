@@ -623,17 +623,12 @@ pub fn read_track_metadata(path: &Path) -> Result<TrackData, ApiError> {
         }
     }
 
-    // WAV files from some rippers/conversion tools embed trailing
-    // null-byte padding inside the RIFF container.  Lofty's IFF chunk
-    // parser rejects null FourCCs and logs a WARN.  Strip the padding
-    // before Lofty sees the data so the warning never fires and the
-    // tag reader doesn't stop early.
-    let read_result: std::result::Result<lofty::file::TaggedFile, ApiError> = if extension == "wav"
-    {
-        read_wav_safe(path)
-    } else {
-        lofty::read_from_path(path).map_err(ApiError::from)
-    };
+    if extension == "wav" {
+        return read_wav_metadata(path, size_bytes);
+    }
+
+    let read_result: std::result::Result<lofty::file::TaggedFile, ApiError> =
+        lofty::read_from_path(path).map_err(ApiError::from);
     match read_result {
         Ok(tagged) => {
             let mut track = from_lofty(path, size_bytes, &extension, &tagged);
@@ -643,8 +638,6 @@ pub fn read_track_metadata(path: &Path) -> Result<TrackData, ApiError> {
                 apply_ogg_native_fields(path, &extension, &mut track);
             } else if matches!(extension.as_str(), "m4a" | "mp4") {
                 apply_mp4_native_fields(path, &mut track);
-            } else if extension == "wav" {
-                apply_wav_native_fields(path, &mut track);
             }
             if extension == "flac" && track.duration <= 0.0 {
                 // `music-metadata` reports Infinity for these valid metadata
@@ -687,18 +680,8 @@ fn apply_flac_native_fields(path: &Path, track: &mut TrackData) {
     track.discogs_release_id = comments.get("DISCOGS_RELEASE_ID").map(ToOwned::to_owned);
 }
 
-fn apply_wav_native_fields(path: &Path, track: &mut TrackData) {
-    let Ok(mut data) = fs::read(path) else {
-        return;
-    };
-    strip_wav_padding(&mut data);
-    let Ok(parsed) = WavFile::read_from(
-        &mut Cursor::new(data),
-        ParseOptions::new().read_properties(false),
-    ) else {
-        return;
-    };
-    let Some(id3v2) = parsed.id3v2() else {
+fn apply_wav_native_fields(data: &[u8], id3v2: Option<&Id3v2Tag>, track: &mut TrackData) {
+    let Some(id3v2) = id3v2 else {
         return;
     };
     // RIFF LIST INFO is returned first by Lofty and may contain garbled
@@ -738,11 +721,11 @@ fn apply_wav_native_fields(path: &Path, track: &mut TrackData) {
     if let Some(mbid) = id3v2.get_user_text("MusicBrainz Track Id") {
         track.musicbrainz_track_id = Some(mbid.to_owned());
     }
-    let artists = id3_user_text_values(path, "ARTISTS");
+    let artists = id3_user_text_values_from_wav(data, "ARTISTS");
     if !artists.is_empty() {
         track.artists = artists;
     }
-    let album_artists = id3_user_text_values(path, "ALBUMARTISTS");
+    let album_artists = id3_user_text_values_from_wav(data, "ALBUMARTISTS");
     if !album_artists.is_empty() {
         track.album_artists = album_artists;
     }
@@ -754,15 +737,26 @@ fn apply_wav_native_fields(path: &Path, track: &mut TrackData) {
         .map(ToOwned::to_owned);
 }
 
-/// Read a WAV file through Lofty after stripping trailing all-zero padding
-/// from the RIFF container that would trigger "invalid FourCC" warnings.
-fn read_wav_safe(path: &Path) -> std::result::Result<lofty::file::TaggedFile, ApiError> {
-    let mut data = fs::read(path)?;
+fn read_wav_metadata(path: &Path, size_bytes: u64) -> Result<TrackData, ApiError> {
+    read_wav_metadata_from_bytes(path, size_bytes, fs::read(path)?)
+}
+
+/// Parse all WAV metadata from one owned buffer. Stripping verified padding
+/// before Lofty parses preserves padded-ripper safety without a streaming
+/// attempt that would read the audio payload again on fallback.
+fn read_wav_metadata_from_bytes(
+    path: &Path,
+    size_bytes: u64,
+    mut data: Vec<u8>,
+) -> Result<TrackData, ApiError> {
     strip_wav_padding(&mut data);
-    let mut cursor = Cursor::new(data);
-    WavFile::read_from(&mut cursor, ParseOptions::new())
-        .map(|wav| wav.into())
-        .map_err(ApiError::from)
+    let parsed = WavFile::read_from(&mut Cursor::new(data.as_slice()), ParseOptions::new())?;
+    let id3v2 = parsed.id3v2().cloned();
+    let tagged = parsed.into();
+    let mut track = from_lofty(path, size_bytes, "wav", &tagged);
+    track.bitrate = wav_bitrate(&data).map(f64::from).or(track.bitrate);
+    apply_wav_native_fields(&data, id3v2.as_ref(), &mut track);
+    Ok(track)
 }
 
 /// If a RIFF/WAVE buffer has a terminal tail of all-zero bytes after the
@@ -890,7 +884,6 @@ fn from_lofty(
     // `music-metadata` reports audio-payload bitrate, while Lofty reports a
     // rounded container/overall kbps value for these formats.
     match extension {
-        "wav" => bitrate = wav_bitrate(path).map(f64::from).or(bitrate),
         "m4a" | "mp4" => {
             if let Some(properties) = mp4_audio_properties(path) {
                 (duration, bitrate) = (properties.0, Some(properties.1));
@@ -1095,11 +1088,17 @@ pub(crate) fn id3_user_text_values(path: &Path, wanted: &str) -> Vec<String> {
         .map(str::to_ascii_lowercase);
     let start = match extension.as_deref() {
         Some("mp3") if data.get(..3) == Some(b"ID3") => Some(0),
-        Some("wav") => wav_id3_offset(&data),
+        Some("wav") => return id3_user_text_values_from_wav(&data, wanted),
         _ => None,
     };
     start.map_or_else(Vec::new, |start| {
         id3_user_text_values_at(&data, start, wanted)
+    })
+}
+
+fn id3_user_text_values_from_wav(data: &[u8], wanted: &str) -> Vec<String> {
+    wav_id3_offset(data).map_or_else(Vec::new, |start| {
+        id3_user_text_values_at(data, start, wanted)
     })
 }
 
@@ -1538,8 +1537,7 @@ fn aiff_audio_properties(path: &Path, sample_rate: Option<u32>) -> Option<(f64, 
     (duration > 0.0).then(|| (duration, audio_bytes as f64 * 8.0 / duration))
 }
 
-fn wav_bitrate(path: &Path) -> Option<u32> {
-    let data = fs::read(path).ok()?;
+fn wav_bitrate(data: &[u8]) -> Option<u32> {
     if data.len() < 36 || &data[..4] != b"RIFF" || &data[8..12] != b"WAVE" {
         return None;
     }
@@ -2215,6 +2213,118 @@ mod tests {
         wav.extend_from_slice(&u32::MAX.to_le_bytes());
         wav.extend_from_slice(b"ID3");
         assert_eq!(wav_id3_offset(&wav), None);
+    }
+
+    /// Intent: WAV metadata extraction must reuse the one padded-safe buffer
+    /// for tags, native overrides, plural credits, properties, and artwork.
+    /// A nonexistent path makes any redundant audio-payload read fail loudly.
+    #[test]
+    fn wav_metadata_from_owned_bytes_preserves_fields_without_rereading_path() {
+        let path = album_test_root().join("already-read.wav");
+        let mut wav = wav_before_payload();
+        let data_size = 1_764_u32;
+        let size_offset = wav.len() - 4;
+        wav[size_offset..].copy_from_slice(&data_size.to_le_bytes());
+        wav.extend_from_slice(&vec![0_u8; data_size as usize]);
+        append_riff_chunk(&mut wav, b"LIST", &list_info_title("stale LIST title"));
+        append_riff_chunk(&mut wav, b"ID3 ", &metadata_rich_id3v23());
+        wav.extend_from_slice(&[0_u8; 8]);
+        riff_fix_size(&mut wav);
+        let size_bytes = wav.len() as u64;
+
+        let track = read_wav_metadata_from_bytes(&path, size_bytes, wav)
+            .expect("owned WAV bytes should be sufficient for all metadata extraction");
+
+        assert_eq!(track.title.as_deref(), Some("ID3 title"));
+        assert_eq!(track.artist.as_deref(), Some("Primary artist"));
+        assert_eq!(track.album.as_deref(), Some("Album"));
+        assert_eq!(track.album_artist.as_deref(), Some("Album artist"));
+        assert_eq!(track.artists, ["Primary artist", "Guest artist"]);
+        assert_eq!(track.album_artists, ["Album artist", "Guest album artist"]);
+        assert_eq!(track.year.as_deref(), Some("2026"));
+        assert_eq!(track.genre.as_deref(), Some("Test"));
+        assert_eq!(track.musicbrainz_album_id.as_deref(), Some("mb-release"));
+        assert_eq!(track.musicbrainz_artist_id.as_deref(), Some("mb-artist"));
+        assert_eq!(track.musicbrainz_track_id.as_deref(), Some("mb-track"));
+        assert_eq!(track.discogs_artist_id.as_deref(), Some("discogs-artist"));
+        assert_eq!(track.discogs_release_id.as_deref(), Some("discogs-release"));
+        assert_eq!(track.duration, 0.01);
+        assert_eq!(track.bitrate, Some(1_411_200.0));
+        assert_eq!(track.sample_rate, Some(44_100));
+        assert!(track.has_cover);
+        assert_eq!(track.size_bytes, size_bytes);
+    }
+
+    /// Intent: consolidating WAV parsing must not turn malformed input into a
+    /// partial success merely because all extraction now shares one buffer.
+    #[test]
+    fn wav_metadata_from_owned_bytes_rejects_malformed_input() {
+        let result = read_wav_metadata_from_bytes(Path::new("missing.wav"), 5, b"short".to_vec());
+        assert!(matches!(result, Err(ApiError::Lofty(_))));
+    }
+
+    fn metadata_rich_id3v23() -> Vec<u8> {
+        let mut frames = Vec::new();
+        for (id, value) in [
+            (b"TIT2", "ID3 title"),
+            (b"TPE1", "Primary artist"),
+            (b"TALB", "Album"),
+            (b"TPE2", "Album artist"),
+            (b"TYER", "2026"),
+            (b"TCON", "Test"),
+        ] {
+            append_id3v23_frame(&mut frames, id, &[&[3], value.as_bytes()].concat());
+        }
+        for (description, value) in [
+            ("ARTISTS", "Primary artist;Guest artist"),
+            ("ALBUMARTISTS", "Album artist;Guest album artist"),
+            ("MusicBrainz Release Id", "mb-release"),
+            ("MusicBrainz Artist Id", "mb-artist"),
+            ("MusicBrainz Track Id", "mb-track"),
+            ("Discogs Artist Id", "discogs-artist"),
+            ("Discogs Release Id", "discogs-release"),
+        ] {
+            let payload = [&[3][..], description.as_bytes(), &[0], value.as_bytes()].concat();
+            append_id3v23_frame(&mut frames, b"TXXX", &payload);
+        }
+        let picture = [&[3][..], b"image/jpeg\0", &[3, 0], b"cover"].concat();
+        append_id3v23_frame(&mut frames, b"APIC", &picture);
+
+        let mut tag = Vec::from(&b"ID3\x03\0\0"[..]);
+        tag.extend_from_slice(&syncsafe_bytes(frames.len() as u32));
+        tag.extend_from_slice(&frames);
+        tag
+    }
+
+    fn append_id3v23_frame(tag: &mut Vec<u8>, id: &[u8; 4], payload: &[u8]) {
+        tag.extend_from_slice(id);
+        tag.extend_from_slice(&(payload.len() as u32).to_be_bytes());
+        tag.extend_from_slice(&[0, 0]);
+        tag.extend_from_slice(payload);
+    }
+
+    fn syncsafe_bytes(value: u32) -> [u8; 4] {
+        [
+            ((value >> 21) & 0x7f) as u8,
+            ((value >> 14) & 0x7f) as u8,
+            ((value >> 7) & 0x7f) as u8,
+            (value & 0x7f) as u8,
+        ]
+    }
+
+    fn list_info_title(title: &str) -> Vec<u8> {
+        let mut info = Vec::from(&b"INFO"[..]);
+        append_riff_chunk(&mut info, b"INAM", title.as_bytes());
+        info
+    }
+
+    fn append_riff_chunk(wav: &mut Vec<u8>, id: &[u8; 4], payload: &[u8]) {
+        wav.extend_from_slice(id);
+        wav.extend_from_slice(&(payload.len() as u32).to_le_bytes());
+        wav.extend_from_slice(payload);
+        if payload.len() % 2 == 1 {
+            wav.push(0);
+        }
     }
 
     fn album_test_root() -> PathBuf {

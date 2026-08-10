@@ -92,6 +92,10 @@ desktop release.
 
 ### Fixed
 
+- **Faster WAV library reads** — WAV metadata loading now reuses one buffered
+  parse for tags, audio properties, and provider IDs instead of repeatedly
+  reading the full audio payload.
+
 - **Auto-tag genre fallback** — structured LLM genre responses now retain
   numeric confidence values serialized as text, allow longer repair responses,
   and explicitly disclose when genre inference fails or remains below the
