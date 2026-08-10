@@ -26,6 +26,21 @@ async function clickButton(label: string, exact = true): Promise<void> {
 }
 
 async function clickTrack(trackPath: string): Promise<void> {
+  await browser.waitUntil(
+    async () =>
+      browser.execute((targetPath) => {
+        return Array.from(
+          document.querySelectorAll<HTMLElement>("[data-testid^='file-row-']"),
+        ).some(
+          (candidate) => candidate.dataset.testid === `file-row-${targetPath}`,
+        );
+      }, trackPath),
+    {
+      timeout: 5_000,
+      timeoutMsg: `Track row did not render: ${trackPath}`,
+    },
+  );
+
   const clicked = await browser.execute((targetPath) => {
     const row = Array.from(
       document.querySelectorAll<HTMLElement>("[data-testid^='file-row-']"),
@@ -293,7 +308,8 @@ describe("Tauri desktop workflows", () => {
   });
 
   it("removes an external cover from the right-panel editor", async () => {
-    // The library was opened in a previous test; select the workflow track
+    // The preceding numbering workflow leaves Number Album selected.
+    await clickButton("Workflow Album", false);
     await clickTrack(manifest.workflowTrack);
 
     // Wait for the cover image to appear (async fetch with 80ms debounce)
