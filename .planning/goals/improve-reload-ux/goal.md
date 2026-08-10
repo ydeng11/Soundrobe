@@ -2,9 +2,9 @@
 
 Eliminate unnecessary disk re-reads during sidebar navigation (album clicks, "All Files") and after save operations. Sidebar navigation becomes instant (in-memory filter only). After save, only modified albums are re-read. A manual refresh button + `Cmd+R` triggers full re-scan on demand.
 
-**Shared understanding:** `goals/improve-reload-ux/facts.md`
+**Shared understanding:** `.planning/goals/improve-reload-ux/facts.md`
 
-**Execution plan:** `goals/improve-reload-ux/plan.md`
+**Execution plan:** `.planning/goals/improve-reload-ux/plan.md`
 
 **Done when:**
 - Clicking an album or "All Files" shows tracks instantly with no progress bar

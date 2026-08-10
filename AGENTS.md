@@ -13,6 +13,12 @@ Soundrobe is a Tauri 2 + React desktop app for editing and enriching audio metad
 - `frontend/e2e-tauri/` — WebdriverIO workflows against the built native app; credentialed and real-display smokes are selected explicitly.
 - `frontend/src-tauri` inline `#[cfg(test)]` modules — Rust unit and integration contracts.
 
+## Agent-generated documentation
+
+Keep agent working artifacts in the hidden `.planning/` tree. Use `.planning/` and its existing `phases/`, `quick/`, `research/`, `debug/`, and `milestones/` directories for structured planning; use `.planning/plans/` for standalone plans, `.planning/goals/` for goals and their interview/facts artifacts, and `.planning/handoffs/` for completed or session handoffs. Put design proposals in `.planning/design/`.
+
+Keep durable user- or operator-facing documentation in `docs/` and product design assets in `design/`. Do not create new root `PLAN.md`, `CONTEXT.md`, `plans/`, `goals/`, `frontend/plans/`, `docs/plans/`, or `docs/handoffs/` paths for agent artifacts.
+
 Tauri is the only application backend. Do not reintroduce Python application code, Electron, native Node modules, an Electron preload, or a second desktop backend.
 
 ## Stack and boundaries

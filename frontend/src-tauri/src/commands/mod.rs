@@ -1,7 +1,7 @@
 //! Tauri commands, grouped to mirror `electron/handlers/*`.
 //!
 //! Each submodule is a parity owner for the rows in
-//! `frontend/plans/tauri-parity.md`. Modules are intentionally empty until
+//! `.planning/plans/tauri-parity.md`. Modules are intentionally empty until
 //! their slice is ported behind a failing contract test (TDD); a command is
 //! wired into `generate_handler!` only once its parity row is green.
 
