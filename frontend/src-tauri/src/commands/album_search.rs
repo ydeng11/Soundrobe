@@ -476,17 +476,14 @@ mod tests {
     use std::sync::Arc;
     use std::thread;
 
-    static PORT_SEQ: AtomicUsize = AtomicUsize::new(21000);
-
     const MB_RESULT: &str = r#"{"id":"1","title":"OK Computer","artist-credit":[{"name":"Radiohead","artist":{"id":"art-1"}}],"date":"1997-05-21","country":"GB","media":[{"format":"CD"}],"barcode":"724384467020","label-info":[{"catalog-number":"CDP 7243 8 44670 2 0"}]}"#;
     const DG_RESULT: &str = r#"{"id":123,"title":"Radiohead - OK Computer","type":"release","year":1997,"format":["CD"],"country":"Europe","barcode":["724384467020"],"catno":"CDP 7243 8 44670 2 0","artist":"Radiohead"}"#;
 
     fn mock_server() -> (String, std::sync::mpsc::Receiver<String>) {
-        let port = PORT_SEQ.fetch_add(1, Ordering::Relaxed);
-        let base = format!("http://127.0.0.1:{port}");
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let base = format!("http://{}", listener.local_addr().unwrap());
         let (send, recv) = std::sync::mpsc::channel();
         thread::spawn(move || {
-            let listener = TcpListener::bind(format!("127.0.0.1:{port}")).unwrap();
             listener.set_nonblocking(false).unwrap();
             for _ in 0..20 {
                 let (mut stream, _) = match listener.accept() {
@@ -740,10 +737,9 @@ mod tests {
 
     #[tokio::test]
     async fn resolve_musicbrainz_rate_limit_reports_status_not_not_found() {
-        let port = PORT_SEQ.fetch_add(1, Ordering::Relaxed);
-        let base = format!("http://127.0.0.1:{port}");
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let base = format!("http://{}", listener.local_addr().unwrap());
         thread::spawn(move || {
-            let listener = TcpListener::bind(format!("127.0.0.1:{port}")).unwrap();
             let (mut stream, _) = listener.accept().unwrap();
             let mut buf = [0; 4096];
             let _ = stream.read(&mut buf).unwrap();
