@@ -230,7 +230,7 @@ fn non_empty(value: String) -> Option<String> {
 }
 
 fn extract_folder_year(name: &str) -> Option<String> {
-    Regex::new(r"(?:^|[《「【\[(（])\s*((?:19|20)\d{2})(?:\s*[-.]|[^\d]|$)")
+    Regex::new(r"(?:^|[《〈「『])\s*((?:19|20)\d{2})(?:\s*[-.]|[^\d]|$)")
         .expect("valid folder year regex")
         .captures(name)
         .and_then(|captures| captures.get(1))
@@ -2020,6 +2020,11 @@ mod tests {
             .join("../test/fixtures/tauri/media-corpus/minimal.flac")
     }
 
+    fn corpus_wav() -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../test/fixtures/tauri/media-corpus/minimal.wav")
+    }
+
     fn track(title: &str, artist: &str) -> TrackCandidate {
         TrackCandidate {
             title: Some(title.into()),
@@ -2035,6 +2040,16 @@ mod tests {
             extract_folder_year("张卫健-《1993-真挚的朋友精选》[WAV 分轨]").as_deref(),
             Some("1993")
         );
+    }
+
+    #[test]
+    fn folder_year_does_not_read_parenthesized_remaster_annotation() {
+        assert_eq!(extract_folder_year("Album (2004 remaster)"), None);
+    }
+
+    #[test]
+    fn folder_year_does_not_read_bracketed_mix_annotation() {
+        assert_eq!(extract_folder_year("Album [1993 Mix]"), None);
     }
 
     #[test]
@@ -3460,6 +3475,70 @@ mod tests {
         assert_eq!(written, 1);
         let read = crate::commands::tracks::read_track_metadata(&track_path).unwrap();
         assert_eq!(read.year.as_deref(), Some("2008"));
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn cached_candidate_without_year_uses_quoted_folder_year_for_wav_write() {
+        let root = temp_root();
+        let album = root.join("张卫健/张卫健-《1993-真挚的朋友精选》[WAV 分轨]");
+        fs::create_dir_all(&album).unwrap();
+        let track_path = album.join("(03) [刘德华] 重赐我生命.wav");
+        fs::copy(corpus_wav(), &track_path).unwrap();
+
+        let cache = CacheState::new(root.clone());
+        assert!(cache.initialize(Some(root.join("cache.db").to_str().unwrap())));
+        let request = build_lookup_request(&album).unwrap();
+        let cached = AlbumCandidate {
+            artist: Some("张卫健".into()),
+            album: request.album_hint.clone(),
+            year: None,
+            source: LookupSource::Musicbrainz,
+            ..AlbumCandidate::default()
+        };
+        cache
+            .set_lookup(
+                &query_hash(&request),
+                &serde_json::to_value(&request).unwrap(),
+                &serde_json::to_value(vec![cached]).unwrap(),
+                "musicbrainz",
+            )
+            .unwrap();
+
+        let config = AutoTagConfig {
+            remote_lookup_enabled: Some(false),
+            discogs_enabled: Some(false),
+            ..AutoTagConfig::default()
+        };
+        let queue = WriteQueue::default();
+        let cancelled = AtomicBool::new(false);
+        let mut reports = Vec::new();
+        let result = resolve_and_apply_album(
+            &album,
+            &config,
+            AutoTagServices {
+                providers: &ProviderState::new(),
+                cache: &cache,
+                queue: &queue,
+                alias_file: &root.join("artist-aliases.json"),
+            },
+            &cancelled,
+            |_, _| {},
+            |kind, message, data| reports.push((kind.to_string(), message, data)),
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(result.candidate.source, LookupSource::Musicbrainz);
+        assert_eq!(result.candidate.year.as_deref(), Some("1993"));
+        assert_eq!(result.written, 1);
+        assert!(reports.iter().any(|(kind, _, data)| {
+            kind == "source"
+                && data.as_ref().and_then(|data| data.get("source"))
+                    == Some(&serde_json::json!("cache"))
+        }));
+        let written = crate::commands::tracks::read_track_metadata(&track_path).unwrap();
+        assert_eq!(written.year.as_deref(), Some("1993"));
         fs::remove_dir_all(root).unwrap();
     }
 

@@ -20,6 +20,9 @@ _Avoid_: Guess, fallback
 **Write Authority**:
 The level of trust required for a source to write a specific tag field to disk.
 Different fields can require different write authority.
+For Year, an explicit 19xx/20xx year at the start of the album folder or a
+quoted album title is write authority only when no accepted higher-confidence
+provider supplies Year.
 _Avoid_: Lookup hint, candidate
 
 **Tag Noise**:
