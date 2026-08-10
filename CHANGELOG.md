@@ -14,6 +14,10 @@ desktop release.
 
 ### Added
 
+- **Offline assistant organization previews** — unambiguous requests to group
+  files into album folders now create a preview without requiring an LLM
+  connection.
+
 - **Isolated advisor consultations** — project agents can explicitly consult a
   separate Codex or Claude session with bounded evidence, filtered environment
   access, and no workspace tools before the main agent decides how to proceed.

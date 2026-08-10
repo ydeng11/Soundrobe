@@ -18,6 +18,7 @@
 use crate::commands::assistant::AssistantSendInput;
 use crate::state::assistant_task::{ResolvedIntent, ScopePredicate, SessionState};
 use serde_json::Value;
+use std::path::Path;
 
 /// The result of deterministic parsing: either a resolved intent with scope
 /// and action details, or a `NotRouted` that defers to the LLM.
@@ -46,6 +47,7 @@ pub enum IntentKind {
     ClearField,
     SetMissing,
     SplitArtists,
+    GroupByAlbum,
 }
 
 /// Native per-track sources a field value can be derived from.
@@ -66,6 +68,8 @@ impl ValueSource {
 #[derive(Debug, Clone, PartialEq)]
 pub enum ScopeHint {
     Selected,
+    /// Use selected tracks, then the active album, then all loaded tracks.
+    ActiveScope,
     #[allow(dead_code)]
     ActiveAlbum,
     Library,
@@ -580,6 +584,22 @@ fn is_unsupported_derivation(text: &str) -> bool {
 /// commands can be resolved.
 pub fn route_message(message: &str, referent: Option<&SessionState>) -> Option<RoutedCommand> {
     let lower = message.to_lowercase();
+    if lower.contains("album")
+        && ["group", "organize", "organise"]
+            .iter()
+            .any(|word| lower.contains(word))
+        && ["folder", "file"].iter().any(|word| lower.contains(word))
+    {
+        return Some(RoutedCommand {
+            intent: IntentKind::GroupByAlbum,
+            field: Some("album".to_string()),
+            value: None,
+            value_from: None,
+            only_if_missing: false,
+            scope_hint: ScopeHint::ActiveScope,
+            uses_referent: false,
+        });
+    }
     let requests_selected_artists_repair = lower.contains("selected")
         && lower
             .split(|character: char| !character.is_alphanumeric())
@@ -766,6 +786,24 @@ pub fn resolve_scope(
 ) -> Vec<String> {
     match &command.scope_hint {
         ScopeHint::Selected => input.selected_track_paths.clone(),
+        ScopeHint::ActiveScope => {
+            if !input.selected_track_paths.is_empty() {
+                input.selected_track_paths.clone()
+            } else {
+                input
+                    .tracks
+                    .iter()
+                    .filter_map(|track| track.get("path").and_then(Value::as_str))
+                    .filter(|path| {
+                        input
+                            .active_album_path
+                            .as_deref()
+                            .is_none_or(|album| Path::new(path).parent() == Some(Path::new(album)))
+                    })
+                    .map(str::to_string)
+                    .collect()
+            }
+        }
         ScopeHint::ActiveAlbum => input
             .tracks
             .iter()
@@ -849,6 +887,7 @@ pub fn resolved_intent_from_command(command: &RoutedCommand) -> ResolvedIntent {
             }
         }
         IntentKind::SplitArtists => ResolvedIntent::NotRouted,
+        IntentKind::GroupByAlbum => ResolvedIntent::NotRouted,
     }
 }
 
@@ -873,6 +912,75 @@ mod tests {
         assert_eq!(routed.intent, IntentKind::SplitArtists);
         assert_eq!(routed.field.as_deref(), Some("artists"));
         assert_eq!(routed.scope_hint, ScopeHint::Selected);
+    }
+
+    #[test]
+    fn routes_unambiguous_album_folder_grouping_without_an_llm() {
+        let routed = route_message("group files into album folders", None).unwrap();
+
+        assert_eq!(routed.intent, IntentKind::GroupByAlbum);
+        assert_eq!(routed.field.as_deref(), Some("album"));
+        assert_eq!(routed.scope_hint, ScopeHint::ActiveScope);
+    }
+
+    #[test]
+    fn group_by_album_uses_active_scope_fallbacks() {
+        let routed = route_message("group files into album folders", None).unwrap();
+        let input = |selected_track_paths, active_album_path, tracks| AssistantSendInput {
+            selected_track_paths,
+            active_album_path,
+            tracks,
+            ..Default::default()
+        };
+
+        assert_eq!(
+            resolve_scope(
+                &routed,
+                &input(
+                    vec!["/music/Selected/song.flac".into()],
+                    Some("/music/Album".into()),
+                    vec![
+                        serde_json::json!({"path": "/music/Selected/song.flac"}),
+                        serde_json::json!({"path": "/music/Album/album.flac"}),
+                    ],
+                ),
+                None,
+            ),
+            vec!["/music/Selected/song.flac"]
+        );
+        assert_eq!(
+            resolve_scope(
+                &routed,
+                &input(
+                    Vec::new(),
+                    Some("/music/Album".into()),
+                    vec![
+                        serde_json::json!({"path": "/music/Album/album.flac"}),
+                        serde_json::json!({"path": "/music/Other/other.flac"}),
+                    ],
+                ),
+                None,
+            ),
+            vec!["/music/Album/album.flac"]
+        );
+        assert_eq!(
+            resolve_scope(
+                &routed,
+                &input(
+                    Vec::new(),
+                    None,
+                    vec![
+                        serde_json::json!({"path": "/music/Album/album.flac"}),
+                        serde_json::json!({"path": "/music/Other/other.flac"}),
+                    ],
+                ),
+                None,
+            ),
+            vec![
+                "/music/Album/album.flac".to_string(),
+                "/music/Other/other.flac".to_string()
+            ]
+        );
     }
 
     #[test]

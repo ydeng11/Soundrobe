@@ -538,6 +538,17 @@ pub async fn assistant_send(
 
             // ── Dispatch by intent kind ────────────────────────────
             let execution = match routed.intent {
+                crate::commands::assistant_intent::IntentKind::GroupByAlbum => {
+                    execute_existing_assistant_macro(
+                        "group_by_album",
+                        &serde_json::json!({
+                            "target_scope": "explicit_paths",
+                            "paths": scope_paths,
+                        }),
+                        &input,
+                        &session_id_for_state,
+                    )
+                }
                 crate::commands::assistant_intent::IntentKind::SetField
                 | crate::commands::assistant_intent::IntentKind::SetMissing => {
                     let value = match value {
@@ -2138,7 +2149,7 @@ fn execute_existing_assistant_macro(
         return mutating_tool_no_changes("No changes are needed.");
     }
     let summary = format!("Preview {} action(s) from {name}", actions.len());
-    let batch = assistant_batch(
+    let mut batch = assistant_batch(
         session_id,
         kind,
         title,
@@ -2147,6 +2158,9 @@ fn execute_existing_assistant_macro(
         std::mem::take(&mut actions),
         true,
     );
+    if kind == "folder-move" {
+        batch.library_root = input.library_path.clone();
+    }
     mutating_tool_execution(
         format!("Preview created ({}): {summary}", batch.id),
         None,
@@ -7598,6 +7612,31 @@ mod assistant_behaviour_tests {
         };
         let paths = tool_scope_paths(&input, &json!({"target_scope": "selected"})).unwrap();
         assert_eq!(paths, vec!["/a.mp3"]);
+    }
+
+    #[test]
+    fn group_by_album_preview_carries_library_root() {
+        let input = AssistantSendInput {
+            library_path: Some("/music".into()),
+            selected_track_paths: vec!["/music/Loose/song.flac".into()],
+            tracks: vec![json!({
+                "path": "/music/Loose/song.flac",
+                "album": "Album"
+            })],
+            ..Default::default()
+        };
+        let execution = execute_mutating_assistant_tool(
+            "group_by_album",
+            &json!({"target_scope": "selected"}),
+            &input,
+            "session",
+        );
+
+        assert!(execution.result.ok, "{}", execution.result.summary);
+        assert_eq!(
+            execution.batches[0].library_root.as_deref(),
+            Some("/music")
+        );
     }
 
     #[test]
