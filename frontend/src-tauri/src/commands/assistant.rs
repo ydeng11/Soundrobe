@@ -282,7 +282,8 @@ async fn execute_native_assistant_tool(
                 .as_deref()
                 .map(PathBuf::from)
                 .or_else(|| {
-                    dirs::home_dir().map(|home| home.join(".auto-tagger/dataset-index.sqlite"))
+                    dirs::home_dir()
+                        .map(|home| crate::state::paths::canonical_path(&home, "dataset-index.sqlite"))
                 });
             let status = path
                 .as_deref()

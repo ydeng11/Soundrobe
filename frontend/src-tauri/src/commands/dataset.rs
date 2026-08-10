@@ -1,6 +1,7 @@
 //! Read-only local dataset status.
 
 use crate::state::config::ConfigState;
+use crate::state::paths::canonical_path;
 use rusqlite::{Connection, OpenFlags};
 use serde::Serialize;
 use std::path::{Path, PathBuf};
@@ -32,7 +33,7 @@ pub fn dataset_status(config: State<'_, ConfigState>) -> DatasetStatus {
     let path = raw
         .dataset_path
         .map(PathBuf::from)
-        .or_else(|| dirs::home_dir().map(|home| home.join(".auto-tagger/dataset-index.sqlite")));
+        .or_else(|| dirs::home_dir().map(|home| canonical_path(&home, "dataset-index.sqlite")));
     path.map_or_else(DatasetStatus::unavailable, |path| dataset_status_at(&path))
 }
 

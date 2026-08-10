@@ -1,5 +1,5 @@
 # Soundrobe configuration
-# Copy to ~/.auto-tagger/config.yaml.
+# Copy to ~/.soundrobe/config.yaml.
 
 # OpenRouter credentials. Environment alternatives: LLM_API_KEY and LLM_MODEL.
 # llm_api_key: sk-or-v1-...
@@ -13,7 +13,7 @@ discogs_enabled: true
 
 # Optional local MusicMoveArr SQLite index. The app continues without it when
 # the path is absent or invalid.
-dataset_path: ~/.auto-tagger/dataset-index.sqlite
+dataset_path: ~/.soundrobe/dataset-index.sqlite
 
 # Debug and lyrics behavior.
 debug: false

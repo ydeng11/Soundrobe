@@ -95,17 +95,21 @@ user-visible changes between releases.
 
 ## Configuration, persistence, and logs
 
-The root `.env.local` is ignored by Git and loaded by `just` for local commands. Use it for development-only process environment variables such as `LLM_API_KEY` and `LLM_MODEL`; never commit it, print its values, or expose them through renderer responses. User-editable application settings remain in `~/.auto-tagger/config.yaml`, with process environment precedence handled by the Rust config state.
+The root `.env.local` is ignored by Git and loaded by `just` for local commands. Use it for development-only process environment variables such as `LLM_API_KEY` and `LLM_MODEL`; never commit it, print its values, or expose them through renderer responses. User-editable application settings are stored in `~/.soundrobe/config.yaml`, with process environment precedence handled by the Rust config state. On startup, the app migrates the legacy `~/.auto-tagger` directory into `.soundrobe` before reading configuration.
 
 Use existing user data in place; do not reset or migrate formats silently:
 
-- `~/.auto-tagger/config.yaml`
-- `~/.auto-tagger/cache.db`
-- `~/.auto-tagger/dataset-index.sqlite`
-- `~/.auto-tagger/artist-aliases.json`
-- `~/.auto-tagger/window-state.json`
-- `~/.auto-tagger/auto-tagger.log`
-- `~/.auto-tagger/auto-tag-debug-YYYY-MM-DD.log`
+- `~/.soundrobe/config.yaml`
+- `~/.soundrobe/cache.db`
+- `~/.soundrobe/dataset-index.sqlite`
+- `~/.soundrobe/artist-aliases.json`
+- `~/.soundrobe/window-state.json`
+- `~/.soundrobe/auto-tagger.log`
+- `~/.soundrobe/auto-tag-debug-YYYY-MM-DD.log`
+
+The legacy directory is removed only after migration succeeds. If migration
+fails, startup fails loudly and the legacy directory remains available for a
+retry; the app never silently falls back to reading two directories.
 
 For active-app troubleshooting, inspect the Tauri process, the current debug log, config, cache tables, and Vite at `http://localhost:5173/`. Use copied real media under `/private/tmp` for live read/write validation; never mutate the original music library during verification.
 

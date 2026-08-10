@@ -357,7 +357,7 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
                   />
                   <ToggleRow
                     label="Debug Mode"
-                    description="Verbose logging to DevTools console and ~/.auto-tagger/auto-tag-debug-*.log"
+                    description="Verbose logging to DevTools console and ~/.soundrobe/auto-tag-debug-*.log"
                     checked={settings.debug}
                     onChange={(v) => setSettings({ ...settings, debug: v })}
                   />

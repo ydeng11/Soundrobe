@@ -92,8 +92,8 @@ fn guarded_default_menu<R: tauri::Runtime>(
 }
 
 /// Initialise structured logging to stderr and append the same records to the
-/// existing `~/.auto-tagger/auto-tagger.log`. `SOUNDROBE_LOG` controls the
-/// filter without changing the persisted path.
+/// `~/.soundrobe/auto-tagger.log`. `SOUNDROBE_LOG` controls the filter without
+/// changing the persisted path.
 pub fn init_logging() {
     let filter = EnvFilter::try_from_env("SOUNDROBE_LOG")
         .unwrap_or_else(|_| EnvFilter::new("soundrobe=debug,info"));
@@ -149,11 +149,14 @@ pub fn run() {
 
     let app = builder
         .setup(|app| {
-            // Managed config: load once from ~/.auto-tagger/config.yaml + env,
+            // Migrate legacy application data before loading the managed
+            // config from ~/.soundrobe/config.yaml + env,
             // mirroring Electron's `initializeAssistantServices(getRawApi
             // Config())` config bootstrapping (the full auto-tag TaskManager
             // port lands in a later slice; config is the first managed state).
             if let Some(home) = dirs::home_dir() {
+                crate::state::paths::migrate_legacy_dir(&home)
+                    .map_err(|error| -> Box<dyn std::error::Error> { Box::new(error) })?;
                 let config = ConfigState::init(home.clone());
                 let raw_config = config.raw();
                 let debug_enabled = raw_config.debug.unwrap_or(false);
@@ -166,7 +169,7 @@ pub fn run() {
                     .cache_path
                     .as_deref()
                     .map(std::path::PathBuf::from)
-                    .unwrap_or_else(|| home.join(".auto-tagger/cache.db"));
+                    .unwrap_or_else(|| crate::state::paths::canonical_path(&home, "cache.db"));
                 let task_state = crate::state::assistant_task::AssistantTaskState::new(task_path);
                 let _ = task_state.initialize();
                 app.manage(task_state);
@@ -177,7 +180,7 @@ pub fn run() {
             } else {
                 // Fallback: manage a default task state even without home.
                 let task_state = crate::state::assistant_task::AssistantTaskState::new(
-                    std::path::PathBuf::from(".auto-tagger/cache.db"),
+                    std::path::PathBuf::from(".soundrobe/cache.db"),
                 );
                 let _ = task_state.initialize();
                 app.manage(task_state);
@@ -321,7 +324,7 @@ fn cancel_pending_operations(app: &tauri::AppHandle) {
 }
 
 /// Apply saved startup geometry (with off-screen recovery) and persist
-/// `~/.auto-tagger/window-state.json` on
+/// `~/.soundrobe/window-state.json` on
 /// resize/move/maximize/close. Mirrors `electron/main.ts` createWindow + the
 /// debounced savers + save-on-close behavior, using the same file in place.
 fn wire_window_lifecycle(window: Option<tauri::WebviewWindow>) {

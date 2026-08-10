@@ -13,6 +13,8 @@ use time::format_description::well_known::Rfc3339;
 use time::OffsetDateTime;
 use tracing_subscriber::fmt::MakeWriter;
 
+use crate::state::paths::app_dir;
+
 #[derive(Clone)]
 pub(crate) struct GeneralLogWriter {
     file: Arc<Mutex<File>>,
@@ -53,7 +55,7 @@ impl<'a> MakeWriter<'a> for GeneralLogWriter {
 pub(crate) fn general_log_writer(
     home: &std::path::Path,
 ) -> io::Result<(PathBuf, GeneralLogWriter)> {
-    let directory = home.join(".auto-tagger");
+    let directory = app_dir(home);
     fs::create_dir_all(&directory)?;
     let path = directory.join("auto-tagger.log");
     let file = OpenOptions::new().create(true).append(true).open(&path)?;
@@ -92,7 +94,7 @@ pub struct DebugState {
 impl DebugState {
     pub fn new(home: PathBuf, enabled: bool) -> Self {
         let state = Self {
-            log_dir: home.join(".auto-tagger"),
+            log_dir: app_dir(&home),
             inner: Mutex::new(DebugInner {
                 enabled: false,
                 log_file: None,
@@ -201,7 +203,7 @@ mod tests {
         state.set_enabled(true);
         assert!(state.enabled());
         let path = state.log_file().unwrap();
-        assert!(path.starts_with(home.join(".auto-tagger")));
+        assert!(path.starts_with(home.join(".soundrobe")));
         assert!(path
             .file_name()
             .unwrap()
@@ -227,7 +229,7 @@ mod tests {
     #[test]
     fn general_log_writer_appends_in_place_without_truncating() {
         let home = home();
-        let directory = home.join(".auto-tagger");
+        let directory = home.join(".soundrobe");
         fs::create_dir_all(&directory).unwrap();
         let path = directory.join("auto-tagger.log");
         fs::write(&path, b"previous session\n").unwrap();

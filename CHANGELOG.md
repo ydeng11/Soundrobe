@@ -62,10 +62,11 @@ desktop release.
 - **Format support** — atomic readers/writers for MP3, FLAC, M4A/MP4,
   OGG/Opus, APEv2, WAV, and AIFF; FLAC covers stored as native `PICTURE`
   blocks; legacy UTF-16 MP3 artwork; WAV reads prefer ID3v2 over LIST INFO.
-- **Configuration** — unified `~/.auto-tagger/config.yaml` with environment
+- **Configuration** — unified `~/.soundrobe/config.yaml` with environment
   precedence and secret redaction, LLM provider selection with a test
   connection, `AUTO_TAG_CHINESE_SCRIPT` for Simplified/Traditional conversion,
-  and configurable write concurrency.
+  and configurable write concurrency. Existing `~/.auto-tagger` application
+  data is migrated into the new directory on startup.
 - **Diagnostics** — real-write probe that tests the write path against a copy
   of a track, and a volume write-probe command.
 - **UI** — tabbed settings, audit panel with findings highlighted in the track
@@ -87,8 +88,9 @@ desktop release.
 - **Application rewritten** — the project moved from the Python `auto-tag`
   CLI to the Tauri desktop application; the intermediate Electron prototype
   was dropped in favor of the native Rust shell.
-- **Configuration path** — consolidated to the single canonical
-  `~/.auto-tagger/config.yaml`; renderer responses redact secrets.
+- **Configuration path** — the canonical configuration and application-data
+  directory is now `~/.soundrobe`; existing `~/.auto-tagger` data is migrated
+  there before the legacy directory is removed.
 
 ### Fixed
 

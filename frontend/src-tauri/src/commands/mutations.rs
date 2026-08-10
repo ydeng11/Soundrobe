@@ -865,7 +865,7 @@ async fn batch_write_grouped(
     //    Cap concurrent folder workers at 4 by default. Controlled local and
     //    SMB benchmarks both improved through four workers after per-file I/O
     //    amplification was removed. The user can override
-    //    via `write_concurrency` in ~/.auto-tagger/config.yaml or the
+    //    via `write_concurrency` in ~/.soundrobe/config.yaml or the
     //    AUTO_TAG_WRITE_CONCURRENCY environment variable (e.g. 8 for
     //    local NVMe).
     let max_concurrency = effective_write_concurrency(

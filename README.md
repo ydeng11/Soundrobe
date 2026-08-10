@@ -155,10 +155,12 @@ see `just --list` for the available gates.
 
 ## Configuration
 
-Copy `config.example.yaml` to `~/.auto-tagger/config.yaml` and set only the
+Copy `config.example.yaml` to `~/.soundrobe/config.yaml` and set only the
 providers and behavior you use. Secrets can instead be supplied through the
 environment variables documented in that example. Environment values take
 precedence over the config file, and secrets remain in the native process.
+Existing settings under `~/.auto-tagger` are migrated into `~/.soundrobe` on
+startup. The old directory is removed only after the migration succeeds.
 
 The optional local dataset is read from `dataset_path`. If it is absent or
 invalid, the app reports it as unavailable and continues with enabled remote

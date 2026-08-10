@@ -166,7 +166,7 @@ export function prepareE2eWorkspace(): E2eWorkspace {
   ]) {
     fs.mkdirSync(directory, { recursive: true });
   }
-  const appData = path.join(home, ".auto-tagger");
+  const appData = path.join(home, ".soundrobe");
   fs.mkdirSync(appData, { recursive: true });
   fs.writeFileSync(
     path.join(appData, "config.yaml"),

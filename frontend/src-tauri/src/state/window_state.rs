@@ -1,4 +1,4 @@
-//! `~/.auto-tagger/window-state.json` persistence and off-screen recovery.
+//! `~/.soundrobe/window-state.json` persistence and off-screen recovery.
 //!
 //! Pure logic ported from `electron/main.ts`:
 //!   - persists `{ x, y, width, height, isMaximized }` to the same file in place
@@ -17,6 +17,8 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
+
+use super::paths::canonical_path;
 
 /// Defaults from Electron's `createWindow`: `1200 x 800`.
 pub const DEFAULT_WIDTH: i32 = 1200;
@@ -126,9 +128,9 @@ impl WindowState {
         }
     }
 
-    /// Path to the persisted state. Same location Electron uses.
+    /// Canonical path to the persisted state used for new writes.
     pub fn path(home: &Path) -> PathBuf {
-        home.join(".auto-tagger").join("window-state.json")
+        canonical_path(home, "window-state.json")
     }
 
     /// Load the state, ignoring missing/corrupt files (Electron's `catch {}`).
@@ -155,6 +157,15 @@ impl WindowState {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn default_path_uses_soundrobe_directory() {
+        let home = Path::new("/tmp/soundrobe-window-home");
+        assert_eq!(
+            WindowState::path(home),
+            home.join(".soundrobe/window-state.json")
+        );
+    }
 
     fn disp(x: i32, y: i32, w: i32, h: i32) -> DisplayWorkArea {
         DisplayWorkArea {

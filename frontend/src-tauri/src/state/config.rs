@@ -1,4 +1,4 @@
-//! `~/.auto-tagger/config.yaml` — flat parser, env precedence, save-with
+//! `~/.soundrobe/config.yaml` — flat parser, env precedence, save-with
 //! preservation, and renderer-facing redaction.
 //!
 //! Faithful port of `electron/handlers/auto-tag.ts` (loadConfig / saveConfig /
@@ -17,6 +17,8 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, MutexGuard};
+
+use super::paths::canonical_path;
 
 /// Resolved app configuration. Fields mirror `AutoTagConfig`.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -77,9 +79,9 @@ impl Env for EnvMap {
     }
 }
 
-/// `~/.auto-tagger/config.yaml` path (electron returns this single path).
+/// Canonical `~/.soundrobe/config.yaml` path used for new writes.
 pub fn config_file_path(home: &Path) -> PathBuf {
-    home.join(".auto-tagger").join("config.yaml")
+    canonical_path(home, "config.yaml")
 }
 
 /// Load config from a flat YAML body plus environment overrides. Mirrors
@@ -378,7 +380,7 @@ pub fn redacted(config: &AutoTagConfig) -> Value {
     })
 }
 
-/// Load config from the on-disk YAML at `home/.auto-tagger/config.yaml` plus an
+/// Load config from the on-disk YAML at `home/.soundrobe/config.yaml` plus an
 /// env. Missing/unreadable file yields the empty text (defaults), matching
 /// Electron's behavior when no config exists yet.
 fn load_from_disk(home: &Path, env: &dyn Env) -> AutoTagConfig {
@@ -403,7 +405,7 @@ pub struct ConfigState {
 }
 
 impl ConfigState {
-    /// Load config from `~/.auto-tagger/config.yaml` + the real process env.
+    /// Load config from `~/.soundrobe/config.yaml` + the real process env.
     pub fn init(home: PathBuf) -> Self {
         Self::init_with_env(home, Arc::new(ProcessEnv))
     }
@@ -449,7 +451,7 @@ impl ConfigState {
     }
 
     pub fn alias_file_path(&self) -> PathBuf {
-        self.home.join(".auto-tagger").join("artist-aliases.json")
+        canonical_path(&self.home, "artist-aliases.json")
     }
 
     /// Reload config from disk + env (matches `refreshConfig()`). On a poisoned
@@ -630,15 +632,15 @@ mod tests {
                 .unwrap()
                 .as_nanos()
         ));
-        std::fs::create_dir_all(dir.join(".auto-tagger")).unwrap();
+        std::fs::create_dir_all(dir.join(".soundrobe")).unwrap();
         std::fs::write(
-            dir.join(".auto-tagger").join("config.yaml"),
+            dir.join(".soundrobe").join("config.yaml"),
             "debug: true\n",
         )
         .unwrap();
         save_config(&dir, "notARealKey", &json!("x")).unwrap();
         let written =
-            std::fs::read_to_string(dir.join(".auto-tagger").join("config.yaml")).unwrap();
+            std::fs::read_to_string(dir.join(".soundrobe").join("config.yaml")).unwrap();
         assert_eq!(written, "debug: true\n");
     }
 
@@ -709,7 +711,7 @@ mod tests {
     #[test]
     fn config_state_init_loads_disk_and_env() {
         let home = cfg_home();
-        fs::create_dir_all(home.join(".auto-tagger")).unwrap();
+        fs::create_dir_all(home.join(".soundrobe")).unwrap();
         fs::write(config_file_path(&home), "llm_model: gpt-4\ndebug: true\n").unwrap();
         let env = EnvMap::new().set("LLM_API_KEY", "env-override");
         let state = ConfigState::init_with_env(home, Arc::new(env));
@@ -739,9 +741,76 @@ mod tests {
     }
 
     #[test]
-    fn config_state_refresh_picks_up_external_file_change() {
+    fn migrated_config_is_read_and_first_save_stays_in_soundrobe() {
+        let home = cfg_home();
+        let legacy_dir = home.join(".auto-tagger");
+        fs::create_dir_all(&legacy_dir).unwrap();
+        fs::write(
+            legacy_dir.join("config.yaml"),
+            "llm_model: legacy-model\nremote_lookup_enabled: false\n",
+        )
+        .unwrap();
+        crate::state::paths::migrate_legacy_dir(&home).unwrap();
+        assert!(!legacy_dir.exists());
+
+        let state = ConfigState::init_with_env(home.clone(), Arc::new(EnvMap::new()));
+        assert_eq!(state.raw().llm_model.as_deref(), Some("legacy-model"));
+        assert_eq!(state.raw().remote_lookup_enabled, Some(false));
+
+        state.set("debug", &json!(true));
+
+        let canonical = home.join(".soundrobe/config.yaml");
+        assert_eq!(
+            fs::read_to_string(&canonical).unwrap(),
+            "llm_model: legacy-model\nremote_lookup_enabled: false\n\ndebug: true\n"
+        );
+    }
+
+    #[test]
+    fn migration_keeps_canonical_config_when_both_paths_exist() {
         let home = cfg_home();
         fs::create_dir_all(home.join(".auto-tagger")).unwrap();
+        fs::create_dir_all(home.join(".soundrobe")).unwrap();
+        fs::write(
+            home.join(".auto-tagger/config.yaml"),
+            "llm_model: legacy-model\n",
+        )
+        .unwrap();
+        fs::write(
+            home.join(".soundrobe/config.yaml"),
+            "llm_model: soundrobe-model\n",
+        )
+        .unwrap();
+        crate::state::paths::migrate_legacy_dir(&home).unwrap();
+
+        let state = ConfigState::init_with_env(home, Arc::new(EnvMap::new()));
+        assert_eq!(state.raw().llm_model.as_deref(), Some("soundrobe-model"));
+    }
+
+    #[test]
+    fn migrated_aliases_are_saved_in_soundrobe() {
+        let home = cfg_home();
+        fs::create_dir_all(home.join(".auto-tagger")).unwrap();
+        fs::write(
+            home.join(".auto-tagger/artist-aliases.json"),
+            r#"{"existing":["Keep"]}"#,
+        )
+        .unwrap();
+        crate::state::paths::migrate_legacy_dir(&home).unwrap();
+
+        let state = ConfigState::init_with_env(home.clone(), Arc::new(EnvMap::new()));
+        let path = state.alias_file_path();
+        assert_eq!(path, home.join(".soundrobe/artist-aliases.json"));
+        crate::infra::aliases::save_alias(&path, "existing", "Added").unwrap();
+        let aliases: Value = serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
+        assert_eq!(aliases["existing"], json!(["Keep", "Added"]));
+        assert!(!home.join(".auto-tagger").exists());
+    }
+
+    #[test]
+    fn config_state_refresh_picks_up_external_file_change() {
+        let home = cfg_home();
+        fs::create_dir_all(home.join(".soundrobe")).unwrap();
         fs::write(config_file_path(&home), "llm_model: old\n").unwrap();
         let state = ConfigState::init_with_env(home.clone(), Arc::new(EnvMap::new()));
         assert_eq!(state.raw().llm_model.as_deref(), Some("old"));
@@ -759,7 +828,7 @@ mod tests {
     #[test]
     fn redacted_fixture_matches_normalized_contract() {
         let home = cfg_home();
-        fs::create_dir_all(home.join(".auto-tagger")).unwrap();
+        fs::create_dir_all(home.join(".soundrobe")).unwrap();
         fs::write(
             config_file_path(&home),
             "llm_api_key: sk-or-v1-1234567890\n\
@@ -822,7 +891,7 @@ mod tests {
         );
         // refresh leaves the live state unchanged rather than silently writing
         // into a dead lock (std::Mutex poison cannot be cleared).
-        fs::create_dir_all(home.join(".auto-tagger")).unwrap();
+        fs::create_dir_all(home.join(".soundrobe")).unwrap();
         fs::write(config_file_path(&home), "llm_model: fresh\n").unwrap();
         state.refresh();
         assert_eq!(

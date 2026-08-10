@@ -8,6 +8,8 @@ use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use time::OffsetDateTime;
 
+use super::paths::canonical_path;
+
 const CACHE_SCHEMA: &str = r#"
 CREATE TABLE IF NOT EXISTS lookup_cache (
   query_hash TEXT PRIMARY KEY,
@@ -77,7 +79,7 @@ impl CacheState {
         }
         let path = configured_path
             .map(PathBuf::from)
-            .unwrap_or_else(|| self.home.join(".auto-tagger/cache.db"));
+            .unwrap_or_else(|| canonical_path(&self.home, "cache.db"));
         if let Some(parent) = path
             .parent()
             .filter(|parent| !parent.as_os_str().is_empty())
@@ -429,6 +431,50 @@ mod tests {
             assert_eq!(exists, 1, "{table}");
         }
         drop(connection);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn default_cache_uses_soundrobe_directory() {
+        let root = root();
+        let state = CacheState::new(root.clone());
+        assert!(state.initialize(None));
+        assert!(root.join(".soundrobe/cache.db").exists());
+        assert!(!root.join(".auto-tagger/cache.db").exists());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn migrated_legacy_cache_remains_the_default_read_write_database() {
+        let root = root();
+        let legacy = root.join(".auto-tagger/cache.db");
+        fs::create_dir_all(legacy.parent().unwrap()).unwrap();
+        open_cache(&legacy).unwrap();
+        super::super::paths::migrate_legacy_dir(&root).unwrap();
+
+        let state = CacheState::new(root.clone());
+        assert!(state.initialize(None));
+        assert!(state
+            .set_lookup(
+                "legacy-query",
+                &serde_json::json!({"query": "legacy"}),
+                &serde_json::json!({"result": "preserved"}),
+                "test"
+            )
+            .is_ok());
+
+        let canonical = root.join(".soundrobe/cache.db");
+        let connection = open_cache(&canonical).unwrap();
+        let response: String = connection
+            .query_row(
+                "SELECT response_json FROM lookup_cache WHERE query_hash = 'legacy-query'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(response, r#"{"result":"preserved"}"#);
+        assert!(canonical.exists());
+        assert!(!root.join(".auto-tagger").exists());
         fs::remove_dir_all(root).unwrap();
     }
 

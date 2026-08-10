@@ -11,11 +11,12 @@ pub mod assistant_task;
 pub mod audit;
 pub mod config;
 pub mod conversation;
+pub mod paths;
 pub mod providers;
 pub mod quit_guard;
 pub mod sqlite;
 pub mod tasks;
 pub mod write_queue;
 
-/// `~/.auto-tagger/window-state.json` persistence + off-screen recovery.
+/// `~/.soundrobe/window-state.json` persistence + off-screen recovery.
 pub mod window_state;

@@ -180,7 +180,7 @@ type Result<T> = std::result::Result<T, String>;
 /// Additive SQLite persistence for assistant session state.
 ///
 /// Shares the configured cache path with `ConversationState` and `CacheState`
-/// via the same `~/.auto-tagger/cache.db` database file.
+/// via the same `~/.soundrobe/cache.db` database file.
 pub struct AssistantTaskState {
     /// Path to the SQLite database.
     db_path: PathBuf,

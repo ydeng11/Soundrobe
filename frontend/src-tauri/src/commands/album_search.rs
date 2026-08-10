@@ -993,7 +993,7 @@ mod tests {
 
     fn config_with_chinese_script(target: Option<&str>) -> ConfigState {
         let home = temp_root();
-        std::fs::create_dir_all(home.join(".auto-tagger")).unwrap();
+        std::fs::create_dir_all(home.join(".soundrobe")).unwrap();
         let text = target
             .map(|target| format!("chinese_script: {target}\n"))
             .unwrap_or_default();

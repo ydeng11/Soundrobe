@@ -5,6 +5,8 @@ use serde::Serialize;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
+
+use super::paths::canonical_path;
 use std::time::{SystemTime, UNIX_EPOCH};
 use time::OffsetDateTime;
 use uuid::Uuid;
@@ -93,7 +95,7 @@ impl ConversationState {
         }
         let path = configured_cache_path
             .map(PathBuf::from)
-            .unwrap_or_else(|| self.home.join(".auto-tagger/cache.db"));
+            .unwrap_or_else(|| canonical_path(&self.home, "cache.db"));
         if ensure_parent(&path).is_err() {
             return false;
         }
@@ -356,7 +358,8 @@ mod tests {
         assert!(current.session_id.starts_with("session-"));
         assert_eq!(current.session_id.rsplit('-').next().unwrap().len(), 7);
         assert!(current.session_number.contains('-'));
-        assert!(root.join(".auto-tagger/cache.db").exists());
+        assert!(root.join(".soundrobe/cache.db").exists());
+        assert!(!root.join(".auto-tagger/cache.db").exists());
         let repeated = state.current().unwrap();
         assert!(state.initialize(None));
         assert_eq!(repeated, state.current().unwrap());
