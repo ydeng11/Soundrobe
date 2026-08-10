@@ -25,6 +25,7 @@ use std::borrow::Cow;
 use std::collections::HashMap;
 use std::fs::{self, File};
 use std::io::{Cursor, Read, Seek, SeekFrom, Write};
+use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
@@ -273,6 +274,13 @@ impl ExtraTagWriteReport {
 /// single folder worker. Albums larger than this are split into chunks so
 /// memory stays bounded and each chunk acts as a natural checkpoint.
 pub(crate) const SUBBATCH_SIZE: usize = 20;
+const DEFAULT_FOLDER_WRITE_CONCURRENCY: usize = 4;
+
+fn effective_write_concurrency(configured: Option<usize>) -> usize {
+    configured
+        .filter(|value| *value > 0)
+        .unwrap_or(DEFAULT_FOLDER_WRITE_CONCURRENCY)
+}
 
 /// Group a flat list of track updates by their parent album folder.
 ///
@@ -854,14 +862,15 @@ async fn batch_write_grouped(
     //    Within a folder, tracks are written in sub-batches of SUBBATCH_SIZE
     //    (sequential within the folder worker) to keep memory bounded.
     //
-    //    Cap concurrent folder workers at 2 by default to avoid I/O
-    //    thrashing on external/spinning volumes. The user can override
+    //    Cap concurrent folder workers at 4 by default. Controlled local and
+    //    SMB benchmarks both improved through four workers after per-file I/O
+    //    amplification was removed. The user can override
     //    via `write_concurrency` in ~/.auto-tagger/config.yaml or the
     //    AUTO_TAG_WRITE_CONCURRENCY environment variable (e.g. 8 for
     //    local NVMe).
-    let max_concurrency =
-        crate::state::config::resolve_write_concurrency(&dirs::home_dir().unwrap_or_default())
-            .unwrap_or(2);
+    let max_concurrency = effective_write_concurrency(
+        crate::state::config::resolve_write_concurrency(&dirs::home_dir().unwrap_or_default()),
+    );
     let io_quota = Arc::new(tokio::sync::Semaphore::new(max_concurrency));
     let mut handles = Vec::new();
     for (folder, folder_updates) in folder_groups {
@@ -1380,6 +1389,20 @@ fn try_flac_extra_tags_inplace(
     path: &Path,
     updates: &[ExtraTagUpdate],
 ) -> Result<Option<ExtraTagWriteReport>, ApiError> {
+    try_flac_prefix_update(path, |comments| apply_vorbis_extra_tags(comments, updates))
+}
+
+fn try_flac_canonical_prefix_update(
+    path: &Path,
+    patch: &TrackPatch,
+) -> Result<Option<ExtraTagWriteReport>, ApiError> {
+    try_flac_prefix_update(path, |comments| apply_vorbis_patch(comments, patch))
+}
+
+fn try_flac_prefix_update<F>(path: &Path, apply: F) -> Result<Option<ExtraTagWriteReport>, ApiError>
+where
+    F: FnOnce(&mut lofty::ogg::VorbisComments),
+{
     let Some(layout) = read_flac_prefix_layout(path)? else {
         return Ok(None);
     };
@@ -1398,7 +1421,7 @@ fn try_flac_extra_tags_inplace(
         .items()
         .map(|(key, value)| (key.to_string(), value.to_string()))
         .collect::<Vec<_>>();
-    apply_vorbis_extra_tags(&mut comments, updates);
+    apply(&mut comments);
     let expected_vendor = comments.vendor().to_string();
     let expected_items = comments
         .items()
@@ -1804,13 +1827,16 @@ fn write_id3_extra_tags_atomic(
     if wav {
         fix_wav_orphan_tail(&mut original);
     }
-    let mut file = File::open(path)?;
     let mut tag = if wav {
-        WavFile::read_from(&mut file, ParseOptions::new().read_properties(false))?
-            .id3v2()
-            .cloned()
-            .unwrap_or_default()
+        WavFile::read_from(
+            &mut Cursor::new(original.as_slice()),
+            ParseOptions::new().read_properties(false),
+        )?
+        .id3v2()
+        .cloned()
+        .unwrap_or_default()
     } else {
+        let mut file = File::open(path)?;
         MpegFile::read_from(&mut file, ParseOptions::new().read_properties(false))?
             .id3v2()
             .cloned()
@@ -1818,15 +1844,34 @@ fn write_id3_extra_tags_atomic(
     };
     apply_id3_extra_tags(&mut tag, updates);
     normalize_empty_id3_picture_descriptions(&mut tag);
+    let original_wav_ranges = if wav {
+        Some(
+            wav_data_ranges(&original)
+                .ok_or_else(|| ApiError::MediaSafety("invalid WAV chunk structure".to_string()))?,
+        )
+    } else {
+        None
+    };
     let temporary = sibling_temp_path(path);
     let result = (|| {
-        copy_file_data(path, &temporary)?;
+        write_loaded_file_data(&original, &temporary)?;
         tag.save_to_path(&temporary, WriteOptions::new())?;
         let candidate = fs::read(&temporary)?;
         let payload_equal = if wav {
-            let before = wav_data_payloads(&original)
-                .ok_or_else(|| ApiError::MediaSafety("invalid WAV chunk structure".to_string()))?;
-            wav_data_payloads(&candidate) == Some(before)
+            let candidate_ranges = wav_data_ranges(&candidate).ok_or_else(|| {
+                ApiError::MediaSafety("invalid written WAV chunk structure".to_string())
+            })?;
+            byte_ranges_match(
+                &original,
+                original_wav_ranges
+                    .as_deref()
+                    .expect("WAV ranges initialized above"),
+                &mut Cursor::new(candidate.as_slice()),
+                &candidate_ranges
+                    .iter()
+                    .map(|range| range.start as u64..range.end as u64)
+                    .collect::<Vec<_>>(),
+            )?
         } else {
             let before = mpeg_payload(&original)
                 .ok_or_else(|| ApiError::MediaSafety("invalid ID3v2 boundary".to_string()))?;
@@ -1913,11 +1958,11 @@ fn write_ogg_extra_tags_atomic(
         3
     };
     let original = fs::read(path)?;
-    let original_audio = ogg_audio_packets(&original, header_packets)
+    let original_audio = ogg_audio_packet_ranges(&original, header_packets)
         .ok_or_else(|| ApiError::MediaSafety("invalid OGG packet structure".to_string()))?;
     let temporary = sibling_temp_path(path);
     let result = (|| {
-        copy_file_data(path, &temporary)?;
+        write_loaded_file_data(&original, &temporary)?;
         let mut file = File::open(path)?;
         if extension.eq_ignore_ascii_case("opus") {
             let mut parsed =
@@ -1931,7 +1976,11 @@ fn write_ogg_extra_tags_atomic(
             parsed.save_to_path(&temporary, WriteOptions::new())?;
         }
         let candidate = fs::read(&temporary)?;
-        if ogg_audio_packets(&candidate, header_packets) != Some(original_audio) {
+        let candidate_audio =
+            ogg_audio_packet_ranges(&candidate, header_packets).ok_or_else(|| {
+                ApiError::MediaSafety("invalid written OGG packet structure".to_string())
+            })?;
+        if !payload_range_groups_equal(&original, &original_audio, &candidate, &candidate_audio) {
             return Err(ApiError::MediaSafety(
                 "OGG audio packets changed during extra-tag write".to_string(),
             ));
@@ -2137,16 +2186,14 @@ pub fn write_ape_atomic(path: &Path, patch: &TrackPatch) -> Result<TrackWriteOut
 /// Write WAV ID3 metadata through a validated sibling. RIFF chunk layout may
 /// change, but every PCM `data` payload must remain exact.
 pub fn write_wav_atomic(path: &Path, patch: &TrackPatch) -> Result<TrackWriteOutcome, ApiError> {
+    // Standard WAV metadata reads are seekable and bounded. Reading this
+    // before the owned source keeps the common path to one full source pass;
+    // compatibility layouts retain the established owned-reader fallback.
+    let before = read_track_metadata(path)?;
     let mut original_bytes = fs::read(path)?;
     fix_wav_orphan_tail(&mut original_bytes);
-    let original_audio = wav_data_payloads(&original_bytes)
+    let original_audio = wav_data_ranges(&original_bytes)
         .ok_or_else(|| ApiError::MediaSafety("invalid WAV chunk structure".to_string()))?;
-
-    // The ID3v2 tag sits before the first audio chunk in WAV.
-    // Compute the payload offset from the original (it's the first
-    // audio chunk minus the RIFF header overhead).
-    let total_audio_len: usize = original_audio.iter().map(|c| c.len()).sum();
-    let _payload_offset = original_bytes.len() - total_audio_len;
     // Strip verified all-zero terminal padding before any Lofty
     // write operation so the FourCC warning does not fire on
     // subsequent reads or during the write pipeline.
@@ -2159,12 +2206,13 @@ pub fn write_wav_atomic(path: &Path, patch: &TrackPatch) -> Result<TrackWriteOut
     // shared try_id3v2_inplace_update fast path.
 
     // Fallback: full rewrite via local scratch + atomic rename.
-    let before = read_track_metadata(path)?;
-    let mut file = File::open(path)?;
-    let parsed = WavFile::read_from(&mut file, ParseOptions::new().read_properties(false))?;
+    let parsed = WavFile::read_from(
+        &mut Cursor::new(original_bytes.as_slice()),
+        ParseOptions::new().read_properties(false),
+    )?;
     let mut tag = parsed.id3v2().cloned().unwrap_or_default();
-    preserve_omitted_list(&mut tag, path, "ARTISTS", &patch.artists);
-    preserve_omitted_list(&mut tag, path, "ALBUMARTISTS", &patch.album_artists);
+    preserve_omitted_list_from_tag(&mut tag, "ARTISTS", &patch.artists);
+    preserve_omitted_list_from_tag(&mut tag, "ALBUMARTISTS", &patch.album_artists);
     apply_patch(&mut tag, patch);
 
     let temporary = sibling_temp_path(path);
@@ -2173,19 +2221,20 @@ pub fn write_wav_atomic(path: &Path, patch: &TrackPatch) -> Result<TrackWriteOut
         // before saving, so the ID3v2 values are authoritative after write
         // (no stale INAM/IART/IPRD) and subsequent reads don't emit
         // "invalid FourCC" warnings from Lofty's IFF chunk parser.
-        let cleaned = strip_wav_list_chunk(&original_bytes);
-        fs::write(&temporary, &cleaned).map_err(|e| {
-            ApiError::Io(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                format!("write WAV staging: {e}"),
-            ))
-        })?;
+        let mut staging = File::create(&temporary)
+            .map_err(|e| ApiError::Io(std::io::Error::other(format!("create WAV staging: {e}"))))?;
+        write_wav_without_list_info(&original_bytes, &mut staging)
+            .map_err(|e| ApiError::Io(std::io::Error::other(format!("write WAV staging: {e}"))))?;
+        drop(staging);
         tag.save_to_path(&temporary, WriteOptions::new())?;
-        let candidate_bytes = fs::read(&temporary)?;
-        let candidate_audio = wav_data_payloads(&candidate_bytes).ok_or_else(|| {
-            ApiError::MediaSafety("invalid written WAV chunk structure".to_string())
-        })?;
-        if candidate_audio != original_audio {
+        let mut candidate = File::open(&temporary)?;
+        let candidate_len = candidate.metadata()?.len();
+        if !wav_payloads_match(
+            &original_bytes,
+            &original_audio,
+            &mut candidate,
+            candidate_len,
+        )? {
             return Err(ApiError::MediaSafety(
                 "WAV data payload changed during metadata write".to_string(),
             ));
@@ -2207,7 +2256,7 @@ pub fn write_wav_atomic(path: &Path, patch: &TrackPatch) -> Result<TrackWriteOut
 /// offsets may change, but every top-level `mdat` payload must remain exact.
 pub fn write_mp4_atomic(path: &Path, patch: &TrackPatch) -> Result<TrackWriteOutcome, ApiError> {
     let original_bytes = fs::read(path)?;
-    let original_media = mp4_mdat_payloads(&original_bytes)
+    let original_media = mp4_mdat_payload_ranges(&original_bytes)
         .ok_or_else(|| ApiError::MediaSafety("invalid MP4 atom structure".to_string()))?;
     let before = read_track_metadata(path)?;
     let mut file = File::open(path)?;
@@ -2219,13 +2268,18 @@ pub fn write_mp4_atomic(path: &Path, patch: &TrackPatch) -> Result<TrackWriteOut
 
     let temporary = sibling_temp_path(path);
     let result = (|| {
-        copy_file_data(path, &temporary)?;
+        write_loaded_file_data(&original_bytes, &temporary)?;
         parsed.save_to_path(&temporary, WriteOptions::new())?;
         let candidate_bytes = fs::read(&temporary)?;
-        let candidate_media = mp4_mdat_payloads(&candidate_bytes).ok_or_else(|| {
+        let candidate_media = mp4_mdat_payload_ranges(&candidate_bytes).ok_or_else(|| {
             ApiError::MediaSafety("invalid written MP4 atom structure".to_string())
         })?;
-        if candidate_media != original_media {
+        if !payload_ranges_equal(
+            &original_bytes,
+            &original_media,
+            &candidate_bytes,
+            &candidate_media,
+        ) {
             return Err(ApiError::MediaSafety(
                 "MP4 mdat payload changed during metadata write".to_string(),
             ));
@@ -2253,12 +2307,12 @@ pub fn write_ogg_atomic(path: &Path, patch: &TrackPatch) -> Result<TrackWriteOut
         .to_ascii_lowercase();
     let header_packets = if extension == "opus" { 2 } else { 3 };
     let original_bytes = fs::read(path)?;
-    let original_audio = ogg_audio_packets(&original_bytes, header_packets)
+    let original_audio = ogg_audio_packet_ranges(&original_bytes, header_packets)
         .ok_or_else(|| ApiError::MediaSafety("invalid OGG packet structure".to_string()))?;
     let before = read_track_metadata(path)?;
     let temporary = sibling_temp_path(path);
     let result = (|| {
-        copy_file_data(path, &temporary)?;
+        write_loaded_file_data(&original_bytes, &temporary)?;
         let mut file = File::open(path)?;
         let options = ParseOptions::new().read_properties(false);
         if extension == "opus" {
@@ -2271,11 +2325,16 @@ pub fn write_ogg_atomic(path: &Path, patch: &TrackPatch) -> Result<TrackWriteOut
             parsed.save_to_path(&temporary, WriteOptions::new())?;
         }
         let candidate_bytes = fs::read(&temporary)?;
-        let candidate_audio =
-            ogg_audio_packets(&candidate_bytes, header_packets).ok_or_else(|| {
+        let candidate_audio = ogg_audio_packet_ranges(&candidate_bytes, header_packets)
+            .ok_or_else(|| {
                 ApiError::MediaSafety("invalid written OGG packet structure".to_string())
             })?;
-        if candidate_audio != original_audio {
+        if !payload_range_groups_equal(
+            &original_bytes,
+            &original_audio,
+            &candidate_bytes,
+            &candidate_audio,
+        ) {
             return Err(ApiError::MediaSafety(
                 "OGG audio packets changed during metadata write".to_string(),
             ));
@@ -2296,6 +2355,17 @@ pub fn write_ogg_atomic(path: &Path, patch: &TrackPatch) -> Result<TrackWriteOut
 /// Write one FLAC through a validated sibling file. Unknown comments and
 /// pictures remain owned by Lofty's format-specific `FlacFile` representation.
 pub fn write_flac_atomic(path: &Path, patch: &TrackPatch) -> Result<TrackWriteOutcome, ApiError> {
+    if let Some(report) = try_flac_canonical_prefix_update(path, patch)? {
+        tracing::debug!(
+            path = %path.display(),
+            strategy = report.strategy.as_str(),
+            metadata_bytes_read = report.metadata_bytes_read,
+            metadata_bytes_written = report.metadata_bytes_written,
+            "FLAC canonical write done"
+        );
+        return Ok(report.outcome);
+    }
+
     let original_bytes = fs::read(path)?;
     let (prepared, repairs) = prepare_flac_source(&original_bytes)
         .ok_or_else(|| ApiError::MediaSafety("invalid FLAC metadata boundary".to_string()))?;
@@ -2303,26 +2373,6 @@ pub fn write_flac_atomic(path: &Path, patch: &TrackPatch) -> Result<TrackWriteOu
         .ok_or_else(|| ApiError::MediaSafety("invalid prepared FLAC boundary".to_string()))?;
     let original_audio_offset = prepared.len() - original_payload.len();
     let original_payload = original_payload.to_vec();
-
-    // Fast path: in-place metadata update when the new comment fits in
-    // the existing FLAC metadata area (STREAMINFO + VORBIS_COMMENT +
-    // PADDING).  On SMB this eliminates the full-file write over the
-    // network — only the kilobyte-scale metadata region is sent.
-    //
-    // NOTE: the extra-tag writer (`write_flac_extra_tags_atomic`) does
-    // NOT use this fast path yet — its apply-via-closure pattern has a
-    // subtle interaction with Lofty's VORBIS_COMMENT serialization that
-    // is not fully resolved.
-    if let Some(outcome) = try_flac_inplace_update(
-        path,
-        &prepared,
-        original_audio_offset,
-        &original_payload,
-        &repairs,
-        &|comments| apply_vorbis_patch(comments, patch),
-    )? {
-        return Ok(outcome);
-    }
 
     // Fallback: full rewrite via local scratch → SMB sibling staging →
     // atomic rename (used when metadata won't fit in the existing area
@@ -2360,6 +2410,23 @@ pub fn write_flac_atomic(path: &Path, patch: &TrackPatch) -> Result<TrackWriteOu
     })();
     if temporary.exists() {
         let _ = fs::remove_file(&temporary);
+    }
+    if let Ok(outcome) = result.as_ref() {
+        tracing::debug!(
+            path = %path.display(),
+            strategy = if *outcome == TrackWriteOutcome::Skipped {
+                ExtraTagWriteStrategy::Skipped.as_str()
+            } else {
+                ExtraTagWriteStrategy::FullRewrite.as_str()
+            },
+            source_bytes_read = original_bytes.len(),
+            file_bytes_written = if *outcome == TrackWriteOutcome::Replaced {
+                fs::metadata(path).map(|metadata| metadata.len()).unwrap_or_default()
+            } else {
+                0
+            },
+            "FLAC canonical write done"
+        );
     }
     result
 }
@@ -2468,7 +2535,7 @@ pub fn write_mp3_atomic(path: &Path, patch: &TrackPatch) -> Result<TrackWriteOut
 
     let temporary = sibling_temp_path(path);
     let result = (|| {
-        copy_file_data(path, &temporary)?;
+        write_loaded_file_data(&original_bytes, &temporary)?;
         tag.save_to_path(&temporary, WriteOptions::new())?;
 
         let candidate_bytes = fs::read(&temporary)?;
@@ -3026,6 +3093,47 @@ fn preserve_omitted_list(
     }
 }
 
+/// Preserve plural values already present in a parsed ID3 tag. WAV writers
+/// have the complete source buffer and tag in hand, so rereading the source
+/// through `id3_user_text_values` would transfer the PCM payload needlessly.
+fn preserve_omitted_list_from_tag(
+    tag: &mut Id3v2Tag,
+    description: &str,
+    patch: &Patch<StringList>,
+) {
+    if !matches!(patch, Patch::Omitted) {
+        return;
+    }
+
+    let mut values = Vec::new();
+    let mut descriptions = Vec::new();
+    for frame in &*tag {
+        if let Frame::UserText(frame) = frame {
+            if frame.description.eq_ignore_ascii_case(description) {
+                descriptions.push(frame.description.to_string());
+                values.extend(
+                    frame
+                        .content
+                        .split(';')
+                        .map(str::trim)
+                        .filter(|value| !value.is_empty())
+                        .map(ToOwned::to_owned),
+                );
+            }
+        }
+    }
+    if values.is_empty() {
+        return;
+    }
+
+    descriptions.sort_unstable();
+    descriptions.dedup();
+    for existing in descriptions {
+        while tag.remove_user_text(&existing).is_some() {}
+    }
+    tag.insert_user_text(description.to_string(), values.join(";"));
+}
+
 fn apply_list(tag: &mut Id3v2Tag, description: &str, patch: &Patch<StringList>) {
     match patch {
         Patch::Omitted => {}
@@ -3217,66 +3325,199 @@ fn fix_wav_orphan_tail(data: &mut [u8]) -> bool {
     true
 }
 
-fn wav_data_payloads(bytes: &[u8]) -> Option<Vec<Vec<u8>>> {
+#[derive(Clone, Copy)]
+struct WavChunk {
+    id: [u8; 4],
+    start: usize,
+    data_start: usize,
+    data_end: usize,
+    end: usize,
+}
+
+fn wav_chunks(bytes: &[u8]) -> Option<Vec<WavChunk>> {
     if bytes.len() < 12 || bytes.get(..4)? != b"RIFF" || bytes.get(8..12)? != b"WAVE" {
         return None;
     }
-    let mut payloads = Vec::new();
+    let mut chunks = Vec::new();
     let mut offset = 12_usize;
     while offset.checked_add(8)? <= bytes.len() {
-        let id = bytes.get(offset..offset + 4)?;
+        let id: [u8; 4] = bytes.get(offset..offset + 4)?.try_into().ok()?;
         let size = u32::from_le_bytes(bytes.get(offset + 4..offset + 8)?.try_into().ok()?) as usize;
         let data_start = offset.checked_add(8)?;
         let data_end = data_start.checked_add(size)?;
         if data_end > bytes.len() {
             return None;
         }
-        if id == b"data" {
-            payloads.push(bytes.get(data_start..data_end)?.to_vec());
+        let end = data_end.checked_add(size % 2)?;
+        if end > bytes.len() {
+            return None;
         }
-        offset = data_end.checked_add(size % 2)?;
+        chunks.push(WavChunk {
+            id,
+            start: offset,
+            data_start,
+            data_end,
+            end,
+        });
+        offset = end;
     }
-    (offset == bytes.len() && !payloads.is_empty()).then_some(payloads)
+    (offset == bytes.len()).then_some(chunks)
+}
+
+fn wav_data_ranges(bytes: &[u8]) -> Option<Vec<Range<usize>>> {
+    let ranges: Vec<_> = wav_chunks(bytes)?
+        .into_iter()
+        .filter(|chunk| chunk.id == *b"data")
+        .map(|chunk| chunk.data_start..chunk.data_end)
+        .collect();
+    (!ranges.is_empty()).then_some(ranges)
+}
+
+#[cfg(test)]
+fn wav_data_payloads(bytes: &[u8]) -> Option<Vec<Vec<u8>>> {
+    wav_data_ranges(bytes).map(|ranges| {
+        ranges
+            .into_iter()
+            .map(|range| bytes[range].to_vec())
+            .collect()
+    })
+}
+
+fn wav_data_ranges_from_reader<R: Read + Seek>(
+    reader: &mut R,
+    file_len: u64,
+) -> Result<Option<Vec<Range<u64>>>, ApiError> {
+    reader.seek(SeekFrom::Start(0))?;
+    let mut riff = [0_u8; 12];
+    if reader.read_exact(&mut riff).is_err() || &riff[..4] != b"RIFF" || &riff[8..] != b"WAVE" {
+        return Ok(None);
+    }
+
+    let mut ranges = Vec::new();
+    let mut offset = 12_u64;
+    while offset < file_len {
+        if file_len - offset < 8 {
+            return Ok(None);
+        }
+        reader.seek(SeekFrom::Start(offset))?;
+        let mut header = [0_u8; 8];
+        reader.read_exact(&mut header)?;
+        let size = u64::from(u32::from_le_bytes(header[4..8].try_into().unwrap()));
+        let Some(data_start) = offset.checked_add(8) else {
+            return Ok(None);
+        };
+        let Some(data_end) = data_start.checked_add(size) else {
+            return Ok(None);
+        };
+        let Some(next) = data_end.checked_add(size & 1) else {
+            return Ok(None);
+        };
+        if next > file_len {
+            return Ok(None);
+        }
+        if &header[..4] == b"data" {
+            ranges.push(data_start..data_end);
+        }
+        offset = next;
+    }
+
+    Ok((offset == file_len && !ranges.is_empty()).then_some(ranges))
+}
+
+/// Compare corresponding byte ranges without materializing either payload.
+/// The container-specific scanners remain responsible for locating ranges;
+/// this bounded comparer is reusable by WAV and other contiguous payloads.
+fn byte_ranges_match<R: Read + Seek>(
+    original: &[u8],
+    original_ranges: &[Range<usize>],
+    candidate: &mut R,
+    candidate_ranges: &[Range<u64>],
+) -> Result<bool, ApiError> {
+    if original_ranges.len() != candidate_ranges.len() {
+        return Ok(false);
+    }
+
+    let mut buffer = vec![0_u8; 64 * 1024];
+    for (original_range, candidate_range) in original_ranges.iter().zip(candidate_ranges) {
+        let original_len = original_range.end.saturating_sub(original_range.start) as u64;
+        if original_len != candidate_range.end.saturating_sub(candidate_range.start) {
+            return Ok(false);
+        }
+        candidate.seek(SeekFrom::Start(candidate_range.start))?;
+        let mut original_offset = original_range.start;
+        while original_offset < original_range.end {
+            let count = buffer.len().min(original_range.end - original_offset);
+            candidate.read_exact(&mut buffer[..count])?;
+            if buffer[..count] != original[original_offset..original_offset + count] {
+                return Ok(false);
+            }
+            original_offset += count;
+        }
+    }
+    Ok(true)
+}
+
+fn wav_payloads_match<R: Read + Seek>(
+    original: &[u8],
+    original_ranges: &[Range<usize>],
+    candidate: &mut R,
+    candidate_len: u64,
+) -> Result<bool, ApiError> {
+    let Some(candidate_ranges) = wav_data_ranges_from_reader(candidate, candidate_len)? else {
+        return Ok(false);
+    };
+    byte_ranges_match(original, original_ranges, candidate, &candidate_ranges)
 }
 
 /// Strip the RIFF `LIST` chunk from a WAV byte buffer, returning a new
 /// buffer with the same audio payload but no LIST INFO metadata.
 /// The RIFF total size in the header is updated accordingly.
+#[cfg(test)]
 fn strip_wav_list_chunk(bytes: &[u8]) -> Vec<u8> {
-    let mut out = bytes[..12].to_vec(); // RIFF header, size placeholder
-    let mut offset = 12_usize;
-    while offset.checked_add(8).is_some_and(|end| end <= bytes.len()) {
-        let id = bytes.get(offset..offset + 4).unwrap_or_default();
-        let chunk_size_bytes: [u8; 4] = bytes
-            .get(offset + 4..offset + 8)
-            .and_then(|s| <[u8; 4]>::try_from(s).ok())
-            .unwrap_or([0; 4]);
-        let chunk_size = u32::from_le_bytes(chunk_size_bytes) as usize;
-        let chunk_total = 8 + chunk_size + (chunk_size % 2); // header + data + padding
-                                                             // Stop at trailing null-byte padding (Lofty's IFF chunk parser
-                                                             // rejects null FourCCs, and we don't want to preserve junk).
-        if id == [0u8; 4] {
-            break;
-        }
-        if id == b"LIST" {
-            // Only strip LIST chunks with INFO type (metadata), preserving
-            // other LIST chunks such as adtl (cue labels).
-            let list_type = bytes.get(offset + 8..offset + 12).unwrap_or_default();
-            if list_type == b"INFO" {
-                offset += chunk_total;
-                continue;
-            }
-        }
-        out.extend_from_slice(bytes.get(offset..offset + chunk_total).unwrap_or_default());
-        offset += chunk_total;
+    let mut out = Vec::with_capacity(bytes.len());
+    if write_wav_without_list_info(bytes, &mut out).is_err() {
+        return bytes.to_vec();
     }
-    // Update RIFF size in header
-    let riff_len = (out.len() as u32).wrapping_sub(8).to_le_bytes();
-    out[4..8].copy_from_slice(&riff_len);
     out
 }
 
-fn mp4_mdat_payloads(bytes: &[u8]) -> Option<Vec<Vec<u8>>> {
+/// Write a valid RIFF/WAVE source while omitting only LIST/INFO metadata.
+/// Source chunks are borrowed and emitted directly, avoiding a file-sized
+/// cleaned buffer alongside the already owned source.
+fn write_wav_without_list_info<W: Write>(bytes: &[u8], writer: &mut W) -> std::io::Result<()> {
+    let chunks = wav_chunks(bytes)
+        .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::InvalidData, "invalid WAV"))?;
+    let kept_len = chunks
+        .iter()
+        .filter(|chunk| !wav_chunk_is_list_info(bytes, chunk))
+        .try_fold(12_usize, |len, chunk| {
+            len.checked_add(chunk.end - chunk.start)
+        })
+        .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::InvalidData, "WAV too large"))?;
+    let riff_len = u32::try_from(kept_len.saturating_sub(8))
+        .map_err(|_| std::io::Error::new(std::io::ErrorKind::InvalidData, "WAV too large"))?;
+    let mut header: [u8; 12] = bytes[..12].try_into().unwrap();
+    header[4..8].copy_from_slice(&riff_len.to_le_bytes());
+    writer.write_all(&header)?;
+    for chunk in chunks
+        .iter()
+        .filter(|chunk| !wav_chunk_is_list_info(bytes, chunk))
+    {
+        writer.write_all(&bytes[chunk.start..chunk.end])?;
+    }
+    Ok(())
+}
+
+fn wav_chunk_is_list_info(bytes: &[u8], chunk: &WavChunk) -> bool {
+    chunk.id == *b"LIST"
+        && chunk
+            .data_start
+            .checked_add(4)
+            .and_then(|end| bytes.get(chunk.data_start..end))
+            == Some(b"INFO")
+}
+
+fn mp4_mdat_payload_ranges(bytes: &[u8]) -> Option<Vec<Range<usize>>> {
     let mut payloads = Vec::new();
     let mut offset = 0_usize;
     while offset.checked_add(8)? <= bytes.len() {
@@ -3303,14 +3544,26 @@ fn mp4_mdat_payloads(bytes: &[u8]) -> Option<Vec<Vec<u8>>> {
             return None;
         }
         if kind == b"mdat" {
-            payloads.push(bytes.get(offset + header..end)?.to_vec());
+            let start = offset.checked_add(header)?;
+            bytes.get(start..end)?;
+            payloads.push(start..end);
         }
         offset = end;
     }
     (offset == bytes.len() && !payloads.is_empty()).then_some(payloads)
 }
 
-fn ogg_audio_packets(bytes: &[u8], header_packets: usize) -> Option<Vec<Vec<u8>>> {
+#[cfg(test)]
+fn mp4_mdat_payloads(bytes: &[u8]) -> Option<Vec<Vec<u8>>> {
+    mp4_mdat_payload_ranges(bytes).map(|payloads| {
+        payloads
+            .into_iter()
+            .map(|range| bytes[range].to_vec())
+            .collect()
+    })
+}
+
+fn ogg_audio_packet_ranges(bytes: &[u8], header_packets: usize) -> Option<Vec<Vec<Range<usize>>>> {
     let mut packets = Vec::new();
     let mut packet = Vec::new();
     let mut offset = 0_usize;
@@ -3326,7 +3579,10 @@ fn ogg_audio_packets(bytes: &[u8], header_packets: usize) -> Option<Vec<Vec<u8>>
         for segment in table {
             let length = usize::from(*segment);
             let next = data_offset.checked_add(length)?;
-            packet.extend_from_slice(bytes.get(data_offset..next)?);
+            bytes.get(data_offset..next)?;
+            if length > 0 {
+                packet.push(data_offset..next);
+            }
             data_offset = next;
             if length < 255 {
                 packets.push(std::mem::take(&mut packet));
@@ -3338,6 +3594,68 @@ fn ogg_audio_packets(bytes: &[u8], header_packets: usize) -> Option<Vec<Vec<u8>>
         return None;
     }
     Some(packets.into_iter().skip(header_packets).collect())
+}
+
+#[cfg(test)]
+fn ogg_audio_packets(bytes: &[u8], header_packets: usize) -> Option<Vec<Vec<u8>>> {
+    ogg_audio_packet_ranges(bytes, header_packets).map(|packets| {
+        packets
+            .into_iter()
+            .map(|ranges| {
+                ranges
+                    .into_iter()
+                    .flat_map(|range| bytes[range].iter().copied())
+                    .collect()
+            })
+            .collect()
+    })
+}
+
+fn payload_range_groups_equal(
+    left: &[u8],
+    left_groups: &[Vec<Range<usize>>],
+    right: &[u8],
+    right_groups: &[Vec<Range<usize>>],
+) -> bool {
+    if left_groups.len() != right_groups.len() {
+        return false;
+    }
+
+    left_groups
+        .iter()
+        .zip(right_groups)
+        .all(|(left_ranges, right_ranges)| {
+            if left_ranges
+                .iter()
+                .any(|range| left.get(range.clone()).is_none())
+                || right_ranges
+                    .iter()
+                    .any(|range| right.get(range.clone()).is_none())
+            {
+                return false;
+            }
+            left_ranges
+                .iter()
+                .flat_map(|range| left[range.clone()].iter())
+                .eq(right_ranges
+                    .iter()
+                    .flat_map(|range| right[range.clone()].iter()))
+        })
+}
+
+fn payload_ranges_equal(
+    left: &[u8],
+    left_ranges: &[Range<usize>],
+    right: &[u8],
+    right_ranges: &[Range<usize>],
+) -> bool {
+    left_ranges.len() == right_ranges.len()
+        && left_ranges
+            .iter()
+            .zip(right_ranges)
+            .all(|(left_range, right_range)| {
+                left.get(left_range.clone()) == right.get(right_range.clone())
+            })
 }
 
 #[derive(Debug, Default)]
@@ -3521,115 +3839,6 @@ fn push_flac_block(output: &mut Vec<u8>, block_type: u8, data: &[u8], last: bool
     Some(())
 }
 
-/// Try to apply Vorbis Comment changes in-place when the new comment fits
-/// within the existing FLAC metadata area (STREAMINFO + VORBIS_COMMENT +
-/// PADDING).  For remote volumes this reduces SMB traffic to a single
-/// full read plus a kilobyte-scale write, instead of the full rewrite.
-///
-/// Returns `Ok(Some(outcome))` when the in-place update succeeds,
-/// `Ok(None)` when the metadata doesn't fit (caller should fall back to
-/// a full atomic rewrite), or `Err` on failure.
-/// Attempt an in-place FLAC metadata update.  Only the kilobyte-scale metadata
-/// region is written over the wire; the audio payload is never moved.
-///
-/// **Durability note:** in-place writes are NOT crash-atomic.  A power loss or
-/// disconnect during write, sync, or verification can leave the file in an
-/// inconsistent state.  We restore the original metadata prefix on any detected
-/// failure after mutation, but a hard crash mid-write cannot be recovered.
-fn try_flac_inplace_update(
-    path: &Path,
-    prepared: &[u8],
-    audio_offset: usize,
-    payload: &[u8],
-    repairs: &FlacRepairs,
-    apply: &dyn Fn(&mut lofty::ogg::VorbisComments),
-) -> Result<Option<TrackWriteOutcome>, ApiError> {
-    if repairs.any() || repairs.force_full_rewrite {
-        return Ok(None);
-    }
-
-    // Capture the original metadata region from the already-loaded bytes so
-    // we never re-read the remote file just for restoration data.
-    let original_metadata = prepared
-        .get(..audio_offset)
-        .ok_or_else(|| ApiError::MediaSafety("invalid FLAC metadata boundary".to_string()))?
-        .to_vec();
-
-    // Write to a local scratch so Lofty can patch the Vorbis Comments
-    // without any SMB I/O.
-    let scratch = sibling_temp_path(path);
-    fs::write(&scratch, prepared)?;
-
-    let result = (|| -> Result<Option<TrackWriteOutcome>, ApiError> {
-        let flac = read_flac(&scratch)
-            .map_err(|_| ApiError::MediaSafety("cannot read FLAC metadata".to_string()))?;
-        let mut comments = flac.vorbis_comments().cloned().unwrap_or_default();
-        apply(&mut comments);
-        comments
-            .save_to_path(&scratch, WriteOptions::new())
-            .map_err(|e| ApiError::WriteTask(format!("failed to save patched comments: {e}")))?;
-
-        let candidate = fs::read(&scratch)?;
-
-        // `repack_flac_metadata` returns `Some` only when the new metadata
-        // fits within `audio_offset` bytes (including padding).
-        let Some(repacked) = repack_flac_metadata(&candidate, audio_offset, payload) else {
-            return Ok(None); // doesn't fit — fall back
-        };
-
-        let before = read_track_metadata(path)?;
-
-        // Read back the patched metadata from the scratch to check whether
-        // the patch actually changed anything before committing the write.
-        let patched_meta = read_track_metadata(&scratch)?;
-        if same_metadata(before, patched_meta) {
-            return Ok(Some(TrackWriteOutcome::Skipped));
-        }
-
-        let new_metadata = repacked.get(..audio_offset).ok_or_else(|| {
-            ApiError::MediaSafety("repacked metadata region too small".to_string())
-        })?;
-
-        // In-place write: only the metadata region (~KB) over the wire.
-        // All errors after the mutation trigger restoration of the original
-        // metadata prefix.
-        let write_result = (|| -> Result<(), ApiError> {
-            let mut f = std::fs::OpenOptions::new()
-                .write(true)
-                .open(path)
-                .map_err(|e| ApiError::WriteTask(format!("open for in-place write: {e}")))?;
-            f.write_all(new_metadata)
-                .map_err(|e| ApiError::WriteTask(format!("in-place metadata write: {e}")))?;
-            f.sync_all()
-                .map_err(|e| ApiError::WriteTask(format!("in-place metadata fsync: {e}")))?;
-
-            // Verify audio payload unchanged after the in-place update.
-            let verify_bytes = fs::read(path)?;
-            if flac_audio_payload(&verify_bytes) != Some(payload) {
-                return Err(ApiError::MediaSafety(
-                    "FLAC audio payload changed during in-place write".to_string(),
-                ));
-            }
-            Ok(())
-        })();
-
-        match write_result {
-            Ok(()) => Ok(Some(TrackWriteOutcome::Replaced)),
-            Err(e) => {
-                // Restore original metadata on any failure after mutation.
-                if let Ok(mut f) = std::fs::OpenOptions::new().write(true).open(path) {
-                    let _ = f.write_all(&original_metadata);
-                    let _ = f.sync_all();
-                }
-                Err(e)
-            }
-        }
-    })();
-
-    let _ = fs::remove_file(&scratch);
-    result
-}
-
 fn flac_audio_payload(bytes: &[u8]) -> Option<&[u8]> {
     let marker = bytes.windows(4).position(|window| window == b"fLaC")?;
     let mut offset = marker.checked_add(4)?;
@@ -3760,6 +3969,14 @@ fn copy_file_data(source: &Path, destination: &Path) -> std::io::Result<u64> {
     let n = std::io::copy(&mut src, &mut dst)?;
     dst.sync_all()?;
     Ok(n)
+}
+
+/// Stage bytes already loaded for payload validation without reopening the
+/// source path. This avoids a second remote-volume read before local mutation.
+fn write_loaded_file_data(bytes: &[u8], destination: &Path) -> std::io::Result<()> {
+    let mut file = File::create(destination)?;
+    file.write_all(bytes)?;
+    file.sync_all()
 }
 
 /// Returns a temporary file path suitable for atomic replacement of `path`.
@@ -4598,6 +4815,103 @@ mod tests {
         fs::remove_dir_all(root).unwrap();
     }
 
+    /// Intent: payload validation must describe PCM by borrowed byte ranges so
+    /// a large WAV write does not clone the complete audio payload into a
+    /// second heap allocation before staging begins.
+    #[test]
+    fn wav_payload_ranges_borrow_large_pcm() {
+        let mut wav = fs::read(media_fixture("minimal.wav")).unwrap();
+        let data = wav_data_ranges(&wav).unwrap();
+        let original_payload = wav[data[0].clone()].as_ptr();
+
+        assert_eq!(data.len(), 1);
+        assert_eq!(
+            original_payload,
+            wav.as_ptr().wrapping_add(data[0].start),
+            "the PCM payload must remain a borrowed range into the source buffer"
+        );
+
+        let before = wav[data[0].start];
+        wav[data[0].start] ^= 0xff;
+        assert_eq!(wav[data[0].clone()][0], before ^ 0xff);
+    }
+
+    /// Intent: exact payload verification should stream the candidate in
+    /// bounded blocks and ignore metadata-only differences.
+    #[test]
+    fn wav_payload_comparison_is_exact_and_metadata_independent() {
+        let original = fs::read(media_fixture("minimal.wav")).unwrap();
+        let ranges = wav_data_ranges(&original).unwrap();
+        let mut metadata_only_change = original.clone();
+        metadata_only_change[20] ^= 0x01;
+        let metadata_len = metadata_only_change.len() as u64;
+        assert!(wav_payloads_match(
+            &original,
+            &ranges,
+            &mut Cursor::new(metadata_only_change),
+            metadata_len,
+        )
+        .unwrap());
+
+        let mut audio_change = original.clone();
+        audio_change[ranges[0].start] ^= 0xff;
+        let audio_len = audio_change.len() as u64;
+        assert!(!wav_payloads_match(
+            &original,
+            &ranges,
+            &mut Cursor::new(audio_change),
+            audio_len,
+        )
+        .unwrap());
+    }
+
+    /// Intent: LIST/INFO cleanup must be streamable without materializing a
+    /// second file-sized buffer, while unrelated LIST chunks and PCM survive.
+    #[test]
+    fn wav_list_info_cleanup_streams_only_kept_chunks() {
+        let original = fs::read(media_fixture("synthetic-list-id3.wav")).unwrap();
+        let original_ranges = wav_data_ranges(&original).unwrap();
+        let mut cleaned = Vec::new();
+        write_wav_without_list_info(&original, &mut cleaned).unwrap();
+
+        assert!(cleaned.len() < original.len());
+        assert!(!cleaned.windows(4).any(|bytes| bytes == b"INFO"));
+        assert!(cleaned.windows(4).any(|bytes| bytes == b"adtl"));
+        let cleaned_ranges = wav_data_ranges(&cleaned).unwrap();
+        assert_eq!(cleaned_ranges.len(), original_ranges.len());
+        for (before, after) in original_ranges.iter().zip(&cleaned_ranges) {
+            assert_eq!(&original[before.clone()], &cleaned[after.clone()]);
+        }
+    }
+
+    /// Intent: applying an unrelated WAV patch must preserve plural ID3
+    /// identities from the already parsed tag, without rereading the source.
+    #[test]
+    fn wav_write_preserves_omitted_plural_fields_from_parsed_tag() {
+        let (root, path) = copy_to_temp(&media_fixture("minimal.wav"), "track.wav");
+        let mut source = File::open(&path).unwrap();
+        let parsed =
+            WavFile::read_from(&mut source, ParseOptions::new().read_properties(false)).unwrap();
+        let mut tag = parsed.id3v2().cloned().unwrap_or_default();
+        tag.insert_user_text("ARTISTS".to_string(), "Primary; Guest".to_string());
+        tag.insert_user_text(
+            "ALBUMARTISTS".to_string(),
+            "Album primary; Album guest".to_string(),
+        );
+        tag.save_to_path(&path, WriteOptions::new()).unwrap();
+
+        let patch: TrackPatch =
+            serde_json::from_value(serde_json::json!({"title": "Changed"})).unwrap();
+        write_wav_atomic(&path, &patch).unwrap();
+
+        assert_eq!(id3_user_text_values(&path, "ARTISTS"), ["Primary", "Guest"]);
+        assert_eq!(
+            id3_user_text_values(&path, "ALBUMARTISTS"),
+            ["Album primary", "Album guest"]
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
     /// WAV with both garbled LIST INFO and correct ID3v2 must prefer the
     /// ID3v2 values on read and strip the stale LIST chunk on write.
     #[test]
@@ -4815,6 +5129,21 @@ mod tests {
         fs::remove_dir_all(root).unwrap();
     }
 
+    /// Intent: MP4 safety validation should describe `mdat` with borrowed
+    /// ranges, avoiding a second allocation proportional to encoded audio.
+    #[test]
+    fn mp4_payload_ranges_borrow_mdat_bytes() {
+        let bytes = fs::read(media_fixture("minimal.m4a")).unwrap();
+        let groups = mp4_mdat_payload_ranges(&bytes).unwrap();
+        let range = groups.first().unwrap();
+
+        assert_eq!(
+            bytes[range.clone()].as_ptr(),
+            bytes.as_ptr().wrapping_add(range.start)
+        );
+        assert!(payload_ranges_equal(&bytes, &groups, &bytes, &groups));
+    }
+
     #[test]
     fn mp4_rich_patch_preserves_mdat_and_reads_back_validly() {
         for name in ["minimal.m4a", "minimal.mp4"] {
@@ -4907,6 +5236,39 @@ mod tests {
         );
         assert_eq!(fs::read(&path).unwrap(), before);
         fs::remove_dir_all(root).unwrap();
+    }
+
+    /// Intent: OGG/Opus safety validation must compare logical packets exactly
+    /// without cloning all encoded audio, while ignoring container-only bytes.
+    #[test]
+    fn ogg_packet_range_comparison_is_exact_and_container_independent() {
+        let original = fs::read(writer_fixture("vorbis.ogg")).unwrap();
+        let ranges = ogg_audio_packet_ranges(&original, 3).unwrap();
+        let first_audio = ranges.first().and_then(|packet| packet.first()).unwrap();
+        assert_eq!(
+            original[first_audio.clone()].as_ptr(),
+            original.as_ptr().wrapping_add(first_audio.start)
+        );
+
+        let mut container_only = original.clone();
+        container_only[22] ^= 0xff; // Ogg page checksum, outside packet data.
+        let container_ranges = ogg_audio_packet_ranges(&container_only, 3).unwrap();
+        assert!(payload_range_groups_equal(
+            &original,
+            &ranges,
+            &container_only,
+            &container_ranges,
+        ));
+
+        let mut audio_change = original.clone();
+        audio_change[first_audio.start] ^= 0xff;
+        let changed_ranges = ogg_audio_packet_ranges(&audio_change, 3).unwrap();
+        assert!(!payload_range_groups_equal(
+            &original,
+            &ranges,
+            &audio_change,
+            &changed_ranges,
+        ));
     }
 
     #[test]
@@ -5121,6 +5483,39 @@ mod tests {
     // ------------------------------------------------------------------
     // FLAC in-place fast-path tests
     // ------------------------------------------------------------------
+
+    #[test]
+    fn flac_canonical_prefix_update_is_bounded_by_metadata_not_audio() {
+        let (root, path) = copy_to_temp(
+            &writer_fixture("padded.flac"),
+            "canonical-prefix-bounded.flac",
+        );
+        let before = fs::read(&path).unwrap();
+        let before_audio = flac_audio_payload(&before).unwrap().to_vec();
+        let before_offset = flac_audio_offset(&before).unwrap();
+        let patch: TrackPatch =
+            serde_json::from_value(serde_json::json!({"album": "Bounded Prefix Album"})).unwrap();
+
+        let report = try_flac_canonical_prefix_update(&path, &patch)
+            .unwrap()
+            .expect("padded FLAC should use the prefix-only canonical writer");
+
+        assert_eq!(report.outcome, TrackWriteOutcome::Replaced);
+        assert_eq!(report.strategy, ExtraTagWriteStrategy::InPlace);
+        assert!(
+            report.metadata_bytes_read <= (before_offset * 2 + FLAC_GHOST_PROBE_BYTES + 42) as u64,
+            "canonical fast path must not read the audio payload"
+        );
+        assert_eq!(report.metadata_bytes_written, before_offset as u64);
+        let after = fs::read(&path).unwrap();
+        assert_eq!(flac_audio_offset(&after).unwrap(), before_offset);
+        assert_eq!(flac_audio_payload(&after).unwrap(), before_audio);
+        assert_eq!(
+            read_track_metadata(&path).unwrap().album.as_deref(),
+            Some("Bounded Prefix Album")
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
 
     #[test]
     fn flac_inplace_fits_with_padding() {
@@ -6464,6 +6859,16 @@ mod tests {
         let groups = group_by_folder(updates);
         assert_eq!(groups.len(), 1);
         assert_eq!(groups.get(Path::new("/single")).map(|v| v.len()), Some(1));
+    }
+
+    /// Intent: the measured cross-folder default should use four workers while
+    /// preserving an explicit user override for slower storage.
+    #[test]
+    fn effective_write_concurrency_uses_measured_default_and_override() {
+        assert_eq!(effective_write_concurrency(None), 4);
+        assert_eq!(effective_write_concurrency(Some(0)), 4);
+        assert_eq!(effective_write_concurrency(Some(1)), 1);
+        assert_eq!(effective_write_concurrency(Some(8)), 8);
     }
 
     #[test]

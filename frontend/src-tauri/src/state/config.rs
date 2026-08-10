@@ -36,10 +36,9 @@ pub struct AutoTagConfig {
     pub theaudiodb_api_key: Option<String>,
     pub chinese_script: Option<String>,
     /// Maximum concurrent folder workers during batch track writes.
-    /// Higher values (e.g. 8) speed up local SSD/NVMe writes;
-    /// lower values (default 2) avoid I/O thrashing on external/spinning
-    /// volumes where parallel reads+writes degrade per-file throughput.
-    /// Set to `0` or omit for the default (2).
+    /// Higher values (e.g. 8) may speed up local SSD/NVMe writes;
+    /// lower values can avoid I/O thrashing on external/spinning volumes.
+    /// Set to `0` or omit for the measured default (4).
     pub write_concurrency: Option<usize>,
 }
 
@@ -225,7 +224,7 @@ fn apply_yaml_key(config: &mut AutoTagConfig, key: &str, value: &str) {
 
 /// Resolve the effective write concurrency from config + env.
 /// Returns `None` when neither the file nor the env specifies a value,
-/// meaning the caller should use its built-in default (currently 2).
+/// meaning the caller should use its built-in default (currently 4).
 pub fn resolve_write_concurrency(home: &Path) -> Option<usize> {
     let text = std::fs::read_to_string(config_file_path(home)).unwrap_or_default();
     load_from(&text, &ProcessEnv).write_concurrency

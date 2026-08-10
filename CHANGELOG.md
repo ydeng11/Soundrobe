@@ -104,9 +104,19 @@ desktop release.
 - **Auto-tag folder years** — release years at the start of a quoted album
   title are now detected even when the artist name precedes the title.
 
-- **Faster WAV library reads** — WAV metadata loading now reuses one buffered
-  parse for tags, audio properties, and provider IDs instead of repeatedly
-  reading the full audio payload.
+- **Faster WAV library reads** — standard WAV metadata loading now seeks past
+  PCM audio and reads only chunk headers and metadata, while padded and
+  malformed files retain the compatibility parser.
+
+- **Faster metadata reads** — Opus, M4A/MP4, AIFF, and Monkey's Audio
+  property/tag fallbacks now seek around encoded audio instead of loading the
+  complete file, while unusual layouts retain their compatibility readers.
+
+- **Faster metadata writes** — WAV writes reuse one loaded source, stream
+  LIST/INFO cleanup, and compare PCM in bounded blocks; common FLAC edits now
+  update only the metadata prefix; MP4 and OGG/Opus validation avoids cloning
+  encoded audio and reuses already loaded bytes for local staging. Batch writes
+  now use four folder workers by default after controlled local and SMB tests.
 
 - **Auto-tag genre fallback** — structured LLM genre responses now retain
   numeric confidence values serialized as text, allow longer repair responses,

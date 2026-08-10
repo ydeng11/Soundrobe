@@ -22,7 +22,7 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::fs;
 use std::fs::File;
-use std::io::Cursor;
+use std::io::{Cursor, Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
 
 /// Renderer-facing metadata DTO. Field names/null/default behavior match
@@ -680,7 +680,11 @@ fn apply_flac_native_fields(path: &Path, track: &mut TrackData) {
     track.discogs_release_id = comments.get("DISCOGS_RELEASE_ID").map(ToOwned::to_owned);
 }
 
-fn apply_wav_native_fields(data: &[u8], id3v2: Option<&Id3v2Tag>, track: &mut TrackData) {
+fn apply_wav_native_fields(
+    id3_data: Option<&[u8]>,
+    id3v2: Option<&Id3v2Tag>,
+    track: &mut TrackData,
+) {
     let Some(id3v2) = id3v2 else {
         return;
     };
@@ -721,11 +725,14 @@ fn apply_wav_native_fields(data: &[u8], id3v2: Option<&Id3v2Tag>, track: &mut Tr
     if let Some(mbid) = id3v2.get_user_text("MusicBrainz Track Id") {
         track.musicbrainz_track_id = Some(mbid.to_owned());
     }
-    let artists = id3_user_text_values_from_wav(data, "ARTISTS");
+    let artists =
+        id3_data.map_or_else(Vec::new, |data| id3_user_text_values_at(data, 0, "ARTISTS"));
     if !artists.is_empty() {
         track.artists = artists;
     }
-    let album_artists = id3_user_text_values_from_wav(data, "ALBUMARTISTS");
+    let album_artists = id3_data.map_or_else(Vec::new, |data| {
+        id3_user_text_values_at(data, 0, "ALBUMARTISTS")
+    });
     if !album_artists.is_empty() {
         track.album_artists = album_artists;
     }
@@ -738,7 +745,118 @@ fn apply_wav_native_fields(data: &[u8], id3v2: Option<&Id3v2Tag>, track: &mut Tr
 }
 
 fn read_wav_metadata(path: &Path, size_bytes: u64) -> Result<TrackData, ApiError> {
+    let mut file = File::open(path)?;
+    if let Some(track) = read_wav_metadata_seekable(&mut file, path, size_bytes)? {
+        return Ok(track);
+    }
     read_wav_metadata_from_bytes(path, size_bytes, fs::read(path)?)
+}
+
+struct WavLayout {
+    bitrate: Option<u32>,
+    id3_data: Option<Vec<u8>>,
+}
+
+/// Read normal RIFF/WAVE files without transferring PCM bytes. Ambiguous
+/// layouts return `None` so padded, orphaned, or malformed files retain the
+/// established owned-buffer compatibility path.
+fn read_wav_metadata_seekable<R: Read + Seek>(
+    reader: &mut R,
+    path: &Path,
+    size_bytes: u64,
+) -> Result<Option<TrackData>, ApiError> {
+    let Some(layout) = standard_wav_layout(reader, size_bytes)? else {
+        return Ok(None);
+    };
+    reader.seek(SeekFrom::Start(0))?;
+    let parsed = match WavFile::read_from(reader, ParseOptions::new()) {
+        Ok(parsed) => parsed,
+        // The owned parser below repeats the parse and surfaces its concrete
+        // error, so compatibility failures are not hidden by this probe.
+        Err(_) => return Ok(None),
+    };
+    let id3v2 = parsed.id3v2().cloned();
+    let tagged = parsed.into();
+    let mut track = from_lofty(path, size_bytes, "wav", &tagged);
+    track.bitrate = layout.bitrate.map(f64::from).or(track.bitrate);
+    apply_wav_native_fields(layout.id3_data.as_deref(), id3v2.as_ref(), &mut track);
+    Ok(Some(track))
+}
+
+fn standard_wav_layout<R: Read + Seek>(
+    reader: &mut R,
+    size_bytes: u64,
+) -> Result<Option<WavLayout>, ApiError> {
+    reader.seek(SeekFrom::Start(0))?;
+    let mut header = [0_u8; 12];
+    if reader.read_exact(&mut header).is_err() || &header[..4] != b"RIFF" || &header[8..] != b"WAVE"
+    {
+        return Ok(None);
+    }
+    let declared_size = u64::from(u32::from_le_bytes(header[4..8].try_into().unwrap()));
+    if declared_size.checked_add(8) != Some(size_bytes) {
+        return Ok(None);
+    }
+
+    let mut offset = 12_u64;
+    let mut saw_fmt = false;
+    let mut saw_data = false;
+    let mut bitrate = None;
+    let mut id3_data = None;
+    while offset < size_bytes {
+        if size_bytes - offset < 8 {
+            return Ok(None);
+        }
+        reader.seek(SeekFrom::Start(offset))?;
+        let mut chunk_header = [0_u8; 8];
+        reader.read_exact(&mut chunk_header)?;
+        if chunk_header[..4]
+            .iter()
+            .any(|byte| !(0x20..=0x7e).contains(byte))
+        {
+            return Ok(None);
+        }
+        let chunk_size = u64::from(u32::from_le_bytes(chunk_header[4..8].try_into().unwrap()));
+        let body_start = offset + 8;
+        let Some(body_end) = body_start.checked_add(chunk_size) else {
+            return Ok(None);
+        };
+        let Some(next) = body_end.checked_add(chunk_size & 1) else {
+            return Ok(None);
+        };
+        if next > size_bytes {
+            return Ok(None);
+        }
+
+        match &chunk_header[..4] {
+            b"fmt " if !saw_fmt => {
+                if chunk_size < 16 {
+                    return Ok(None);
+                }
+                let mut fmt = [0_u8; 16];
+                reader.read_exact(&mut fmt)?;
+                bitrate =
+                    Some(u32::from_le_bytes(fmt[8..12].try_into().unwrap()).saturating_mul(8));
+                saw_fmt = true;
+            }
+            b"data" => saw_data = true,
+            b"ID3 " | b"id3 " if id3_data.is_none() => {
+                let Ok(chunk_size) = usize::try_from(chunk_size) else {
+                    return Ok(None);
+                };
+                let mut data = vec![0_u8; chunk_size];
+                reader.read_exact(&mut data)?;
+                if data.get(..3) != Some(b"ID3") {
+                    return Ok(None);
+                }
+                id3_data = Some(data);
+            }
+            _ => {}
+        }
+        offset = next;
+    }
+
+    Ok((saw_fmt && saw_data).then_some(WavLayout { bitrate, id3_data }))
 }
 
 /// Parse all WAV metadata from one owned buffer. Stripping verified padding
@@ -755,7 +873,8 @@ fn read_wav_metadata_from_bytes(
     let tagged = parsed.into();
     let mut track = from_lofty(path, size_bytes, "wav", &tagged);
     track.bitrate = wav_bitrate(&data).map(f64::from).or(track.bitrate);
-    apply_wav_native_fields(&data, id3v2.as_ref(), &mut track);
+    let id3_data = wav_id3_offset(&data).and_then(|start| data.get(start..));
+    apply_wav_native_fields(id3_data, id3v2.as_ref(), &mut track);
     Ok(track)
 }
 
@@ -1395,8 +1514,16 @@ fn parse_ogg_comments(packet: &[u8]) -> HashMap<String, Vec<String>> {
 }
 
 fn opus_audio_properties(path: &Path) -> Option<(f64, f64)> {
-    let data = fs::read(path).ok()?;
-    let packets = ogg_packets(&data);
+    let mut file = File::open(path).ok()?;
+    let size_bytes = file.metadata().ok()?.len();
+    opus_audio_properties_seekable(&mut file, size_bytes).or_else(|| {
+        let data = fs::read(path).ok()?;
+        opus_audio_properties_from_bytes(&data)
+    })
+}
+
+fn opus_audio_properties_from_bytes(data: &[u8]) -> Option<(f64, f64)> {
+    let packets = ogg_packets(data);
     let head = packets
         .iter()
         .find(|packet| packet.starts_with(b"OpusHead"))?;
@@ -1408,12 +1535,121 @@ fn opus_audio_properties(path: &Path) -> Option<(f64, f64)> {
         .iter()
         .find(|packet| packet.starts_with(b"OpusTags"))?
         .len();
-    let granule = last_ogg_granule(&data)?;
+    let granule = last_ogg_granule(data)?;
     if granule <= pre_skip {
         return None;
     }
     let duration = (granule - pre_skip) as f64 / 48_000.0;
     Some((duration, audio_bytes as f64 * 8.0 / duration))
+}
+
+fn opus_audio_properties_seekable<R: Read + Seek>(
+    reader: &mut R,
+    size_bytes: u64,
+) -> Option<(f64, f64)> {
+    let (head, tags, serial) = read_initial_opus_packets(reader, size_bytes)?;
+    let pre_skip = u64::from(u16_le(&head, 10)?);
+    let granule = last_ogg_granule_seekable(reader, size_bytes, serial)?;
+    if granule <= pre_skip {
+        return None;
+    }
+    let duration = (granule - pre_skip) as f64 / 48_000.0;
+    Some((duration, tags.len() as f64 * 8.0 / duration))
+}
+
+fn read_initial_opus_packets<R: Read + Seek>(
+    reader: &mut R,
+    size_bytes: u64,
+) -> Option<(Vec<u8>, Vec<u8>, u32)> {
+    const MAX_INITIAL_BYTES: u64 = 16 * 1024 * 1024;
+    let mut offset = 0_u64;
+    let mut current = Vec::new();
+    let mut head = None;
+    let mut tags = None;
+    let mut serial = None;
+    while offset < size_bytes.min(MAX_INITIAL_BYTES) {
+        let mut header = [0_u8; 27];
+        read_exact_at(reader, offset, &mut header)?;
+        if &header[..4] != b"OggS" || header[4] != 0 {
+            return None;
+        }
+        let page_serial = u32::from_le_bytes(header[14..18].try_into().ok()?);
+        if serial.is_some_and(|expected| expected != page_serial) {
+            return None;
+        }
+        serial.get_or_insert(page_serial);
+        let segment_count = usize::from(header[26]);
+        let mut lacing = vec![0_u8; segment_count];
+        read_exact_at(reader, offset.checked_add(27)?, &mut lacing)?;
+        let body_start = offset.checked_add(27 + segment_count as u64)?;
+        let body_size = lacing
+            .iter()
+            .try_fold(0_u64, |total, value| total.checked_add(u64::from(*value)))?;
+        let next = body_start.checked_add(body_size)?;
+        if next > size_bytes || next > MAX_INITIAL_BYTES {
+            return None;
+        }
+        let mut body_offset = body_start;
+        for length in lacing {
+            let length = usize::from(length);
+            let old_len = current.len();
+            current.resize(old_len.checked_add(length)?, 0);
+            read_exact_at(reader, body_offset, &mut current[old_len..])?;
+            body_offset = body_offset.checked_add(length as u64)?;
+            if length < 255 {
+                if head.is_none() && current.starts_with(b"OpusHead") {
+                    head = Some(std::mem::take(&mut current));
+                } else if tags.is_none() && current.starts_with(b"OpusTags") {
+                    tags = Some(std::mem::take(&mut current));
+                } else {
+                    current.clear();
+                }
+                if head.is_some() && tags.is_some() {
+                    return Some((head?, tags?, serial?));
+                }
+            }
+        }
+        offset = next;
+    }
+    None
+}
+
+fn last_ogg_granule_seekable<R: Read + Seek>(
+    reader: &mut R,
+    size_bytes: u64,
+    serial: u32,
+) -> Option<u64> {
+    const MAX_OGG_PAGE_BYTES: u64 = 27 + 255 + 255 * 255;
+    let tail_start = size_bytes.saturating_sub(MAX_OGG_PAGE_BYTES);
+    let mut tail = vec![0_u8; usize::try_from(size_bytes - tail_start).ok()?];
+    read_exact_at(reader, tail_start, &mut tail)?;
+    tail.windows(4)
+        .enumerate()
+        .rev()
+        .find_map(|(relative, signature)| {
+            if signature != b"OggS" || relative.checked_add(27)? > tail.len() {
+                return None;
+            }
+            let header = &tail[relative..relative + 27];
+            if header[4] != 0 || u32::from_le_bytes(header[14..18].try_into().ok()?) != serial {
+                return None;
+            }
+            let segment_count = usize::from(header[26]);
+            let table_start = relative.checked_add(27)?;
+            let table_end = table_start.checked_add(segment_count)?;
+            let body_size = tail
+                .get(table_start..table_end)?
+                .iter()
+                .try_fold(0_usize, |total, value| {
+                    total.checked_add(usize::from(*value))
+                })?;
+            let page_end = table_end.checked_add(body_size)?;
+            if page_end == tail.len() {
+                Some(u64::from_le_bytes(header[6..14].try_into().ok()?))
+            } else {
+                None
+            }
+        })
 }
 
 fn last_ogg_granule(data: &[u8]) -> Option<u64> {
@@ -1438,36 +1674,133 @@ fn last_ogg_granule(data: &[u8]) -> Option<u64> {
 }
 
 fn mp4_audio_properties(path: &Path) -> Option<(f64, f64)> {
-    let data = fs::read(path).ok()?;
-    let mdhd = find_mp4_box(&data, 0, data.len(), b"mdhd")?;
+    let mut file = File::open(path).ok()?;
+    let size_bytes = file.metadata().ok()?.len();
+    mp4_audio_properties_seekable(&mut file, size_bytes).or_else(|| {
+        let data = fs::read(path).ok()?;
+        mp4_audio_properties_from_bytes(&data)
+    })
+}
+
+fn mp4_audio_properties_from_bytes(data: &[u8]) -> Option<(f64, f64)> {
+    let mdhd = find_mp4_box(data, 0, data.len(), b"mdhd")?;
     let version = *data.get(mdhd.0)?;
     let (timescale, duration_units) = if version == 1 {
-        (u32_be(&data, mdhd.0 + 20)?, u64_be(&data, mdhd.0 + 24)?)
+        (u32_be(data, mdhd.0 + 20)?, u64_be(data, mdhd.0 + 24)?)
     } else {
         (
-            u32_be(&data, mdhd.0 + 12)?,
-            u64::from(u32_be(&data, mdhd.0 + 16)?),
+            u32_be(data, mdhd.0 + 12)?,
+            u64::from(u32_be(data, mdhd.0 + 16)?),
         )
     };
     if timescale == 0 || duration_units == 0 {
         return None;
     }
-    let stsz = find_mp4_box(&data, 0, data.len(), b"stsz")?;
-    let sample_size = u32_be(&data, stsz.0 + 4)?;
-    let sample_count = u32_be(&data, stsz.0 + 8)?;
+    let stsz = find_mp4_box(data, 0, data.len(), b"stsz")?;
+    let sample_size = u32_be(data, stsz.0 + 4)?;
+    let sample_count = u32_be(data, stsz.0 + 8)?;
     let audio_bytes = if sample_size > 0 {
         u64::from(sample_size) * u64::from(sample_count)
     } else {
         let mut total = 0_u64;
         let mut offset = stsz.0 + 12;
         for _ in 0..sample_count {
-            total = total.checked_add(u64::from(u32_be(&data, offset)?))?;
+            total = total.checked_add(u64::from(u32_be(data, offset)?))?;
             offset = offset.checked_add(4)?;
         }
         total
     };
     let duration = duration_units as f64 / f64::from(timescale);
     Some((duration, audio_bytes as f64 * 8.0 / duration))
+}
+
+fn mp4_audio_properties_seekable<R: Read + Seek>(
+    reader: &mut R,
+    size_bytes: u64,
+) -> Option<(f64, f64)> {
+    let mdhd = find_mp4_box_seekable(reader, 0, size_bytes, b"mdhd", 0)?;
+    let mut mdhd_data = [0_u8; 32];
+    let mdhd_length = usize::try_from((mdhd.1 - mdhd.0).min(mdhd_data.len() as u64)).ok()?;
+    read_exact_at(reader, mdhd.0, &mut mdhd_data[..mdhd_length])?;
+    let version = mdhd_data[0];
+    let (timescale, duration_units) = if version == 1 {
+        (u32_be(&mdhd_data, 20)?, u64_be(&mdhd_data, 24)?)
+    } else {
+        (u32_be(&mdhd_data, 12)?, u64::from(u32_be(&mdhd_data, 16)?))
+    };
+    if timescale == 0 || duration_units == 0 {
+        return None;
+    }
+
+    let stsz = find_mp4_box_seekable(reader, 0, size_bytes, b"stsz", 0)?;
+    let mut stsz_header = [0_u8; 12];
+    read_exact_at(reader, stsz.0, &mut stsz_header)?;
+    let sample_size = u32_be(&stsz_header, 4)?;
+    let sample_count = u32_be(&stsz_header, 8)?;
+    let audio_bytes = if sample_size > 0 {
+        u64::from(sample_size).checked_mul(u64::from(sample_count))?
+    } else {
+        let table_bytes = usize::try_from(u64::from(sample_count).checked_mul(4)?).ok()?;
+        if stsz.0.checked_add(12 + table_bytes as u64)? > stsz.1 {
+            return None;
+        }
+        let mut table = vec![0_u8; table_bytes];
+        read_exact_at(reader, stsz.0 + 12, &mut table)?;
+        table.chunks_exact(4).try_fold(0_u64, |total, entry| {
+            total.checked_add(u64::from(u32::from_be_bytes(entry.try_into().ok()?)))
+        })?
+    };
+    let duration = duration_units as f64 / f64::from(timescale);
+    Some((duration, audio_bytes as f64 * 8.0 / duration))
+}
+
+fn find_mp4_box_seekable<R: Read + Seek>(
+    reader: &mut R,
+    start: u64,
+    end: u64,
+    wanted: &[u8; 4],
+    depth: u8,
+) -> Option<(u64, u64)> {
+    const CONTAINERS: [&[u8; 4]; 8] = [
+        b"moov", b"trak", b"mdia", b"minf", b"stbl", b"edts", b"dinf", b"udta",
+    ];
+    if depth > 16 {
+        return None;
+    }
+    let mut offset = start;
+    while offset.checked_add(8)? <= end {
+        let mut header = [0_u8; 16];
+        read_exact_at(reader, offset, &mut header[..8])?;
+        let size32 = u32::from_be_bytes(header[..4].try_into().ok()?);
+        let kind: [u8; 4] = header[4..8].try_into().ok()?;
+        let (header_size, size) = if size32 == 1 {
+            read_exact_at(reader, offset + 8, &mut header[8..16])?;
+            (16_u64, u64::from_be_bytes(header[8..16].try_into().ok()?))
+        } else if size32 == 0 {
+            (8_u64, end.checked_sub(offset)?)
+        } else {
+            (8_u64, u64::from(size32))
+        };
+        if size < header_size {
+            return None;
+        }
+        let box_end = offset.checked_add(size)?;
+        if box_end > end {
+            return None;
+        }
+        let payload = offset.checked_add(header_size)?;
+        if &kind == wanted {
+            return Some((payload, box_end));
+        }
+        if CONTAINERS.contains(&&kind) {
+            if let Some(found) = find_mp4_box_seekable(reader, payload, box_end, wanted, depth + 1)
+            {
+                return Some(found);
+            }
+        }
+        offset = box_end;
+    }
+    None
 }
 
 /// Find one MP4 atom payload recursively through known container atoms.
@@ -1508,7 +1841,15 @@ fn find_mp4_box(data: &[u8], start: usize, end: usize, wanted: &[u8; 4]) -> Opti
 }
 
 fn aiff_audio_properties(path: &Path, sample_rate: Option<u32>) -> Option<(f64, f64)> {
-    let data = fs::read(path).ok()?;
+    let mut file = File::open(path).ok()?;
+    let size_bytes = file.metadata().ok()?.len();
+    aiff_audio_properties_seekable(&mut file, size_bytes, sample_rate).or_else(|| {
+        let data = fs::read(path).ok()?;
+        aiff_audio_properties_from_bytes(&data, sample_rate)
+    })
+}
+
+fn aiff_audio_properties_from_bytes(data: &[u8], sample_rate: Option<u32>) -> Option<(f64, f64)> {
     if data.len() < 12 || &data[..4] != b"FORM" || &data[8..12] != b"AIFF" {
         return None;
     }
@@ -1517,18 +1858,54 @@ fn aiff_audio_properties(path: &Path, sample_rate: Option<u32>) -> Option<(f64, 
     let mut audio_bytes = None;
     while offset.checked_add(8)? <= data.len() {
         let kind = data.get(offset..offset + 4)?;
-        let size = u32_be(&data, offset + 4)? as usize;
+        let size = u32_be(data, offset + 4)? as usize;
         let payload = offset + 8;
         let end = payload.checked_add(size)?;
         if end > data.len() {
             return None;
         }
         if kind == b"COMM" && size >= 18 {
-            sample_frames = Some(u64::from(u32_be(&data, payload + 2)?));
+            sample_frames = Some(u64::from(u32_be(data, payload + 2)?));
         } else if kind == b"SSND" && size >= 8 {
             // music-metadata includes SSND's offset/block-size header when
             // deriving bitrate, even though those eight bytes are not PCM.
             audio_bytes = Some(size as u64);
+        }
+        offset = end.checked_add(size % 2)?;
+    }
+    let duration = sample_frames? as f64 / f64::from(sample_rate?);
+    let audio_bytes = audio_bytes?;
+    (duration > 0.0).then(|| (duration, audio_bytes as f64 * 8.0 / duration))
+}
+
+fn aiff_audio_properties_seekable<R: Read + Seek>(
+    reader: &mut R,
+    size_bytes: u64,
+    sample_rate: Option<u32>,
+) -> Option<(f64, f64)> {
+    let mut header = [0_u8; 12];
+    read_exact_at(reader, 0, &mut header)?;
+    if &header[..4] != b"FORM" || &header[8..12] != b"AIFF" {
+        return None;
+    }
+    let mut offset = 12_u64;
+    let mut sample_frames = None;
+    let mut audio_bytes = None;
+    while offset.checked_add(8)? <= size_bytes {
+        let mut chunk = [0_u8; 8];
+        read_exact_at(reader, offset, &mut chunk)?;
+        let size = u64::from(u32::from_be_bytes(chunk[4..8].try_into().ok()?));
+        let payload = offset.checked_add(8)?;
+        let end = payload.checked_add(size)?;
+        if end > size_bytes {
+            return None;
+        }
+        if &chunk[..4] == b"COMM" && size >= 18 {
+            let mut comm = [0_u8; 18];
+            read_exact_at(reader, payload, &mut comm)?;
+            sample_frames = Some(u64::from(u32::from_be_bytes(comm[2..6].try_into().ok()?)));
+        } else if &chunk[..4] == b"SSND" && size >= 8 {
+            audio_bytes = Some(size);
         }
         offset = end.checked_add(size % 2)?;
     }
@@ -1544,10 +1921,10 @@ fn wav_bitrate(data: &[u8]) -> Option<u32> {
     let mut offset: usize = 12;
     while offset.checked_add(8)? <= data.len() {
         let id = &data[offset..offset + 4];
-        let length = u32_le(&data, offset + 4)? as usize;
+        let length = u32_le(data, offset + 4)? as usize;
         let data_offset = offset.checked_add(8)?;
         if id == b"fmt " && length >= 16 && data_offset.checked_add(16)? <= data.len() {
-            let byte_rate = u32_le(&data, data_offset + 8)?;
+            let byte_rate = u32_le(data, data_offset + 8)?;
             return Some(byte_rate.saturating_mul(8));
         }
         offset = data_offset.checked_add(length + (length % 2))?;
@@ -1726,18 +2103,115 @@ fn first_comment(comments: &HashMap<String, Vec<String>>, key: &str) -> Option<S
 /// accepts text items with the same 0 / 0x20000000 flags Electron writes and
 /// searches for the footer anywhere before the trailing ID3v1 block.
 fn read_ape_fallback(path: &Path, size_bytes: u64) -> Result<Option<TrackData>, ApiError> {
+    let mut file = File::open(path)?;
+    if let Some(track) = read_ape_fallback_seekable(&mut file, path, size_bytes)? {
+        return Ok(Some(track));
+    }
     let data = fs::read(path)?;
     let items = parse_ape_items(&data);
     if items.is_empty() {
         return Ok(None);
     }
+    Ok(Some(ape_track_from_parts(
+        path,
+        size_bytes,
+        items,
+        ape_stream_info(&data),
+    )))
+}
+
+fn read_ape_fallback_seekable<R: Read + Seek>(
+    reader: &mut R,
+    path: &Path,
+    size_bytes: u64,
+) -> Result<Option<TrackData>, ApiError> {
+    const FOOTER_BYTES: u64 = 32;
+    const ID3V1_BYTES: u64 = 128;
+    const MAX_TAG_SIZE: u64 = 16 * 1024 * 1024;
+    const MAX_STREAM_HEADER_BYTES: u64 = 1024 * 1024;
+    if size_bytes < FOOTER_BYTES {
+        return Ok(None);
+    }
+    let mut prefix = vec![0_u8; usize::try_from(size_bytes.min(76)).unwrap_or(76)];
+    reader.seek(SeekFrom::Start(0))?;
+    reader.read_exact(&mut prefix)?;
+    if prefix.len() >= 16 && &prefix[..4] == b"MAC " {
+        let descriptor_bytes = u64::from(u32_le(&prefix, 8).unwrap_or(0));
+        let header_bytes = u64::from(u32_le(&prefix, 12).unwrap_or(0));
+        if descriptor_bytes >= 52 && header_bytes >= 24 {
+            let required = descriptor_bytes.saturating_add(24);
+            if required > MAX_STREAM_HEADER_BYTES {
+                return Ok(None);
+            }
+            if required <= size_bytes && required > prefix.len() as u64 {
+                prefix.resize(
+                    usize::try_from(required).expect("stream header limit fits usize"),
+                    0,
+                );
+                reader.seek(SeekFrom::Start(0))?;
+                reader.read_exact(&mut prefix)?;
+            }
+        }
+    }
+
+    let mut footer_offsets = vec![size_bytes - FOOTER_BYTES];
+    if size_bytes >= FOOTER_BYTES + ID3V1_BYTES {
+        let id3_offset = size_bytes - ID3V1_BYTES;
+        let mut signature = [0_u8; 3];
+        reader.seek(SeekFrom::Start(id3_offset))?;
+        reader.read_exact(&mut signature)?;
+        if &signature == b"TAG" {
+            footer_offsets.push(id3_offset - FOOTER_BYTES);
+        }
+    }
+    for footer_offset in footer_offsets.into_iter().rev() {
+        let mut footer = [0_u8; 32];
+        reader.seek(SeekFrom::Start(footer_offset))?;
+        reader.read_exact(&mut footer)?;
+        if &footer[..8] != b"APETAGEX" {
+            continue;
+        }
+        let tag_size = u64::from(u32_le(&footer, 12).unwrap_or(0));
+        let item_count = u32_le(&footer, 16).unwrap_or(u32::MAX);
+        let flags = u32_le(&footer, 20).unwrap_or(0x2000_0000);
+        if !(FOOTER_BYTES..=MAX_TAG_SIZE).contains(&tag_size)
+            || item_count > 100_000
+            || flags & 0x2000_0000 != 0
+            || tag_size > footer_offset + FOOTER_BYTES
+        {
+            continue;
+        }
+        let tag_start = footer_offset + FOOTER_BYTES - tag_size;
+        let mut tag = vec![0_u8; usize::try_from(tag_size).expect("tag limit fits usize")];
+        reader.seek(SeekFrom::Start(tag_start))?;
+        reader.read_exact(&mut tag)?;
+        let items = parse_ape_items(&tag);
+        if items.is_empty() {
+            continue;
+        }
+        return Ok(Some(ape_track_from_parts(
+            path,
+            size_bytes,
+            items,
+            ape_stream_info(&prefix),
+        )));
+    }
+    Ok(None)
+}
+
+fn ape_track_from_parts(
+    path: &Path,
+    size_bytes: u64,
+    items: Vec<(String, String)>,
+    stream_info: (Option<u32>, Option<f64>),
+) -> TrackData {
     let mut tags: HashMap<String, Vec<String>> = HashMap::new();
     for (key, value) in items {
         tags.entry(key.to_ascii_uppercase())
             .or_default()
             .push(value);
     }
-    let (sample_rate, duration) = ape_stream_info(&data);
+    let (sample_rate, duration) = stream_info;
     let duration = duration.unwrap_or(0.0);
     let album_artist = first_tag(&tags, "ALBUM ARTIST").or_else(|| first_tag(&tags, "ALBUMARTIST"));
     let date = first_tag(&tags, "DATE").or_else(|| first_tag(&tags, "YEAR"));
@@ -1752,7 +2226,7 @@ fn read_ape_fallback(path: &Path, size_bytes: u64) -> Result<Option<TrackData>, 
             .unwrap_or_default(),
     );
 
-    Ok(Some(TrackData {
+    TrackData {
         path: path.to_string_lossy().into_owned(),
         title: first_tag(&tags, "TITLE"),
         artist: first_tag(&tags, "ARTIST"),
@@ -1782,7 +2256,7 @@ fn read_ape_fallback(path: &Path, size_bytes: u64) -> Result<Option<TrackData>, 
         sample_rate,
         codec: "Monkey's Audio".to_string(),
         duration,
-    }))
+    }
 }
 
 fn parse_ape_items(data: &[u8]) -> Vec<(String, String)> {
@@ -1913,6 +2387,11 @@ fn parse_positive_u32(value: &str) -> Option<u32> {
     value.trim().parse::<u32>().ok().filter(|value| *value > 0)
 }
 
+fn read_exact_at<R: Read + Seek>(reader: &mut R, offset: u64, buffer: &mut [u8]) -> Option<()> {
+    reader.seek(SeekFrom::Start(offset)).ok()?;
+    reader.read_exact(buffer).ok()
+}
+
 fn u16_le(data: &[u8], offset: usize) -> Option<u16> {
     let bytes: [u8; 2] = data.get(offset..offset + 2)?.try_into().ok()?;
     Some(u16::from_le_bytes(bytes))
@@ -1941,7 +2420,10 @@ fn u32_be(data: &[u8], offset: usize) -> Option<u32> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::cell::Cell;
+    use std::io::{Read, Seek, SeekFrom};
     use std::path::{Path, PathBuf};
+    use std::rc::Rc;
 
     const CORPUS_FILES: &[&str] = &[
         "minimal.mp3",
@@ -2044,6 +2526,162 @@ mod tests {
             None
         );
         std::fs::remove_dir_all(root).unwrap();
+    }
+
+    /// Intent: MP4 compatibility properties live in metadata atoms, so a
+    /// leading media payload must not be transferred merely to reach metadata.
+    #[test]
+    fn mp4_seekable_properties_skip_large_mdat_payload() {
+        let mut mp4 = mp4_atom(b"ftyp", b"M4A ");
+        mp4.extend_from_slice(&mp4_atom(b"mdat", &vec![0_u8; 8 * 1024 * 1024]));
+        let mut mdhd = vec![0_u8; 20];
+        mdhd[12..16].copy_from_slice(&48_000_u32.to_be_bytes());
+        mdhd[16..20].copy_from_slice(&96_000_u32.to_be_bytes());
+        let mut stsz = vec![0_u8; 12];
+        stsz[4..8].copy_from_slice(&1_000_u32.to_be_bytes());
+        stsz[8..12].copy_from_slice(&4_u32.to_be_bytes());
+        let mdia = mp4_atom(
+            b"mdia",
+            &[
+                mp4_atom(b"mdhd", &mdhd),
+                mp4_atom(b"minf", &mp4_atom(b"stbl", &mp4_atom(b"stsz", &stsz))),
+            ]
+            .concat(),
+        );
+        mp4.extend_from_slice(&mp4_atom(b"moov", &mp4_atom(b"trak", &mdia)));
+        let expected = mp4_audio_properties_from_bytes(&mp4)
+            .expect("owned compatibility parser should resolve fixture");
+
+        let bytes_read = Rc::new(Cell::new(0));
+        let mut reader = CountingReader::new(Cursor::new(mp4), Rc::clone(&bytes_read));
+        let size_bytes = reader.len();
+        let properties = mp4_audio_properties_seekable(&mut reader, size_bytes)
+            .expect("valid metadata atoms should resolve");
+
+        assert_eq!(properties, (2.0, 16_000.0));
+        assert_eq!(properties, expected);
+        assert!(
+            bytes_read.get() < 4 * 1024,
+            "MP4 property scan transferred {} bytes across an 8 MiB mdat",
+            bytes_read.get()
+        );
+    }
+
+    /// Intent: Opus duration needs only the identification/tags packets and
+    /// final page granule; encoded packet bodies between them stay untouched.
+    #[test]
+    fn opus_seekable_properties_skip_encoded_packet_bodies() {
+        let mut head = vec![0_u8; 19];
+        head[..8].copy_from_slice(b"OpusHead");
+        head[10..12].copy_from_slice(&312_u16.to_le_bytes());
+        let tags = b"OpusTagsbounded";
+        let mut opus = ogg_page(&head, 0, 0);
+        opus.extend_from_slice(&ogg_page(tags, 0, 1));
+        for sequence in 2..130 {
+            opus.extend_from_slice(&ogg_page(&vec![0_u8; 65_024], 0, sequence));
+        }
+        opus.extend_from_slice(&ogg_page(b"last", 96_312, 130));
+        let expected = opus_audio_properties_from_bytes(&opus)
+            .expect("owned compatibility parser should resolve fixture");
+
+        let bytes_read = Rc::new(Cell::new(0));
+        let mut reader = CountingReader::new(Cursor::new(opus), Rc::clone(&bytes_read));
+        let size_bytes = reader.len();
+        let properties = opus_audio_properties_seekable(&mut reader, size_bytes)
+            .expect("valid Opus pages should resolve");
+
+        assert_eq!(properties, (2.0, tags.len() as f64 * 4.0));
+        assert_eq!(properties, expected);
+        assert!(
+            bytes_read.get() < 128 * 1024,
+            "Opus property scan transferred {} bytes across 8 MiB of packets",
+            bytes_read.get()
+        );
+    }
+
+    /// Intent: AIFF properties are declared by COMM and the SSND chunk header,
+    /// so PCM bytes must be skipped instead of copied into memory.
+    #[test]
+    fn aiff_seekable_properties_skip_large_ssnd_payload() {
+        let mut comm = vec![0_u8; 18];
+        comm[2..6].copy_from_slice(&44_100_u32.to_be_bytes());
+        let mut aiff = Vec::from(&b"FORM\0\0\0\0AIFF"[..]);
+        append_aiff_chunk(&mut aiff, b"COMM", &comm);
+        append_aiff_chunk(&mut aiff, b"SSND", &vec![0_u8; 8 * 1024 * 1024 + 8]);
+        let form_size = (aiff.len() as u32 - 8).to_be_bytes();
+        aiff[4..8].copy_from_slice(&form_size);
+        let expected = aiff_audio_properties_from_bytes(&aiff, Some(44_100))
+            .expect("owned compatibility parser should resolve fixture");
+
+        let bytes_read = Rc::new(Cell::new(0));
+        let mut reader = CountingReader::new(Cursor::new(aiff), Rc::clone(&bytes_read));
+        let size_bytes = reader.len();
+        let properties = aiff_audio_properties_seekable(&mut reader, size_bytes, Some(44_100))
+            .expect("valid AIFF chunks should resolve");
+
+        assert_eq!(properties.0, 1.0);
+        assert_eq!(properties.1, (8 * 1024 * 1024 + 8) as f64 * 8.0);
+        assert_eq!(properties, expected);
+        assert!(
+            bytes_read.get() < 1024,
+            "AIFF property scan transferred {} bytes across an 8 MiB SSND",
+            bytes_read.get()
+        );
+    }
+
+    /// Intent: Monkey's Audio metadata lives in a bounded header and trailing
+    /// APEv2 tag; the encoded audio between them must remain unread.
+    #[test]
+    fn ape_seekable_fallback_skips_large_audio_payload() {
+        let descriptor_bytes = 100_usize;
+        let mut ape = vec![0_u8; descriptor_bytes + 24];
+        ape[..4].copy_from_slice(b"MAC ");
+        ape[8..12].copy_from_slice(&(descriptor_bytes as u32).to_le_bytes());
+        ape[12..16].copy_from_slice(&24_u32.to_le_bytes());
+        ape[descriptor_bytes + 4..descriptor_bytes + 8].copy_from_slice(&73_728_u32.to_le_bytes());
+        ape[descriptor_bytes + 8..descriptor_bytes + 12].copy_from_slice(&44_100_u32.to_le_bytes());
+        ape[descriptor_bytes + 12..descriptor_bytes + 16].copy_from_slice(&1_u32.to_le_bytes());
+        ape[descriptor_bytes + 20..descriptor_bytes + 24]
+            .copy_from_slice(&44_100_u32.to_le_bytes());
+        ape.resize(8 * 1024 * 1024, 0);
+        let mut item = Vec::new();
+        item.extend_from_slice(&7_u32.to_le_bytes());
+        item.extend_from_slice(&0_u32.to_le_bytes());
+        item.extend_from_slice(b"Title\0Bounded");
+        let tag_size = (item.len() + 32) as u32;
+        ape.extend_from_slice(&item);
+        ape.extend_from_slice(b"APETAGEX");
+        ape.extend_from_slice(&2000_u32.to_le_bytes());
+        ape.extend_from_slice(&tag_size.to_le_bytes());
+        ape.extend_from_slice(&1_u32.to_le_bytes());
+        ape.extend_from_slice(&0_u32.to_le_bytes());
+        ape.extend_from_slice(&[0_u8; 8]);
+        ape.extend_from_slice(b"TAG");
+        ape.resize(ape.len() + 125, 0);
+        let path = Path::new("bounded.ape");
+        let size_bytes = ape.len() as u64;
+        let expected = ape_track_from_parts(
+            path,
+            size_bytes,
+            parse_ape_items(&ape),
+            ape_stream_info(&ape),
+        );
+
+        let bytes_read = Rc::new(Cell::new(0));
+        let mut reader = CountingReader::new(Cursor::new(ape), Rc::clone(&bytes_read));
+        let track = read_ape_fallback_seekable(&mut reader, path, size_bytes)
+            .expect("bounded APE read should not fail")
+            .expect("valid trailing APEv2 tag should resolve");
+
+        assert_eq!(track.title.as_deref(), Some("Bounded"));
+        assert_eq!(track.sample_rate, Some(44_100));
+        assert_eq!(track.duration, 1.0);
+        assert_eq!(track, expected);
+        assert!(
+            bytes_read.get() < 4 * 1024,
+            "APE fallback transferred {} bytes across an 8 MiB payload",
+            bytes_read.get()
+        );
     }
 
     /// Intent: album:read must retain the renderer's folder hints and report a
@@ -2263,6 +2901,151 @@ mod tests {
         assert!(matches!(result, Err(ApiError::Lofty(_))));
     }
 
+    /// Intent: normal WAV reads must scale with metadata, not PCM size, so
+    /// large lossless files do not require transferring their audio payload.
+    #[test]
+    fn wav_seekable_metadata_read_skips_large_pcm_payload() {
+        let path = Path::new("bounded.wav");
+        let mut wav = wav_before_payload();
+        let data_size = 8 * 1024 * 1024_u32;
+        let size_offset = wav.len() - 4;
+        wav[size_offset..].copy_from_slice(&data_size.to_le_bytes());
+        wav.resize(wav.len() + data_size as usize, 0);
+        append_riff_chunk(&mut wav, b"ID3 ", &metadata_rich_id3v23());
+        riff_fix_size(&mut wav);
+
+        let bytes_read = Rc::new(Cell::new(0));
+        let mut reader = CountingReader::new(Cursor::new(wav), Rc::clone(&bytes_read));
+        let size_bytes = reader.len();
+        let track = read_wav_metadata_seekable(&mut reader, path, size_bytes)
+            .expect("standard WAV should parse")
+            .expect("standard WAV should use the seekable path");
+
+        assert_eq!(track.title.as_deref(), Some("ID3 title"));
+        assert_eq!(track.artists, ["Primary artist", "Guest artist"]);
+        assert!(
+            bytes_read.get() < 64 * 1024,
+            "metadata read transferred {} bytes from an 8 MiB PCM payload",
+            bytes_read.get()
+        );
+    }
+
+    /// Intent: the seekable path must preserve ID3-over-LIST precedence and
+    /// rich ID3 fields whether metadata appears before or after audio data.
+    #[test]
+    fn wav_seekable_metadata_matches_owned_reader_across_chunk_order() {
+        let path = Path::new("ordered.wav");
+        for id3_before_data in [false, true] {
+            let wav = metadata_rich_wav(id3_before_data);
+            let size_bytes = wav.len() as u64;
+            let expected = read_wav_metadata_from_bytes(path, size_bytes, wav.clone())
+                .expect("owned compatibility reader should parse fixture");
+            let actual = read_wav_metadata_seekable(&mut Cursor::new(wav), path, size_bytes)
+                .expect("seekable reader should parse fixture")
+                .expect("standard fixture should use the seekable path");
+
+            assert_eq!(actual, expected);
+            assert_eq!(actual.title.as_deref(), Some("ID3 title"));
+            assert_eq!(actual.artists, ["Primary artist", "Guest artist"]);
+            assert!(actual.has_cover);
+        }
+    }
+
+    /// Intent: ambiguous RIFF layouts must keep using the proven owned-buffer
+    /// compatibility path rather than being partially interpreted as normal.
+    #[test]
+    fn wav_seekable_metadata_defers_compatibility_layouts() {
+        let path = Path::new("compatibility.wav");
+
+        let mut padded = metadata_rich_wav(false);
+        padded.extend_from_slice(&[0_u8; 8]);
+        riff_fix_size(&mut padded);
+        let padded_size = padded.len() as u64;
+        assert!(
+            read_wav_metadata_seekable(&mut Cursor::new(padded), path, padded_size)
+                .expect("layout inspection should not fail")
+                .is_none()
+        );
+
+        let mut orphaned = metadata_rich_wav(false);
+        orphaned.extend_from_slice(b"ORPHAN!!");
+        let orphaned_size = orphaned.len() as u64;
+        assert!(
+            read_wav_metadata_seekable(&mut Cursor::new(orphaned), path, orphaned_size)
+                .expect("layout inspection should not fail")
+                .is_none()
+        );
+
+        let mut malformed_id3 = metadata_rich_wav(false);
+        let id3 = malformed_id3
+            .windows(4)
+            .position(|bytes| bytes == b"ID3 ")
+            .expect("fixture ID3 chunk");
+        malformed_id3[id3 + 8..id3 + 11].copy_from_slice(b"BAD");
+        let malformed_size = malformed_id3.len() as u64;
+        assert!(
+            read_wav_metadata_seekable(&mut Cursor::new(malformed_id3), path, malformed_size,)
+                .expect("layout inspection should not fail")
+                .is_none()
+        );
+    }
+
+    fn metadata_rich_wav(id3_before_data: bool) -> Vec<u8> {
+        let prefix = wav_before_payload();
+        let mut wav = prefix[..prefix.len() - 8].to_vec();
+        let id3 = metadata_rich_id3v23();
+        let list = list_info_title("stale LIST title");
+        if id3_before_data {
+            append_riff_chunk(&mut wav, b"ID3 ", &id3);
+        } else {
+            append_riff_chunk(&mut wav, b"LIST", &list);
+        }
+        append_riff_chunk(&mut wav, b"data", &[0_u8; 1_764]);
+        if id3_before_data {
+            append_riff_chunk(&mut wav, b"LIST", &list);
+        } else {
+            append_riff_chunk(&mut wav, b"ID3 ", &id3);
+        }
+        riff_fix_size(&mut wav);
+        wav
+    }
+
+    struct CountingReader<R> {
+        inner: R,
+        bytes_read: Rc<Cell<u64>>,
+        len: u64,
+    }
+
+    impl CountingReader<Cursor<Vec<u8>>> {
+        fn new(inner: Cursor<Vec<u8>>, bytes_read: Rc<Cell<u64>>) -> Self {
+            let len = inner.get_ref().len() as u64;
+            Self {
+                inner,
+                bytes_read,
+                len,
+            }
+        }
+
+        fn len(&self) -> u64 {
+            self.len
+        }
+    }
+
+    impl<R: Read> Read for CountingReader<R> {
+        fn read(&mut self, buffer: &mut [u8]) -> std::io::Result<usize> {
+            let read = self.inner.read(buffer)?;
+            self.bytes_read
+                .set(self.bytes_read.get().saturating_add(read as u64));
+            Ok(read)
+        }
+    }
+
+    impl<R: Seek> Seek for CountingReader<R> {
+        fn seek(&mut self, position: SeekFrom) -> std::io::Result<u64> {
+            self.inner.seek(position)
+        }
+    }
+
     fn metadata_rich_id3v23() -> Vec<u8> {
         let mut frames = Vec::new();
         for (id, value) in [
@@ -2324,6 +3107,44 @@ mod tests {
         wav.extend_from_slice(payload);
         if payload.len() % 2 == 1 {
             wav.push(0);
+        }
+    }
+
+    fn mp4_atom(kind: &[u8; 4], payload: &[u8]) -> Vec<u8> {
+        let mut atom = Vec::with_capacity(payload.len() + 8);
+        atom.extend_from_slice(&((payload.len() + 8) as u32).to_be_bytes());
+        atom.extend_from_slice(kind);
+        atom.extend_from_slice(payload);
+        atom
+    }
+
+    fn ogg_page(packet: &[u8], granule: u64, sequence: u32) -> Vec<u8> {
+        assert!(packet.len() <= 65_025);
+        let full_segments = packet.len() / 255;
+        let remainder = packet.len() % 255;
+        let segment_count = full_segments + usize::from(remainder > 0);
+        let mut page = Vec::with_capacity(27 + segment_count + packet.len());
+        page.extend_from_slice(b"OggS");
+        page.extend_from_slice(&[0, 0]);
+        page.extend_from_slice(&granule.to_le_bytes());
+        page.extend_from_slice(&1_u32.to_le_bytes());
+        page.extend_from_slice(&sequence.to_le_bytes());
+        page.extend_from_slice(&0_u32.to_le_bytes());
+        page.push(segment_count as u8);
+        page.extend(std::iter::repeat_n(255, full_segments));
+        if remainder > 0 {
+            page.push(remainder as u8);
+        }
+        page.extend_from_slice(packet);
+        page
+    }
+
+    fn append_aiff_chunk(aiff: &mut Vec<u8>, kind: &[u8; 4], payload: &[u8]) {
+        aiff.extend_from_slice(kind);
+        aiff.extend_from_slice(&(payload.len() as u32).to_be_bytes());
+        aiff.extend_from_slice(payload);
+        if payload.len() % 2 == 1 {
+            aiff.push(0);
         }
     }
 
