@@ -365,6 +365,7 @@ export interface AssistantActionBatch {
   actions: AssistantAction[];
   reversible: boolean;
   status: "pending" | "applied" | "rejected" | "failed";
+  dependsOnBatchIds?: string[];
   completionContract?: {
     scopePaths: string[];
     scopeSnapshot: Array<{

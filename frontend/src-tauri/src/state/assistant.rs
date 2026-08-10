@@ -96,6 +96,10 @@ pub struct AssistantActionBatch {
     pub actions: Vec<AssistantAction>,
     pub reversible: bool,
     pub status: String,
+    /// Pending action batches that must be applied before this batch. Plan
+    /// execution records these IDs so approval cannot violate step order.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub depends_on_batch_ids: Vec<String>,
     /// Library root under which folder-move destinations must stay. Set on
     /// file-move batches so the apply path can fail-closed re-validate
     /// containment immediately before each rename.
@@ -338,6 +342,7 @@ mod tests {
             actions: Vec::new(),
             reversible: true,
             status: "pending".to_string(),
+            depends_on_batch_ids: Vec::new(),
             library_root: None,
             completion_contract: None,
         }

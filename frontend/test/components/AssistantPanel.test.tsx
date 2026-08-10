@@ -226,6 +226,44 @@ describe("AssistantPanel — refreshed side sheet", () => {
     expect(screen.getByRole("button", { name: "Apply changes" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Reject" })).toBeTruthy();
   });
+
+  it("shows file destinations and counts their source tracks in the review card", async () => {
+    mockApi.assistantGetBatches.mockResolvedValueOnce([{
+      id: "batch-file-review",
+      createdAt: "now",
+      sessionId: "session",
+      kind: "folder-move",
+      title: "Organize album files",
+      summary: "Rename and relocate two tracks",
+      riskLevel: "medium",
+      actions: [
+        {
+          operation: "files.transform",
+          sourcePath: "/music/inbox/01.flac",
+          destinationPath: "/music/Artist/Album/01 - First.flac",
+          description: "Rename from track metadata",
+        },
+        {
+          operation: "files.relocate",
+          sourcePath: "/music/inbox/02.flac",
+          destinationPath: "/music/Artist/Album/02 - Second.flac",
+          description: "Move into folder: Artist/Album",
+        },
+      ],
+      reversible: true,
+      status: "pending",
+    }]);
+
+    renderPanel();
+
+    expect(await screen.findByText("2 changes on 2 tracks")).toBeTruthy();
+    expect(screen.getByText(
+      "/music/inbox/01.flac → /music/Artist/Album/01 - First.flac",
+    )).toBeTruthy();
+    expect(screen.getByText(
+      "/music/inbox/02.flac → /music/Artist/Album/02 - Second.flac",
+    )).toBeTruthy();
+  });
 });
 
 /** Simulate an assistant event being emitted by the API. */

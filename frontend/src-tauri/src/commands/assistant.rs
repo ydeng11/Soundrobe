@@ -66,6 +66,7 @@ const ASSISTANT_CLARIFY_LIMIT: i64 = 2;
 /// rather than an answer, limitation, or completion. Matches the phrasing the
 /// model actually produced in the failing session ("Just to clarify — …",
 /// "What would you like to do first?").
+#[cfg(test)]
 fn is_clarification_question(message: &str) -> bool {
     let trimmed = message.trim();
     if trimmed.ends_with('?') || trimmed.ends_with('？') {
@@ -998,7 +999,7 @@ pub async fn assistant_send(
             // an earlier question this session, so a second question about the same
             // operation is a stall, not a step forward.
             if prior_clarifications >= 1
-                && is_clarification_question(&draft.message)
+                && is_structured_clarification(draft.response_kind)
                 && !clarify_repaired
             {
                 clarify_repaired = true;
@@ -1213,10 +1214,10 @@ pub async fn assistant_send(
     // Persist the consecutive-clarification counter and stop a question loop:
     // after the user answered and the assistant still only asks, the session
     // must not return another question to the user.
-    let is_question = is_clarification_question(&draft.message);
-    let clarification_count = next_clarification_count(prior_clarifications, is_question);
+    let is_clarification = is_structured_clarification(draft.response_kind);
+    let clarification_count = next_clarification_count(prior_clarifications, is_clarification);
     let _ = task_state.save_clarification_count(&session_id, clarification_count);
-    if is_question && clarification_count >= ASSISTANT_CLARIFY_LIMIT {
+    if is_clarification && clarification_count >= ASSISTANT_CLARIFY_LIMIT {
         // Return a normal limitation message, not an error event, so the UI
         // does not enter a failed state.
         let event = AssistantEvent {
@@ -1719,6 +1720,7 @@ pub(crate) fn assistant_batch(
         actions,
         reversible,
         status: "pending".into(),
+        depends_on_batch_ids: Vec::new(),
         library_root: None,
         completion_contract: None,
     }
@@ -1845,6 +1847,7 @@ async fn execute_create_plan(
         .filter_map(|step| Some((step.get("id")?.as_str()?.to_string(), step)))
         .collect::<BTreeMap<_, _>>();
     let mut scratchpad = BTreeMap::<String, Value>::new();
+    let mut required_batch_ids_by_step = BTreeMap::<String, Vec<String>>::new();
     let mut outputs = Vec::new();
     let mut batches = Vec::new();
     let mut completion_evidence = false;
@@ -1861,7 +1864,7 @@ async fn execute_create_plan(
                 .unwrap_or(&Value::Object(Default::default())),
             &scratchpad,
         );
-        let execution = if registered_tool_is_read_only(tool) == Some(true) {
+        let mut execution = if registered_tool_is_read_only(tool) == Some(true) {
             MutatingToolExecution {
                 result: execute_native_assistant_tool(tool, &resolved_args, services).await,
                 batches: Vec::new(),
@@ -1878,6 +1881,26 @@ async fn execute_create_plan(
                 execution.result.summary
             ));
         }
+        let prerequisite_batch_ids = step
+            .get("depends_on")
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten()
+            .filter_map(Value::as_str)
+            .filter_map(|dependency| required_batch_ids_by_step.get(dependency))
+            .flatten()
+            .cloned()
+            .collect::<BTreeSet<_>>()
+            .into_iter()
+            .collect::<Vec<_>>();
+        for batch in &mut execution.batches {
+            batch.depends_on_batch_ids = prerequisite_batch_ids.clone();
+        }
+        let mut cumulative_batch_ids = prerequisite_batch_ids;
+        cumulative_batch_ids.extend(execution.batches.iter().map(|batch| batch.id.clone()));
+        cumulative_batch_ids.sort();
+        cumulative_batch_ids.dedup();
+        required_batch_ids_by_step.insert(step_id.clone(), cumulative_batch_ids);
         completion_evidence |= execution.completion_evidence;
         let scratch = execution
             .result
@@ -3236,6 +3259,10 @@ enum AssistantResponseKind {
     Action,
 }
 
+fn is_structured_clarification(response_kind: AssistantResponseKind) -> bool {
+    response_kind == AssistantResponseKind::Clarification
+}
+
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct AssistantDraft {
@@ -3610,6 +3637,7 @@ fn validated_assistant_batch(
         actions: draft.actions,
         reversible: true,
         status: "pending".into(),
+        depends_on_batch_ids: Vec::new(),
         library_root: None,
         completion_contract: None,
     })
@@ -4640,12 +4668,32 @@ async fn relocate_file_queued(
                         source.display()
                     )));
                 }
-                fs::rename(&source, &destination).map_err(ApiError::Io)
+                rename_file_no_replace(&source, &destination).map_err(ApiError::Io)
             })
             .await
             .map_err(|error| ApiError::WriteTask(error.to_string()))?
         })
         .await
+}
+
+/// Move a regular media file without ever replacing an existing destination.
+/// Creating the hard link is the atomic no-replace step; unlinking the source
+/// then completes the rename semantics. Filesystems without hard-link support
+/// fail closed instead of falling back to an overwrite-capable rename.
+fn rename_file_no_replace(source: &Path, destination: &Path) -> std::io::Result<()> {
+    fs::hard_link(source, destination)?;
+    if let Err(source_error) = fs::remove_file(source) {
+        // Keep both links on this rare failure. Deleting the destination here
+        // could race with an external replacement and violate no-clobber.
+        return Err(std::io::Error::new(
+            source_error.kind(),
+            format!(
+                "Destination was created, but source removal failed; both paths still reference \
+the file: {source_error}"
+            ),
+        ));
+    }
+    Ok(())
 }
 
 async fn apply_remove_embedded_cover(
@@ -4824,6 +4872,24 @@ async fn apply_action_batch(
     };
     if batch.status != "pending" {
         return serde_json::json!({ "success": false, "error": format!("Batch already {}", batch.status) });
+    }
+    let unmet_dependencies = batch
+        .depends_on_batch_ids
+        .iter()
+        .filter_map(|dependency_id| match runtime.get_batch(dependency_id) {
+            Some(dependency) if dependency.status == "applied" => None,
+            Some(dependency) => Some(format!("{dependency_id} ({})", dependency.status)),
+            None => Some(format!("{dependency_id} (missing)")),
+        })
+        .collect::<Vec<_>>();
+    if !unmet_dependencies.is_empty() {
+        return serde_json::json!({
+            "success": false,
+            "error": format!(
+                "Apply required batch(es) first: {}",
+                unmet_dependencies.join(", ")
+            )
+        });
     }
     tracing::debug!(
         batch_id = %batch_id,
@@ -5355,7 +5421,7 @@ mod apply_contract_tests {
                         "destination": {"kind": "tag", "field": "album"},
                         "operations": [{"op": "strip_suffix", "suffix": "(伴奏)"}]
                     }},
-                    {"id": "group", "tool": "files.relocate", "args": {
+                    {"id": "group", "tool": "files.relocate", "depends_on": ["album"], "args": {
                         "target_scope": "explicit_paths", "paths": paths,
                         "destination": {
                             "template": "{value}",
@@ -5385,6 +5451,11 @@ mod apply_contract_tests {
         assert_eq!(execution.batches.len(), 2);
         assert_eq!(execution.batches[0].kind, "metadata-update");
         assert_eq!(execution.batches[1].kind, "folder-move");
+        assert_eq!(
+            execution.batches[1].depends_on_batch_ids,
+            vec![execution.batches[0].id.clone()],
+            "approval order must preserve the plan dependency"
+        );
         // The Album batch only contains the track that actually changed (the
         // vocal title has no `(伴奏)` suffix to strip, so it needs no Album
         // update) — the stripped value is the shared album name.
@@ -5604,6 +5675,7 @@ mod apply_contract_tests {
             risk_level: "low".into(),
             reversible: true,
             status: "pending".into(),
+            depends_on_batch_ids: Vec::new(),
             library_root: None,
             completion_contract: None,
             actions: vec![AssistantAction {
@@ -6072,6 +6144,7 @@ mod apply_contract_tests {
             risk_level: "low".into(),
             reversible: true,
             status: "pending".into(),
+            depends_on_batch_ids: Vec::new(),
             library_root: None,
             completion_contract: None,
             actions: vec![AssistantAction {
@@ -6112,6 +6185,7 @@ mod apply_contract_tests {
             risk_level: "low".into(),
             reversible: true,
             status: "pending".into(),
+            depends_on_batch_ids: Vec::new(),
             library_root: None,
             completion_contract: None,
             actions: vec![AssistantAction {
@@ -6255,6 +6329,7 @@ mod apply_contract_tests {
             risk_level: "low".into(),
             reversible: true,
             status: "pending".into(),
+            depends_on_batch_ids: Vec::new(),
             library_root: None,
             completion_contract: None,
             actions: vec![
@@ -6312,6 +6387,7 @@ mod apply_contract_tests {
             risk_level: "medium".into(),
             reversible: true,
             status: "pending".into(),
+            depends_on_batch_ids: Vec::new(),
             library_root: Some(root.to_string_lossy().into_owned()),
             completion_contract: None,
             actions: vec![AssistantAction {
@@ -6331,6 +6407,74 @@ mod apply_contract_tests {
         assert!(destination.exists());
         assert!(!source.exists());
         fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn folder_move_does_not_clobber_destination_created_after_preview() {
+        let root = temp_dir();
+        let source = root.join("source.mp3");
+        let destination = root.join("destination.mp3");
+        fs::write(&source, b"source payload").unwrap();
+        let library = root.canonicalize().unwrap();
+
+        preflight_relocation(&source, &destination, &library).unwrap();
+        fs::write(&destination, b"new occupant").unwrap();
+
+        let error = relocate_file_queued(
+            &WriteQueue::default(),
+            source.clone(),
+            destination.clone(),
+            &library,
+        )
+        .await
+        .expect_err("an occupied approved destination must never be replaced");
+
+        assert!(error.to_string().contains("exists"), "{error}");
+        assert_eq!(fs::read(&source).unwrap(), b"source payload");
+        assert_eq!(fs::read(&destination).unwrap(), b"new occupant");
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn dependent_batch_cannot_apply_before_its_predecessor() {
+        let runtime = AssistantRuntimeState::default();
+        assert!(runtime.initialize());
+        let predecessor = assistant_batch(
+            "session",
+            "auto-tag-run",
+            "Metadata predecessor",
+            "first",
+            "low",
+            Vec::new(),
+            false,
+        );
+        let predecessor_id = predecessor.id.clone();
+        let mut dependent = assistant_batch(
+            "session",
+            "auto-tag-run",
+            "Relocation dependent",
+            "second",
+            "low",
+            Vec::new(),
+            false,
+        );
+        let dependent_id = dependent.id.clone();
+        dependent.depends_on_batch_ids = vec![predecessor_id.clone()];
+        assert!(runtime.add_batch(predecessor));
+        assert!(runtime.add_batch(dependent));
+
+        let blocked = apply_action_batch(&runtime, &WriteQueue::default(), &dependent_id).await;
+
+        assert_eq!(blocked["success"], false);
+        assert!(blocked["error"]
+            .as_str()
+            .unwrap_or_default()
+            .contains(&predecessor_id));
+        assert_eq!(runtime.get_batch(&dependent_id).unwrap().status, "pending");
+
+        runtime.mark_batch_applied(&predecessor_id).unwrap();
+        let allowed = apply_action_batch(&runtime, &WriteQueue::default(), &dependent_id).await;
+        assert_eq!(allowed["success"], true);
     }
 
     #[tokio::test]
@@ -6361,6 +6505,7 @@ mod apply_contract_tests {
             risk_level: "medium".into(),
             reversible: true,
             status: "pending".into(),
+            depends_on_batch_ids: Vec::new(),
             library_root: Some(root.to_string_lossy().into_owned()),
             completion_contract: None,
             actions: vec![
@@ -6422,6 +6567,7 @@ mod apply_contract_tests {
             risk_level: "medium".into(),
             reversible: true,
             status: "pending".into(),
+            depends_on_batch_ids: Vec::new(),
             library_root: Some(root.to_string_lossy().into_owned()),
             completion_contract: None,
             actions: vec![AssistantAction {
@@ -6469,6 +6615,7 @@ mod apply_contract_tests {
                 risk_level: "medium".into(),
                 reversible: true,
                 status: "pending".into(),
+                depends_on_batch_ids: Vec::new(),
                 library_root: Some(root.to_string_lossy().into_owned()),
                 completion_contract: None,
                 actions: vec![AssistantAction {
@@ -6506,6 +6653,7 @@ mod apply_contract_tests {
             risk_level: "medium".into(),
             reversible: true,
             status: "pending".into(),
+            depends_on_batch_ids: Vec::new(),
             library_root: None,
             completion_contract: None,
             actions: vec![AssistantAction {
@@ -6540,6 +6688,7 @@ mod apply_contract_tests {
             risk_level: "medium".into(),
             reversible: true,
             status: "pending".into(),
+            depends_on_batch_ids: Vec::new(),
             library_root: None,
             completion_contract: None,
             actions: vec![
@@ -6699,6 +6848,7 @@ mod apply_contract_tests {
             risk_level: "low".into(),
             reversible: true,
             status: "pending".into(),
+            depends_on_batch_ids: Vec::new(),
             library_root: None,
             completion_contract: None,
             actions,
@@ -6912,6 +7062,36 @@ mod assistant_behaviour_tests {
         // The streak is what blocks, not the raw question flag.
         assert!(next_clarification_count(1, true) >= ASSISTANT_CLARIFY_LIMIT);
         assert!(next_clarification_count(0, true) < ASSISTANT_CLARIFY_LIMIT);
+    }
+
+    #[test]
+    fn clarification_streak_uses_structured_response_kind_not_punctuation() {
+        assert!(!is_structured_clarification(AssistantResponseKind::Answer));
+        assert!(!is_structured_clarification(
+            AssistantResponseKind::Limitation
+        ));
+        assert!(is_structured_clarification(
+            AssistantResponseKind::Clarification
+        ));
+
+        let prior = 1;
+        let informational_answer_ending_in_a_question = AssistantResponseKind::Answer;
+        assert_eq!(
+            next_clarification_count(
+                prior,
+                is_structured_clarification(informational_answer_ending_in_a_question)
+            ),
+            0,
+            "an ordinary answer such as `Anything else?` must end the old streak"
+        );
+        assert_eq!(
+            next_clarification_count(
+                prior,
+                is_structured_clarification(AssistantResponseKind::Clarification)
+            ),
+            ASSISTANT_CLARIFY_LIMIT,
+            "a second structured clarification remains guarded"
+        );
     }
 
     #[test]
@@ -8374,6 +8554,7 @@ mod assistant_behaviour_tests {
             }],
             reversible: true,
             status: "pending".into(),
+            depends_on_batch_ids: Vec::new(),
             library_root: None,
             completion_contract: None,
         };
@@ -8449,8 +8630,9 @@ mod assistant_behaviour_tests {
                 actions: vec![],
                 reversible: false,
                 status: String::new(),
+                depends_on_batch_ids: Vec::new(),
                 library_root: None,
-            completion_contract: None,
+                completion_contract: None,
             }],
             "s",
             &test_outcome_input(),
@@ -8492,6 +8674,7 @@ mod assistant_behaviour_tests {
             }],
             reversible: true,
             status: "pending".into(),
+            depends_on_batch_ids: Vec::new(),
             library_root: None,
             completion_contract: None,
         };

@@ -773,7 +773,10 @@ export function AssistantPanel({
             </div>
             {pendingBatches.map((batch) => {
               const affectedTracks = new Set(
-                batch.actions.flatMap((action) => action.trackPath ? [action.trackPath] : []),
+                batch.actions.flatMap((action) => {
+                  const trackPath = action.trackPath ?? action.sourcePath;
+                  return trackPath ? [trackPath] : [];
+                }),
               ).size;
               const riskStyles = batch.riskLevel === "high"
                 ? "border-red-500/30 bg-red-500/5 text-[#ff3b30]"
@@ -807,6 +810,11 @@ export function AssistantPanel({
                     <div className="scrollbar-thin mt-2 max-h-36 space-y-1 overflow-y-auto rounded-lg border border-border/60 bg-white p-2 text-[10.5px] text-text-secondary">
                       {batch.actions.slice(0, 10).map((action, actionIndex) => (
                         <div key={actionIndex} className="truncate">
+                          {action.sourcePath && action.destinationPath && (
+                            <span title={`${action.sourcePath} → ${action.destinationPath}`}>
+                              {action.sourcePath} → {action.destinationPath}
+                            </span>
+                          )}
                           {action.field && (
                             <span>
                               <span className="font-medium text-text-primary">{action.field}</span>
