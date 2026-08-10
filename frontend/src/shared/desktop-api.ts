@@ -407,6 +407,7 @@ export interface AssistantEvent {
     | "tool_running"
     | "tool_result"
     | "action_batch_created"
+    | "action_batch_progress"
     | "action_batch_applied"
     | "action_batch_rejected"
     | "action_batch_failed"

@@ -8,9 +8,9 @@ use crate::commands::{
     dataset::dataset_status_at,
     lyrics::{fetch_lyrics_at, DEFAULT_BASE_URL},
     mutations::{
-        remove_embedded_cover_queued,
-        write_extra_tags_with_exclusive_queue_held, write_track_with_exclusive_queue_held,
-        ExtraTagUpdate, TrackPatch,
+        batch_write_with_exclusive_queue_held, remove_embedded_cover_queued,
+        write_extra_tags_with_exclusive_queue_held, ExtraTagUpdate, TrackPatch, TrackUpdate,
+        TrackWriteProgress,
     },
     organizer::sanitize_dir_name,
     tracks::{read_extra_tags, read_track_metadata, try_read_extra_tags},
@@ -34,6 +34,7 @@ use std::collections::{BTreeMap, BTreeSet, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::Ordering;
+use std::sync::Arc;
 use tauri::{AppHandle, Emitter, State};
 
 const ASSISTANT_LLM_TIMEOUT_SECS: u64 = 120;
@@ -129,6 +130,20 @@ pub struct AssistantEvent {
     event_type: &'static str,
     message: String,
     data: Option<Value>,
+}
+
+type AssistantApplyProgress = Arc<dyn Fn(&'static str, u64, u64, String) + Send + Sync>;
+
+fn emit_apply_progress(
+    progress: &Option<AssistantApplyProgress>,
+    phase: &'static str,
+    current: u64,
+    total: u64,
+    message: impl Into<String>,
+) {
+    if let Some(progress) = progress {
+        progress(phase, current, total, message.into());
+    }
 }
 
 // ── Credential resolution ─────────────────────────────────────────────
@@ -4233,6 +4248,8 @@ async fn apply_standard_actions(
     batch_id: &str,
     metadata_only: bool,
     mark_status: bool,
+    undo_tracks: &BTreeMap<String, crate::commands::tracks::TrackData>,
+    progress: Option<TrackWriteProgress>,
 ) -> Value {
     let mut updates: Vec<(String, TrackPatch)> = Vec::new();
     for action in &batch.actions {
@@ -4259,40 +4276,51 @@ async fn apply_standard_actions(
             updates.push((path, patch));
         }
     }
-    let mut undo = Vec::new();
-    for (path, _) in &updates {
-        match read_track_metadata(Path::new(path)) {
-            Ok(track) => {
-                undo.push(serde_json::json!({ "path": path, "metadata": undo_metadata(&track) }))
-            }
-            Err(error) => {
-                let message = format!("Could not capture undo snapshot for {path}: {error}");
-                if mark_status {
-                    runtime.mark_batch_failed(batch_id, &message);
-                }
-                return serde_json::json!({
-                    "success": false,
-                    "error": message,
-                    "results": [{
-                        "trackPath": path,
-                        "success": false,
-                        "error": error.to_string()
-                    }],
-                    "undoSnapshots": undo
-                });
-            }
+    let undo = updates
+        .iter()
+        .filter_map(|(path, _)| {
+            undo_tracks
+                .get(path)
+                .map(|track| serde_json::json!({ "path": path, "metadata": undo_metadata(track) }))
+        })
+        .collect::<Vec<_>>();
+    if undo.len() != updates.len() {
+        let message = "Could not capture complete standard-tag undo evidence";
+        if mark_status {
+            runtime.mark_batch_failed(batch_id, message);
         }
+        return serde_json::json!({ "success": false, "error": message, "undoSnapshots": undo });
     }
-    let mut results = Vec::new();
-    for (path, patch) in updates {
-        match write_track_with_exclusive_queue_held(PathBuf::from(&path), patch).await {
-            Ok(()) => match read_track_metadata(Path::new(&path)) {
-                Ok(track) => results.push(serde_json::json!({ "trackPath": path, "success": true, "updatedTrack": track })),
-                Err(error) => results.push(serde_json::json!({ "trackPath": path, "success": false, "error": error.to_string() })),
-            },
-            Err(error) => results.push(serde_json::json!({ "trackPath": path, "success": false, "error": error.to_string() })),
+    let write_result = match batch_write_with_exclusive_queue_held(
+        updates
+            .into_iter()
+            .map(|(path, fields)| TrackUpdate { path, fields })
+            .collect(),
+        progress,
+    )
+    .await
+    {
+        Ok(result) => result,
+        Err(error) => {
+            return serde_json::json!({
+                "success": false,
+                "error": error.to_string(),
+                "undoSnapshots": undo
+            });
         }
-    }
+    };
+    let mut results = write_result
+        .successes
+        .into_iter()
+        .map(|path| serde_json::json!({ "trackPath": path, "success": true }))
+        .collect::<Vec<_>>();
+    results.extend(write_result.failures.into_iter().map(|failure| {
+        serde_json::json!({
+            "trackPath": failure.path,
+            "success": false,
+            "error": failure.error
+        })
+    }));
     let failed = results
         .iter()
         .filter(|result| result["success"] == false)
@@ -4341,6 +4369,8 @@ async fn apply_extra_actions(
     batch: &AssistantActionBatch,
     batch_id: &str,
     mark_status: bool,
+    undo_tags: &BTreeMap<String, Vec<crate::commands::tracks::ExtraTag>>,
+    progress: Option<(AssistantApplyProgress, u64, u64)>,
 ) -> Value {
     tracing::debug!(
         batch_id = %batch_id,
@@ -4363,11 +4393,10 @@ async fn apply_extra_actions(
     }
     let mut prepared = Vec::new();
     for path in paths {
-        let current = match try_read_extra_tags(Path::new(&path)) {
-            Ok(tags) => tags,
-            Err(error) => {
-                let message =
-                    format!("Could not capture extra-tag undo snapshot for {path}: {error}");
+        let current = match undo_tags.get(&path) {
+            Some(tags) => tags.clone(),
+            None => {
+                let message = format!("Could not capture extra-tag undo snapshot for {path}");
                 if mark_status {
                     runtime.mark_batch_failed(batch_id, &message);
                 }
@@ -4377,7 +4406,7 @@ async fn apply_extra_actions(
                     "results": [{
                         "trackPath": path,
                         "success": false,
-                        "error": error.to_string()
+                        "error": message
                     }],
                     "extraUndoSnapshots": prepared.iter().map(|(prepared_path, tags, _)| {
                         serde_json::json!({ "path": prepared_path, "extraTags": tags })
@@ -4418,11 +4447,22 @@ async fn apply_extra_actions(
         .map(|(path, current, _)| serde_json::json!({ "path": path, "extraTags": current }))
         .collect::<Vec<_>>();
     let mut results = Vec::new();
-    for (path, _, final_tags) in prepared {
+    for (index, (path, _, final_tags)) in prepared.into_iter().enumerate() {
         tracing::debug!(path = %path, tag_count = final_tags.len(), "writing extra tags");
-        match write_extra_tags_with_exclusive_queue_held(PathBuf::from(&path), final_tags).await {
+        let result =
+            write_extra_tags_with_exclusive_queue_held(PathBuf::from(&path), final_tags).await;
+        match result {
             Ok(()) => results.push(serde_json::json!({ "trackPath": path, "success": true })),
             Err(error) => results.push(serde_json::json!({ "trackPath": path, "success": false, "error": error.to_string() })),
+        }
+        if let Some((progress, offset, total)) = &progress {
+            let current = *offset + index as u64 + 1;
+            progress(
+                "writing",
+                current,
+                *total,
+                format!("Writing {current}/{total}"),
+            );
         }
     }
     let failed = results
@@ -4735,7 +4775,34 @@ async fn apply_metadata_action_batch(
     runtime: &AssistantRuntimeState,
     batch: &AssistantActionBatch,
     batch_id: &str,
+    progress: Option<AssistantApplyProgress>,
 ) -> Value {
+    let mut standard_paths = BTreeSet::new();
+    let mut extra_paths = BTreeSet::new();
+    for action in &batch.actions {
+        let Some(path) = action.track_path.as_deref() else {
+            continue;
+        };
+        if action.tag_kind.as_deref().unwrap_or("standard") == "extra" {
+            extra_paths.insert(path.to_string());
+        } else {
+            standard_paths.insert(path.to_string());
+        }
+    }
+    let preflight_total = (standard_paths.len() + extra_paths.len()) as u64;
+    let affected_paths = batch
+        .actions
+        .iter()
+        .filter_map(|action| action.track_path.as_deref())
+        .collect::<HashSet<_>>()
+        .len() as u64;
+    emit_apply_progress(
+        &progress,
+        "preflight",
+        0,
+        preflight_total,
+        format!("Checking 0/{preflight_total}"),
+    );
     if let Some(verification) = preflight_metadata_contract(batch) {
         let error = "Metadata preview is stale or incomplete";
         runtime.mark_batch_failed(batch_id, error);
@@ -4746,33 +4813,46 @@ async fn apply_metadata_action_batch(
         });
     }
     let mut undo_failures = Vec::new();
-    let mut standard_paths = HashSet::new();
-    let mut extra_paths = HashSet::new();
-    for action in &batch.actions {
-        let Some(path) = action.track_path.as_deref() else {
-            continue;
-        };
-        if action.tag_kind.as_deref().unwrap_or("standard") == "extra" {
-            extra_paths.insert(path);
-        } else {
-            standard_paths.insert(path);
-        }
-    }
-    for path in standard_paths {
-        if let Err(error) = read_track_metadata(Path::new(path)) {
-            undo_failures.push(serde_json::json!({
+    let mut preflight_current = 0u64;
+    let mut standard_undo = BTreeMap::new();
+    let mut extra_undo = BTreeMap::new();
+    for path in &standard_paths {
+        match read_track_metadata(Path::new(path)) {
+            Ok(track) => {
+                standard_undo.insert(path.clone(), track);
+            }
+            Err(error) => undo_failures.push(serde_json::json!({
                 "trackPath": path,
                 "error": format!("Could not capture undo snapshot: {error}")
-            }));
+            })),
         }
+        preflight_current += 1;
+        emit_apply_progress(
+            &progress,
+            "preflight",
+            preflight_current,
+            preflight_total,
+            format!("Checking {preflight_current}/{preflight_total}"),
+        );
     }
-    for path in extra_paths {
-        if let Err(error) = try_read_extra_tags(Path::new(path)) {
-            undo_failures.push(serde_json::json!({
+    for path in &extra_paths {
+        match try_read_extra_tags(Path::new(path)) {
+            Ok(tags) => {
+                extra_undo.insert(path.clone(), tags);
+            }
+            Err(error) => undo_failures.push(serde_json::json!({
                 "trackPath": path,
                 "error": format!("Could not capture extra-tag undo snapshot: {error}")
-            }));
+            })),
         }
+        preflight_current += 1;
+        emit_apply_progress(
+            &progress,
+            "preflight",
+            preflight_current,
+            preflight_total,
+            format!("Checking {preflight_current}/{preflight_total}"),
+        );
     }
     if !undo_failures.is_empty() {
         let error = "Could not capture complete undo evidence";
@@ -4781,21 +4861,80 @@ async fn apply_metadata_action_batch(
             "success": false,
             "error": error,
             "results": undo_failures.clone(),
-            "verification": verification_summary("failed", "write", batch, 0, undo_failures)
+            "verification": verification_summary("failed", "preflight", batch, 0, undo_failures)
         });
     }
-    match batch.kind.as_str() {
+    let write_total = preflight_total;
+    emit_apply_progress(
+        &progress,
+        "writing",
+        0,
+        write_total,
+        format!("Writing 0/{write_total}"),
+    );
+    let standard_progress = progress.as_ref().map(|progress| {
+        let progress = Arc::clone(progress);
+        Arc::new(move |current, _| {
+            progress(
+                "writing",
+                current,
+                write_total,
+                format!("Writing {current}/{write_total}"),
+            );
+        }) as TrackWriteProgress
+    });
+    let write_result = match batch.kind.as_str() {
         "tag-update" => {
-            let result = apply_standard_actions(runtime, batch, batch_id, false, false).await;
-            finish_metadata_apply(runtime, batch, batch_id, result)
+            apply_standard_actions(
+                runtime,
+                batch,
+                batch_id,
+                false,
+                false,
+                &standard_undo,
+                standard_progress,
+            )
+            .await
         }
         "extra-tag-update" => {
-            let result = apply_extra_actions(runtime, batch, batch_id, false).await;
-            finish_metadata_apply(runtime, batch, batch_id, result)
+            apply_extra_actions(
+                runtime,
+                batch,
+                batch_id,
+                false,
+                &extra_undo,
+                progress
+                    .as_ref()
+                    .map(|progress| (Arc::clone(progress), 0, write_total)),
+            )
+            .await
         }
         "metadata-update" => {
-            let standard = apply_standard_actions(runtime, batch, batch_id, true, false).await;
-            let extra = apply_extra_actions(runtime, batch, batch_id, false).await;
+            let standard = apply_standard_actions(
+                runtime,
+                batch,
+                batch_id,
+                true,
+                false,
+                &standard_undo,
+                standard_progress,
+            )
+            .await;
+            let extra = apply_extra_actions(
+                runtime,
+                batch,
+                batch_id,
+                false,
+                &extra_undo,
+                progress.as_ref().map(|progress| {
+                    (
+                        Arc::clone(progress),
+                        standard_paths.len() as u64,
+                        write_total,
+                    )
+                }),
+            )
+            .await;
             let standard_failed = standard["success"] == false;
             let extra_failed = extra["success"] == false;
             if standard_failed || extra_failed {
@@ -4812,18 +4951,36 @@ async fn apply_metadata_action_batch(
                 let failed = failed_standard.as_array().map_or(0, Vec::len)
                     + failed_extra.as_array().map_or(0, Vec::len);
                 let error = format!("Failed to update {failed} track(s)");
-                let result = serde_json::json!({ "success": false, "error": error, "results": { "standard": failed_standard, "extra": failed_extra }, "undoSnapshots": standard["undoSnapshots"], "extraUndoSnapshots": extra["extraUndoSnapshots"] });
-                finish_metadata_apply(runtime, batch, batch_id, result)
+                serde_json::json!({ "success": false, "error": error, "results": { "standard": failed_standard, "extra": failed_extra }, "undoSnapshots": standard["undoSnapshots"], "extraUndoSnapshots": extra["extraUndoSnapshots"] })
             } else {
-                let result = serde_json::json!({ "success": true, "results": { "standard": standard["results"], "extra": extra["results"] }, "undoSnapshots": standard["undoSnapshots"], "extraUndoSnapshots": extra["extraUndoSnapshots"] });
-                finish_metadata_apply(runtime, batch, batch_id, result)
+                serde_json::json!({ "success": true, "results": { "standard": standard["results"], "extra": extra["results"] }, "undoSnapshots": standard["undoSnapshots"], "extraUndoSnapshots": extra["extraUndoSnapshots"] })
             }
         }
         _ => serde_json::json!({
             "success": false,
             "error": format!("Unsupported metadata batch kind: {}", batch.kind)
         }),
+    };
+    if write_result["success"] != false {
+        emit_apply_progress(
+            &progress,
+            "verifying",
+            0,
+            affected_paths,
+            format!("Verifying 0/{affected_paths}"),
+        );
     }
+    let result = finish_metadata_apply(runtime, batch, batch_id, write_result);
+    if result["verification"]["phase"] == "readback" {
+        emit_apply_progress(
+            &progress,
+            "verifying",
+            affected_paths,
+            affected_paths,
+            format!("Verifying {affected_paths}/{affected_paths}"),
+        );
+    }
+    result
 }
 
 fn merge_assistant_patch(target: &mut TrackPatch, incoming: TrackPatch) {
@@ -4858,10 +5015,20 @@ fn merge_assistant_patch(target: &mut TrackPatch, incoming: TrackPatch) {
     merge!(discogs_release_id);
 }
 
+#[cfg(test)]
 async fn apply_action_batch(
     runtime: &AssistantRuntimeState,
     queue: &WriteQueue,
     batch_id: &str,
+) -> Value {
+    apply_action_batch_with_progress(runtime, queue, batch_id, None).await
+}
+
+async fn apply_action_batch_with_progress(
+    runtime: &AssistantRuntimeState,
+    queue: &WriteQueue,
+    batch_id: &str,
+    progress: Option<AssistantApplyProgress>,
 ) -> Value {
     tracing::debug!(batch_id = %batch_id, "action batch apply started");
     if !runtime.is_active() {
@@ -4902,7 +5069,9 @@ async fn apply_action_batch(
         "tag-update" | "extra-tag-update" | "metadata-update"
     ) {
         return queue
-            .run_exclusive(apply_metadata_action_batch(runtime, &batch, batch_id))
+            .run_exclusive(apply_metadata_action_batch(
+                runtime, &batch, batch_id, progress,
+            ))
             .await;
     }
     match batch.kind.as_str() {
@@ -4940,7 +5109,31 @@ pub async fn assistant_apply_actions(
     queue: State<'_, WriteQueue>,
     task_state: State<'_, crate::state::assistant_task::AssistantTaskState>,
 ) -> Result<Value, ApiError> {
-    let mut result = apply_action_batch(&runtime, &queue, &action_batch_id).await;
+    let progress = conversation.current().map(|current| {
+        let app = app.clone();
+        let session_id = current.session_id;
+        let batch_id = action_batch_id.clone();
+        Arc::new(
+            move |phase: &'static str, current: u64, total: u64, message: String| {
+                let _ = app.emit(
+                    "assistant:event",
+                    AssistantEvent {
+                        session_id: session_id.clone(),
+                        event_type: "action_batch_progress",
+                        message,
+                        data: Some(serde_json::json!({
+                            "batchId": batch_id,
+                            "phase": phase,
+                            "current": current,
+                            "total": total
+                        })),
+                    },
+                );
+            },
+        ) as AssistantApplyProgress
+    });
+    let mut result =
+        apply_action_batch_with_progress(&runtime, &queue, &action_batch_id, progress).await;
     let Some(batch) = runtime.get_batch(&action_batch_id) else {
         return Ok(result);
     };
@@ -5700,6 +5893,139 @@ mod apply_contract_tests {
     }
 
     #[tokio::test]
+    async fn approved_standard_batch_reports_all_apply_phases() {
+        let root = temp_dir();
+        let first_dir = root.join("first");
+        let second_dir = root.join("second");
+        fs::create_dir_all(&first_dir).unwrap();
+        fs::create_dir_all(&second_dir).unwrap();
+        let first = first_dir.join("one.mp3");
+        let second = second_dir.join("two.mp3");
+        fs::copy(media_fixture(), &first).unwrap();
+        fs::copy(media_fixture(), &second).unwrap();
+        let runtime = AssistantRuntimeState::default();
+        assert!(runtime.initialize());
+        assert!(runtime.add_batch(AssistantActionBatch {
+            id: "batch-progress".into(),
+            created_at: "now".into(),
+            session_id: "session".into(),
+            kind: "tag-update".into(),
+            title: "Update titles".into(),
+            summary: "two".into(),
+            risk_level: "low".into(),
+            reversible: true,
+            status: "pending".into(),
+            depends_on_batch_ids: Vec::new(),
+            library_root: None,
+            completion_contract: None,
+            actions: vec![
+                AssistantAction {
+                    track_path: Some(first.to_string_lossy().into_owned()),
+                    field: Some("title".into()),
+                    new_value: Some("First".into()),
+                    ..Default::default()
+                },
+                AssistantAction {
+                    track_path: Some(second.to_string_lossy().into_owned()),
+                    field: Some("title".into()),
+                    new_value: Some("Second".into()),
+                    ..Default::default()
+                },
+            ],
+        }));
+        let observed = Arc::new(std::sync::Mutex::new(Vec::new()));
+        let observed_for_progress = Arc::clone(&observed);
+        let progress = Arc::new(
+            move |phase: &'static str, current: u64, total: u64, _message: String| {
+                observed_for_progress
+                    .lock()
+                    .expect("progress lock poisoned")
+                    .push((phase, current, total));
+            },
+        ) as AssistantApplyProgress;
+
+        let result = apply_action_batch_with_progress(
+            &runtime,
+            &WriteQueue::default(),
+            "batch-progress",
+            Some(progress),
+        )
+        .await;
+
+        assert_eq!(result["success"], true, "{result}");
+        let observed = observed.lock().expect("progress lock poisoned");
+        assert!(observed.contains(&("preflight", 0, 2)));
+        assert!(observed.contains(&("preflight", 2, 2)));
+        assert!(observed.contains(&("writing", 0, 2)));
+        assert!(observed.contains(&("writing", 2, 2)));
+        assert!(observed.contains(&("verifying", 0, 2)));
+        assert!(observed.contains(&("verifying", 2, 2)));
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn failed_write_completes_writing_progress_without_verifying_completion() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let root = temp_dir();
+        let album = root.join("album");
+        fs::create_dir_all(&album).unwrap();
+        let track = album.join("track.mp3");
+        fs::copy(media_fixture(), &track).unwrap();
+        let runtime = AssistantRuntimeState::default();
+        assert!(runtime.initialize());
+        assert!(runtime.add_batch(AssistantActionBatch {
+            id: "batch-write-progress-failure".into(),
+            created_at: "now".into(),
+            session_id: "session".into(),
+            kind: "extra-tag-update".into(),
+            title: "Update extra tag".into(),
+            summary: "one".into(),
+            risk_level: "low".into(),
+            reversible: true,
+            status: "pending".into(),
+            depends_on_batch_ids: Vec::new(),
+            library_root: None,
+            completion_contract: None,
+            actions: vec![AssistantAction {
+                tag_kind: Some("extra".into()),
+                track_path: Some(track.to_string_lossy().into_owned()),
+                field: Some("MOOD".into()),
+                new_value: Some("Calm".into()),
+                ..Default::default()
+            }],
+        }));
+        let observed = Arc::new(std::sync::Mutex::new(Vec::new()));
+        let observed_for_progress = Arc::clone(&observed);
+        let progress = Arc::new(
+            move |phase: &'static str, current: u64, total: u64, _message: String| {
+                observed_for_progress
+                    .lock()
+                    .expect("progress lock poisoned")
+                    .push((phase, current, total));
+            },
+        ) as AssistantApplyProgress;
+        fs::set_permissions(&album, fs::Permissions::from_mode(0o555)).unwrap();
+
+        let result = apply_action_batch_with_progress(
+            &runtime,
+            &WriteQueue::default(),
+            "batch-write-progress-failure",
+            Some(progress),
+        )
+        .await;
+        fs::set_permissions(&album, fs::Permissions::from_mode(0o755)).unwrap();
+
+        assert_eq!(result["success"], false, "{result}");
+        assert_eq!(result["verification"]["phase"], "write", "{result}");
+        let observed = observed.lock().expect("progress lock poisoned");
+        assert!(observed.contains(&("writing", 1, 1)));
+        assert!(!observed.contains(&("verifying", 1, 1)));
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
     async fn split_artists_contract_applies_and_verifies_copied_flac_readback() {
         let root = temp_dir();
         let malformed = root.join("45.flac");
@@ -6200,7 +6526,9 @@ mod apply_contract_tests {
             apply_action_batch(&runtime, &WriteQueue::default(), "batch-missing-undo").await;
 
         assert_eq!(result["success"], false);
-        assert_eq!(result["verification"]["phase"], "write");
+        // Complete undo evidence is a preflight gate: no write attempt has
+        // started when a missing source file aborts the batch.
+        assert_eq!(result["verification"]["phase"], "preflight");
         assert!(!missing.exists());
         assert_eq!(
             runtime.get_batch("batch-missing-undo").unwrap().status,

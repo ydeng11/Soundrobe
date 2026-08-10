@@ -6,10 +6,19 @@ import type {
   TrackUndoSnapshot,
   ExtraTagUndoSnapshot,
 } from "../shared/desktop-api";
+import { ScanProgressBar } from "./ScanProgressBar";
 
 interface StatusDetail {
   icon: string;
   text: string;
+}
+
+interface AssistantApplyProgress {
+  batchId: string;
+  phase: "preflight" | "writing" | "verifying";
+  current: number;
+  total: number;
+  message: string;
 }
 
 type AssistantStatus =
@@ -124,6 +133,8 @@ export function AssistantPanel({
   const sendingRef = useRef(false);
   const [pendingBatches, setPendingBatches] = useState<AssistantActionBatch[]>([]);
   const [applying, setApplying] = useState(false);
+  const [applyProgress, setApplyProgress] = useState<AssistantApplyProgress | null>(null);
+  const applyingBatchIdRef = useRef<string | null>(null);
   const [clearing, setClearing] = useState(false);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [sessionNumber, setSessionNumber] = useState<string | null>(null);
@@ -262,6 +273,31 @@ export function AssistantPanel({
           setSending(false);
           pendingMsgRef.current = null;
           break;
+        case "action_batch_progress":
+          if (
+            event.data &&
+            typeof event.data === "object" &&
+            "batchId" in event.data &&
+            typeof event.data.batchId === "string" &&
+            event.data.batchId === applyingBatchIdRef.current &&
+            "phase" in event.data &&
+            (event.data.phase === "preflight" ||
+              event.data.phase === "writing" ||
+              event.data.phase === "verifying") &&
+            "current" in event.data &&
+            typeof event.data.current === "number" &&
+            "total" in event.data &&
+            typeof event.data.total === "number"
+          ) {
+            setApplyProgress({
+              batchId: event.data.batchId,
+              phase: event.data.phase,
+              current: event.data.current,
+              total: event.data.total,
+              message: event.message,
+            });
+          }
+          break;
         case "action_batch_applied":
           if (
             event.data &&
@@ -309,12 +345,25 @@ export function AssistantPanel({
                       ? { icon: "✓", text: informational[0] }
                       : { icon: "✓", text: event.message },
             });
+            if (event.data.batchId === applyingBatchIdRef.current) {
+              applyingBatchIdRef.current = null;
+              setApplyProgress(null);
+            }
           }
           loadPendingBatches();
           setSending(false);
           onRefreshRequest();
           break;
         case "action_batch_rejected":
+          if (
+            event.data &&
+            typeof event.data === "object" &&
+            "batchId" in event.data &&
+            event.data.batchId === applyingBatchIdRef.current
+          ) {
+            applyingBatchIdRef.current = null;
+            setApplyProgress(null);
+          }
           updatePendingMsg({ detail: { icon: "×", text: event.message } });
           loadPendingBatches();
           break;
@@ -326,6 +375,10 @@ export function AssistantPanel({
             "batchId" in event.data &&
             typeof event.data.batchId === "string"
           ) {
+            if (event.data.batchId === applyingBatchIdRef.current) {
+              applyingBatchIdRef.current = null;
+              setApplyProgress(null);
+            }
             updateBatchMsg(event.data.batchId, {
               status: "failed",
               detail: {
@@ -378,6 +431,16 @@ export function AssistantPanel({
     updateBatchMsg,
     loadPendingBatches,
   ]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      applyingBatchIdRef.current = null;
+      setApplyProgress(null);
+    }
+    return () => {
+      applyingBatchIdRef.current = null;
+    };
+  }, [isOpen]);
 
   // Fallback cancellation timer: the native tool loop owns a 600-second
   // deadline, so this renderer safety net must remain beyond it.
@@ -528,6 +591,8 @@ export function AssistantPanel({
   };
 
   const handleApply = async (batchId: string) => {
+    applyingBatchIdRef.current = batchId;
+    setApplyProgress(null);
     setApplying(true);
     try {
       const result = await window.api.assistantApplyActions(batchId);
@@ -589,6 +654,10 @@ export function AssistantPanel({
       ]);
     }
     loadPendingBatches();
+    if (applyingBatchIdRef.current === batchId) {
+      applyingBatchIdRef.current = null;
+      setApplyProgress(null);
+    }
     setApplying(false);
   };
 
@@ -693,6 +762,12 @@ export function AssistantPanel({
           </button>
         </div>
       </div>
+
+      <ScanProgressBar
+        scanning={applyProgress !== null}
+        progress={applyProgress ? { current: applyProgress.current, total: applyProgress.total } : null}
+        label={applyProgress?.message ?? null}
+      />
 
       {/* Messages */}
       <div className="scrollbar-thin flex-1 space-y-3 overflow-y-auto px-4 py-4">

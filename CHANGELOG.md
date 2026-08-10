@@ -92,6 +92,11 @@ desktop release.
 
 ### Fixed
 
+- **Faster AI Assistant applies** — approved standard metadata/tag batches now
+  write album folders concurrently using the configured write limit, show
+  preflight, writing, and verification progress, and still finish only after
+  native readback confirms the requested changes.
+
 - **Safer AI Assistant approvals** — file-operation previews now show their
   exact source and destination paths, approved moves refuse newly occupied
   destinations, dependent plan steps enforce approval order, and ordinary

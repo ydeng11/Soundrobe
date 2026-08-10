@@ -746,17 +746,6 @@ pub(crate) async fn write_track_queued(
     Ok(())
 }
 
-pub(crate) async fn write_track_with_exclusive_queue_held(
-    path: PathBuf,
-    patch: TrackPatch,
-) -> Result<(), ApiError> {
-    validated_track_extension(&path)?;
-    tokio::task::spawn_blocking(move || write_track_dispatch(&path, &patch))
-        .await
-        .map_err(|error| ApiError::WriteTask(error.to_string()))??;
-    Ok(())
-}
-
 /// Remove all embedded cover art pictures from a single audio track file.
 /// Uses lofty's unified `Probe` + `TaggedFile` API to handle all formats.
 pub(crate) fn remove_embedded_cover_at(path: &Path) -> Result<(), ApiError> {
@@ -834,12 +823,21 @@ struct BatchAccumulator {
     failures: Vec<TrackWriteFailure>,
 }
 
-async fn batch_write_queued(
-    queue: &WriteQueue,
+pub(crate) type TrackWriteProgress = Arc<dyn Fn(u64, u64) + Send + Sync>;
+
+#[derive(Debug)]
+pub(crate) struct ExclusiveBatchWriteResult {
+    pub successes: Vec<String>,
+    pub failures: Vec<TrackWriteFailure>,
+}
+
+async fn batch_write_grouped(
+    queue: Option<WriteQueue>,
     updates: Vec<TrackUpdate>,
-    progress_tracker: Option<(tauri::AppHandle, u64)>,
+    progress: Option<TrackWriteProgress>,
     accum: &Arc<Mutex<BatchAccumulator>>,
 ) -> Result<(), ApiError> {
+    let total = updates.len() as u64;
     // 1. Partition by folder (Path::parent() — no syscall needed)
     let folder_groups = group_by_folder(updates);
 
@@ -847,11 +845,12 @@ async fn batch_write_queued(
         return Ok(());
     }
 
-    let total = progress_tracker.as_ref().map_or(0, |(_, t)| *t);
+    let completed = Arc::new(Mutex::new(0u64));
 
     // 2. Spawn one task per folder (concurrent across folders).
-    //    Each task acquires only its folder-scoped lock via run_for_folder,
-    //    so writes to different album folders proceed in parallel.
+    //    Queued callers acquire only their folder-scoped lock via
+    //    run_for_folder; callers already inside run_exclusive skip recursive
+    //    locking. Writes to different album folders proceed in parallel.
     //    Within a folder, tracks are written in sub-batches of SUBBATCH_SIZE
     //    (sequential within the folder worker) to keep memory bounded.
     //
@@ -868,13 +867,14 @@ async fn batch_write_queued(
     for (folder, folder_updates) in folder_groups {
         let q = queue.clone();
         let accum = Arc::clone(accum);
-        let app = progress_tracker.as_ref().map(|(a, _)| a.clone());
+        let progress = progress.clone();
+        let completed = Arc::clone(&completed);
         // acquire_owned only errors if the semaphore is dropped, which never
         // happens since io_quota lives until all spawned tasks complete.
         let permit = io_quota.clone().acquire_owned().await.unwrap();
         handles.push(tokio::spawn(async move {
             let _permit = permit;
-            q.run_for_folder(&folder, async move {
+            let operation = async move {
                 tokio::task::spawn_blocking(move || {
                     for batch in folder_updates.chunks(SUBBATCH_SIZE) {
                         for update in batch {
@@ -889,20 +889,6 @@ async fn batch_write_queued(
                                     );
                                     let mut acc = accum.lock().expect("accum lock poisoned");
                                     acc.successes.push(path_str);
-
-                                    // Emit progress after each track write so the
-                                    // renderer can show a determinate progress bar.
-                                    if let Some(ref app) = app {
-                                        let c = acc.successes.len() as u64;
-                                        let _ = app.emit(
-                                            "tracks:write-event",
-                                            TrackWriteEvent {
-                                                current: c,
-                                                total,
-                                                message: format!("Writing {}/{}", c, total),
-                                            },
-                                        );
-                                    }
                                 }
                                 Err(e) => {
                                     tracing::warn!(
@@ -919,27 +905,76 @@ async fn batch_write_queued(
                                     );
                                 }
                             }
+                            let mut completed = completed.lock().expect("progress lock poisoned");
+                            *completed += 1;
+                            if let Some(progress) = &progress {
+                                progress(*completed, total);
+                            }
                         }
                     }
                     Ok::<(), ApiError>(())
                 })
                 .await
                 .map_err(|e| ApiError::WriteTask(e.to_string()))?
-            })
-            .await
+            };
+            if let Some(q) = q {
+                q.run_for_folder(&folder, operation).await
+            } else {
+                operation.await
+            }
         }));
     }
 
     // 3. Reduce: wait for all folders. Folders that already committed
     //    succeeded before an error in another folder was detected.
     //    This matches Electron's non-transactional semantics — no rollback.
-    for handle in handles {
-        handle
-            .await
-            .map_err(|e| ApiError::WriteTask(e.to_string()))??;
-    }
+    join_folder_workers(handles).await?;
 
-    // 4. After all folder workers complete, check whether anything succeeded.
+    Ok(())
+}
+
+async fn join_folder_workers(
+    handles: Vec<tokio::task::JoinHandle<Result<(), ApiError>>>,
+) -> Result<(), ApiError> {
+    let mut first_error = None;
+    for handle in handles {
+        let result = match handle.await {
+            Ok(result) => result,
+            Err(error) => Err(ApiError::WriteTask(error.to_string())),
+        };
+        if first_error.is_none() {
+            if let Err(error) = result {
+                first_error = Some(error);
+            }
+        }
+    }
+    match first_error {
+        Some(error) => Err(error),
+        None => Ok(()),
+    }
+}
+
+async fn batch_write_queued(
+    queue: &WriteQueue,
+    updates: Vec<TrackUpdate>,
+    progress_tracker: Option<(tauri::AppHandle, u64)>,
+    accum: &Arc<Mutex<BatchAccumulator>>,
+) -> Result<(), ApiError> {
+    let progress = progress_tracker.map(|(app, _)| {
+        Arc::new(move |current, total| {
+            let _ = app.emit(
+                "tracks:write-event",
+                TrackWriteEvent {
+                    current,
+                    total,
+                    message: format!("Writing {current}/{total}"),
+                },
+            );
+        }) as TrackWriteProgress
+    });
+    batch_write_grouped(Some(queue.clone()), updates, progress, accum).await?;
+
+    // After all folder workers complete, check whether anything succeeded.
     let acc = accum.lock().expect("accum lock poisoned");
     if acc.successes.is_empty() {
         return Err(ApiError::Message(format!(
@@ -957,6 +992,23 @@ async fn batch_write_queued(
         );
     }
     Ok(())
+}
+
+/// Execute the regular folder-grouped writer while the caller holds
+/// `WriteQueue::run_exclusive`. Queue locks are intentionally skipped to avoid
+/// recursive coordination-lock acquisition; this function still serializes
+/// same-folder writes and applies configured cross-folder concurrency.
+pub(crate) async fn batch_write_with_exclusive_queue_held(
+    updates: Vec<TrackUpdate>,
+    progress: Option<TrackWriteProgress>,
+) -> Result<ExclusiveBatchWriteResult, ApiError> {
+    let accum = Arc::new(Mutex::new(BatchAccumulator::default()));
+    batch_write_grouped(None, updates, progress, &accum).await?;
+    let mut accum = accum.lock().expect("accum lock poisoned");
+    Ok(ExclusiveBatchWriteResult {
+        successes: std::mem::take(&mut accum.successes),
+        failures: std::mem::take(&mut accum.failures),
+    })
 }
 
 fn read_track_with_fallback(path: &Path) -> Result<TrackData, ApiError> {
@@ -6134,6 +6186,70 @@ mod tests {
         );
         assert_eq!(fs::read(&unsupported).unwrap(), b"untouched");
         fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn exclusive_batch_progress_counts_failed_attempts() {
+        let (root, first) = copy_to_temp(&media_fixture("minimal.mp3"), "first.mp3");
+        let unsupported = root.join("second.xyz");
+        fs::write(&unsupported, b"untouched").unwrap();
+        let updates = vec![
+            TrackUpdate {
+                path: first.to_string_lossy().into_owned(),
+                fields: serde_json::from_value(serde_json::json!({"title": "Committed"})).unwrap(),
+            },
+            TrackUpdate {
+                path: unsupported.to_string_lossy().into_owned(),
+                fields: TrackPatch::default(),
+            },
+        ];
+        let observed = Arc::new(Mutex::new(Vec::new()));
+        let observed_for_progress = Arc::clone(&observed);
+        let progress = Arc::new(move |current: u64, total: u64| {
+            observed_for_progress
+                .lock()
+                .expect("progress lock poisoned")
+                .push((current, total));
+        }) as TrackWriteProgress;
+
+        let result = batch_write_with_exclusive_queue_held(updates, Some(progress))
+            .await
+            .unwrap();
+
+        assert_eq!(result.successes.len(), 1);
+        assert_eq!(result.failures.len(), 1);
+        let mut observed = observed.lock().expect("progress lock poisoned").clone();
+        observed.sort_unstable();
+        assert_eq!(observed, vec![(1, 2), (2, 2)]);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn folder_worker_reducer_waits_for_every_handle_before_returning_error() {
+        let release = Arc::new(tokio::sync::Notify::new());
+        let completed = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let first = tokio::spawn(async {
+            Err::<(), ApiError>(ApiError::WriteTask("first failure".into()))
+        });
+        let release_worker = Arc::clone(&release);
+        let completed_worker = Arc::clone(&completed);
+        let second = tokio::spawn(async move {
+            release_worker.notified().await;
+            completed_worker.store(true, Ordering::Release);
+            Ok(())
+        });
+
+        let reducer = tokio::spawn(join_folder_workers(vec![first, second]));
+        tokio::task::yield_now().await;
+        assert!(
+            !reducer.is_finished(),
+            "an early worker error must not detach later folder writes"
+        );
+
+        release.notify_one();
+        let error = reducer.await.unwrap().unwrap_err();
+        assert!(error.to_string().contains("first failure"));
+        assert!(completed.load(Ordering::Acquire));
     }
 
     #[tokio::test]

@@ -809,6 +809,84 @@ describe("AssistantPanel — new conversation button", () => {
       expect((screen.getByRole("button", { name: /new chat/i }) as HTMLButtonElement).disabled).toBe(false);
     });
   });
+
+  it("shows progress only for the action batch currently being applied", async () => {
+    mockApi.assistantGetBatches.mockResolvedValueOnce([{
+      id: "batch-current",
+      createdAt: "now",
+      sessionId: "session",
+      kind: "metadata-update",
+      title: "Apply tags",
+      summary: "Apply three tags",
+      riskLevel: "low",
+      actions: [
+        { trackPath: "/music/a/one.flac", field: "genre", newValue: "Pop" },
+        { trackPath: "/music/b/two.flac", field: "genre", newValue: "Rock" },
+        { trackPath: "/music/c/three.flac", field: "genre", newValue: "Jazz" },
+      ],
+      reversible: true,
+      status: "pending",
+    }]);
+    let resolveApply!: (result: { success: boolean; results: unknown[] }) => void;
+    mockApi.assistantApplyActions.mockImplementationOnce(
+      () => new Promise((resolve) => { resolveApply = resolve; }),
+    );
+    renderPanel();
+
+    fireEvent.click(await screen.findByRole("button", { name: "Apply changes" }));
+    emitEvent({
+      sessionId: "s1",
+      type: "action_batch_progress",
+      message: "Writing 9/9",
+      data: { batchId: "batch-other", phase: "writing", current: 9, total: 9 },
+    });
+    expect(screen.queryByText("Writing 9/9")).toBeNull();
+
+    emitEvent({
+      sessionId: "s1",
+      type: "action_batch_progress",
+      message: "Writing 1/3",
+      data: { batchId: "batch-current", phase: "writing", current: 1, total: 3 },
+    });
+    expect(await screen.findByText("Writing 1/3")).toBeTruthy();
+
+    resolveApply({ success: true, results: [] });
+    await waitFor(() => expect(screen.queryByText("Writing 1/3")).toBeNull());
+  });
+
+  it("clears matching apply progress on native failure", async () => {
+    mockApi.assistantGetBatches.mockResolvedValueOnce([{
+      id: "batch-failing-progress",
+      createdAt: "now",
+      sessionId: "session",
+      kind: "metadata-update",
+      title: "Apply tags",
+      summary: "Apply one tag",
+      riskLevel: "low",
+      actions: [{ trackPath: "/music/a/one.flac", field: "genre", newValue: "Pop" }],
+      reversible: true,
+      status: "pending",
+    }]);
+    mockApi.assistantApplyActions.mockImplementationOnce(() => new Promise(() => {}));
+    renderPanel();
+
+    fireEvent.click(await screen.findByRole("button", { name: "Apply changes" }));
+    emitEvent({
+      sessionId: "s1",
+      type: "action_batch_progress",
+      message: "Verifying 1/1",
+      data: { batchId: "batch-failing-progress", phase: "verifying", current: 1, total: 1 },
+    });
+    expect(await screen.findByText("Verifying 1/1")).toBeTruthy();
+
+    emitEvent({
+      sessionId: "s1",
+      type: "action_batch_failed",
+      message: "Failed: Apply tags",
+      data: { batchId: "batch-failing-progress" },
+    });
+    await waitFor(() => expect(screen.queryByText("Verifying 1/1")).toBeNull());
+  });
 });
 
 describe("AssistantPanel — core behavior preserved", () => {
