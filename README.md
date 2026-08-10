@@ -1,6 +1,4 @@
-# Soundrobe
-
-![Soundrobe logo](design/logo-final-2026-07-28/soundrobe-ribbon-s-master.png)
+# <img src="design/logo-final-2026-07-28/soundrobe-ribbon-s-master.png" alt="" width="32" height="32" valign="middle"> Soundrobe
 
 Soundrobe is a Tauri 2 desktop application for preparing and maintaining
 Navidrome-friendly music libraries. It combines metadata automation, an AI
