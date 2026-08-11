@@ -1,0 +1,22 @@
+blank_issues_enabled: false
+
+contact_links:
+  - name: Report a security vulnerability
+    url: https://github.com/ydeng11/Soundrobe/security/policy
+    about: Please review the security policy and report vulnerabilities privately.
+
+  - name: Question or self-hosting help
+    url: https://github.com/ydeng11/Soundrobe/discussions/categories/q-a
+    about: Ask about setup, configuration, providers, or troubleshooting in Discussions.
+
+  - name: Idea or feature request to talk through
+    url: https://github.com/ydeng11/Soundrobe/discussions/categories/ideas
+    about: Discuss an early idea before opening an issue for agreed work.
+
+  - name: Show your setup
+    url: https://github.com/ydeng11/Soundrobe/discussions/categories/show-and-tell
+    about: Share your library workflow, setup, or project built around Soundrobe.
+
+  - name: Contributing guide
+    url: https://github.com/ydeng11/Soundrobe/blob/main/CONTRIBUTING.md
+    about: Read the development setup, testing, and pull request guidelines.

@@ -1,0 +1,30 @@
+title: "[Q&A] "
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please search existing discussions before asking a question.
+        Do not include API keys, private logs, or unredacted personal paths.
+
+  - type: textarea
+    id: question
+    attributes:
+      label: What do you need help with?
+      description: State the question and the result you are trying to achieve.
+    validations:
+      required: true
+
+  - type: textarea
+    id: setup
+    attributes:
+      label: Describe your setup
+      description: Include your operating system, Soundrobe version, and relevant media or provider configuration.
+    validations:
+      required: true
+
+  - type: textarea
+    id: tried
+    attributes:
+      label: What have you tried?
+      description: Include relevant error messages or redacted logs.

@@ -1,0 +1,62 @@
+name: Bug report
+description: Something in Soundrobe is broken or not working as expected
+title: "[Bug]: "
+labels:
+  - bug
+
+body:
+  - type: checkboxes
+    id: existing-issue
+    attributes:
+      label: Existing issue check
+      options:
+        - label: I have searched the existing issues and found no duplicate.
+          required: true
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: Describe the actual behavior and what you expected instead.
+      placeholder: Tell us what you saw and what you expected to happen.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open ...
+        2. Select ...
+        3. Click ...
+        4. See ...
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Soundrobe version
+      description: Include the version shown in the app settings or release artifact.
+      placeholder: 0.1.0
+    validations:
+      required: true
+
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      options:
+        - macOS
+        - Windows
+        - Linux
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs or screenshots
+      description: Remove personal paths, credentials, and private library details before sharing.
+      render: shell

@@ -1,0 +1,42 @@
+name: Feature request
+description: Suggest an idea or improvement for Soundrobe
+title: "[Feature]: "
+labels:
+  - enhancement
+
+body:
+  - type: checkboxes
+    id: existing-request
+    attributes:
+      label: Existing request check
+      options:
+        - label: I have searched the existing issues and discussions and found no duplicate.
+          required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem would this solve?
+      description: Explain the user or workflow problem, not only the proposed control or implementation.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Describe the proposed solution
+      description: Explain what you would like Soundrobe to do.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Describe any workaround or alternative approach you have tried.
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional context
+      description: Add screenshots, examples, or links that help explain the request.

@@ -1,0 +1,30 @@
+title: "[Show and tell] "
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Share a Soundrobe setup, workflow, integration, or experiment with the community.
+        Remove private paths, credentials, and personal library details before posting.
+
+  - type: textarea
+    id: introduction
+    attributes:
+      label: What are you sharing?
+      description: Give the setup or project a short introduction.
+    validations:
+      required: true
+
+  - type: textarea
+    id: setup
+    attributes:
+      label: Setup and workflow
+      description: Explain the relevant platform, Soundrobe version, and workflow.
+    validations:
+      required: true
+
+  - type: textarea
+    id: links
+    attributes:
+      label: Links or screenshots
+      description: Add public links, screenshots, or examples where useful.

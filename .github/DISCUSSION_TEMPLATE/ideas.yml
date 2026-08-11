@@ -1,0 +1,30 @@
+title: "[Idea] "
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this category to explore an idea before it becomes agreed work.
+        For a confirmed bug, please use the issue template instead.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem or opportunity are you seeing?
+      description: Describe who is affected and why this matters.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What would you like to see?
+      description: Describe the desired outcome without requiring a particular implementation.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives and trade-offs
+      description: Include workarounds, related ideas, or concerns.
