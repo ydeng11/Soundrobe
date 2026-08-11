@@ -9,6 +9,10 @@ the compiled Cargo version through the native `app_info` command.
 
 Finalize `CHANGELOG.md` before tagging: move the `[Unreleased]` entries into a
 dated section for the new version and leave an empty `[Unreleased]` heading.
+Push the matching `vX.Y.Z` tag after the version bump. The `release.yml`
+workflow validates the tag against all three manifests, rebuilds the unsigned
+macOS, Windows, and Linux bundles, smoke-tests them, and publishes the DMG,
+NSIS installer, AppImage, and deb packages to the GitHub Release.
 
 ## Tauri Desktop
 

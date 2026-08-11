@@ -1,0 +1,165 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+
+jobs:
+  validate:
+    name: Validate release version
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Check tag matches all app manifests
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          package_version="$(node -p "require('./frontend/package.json').version")"
+          tauri_version="$(node -p "require('./frontend/src-tauri/tauri.conf.json').version")"
+          cargo_version="$(sed -n 's/^version = \"\([^\"]*\)\"/\1/p' frontend/src-tauri/Cargo.toml | head -n 1)"
+
+          test "$RELEASE_TAG" = "v$package_version" || {
+            echo "Release tag $RELEASE_TAG does not match package version $package_version" >&2
+            exit 1
+          }
+          test "$tauri_version" = "$package_version" || {
+            echo "Tauri version $tauri_version does not match package version $package_version" >&2
+            exit 1
+          }
+          test "$cargo_version" = "$package_version" || {
+            echo "Cargo version $cargo_version does not match package version $package_version" >&2
+            exit 1
+          }
+
+  bundle:
+    name: Build ${{ matrix.artifact }} release bundle
+    needs: validate
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            command: npm run dist:mac
+            artifact: macos-arm64
+          - os: macos-15-intel
+            command: npm run dist:mac
+            artifact: macos-x64
+          - os: windows-latest
+            command: npm run dist:win
+            artifact: windows-x64
+          - os: ubuntu-22.04
+            command: npm run dist:linux
+            artifact: linux-x64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install Linux build dependencies
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf xvfb
+      - name: Install frontend dependencies
+        run: npm ci
+        working-directory: frontend
+      - name: Build unsigned release bundles
+        env:
+          CI: "true"
+        run: ${{ matrix.command }}
+        working-directory: frontend
+      - name: Smoke macOS app bundle and DMG
+        if: runner.os == 'macOS'
+        shell: bash
+        working-directory: frontend
+        run: |
+          app="$(find src-tauri/target/release/bundle/macos -name '*.app' -print -quit)"
+          dmg="$(find src-tauri/target/release/bundle/dmg -name '*.dmg' -print -quit)"
+          test -n "$app"
+          test -n "$dmg"
+          hdiutil verify "$dmg"
+          "$app/Contents/MacOS/soundrobe" &
+          pid=$!
+          sleep 5
+          kill -0 "$pid"
+          kill "$pid"
+          wait "$pid" || true
+      - name: Smoke Windows NSIS installer
+        if: runner.os == 'Windows'
+        shell: pwsh
+        working-directory: frontend
+        run: |
+          $installer = Get-ChildItem "src-tauri/target/release/bundle/nsis/*-setup.exe" | Select-Object -First 1
+          if (-not $installer) { throw "NSIS installer not found" }
+          $install = Start-Process $installer.FullName -ArgumentList "/S" -PassThru -Wait
+          if ($install.ExitCode -ne 0) { throw "NSIS installer exited with $($install.ExitCode)" }
+          $appPath = Join-Path $env:LOCALAPPDATA "Soundrobe/soundrobe.exe"
+          if (-not (Test-Path $appPath)) { throw "Installed application not found at $appPath" }
+          $app = Start-Process $appPath -PassThru
+          Start-Sleep -Seconds 5
+          if ($app.HasExited) { throw "Installed application exited with $($app.ExitCode)" }
+          Stop-Process -Id $app.Id -Force
+      - name: Smoke Linux AppImage bundle
+        if: runner.os == 'Linux'
+        shell: bash
+        working-directory: frontend
+        run: |
+          appimage="$(find src-tauri/target/release/bundle/appimage -name '*.AppImage' -print -quit)"
+          test -n "$appimage"
+          chmod +x "$appimage"
+          set +e
+          APPIMAGE_EXTRACT_AND_RUN=1 timeout 15s xvfb-run "$appimage"
+          status=$?
+          set -e
+          test "$status" -eq 124
+      - name: Smoke Linux deb installer
+        if: runner.os == 'Linux'
+        shell: bash
+        working-directory: frontend
+        run: |
+          deb="$(find src-tauri/target/release/bundle/deb -name '*.deb' -print -quit)"
+          test -n "$deb"
+          sudo dpkg -i "$deb"
+          set +e
+          timeout 15s xvfb-run /usr/bin/soundrobe
+          status=$?
+          set -e
+          test "$status" -eq 124
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.artifact }}
+          path: frontend/src-tauri/target/release/bundle/**
+          if-no-files-found: error
+
+  publish:
+    name: Publish GitHub release
+    needs: bundle
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: release-*
+          path: release-assets
+      - name: List release assets
+        run: find release-assets -type f -print
+      - name: Create GitHub release and upload installers
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: Soundrobe ${{ github.ref_name }}
+          generate_release_notes: true
+          files: |
+            release-assets/**/*.dmg
+            release-assets/**/*-setup.exe
+            release-assets/**/*.AppImage
+            release-assets/**/*.deb
+          fail_on_unmatched_files: true

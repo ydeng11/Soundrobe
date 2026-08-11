@@ -164,6 +164,29 @@ describe("package scripts", () => {
     );
   });
 
+  it("publishes release bundles only for matching semantic-version tags", () => {
+    const releaseWorkflow = readFileSync(
+      resolve(__dirname, "../../.github/workflows/release.yml"),
+      "utf8",
+    );
+
+    expect(releaseWorkflow).toContain('tags:\n      - "v*.*.*"');
+    expect(releaseWorkflow).toContain("contents: write");
+    expect(releaseWorkflow).toContain("RELEASE_TAG");
+    expect(releaseWorkflow).toContain("package_version");
+    expect(releaseWorkflow).toContain("macos-arm64");
+    expect(releaseWorkflow).toContain("macos-x64");
+    expect(releaseWorkflow).toContain("windows-x64");
+    expect(releaseWorkflow).toContain("linux-x64");
+    expect(releaseWorkflow).toContain("release-${{ matrix.artifact }}");
+    expect(releaseWorkflow).toContain("actions/download-artifact@v4");
+    expect(releaseWorkflow).toContain("softprops/action-gh-release@v2");
+    expect(releaseWorkflow).toContain("release-assets/**/*.dmg");
+    expect(releaseWorkflow).toContain("release-assets/**/*-setup.exe");
+    expect(releaseWorkflow).toContain("release-assets/**/*.AppImage");
+    expect(releaseWorkflow).toContain("release-assets/**/*.deb");
+  });
+
   it("runs test-only embedded WebdriverIO coverage on every desktop platform", () => {
     const { scripts } = readPackageJson();
     const workflow = readFileSync(
