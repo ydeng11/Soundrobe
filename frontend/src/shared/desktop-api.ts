@@ -646,7 +646,8 @@ export interface DesktopAPI {
 
   searchApplyCandidate: (
     albumPath: string,
-    candidate: AlbumCandidate
+    candidate: AlbumCandidate,
+    selectedTrackIndices: number[]
   ) => Promise<number>;
 
   // Window events

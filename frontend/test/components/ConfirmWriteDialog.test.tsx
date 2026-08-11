@@ -1,47 +1,13 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
 import React from "react";
-import { render, screen, fireEvent, cleanup, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, cleanup } from "@testing-library/react";
 import { ConfirmWriteDialog } from "../../src/components/ConfirmWriteDialog";
-import type { TrackData, PreviewMatchResult, AlbumCandidate, TrackMappingRow } from "../../src/shared/desktop-api";
+import type { PreviewMatchResult, AlbumCandidate, TrackMappingRow } from "../../src/shared/desktop-api";
 
 afterEach(() => {
   cleanup();
 });
-
-function makeTrack(path: string, overrides?: Partial<TrackData>): TrackData {
-  return {
-    path,
-    title: `Track ${path.slice(-5)}`,
-    artist: "Test Artist",
-    artists: [],
-    album: "Test Album",
-    albumArtist: null,
-    albumArtists: [],
-    trackNumber: 1,
-    trackTotal: 10,
-    discNumber: null,
-    discTotal: null,
-    year: "2024",
-    genre: "Pop",
-    composer: null,
-    comment: null,
-    lyrics: null,
-    compilation: null,
-    musicbrainzTrackId: null,
-    musicbrainzAlbumId: null,
-    musicbrainzArtistId: null,
-    discogsArtistId: null,
-    discogsReleaseId: null,
-    hasCover: false,
-    sizeBytes: 1000,
-    bitrate: null,
-    sampleRate: null,
-    codec: "MP3",
-    duration: 60,
-    ...overrides,
-  };
-}
 
 function makePreviewResult(overrides?: Partial<PreviewMatchResult>): PreviewMatchResult {
   const candidates: TrackMappingRow[] = [
@@ -85,16 +51,10 @@ function makePreviewResult(overrides?: Partial<PreviewMatchResult>): PreviewMatc
 describe("ConfirmWriteDialog", () => {
   const onConfirm = vi.fn();
   const onCancel = vi.fn();
-  const albumTracks = [
-    makeTrack("/music/Album/01.mp3", { title: "Track One", artist: "Artist A" }),
-    makeTrack("/music/Album/02.mp3", { title: "Track Two", artist: "Artist A" }),
-  ];
   const previewResult = makePreviewResult();
 
   const defaultProps = {
     open: true,
-    albumPath: "/music/Album",
-    albumTracks,
     previewResult,
     loading: false,
     writing: false,
@@ -190,6 +150,36 @@ describe("ConfirmWriteDialog", () => {
     expect(cancelBtn.disabled).toBe(true);
   });
 
+  it("preserves a manual assignment while writing starts after a parent rerender", () => {
+    const result = makePreviewResult({
+      unusedRemoteIndices: [2],
+      release: {
+        ...previewResult.release,
+        tracks: [
+          ...previewResult.release.tracks,
+          { title: "Track Three", matchTitles: [], artists: ["Artist A"], trackNumber: 3 },
+        ],
+      },
+    });
+    const { rerender } = render(
+      <ConfirmWriteDialog {...defaultProps} previewResult={result} />,
+    );
+    const firstSelect = document.querySelectorAll<HTMLSelectElement>("select")[0];
+    fireEvent.change(firstSelect, { target: { value: "2" } });
+
+    rerender(
+      <ConfirmWriteDialog
+        {...defaultProps}
+        previewResult={result}
+        writing={true}
+      />,
+    );
+
+    expect(document.querySelectorAll<HTMLSelectElement>("select")[0].value).toBe("2");
+    expect(screen.getByText(/1\. Track One/, { selector: "li" })).toBeTruthy();
+    expect(screen.getByText(/1 unused remote track/)).toBeTruthy();
+  });
+
   it("shows write error", () => {
     render(<ConfirmWriteDialog {...defaultProps} writeError="Write failed" />);
     expect(screen.getByText("Write failed")).toBeTruthy();
@@ -250,7 +240,7 @@ describe("ConfirmWriteDialog", () => {
     expect(candidate.tracks[0].disc_number).toBe(2);
   });
 
-  it("omits 'Do not update' tracks selected as empty", () => {
+  it("serializes a positional placeholder for a 'Do not update' row", () => {
     render(<ConfirmWriteDialog {...defaultProps} />);
     // Set first row to "Do not update"
     const selects = document.querySelectorAll("select");
@@ -263,5 +253,28 @@ describe("ConfirmWriteDialog", () => {
     expect(candidate.tracks[0].track_number).toBeUndefined();
     expect(candidate.tracks[0].track_total).toBeUndefined();
     expect(candidate.tracks[0].disc_number).toBeUndefined();
+    expect(onConfirm.mock.calls[0][1]).toEqual([1]);
+  });
+
+  it("reports selected rows separately when their edited metadata is empty", () => {
+    const result = makePreviewResult({
+      release: {
+        ...previewResult.release,
+        tracks: [
+          { title: undefined, matchTitles: [], artists: [] },
+          previewResult.release.tracks[1],
+        ],
+      },
+    });
+    render(<ConfirmWriteDialog {...defaultProps} previewResult={result} />);
+    const selects = document.querySelectorAll<HTMLSelectElement>("select");
+    fireEvent.change(selects[1], { target: { value: "" } });
+
+    fireEvent.click(screen.getByText("Confirm & Write"));
+
+    const candidate = onConfirm.mock.calls[0][0] as AlbumCandidate;
+    expect(candidate.tracks[0]).toEqual({ artists: [] });
+    expect(candidate.tracks[1]).toEqual({ artists: [] });
+    expect(onConfirm.mock.calls[0][1]).toEqual([0]);
   });
 });

@@ -199,8 +199,10 @@ export function createTauriDesktopApi(): DesktopAPI {
       invokeCommand("album:resolve-release", { request: { provider, releaseId, kind } }),
     previewReleaseMatch: (req) =>
       invokeCommand("album:preview-release-match", { request: req }),
-    searchApplyCandidate: (albumPath, candidate) =>
-      invokeCommand("album:search-apply-candidate", { request: { albumPath, candidate } }),
+    searchApplyCandidate: (albumPath, candidate, selectedTrackIndices) =>
+      invokeCommand("album:search-apply-candidate", {
+        request: { albumPath, candidate, selectedTrackIndices },
+      }),
 
     // Organizer
     sortByAlbum: (sourceDir, options) =>

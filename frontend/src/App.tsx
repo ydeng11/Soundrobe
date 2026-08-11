@@ -1373,7 +1373,7 @@ export default function App() {
   );
 
   const handleConfirmWrite = useCallback(
-    async (candidate: AlbumCandidate) => {
+    async (candidate: AlbumCandidate, selectedTrackIndices: number[]) => {
       const activeAlbumPath = state.activeAlbumPath;
       if (!activeAlbumPath) return;
       setSearchWriting(true);
@@ -1398,6 +1398,7 @@ export default function App() {
         const written = await window.api.searchApplyCandidate(
           activeAlbumPath,
           candidate,
+          selectedTrackIndices,
         );
         if (written > 0) {
           await handleRefresh();
@@ -2168,12 +2169,6 @@ export default function App() {
 
       <ConfirmWriteDialog
         open={showConfirmDialog}
-        albumPath={state.activeAlbumPath ?? ""}
-        albumTracks={state.tracks.filter((t) =>
-          state.activeAlbumPath
-            ? isInsideDirectory(t.path, state.activeAlbumPath)
-            : false,
-        )}
         previewResult={searchPreviewResult}
         loading={showConfirmDialog && !searchPreviewResult && !searchWriteError}
         writing={searchWriting}

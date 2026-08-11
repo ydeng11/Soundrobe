@@ -79,7 +79,7 @@ const CHANNEL_PARITY: Array<{
   { method: "searchReleases", command: "album_search_releases", args: { _singleRequest_: { provider: "musicbrainz", artist: "Radiohead", album: "OK Computer", page: 1, pageSize: 10 } } },
   { method: "resolveRelease", command: "album_resolve_release", args: { request: { provider: "musicbrainz", releaseId: "123", kind: null } } },
   { method: "previewReleaseMatch", command: "album_preview_release_match", args: { _singleRequest_: { albumPath: "/a", release: { id: "1", title: "x", artists: [], tracks: [] }, provider: "musicbrainz" } } },
-  { method: "searchApplyCandidate", command: "album_search_apply_candidate", args: { request: { albumPath: "/a", candidate: { artists: [], albumArtists: [], tracks: [] } } } },
+  { method: "searchApplyCandidate", command: "album_search_apply_candidate", args: { request: { albumPath: "/a", candidate: { artists: [], albumArtists: [], tracks: [] }, selectedTrackIndices: [0] } } },
   { method: "sortByAlbum", command: "files_sort_by_album", args: { sourceDir: "/d", options: { copy: true } } },
   { method: "listSessions", command: "assistant_list_sessions", args: { limit: 5 } },
   { method: "getConversation", command: "assistant_get_conversation", args: { sessionUuidOrNumber: "s" } },

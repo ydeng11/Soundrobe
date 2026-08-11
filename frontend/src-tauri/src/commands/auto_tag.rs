@@ -3,7 +3,7 @@
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use tauri::{AppHandle, Emitter, Manager, State};
@@ -1698,6 +1698,7 @@ pub async fn resolve_and_apply_album(
         album_path,
         &candidate,
         services.queue,
+        CandidateApplyScope::AllTracks,
         fetched_lyrics.into_iter().collect::<HashMap<_, _>>(),
         |path| {
             let path = Path::new(path);
@@ -1887,13 +1888,72 @@ pub async fn apply_candidate_tags(
     candidate: &AlbumCandidate,
     queue: &WriteQueue,
 ) -> Result<usize, ApiError> {
-    apply_candidate_tags_reported(album_path, candidate, queue, HashMap::new(), |_| {}).await
+    apply_candidate_tags_reported(
+        album_path,
+        candidate,
+        queue,
+        CandidateApplyScope::AllTracks,
+        HashMap::new(),
+        |_| {},
+    )
+    .await
+}
+
+/// Apply only explicitly selected positional candidate rows. Selection is
+/// independent of field content so an intentionally selected empty row can
+/// still receive album metadata while unselected files remain untouched.
+pub async fn apply_selected_candidate_tags(
+    album_path: &Path,
+    candidate: &AlbumCandidate,
+    queue: &WriteQueue,
+    selected_track_indices: &[usize],
+) -> Result<usize, ApiError> {
+    let selected_track_indices = selected_track_indices
+        .iter()
+        .copied()
+        .collect::<HashSet<_>>();
+    apply_candidate_tags_reported(
+        album_path,
+        candidate,
+        queue,
+        CandidateApplyScope::SelectedTracks(&selected_track_indices),
+        HashMap::new(),
+        |_| {},
+    )
+    .await
+}
+
+#[derive(Clone, Copy)]
+enum CandidateApplyScope<'a> {
+    AllTracks,
+    SelectedTracks(&'a HashSet<usize>),
+}
+
+impl CandidateApplyScope<'_> {
+    fn includes(self, index: usize) -> bool {
+        match self {
+            Self::AllTracks => true,
+            Self::SelectedTracks(indices) => indices.contains(&index),
+        }
+    }
+}
+
+fn has_writable_track_fields(track: &TrackCandidate) -> bool {
+    track.title.is_some()
+        || track.artist.is_some()
+        || !track.artists.is_empty()
+        || track.track_number.is_some()
+        || track.track_total.is_some()
+        || track.disc_number.is_some()
+        || track.disc_total.is_some()
+        || track.musicbrainz_track_id.is_some()
 }
 
 async fn apply_candidate_tags_reported(
     album_path: &Path,
     candidate: &AlbumCandidate,
     queue: &WriteQueue,
+    scope: CandidateApplyScope<'_>,
     lyrics_map: HashMap<PathBuf, String>,
     mut report_write: impl FnMut(&str),
 ) -> Result<usize, ApiError> {
@@ -1944,20 +2004,15 @@ async fn apply_candidate_tags_reported(
     let mut written = 0;
     let mut failures = Vec::new();
     for (index, file_path) in collect_audio_files(album_path).into_iter().enumerate() {
+        let track = candidate.tracks.get(index);
+        if !scope.includes(index) {
+            continue;
+        }
         let mut fields = album_fields.clone();
-        if let Some(track) = candidate.tracks.get(index) {
-            // A track with no patchable per-track data is the "do not update"
-            // sentinel from the manual-search UI: leave the file's per-track
-            // tags untouched (album fields still apply to every file).
-            let has_track_fields = track.title.is_some()
-                || track.artist.is_some()
-                || !track.artists.is_empty()
-                || track.track_number.is_some()
-                || track.track_total.is_some()
-                || track.disc_number.is_some()
-                || track.disc_total.is_some()
-                || track.musicbrainz_track_id.is_some();
-            if has_track_fields {
+        if let Some(track) = track {
+            // In the all-track auto-tag scope, an empty candidate row still
+            // receives album fields but leaves its per-track tags untouched.
+            if has_writable_track_fields(track) {
                 insert_option(&mut fields, "title", &track.title);
                 insert_option(&mut fields, "artist", &track.artist);
                 if !track.artists.is_empty() {
@@ -3451,11 +3506,10 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn candidate_apply_leaves_empty_sentinel_track_fields_untouched() {
-        // Regression: the manual-search UI sends an all-empty TrackCandidate as
-        // its "Do not update" sentinel. The writer must leave that file's
-        // per-track tags alone (previously `title: null` / `artist: null`
-        // cleared them) while album fields still apply to every file.
+    async fn candidate_apply_all_tracks_applies_album_fields_to_empty_track_candidate() {
+        // Full auto-tag applies album metadata to every file even when a
+        // positional candidate has no per-track fields. It must preserve that
+        // file's existing per-track tags rather than clearing them.
         let root = temp_root();
         let album = root.join("Artist/Album");
         fs::create_dir_all(&album).unwrap();

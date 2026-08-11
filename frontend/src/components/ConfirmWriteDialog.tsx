@@ -1,6 +1,5 @@
 import React, { useState, useCallback, useMemo } from "react";
 import type {
-  TrackData,
   PreviewMatchResult,
   AlbumCandidate,
   TrackEdit,
@@ -8,13 +7,11 @@ import type {
 
 interface ConfirmWriteDialogProps {
   open: boolean;
-  albumPath: string;
-  albumTracks: TrackData[];
   previewResult: PreviewMatchResult | null;
   loading: boolean;
   writing: boolean;
   writeError: string | null;
-  onConfirm: (candidate: AlbumCandidate) => void;
+  onConfirm: (candidate: AlbumCandidate, selectedTrackIndices: number[]) => void;
   onCancel: () => void;
 }
 
@@ -32,7 +29,6 @@ interface RowState {
 
 export function ConfirmWriteDialog({
   open,
-  albumTracks,
   previewResult,
   loading,
   writing,
@@ -41,19 +37,17 @@ export function ConfirmWriteDialog({
   onCancel,
 }: ConfirmWriteDialogProps) {
   const [rows, setRows] = useState<RowState[]>([]);
-  const [hasEdited, setHasEdited] = useState(false);
 
   // Initialize rows from preview result
   React.useEffect(() => {
     if (!previewResult) return;
-    const initialRows: RowState[] = albumTracks.map((track, i) => {
-      const match = previewResult.candidates[i];
+    const initialRows: RowState[] = previewResult.candidates.map((match, i) => {
       const remoteIdx = match?.remoteIndex ?? null;
       const remoteTrack = remoteIdx != null ? previewResult.release.tracks[remoteIdx] : null;
       return {
         localIndex: i,
-        localTitle: track.title ?? "",
-        localArtist: track.artist ?? "",
+        localTitle: match.localTitle ?? "",
+        localArtist: match.localArtist ?? "",
         selectedRemoteIndex: remoteIdx,
         editedTitle: remoteTrack?.title ?? "",
         editedArtist: remoteTrack?.artist ?? "",
@@ -63,8 +57,7 @@ export function ConfirmWriteDialog({
       };
     });
     setRows(initialRows);
-    setHasEdited(false);
-  }, [previewResult, albumTracks]);
+  }, [previewResult]);
 
   const handleRemoteSelect = useCallback((localIdx: number, remoteIdx: string) => {
     setRows((prev) => {
@@ -83,7 +76,6 @@ export function ConfirmWriteDialog({
         editedTrackTotal: remoteTrack?.trackTotal?.toString() ?? "",
         editedDiscNumber: remoteTrack?.discNumber?.toString() ?? "",
       };
-      setHasEdited(true);
       return next;
     });
   }, [previewResult]);
@@ -92,7 +84,6 @@ export function ConfirmWriteDialog({
     setRows((prev) => {
       const next = [...prev];
       (next[localIdx] as unknown as Record<string, unknown>)[field] = value;
-      setHasEdited(true);
       return next;
     });
   }, []);
@@ -102,7 +93,9 @@ export function ConfirmWriteDialog({
     const usedIndices = new Set(
       rows.filter((r) => r.selectedRemoteIndex != null).map((r) => r.selectedRemoteIndex)
     );
-    return previewResult.unusedRemoteIndices.filter((i) => !usedIndices.has(i));
+    return previewResult.release.tracks
+      .map((_, index) => index)
+      .filter((index) => !usedIndices.has(index));
   }, [previewResult, rows]);
 
   // Detect duplicate assignments
@@ -124,9 +117,8 @@ export function ConfirmWriteDialog({
     if (!previewResult) return null;
     const tracks: TrackEdit[] = rows.map((r) => {
       if (r.selectedRemoteIndex == null) {
-        // "Do not update" — leave the local file's per-track tags untouched.
-        // Sentinel: all per-track fields empty; the native writer skips tracks
-        // with no patchable per-track data while still applying album fields.
+        // "Do not update" rows keep a positional placeholder in the candidate;
+        // the separate selected-index list tells native apply to skip the file.
         return { artists: [] };
       }
       return {
@@ -149,8 +141,13 @@ export function ConfirmWriteDialog({
 
   const handleConfirm = useCallback(() => {
     const candidate = buildCandidate();
-    if (candidate) onConfirm(candidate);
-  }, [buildCandidate, onConfirm]);
+    if (candidate) {
+      const selectedTrackIndices = rows
+        .filter((row) => row.selectedRemoteIndex != null)
+        .map((row) => row.localIndex);
+      onConfirm(candidate, selectedTrackIndices);
+    }
+  }, [buildCandidate, onConfirm, rows]);
 
   if (!open) return null;
 
@@ -205,7 +202,7 @@ export function ConfirmWriteDialog({
           {!loading && previewResult && (
             <>
               <div className="mb-4 flex items-center gap-3 text-[12px] text-text-muted">
-                <span>Matched <strong className="text-text-primary">{matchedCount}</strong> of {albumTracks.length} tracks</span>
+                <span>Matched <strong className="text-text-primary">{matchedCount}</strong> of {rows.length} tracks</span>
                 {unusedRemoteTracks.length > 0 && (
                   <span className="text-amber-600">
                     ({unusedRemoteTracks.length} unused remote track{unusedRemoteTracks.length !== 1 ? "s" : ""})
