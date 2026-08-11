@@ -199,11 +199,11 @@ export function SearchDialog({
 
   const filteredResults = useMemo(() => {
     const query = normalizedFilterText(resultFilter.trim());
-    if (!searchPage || !localCatalog || !query) return searchPage?.results ?? [];
+    if (!searchPage || !query) return searchPage?.results ?? [];
     return searchPage.results.filter((result) =>
       normalizedFilterText(result.title).includes(query),
     );
-  }, [searchPage, localCatalog, resultFilter]);
+  }, [searchPage, resultFilter]);
 
   const visibleResults = useMemo(() => {
     if (!localCatalog) return filteredResults;
@@ -493,7 +493,7 @@ export function SearchDialog({
           {/* Phase: Results */}
           {phase === "results" && searchPage && (
             <div className="space-y-2">
-              {localCatalog && searchPage.results.length > 0 && (
+              {searchPage.results.length > 0 && (
                 <input
                   type="search"
                   value={resultFilter}
@@ -506,9 +506,11 @@ export function SearchDialog({
                 <div className="text-center py-10 text-text-muted text-[13px]">
                   No releases found. Try different search terms.
                 </div>
-              ) : localCatalog && filteredResults.length === 0 ? (
+              ) : filteredResults.length === 0 ? (
                 <div className="text-center py-10 text-text-muted text-[13px]">
-                  No cached releases match this title.
+                  {localCatalog
+                    ? "No cached releases match this title."
+                    : "No releases on this page match this title."}
                 </div>
               ) : (
                 <>

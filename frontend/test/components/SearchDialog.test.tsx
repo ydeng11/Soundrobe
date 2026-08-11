@@ -175,12 +175,20 @@ describe("SearchDialog", () => {
 
   it("keeps server pagination for Discogs searches", async () => {
     const mockSearch = vi.fn().mockImplementation(({ page = 1 }) => Promise.resolve({
-      results: [{
-        provider: "discogs" as const,
-        id: `dg-${page}`,
-        title: `Discogs page ${page}`,
-        formats: ["CD"],
-      }],
+      results: [
+        {
+          provider: "discogs" as const,
+          id: `dg-${page}-live`,
+          title: `Discogs page ${page} live`,
+          formats: ["CD"],
+        },
+        {
+          provider: "discogs" as const,
+          id: `dg-${page}-studio`,
+          title: `Discogs page ${page} studio`,
+          formats: ["CD"],
+        },
+      ],
       page,
       pageSize: 10,
       total: 20,
@@ -194,12 +202,15 @@ describe("SearchDialog", () => {
     });
     fireEvent.click(screen.getByText("Search"));
 
-    await waitFor(() => expect(screen.getByText("Discogs page 1")).toBeTruthy());
-    expect(screen.queryByPlaceholderText("Filter release titles")).toBeNull();
+    await waitFor(() => expect(screen.getByText("Discogs page 1 live")).toBeTruthy());
+    const filter = screen.getByPlaceholderText("Filter release titles");
+    fireEvent.change(filter, { target: { value: "studio" } });
+    expect(screen.getByText("Discogs page 1 studio")).toBeTruthy();
+    expect(screen.queryByText("Discogs page 1 live")).toBeNull();
     expect(mockSearch).toHaveBeenLastCalledWith(expect.objectContaining({ page: 1, pageSize: 10 }));
 
     fireEvent.click(screen.getByText("Next >"));
-    await waitFor(() => expect(screen.getByText("Discogs page 2")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("Discogs page 2 studio")).toBeTruthy());
     expect(mockSearch).toHaveBeenLastCalledWith(expect.objectContaining({ page: 2, pageSize: 10 }));
   });
 

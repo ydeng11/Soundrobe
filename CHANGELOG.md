@@ -107,6 +107,9 @@ desktop release.
   search after returning to the form or reopening the dialog without additional
   provider requests.
 
+- **Discogs release title filtering** — manual Search now provides the same
+  release-title filter for the currently loaded Discogs results page.
+
 - **Faster AI Assistant applies** — approved standard metadata/tag batches now
   write album folders concurrently using the configured write limit, show
   preflight, writing, and verification progress, and still finish only after
