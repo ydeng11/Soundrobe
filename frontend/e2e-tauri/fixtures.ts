@@ -307,5 +307,12 @@ export function prepareE2eWorkspace(): E2eWorkspace {
 }
 
 export function cleanupE2eWorkspace(root: string): void {
-  fs.rmSync(root, { recursive: true, force: true });
+  // WebView can release its profile files just after the WDIO session ends.
+  // Retry the bounded cleanup so transient Windows locks do not fail the run.
+  fs.rmSync(root, {
+    recursive: true,
+    force: true,
+    maxRetries: 10,
+    retryDelay: 250,
+  });
 }
