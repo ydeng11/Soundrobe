@@ -98,6 +98,10 @@ desktop release.
 
 ### Fixed
 
+- **Cover removal priority** — removing album artwork now selects the highest-
+  priority standard cover name consistently, regardless of filesystem directory
+  enumeration order.
+
 - **Windows album selection** — album filters and album-scoped track actions now
   work correctly with native Windows backslash paths.
 

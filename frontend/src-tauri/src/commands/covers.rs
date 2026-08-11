@@ -652,33 +652,34 @@ fn find_external_cover(album_path: &Path) -> Option<PathBuf> {
         .filter(|entry| entry.file_type().map(|t| t.is_file()).unwrap_or(false))
         .collect();
 
-    // First pass: look for standard cover names (case-insensitive name match
-    // against the stem, avoiding separate path-existence stat calls).
+    // First pass: look for standard cover names in declared priority order
+    // (case-insensitive name match against the stem, avoiding separate
+    // path-existence stat calls). Do not depend on read_dir ordering.
     let lower_names: Vec<String> = COVER_NAMES.iter().map(|n| n.to_ascii_lowercase()).collect();
-    for entry in &entries {
-        let path = entry.path();
-        let name = entry.file_name();
-        let name_str = name.to_string_lossy();
-        if name_str.starts_with('.') || name_str.eq_ignore_ascii_case("artist.jpg") {
-            continue;
+    for wanted_stem in lower_names {
+        for wanted_ext in COVER_EXTENSIONS {
+            if let Some(entry) = entries.iter().find(|entry| {
+                let path = entry.path();
+                let name = entry.file_name();
+                let name_str = name.to_string_lossy();
+                if name_str.starts_with('.') || name_str.eq_ignore_ascii_case("artist.jpg") {
+                    return false;
+                }
+                let stem = path
+                    .file_stem()
+                    .and_then(|s| s.to_str())
+                    .unwrap_or_default()
+                    .to_ascii_lowercase();
+                let ext = path
+                    .extension()
+                    .and_then(|e| e.to_str())
+                    .unwrap_or_default()
+                    .to_ascii_lowercase();
+                stem == wanted_stem && ext == *wanted_ext
+            }) {
+                return Some(entry.path());
+            }
         }
-        let stem = path
-            .file_stem()
-            .and_then(|s| s.to_str())
-            .unwrap_or_default()
-            .to_ascii_lowercase();
-        if !lower_names.contains(&stem) {
-            continue;
-        }
-        let ext = path
-            .extension()
-            .and_then(|e| e.to_str())
-            .unwrap_or_default()
-            .to_ascii_lowercase();
-        if !COVER_EXTENSIONS.contains(&ext.as_str()) {
-            continue;
-        }
-        return Some(path);
     }
 
     // Second pass: any image file > 1 KB (non-standard-named covers like
@@ -889,11 +890,23 @@ mod tests {
         fs::remove_dir_all(root).unwrap();
     }
 
+    /// Intent: standard cover names use their declared priority rather than
+    /// depending on filesystem directory-entry order.
+    #[test]
+    fn find_external_cover_prioritizes_cover_name() {
+        let root = root();
+        fs::write(root.join("albumart.png"), png(2, 2)).unwrap();
+        fs::write(root.join("cover.jpg"), png(2, 2)).unwrap();
+
+        assert_eq!(find_external_cover(&root), Some(root.join("cover.jpg")));
+        fs::remove_dir_all(root).unwrap();
+    }
+
     #[test]
     fn remove_deletes_first_external_cover_and_suppresses_remaining_sources() {
         let root = root();
-        fs::write(root.join("cover.jpg"), png(2, 2)).unwrap();
         fs::write(root.join("front.png"), png(2, 2)).unwrap();
+        fs::write(root.join("cover.jpg"), png(2, 2)).unwrap();
         assert!(remove_cover_at(&root));
         assert!(!root.join("cover.jpg").exists());
         assert!(root.join("front.png").exists());
