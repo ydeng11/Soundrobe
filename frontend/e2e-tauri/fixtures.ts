@@ -308,7 +308,7 @@ export function prepareE2eWorkspace(): E2eWorkspace {
 
 export function cleanupE2eWorkspace(root: string): void {
   // WebView can release its profile files just after the WDIO session ends.
-  // Retry the bounded cleanup so transient Windows locks do not fail the run.
+  // Retry the bounded cleanup so transient teardown races do not fail the run.
   try {
     fs.rmSync(root, {
       recursive: true,
@@ -324,6 +324,12 @@ export function cleanupE2eWorkspace(root: string): void {
     if (process.platform === "win32" && code === "EBUSY") {
       console.warn(
         `Windows WebView still owns part of the E2E workspace; leaving it for the runner to reclaim: ${root}`,
+      );
+      return;
+    }
+    if (process.platform === "linux" && code === "ENOTEMPTY") {
+      console.warn(
+        `Linux Mesa cache changed during E2E workspace cleanup; leaving it for the runner to reclaim: ${root}`,
       );
       return;
     }
