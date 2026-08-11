@@ -85,11 +85,23 @@ async function clickDialogButton(dialogLabel: string, buttonLabel: string): Prom
 
 describe("Tauri desktop workflows", () => {
   it("reveals the native main window after renderer boot", async () => {
-    const visible = await browser.tauri.execute((tauri) =>
-      tauri.core.invoke<boolean>("plugin:window|is_visible", { label: "main" }),
+    await browser.waitUntil(
+      async () => {
+        try {
+          return await browser.tauri.execute((tauri) =>
+            tauri.core.invoke<boolean>("plugin:window|is_visible", { label: "main" }),
+          );
+        } catch {
+          // The embedded WDIO bridge can finish loading just after the
+          // renderer is reachable on macOS ARM.
+          return false;
+        }
+      },
+      {
+        timeout: 15_000,
+        timeoutMsg: "the native main window did not become visible",
+      },
     );
-
-    expect(visible).toBe(true);
   });
 
   it("preserves absolute paths through the native library pipeline", async () => {

@@ -15,7 +15,7 @@ import {
 } from "./state/AppState";
 import type { TrackSnapshot } from "./state/UndoManager";
 import { TitleBar } from "./components/TitleBar";
-import { dirname as dirPath, basename } from "./utils/path";
+import { dirname as dirPath, basename, isInsideDirectory } from "./utils/path";
 import { AssistantPanel } from "./components/AssistantPanel";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { Sidebar } from "./components/Sidebar";
@@ -1276,9 +1276,10 @@ export default function App() {
 
   const handleNumberTracks = useCallback(
     async (rule: OrderingRule) => {
-      if (!state.activeAlbumPath) return;
+      const activeAlbumPath = state.activeAlbumPath;
+      if (!activeAlbumPath) return;
       const albumTracks = state.tracks.filter(
-        (t) => dirPath(t.path) === state.activeAlbumPath,
+        (t) => isInsideDirectory(t.path, activeAlbumPath),
       );
       if (albumTracks.length === 0) return;
 
@@ -1373,17 +1374,18 @@ export default function App() {
 
   const handleConfirmWrite = useCallback(
     async (candidate: AlbumCandidate) => {
-      if (!state.activeAlbumPath) return;
+      const activeAlbumPath = state.activeAlbumPath;
+      if (!activeAlbumPath) return;
       setSearchWriting(true);
       setSearchWriteError(null);
 
       try {
         // Capture undo snapshots (mirrors handleAutoTag)
         const albumTracks = state.tracks.filter(
-          (t) => dirPath(t.path) === state.activeAlbumPath,
+          (t) => isInsideDirectory(t.path, activeAlbumPath),
         );
         const snapshots = await buildAutoTagUndoSnapshots(
-          [state.activeAlbumPath],
+          [activeAlbumPath],
           albumTracks,
           window.api.readAlbum,
         );
@@ -1394,7 +1396,7 @@ export default function App() {
         });
 
         const written = await window.api.searchApplyCandidate(
-          state.activeAlbumPath,
+          activeAlbumPath,
           candidate,
         );
         if (written > 0) {
@@ -1710,9 +1712,10 @@ export default function App() {
 
   // Filter tracks by active album — in-memory filter, no disk reads
   const filteredTracks = useMemo(() => {
-    if (!state.activeAlbumPath) return state.tracks;
+    const activeAlbumPath = state.activeAlbumPath;
+    if (!activeAlbumPath) return state.tracks;
     return state.tracks.filter((t) =>
-      t.path.startsWith(state.activeAlbumPath + "/"),
+      isInsideDirectory(t.path, activeAlbumPath),
     );
   }, [state.tracks, state.activeAlbumPath]);
 
@@ -2167,7 +2170,9 @@ export default function App() {
         open={showConfirmDialog}
         albumPath={state.activeAlbumPath ?? ""}
         albumTracks={state.tracks.filter((t) =>
-          state.activeAlbumPath ? dirPath(t.path) === state.activeAlbumPath : false,
+          state.activeAlbumPath
+            ? isInsideDirectory(t.path, state.activeAlbumPath)
+            : false,
         )}
         previewResult={searchPreviewResult}
         loading={showConfirmDialog && !searchPreviewResult && !searchWriteError}

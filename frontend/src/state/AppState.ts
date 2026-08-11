@@ -1,5 +1,6 @@
 import type { TrackData, AlbumInfo, AuditTrackResult } from "../shared/desktop-api";
 import { UndoManager, type TrackSnapshot } from "./UndoManager";
+import { isInsideDirectory } from "../utils/path";
 
 export interface AuditResultEntry {
   trackIndex: number;
@@ -335,7 +336,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
     case "SET_ACTIVE_ALBUM": {
       const isInScope = action.path === null || (
         state.selectedTrackPath != null &&
-        state.selectedTrackPath.startsWith(action.path + "/")
+        isInsideDirectory(state.selectedTrackPath, action.path)
       );
       return {
         ...state,

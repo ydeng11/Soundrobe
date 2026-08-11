@@ -98,6 +98,9 @@ desktop release.
 
 ### Fixed
 
+- **Windows album selection** — album filters and album-scoped track actions now
+  work correctly with native Windows backslash paths.
+
 - **Complete MusicBrainz artist searches** — manual Search now resolves artist
   aliases to the exact MusicBrainz artist, loads every matching release page,
   and lets users filter the cached release titles without additional provider

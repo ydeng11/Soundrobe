@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useRef, useCallback, useEffect, useLayoutEffect, memo } from "react";
 import type { TrackData } from "../shared/desktop-api";
 import type { TrackAuditSummary } from "../state/AppState";
-import { shortPath } from "../utils/path";
+import { isInsideDirectory, shortPath } from "../utils/path";
 
 type SortKey =
   | "filename"
@@ -283,7 +283,7 @@ export function FileGrid({
   // Filter tracks by active album in-memory (no disk reads)
   const albumFiltered = useMemo(() => {
     if (!activeAlbumPath) return tracks;
-    return tracks.filter((t) => t.path.startsWith(activeAlbumPath + "/"));
+    return tracks.filter((t) => isInsideDirectory(t.path, activeAlbumPath));
   }, [tracks, activeAlbumPath]);
 
   const sorted = useMemo(() => {

@@ -164,6 +164,28 @@ describe("FileGrid", () => {
     expect(screen.queryByText("music/Album Y/song3.mp3")).toBeFalsy();
   });
 
+  it("filters Windows paths by activeAlbumPath", () => {
+    const onSelect = vi.fn();
+    const tracksWithAlbums: TrackData[] = [
+      makeTrack("C:\\Music\\Album X\\song1.mp3", { title: "Song One" }),
+      makeTrack("C:\\Music\\Album Y\\song2.mp3", { title: "Song Two" }),
+    ];
+
+    const { container } = render(
+      <FileGrid
+        tracks={tracksWithAlbums}
+        activeAlbumPath={"C:\\Music\\Album X"}
+        selectedTrackPath={null}
+        filterText=""
+        onSelectTrack={onSelect}
+      />,
+    );
+
+    const rows = [...container.querySelectorAll<HTMLElement>("[data-testid^='file-row-']")];
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.dataset.testid).toBe("file-row-C:\\Music\\Album X\\song1.mp3");
+  });
+
   it("shows all tracks when activeAlbumPath is null", () => {
     const onSelect = vi.fn();
     const tracksWithAlbums: TrackData[] = [

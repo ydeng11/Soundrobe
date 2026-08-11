@@ -548,6 +548,24 @@ describe("appReducer", () => {
       expect(next.coverDataUrl).toBe("data:image/jpeg;base64,keep");
     });
 
+    it("preserves selection for Windows paths inside the new album scope", () => {
+      const track = makeTrack("C:\\Music\\Album A\\song.mp3", { title: "Keep Me" });
+      const state = {
+        ...initialAppState,
+        selectedTrackPath: track.path,
+        selectedTrack: track,
+        coverDataUrl: "data:image/jpeg;base64,keep",
+      };
+      const next = appReducer(state, {
+        type: "SET_ACTIVE_ALBUM",
+        path: "C:\\Music\\Album A",
+      });
+
+      expect(next.selectedTrackPath).toBe(track.path);
+      expect(next.selectedTrack).toBe(track);
+      expect(next.coverDataUrl).toBe("data:image/jpeg;base64,keep");
+    });
+
     it("preserves selection when navigating to null (show all)", () => {
       const track = makeTrack("/music/Album B/song.mp3");
       const state = {
