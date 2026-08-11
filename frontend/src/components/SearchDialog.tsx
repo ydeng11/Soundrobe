@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import type {
   ReleaseSearchResult,
   ReleaseSearchPage,
@@ -14,6 +14,13 @@ interface SearchDialogProps {
 
 type Provider = "musicbrainz" | "discogs";
 type Phase = "form" | "results" | "detail";
+
+const PROVIDER_PAGE_SIZE = 100;
+const RESULT_PAGE_SIZE = 10;
+
+function normalizedFilterText(value: string): string {
+  return value.normalize("NFKC").toLowerCase();
+}
 
 export function SearchDialog({
   open,
@@ -33,16 +40,42 @@ export function SearchDialog({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchPage, setSearchPage] = useState<ReleaseSearchPage | null>(null);
+  const [localCatalog, setLocalCatalog] = useState(false);
+  const [resultFilter, setResultFilter] = useState("");
+  const [resultPage, setResultPage] = useState(1);
   const [detailAlbum, setDetailAlbum] = useState<ProviderAlbum | null>(null);
+  const searchGeneration = useRef(0);
   const canSearch = artist.trim().length > 0 || album.trim().length > 0;
+
+  useEffect(() => {
+    if (!open) {
+      searchGeneration.current += 1;
+      setLoading(false);
+      setError(null);
+      setSearchPage(null);
+      setLocalCatalog(false);
+      setResultFilter("");
+      setResultPage(1);
+      setDetailAlbum(null);
+      setPhase("form");
+    }
+  }, [open]);
 
   const handleSearch = useCallback(async (pageNum = 1) => {
     if (!canSearch) return;
+    const generation = ++searchGeneration.current;
+    const shouldCacheCatalog = provider === "musicbrainz" && artist.trim().length > 0;
     setLoading(true);
     setError(null);
+    if (pageNum === 1) {
+      setSearchPage(null);
+      setLocalCatalog(false);
+      setResultFilter("");
+      setResultPage(1);
+    }
 
     try {
-      const page = await window.api.searchReleases({
+      const request = {
         provider,
         artist: artist.trim() || undefined,
         album: album.trim() || undefined,
@@ -51,17 +84,78 @@ export function SearchDialog({
         format: format.trim() || undefined,
         catalogNumber: catalogNumber.trim() || undefined,
         barcode: barcode.trim() || undefined,
-        page: pageNum,
-        pageSize: 10,
+        pageSize: shouldCacheCatalog ? PROVIDER_PAGE_SIZE : RESULT_PAGE_SIZE,
+      };
+      if (!shouldCacheCatalog) {
+        const page = await window.api.searchReleases({ ...request, page: pageNum });
+        if (generation !== searchGeneration.current) return;
+        setSearchPage(page);
+        setLocalCatalog(false);
+        setPhase("results");
+        return;
+      }
+      const results: ReleaseSearchResult[] = [];
+      let providerPage = 1;
+      let hasNext = true;
+      while (hasNext) {
+        const page = await window.api.searchReleases({ ...request, page: providerPage });
+        if (generation !== searchGeneration.current) return;
+        results.push(...page.results);
+        hasNext = page.hasNext;
+        if (hasNext && page.results.length === 0) {
+          throw new Error("Provider returned an empty page before the end of the results");
+        }
+        providerPage += 1;
+      }
+      const seen = new Set<string>();
+      const uniqueResults = results.filter((result) => {
+        const key = `${result.provider}:${result.kind ?? "release"}:${result.id}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
       });
-      setSearchPage(page);
+      setSearchPage({
+        results: uniqueResults,
+        page: 1,
+        pageSize: RESULT_PAGE_SIZE,
+        total: uniqueResults.length,
+        hasNext: uniqueResults.length > RESULT_PAGE_SIZE,
+      });
+      setLocalCatalog(true);
       setPhase("results");
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      if (generation === searchGeneration.current) {
+        setError(err instanceof Error ? err.message : String(err));
+      }
     } finally {
-      setLoading(false);
+      if (generation === searchGeneration.current) setLoading(false);
     }
   }, [provider, artist, album, year, country, format, catalogNumber, barcode, canSearch]);
+
+  const filteredResults = useMemo(() => {
+    const query = normalizedFilterText(resultFilter.trim());
+    if (!searchPage || !localCatalog || !query) return searchPage?.results ?? [];
+    return searchPage.results.filter((result) =>
+      normalizedFilterText(result.title).includes(query),
+    );
+  }, [searchPage, localCatalog, resultFilter]);
+
+  const visibleResults = useMemo(() => {
+    if (!localCatalog) return filteredResults;
+    const start = (resultPage - 1) * RESULT_PAGE_SIZE;
+    return filteredResults.slice(start, start + RESULT_PAGE_SIZE);
+  }, [filteredResults, localCatalog, resultPage]);
+
+  const resultPageCount = localCatalog
+    ? Math.max(1, Math.ceil(filteredResults.length / RESULT_PAGE_SIZE))
+    : Math.max(
+        1,
+        Math.ceil((searchPage?.total ?? 0) / (searchPage?.pageSize ?? RESULT_PAGE_SIZE)),
+      );
+  const currentResultPage = localCatalog ? resultPage : (searchPage?.page ?? 1);
+  const showPagination = localCatalog
+    ? filteredResults.length > RESULT_PAGE_SIZE
+    : (searchPage?.total ?? 0) > (searchPage?.pageSize ?? RESULT_PAGE_SIZE);
 
   const handleOpenDetail = useCallback(async (result: ReleaseSearchResult) => {
     setLoading(true);
@@ -93,22 +187,40 @@ export function SearchDialog({
   }, []);
 
   const handleBackToForm = useCallback(() => {
+    searchGeneration.current += 1;
     setDetailAlbum(null);
     setSearchPage(null);
+    setLocalCatalog(false);
+    setResultFilter("");
+    setResultPage(1);
     setPhase("form");
   }, []);
 
   const handlePrevPage = useCallback(() => {
-    if (searchPage && searchPage.page > 1) {
+    if (localCatalog) {
+      setResultPage((page) => Math.max(1, page - 1));
+    } else if (searchPage && searchPage.page > 1) {
       handleSearch(searchPage.page - 1);
     }
-  }, [searchPage, handleSearch]);
+  }, [localCatalog, searchPage, handleSearch]);
 
   const handleNextPage = useCallback(() => {
-    if (searchPage && searchPage.hasNext) {
+    if (localCatalog) {
+      setResultPage((page) => Math.min(resultPageCount, page + 1));
+    } else if (searchPage?.hasNext) {
       handleSearch(searchPage.page + 1);
     }
-  }, [searchPage, handleSearch]);
+  }, [localCatalog, resultPageCount, searchPage, handleSearch]);
+
+  const handleResultFilterChange = useCallback((value: string) => {
+    setResultFilter(value);
+    setResultPage(1);
+  }, []);
+
+  const handleClose = useCallback(() => {
+    searchGeneration.current += 1;
+    onClose();
+  }, [onClose]);
 
   if (!open) return null;
 
@@ -117,7 +229,7 @@ export function SearchDialog({
       role="dialog"
       aria-label="Search releases"
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
-      onClick={onClose}
+      onClick={handleClose}
     >
       <div
         className="bg-white rounded-xl shadow-2xl border border-border w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden"
@@ -150,12 +262,16 @@ export function SearchDialog({
             )}
             <h2 className="text-sm font-semibold text-text-primary">
               {phase === "form" && "Search releases"}
-              {phase === "results" && `Results (${searchPage?.total ?? "?"})`}
+              {phase === "results" && searchPage && (
+                localCatalog && resultFilter.trim()
+                  ? `Results (${filteredResults.length} of ${searchPage.results.length})`
+                  : `Results (${localCatalog ? searchPage.results.length : (searchPage.total ?? "?")})`
+              )}
               {phase === "detail" && (detailAlbum?.title ?? "Release detail")}
             </h2>
           </div>
           <button
-            onClick={onClose}
+            onClick={handleClose}
             className="text-text-muted hover:text-text-primary transition-colors"
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -309,15 +425,28 @@ export function SearchDialog({
           {/* Phase: Results */}
           {phase === "results" && searchPage && (
             <div className="space-y-2">
+              {localCatalog && searchPage.results.length > 0 && (
+                <input
+                  type="search"
+                  value={resultFilter}
+                  onChange={(event) => handleResultFilterChange(event.target.value)}
+                  placeholder="Filter release titles"
+                  className="w-full h-8 px-2.5 mb-2 text-[12px] border border-border rounded-lg outline-none focus:border-accent/60 focus:shadow-[0_0_0_2px_rgba(0,122,255,0.12)] bg-white"
+                />
+              )}
               {searchPage.results.length === 0 ? (
                 <div className="text-center py-10 text-text-muted text-[13px]">
                   No releases found. Try different search terms.
                 </div>
+              ) : localCatalog && filteredResults.length === 0 ? (
+                <div className="text-center py-10 text-text-muted text-[13px]">
+                  No cached releases match this title.
+                </div>
               ) : (
                 <>
-                  {searchPage.results.map((result) => (
+                  {visibleResults.map((result) => (
                     <button
-                      key={`${result.provider}-${result.id}`}
+                      key={`${result.provider}-${result.kind ?? "release"}-${result.id}`}
                       onClick={() => handleOpenDetail(result)}
                       className="w-full text-left p-3 rounded-lg border border-border hover:border-accent/40 hover:bg-surface-hover transition-all"
                     >
@@ -352,22 +481,21 @@ export function SearchDialog({
               )}
 
               {/* Pagination */}
-              {(searchPage.total ?? 0) > searchPage.pageSize && (
+              {showPagination && (
                 <div className="flex items-center justify-center gap-4 pt-3">
                   <button
                     onClick={handlePrevPage}
-                    disabled={searchPage.page <= 1}
+                    disabled={currentResultPage <= 1}
                     className="px-3 py-1 text-[12px] rounded-lg border border-border text-text-secondary hover:bg-surface-hover disabled:opacity-30 disabled:cursor-not-allowed transition-all"
                   >
                     &lt; Prev
                   </button>
                   <span className="text-[12px] text-text-muted">
-                    Page {searchPage.page}
-                    {searchPage.total ? ` of ${Math.ceil(searchPage.total / searchPage.pageSize)}` : ""}
+                    Page {currentResultPage} of {resultPageCount}
                   </span>
                   <button
                     onClick={handleNextPage}
-                    disabled={!searchPage.hasNext}
+                    disabled={localCatalog ? resultPage >= resultPageCount : !searchPage.hasNext}
                     className="px-3 py-1 text-[12px] rounded-lg border border-border text-text-secondary hover:bg-surface-hover disabled:opacity-30 disabled:cursor-not-allowed transition-all"
                   >
                     Next &gt;

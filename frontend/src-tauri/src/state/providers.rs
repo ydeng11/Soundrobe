@@ -160,6 +160,57 @@ impl ProviderState {
             );
         identity
     }
+
+    /// Resolve a MusicBrainz artist ID for interactive commands that must
+    /// distinguish a genuine no-match from a provider failure. Positive IDs
+    /// reuse the shared identity cache; failures and no-match results are not
+    /// cached so a later retry can recover.
+    pub async fn resolve_musicbrainz_artist_id_result(
+        &self,
+        artist: &str,
+    ) -> Result<Option<String>, String> {
+        if artist.trim().is_empty() {
+            return Ok(None);
+        }
+        let key = format!("{}|mb=true|discogs=false", artist.trim().to_lowercase());
+        let cached_id = self
+            .artist_cache
+            .lock()
+            .unwrap_or_else(|poisoned| {
+                tracing::error!("artist identity cache mutex poisoned");
+                poisoned.into_inner()
+            })
+            .get(&key)
+            .filter(|entry| entry.stored.elapsed() < Duration::from_secs(24 * 60 * 60))
+            .and_then(|entry| entry.identity.musicbrainz_artist_id.clone());
+        if cached_id.is_some() {
+            return Ok(cached_id);
+        }
+
+        let musicbrainz = MusicBrainzClient::at(self.http(), &self.musicbrainz_base);
+        let Some(resolved) = musicbrainz.search_artist_by_name_result(artist).await? else {
+            return Ok(None);
+        };
+        let id = resolved.id;
+        self.artist_cache
+            .lock()
+            .unwrap_or_else(|poisoned| {
+                tracing::error!("artist identity cache mutex poisoned");
+                poisoned.into_inner()
+            })
+            .insert(
+                key,
+                CachedArtistIdentity {
+                    identity: ArtistIdentity {
+                        musicbrainz_artist_id: Some(id.clone()),
+                        discogs_artist_id: None,
+                        english_aliases: resolved.aliases,
+                    },
+                    stored: Instant::now(),
+                },
+            );
+        Ok(Some(id))
+    }
 }
 
 impl Default for ProviderState {
@@ -416,8 +467,15 @@ impl MusicBrainzClient {
     }
 
     pub async fn search_artist_by_name(&self, artist: &str) -> Option<ProviderArtist> {
+        self.search_artist_by_name_result(artist).await.ok().flatten()
+    }
+
+    pub async fn search_artist_by_name_result(
+        &self,
+        artist: &str,
+    ) -> Result<Option<ProviderArtist>, String> {
         if artist.trim().is_empty() {
-            return None;
+            return Ok(None);
         }
         wait_for_musicbrainz().await;
         let query = format!("artist:\"{}\"", escape_musicbrainz_query(artist));
@@ -431,25 +489,33 @@ impl MusicBrainzClient {
             ])
             .send()
             .await
-            .ok()?
+            .map_err(|error| format!("MusicBrainz artist request failed: {error}"))?
             .error_for_status()
-            .ok()?
+            .map_err(|error| format!("MusicBrainz artist HTTP error: {error}"))?
             .json::<serde_json::Value>()
             .await
-            .ok()?;
-        let artists = response.get("artists")?.as_array()?;
-        let candidate = artists
+            .map_err(|error| format!("MusicBrainz artist parse error: {error}"))?;
+        let artists = response
+            .get("artists")
+            .and_then(serde_json::Value::as_array)
+            .ok_or_else(|| "MusicBrainz artist response is missing artists".to_string())?;
+        let Some(candidate) = artists
             .iter()
-            .find(|candidate| {
-                candidate.get("name").and_then(serde_json::Value::as_str) == Some(artist)
-                    || candidate
-                        .get("sort-name")
-                        .and_then(serde_json::Value::as_str)
-                        == Some(artist)
-            })
-            .or_else(|| artists.first())?;
-        let id = candidate.get("id")?.as_str()?.to_string();
-        let name = candidate.get("name")?.as_str()?.to_string();
+            .find(|candidate| musicbrainz_artist_matches_name(candidate, artist))
+            .or_else(|| artists.first())
+        else {
+            return Ok(None);
+        };
+        let id = candidate
+            .get("id")
+            .and_then(serde_json::Value::as_str)
+            .ok_or_else(|| "MusicBrainz artist response has an invalid artist ID".to_string())?
+            .to_string();
+        let name = candidate
+            .get("name")
+            .and_then(serde_json::Value::as_str)
+            .ok_or_else(|| "MusicBrainz artist response has an invalid artist name".to_string())?
+            .to_string();
         let aliases = candidate
             .get("aliases")
             .and_then(serde_json::Value::as_array)
@@ -459,7 +525,7 @@ impl MusicBrainzClient {
             .filter(|alias| alias.is_ascii())
             .map(str::to_string)
             .collect();
-        Some(ProviderArtist { id, name, aliases })
+        Ok(Some(ProviderArtist { id, name, aliases }))
     }
 
     /// Paged release search returning lightweight summaries (no track detail).
@@ -505,9 +571,11 @@ impl MusicBrainzClient {
             .await
             .map_err(|e| format!("MusicBrainz parse error: {e}"))?;
         let count = response
-            .get("release-count")
-            .and_then(|c| c.as_u64())
-            .unwrap_or(0) as u32;
+            .get("count")
+            .ok_or_else(|| "MusicBrainz response is missing count".to_string())?
+            .as_u64()
+            .and_then(|count| u32::try_from(count).ok())
+            .ok_or_else(|| "MusicBrainz response has an invalid count".to_string())?;
         let summaries = response
             .get("releases")
             .and_then(|r| r.as_array())
@@ -526,6 +594,21 @@ impl MusicBrainzClient {
 /// name matching is critical (artist and title fields).
 fn escape_musicbrainz_query(value: &str) -> String {
     value.replace('\\', "\\\\").replace('"', "\\\"")
+}
+
+fn musicbrainz_artist_matches_name(candidate: &serde_json::Value, artist: &str) -> bool {
+    ["name", "sort-name"].into_iter().any(|field| {
+        candidate
+            .get(field)
+            .and_then(serde_json::Value::as_str)
+            .is_some_and(|name| artist_exact_match(name, artist))
+    }) || candidate
+        .get("aliases")
+        .and_then(serde_json::Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(|alias| alias.get("name").and_then(serde_json::Value::as_str))
+        .any(|alias| artist_exact_match(alias, artist))
 }
 
 pub async fn resolve_artist_identity_with_clients(
@@ -2429,6 +2512,30 @@ mod tests {
         ("200 OK", "VALID_IMAGE".to_string(), "image/jpeg")
     }
 
+    fn musicbrainz_missing_count_route(
+        path: &str,
+        _base: &str,
+    ) -> (&'static str, String, &'static str) {
+        assert!(path.starts_with("/release?query="));
+        (
+            "200 OK",
+            r#"{"releases":[]}"#.to_string(),
+            "application/json",
+        )
+    }
+
+    fn musicbrainz_invalid_count_route(
+        path: &str,
+        _base: &str,
+    ) -> (&'static str, String, &'static str) {
+        assert!(path.starts_with("/release?query="));
+        (
+            "200 OK",
+            r#"{"releases":[],"count":"341"}"#.to_string(),
+            "application/json",
+        )
+    }
+
     fn wikimedia_route(path: &str, _base: &str) -> (&'static str, String, &'static str) {
         if path.starts_with("/wiki/search?") {
             return (
@@ -3172,6 +3279,45 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn provider_state_does_not_cache_musicbrainz_identity_failures() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let base = format!("http://{}", listener.local_addr().unwrap());
+        thread::spawn(move || {
+            for (status, body) in [
+                ("503 Service Unavailable", "{}"),
+                (
+                    "200 OK",
+                    r#"{"artists":[{"id":"artist-id","name":"張學友","aliases":[{"name":"张学友"}]}]}"#,
+                ),
+            ] {
+                let (mut stream, _) = listener.accept().unwrap();
+                let mut request = [0_u8; 4096];
+                let _ = stream.read(&mut request).unwrap();
+                write!(
+                    stream,
+                    "HTTP/1.1 {status}\r\nContent-Length: {}\r\nContent-Type: application/json\r\nConnection: close\r\n\r\n{body}",
+                    body.len()
+                )
+                .unwrap();
+            }
+        });
+        let state = ProviderState::at(
+            ProviderState::new().http(),
+            &base,
+            "http://127.0.0.1:1",
+        );
+
+        let first = state.resolve_musicbrainz_artist_id_result("张学友").await;
+        let second = state
+            .resolve_musicbrainz_artist_id_result("张学友")
+            .await
+            .unwrap();
+
+        assert!(first.is_err());
+        assert_eq!(second.as_deref(), Some("artist-id"));
+    }
+
+    #[tokio::test]
     async fn audit_alias_is_returned_only_after_exact_discogs_validation() {
         let (base, requests) = server(4, artist_provider_route);
         let client = RemoteArtworkClient::at(
@@ -3192,6 +3338,33 @@ mod tests {
         assert!(paths[1].contains("q=%E5%8E%9F%E5%90%8D"));
         assert!(paths[2].contains("/mb/artist/"));
         assert!(paths[3].contains("artist=Alias"));
+    }
+
+    #[tokio::test]
+    async fn artwork_alias_lookup_keeps_name_and_sort_name_selection_scope() {
+        let (base, _requests) = server(1, |path, _| {
+            assert!(path.starts_with("/mb/artist/?query="));
+            (
+                "200 OK",
+                r#"{"artists":[
+                  {"id":"first","name":"Top Result","aliases":[{"name":"Top Alias"}]},
+                  {"id":"second","name":"Other Artist","aliases":[{"name":"Alias Match"},{"name":"Wrong Alias"}]}
+                ]}"#
+                    .to_string(),
+                "application/json",
+            )
+        });
+        let client = RemoteArtworkClient::at(
+            ProviderState::new().http(),
+            None,
+            None,
+            &format!("{base}/discogs"),
+            endpoints(&base),
+        );
+
+        let aliases = client.musicbrainz_aliases("Alias Match").await;
+
+        assert_eq!(aliases, vec!["Top Alias"]);
     }
 
     /// Manual release gate: exercises the production Rustls client, request
@@ -3288,7 +3461,7 @@ mod tests {
     async fn musicbrainz_search_release_summaries_returns_paged_results() {
         let (base, requests) = server(2, |path, _| -> (&'static str, String, &'static str) {
             if path.starts_with("/ws/2/release?query=") {
-                return ("200 OK", r#"{"releases":[{"id":"mb-1","title":"OK Computer","artist-credit":[{"name":"Radiohead","artist":{"id":"art-1"}}],"date":"1997-05-21","country":"GB","media":[{"format":"CD"}],"barcode":"123","label-info":[{"catalog-number":"CAT-1"}]}],"release-count":1}"#.to_string(), "application/json");
+                return ("200 OK", r#"{"releases":[{"id":"mb-1","title":"OK Computer","artist-credit":[{"name":"Radiohead","artist":{"id":"art-1"}}],"date":"1997-05-21","country":"GB","media":[{"format":"CD"}],"barcode":"123","label-info":[{"catalog-number":"CAT-1"}]}],"count":341}"#.to_string(), "application/json");
             }
             ("404 Not Found", "{}".to_string(), "application/json")
         });
@@ -3303,7 +3476,7 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(summaries.len(), 1);
-        assert_eq!(count, 1);
+        assert_eq!(count, 341);
         assert_eq!(summaries[0].title, "OK Computer");
         assert_eq!(summaries[0].artist.as_deref(), Some("Radiohead"));
         assert_eq!(summaries[0].year.as_deref(), Some("1997"));
@@ -3311,6 +3484,47 @@ mod tests {
         assert_eq!(summaries[0].formats, vec!["CD"]);
         let req1 = requests.recv().unwrap();
         assert!(req1.contains("query="));
+    }
+
+    #[tokio::test]
+    async fn musicbrainz_search_release_summaries_requires_valid_count() {
+        for route in [
+            musicbrainz_missing_count_route as Route,
+            musicbrainz_invalid_count_route as Route,
+        ] {
+            let (base, _requests) = server(1, route);
+            let musicbrainz = MusicBrainzClient::at(ProviderState::new().http(), &base);
+
+            let error = musicbrainz
+                .search_release_summaries(&[("artist", "Radiohead")], 10, 0)
+                .await
+                .unwrap_err();
+
+            assert!(error.contains("count"), "{error}");
+        }
+    }
+
+    #[tokio::test]
+    async fn musicbrainz_artist_search_prefers_exact_alias_over_first_result() {
+        let (base, _requests) = server(1, |path, _| {
+            assert!(path.starts_with("/artist/?query="));
+            (
+                "200 OK",
+                r#"{"artists":[
+                  {"id":"wrong","name":"Jacky Cheung Tribute"},
+                  {"id":"right","name":"Jacky Cheung","aliases":[{"name":"张学友"}]}
+                ]}"#
+                .to_string(),
+                "application/json",
+            )
+        });
+        let musicbrainz = MusicBrainzClient::at(ProviderState::new().http(), &base);
+
+        let artist = musicbrainz.search_artist_by_name("张学友").await.unwrap();
+
+        assert_eq!(artist.id, "right");
+        assert_eq!(artist.name, "Jacky Cheung");
+        assert!(artist.aliases.is_empty());
     }
 
     #[tokio::test]

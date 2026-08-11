@@ -98,6 +98,11 @@ desktop release.
 
 ### Fixed
 
+- **Complete MusicBrainz artist searches** — manual Search now resolves artist
+  aliases to the exact MusicBrainz artist, loads every matching release page,
+  and lets users filter the cached release titles without additional provider
+  requests.
+
 - **Faster AI Assistant applies** — approved standard metadata/tag batches now
   write album folders concurrently using the configured write limit, show
   preflight, writing, and verification progress, and still finish only after

@@ -44,6 +44,29 @@ function makeSearchPage(overrides?: Partial<ReleaseSearchPage>): ReleaseSearchPa
   };
 }
 
+function makePagedSearchPage(page: number, pageSize = 100, total = 205): ReleaseSearchPage {
+  const start = (page - 1) * pageSize;
+  const end = Math.min(start + pageSize, total);
+  return {
+    results: Array.from({ length: Math.max(0, end - start) }, (_, index) => {
+      const number = start + index + 1;
+      return {
+        provider: "musicbrainz" as const,
+        id: `mb-${number}`,
+        title: `Release ${number}`,
+        artist: "Artist",
+        year: "2000",
+        country: "US",
+        formats: ["CD"],
+      };
+    }),
+    page,
+    pageSize,
+    total,
+    hasNext: end < total,
+  };
+}
+
 function makeProviderAlbum(overrides?: Partial<ProviderAlbum>): ProviderAlbum {
   return {
     id: "mb-1",
@@ -124,6 +147,105 @@ describe("SearchDialog", () => {
       expect(screen.getByText("OK Computer")).toBeTruthy();
       expect(screen.getByText("Kid A")).toBeTruthy();
     });
+  });
+
+  it("fetches every provider page once and paginates the cached results locally", async () => {
+    const mockSearch = vi.fn().mockImplementation(({ page = 1, pageSize = 100 }) =>
+      Promise.resolve(makePagedSearchPage(page, pageSize)),
+    );
+    window.api.searchReleases = mockSearch;
+    render(<SearchDialog {...defaultProps} />);
+    fireEvent.change(screen.getByPlaceholderText("Artist name"), {
+      target: { value: "Artist" },
+    });
+    fireEvent.click(screen.getByText("Search"));
+
+    await waitFor(() => expect(mockSearch).toHaveBeenCalledTimes(3));
+    expect(mockSearch.mock.calls.map(([request]) => request.page)).toEqual([1, 2, 3]);
+    expect(mockSearch.mock.calls.every(([request]) => request.pageSize === 100)).toBe(true);
+    expect(screen.getByText("Release 1")).toBeTruthy();
+    expect(screen.queryByText("Release 11")).toBeNull();
+    expect(screen.getByText("Page 1 of 21")).toBeTruthy();
+
+    fireEvent.click(screen.getByText("Next >"));
+    expect(screen.getByText("Release 11")).toBeTruthy();
+    expect(screen.queryByText("Release 1")).toBeNull();
+    expect(mockSearch).toHaveBeenCalledTimes(3);
+  });
+
+  it("keeps server pagination for Discogs searches", async () => {
+    const mockSearch = vi.fn().mockImplementation(({ page = 1 }) => Promise.resolve({
+      results: [{
+        provider: "discogs" as const,
+        id: `dg-${page}`,
+        title: `Discogs page ${page}`,
+        formats: ["CD"],
+      }],
+      page,
+      pageSize: 10,
+      total: 20,
+      hasNext: page === 1,
+    }));
+    window.api.searchReleases = mockSearch;
+    render(<SearchDialog {...defaultProps} />);
+    fireEvent.click(screen.getByText("Discogs"));
+    fireEvent.change(screen.getByPlaceholderText("Artist name"), {
+      target: { value: "Artist" },
+    });
+    fireEvent.click(screen.getByText("Search"));
+
+    await waitFor(() => expect(screen.getByText("Discogs page 1")).toBeTruthy());
+    expect(screen.queryByPlaceholderText("Filter release titles")).toBeNull();
+    expect(mockSearch).toHaveBeenLastCalledWith(expect.objectContaining({ page: 1, pageSize: 10 }));
+
+    fireEvent.click(screen.getByText("Next >"));
+    await waitFor(() => expect(screen.getByText("Discogs page 2")).toBeTruthy());
+    expect(mockSearch).toHaveBeenLastCalledWith(expect.objectContaining({ page: 2, pageSize: 10 }));
+  });
+
+  it("filters all cached release titles without making another provider request", async () => {
+    const mockSearch = vi.fn().mockImplementation(({ page = 1, pageSize = 100 }) =>
+      Promise.resolve(makePagedSearchPage(page, pageSize)),
+    );
+    window.api.searchReleases = mockSearch;
+    render(<SearchDialog {...defaultProps} />);
+    fireEvent.change(screen.getByPlaceholderText("Artist name"), {
+      target: { value: "Artist" },
+    });
+    fireEvent.click(screen.getByText("Search"));
+
+    await waitFor(() => expect(mockSearch).toHaveBeenCalledTimes(3));
+    fireEvent.click(screen.getByText("Next >"));
+    fireEvent.change(screen.getByPlaceholderText("Filter release titles"), {
+      target: { value: "release 205" },
+    });
+
+    expect(screen.getByText("Release 205")).toBeTruthy();
+    expect(screen.getByText("Results (1 of 205)")).toBeTruthy();
+    expect(screen.queryByText("Next >")).toBeNull();
+    expect(mockSearch).toHaveBeenCalledTimes(3);
+
+    fireEvent.change(screen.getByPlaceholderText("Filter release titles"), {
+      target: { value: "does not exist" },
+    });
+    expect(screen.getByText("No cached releases match this title.")).toBeTruthy();
+    expect(mockSearch).toHaveBeenCalledTimes(3);
+  });
+
+  it("discards the cached results when the dialog closes", async () => {
+    const { rerender } = render(<SearchDialog {...defaultProps} />);
+    fireEvent.change(screen.getByPlaceholderText("Artist name"), {
+      target: { value: "Radiohead" },
+    });
+    fireEvent.click(screen.getByText("Search"));
+    await waitFor(() => expect(screen.getByText("OK Computer")).toBeTruthy());
+
+    rerender(<SearchDialog {...defaultProps} open={false} />);
+    rerender(<SearchDialog {...defaultProps} open />);
+
+    await waitFor(() => expect(screen.getByText("Search releases")).toBeTruthy());
+    expect(screen.queryByText("OK Computer")).toBeNull();
+    expect(screen.queryByPlaceholderText("Filter release titles")).toBeNull();
   });
 
   it("shows empty state when no results", async () => {

@@ -109,6 +109,10 @@ fn discogs_token(config: &ConfigState) -> Option<String> {
     config.raw().discogs_token.clone()
 }
 
+fn normalise_page_size(page_size: Option<u32>) -> u32 {
+    page_size.unwrap_or(10).clamp(1, 100)
+}
+
 // ── Commands ─────────────────────────────────────────────────────────
 
 /// Inner search with pre-normalised inputs. Trims all string values and
@@ -163,11 +167,20 @@ async fn search_releases_inner(
     match provider {
         "musicbrainz" => {
             let client = MusicBrainzClient::at(providers.http(), providers.musicbrainz_base());
+            let musicbrainz_artist_id = if let Some(ref artist) = artist {
+                providers
+                    .resolve_musicbrainz_artist_id_result(artist)
+                    .await?
+            } else {
+                None
+            };
             let mut query_parts: Vec<(&str, &str)> = Vec::new();
-            if let Some(ref a) = trimmed_artist {
+            if let Some(ref id) = musicbrainz_artist_id {
+                query_parts.push(("arid", id.as_str()));
+            } else if let Some(ref a) = artist {
                 query_parts.push(("artist", a.as_str()));
             }
-            if let Some(ref a) = trimmed_album {
+            if let Some(ref a) = album {
                 query_parts.push(("release", a.as_str()));
             }
             if let Some(ref y) = year {
@@ -248,7 +261,7 @@ pub async fn album_search_releases(
     config: State<'_, ConfigState>,
 ) -> Result<SearchReleasesResponse, String> {
     let page = request.page.unwrap_or(1).max(1);
-    let page_size = request.page_size.unwrap_or(10).clamp(1, 50);
+    let page_size = normalise_page_size(request.page_size);
 
     let token = discogs_token(&config);
     search_releases_inner(
@@ -498,9 +511,14 @@ mod tests {
                 let request = String::from_utf8_lossy(&buf[..n]);
                 let _ = send.send(request.to_string());
                 let (body_str, _is_mb) =
-                    if request.contains("/ws/2/release?") || request.contains("/release?") {
+                    if request.contains("/ws/2/artist?") || request.contains("/ws/2/artist/?") {
                         (
-                            format!("{{\"releases\":[{}],\"release-count\":1}}", MB_RESULT),
+                            r#"{"artists":[{"id":"art-1","name":"Radiohead"}]}"#.to_string(),
+                            true,
+                        )
+                    } else if request.contains("/ws/2/release?") || request.contains("/release?") {
+                        (
+                            format!("{{\"releases\":[{}],\"count\":341}}", MB_RESULT),
                             true,
                         )
                     } else if request.contains("/database/search") {
@@ -563,7 +581,12 @@ mod tests {
         )
         .await
         .unwrap();
-        let req = rx.recv().unwrap();
+        let req = loop {
+            let req = rx.recv().unwrap();
+            if req.contains("/release?") || req.contains("/database/search") {
+                break req;
+            }
+        };
         (result, req)
     }
 
@@ -670,8 +693,10 @@ mod tests {
         .await;
         assert_eq!(res.results.len(), 1);
         assert_eq!(res.results[0].title, "OK Computer");
+        assert_eq!(res.total, Some(341));
+        assert!(res.has_next);
         assert!(req.contains("query="));
-        assert!(req.contains("artist") || req.contains("Radiohead"));
+        assert!(req.contains("arid%3Aart-1"), "{req}");
     }
 
     #[tokio::test]
@@ -731,8 +756,102 @@ mod tests {
         assert_eq!(res.results.len(), 1);
         assert_eq!(res.page, 2);
         assert_eq!(res.page_size, 5);
+        assert!(req.contains("arid%3Aart-1"), "{req}");
         assert!(req.contains("date"));
+        assert!(req.contains("country"));
         assert!(req.contains("format"));
+        assert!(req.contains("catno"));
+        assert!(req.contains("barcode"));
+        assert!(req.contains("offset=5"), "{req}");
+    }
+
+    #[tokio::test]
+    async fn musicbrainz_search_falls_back_to_artist_name_when_identity_is_unresolved() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let base = format!("http://{}", listener.local_addr().unwrap());
+        let (send, receive) = std::sync::mpsc::channel();
+        thread::spawn(move || {
+            for body in [
+                r#"{"artists":[]}"#.to_string(),
+                format!("{{\"releases\":[{}],\"count\":1}}", MB_RESULT),
+            ] {
+                let (mut stream, _) = listener.accept().unwrap();
+                let mut request = [0_u8; 4096];
+                let count = stream.read(&mut request).unwrap();
+                let request = String::from_utf8_lossy(&request[..count]).into_owned();
+                send.send(request).unwrap();
+                write!(
+                    stream,
+                    "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nContent-Type: application/json\r\nConnection: close\r\n\r\n{body}",
+                    body.len()
+                )
+                .unwrap();
+            }
+        });
+        let providers = providers_at(&base);
+
+        search_releases_inner(
+            "musicbrainz",
+            Some("Unknown Artist".to_string()),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            1,
+            10,
+            &providers,
+            None,
+        )
+        .await
+        .unwrap();
+
+        assert!(receive.recv().unwrap().contains("/artist/?"));
+        let release_request = receive.recv().unwrap();
+        assert!(
+            release_request.contains("artist%3A%22Unknown+Artist%22"),
+            "{release_request}"
+        );
+        assert!(!release_request.contains("arid%3A"), "{release_request}");
+    }
+
+    #[tokio::test]
+    async fn musicbrainz_search_surfaces_artist_identity_http_failures() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let base = format!("http://{}", listener.local_addr().unwrap());
+        thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            let mut request = [0_u8; 4096];
+            let _ = stream.read(&mut request).unwrap();
+            let body = "{}";
+            write!(
+                stream,
+                "HTTP/1.1 503 Service Unavailable\r\nContent-Length: {}\r\nContent-Type: application/json\r\nConnection: close\r\n\r\n{body}",
+                body.len()
+            )
+            .unwrap();
+        });
+        let providers = providers_at(&base);
+
+        let error = search_releases_inner(
+            "musicbrainz",
+            Some("张学友".to_string()),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            1,
+            100,
+            &providers,
+            None,
+        )
+        .await
+        .unwrap_err();
+
+        assert!(error.contains("MusicBrainz artist HTTP error"), "{error}");
     }
 
     #[tokio::test]
@@ -858,9 +977,8 @@ mod tests {
 
     #[tokio::test]
     async fn pagination_respects_page_and_page_size() {
-        let (base, _) = mock_server();
+        let (base, requests) = mock_server();
         let providers = providers_at(&base);
-        // MB uses offset=page*size
         let r = search_releases_inner(
             "musicbrainz",
             Some("Radiohead".to_string()),
@@ -879,6 +997,16 @@ mod tests {
         .unwrap();
         assert_eq!(r.page, 3);
         assert_eq!(r.page_size, 25);
+        assert!(requests.recv().unwrap().contains("/artist/?"));
+        let release_request = requests.recv().unwrap();
+        assert!(release_request.contains("offset=50"), "{release_request}");
+    }
+
+    #[test]
+    fn page_size_allows_musicbrainz_maximum() {
+        assert_eq!(normalise_page_size(Some(100)), 100);
+        assert_eq!(normalise_page_size(Some(101)), 100);
+        assert_eq!(normalise_page_size(None), 10);
     }
 
     /// Validate preview match rejects a non-existent album path without panicking.
