@@ -325,20 +325,84 @@ pub fn match_remote_candidate_tracks(
         }
     }
 
-    // After main matching: fill any remaining unmatched tracks by position
-    // when local and remote have the same number of tracks (>= 2).
-    // This handles cases where some tracks have placeholder titles (e.g., "-")
-    // that don't match by title/ID, while other tracks in the same album did
-    // match — position is unambiguous because the track counts match.
+    // After main matching, positional identity requires unique explicit track
+    // numbers. A single-disc album may omit disc tags; once either side proves
+    // multiple discs (or explicit disc numbers conflict), require the full
+    // (disc, track) pair. Vector index is never fallback evidence.
     if stats.matched < local_tracks.len()
         && local_tracks.len() == remote_tracks.len()
         && local_tracks.len() >= 2
     {
-        for index in 0..local_tracks.len() {
-            if matched_local[index].is_none() && !matched_remote.contains(&index) {
+        let local_discs = local_tracks
+            .iter()
+            .filter_map(|track| track.disc_number)
+            .collect::<HashSet<_>>();
+        let remote_discs = remote_tracks
+            .iter()
+            .filter_map(|track| track.disc_number)
+            .collect::<HashSet<_>>();
+        let explicit_discs_conflict =
+            !local_discs.is_empty() && !remote_discs.is_empty() && local_discs != remote_discs;
+        let require_disc =
+            local_discs.len() > 1 || remote_discs.len() > 1 || explicit_discs_conflict;
+        let local_track_numbers = local_tracks
+            .iter()
+            .enumerate()
+            .map(|(index, track)| {
+                track.track_number.or_else(|| {
+                    filenames
+                        .get(index)
+                        .and_then(|filename| filename_position_number(filename))
+                })
+            })
+            .collect::<Vec<_>>();
+        let position_key = |disc_number: Option<u32>, track_number: Option<u32>| {
+            let track_number = track_number?;
+            if require_disc {
+                Some((disc_number?, track_number))
+            } else {
+                Some((0, track_number))
+            }
+        };
+        let mut local_key_counts = HashMap::new();
+        let mut remote_key_counts = HashMap::new();
+        for (index, track) in local_tracks.iter().enumerate() {
+            if let Some(key) = position_key(track.disc_number, local_track_numbers[index]) {
+                *local_key_counts.entry(key).or_insert(0usize) += 1;
+            }
+        }
+        for track in remote_tracks {
+            if let Some(key) = position_key(track.disc_number, track.track_number) {
+                *remote_key_counts.entry(key).or_insert(0usize) += 1;
+            }
+        }
+
+        for local_index in 0..local_tracks.len() {
+            if matched_local[local_index].is_some() {
+                continue;
+            }
+            let Some(key) = position_key(
+                local_tracks[local_index].disc_number,
+                local_track_numbers[local_index],
+            ) else {
+                continue;
+            };
+            if local_key_counts.get(&key) != Some(&1) || remote_key_counts.get(&key) != Some(&1) {
+                continue;
+            }
+            let matching_remote = remote_tracks
+                .iter()
+                .enumerate()
+                .filter(|(remote_index, track)| {
+                    !matched_remote.contains(remote_index)
+                        && position_key(track.disc_number, track.track_number) == Some(key)
+                })
+                .map(|(remote_index, _)| remote_index)
+                .collect::<Vec<_>>();
+            if matching_remote.len() == 1 {
                 accept_match(
-                    index,
-                    index,
+                    local_index,
+                    matching_remote[0],
                     MatchEvidence::Position,
                     &mut matched_local,
                     &mut matched_remote,
@@ -687,6 +751,16 @@ fn clean_filename_title(filename: &str, known_artists: &[String]) -> Option<Stri
     (!title.is_empty()).then_some(title)
 }
 
+fn filename_position_number(filename: &str) -> Option<u32> {
+    static LEADING_NUMBER: OnceLock<Regex> = OnceLock::new();
+    let stem = Path::new(filename).file_stem()?.to_str()?;
+    LEADING_NUMBER
+        .get_or_init(|| Regex::new(r"^(\d{1,3})(?:\D|$)").expect("valid track number regex"))
+        .captures(stem)
+        .and_then(|captures| captures.get(1))
+        .and_then(|number| number.as_str().parse().ok())
+}
+
 fn split_spaced_artist_prefix(value: &str) -> Option<(&str, &str)> {
     for separator in [" - ", " – ", " — "] {
         if let Some(parts) = value.split_once(separator) {
@@ -886,10 +960,14 @@ mod tests {
             TrackCandidate {
                 artist: Some("Local".into()),
                 artists: vec!["Local".into()],
+                track_number: Some(1),
+                disc_number: Some(1),
                 ..track("本地一")
             },
             TrackCandidate {
                 artist: None,
+                track_number: Some(2),
+                disc_number: Some(1),
                 ..track("本地二")
             },
         ];
@@ -897,11 +975,13 @@ mod tests {
             TrackCandidate {
                 artist: Some("Remote One".into()),
                 track_number: Some(1),
+                disc_number: Some(1),
                 ..track("Remote A")
             },
             TrackCandidate {
                 artist: Some("Remote Two".into()),
                 track_number: Some(2),
+                disc_number: Some(1),
                 ..track("Remote B")
             },
         ];
@@ -914,6 +994,166 @@ mod tests {
         assert_eq!(matched.tracks[0].artist.as_deref(), Some("Local"));
         assert_eq!(matched.tracks[1].artist.as_deref(), Some("Remote Two"));
         assert_eq!(matched.tracks[1].track_number, Some(2));
+    }
+
+    #[test]
+    fn positional_fallback_uses_track_numbers_when_file_order_is_alphabetical() {
+        let local = vec![
+            TrackCandidate {
+                track_number: Some(2),
+                disc_number: Some(1),
+                ..track("Alphabetically First")
+            },
+            TrackCandidate {
+                track_number: Some(1),
+                disc_number: Some(1),
+                ..track("Alphabetically Second")
+            },
+        ];
+        let remote = vec![
+            TrackCandidate {
+                artist: Some("Track One Artist".into()),
+                track_number: Some(1),
+                disc_number: Some(1),
+                ..track("Remote One")
+            },
+            TrackCandidate {
+                artist: Some("Track Two Artist".into()),
+                track_number: Some(2),
+                disc_number: Some(1),
+                ..track("Remote Two")
+            },
+        ];
+
+        let matched = match_remote_candidate_tracks(&local, &[], &remote, "discogs", &[], &[]);
+
+        assert_eq!(matched.remote_indices, vec![Some(1), Some(0)]);
+        assert_eq!(matched.tracks[0].track_number, Some(2));
+        assert_eq!(matched.tracks[1].track_number, Some(1));
+    }
+
+    #[test]
+    fn positional_fallback_uses_disc_and_track_number_for_multi_disc_duplicates() {
+        let local = vec![
+            TrackCandidate {
+                disc_number: Some(2),
+                track_number: Some(1),
+                ..track("Disc Two Local")
+            },
+            TrackCandidate {
+                disc_number: Some(1),
+                track_number: Some(1),
+                ..track("Disc One Local")
+            },
+        ];
+        let remote = vec![
+            TrackCandidate {
+                disc_number: Some(1),
+                track_number: Some(1),
+                ..track("Disc One Remote")
+            },
+            TrackCandidate {
+                disc_number: Some(2),
+                track_number: Some(1),
+                ..track("Disc Two Remote")
+            },
+        ];
+
+        let matched = match_remote_candidate_tracks(&local, &[], &remote, "discogs", &[], &[]);
+
+        assert_eq!(matched.remote_indices, vec![Some(1), Some(0)]);
+    }
+
+    #[test]
+    fn positional_fallback_rejects_missing_explicit_numbers() {
+        let local = vec![
+            TrackCandidate {
+                disc_number: Some(1),
+                ..track("Local A")
+            },
+            TrackCandidate {
+                disc_number: Some(1),
+                ..track("Local B")
+            },
+        ];
+        let remote = vec![
+            TrackCandidate {
+                disc_number: Some(1),
+                ..track("Remote A")
+            },
+            TrackCandidate {
+                disc_number: Some(1),
+                ..track("Remote B")
+            },
+        ];
+
+        let matched = match_remote_candidate_tracks(&local, &[], &remote, "discogs", &[], &[]);
+
+        assert_eq!(matched.stats.matched, 0);
+        assert_eq!(matched.remote_indices, vec![None, None]);
+    }
+
+    #[test]
+    fn positional_fallback_uses_unique_track_numbers_for_single_disc_without_disc_tags() {
+        let local = vec![
+            TrackCandidate {
+                track_number: Some(1),
+                ..track("Local A")
+            },
+            TrackCandidate {
+                track_number: Some(2),
+                ..track("Local B")
+            },
+        ];
+        let remote = vec![
+            TrackCandidate {
+                track_number: Some(1),
+                ..track("Remote A")
+            },
+            TrackCandidate {
+                track_number: Some(2),
+                ..track("Remote B")
+            },
+        ];
+
+        let matched = match_remote_candidate_tracks(&local, &[], &remote, "discogs", &[], &[]);
+
+        assert_eq!(matched.stats.matched, 2);
+        assert_eq!(matched.remote_indices, vec![Some(0), Some(1)]);
+    }
+
+    #[test]
+    fn positional_fallback_rejects_duplicated_disc_track_identity() {
+        let duplicate = || TrackCandidate {
+            disc_number: Some(1),
+            track_number: Some(1),
+            ..TrackCandidate::default()
+        };
+        let local = vec![
+            TrackCandidate {
+                title: Some("Local A".into()),
+                ..duplicate()
+            },
+            TrackCandidate {
+                title: Some("Local B".into()),
+                ..duplicate()
+            },
+        ];
+        let remote = vec![
+            TrackCandidate {
+                title: Some("Remote A".into()),
+                ..duplicate()
+            },
+            TrackCandidate {
+                title: Some("Remote B".into()),
+                ..duplicate()
+            },
+        ];
+
+        let matched = match_remote_candidate_tracks(&local, &[], &remote, "discogs", &[], &[]);
+
+        assert_eq!(matched.stats.matched, 0);
+        assert_eq!(matched.remote_indices, vec![None, None]);
     }
 
     #[test]
@@ -998,9 +1238,31 @@ mod tests {
     #[test]
     fn positional_fallback_replaces_placeholder_titles_only() {
         let matched = match_remote_candidate_tracks(
-            &[track("Track 01"), track("Track 02")],
+            &[
+                TrackCandidate {
+                    track_number: Some(1),
+                    disc_number: Some(1),
+                    ..track("Track 01")
+                },
+                TrackCandidate {
+                    track_number: Some(2),
+                    disc_number: Some(1),
+                    ..track("Track 02")
+                },
+            ],
             &[],
-            &[track("First"), track("Second")],
+            &[
+                TrackCandidate {
+                    track_number: Some(1),
+                    disc_number: Some(1),
+                    ..track("First")
+                },
+                TrackCandidate {
+                    track_number: Some(2),
+                    disc_number: Some(1),
+                    ..track("Second")
+                },
+            ],
             "discogs",
             &[],
             &[],
@@ -1020,16 +1282,22 @@ mod tests {
             TrackCandidate {
                 title: Some("-".into()),
                 artist: Some("王杰".into()),
+                track_number: Some(1),
+                disc_number: Some(1),
                 ..TrackCandidate::default()
             },
             TrackCandidate {
                 title: Some("流浪的心".into()),
                 artist: Some("王杰".into()),
+                track_number: Some(2),
+                disc_number: Some(1),
                 ..TrackCandidate::default()
             },
             TrackCandidate {
                 title: Some("-".into()),
                 artist: Some("王杰".into()),
+                track_number: Some(3),
+                disc_number: Some(1),
                 ..TrackCandidate::default()
             },
         ];
@@ -1037,16 +1305,22 @@ mod tests {
             TrackCandidate {
                 title: Some("今生无悔".into()),
                 artist: Some("王杰".into()),
+                track_number: Some(1),
+                disc_number: Some(1),
                 ..TrackCandidate::default()
             },
             TrackCandidate {
                 title: Some("流浪的心".into()),
                 artist: Some("王杰".into()),
+                track_number: Some(2),
+                disc_number: Some(1),
                 ..TrackCandidate::default()
             },
             TrackCandidate {
                 title: Some("可能".into()),
                 artist: Some("王杰".into()),
+                track_number: Some(3),
+                disc_number: Some(1),
                 ..TrackCandidate::default()
             },
         ];
@@ -1268,10 +1542,13 @@ mod tests {
             .collect();
         let local: Vec<TrackCandidate> = local_titles
             .iter()
-            .map(|t| TrackCandidate {
+            .enumerate()
+            .map(|(index, t)| TrackCandidate {
                 title: Some(format!("小虎队 - {t}")),
                 artist: None,
                 length: Some(240.0),
+                track_number: u32::try_from(index + 1).ok(),
+                disc_number: Some(1),
                 ..TrackCandidate::default()
             })
             .collect();
@@ -1292,10 +1569,13 @@ mod tests {
         ];
         let remote: Vec<TrackCandidate> = remote_titles_and_durations
             .iter()
-            .map(|(title, duration)| TrackCandidate {
+            .enumerate()
+            .map(|(index, (title, duration))| TrackCandidate {
                 title: Some(title.to_string()),
                 artist: Some("小虎队".into()),
                 length: *duration,
+                track_number: u32::try_from(index + 1).ok(),
+                disc_number: Some(1),
                 ..TrackCandidate::default()
             })
             .collect();

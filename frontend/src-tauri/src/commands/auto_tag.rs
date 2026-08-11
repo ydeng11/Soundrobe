@@ -383,8 +383,10 @@ fn split_collaborative_artists(artist: &Option<String>, artists: &[String]) -> V
 }
 
 fn candidate_priority(candidate: &AlbumCandidate) -> i8 {
-    if candidate.musicbrainz_album_id.is_some() || candidate.discogs_release_id.is_some() {
-        return -1;
+    match candidate.source {
+        LookupSource::Musicbrainz if candidate.musicbrainz_album_id.is_some() => return -1,
+        LookupSource::Discogs if candidate.discogs_release_id.is_some() => return -1,
+        _ => {}
     }
     match candidate.source {
         LookupSource::Musicbrainz => 0,
@@ -395,14 +397,19 @@ fn candidate_priority(candidate: &AlbumCandidate) -> i8 {
     }
 }
 
-pub fn merge_candidate_fields(candidates: Vec<AlbumCandidate>) -> Vec<AlbumCandidate> {
-    let Some((preferred_index, preferred)) = candidates
+fn preferred_candidate_index(candidates: &[AlbumCandidate]) -> Option<usize> {
+    candidates
         .iter()
         .enumerate()
         .min_by_key(|(_, candidate)| candidate_priority(candidate))
-    else {
+        .map(|(index, _)| index)
+}
+
+pub fn merge_candidate_fields(candidates: Vec<AlbumCandidate>) -> Vec<AlbumCandidate> {
+    let Some(preferred_index) = preferred_candidate_index(&candidates) else {
         return Vec::new();
     };
+    let preferred = &candidates[preferred_index];
     let provider_year = candidates
         .iter()
         .filter(|candidate| {
@@ -517,24 +524,121 @@ pub fn apply_canonical_artist_name(
     let Some(canonical_name) = clean_provider_artist_name(canonical_name) else {
         return candidate;
     };
-    let old_album_artist = candidate
-        .artist
-        .clone()
-        .or_else(|| candidate.album_artist.clone());
-    candidate.artist = Some(canonical_name.clone());
-    candidate.artists = vec![canonical_name.clone()];
-    candidate.album_artist = Some(canonical_name.clone());
-    candidate.album_artists = vec![canonical_name.clone()];
+    let artist_identities = split_collaborative_artists(&candidate.artist, &candidate.artists);
+    let album_artist_identities =
+        split_collaborative_artists(&candidate.album_artist, &candidate.album_artists);
+    let old_album_artist = artist_identities
+        .first()
+        .or_else(|| album_artist_identities.first())
+        .cloned()
+        .or_else(|| candidate.artist.clone());
+    let Some(old_album_artist) = old_album_artist else {
+        return candidate;
+    };
+    candidate.artists =
+        canonicalize_artist_identities(&artist_identities, &old_album_artist, &canonical_name);
+    candidate.album_artists = canonicalize_artist_identities(
+        &album_artist_identities,
+        &old_album_artist,
+        &canonical_name,
+    );
+    candidate.artist = Some(candidate.artists.join(" & "));
+    candidate.album_artist = Some(candidate.album_artists.join(" & "));
     for track in &mut candidate.tracks {
-        let is_solo = old_album_artist
-            .as_ref()
-            .is_none_or(|artist| track.artist.as_ref() == Some(artist));
+        let same_solo_identity = |artist: &str| {
+            artist.trim().eq_ignore_ascii_case(&canonical_name)
+                || artist.trim().eq_ignore_ascii_case(old_album_artist.trim())
+        };
+        let artist_is_solo = track
+            .artist
+            .as_deref()
+            .is_none_or(|artist| same_solo_identity(artist));
+        let artists_are_solo = track
+            .artists
+            .iter()
+            .all(|artist| same_solo_identity(artist) || is_placeholder_artist_identity(artist));
+        let is_solo = artist_is_solo && artists_are_solo;
         if is_solo {
             track.artist = Some(canonical_name.clone());
             track.artists = vec![canonical_name.clone()];
         }
     }
     candidate
+}
+
+fn canonicalize_artist_identities(
+    artists: &[String],
+    old_artist: &str,
+    canonical_name: &str,
+) -> Vec<String> {
+    let mut canonicalized = artists
+        .iter()
+        .filter(|artist| !is_placeholder_artist_identity(artist))
+        .map(|artist| {
+            if artist.trim().eq_ignore_ascii_case(old_artist.trim()) {
+                canonical_name.to_string()
+            } else {
+                artist.clone()
+            }
+        })
+        .collect::<Vec<_>>();
+    if canonicalized.is_empty() {
+        canonicalized.push(canonical_name.to_string());
+    }
+    canonicalized
+}
+
+fn apply_verified_canonical_artist_name_with_provenance(
+    request: &LookupRequest,
+    candidate: AlbumCandidate,
+    selected_provider_identity: Option<(LookupSource, String)>,
+) -> AlbumCandidate {
+    let canonical_name = request.artist_hint.as_deref();
+    let has_cjk_name = canonical_name.is_some_and(|name| {
+        Regex::new(r"\p{Han}")
+            .expect("valid CJK artist regex")
+            .is_match(name)
+    });
+    let same_provider_identity = match selected_provider_identity {
+        Some((LookupSource::Musicbrainz, selected))
+            if candidate.source == LookupSource::Musicbrainz =>
+        {
+            request
+                .musicbrainz_artist_id
+                .as_deref()
+                .is_some_and(|resolved| resolved == selected)
+        }
+        Some((LookupSource::Discogs, selected)) if candidate.source == LookupSource::Discogs => {
+            request
+                .discogs_artist_id
+                .as_deref()
+                .is_some_and(|resolved| resolved == selected)
+        }
+        _ => false,
+    };
+    if has_cjk_name && same_provider_identity {
+        apply_canonical_artist_name(candidate, canonical_name)
+    } else {
+        candidate
+    }
+}
+
+fn is_placeholder_artist_identity(artist: &str) -> bool {
+    artist.trim() == "???"
+}
+
+fn provider_artist_identity(candidate: &AlbumCandidate) -> Option<(LookupSource, String)> {
+    match candidate.source {
+        LookupSource::Musicbrainz => candidate
+            .musicbrainz_artist_id
+            .clone()
+            .map(|id| (LookupSource::Musicbrainz, id)),
+        LookupSource::Discogs => candidate
+            .discogs_artist_id
+            .clone()
+            .map(|id| (LookupSource::Discogs, id)),
+        _ => None,
+    }
 }
 
 fn fill_request_artist_identity(request: &mut LookupRequest, identity: &ArtistIdentity) {
@@ -818,7 +922,27 @@ pub fn protect_candidate_tracks(
     protected
 }
 
-pub fn combine_candidate_sources(
+fn select_protect_and_canonicalize_candidate(
+    request: &LookupRequest,
+    fresh: Vec<AlbumCandidate>,
+    cached: Vec<AlbumCandidate>,
+    folder: AlbumCandidate,
+) -> Option<(AlbumCandidate, usize)> {
+    let candidates = candidate_source_rows(fresh, cached, folder);
+    let candidate_count = candidates.len();
+    let preferred_index = preferred_candidate_index(&candidates)?;
+    let selected_provider_identity = provider_artist_identity(&candidates[preferred_index]);
+    let selected = merge_candidate_fields(candidates).into_iter().next()?;
+    let protected = protect_candidate_tracks(request, &selected);
+    let canonicalized = apply_verified_canonical_artist_name_with_provenance(
+        request,
+        protected,
+        selected_provider_identity,
+    );
+    Some((canonicalized, candidate_count))
+}
+
+fn candidate_source_rows(
     mut fresh: Vec<AlbumCandidate>,
     cached: Vec<AlbumCandidate>,
     folder: AlbumCandidate,
@@ -830,7 +954,15 @@ pub fn combine_candidate_sources(
             .into_iter()
             .filter(|candidate| candidate.source != LookupSource::Dataset),
     );
-    merge_candidate_fields(fresh)
+    fresh
+}
+
+pub fn combine_candidate_sources(
+    fresh: Vec<AlbumCandidate>,
+    cached: Vec<AlbumCandidate>,
+    folder: AlbumCandidate,
+) -> Vec<AlbumCandidate> {
+    merge_candidate_fields(candidate_source_rows(fresh, cached, folder))
 }
 
 pub fn filter_candidates_for_album(
@@ -1605,30 +1737,19 @@ pub async fn resolve_and_apply_album(
             );
         }
     }
-    let fresh = fresh
-        .into_iter()
-        .map(|candidate| protect_candidate_tracks(&request, &candidate))
-        .collect();
-    let cached = cached
-        .into_iter()
-        .map(|candidate| protect_candidate_tracks(&request, &candidate))
-        .collect();
-    let candidates = combine_candidate_sources(fresh, cached, folder);
+    let (mut candidate, candidate_count) =
+        select_protect_and_canonicalize_candidate(&request, fresh, cached, folder)
+            .ok_or_else(|| ApiError::Message("No auto-tag candidate available".to_string()))?;
     report(
         "merge",
-        format!("Merged {} source candidate(s)", candidates.len()),
-        Some(serde_json::json!({"count": candidates.len()})),
+        format!("Merged {candidate_count} source candidate(s)"),
+        Some(serde_json::json!({"count": candidate_count})),
     );
-    let mut candidate = candidates
-        .into_iter()
-        .next()
-        .ok_or_else(|| ApiError::Message("No auto-tag candidate available".to_string()))?;
+    check_cancelled(cancelled)?;
+    progress(8, "Resolving genre...");
     if let Some(identity) = &resolved_identity {
         fill_candidate_artist_identity(&mut candidate, identity);
     }
-    check_cancelled(cancelled)?;
-    progress(8, "Resolving genre...");
-    let candidate = protect_candidate_tracks(&request, &candidate);
     let (candidate, genre_outcome) =
         fill_genre_if_missing(&candidate, &request, config, cancelled).await;
     match genre_outcome {
@@ -2124,6 +2245,14 @@ mod tests {
         }
     }
 
+    fn apply_verified_for_test(
+        request: &LookupRequest,
+        candidate: AlbumCandidate,
+    ) -> AlbumCandidate {
+        let identity = provider_artist_identity(&candidate);
+        apply_verified_canonical_artist_name_with_provenance(request, candidate, identity)
+    }
+
     #[test]
     fn folder_year_reads_year_at_start_of_bracketed_album_title() {
         assert_eq!(
@@ -2257,6 +2386,247 @@ mod tests {
             updated.tracks[1].artist.as_deref(),
             Some("林俊傑 feat. MC HotDog")
         );
+    }
+
+    #[test]
+    fn verified_canonical_artist_requires_the_same_provider_identity() {
+        let request = LookupRequest {
+            artist_hint: Some("郑少秋".into()),
+            discogs_artist_id: Some("3156508".into()),
+            ..LookupRequest::default()
+        };
+        let candidate = AlbumCandidate {
+            artist: Some("Different Artist".into()),
+            artists: vec!["Different Artist".into()],
+            discogs_artist_id: Some("999".into()),
+            source: LookupSource::Discogs,
+            tracks: vec![track("Song", "Different Artist")],
+            ..AlbumCandidate::default()
+        };
+
+        let updated = apply_verified_for_test(&request, candidate.clone());
+
+        assert_eq!(updated, candidate);
+    }
+
+    #[test]
+    fn verified_canonical_artist_preserves_genuine_collaborators() {
+        let request = LookupRequest {
+            artist_hint: Some("郑少秋".into()),
+            discogs_artist_id: Some("3156508".into()),
+            ..LookupRequest::default()
+        };
+        let candidate = AlbumCandidate {
+            artist: Some("Adam Cheng".into()),
+            artists: vec!["Adam Cheng".into()],
+            discogs_artist_id: Some("3156508".into()),
+            source: LookupSource::Discogs,
+            tracks: vec![TrackCandidate {
+                title: Some("Duet".into()),
+                artist: Some("Adam Cheng & Liza Wang".into()),
+                artists: vec!["Adam Cheng".into(), "Liza Wang".into()],
+                ..TrackCandidate::default()
+            }],
+            ..AlbumCandidate::default()
+        };
+
+        let updated = apply_verified_for_test(&request, candidate);
+
+        assert_eq!(
+            updated.tracks[0].artist.as_deref(),
+            Some("Adam Cheng & Liza Wang")
+        );
+        assert_eq!(updated.tracks[0].artists, vec!["Adam Cheng", "Liza Wang"]);
+    }
+
+    #[test]
+    fn canonical_artist_rewrites_album_alias_without_collapsing_collaborators() {
+        let candidate = AlbumCandidate {
+            artist: Some("Adam Cheng & Liza Wang".into()),
+            artists: vec!["Adam Cheng".into(), "Liza Wang".into()],
+            album_artist: Some("Adam Cheng & Liza Wang".into()),
+            album_artists: vec!["Adam Cheng".into(), "Liza Wang".into()],
+            ..AlbumCandidate::default()
+        };
+
+        let updated = apply_canonical_artist_name(candidate, Some("郑少秋"));
+
+        assert_eq!(updated.artist.as_deref(), Some("郑少秋 & Liza Wang"));
+        assert_eq!(updated.artists, vec!["郑少秋", "Liza Wang"]);
+        assert_eq!(updated.album_artist.as_deref(), Some("郑少秋 & Liza Wang"));
+        assert_eq!(updated.album_artists, vec!["郑少秋", "Liza Wang"]);
+    }
+
+    #[test]
+    fn canonical_artist_replaces_only_the_exact_structured_identity() {
+        let candidate = AlbumCandidate {
+            artist: Some("王菲 & 王菲菲".into()),
+            artists: vec!["王菲".into(), "王菲菲".into()],
+            album_artist: Some("王菲 & 王菲菲".into()),
+            album_artists: vec!["王菲".into(), "王菲菲".into()],
+            ..AlbumCandidate::default()
+        };
+
+        let updated = apply_canonical_artist_name(candidate, Some("Faye Wong"));
+
+        assert_eq!(updated.artist.as_deref(), Some("Faye Wong & 王菲菲"));
+        assert_eq!(updated.artists, vec!["Faye Wong", "王菲菲"]);
+        assert_eq!(updated.album_artist.as_deref(), Some("Faye Wong & 王菲菲"));
+        assert_eq!(updated.album_artists, vec!["Faye Wong", "王菲菲"]);
+    }
+
+    #[test]
+    fn canonical_artist_preserves_genuine_punctuation_artist_identity() {
+        let candidate = AlbumCandidate {
+            artist: Some("Adam Cheng".into()),
+            artists: vec!["Adam Cheng".into()],
+            tracks: vec![TrackCandidate {
+                artist: Some("Adam Cheng".into()),
+                artists: vec!["Adam Cheng".into(), "!!!".into()],
+                ..TrackCandidate::default()
+            }],
+            ..AlbumCandidate::default()
+        };
+
+        let updated = apply_canonical_artist_name(candidate, Some("郑少秋"));
+
+        assert_eq!(updated.tracks[0].artist.as_deref(), Some("Adam Cheng"));
+        assert_eq!(updated.tracks[0].artists, vec!["Adam Cheng", "!!!"]);
+    }
+
+    #[test]
+    fn selected_candidate_finalization_is_equivalent_for_fresh_and_cached_remote_rows() {
+        let request = LookupRequest {
+            artist_hint: Some("郑少秋".into()),
+            discogs_artist_id: Some("3156508".into()),
+            ..LookupRequest::default()
+        };
+        let remote = AlbumCandidate {
+            artist: Some("Adam Cheng".into()),
+            artists: vec!["Adam Cheng".into()],
+            discogs_artist_id: Some("3156508".into()),
+            source: LookupSource::Discogs,
+            ..AlbumCandidate::default()
+        };
+
+        let fresh = select_protect_and_canonicalize_candidate(
+            &request,
+            vec![remote.clone()],
+            vec![],
+            folder_candidate(&request),
+        )
+        .unwrap();
+        let cached = select_protect_and_canonicalize_candidate(
+            &request,
+            vec![],
+            vec![remote],
+            folder_candidate(&request),
+        )
+        .unwrap();
+
+        assert_eq!(fresh.0.artist.as_deref(), Some("郑少秋"));
+        assert_eq!(cached.0.artist.as_deref(), Some("郑少秋"));
+    }
+
+    #[test]
+    fn selected_candidate_finalization_accepts_musicbrainz_same_id() {
+        let request = LookupRequest {
+            artist_hint: Some("張宇".into()),
+            musicbrainz_artist_id: Some("mb-artist".into()),
+            ..LookupRequest::default()
+        };
+        let remote = AlbumCandidate {
+            artist: Some("Phil Chang".into()),
+            artists: vec!["Phil Chang".into()],
+            musicbrainz_artist_id: Some("mb-artist".into()),
+            source: LookupSource::Musicbrainz,
+            ..AlbumCandidate::default()
+        };
+
+        let finalized = select_protect_and_canonicalize_candidate(
+            &request,
+            vec![remote],
+            vec![],
+            folder_candidate(&request),
+        )
+        .unwrap();
+
+        assert_eq!(finalized.0.artist.as_deref(), Some("張宇"));
+    }
+
+    #[test]
+    fn inherited_folder_provider_id_does_not_authorize_canonicalization() {
+        let request = LookupRequest {
+            artist_hint: Some("郑少秋".into()),
+            discogs_artist_id: Some("3156508".into()),
+            ..LookupRequest::default()
+        };
+        let remote_without_own_id = AlbumCandidate {
+            artist: Some("Adam Cheng".into()),
+            artists: vec!["Adam Cheng".into()],
+            source: LookupSource::Discogs,
+            ..AlbumCandidate::default()
+        };
+
+        let finalized = select_protect_and_canonicalize_candidate(
+            &request,
+            vec![remote_without_own_id],
+            vec![],
+            folder_candidate(&request),
+        )
+        .unwrap();
+
+        assert_eq!(finalized.0.discogs_artist_id.as_deref(), Some("3156508"));
+        assert_eq!(finalized.0.artist.as_deref(), Some("Adam Cheng"));
+    }
+
+    #[test]
+    fn copied_folder_release_id_does_not_outrank_cached_remote_candidate() {
+        let request = LookupRequest {
+            artist_hint: Some("郑少秋".into()),
+            discogs_release_id: Some("32867382".into()),
+            discogs_artist_id: Some("3156508".into()),
+            ..LookupRequest::default()
+        };
+        let cached = AlbumCandidate {
+            artist: Some("Adam Cheng".into()),
+            artists: vec!["Adam Cheng".into()],
+            discogs_release_id: Some("32867382".into()),
+            discogs_artist_id: Some("3156508".into()),
+            source: LookupSource::Discogs,
+            ..AlbumCandidate::default()
+        };
+
+        let finalized = select_protect_and_canonicalize_candidate(
+            &request,
+            vec![],
+            vec![cached],
+            folder_candidate(&request),
+        )
+        .unwrap();
+
+        assert_eq!(finalized.0.source, LookupSource::Discogs);
+        assert_eq!(finalized.0.artist.as_deref(), Some("郑少秋"));
+    }
+
+    #[test]
+    fn verified_canonical_artist_does_not_rewrite_a_same_id_latin_request_alias() {
+        let request = LookupRequest {
+            artist_hint: Some("Adam Cheng".into()),
+            discogs_artist_id: Some("3156508".into()),
+            ..LookupRequest::default()
+        };
+        let candidate = AlbumCandidate {
+            artist: Some("郑少秋".into()),
+            discogs_artist_id: Some("3156508".into()),
+            source: LookupSource::Discogs,
+            tracks: vec![track("Song", "郑少秋")],
+            ..AlbumCandidate::default()
+        };
+
+        let updated = apply_verified_for_test(&request, candidate.clone());
+
+        assert_eq!(updated, candidate);
     }
 
     #[test]
@@ -3677,6 +4047,133 @@ mod tests {
         }));
         let written = crate::commands::tracks::read_track_metadata(&track_path).unwrap();
         assert_eq!(written.year.as_deref(), Some("1993"));
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn cached_discogs_alias_is_canonicalized_across_the_real_mixed_evidence_album() {
+        let root = temp_root();
+        let album = root.join("郑少秋/1996.01-天地男儿-新歌精选[wav]");
+        fs::create_dir_all(&album).unwrap();
+        let local_tracks = [
+            ("从不放弃", 1),
+            ("男儿着眼天地间", 2),
+            ("男儿无泪", 3),
+            ("心中雨", 4),
+            ("做个自由人", 5),
+            ("Oh Gal", 6),
+            ("徘徊在这段路上", 7),
+            ("文秋郎", 8),
+            ("冬连", 9),
+            ("男儿志在四方", 10),
+            ("游子恨", 11),
+        ];
+        for (title, track_number) in local_tracks {
+            let path = album.join(format!("{title}.wav"));
+            fs::copy(corpus_wav(), &path).unwrap();
+            let seed: TrackPatch = serde_json::from_value(serde_json::json!({
+                "title": title,
+                "artist": "郑少秋",
+                "artists": ["???", "郑少秋"],
+                "album": "天地男儿-新歌精选",
+                "albumArtist": "郑少秋",
+                "albumArtists": ["郑少秋"],
+                "year": "1996",
+                "trackNumber": track_number,
+                "trackTotal": 11,
+                "musicbrainzAlbumId": null,
+                "musicbrainzArtistId": null,
+                "discogsReleaseId": null,
+                "discogsArtistId": "3156508"
+            }))
+            .unwrap();
+            crate::commands::mutations::write_track_dispatch(&path, &seed).unwrap();
+        }
+
+        let cache = CacheState::new(root.clone());
+        assert!(cache.initialize(Some(root.join("cache.db").to_str().unwrap())));
+        let request = build_lookup_request(&album).unwrap();
+        let remote_titles = [
+            "從不放棄 (天地男兒主題曲)",
+            "男兒着眼天地間 (天地男兒插曲)",
+            "男兒無淚 (天地男兒插曲)",
+            "心中雨",
+            "做個自由人",
+            "Oh Gal",
+            "排徊在這段路上",
+            "文秋郎",
+            "冬戀",
+            "男兒志在四方",
+            "遊子恨",
+        ];
+        let cached = AlbumCandidate {
+            artist: Some("Adam Cheng".into()),
+            artists: vec!["Adam Cheng".into()],
+            album: Some("天地男兒新歌精選".into()),
+            album_artist: Some("Adam Cheng".into()),
+            album_artists: vec!["Adam Cheng".into()],
+            year: Some("1996".into()),
+            genre: Some("Pop, Stage & Screen, Cantopop".into()),
+            discogs_release_id: Some("32867382".into()),
+            discogs_artist_id: Some("3156508".into()),
+            tracks: remote_titles
+                .iter()
+                .enumerate()
+                .map(|(index, title)| TrackCandidate {
+                    title: Some((*title).into()),
+                    artist: Some("Adam Cheng".into()),
+                    artists: vec!["Adam Cheng".into()],
+                    track_number: u32::try_from(index + 1).ok(),
+                    track_total: Some(11),
+                    ..TrackCandidate::default()
+                })
+                .collect(),
+            source: LookupSource::Discogs,
+            ..AlbumCandidate::default()
+        };
+        cache
+            .set_lookup(
+                &query_hash(&request),
+                &serde_json::to_value(&request).unwrap(),
+                &serde_json::to_value(vec![cached]).unwrap(),
+                "discogs",
+            )
+            .unwrap();
+
+        let config = AutoTagConfig {
+            remote_lookup_enabled: Some(false),
+            discogs_enabled: Some(false),
+            ..AutoTagConfig::default()
+        };
+        let result = resolve_and_apply_album(
+            &album,
+            &config,
+            AutoTagServices {
+                providers: &ProviderState::new(),
+                cache: &cache,
+                queue: &WriteQueue::default(),
+                alias_file: &root.join("artist-aliases.json"),
+            },
+            &AtomicBool::new(false),
+            |_, _| {},
+            |_, _, _| {},
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(result.candidate.source, LookupSource::Discogs);
+        assert_eq!(result.written, 11);
+        assert_eq!(result.candidate.artist.as_deref(), Some("郑少秋"));
+        assert!(result.candidate.tracks.iter().all(|track| {
+            track.artist.as_deref() == Some("郑少秋") && track.artists == ["郑少秋"]
+        }));
+        for path in collect_audio_files(&album) {
+            let written = crate::commands::tracks::read_track_metadata(Path::new(&path)).unwrap();
+            assert_eq!(written.artist.as_deref(), Some("郑少秋"), "{path}");
+            assert_eq!(written.artists, vec!["郑少秋"], "{path}");
+            assert_eq!(written.album_artist.as_deref(), Some("郑少秋"), "{path}");
+            assert_eq!(written.album_artists, vec!["郑少秋"], "{path}");
+        }
         fs::remove_dir_all(root).unwrap();
     }
 

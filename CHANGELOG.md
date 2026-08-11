@@ -98,6 +98,12 @@ desktop release.
 
 ### Fixed
 
+- **Canonical CJK artist credits during auto-tagging** — verified provider
+  aliases now resolve back to the trusted folder artist across strong and weak
+  track matches, while preserving genuine collaborators and only using unique
+  track identities—scoped by disc whenever multi-disc evidence exists—to align
+  alphabetically enumerated files.
+
 - **Cover removal priority** — removing album artwork now selects the highest-
   priority standard cover name consistently, regardless of filesystem directory
   enumeration order.
