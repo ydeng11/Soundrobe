@@ -240,6 +240,86 @@ describe("ConfirmWriteDialog", () => {
     expect(candidate.tracks[0].disc_number).toBe(2);
   });
 
+  it("preserves structured provider artists through initial mapping", () => {
+    const result = makePreviewResult({
+      release: {
+        ...previewResult.release,
+        tracks: [
+          {
+            ...previewResult.release.tracks[0],
+            artist: "Artist A feat. Artist B",
+            artists: ["Artist A", "Artist B"],
+          },
+          previewResult.release.tracks[1],
+        ],
+      },
+    });
+    render(<ConfirmWriteDialog {...defaultProps} previewResult={result} />);
+
+    fireEvent.click(screen.getByText("Confirm & Write"));
+
+    const candidate = onConfirm.mock.calls[0][0] as AlbumCandidate;
+    expect(candidate.tracks[0].artist).toBe("Artist A feat. Artist B");
+    expect(candidate.tracks[0].artists).toEqual(["Artist A", "Artist B"]);
+  });
+
+  it("preserves structured provider artists after manual reassignment", () => {
+    const result = makePreviewResult({
+      release: {
+        ...previewResult.release,
+        tracks: [
+          previewResult.release.tracks[0],
+          {
+            ...previewResult.release.tracks[1],
+            artist: "Artist B & Artist C",
+            artists: ["Artist B", "Artist C"],
+          },
+        ],
+      },
+    });
+    render(<ConfirmWriteDialog {...defaultProps} previewResult={result} />);
+    const firstSelect = document.querySelectorAll<HTMLSelectElement>("select")[0];
+    fireEvent.change(firstSelect, { target: { value: "1" } });
+
+    fireEvent.click(screen.getByText("Confirm & Write"));
+
+    const candidate = onConfirm.mock.calls[0][0] as AlbumCandidate;
+    expect(candidate.tracks[0].artist).toBe("Artist B & Artist C");
+    expect(candidate.tracks[0].artists).toEqual(["Artist B", "Artist C"]);
+  });
+
+  it("marks edited artist text for native collaborative-credit normalization", () => {
+    render(<ConfirmWriteDialog {...defaultProps} />);
+    const artistInputs = document.querySelectorAll<HTMLInputElement>(
+      "input[placeholder='Artist']",
+    );
+    fireEvent.change(artistInputs[0], { target: { value: "Artist C feat. Artist D" } });
+
+    fireEvent.click(screen.getByText("Confirm & Write"));
+
+    const candidate = onConfirm.mock.calls[0][0] as AlbumCandidate;
+    expect(candidate.tracks[0].artist).toBe("Artist C feat. Artist D");
+    expect(candidate.tracks[0].artists).toEqual(["Artist C feat. Artist D"]);
+  });
+
+  it("shows whether genre will be written or existing tags preserved", () => {
+    const withGenre = makePreviewResult({
+      albumCandidate: {
+        ...previewResult.albumCandidate,
+        genre: "Rock, Indie Rock",
+      },
+    });
+    const { rerender } = render(
+      <ConfirmWriteDialog {...defaultProps} previewResult={withGenre} />,
+    );
+    expect(screen.getByText("Genre: Rock, Indie Rock")).toBeTruthy();
+
+    rerender(<ConfirmWriteDialog {...defaultProps} previewResult={previewResult} />);
+    expect(
+      screen.getByText("Genre unavailable; existing genre will be preserved."),
+    ).toBeTruthy();
+  });
+
   it("serializes a positional placeholder for a 'Do not update' row", () => {
     render(<ConfirmWriteDialog {...defaultProps} />);
     // Set first row to "Do not update"

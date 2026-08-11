@@ -365,7 +365,10 @@ pub fn folder_candidate(request: &LookupRequest) -> AlbumCandidate {
 /// and a solo artist that does not match any collaborative separator stays
 /// as-is. When `artists` is empty and `artist` is set, the list is derived
 /// from `artist` so a solo credit still produces a single ARTISTS entry.
-fn split_collaborative_artists(artist: &Option<String>, artists: &[String]) -> Vec<String> {
+pub(crate) fn split_collaborative_artists(
+    artist: &Option<String>,
+    artists: &[String],
+) -> Vec<String> {
     if artists.len() > 1 {
         return artists.to_vec();
     }
@@ -1535,6 +1538,30 @@ async fn fill_genre_if_missing(
         filled.genre = Some(genre.clone());
     }
     (filled, Some(outcome))
+}
+
+/// Reuse auto-tag's conservative genre fill for a manually resolved release.
+/// The manual workflow has no task cancellation token, so this bounded helper
+/// uses a request-local token and returns the unchanged candidate when genre
+/// inference is unavailable or rejected.
+pub(crate) async fn fill_manual_candidate_genre_if_missing(
+    candidate: &AlbumCandidate,
+    config: &AutoTagConfig,
+) -> AlbumCandidate {
+    let request = LookupRequest {
+        artist_hint: candidate.artist.clone(),
+        album_hint: candidate.album.clone(),
+        year_hint: candidate.year.clone(),
+        musicbrainz_album_id: candidate.musicbrainz_album_id.clone(),
+        musicbrainz_artist_id: candidate.musicbrainz_artist_id.clone(),
+        discogs_release_id: candidate.discogs_release_id.clone(),
+        discogs_artist_id: candidate.discogs_artist_id.clone(),
+        tracks: candidate.tracks.clone(),
+        ..LookupRequest::default()
+    };
+    fill_genre_if_missing(candidate, &request, config, &AtomicBool::new(false))
+        .await
+        .0
 }
 
 pub async fn resolve_and_apply_album(

@@ -13,7 +13,8 @@ use crate::{
     commands::{
         auto_tag::{
             apply_selected_candidate_tags, convert_candidate_chinese, discogs_candidate,
-            musicbrainz_candidate, AlbumCandidate, TrackCandidate,
+            fill_manual_candidate_genre_if_missing, musicbrainz_candidate,
+            split_collaborative_artists, AlbumCandidate, TrackCandidate,
         },
         library::collect_audio_files,
         track_matcher::match_remote_candidate_tracks,
@@ -297,13 +298,10 @@ async fn resolve_release_inner(
     providers: &ProviderState,
     config: &ConfigState,
 ) -> Result<ProviderAlbum, String> {
-    match request.provider.as_str() {
+    let mut album = match request.provider.as_str() {
         "musicbrainz" => {
-            let client =
-                MusicBrainzClient::at(providers.http(), providers.musicbrainz_base());
-            client
-                .release_by_id_result(&request.release_id)
-                .await
+            let client = MusicBrainzClient::at(providers.http(), providers.musicbrainz_base());
+            client.release_by_id_result(&request.release_id).await
         }
         "discogs" => {
             let token = discogs_token(config);
@@ -320,7 +318,19 @@ async fn resolve_release_inner(
             }
         }
         other => Err(format!("Unknown provider: {other}")),
+    }?;
+
+    if album.genre.is_none() {
+        let candidate = match request.provider.as_str() {
+            "musicbrainz" => musicbrainz_candidate(album.clone()),
+            "discogs" => discogs_candidate(album.clone()),
+            _ => unreachable!("provider validated above"),
+        };
+        album.genre = fill_manual_candidate_genre_if_missing(&candidate, &config.raw())
+            .await
+            .genre;
     }
+    Ok(album)
 }
 
 /// Preview local-to-remote track matching for a selected release.
@@ -481,8 +491,13 @@ async fn apply_search_candidate(
         ));
     }
 
-    let candidate =
-        convert_candidate_chinese(&request.candidate, config.raw().chinese_script.as_deref());
+    let mut candidate = request.candidate.clone();
+    for index in &request.selected_track_indices {
+        if let Some(track) = candidate.tracks.get_mut(*index) {
+            track.artists = split_collaborative_artists(&track.artist, &track.artists);
+        }
+    }
+    let candidate = convert_candidate_chinese(&candidate, config.raw().chinese_script.as_deref());
 
     apply_selected_candidate_tags(
         &album_path,
@@ -1114,6 +1129,84 @@ mod tests {
         fs::remove_dir_all(root).unwrap();
     }
 
+    #[tokio::test]
+    async fn manual_release_reuses_auto_tag_genre_fill_when_provider_genre_is_missing() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let base = format!("http://{}", listener.local_addr().unwrap());
+        let (send, receive) = std::sync::mpsc::channel();
+        thread::spawn(move || {
+            for _ in 0..2 {
+                let (mut stream, _) = listener.accept().unwrap();
+                let mut request = [0_u8; 8192];
+                let read = stream.read(&mut request).unwrap();
+                let request = String::from_utf8_lossy(&request[..read]).to_string();
+                let body = if request.starts_with("GET /ws/2/release/release-id?") {
+                    serde_json::json!({
+                        "id": "release-id",
+                        "title": "Album",
+                        "artist-credit": [{
+                            "name": "Artist",
+                            "artist": {"id": "artist-id", "name": "Artist"}
+                        }],
+                        "date": "2004",
+                        "media": [{
+                            "position": 1,
+                            "tracks": [{
+                                "number": "1",
+                                "position": 1,
+                                "title": "Track",
+                                "recording": {"id": "recording-id", "title": "Track"}
+                            }]
+                        }]
+                    })
+                    .to_string()
+                } else {
+                    serde_json::json!({
+                        "choices": [{
+                            "finish_reason": "stop",
+                            "message": {"content": "{\"genre\":\"Rock, Indie Rock\",\"confidence\":0.9}"}
+                        }]
+                    })
+                    .to_string()
+                };
+                send.send(request).unwrap();
+                write!(
+                    stream,
+                    "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nContent-Type: application/json\r\nConnection: close\r\n\r\n{body}",
+                    body.len()
+                )
+                .unwrap();
+            }
+        });
+        let providers = providers_at(&base);
+        let config = config_with_auto_tag(&base);
+        let request = ResolveReleaseRequest {
+            provider: "musicbrainz".into(),
+            release_id: "release-id".into(),
+            kind: None,
+        };
+
+        let release = resolve_release_inner(&request, &providers, &config)
+            .await
+            .unwrap();
+
+        assert_eq!(release.genre.as_deref(), Some("Rock, Indie Rock"));
+        let requests = [receive.recv().unwrap(), receive.recv().unwrap()];
+        assert!(
+            requests
+                .iter()
+                .any(|request| request.starts_with("GET /ws/2/release/release-id?")),
+            "{requests:?}"
+        );
+        assert!(
+            requests.iter().any(|request| {
+                request.starts_with("POST /chat/completions ")
+                    && request.contains("GenreFillResponse")
+            }),
+            "{requests:?}"
+        );
+    }
+
     // ── apply candidate ─────────────────────────────────────────────
 
     fn temp_root() -> PathBuf {
@@ -1138,6 +1231,14 @@ mod tests {
         let text = target
             .map(|target| format!("chinese_script: {target}\n"))
             .unwrap_or_default();
+        std::fs::write(crate::state::config::config_file_path(&home), text).unwrap();
+        ConfigState::init_with_env(home, Arc::new(EnvMap::new()))
+    }
+
+    fn config_with_auto_tag(base: &str) -> ConfigState {
+        let home = temp_root();
+        std::fs::create_dir_all(home.join(".soundrobe")).unwrap();
+        let text = format!("llm_api_key: test-key\nllm_model: test-model\nllm_base_url: {base}\n");
         std::fs::write(crate::state::config::config_file_path(&home), text).unwrap();
         ConfigState::init_with_env(home, Arc::new(EnvMap::new()))
     }
@@ -1317,6 +1418,106 @@ mod tests {
         assert_eq!(matched.title.as_deref(), Some("Matched Title"));
         assert_eq!(matched.album.as_deref(), Some("Canonical Album"));
         assert_eq!(fs::read(&unmatched_path).unwrap(), unmatched_before);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn apply_search_candidate_normalizes_edited_artists_and_writes_genre_only_to_selected_flac(
+    ) {
+        let root = temp_root();
+        let album = root.join("Artist/Album");
+        std::fs::create_dir_all(&album).unwrap();
+        let selected_path = album.join("01.flac");
+        let unselected_path = album.join("02.flac");
+        fs::copy(corpus_flac(), &selected_path).unwrap();
+        fs::copy(corpus_flac(), &unselected_path).unwrap();
+        let unselected_before = fs::read(&unselected_path).unwrap();
+
+        let request = renderer_apply_payload(
+            &album,
+            serde_json::json!({
+                "artist": "Album Artist",
+                "artists": ["Album Artist"],
+                "album": "Canonical Album",
+                "album_artist": "Album Artist",
+                "album_artists": ["Album Artist"],
+                "genre": "Rock, Indie Rock",
+                "source": "musicbrainz",
+                "tracks": [
+                    {
+                        "title": "Collaborative Track",
+                        "artist": "Artist A feat. Artist B",
+                        "artists": ["Artist A feat. Artist B"],
+                        "track_number": 1
+                    },
+                    { "artists": [] }
+                ]
+            }),
+            &[0],
+        );
+        let config = config_with_chinese_script(None);
+
+        let written = apply_search_candidate(&request, &config, &WriteQueue::default())
+            .await
+            .unwrap();
+
+        assert_eq!(written, 1);
+        let selected = crate::commands::tracks::read_track_metadata(&selected_path).unwrap();
+        assert_eq!(selected.artist.as_deref(), Some("Artist A feat. Artist B"));
+        assert_eq!(selected.artists, vec!["Artist A", "Artist B"]);
+        assert_eq!(selected.genre.as_deref(), Some("Rock, Indie Rock"));
+        assert_eq!(fs::read(&unselected_path).unwrap(), unselected_before);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn apply_search_candidate_without_genre_preserves_existing_genre() {
+        let root = temp_root();
+        let album = root.join("Artist/Album");
+        std::fs::create_dir_all(&album).unwrap();
+        let track_path = album.join("01.flac");
+        fs::copy(corpus_flac(), &track_path).unwrap();
+        let config = config_with_chinese_script(None);
+        let queue = WriteQueue::default();
+
+        let initial = renderer_apply_payload(
+            &album,
+            serde_json::json!({
+                "artist": "Artist",
+                "artists": ["Artist"],
+                "album": "Album",
+                "album_artist": "Artist",
+                "album_artists": ["Artist"],
+                "genre": "Existing Genre",
+                "source": "discogs",
+                "tracks": [{ "title": "Before", "artists": [] }]
+            }),
+            &[0],
+        );
+        apply_search_candidate(&initial, &config, &queue)
+            .await
+            .unwrap();
+
+        let missing_genre = renderer_apply_payload(
+            &album,
+            serde_json::json!({
+                "artist": "Artist",
+                "artists": ["Artist"],
+                "album": "Album",
+                "album_artist": "Artist",
+                "album_artists": ["Artist"],
+                "source": "musicbrainz",
+                "tracks": [{ "title": "After", "artists": [] }]
+            }),
+            &[0],
+        );
+        apply_search_candidate(&missing_genre, &config, &queue)
+            .await
+            .unwrap();
+
+        let read = crate::commands::tracks::read_track_metadata(&track_path).unwrap();
+        assert_eq!(read.title.as_deref(), Some("After"));
+        assert_eq!(read.genre.as_deref(), Some("Existing Genre"));
         fs::remove_dir_all(root).unwrap();
     }
 

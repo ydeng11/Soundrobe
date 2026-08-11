@@ -98,6 +98,11 @@ desktop release.
 
 ### Fixed
 
+- **Manual Track Match artist and genre consistency** — provider collaborator
+  identities now survive track mapping and reassignment, edited collaborative
+  credits produce repeated artist tags, and missing provider genre is resolved
+  when available or explicitly preserved when unavailable.
+
 - **Canonical CJK artist credits during auto-tagging** — verified provider
   aliases now resolve back to the trusted folder artist across strong and weak
   track matches, while preserving genuine collaborators and only using unique
