@@ -15,11 +15,24 @@ interface SearchDialogProps {
 type Provider = "musicbrainz" | "discogs";
 type Phase = "form" | "results" | "detail";
 
+interface SearchCache {
+  key: string;
+  catalog?: ReleaseSearchPage;
+  pages: Map<number, ReleaseSearchPage>;
+}
+
 const PROVIDER_PAGE_SIZE = 100;
 const RESULT_PAGE_SIZE = 10;
 
 function normalizedFilterText(value: string): string {
   return value.normalize("NFKC").toLowerCase();
+}
+
+function searchCacheKey(
+  provider: Provider,
+  fields: readonly (string | undefined)[],
+): string {
+  return JSON.stringify([provider, ...fields]);
 }
 
 export function SearchDialog({
@@ -45,11 +58,14 @@ export function SearchDialog({
   const [resultPage, setResultPage] = useState(1);
   const [detailAlbum, setDetailAlbum] = useState<ProviderAlbum | null>(null);
   const searchGeneration = useRef(0);
+  const searchCache = useRef<SearchCache | null>(null);
+  const pendingSearch = useRef<{ key: string; generation: number } | null>(null);
   const canSearch = artist.trim().length > 0 || album.trim().length > 0;
 
   useEffect(() => {
     if (!open) {
       searchGeneration.current += 1;
+      pendingSearch.current = null;
       setLoading(false);
       setError(null);
       setSearchPage(null);
@@ -63,9 +79,38 @@ export function SearchDialog({
 
   const handleSearch = useCallback(async (pageNum = 1) => {
     if (!canSearch) return;
-    const generation = ++searchGeneration.current;
-    const shouldCacheCatalog = provider === "musicbrainz" && artist.trim().length > 0;
-    setLoading(true);
+    const trimmedFields = [
+      artist.trim() || undefined,
+      album.trim() || undefined,
+      year.trim() || undefined,
+      country.trim() || undefined,
+      format.trim() || undefined,
+      catalogNumber.trim() || undefined,
+      barcode.trim() || undefined,
+    ] as const;
+    const [
+      requestArtist,
+      requestAlbum,
+      requestYear,
+      requestCountry,
+      requestFormat,
+      requestCatalogNumber,
+      requestBarcode,
+    ] = trimmedFields;
+    const shouldCacheCatalog = provider === "musicbrainz" && requestArtist !== undefined;
+    const cacheKey = searchCacheKey(provider, trimmedFields);
+    if (searchCache.current?.key !== cacheKey) {
+      searchCache.current = { key: cacheKey, pages: new Map() };
+    }
+    const pendingKey = JSON.stringify([
+      cacheKey,
+      shouldCacheCatalog ? "catalog" : pageNum,
+    ]);
+    if (pendingSearch.current?.key === pendingKey) return;
+    const cachedPage = shouldCacheCatalog
+      ? searchCache.current.catalog
+      : searchCache.current.pages.get(pageNum);
+
     setError(null);
     if (pageNum === 1) {
       setSearchPage(null);
@@ -73,22 +118,35 @@ export function SearchDialog({
       setResultFilter("");
       setResultPage(1);
     }
+    if (cachedPage) {
+      setLoading(false);
+      setSearchPage(cachedPage);
+      setLocalCatalog(shouldCacheCatalog);
+      setPhase("results");
+      return;
+    }
+    const generation = ++searchGeneration.current;
+    pendingSearch.current = { key: pendingKey, generation };
+    setLoading(true);
 
     try {
       const request = {
         provider,
-        artist: artist.trim() || undefined,
-        album: album.trim() || undefined,
-        year: year.trim() || undefined,
-        country: country.trim() || undefined,
-        format: format.trim() || undefined,
-        catalogNumber: catalogNumber.trim() || undefined,
-        barcode: barcode.trim() || undefined,
+        artist: requestArtist,
+        album: requestAlbum,
+        year: requestYear,
+        country: requestCountry,
+        format: requestFormat,
+        catalogNumber: requestCatalogNumber,
+        barcode: requestBarcode,
         pageSize: shouldCacheCatalog ? PROVIDER_PAGE_SIZE : RESULT_PAGE_SIZE,
       };
       if (!shouldCacheCatalog) {
         const page = await window.api.searchReleases({ ...request, page: pageNum });
         if (generation !== searchGeneration.current) return;
+        if (searchCache.current?.key === cacheKey) {
+          searchCache.current.pages.set(pageNum, page);
+        }
         setSearchPage(page);
         setLocalCatalog(false);
         setPhase("results");
@@ -114,13 +172,17 @@ export function SearchDialog({
         seen.add(key);
         return true;
       });
-      setSearchPage({
+      const completedCatalog = {
         results: uniqueResults,
         page: 1,
         pageSize: RESULT_PAGE_SIZE,
         total: uniqueResults.length,
         hasNext: uniqueResults.length > RESULT_PAGE_SIZE,
-      });
+      };
+      if (searchCache.current?.key === cacheKey) {
+        searchCache.current.catalog = completedCatalog;
+      }
+      setSearchPage(completedCatalog);
       setLocalCatalog(true);
       setPhase("results");
     } catch (err) {
@@ -128,6 +190,9 @@ export function SearchDialog({
         setError(err instanceof Error ? err.message : String(err));
       }
     } finally {
+      if (pendingSearch.current?.generation === generation) {
+        pendingSearch.current = null;
+      }
       if (generation === searchGeneration.current) setLoading(false);
     }
   }, [provider, artist, album, year, country, format, catalogNumber, barcode, canSearch]);
@@ -188,6 +253,8 @@ export function SearchDialog({
 
   const handleBackToForm = useCallback(() => {
     searchGeneration.current += 1;
+    pendingSearch.current = null;
+    setLoading(false);
     setDetailAlbum(null);
     setSearchPage(null);
     setLocalCatalog(false);
@@ -219,6 +286,7 @@ export function SearchDialog({
 
   const handleClose = useCallback(() => {
     searchGeneration.current += 1;
+    pendingSearch.current = null;
     onClose();
   }, [onClose]);
 
