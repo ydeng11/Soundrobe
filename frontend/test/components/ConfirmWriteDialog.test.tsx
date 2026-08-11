@@ -113,6 +113,15 @@ describe("ConfirmWriteDialog", () => {
     expect(screen.getByText("Track Two")).toBeTruthy();
   });
 
+  it("gives Remote Artist at least as much width as Remote Track", () => {
+    render(<ConfirmWriteDialog {...defaultProps} />);
+    const remoteTrackHeader = screen.getByRole("columnheader", { name: "Remote track" });
+    const remoteArtistHeader = screen.getByRole("columnheader", { name: "Remote artist" });
+
+    expect(remoteTrackHeader.className).toContain("w-[200px]");
+    expect(remoteArtistHeader.className).toContain("w-[200px]");
+  });
+
   it("shows match count", () => {
     render(<ConfirmWriteDialog {...defaultProps} />);
     expect(screen.getByText(/Matched/)).toBeTruthy();

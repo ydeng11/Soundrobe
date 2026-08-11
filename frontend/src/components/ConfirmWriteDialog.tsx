@@ -169,7 +169,7 @@ export function ConfirmWriteDialog({
       onClick={onCancel}
     >
       <div
-        className="bg-white rounded-xl shadow-2xl border border-border w-full max-w-4xl max-h-[85vh] flex flex-col overflow-hidden"
+        className="bg-white rounded-xl shadow-2xl border border-border w-full max-w-5xl max-h-[85vh] flex flex-col overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -222,7 +222,7 @@ export function ConfirmWriteDialog({
                       <th className="text-left py-2 px-2 text-text-muted font-medium">Local artist</th>
                       <th className="text-left py-2 px-2 text-text-muted font-medium w-[200px]">Remote track</th>
                       <th className="text-left py-2 px-2 text-text-muted font-medium">Remote title</th>
-                      <th className="text-left py-2 px-2 text-text-muted font-medium w-[130px]">Remote artist</th>
+                      <th className="text-left py-2 px-2 text-text-muted font-medium w-[200px]">Remote artist</th>
                       <th className="text-left py-2 px-2 text-text-muted font-medium w-16">#</th>
                       <th className="text-left py-2 px-2 text-text-muted font-medium w-16">Total</th>
                       <th className="text-left py-2 px-2 text-text-muted font-medium w-16">Disc</th>
