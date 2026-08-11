@@ -103,8 +103,12 @@ desktop release.
 
 - **Complete MusicBrainz artist searches** — manual Search now resolves artist
   aliases to the exact MusicBrainz artist, loads every matching release page,
-  and lets users filter the cached release titles without additional provider
-  requests.
+  lets users filter the cached release titles, and reuses an identical completed
+  search after returning to the form or reopening the dialog without additional
+  provider requests.
+
+- **Discogs release title filtering** — manual Search now provides the same
+  release-title filter for the currently loaded Discogs results page.
 
 - **Faster AI Assistant applies** — approved standard metadata/tag batches now
   write album folders concurrently using the configured write limit, show

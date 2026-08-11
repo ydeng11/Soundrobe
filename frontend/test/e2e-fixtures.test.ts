@@ -17,4 +17,40 @@ describe("E2E workspace cleanup", () => {
     });
     rmSync.mockRestore();
   });
+
+  it("does not fail the run when WebView keeps a Windows profile file busy", () => {
+    const originalPlatform = process.platform;
+    Object.defineProperty(process, "platform", { value: "win32" });
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const rmSync = vi.spyOn(fs, "rmSync").mockImplementation(() => {
+      const error = new Error("profile file is still in use") as NodeJS.ErrnoException;
+      error.code = "EBUSY";
+      throw error;
+    });
+
+    try {
+      expect(() => cleanupE2eWorkspace("C:\\temp\\soundrobe-tauri-e2e")).not.toThrow();
+      expect(warn).toHaveBeenCalledWith(
+        expect.stringContaining("leaving it for the runner to reclaim"),
+      );
+    } finally {
+      rmSync.mockRestore();
+      warn.mockRestore();
+      Object.defineProperty(process, "platform", { value: originalPlatform });
+    }
+  });
+
+  it("still reports unexpected cleanup failures", () => {
+    const rmSync = vi.spyOn(fs, "rmSync").mockImplementation(() => {
+      throw new Error("filesystem failure");
+    });
+
+    try {
+      expect(() => cleanupE2eWorkspace("/tmp/soundrobe-tauri-e2e")).toThrow(
+        "filesystem failure",
+      );
+    } finally {
+      rmSync.mockRestore();
+    }
+  });
 });
