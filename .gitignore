@@ -13,6 +13,7 @@
 .env.local
 *.log
 .cache/
+cache.db
 *.db
 reports/
 .rulesify/registry.toml
