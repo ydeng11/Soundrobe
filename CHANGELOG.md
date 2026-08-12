@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Pull requests now report a single required test result, while cross-platform
+  release bundles are built nightly only when the app version is unpublished.
+
 Work since the 1.0.0 milestone. This period covers the migration of the
 project from the legacy Python CLI to the current Tauri 2 desktop application
 **Soundrobe**, followed by the hardening of that application toward its first

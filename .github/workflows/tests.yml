@@ -1,0 +1,81 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  unit:
+    name: Unit and type tests
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install Linux dependencies
+        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf
+      - name: Install app dependencies
+        run: npm ci
+        working-directory: frontend
+      - name: Run unit and type tests
+        run: npm test && npm run typecheck
+        working-directory: frontend
+
+  desktop:
+    name: Desktop (${{ matrix.platform }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macOS ARM
+            os: macos-latest
+          - platform: macOS Intel
+            os: macos-15-intel
+          - platform: Windows
+            os: windows-latest
+          - platform: Linux
+            os: ubuntu-22.04
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install Linux display dependencies
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf xvfb
+      - name: Install app dependencies
+        run: npm ci
+        working-directory: frontend
+      - name: Run desktop tests
+        if: runner.os != 'Linux'
+        run: npm run test:e2e
+        working-directory: frontend
+      - name: Run desktop tests (Linux)
+        if: runner.os == 'Linux'
+        run: xvfb-run npm run test:e2e
+        working-directory: frontend
+
+  required:
+    name: Required tests
+    if: always()
+    needs: [unit, desktop]
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Confirm all tests passed
+        env:
+          UNIT_RESULT: ${{ needs.unit.result }}
+          DESKTOP_RESULT: ${{ needs.desktop.result }}
+        run: test "$UNIT_RESULT" = success && test "$DESKTOP_RESULT" = success

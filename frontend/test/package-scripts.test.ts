@@ -147,33 +147,41 @@ describe("package scripts", () => {
     expect(tauriConfig.bundle.category).toBe("Music");
   });
 
-  it("builds each platform bundle in CI", () => {
+  it("keeps pull request status checks limited to tests", () => {
     const workflow = readFileSync(
-      resolve(__dirname, "../../.github/workflows/tauri.yml"),
+      resolve(__dirname, "../../.github/workflows/tests.yml"),
       "utf8",
     );
 
+    expect(workflow).toMatch(/^name: Tests$/m);
+    expect(workflow).toContain("macOS ARM");
     expect(workflow).toContain("macos-latest");
     expect(workflow).toContain("windows-latest");
     expect(workflow).toContain("ubuntu-22.04");
-    expect(workflow).toContain("npm run dist:mac");
-    expect(workflow).toContain("npm run dist:win");
-    expect(workflow).toContain("npm run dist:linux");
-    expect(workflow).toMatch(
-      /name: Build unsigned bundles\n\s+env:\n\s+CI: "true"/,
-    );
+    expect(workflow).toContain("npm test && npm run typecheck");
+    expect(workflow).toContain("npm run test:e2e");
+    expect(workflow).toContain("name: Required tests");
+    expect(workflow).not.toContain("npm run dist:");
+    expect(workflow).not.toContain("createCommitStatus");
   });
 
-  it("publishes release bundles only for matching semantic-version tags", () => {
+  it("checks nightly for a new app version before publishing release bundles", () => {
     const releaseWorkflow = readFileSync(
       resolve(__dirname, "../../.github/workflows/release.yml"),
       "utf8",
     );
 
+    expect(releaseWorkflow).toMatch(/^name: Release$/m);
     expect(releaseWorkflow).toContain('tags:\n      - "v*.*.*"');
+    expect(releaseWorkflow).toContain("schedule:");
+    expect(releaseWorkflow).toContain('cron: "');
+    expect(releaseWorkflow).toContain("workflow_dispatch:");
     expect(releaseWorkflow).toContain("contents: write");
-    expect(releaseWorkflow).toContain("RELEASE_TAG");
+    expect(releaseWorkflow).toContain("PUSHED_TAG");
     expect(releaseWorkflow).toContain("package_version");
+    expect(releaseWorkflow).toContain("gh release view");
+    expect(releaseWorkflow).toContain("release_needed=true");
+    expect(releaseWorkflow).toContain("needs.version.outputs.release_needed == 'true'");
     expect(releaseWorkflow).toContain("macos-arm64");
     expect(releaseWorkflow).toContain("macos-x64");
     expect(releaseWorkflow).toContain("windows-x64");
@@ -190,7 +198,7 @@ describe("package scripts", () => {
   it("runs test-only embedded WebdriverIO coverage on every desktop platform", () => {
     const { scripts } = readPackageJson();
     const workflow = readFileSync(
-      resolve(__dirname, "../../.github/workflows/tauri.yml"),
+      resolve(__dirname, "../../.github/workflows/tests.yml"),
       "utf8",
     );
     const wdioConfig = readFileSync(resolve(__dirname, "../wdio.conf.ts"), "utf8");
@@ -212,13 +220,14 @@ describe("package scripts", () => {
     expect(workflowSpec).toContain("converts a title into artist and title tags through the renderer");
     expect(workflowSpec).toContain("numbers tracks through the renderer and native batch writer");
     expect(workflow).toContain("npm run test:e2e");
-    expect(workflow).toContain("wdio-macos-arm64");
-    expect(workflow).toContain("wdio-macos-intel");
-    expect(workflow).toContain("wdio-windows");
-    expect(workflow).toContain("wdio-linux");
-    expect(workflow).toContain("Smoke macOS app bundle and DMG");
-    expect(workflow).toContain("Smoke Windows NSIS installer");
-    expect(workflow).toContain("Smoke Linux AppImage bundle");
-    expect(workflow).toContain("Smoke Linux deb installer");
+    expect(workflow).toContain("Desktop (${{ matrix.platform }})");
+    expect(workflow).toContain("macOS ARM");
+    expect(workflow).toContain("macOS Intel");
+    expect(workflow).toContain("Windows");
+    expect(workflow).toContain("Linux");
+    expect(workflow).not.toContain("Smoke macOS app bundle and DMG");
+    expect(workflow).not.toContain("Smoke Windows NSIS installer");
+    expect(workflow).not.toContain("Smoke Linux AppImage bundle");
+    expect(workflow).not.toContain("Smoke Linux deb installer");
   });
 });
