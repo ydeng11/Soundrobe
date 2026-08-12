@@ -4209,7 +4209,7 @@ mod tests {
         buf.extend_from_slice(&prefix);
         buf.extend_from_slice(vendor);
         buf.extend_from_slice(b"audio_payload");
-        let audio_offset = (buf.len() - b"audio_payload".len()) as usize;
+        let audio_offset = buf.len() - b"audio_payload".len();
         assert!(!neutralize_ghost_vorbis(&mut buf, audio_offset));
         // Prefix should still be intact
         assert_eq!(&buf[0..4], &[0u8, 0, 0, 9]);
@@ -4462,7 +4462,7 @@ mod tests {
     }
 
     fn install_legacy_utf16_empty_picture(path: &Path) {
-        let mut tag = read_id3v2(&path).unwrap();
+        let mut tag = read_id3v2(path).unwrap();
         let picture = Picture::unchecked(vec![0xff, 0xd8, 0xff, 0xd9])
             .pic_type(PictureType::CoverFront)
             .mime_type(MimeType::Jpeg)
@@ -4472,9 +4472,9 @@ mod tests {
             TextEncoding::UTF16,
             picture,
         )));
-        tag.save_to_path(&path, WriteOptions::new().use_id3v23(true))
+        tag.save_to_path(path, WriteOptions::new().use_id3v23(true))
             .unwrap();
-        read_track_metadata(&path).unwrap();
+        read_track_metadata(path).unwrap();
     }
 
     #[test]
@@ -5359,7 +5359,7 @@ mod tests {
     /// of the incomplete chunk, not as a trailing tail.
     #[test]
     fn fix_wav_orphan_tail_rejects_truncated_data() {
-        let mut bytes = fs::read(&media_fixture("minimal.wav")).unwrap();
+        let mut bytes = fs::read(media_fixture("minimal.wav")).unwrap();
         // Truncate in the middle of the data chunk (after first 100 bytes).
         bytes.truncate(44 + 100);
         assert!(!fix_wav_orphan_tail(&mut bytes));
@@ -5381,7 +5381,7 @@ mod tests {
     /// `fix_wav_orphan_tail` must NOT repair a malformed chunk before data.
     #[test]
     fn fix_wav_orphan_tail_rejects_malformed_chunk_before_data() {
-        let mut bytes = fs::read(&media_fixture("minimal.wav")).unwrap();
+        let mut bytes = fs::read(media_fixture("minimal.wav")).unwrap();
         // Corrupt the fmt chunk: set an impossible size that overflows.
         bytes[16..20].copy_from_slice(&0xFFFF_FF00u32.to_le_bytes());
         assert!(!fix_wav_orphan_tail(&mut bytes));

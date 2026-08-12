@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   unit:
-    name: Unit and type tests
+    name: Unit, type, and build checks
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
@@ -27,6 +27,39 @@ jobs:
         run: npm ci
       - name: Run unit and type tests
         run: npm test && npm run typecheck
+      - name: Build renderer
+        run: npm run build:web
+
+  lint:
+    name: Lint (Rust and TypeScript)
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install Linux dependencies
+        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf
+      - name: Install app dependencies
+        run: npm ci
+      - name: Run Rust linter
+        run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
+      - name: Run TypeScript checks
+        run: npm run typecheck
+
+  rust-tests:
+    name: Rust tests
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install Linux dependencies
+        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf
+      - name: Run Rust tests
+        run: cargo test --manifest-path src-tauri/Cargo.toml
 
   desktop:
     name: Desktop (${{ matrix.platform }})
@@ -66,11 +99,13 @@ jobs:
   required:
     name: Required tests
     if: always()
-    needs: [unit, desktop]
+    needs: [unit, desktop, lint, rust-tests]
     runs-on: ubuntu-22.04
     steps:
       - name: Confirm all tests passed
         env:
           UNIT_RESULT: ${{ needs.unit.result }}
           DESKTOP_RESULT: ${{ needs.desktop.result }}
-        run: test "$UNIT_RESULT" = success && test "$DESKTOP_RESULT" = success
+          LINT_RESULT: ${{ needs.lint.result }}
+          RUST_TESTS_RESULT: ${{ needs.rust-tests.result }}
+        run: test "$UNIT_RESULT" = success && test "$DESKTOP_RESULT" = success && test "$LINT_RESULT" = success && test "$RUST_TESTS_RESULT" = success

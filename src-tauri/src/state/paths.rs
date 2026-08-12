@@ -40,15 +40,13 @@ pub fn migrate_legacy_dir(home: &Path) -> io::Result<()> {
 
     let canonical = app_dir(home);
     match fs::symlink_metadata(&canonical) {
-        Ok(metadata) if !metadata.file_type().is_dir() => {
-            return Err(io::Error::new(
-                io::ErrorKind::AlreadyExists,
-                format!(
-                    "canonical app-data path is not a directory: {}",
-                    canonical.display()
-                ),
-            ));
-        }
+        Ok(metadata) if !metadata.file_type().is_dir() => Err(io::Error::new(
+            io::ErrorKind::AlreadyExists,
+            format!(
+                "canonical app-data path is not a directory: {}",
+                canonical.display()
+            ),
+        )),
         Ok(_) => merge_directory(&legacy, &canonical),
         Err(error) if error.kind() == io::ErrorKind::NotFound => fs::rename(legacy, canonical),
         Err(error) => Err(error),

@@ -156,13 +156,17 @@ fn parse_request_tokens(message: &str) -> ParsedRequest {
         || lower.ends_with("missing");
 
     // Detect action verb
-    let action: &str = if lower.starts_with("set ") || lower.starts_with("set the ") {
+    let action: &str = if lower.starts_with("set ")
+        || lower.starts_with("set the ")
+        || lower.starts_with("change ")
+        || lower.starts_with("change the ")
+    {
         "set"
-    } else if lower.starts_with("change ") || lower.starts_with("change the ") {
-        "set"
-    } else if lower.starts_with("remove ") || lower.starts_with("remove the ") {
-        "remove"
-    } else if lower.starts_with("clear ") || lower.starts_with("clear the ") {
+    } else if lower.starts_with("remove ")
+        || lower.starts_with("remove the ")
+        || lower.starts_with("clear ")
+        || lower.starts_with("clear the ")
+    {
         "remove"
     } else if lower.starts_with("fix ") || lower.starts_with("fix the ") {
         "fix"
@@ -896,10 +900,6 @@ pub fn resolved_intent_from_command(command: &RoutedCommand) -> ResolvedIntent {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    fn empty_input() -> AssistantSendInput {
-        AssistantSendInput::default()
-    }
 
     #[test]
     fn routes_selected_malformed_plural_artists_to_scope_wide_split() {

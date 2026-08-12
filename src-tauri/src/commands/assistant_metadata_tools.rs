@@ -252,12 +252,9 @@ fn execute_pipeline(text: &str, pipeline: &[PipelineOp]) -> Option<String> {
             PipelineOp::ChineseToSimplified => op_chinese_to_simplified(&current),
             PipelineOp::ChineseToTraditional => op_chinese_to_traditional(&current),
         };
-        match result {
-            Some(new_value) => {
-                changed = true;
-                current = new_value;
-            }
-            None => {}
+        if let Some(new_value) = result {
+            changed = true;
+            current = new_value;
         }
     }
     changed.then_some(current)
@@ -697,10 +694,6 @@ pub(crate) fn op_chinese_to_traditional(text: &str) -> Option<String> {
     let converted = crate::state::providers::convert_chinese_text(text, "traditional");
     (converted != text).then_some(converted)
 }
-
-/// Apply a pipeline of operation descriptors to a text value.
-/// Each descriptor is a JSON object with an "op" field.
-/// Returns None if no operation changed the text.
 
 // ── Tool executors ──────────────────────────────────────────────────
 

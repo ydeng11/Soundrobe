@@ -552,10 +552,7 @@ pub fn apply_canonical_artist_name(
             artist.trim().eq_ignore_ascii_case(&canonical_name)
                 || artist.trim().eq_ignore_ascii_case(old_album_artist.trim())
         };
-        let artist_is_solo = track
-            .artist
-            .as_deref()
-            .is_none_or(|artist| same_solo_identity(artist));
+        let artist_is_solo = track.artist.as_deref().is_none_or(&same_solo_identity);
         let artists_are_solo = track
             .artists
             .iter()
@@ -1463,9 +1460,7 @@ async fn resolve_tags_via_llm(
         "required": ["artist", "albumArtist", "album", "year", "genre", "tracks", "confidence"]
     });
     tracing::debug!(model, "calling auto-tag LLM");
-    let Some(api_key) = api_key else {
-        return None;
-    };
+    let api_key = api_key?;
     let llm_endpoint = crate::infra::openrouter::LlmEndpoint::from_config(
         config.llm_provider.as_deref(),
         config.llm_base_url.as_deref(),
@@ -3049,7 +3044,7 @@ mod tests {
                 ..TrackCandidate::default()
             })
             .collect();
-        let mut cd1_provider: Vec<TrackCandidate> = cd1_local
+        let cd1_provider: Vec<TrackCandidate> = cd1_local
             .iter()
             .enumerate()
             .map(|(i, _)| TrackCandidate {

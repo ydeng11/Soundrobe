@@ -128,7 +128,7 @@ pub fn run() {
                 // Page is about to reload (e.g. HMR). Cancel all running
                 // operations so Rust does not try to respond to invoke callbacks
                 // that the old JS context owned and the new one cannot resolve.
-                cancel_pending_operations(&webview.window().app_handle());
+                cancel_pending_operations(webview.window().app_handle());
             }
             if should_reveal_window(webview.label(), payload.event()) {
                 if let Err(error) = webview.window().show() {

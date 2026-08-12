@@ -102,7 +102,7 @@ pub enum ProviderKind {
 }
 
 impl ProviderKind {
-    pub fn from_str(s: &str) -> Self {
+    pub fn from_provider_str(s: &str) -> Self {
         match s {
             "claude" | "anthropic" => ProviderKind::Anthropic,
             _ => ProviderKind::OpenAi,
@@ -162,11 +162,11 @@ impl LlmEndpoint {
         let base_url = base_url.and_then(|u| if u.is_empty() { None } else { Some(u) });
         match (provider, base_url) {
             (Some(p), Some(u)) => Self {
-                provider: ProviderKind::from_str(p),
+                provider: ProviderKind::from_provider_str(p),
                 base_url: u.to_string(),
             },
             (Some(p), None) => Self {
-                provider: ProviderKind::from_str(p),
+                provider: ProviderKind::from_provider_str(p),
                 base_url: base_url_for_provider(p).to_string(),
             },
             (None, Some(u)) => Self {

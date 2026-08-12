@@ -272,6 +272,7 @@ impl AssistantTaskState {
     }
 
     /// Load a session state record.
+    #[allow(clippy::type_complexity)]
     pub fn load_session(&self, session_id: &str) -> Option<SessionState> {
         let guard = self.conn().ok()?;
         let conn = guard.as_ref()?;

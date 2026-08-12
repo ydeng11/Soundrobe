@@ -120,6 +120,7 @@ fn normalise_page_size(page_size: Option<u32>) -> u32 {
 /// Inner search with pre-normalised inputs. Trims all string values and
 /// omits empty ones downstream. Returns `Err` when both artist and album
 /// are empty after trimming.
+#[allow(clippy::too_many_arguments)]
 async fn search_releases_inner(
     provider: &str,
     trimmed_artist: Option<String>,
@@ -583,6 +584,7 @@ mod tests {
     }
 
     /// Call search_releases_inner with the given args, using a mock server.
+    #[allow(clippy::too_many_arguments)]
     async fn inner_search(
         provider: &str,
         artist: Option<&str>,

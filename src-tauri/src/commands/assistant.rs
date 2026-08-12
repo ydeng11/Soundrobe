@@ -440,6 +440,7 @@ fn query_field(query: &str, field: &str) -> Option<String> {
 }
 
 #[tauri::command]
+#[allow(clippy::too_many_arguments)]
 pub async fn assistant_send(
     input: AssistantSendInput,
     app: AppHandle,
@@ -1282,7 +1283,7 @@ pub async fn assistant_send(
                     }
                 }
                 AssistantOutcome::ModelPreview(batch) => {
-                    if !runtime.add_batch(batch.clone()) {
+                    if !runtime.add_batch((*batch).clone()) {
                         return Err(ApiError::Message(
                             "Failed to store assistant action preview".into(),
                         ));
@@ -3498,7 +3499,7 @@ enum AssistantOutcome {
     /// One or more native tool-created previews.
     ToolPreview(Vec<AssistantActionBatch>),
     /// A single model-authored preview that passed validation.
-    ModelPreview(AssistantActionBatch),
+    ModelPreview(Box<AssistantActionBatch>),
 }
 
 /// Determine what to do with the LLM's final response.
@@ -3514,13 +3515,13 @@ fn resolve_assistant_outcome(
             "The assistant returned both a native tool preview and a model-authored preview".into(),
         );
     }
-    if pending_tool_batches.first().is_some() {
+    if !pending_tool_batches.is_empty() {
         return Ok(AssistantOutcome::ToolPreview(pending_tool_batches.to_vec()));
     }
     if let Some(batch) = draft.action_batch.clone() {
         let validated =
             validated_assistant_batch(session_id, input, batch).map_err(|e| e.to_string())?;
-        return Ok(AssistantOutcome::ModelPreview(validated));
+        return Ok(AssistantOutcome::ModelPreview(Box::new(validated)));
     }
     if draft.response_kind == AssistantResponseKind::Action {
         return Err(
@@ -3777,7 +3778,7 @@ fn reject_action_batch(
         )
         .map_err(ApiError::Message)?;
     let title = runtime
-        .reject_batch(&action_batch_id)
+        .reject_batch(action_batch_id)
         .ok_or_else(|| ApiError::Message("Batch changed while it was being rejected".into()))?;
     Ok(Some(title))
 }
@@ -7556,7 +7557,7 @@ mod assistant_behaviour_tests {
 
     #[test]
     fn plan_dependency_order_on_empty_list_returns_empty() {
-        let result = plan_dependency_order(&vec![]).unwrap();
+        let result = plan_dependency_order(&[]).unwrap();
         assert!(result.is_empty());
     }
 
@@ -7681,7 +7682,7 @@ mod assistant_behaviour_tests {
 
     #[test]
     fn plan_dependency_order_detects_circular_deps() {
-        let err = plan_dependency_order(&vec![
+        let err = plan_dependency_order(&[
             json!({"id": "a", "tool": "x", "depends_on": ["b"]}),
             json!({"id": "b", "tool": "x", "depends_on": ["a"]}),
         ])
@@ -7691,16 +7692,15 @@ mod assistant_behaviour_tests {
 
     #[test]
     fn plan_dependency_order_rejects_unknown_step_reference() {
-        let err = plan_dependency_order(&vec![
-            json!({"id": "a", "tool": "x", "depends_on": ["missing"]}),
-        ])
-        .unwrap_err();
+        let err =
+            plan_dependency_order(&[json!({"id": "a", "tool": "x", "depends_on": ["missing"]})])
+                .unwrap_err();
         assert!(err.contains("depends on unknown step"));
     }
 
     #[test]
     fn plan_dependency_order_detects_duplicate_ids() {
-        let err = plan_dependency_order(&vec![
+        let err = plan_dependency_order(&[
             json!({"id": "a", "tool": "x"}),
             json!({"id": "a", "tool": "y"}),
         ])
@@ -8101,10 +8101,12 @@ mod assistant_behaviour_tests {
         assert!(prompt.contains("metadata.patch"));
         assert!(prompt.contains("field, action, and value"));
         assert!(prompt.contains("one registered mutating tool"));
-        assert!(
-            ASSISTANT_PREVIEW_REPAIR_ATTEMPTS >= 3,
-            "schema-constrained models need a bounded opportunity to repair repeated envelope mistakes"
-        );
+        const {
+            assert!(
+                ASSISTANT_PREVIEW_REPAIR_ATTEMPTS >= 3,
+                "schema-constrained models need a bounded opportunity to repair repeated envelope mistakes"
+            );
+        };
     }
 
     #[test]
@@ -8384,18 +8386,20 @@ mod assistant_behaviour_tests {
 
     #[test]
     fn assistant_timeouts_leave_the_tool_loop_in_control() {
-        assert!(
-            ASSISTANT_LLM_TIMEOUT_SECS < ASSISTANT_SESSION_TIMEOUT_SECS,
-            "one provider call must not outlive the complete tool loop"
-        );
-        assert!(
-            ASSISTANT_SESSION_TIMEOUT_SECS >= 600,
-            "large-library tool loops need at least ten minutes"
-        );
-        assert!(
-            ASSISTANT_MAX_STEPS >= 20,
-            "large-library investigations need more than ten tool steps"
-        );
+        const {
+            assert!(
+                ASSISTANT_LLM_TIMEOUT_SECS < ASSISTANT_SESSION_TIMEOUT_SECS,
+                "one provider call must not outlive the complete tool loop"
+            );
+            assert!(
+                ASSISTANT_SESSION_TIMEOUT_SECS >= 600,
+                "large-library tool loops need at least ten minutes"
+            );
+            assert!(
+                ASSISTANT_MAX_STEPS >= 20,
+                "large-library investigations need more than ten tool steps"
+            );
+        };
         assert!(
             ASSISTANT_SESSION_TIMEOUT_LOG.contains(&ASSISTANT_SESSION_TIMEOUT_SECS.to_string()),
             "the persisted timeout explanation must match the configured session deadline"
@@ -9053,7 +9057,7 @@ mod assistant_behaviour_tests {
                 action_batch: None,
                 tool_call: None,
             },
-            &[batch.clone()],
+            std::slice::from_ref(&batch),
             "s",
             &test_outcome_input(),
         );
