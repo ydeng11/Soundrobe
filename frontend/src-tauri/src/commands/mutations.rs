@@ -1825,6 +1825,9 @@ fn write_id3_extra_tags_atomic(
 ) -> Result<TrackWriteOutcome, ApiError> {
     let mut original = fs::read(path)?;
     if wav {
+        pad_missing_terminal_wav_id3(&mut original).ok_or_else(|| {
+            ApiError::MediaSafety("WAV RIFF size exceeds supported range".to_string())
+        })?;
         fix_wav_orphan_tail(&mut original);
     }
     let mut tag = if wav {
@@ -2186,11 +2189,11 @@ pub fn write_ape_atomic(path: &Path, patch: &TrackPatch) -> Result<TrackWriteOut
 /// Write WAV ID3 metadata through a validated sibling. RIFF chunk layout may
 /// change, but every PCM `data` payload must remain exact.
 pub fn write_wav_atomic(path: &Path, patch: &TrackPatch) -> Result<TrackWriteOutcome, ApiError> {
-    // Standard WAV metadata reads are seekable and bounded. Reading this
-    // before the owned source keeps the common path to one full source pass;
-    // compatibility layouts retain the established owned-reader fallback.
-    let before = read_track_metadata(path)?;
     let mut original_bytes = fs::read(path)?;
+    let added_terminal_id3_pad =
+        pad_missing_terminal_wav_id3(&mut original_bytes).ok_or_else(|| {
+            ApiError::MediaSafety("WAV RIFF size exceeds supported range".to_string())
+        })?;
     fix_wav_orphan_tail(&mut original_bytes);
     let original_audio = wav_data_ranges(&original_bytes)
         .ok_or_else(|| ApiError::MediaSafety("invalid WAV chunk structure".to_string()))?;
@@ -2198,6 +2201,24 @@ pub fn write_wav_atomic(path: &Path, patch: &TrackPatch) -> Result<TrackWriteOut
     // write operation so the FourCC warning does not fire on
     // subsequent reads or during the write pipeline.
     strip_wav_padding(&mut original_bytes);
+
+    // Lofty requires the optional RIFF pad byte even when a terminal ID3
+    // payload reaches EOF. Read that compatibility layout through a sibling
+    // containing the normalized in-memory bytes; the source remains untouched
+    // until the usual validated atomic replacement.
+    let before = if added_terminal_id3_pad {
+        let readable = sibling_temp_path(path);
+        let result = (|| {
+            fs::write(&readable, &original_bytes)?;
+            read_track_metadata(&readable)
+        })();
+        if readable.exists() {
+            let _ = fs::remove_file(&readable);
+        }
+        result?
+    } else {
+        read_track_metadata(path)?
+    };
 
     // NOTE: WAV writes the ID3v2 tag inside a RIFF chunk, not at offset 0 as
     // MP3 does.  An in-place path would need to locate the `id3 ` chunk and
@@ -3226,7 +3247,11 @@ fn ape_audio_core(bytes: &[u8]) -> Option<&[u8]> {
 /// - Orphan tail is block-aligned
 /// - Truncated (incomplete) data is never repaired
 fn fix_wav_orphan_tail(data: &mut [u8]) -> bool {
-    if data.len() < 12 || &data[..4] != b"RIFF" || &data[8..12] != b"WAVE" {
+    if data.len() < 12
+        || &data[..4] != b"RIFF"
+        || &data[8..12] != b"WAVE"
+        || !wav_riff_boundary_matches(data)
+    {
         return false;
     }
 
@@ -3315,12 +3340,17 @@ fn fix_wav_orphan_tail(data: &mut [u8]) -> bool {
     }
 
     // All checks pass: expand the data chunk to absorb the orphan bytes
-    let new_data_size = old_data_size + orphan_len;
-    data[data_pos + 4..data_pos + 8].copy_from_slice(&(new_data_size as u32).to_le_bytes());
-
-    // Ensure RIFF total size is consistent
-    let riff_len = (data.len() as u32).wrapping_sub(8).to_le_bytes();
-    data[4..8].copy_from_slice(&riff_len);
+    let Some(new_data_size) = old_data_size
+        .checked_add(orphan_len)
+        .and_then(|size| u32::try_from(size).ok())
+    else {
+        return false;
+    };
+    let Some(riff_size) = wav_riff_size_for_len(data.len()) else {
+        return false;
+    };
+    data[data_pos + 4..data_pos + 8].copy_from_slice(&new_data_size.to_le_bytes());
+    data[4..8].copy_from_slice(&riff_size.to_le_bytes());
 
     true
 }
@@ -3332,6 +3362,21 @@ struct WavChunk {
     data_start: usize,
     data_end: usize,
     end: usize,
+}
+
+fn wav_riff_size_for_len(len: usize) -> Option<u32> {
+    u32::try_from(len.checked_sub(8)?).ok()
+}
+
+fn wav_riff_boundary_matches(bytes: &[u8]) -> bool {
+    let Some(expected) = wav_riff_size_for_len(bytes.len()) else {
+        return false;
+    };
+    bytes
+        .get(4..8)
+        .and_then(|size| <[u8; 4]>::try_from(size).ok())
+        .map(u32::from_le_bytes)
+        == Some(expected)
 }
 
 fn wav_chunks(bytes: &[u8]) -> Option<Vec<WavChunk>> {
@@ -3348,7 +3393,12 @@ fn wav_chunks(bytes: &[u8]) -> Option<Vec<WavChunk>> {
         if data_end > bytes.len() {
             return None;
         }
-        let end = data_end.checked_add(size % 2)?;
+        let terminal_odd_id3 =
+            size % 2 == 1 && data_end == bytes.len() && matches!(&id, b"id3 " | b"ID3 ");
+        if terminal_odd_id3 && !wav_riff_boundary_matches(bytes) {
+            return None;
+        }
+        let end = data_end.checked_add(usize::from(size % 2 == 1 && !terminal_odd_id3))?;
         if end > bytes.len() {
             return None;
         }
@@ -3362,6 +3412,23 @@ fn wav_chunks(bytes: &[u8]) -> Option<Vec<WavChunk>> {
         offset = end;
     }
     (offset == bytes.len()).then_some(chunks)
+}
+
+fn pad_missing_terminal_wav_id3(bytes: &mut Vec<u8>) -> Option<bool> {
+    let Some(last) = wav_chunks(bytes).and_then(|chunks| chunks.last().copied()) else {
+        return Some(false);
+    };
+    if !matches!(&last.id, b"id3 " | b"ID3 ")
+        || (last.data_end - last.data_start) % 2 == 0
+        || last.data_end != bytes.len()
+    {
+        return Some(false);
+    }
+    let padded_len = bytes.len().checked_add(1)?;
+    let riff_size = wav_riff_size_for_len(padded_len)?;
+    bytes.push(0);
+    bytes[4..8].copy_from_slice(&riff_size.to_le_bytes());
+    Some(true)
 }
 
 fn wav_data_ranges(bytes: &[u8]) -> Option<Vec<Range<usize>>> {
@@ -3494,8 +3561,10 @@ fn write_wav_without_list_info<W: Write>(bytes: &[u8], writer: &mut W) -> std::i
             len.checked_add(chunk.end - chunk.start)
         })
         .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::InvalidData, "WAV too large"))?;
-    let riff_len = u32::try_from(kept_len.saturating_sub(8))
-        .map_err(|_| std::io::Error::new(std::io::ErrorKind::InvalidData, "WAV too large"))?;
+    let riff_len = kept_len
+        .checked_sub(8)
+        .and_then(|len| u32::try_from(len).ok())
+        .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::InvalidData, "WAV too large"))?;
     let mut header: [u8; 12] = bytes[..12].try_into().unwrap();
     header[4..8].copy_from_slice(&riff_len.to_le_bytes());
     writer.write_all(&header)?;
@@ -4089,6 +4158,36 @@ mod tests {
         let path = root.join(name);
         fs::copy(source, &path).unwrap();
         (root, path)
+    }
+
+    fn append_wav_chunk(bytes: &mut Vec<u8>, id: &[u8; 4], payload: &[u8], pad: bool) {
+        bytes.extend_from_slice(id);
+        bytes.extend_from_slice(&(payload.len() as u32).to_le_bytes());
+        bytes.extend_from_slice(payload);
+        if pad && payload.len() % 2 == 1 {
+            bytes.push(0);
+        }
+        let riff_size = (bytes.len() - 8) as u32;
+        bytes[4..8].copy_from_slice(&riff_size.to_le_bytes());
+    }
+
+    fn id3v23_title_payload(title: &str) -> Vec<u8> {
+        let frame_size = 1 + title.len();
+        let tag_size = 10 + frame_size;
+        assert!(tag_size < 128, "test tag size must fit one syncsafe byte");
+        let mut payload = b"ID3\x03\0\0\0\0\0\0".to_vec();
+        payload[9] = tag_size as u8;
+        payload.extend_from_slice(b"TIT2");
+        payload.extend_from_slice(&(frame_size as u32).to_be_bytes());
+        payload.extend_from_slice(&[0, 0, 3]);
+        payload.extend_from_slice(title.as_bytes());
+        payload
+    }
+
+    fn make_wav_8bit_mono(bytes: &mut [u8]) {
+        bytes[28..32].copy_from_slice(&44_100_u32.to_le_bytes());
+        bytes[32..34].copy_from_slice(&1_u16.to_le_bytes());
+        bytes[34..36].copy_from_slice(&8_u16.to_le_bytes());
     }
 
     // ------------------------------------------------------------------
@@ -4813,6 +4912,179 @@ mod tests {
             original_audio
         );
         fs::remove_dir_all(root).unwrap();
+    }
+
+    /// Real-world encoders sometimes omit the optional RIFF pad byte when an
+    /// odd-sized terminal ID3 chunk ends exactly at EOF. Soundrobe must still
+    /// write/read metadata while preserving every PCM byte exactly.
+    #[test]
+    fn wav_write_accepts_terminal_odd_id3_without_pad_and_preserves_pcm() {
+        for id in [b"id3 ", b"ID3 "] {
+            let (root, path) = copy_to_temp(&media_fixture("minimal.wav"), "track.wav");
+            let mut bytes = fs::read(&path).unwrap();
+            let id3 = id3v23_title_payload("Before");
+            assert_eq!(id3.len() % 2, 1, "fixture ID3 payload must be odd");
+            append_wav_chunk(&mut bytes, id, &id3, false);
+            fs::write(&path, &bytes).unwrap();
+
+            let original_pcm = wav_data_payloads(&bytes).expect("terminal ID3 must be accepted");
+            let patch: TrackPatch =
+                serde_json::from_value(serde_json::json!({"title": "After"})).unwrap();
+            assert_eq!(
+                write_wav_atomic(&path, &patch).unwrap(),
+                TrackWriteOutcome::Replaced
+            );
+            let written = fs::read(&path).unwrap();
+            assert_eq!(wav_data_payloads(&written).unwrap(), original_pcm);
+            assert_eq!(
+                read_track_metadata(&path).unwrap().title.as_deref(),
+                Some("After")
+            );
+            fs::remove_dir_all(root).unwrap();
+        }
+    }
+
+    /// With byte-aligned PCM, the bytes of an unpadded terminal ID3 chunk are
+    /// also block-aligned. Normalize ID3 first so orphan repair cannot absorb
+    /// metadata into the declared audio payload.
+    #[test]
+    fn wav_write_normalizes_terminal_id3_before_block_align_one_orphan_repair() {
+        let (root, path) = copy_to_temp(&media_fixture("minimal.wav"), "track.wav");
+        let mut bytes = fs::read(&path).unwrap();
+        make_wav_8bit_mono(&mut bytes);
+        let original_pcm = wav_data_payloads(&bytes).unwrap();
+        let id3 = id3v23_title_payload("Before");
+        append_wav_chunk(&mut bytes, b"id3 ", &id3, false);
+        fs::write(&path, &bytes).unwrap();
+
+        let patch: TrackPatch =
+            serde_json::from_value(serde_json::json!({"title": "After"})).unwrap();
+        assert_eq!(
+            write_wav_atomic(&path, &patch).unwrap(),
+            TrackWriteOutcome::Replaced
+        );
+        assert_eq!(
+            wav_data_payloads(&fs::read(&path).unwrap()).unwrap(),
+            original_pcm,
+            "terminal ID3 bytes must never be adopted into block-align-1 PCM"
+        );
+        assert_eq!(
+            read_track_metadata(&path).unwrap().title.as_deref(),
+            Some("After")
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    /// Extra-tag writes share the WAV parser and must normalize the same
+    /// narrowly valid terminal-ID3 layout without changing PCM.
+    #[test]
+    fn wav_extra_tag_write_accepts_terminal_odd_id3_without_pad_and_preserves_pcm() {
+        let (root, path) = copy_to_temp(&media_fixture("minimal.wav"), "track.wav");
+        let mut bytes = fs::read(&path).unwrap();
+        let original_pcm = wav_data_payloads(&bytes).unwrap();
+        let id3 = id3v23_title_payload("Before");
+        append_wav_chunk(&mut bytes, b"ID3 ", &id3, false);
+        fs::write(&path, &bytes).unwrap();
+
+        assert_eq!(
+            write_id3_extra_tags_atomic(
+                &path,
+                &[ExtraTagUpdate {
+                    key: "MOOD".to_string(),
+                    value: "Bright".to_string(),
+                }],
+                true,
+            )
+            .unwrap(),
+            TrackWriteOutcome::Replaced
+        );
+        let written = fs::read(&path).unwrap();
+        assert_eq!(wav_data_payloads(&written).unwrap(), original_pcm);
+        let parsed = WavFile::read_from(
+            &mut Cursor::new(written.as_slice()),
+            ParseOptions::new().read_properties(false),
+        )
+        .unwrap();
+        assert_eq!(
+            parsed.id3v2().unwrap().get_user_text("MOOD"),
+            Some("Bright")
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    /// The missing-pad compatibility exception belongs only to terminal ID3;
+    /// odd terminal audio data still lacks required RIFF structure.
+    #[test]
+    fn wav_chunks_rejects_terminal_odd_data_without_pad() {
+        let mut bytes = fs::read(media_fixture("minimal.wav")).unwrap();
+        let data = wav_chunks(&bytes)
+            .unwrap()
+            .into_iter()
+            .find(|chunk| chunk.id == *b"data")
+            .unwrap();
+        assert_eq!(data.end, bytes.len(), "fixture data chunk must be terminal");
+        bytes.truncate(bytes.len() - 1);
+        let odd_size = data.data_end - data.data_start - 1;
+        bytes[data.start + 4..data.start + 8].copy_from_slice(&(odd_size as u32).to_le_bytes());
+        let riff_size = (bytes.len() - 8) as u32;
+        bytes[4..8].copy_from_slice(&riff_size.to_le_bytes());
+
+        assert!(wav_chunks(&bytes).is_none());
+    }
+
+    /// Omitting an odd ID3 pad before another chunk would shift the following
+    /// header; only an ID3 payload that itself reaches EOF is compatible.
+    #[test]
+    fn wav_chunks_rejects_non_terminal_odd_id3_without_pad() {
+        let mut bytes = fs::read(media_fixture("minimal.wav")).unwrap();
+        let id3 = id3v23_title_payload("Before");
+        append_wav_chunk(&mut bytes, b"id3 ", &id3, false);
+        append_wav_chunk(&mut bytes, b"JUNK", &[0, 0], false);
+
+        assert!(wav_chunks(&bytes).is_none());
+    }
+
+    /// A terminal ID3 header whose declared payload extends past EOF is
+    /// truncated, not merely missing optional padding, and must stay invalid.
+    #[test]
+    fn wav_chunks_rejects_truncated_terminal_id3() {
+        let mut bytes = fs::read(media_fixture("minimal.wav")).unwrap();
+        let id3 = id3v23_title_payload("Before");
+        append_wav_chunk(&mut bytes, b"ID3 ", &id3[..id3.len() - 2], false);
+        let size_offset = bytes.len() - (id3.len() - 2) - 4;
+        bytes[size_offset..size_offset + 4].copy_from_slice(&(id3.len() as u32).to_le_bytes());
+
+        assert!(wav_chunks(&bytes).is_none());
+    }
+
+    #[test]
+    fn wav_chunks_rejects_terminal_unpadded_id3_with_undersized_riff_boundary() {
+        let mut bytes = fs::read(media_fixture("minimal.wav")).unwrap();
+        let id3 = id3v23_title_payload("Before");
+        append_wav_chunk(&mut bytes, b"id3 ", &id3, false);
+        let declared = u32::from_le_bytes(bytes[4..8].try_into().unwrap());
+        bytes[4..8].copy_from_slice(&(declared - 1).to_le_bytes());
+
+        assert!(wav_chunks(&bytes).is_none());
+    }
+
+    #[test]
+    fn wav_chunks_rejects_terminal_unpadded_id3_with_oversized_riff_boundary() {
+        let mut bytes = fs::read(media_fixture("minimal.wav")).unwrap();
+        let id3 = id3v23_title_payload("Before");
+        append_wav_chunk(&mut bytes, b"ID3 ", &id3, false);
+        let declared = u32::from_le_bytes(bytes[4..8].try_into().unwrap());
+        bytes[4..8].copy_from_slice(&(declared + 1).to_le_bytes());
+
+        assert!(wav_chunks(&bytes).is_none());
+    }
+
+    #[test]
+    fn wav_riff_size_conversion_is_checked() {
+        assert_eq!(wav_riff_size_for_len(7), None);
+        assert_eq!(wav_riff_size_for_len(8), Some(0));
+        assert_eq!(wav_riff_size_for_len(u32::MAX as usize + 8), Some(u32::MAX));
+        assert_eq!(wav_riff_size_for_len(u32::MAX as usize + 9), None);
     }
 
     /// Intent: payload validation must describe PCM by borrowed byte ranges so
