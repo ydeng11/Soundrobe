@@ -74,7 +74,7 @@ the shared Rust `WriteQueue` and verify readback where applicable.
 3. Describe the user-visible behavior, the implementation boundary, and the
    verification commands in the pull request.
 4. Include screenshots or a short recording for UI changes.
-5. Update `CHANGELOG.md` under `[Unreleased]` for behavior changes. Test-only,
+5. Update `docs/CHANGELOG.md` under `[Unreleased]` for behavior changes. Test-only,
    documentation-only, refactor, and chore changes do not need a changelog
    entry.
 6. Confirm that no secrets, local configuration, generated bundles, or real

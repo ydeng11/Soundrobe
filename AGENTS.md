@@ -2,22 +2,25 @@
 
 ## Project overview
 
-Soundrobe is a Tauri 2 + React desktop app for editing and enriching audio metadata. The maintained application follows the root-level Tauri layout:
+Soundrobe is a Tauri 2 + React desktop app for editing and enriching audio metadata. The maintained application follows the root-level Tauri layout. `package.json`, `Justfile`, `vite.config.ts`, and `src-tauri/tauri.conf.json` define the JavaScript, task-runner, renderer-build, and desktop packaging entry points:
 
 - `src/` — React renderer and the renderer-neutral `DesktopAPI` contract.
-- `src/shared/tauri-adapter.ts` and `install-desktop-api.ts` — the renderer bridge from `DesktopAPI` calls and startup subscriptions to Tauri `invoke` and events.
+- `src/shared/tauri-adapter.ts` and `src/shared/install-desktop-api.ts` — the renderer bridge from `DesktopAPI` calls and startup subscriptions to Tauri `invoke` and events.
 - `src-tauri/src/commands/` — Tauri commands and orchestration.
 - `src-tauri/src/state/` — managed configuration, tasks, caches, providers, and write queue.
 - `src-tauri/src/infra/` — tag I/O, HTTP, SQLite, artwork, logging, encoding, and OpenRouter.
-- `test/` — renderer component/state/adapter tests and shared media fixtures.
+- `test/` — renderer component/state/adapter tests, repository/package-script contracts, script tests, and shared media fixtures.
 - `e2e-tauri/` — WebdriverIO workflows against the built native app; credentialed and real-display smokes are selected explicitly.
 - `src-tauri` inline `#[cfg(test)]` modules — Rust unit and integration contracts.
+- `scripts/` — standalone media/library utilities dispatched through `scripts/toolbox.sh`; its CommonJS runtime is separate from the ESM application.
+- `docs/` — operator documentation, release procedures, matching notes, and product assets under `docs/assets/`.
+- `.github/workflows/tests.yml` and `.github/workflows/release.yml` — required unit/type/desktop checks and versioned release-bundle publishing.
 
 ## Agent-generated documentation
 
 Keep agent working artifacts in the hidden `.planning/` tree. Use `.planning/` and its existing `phases/`, `quick/`, `research/`, `debug/`, and `milestones/` directories for structured planning; use `.planning/plans/` for standalone plans, `.planning/goals/` for goals and their interview/facts artifacts, and `.planning/handoffs/` for completed or session handoffs. Put design proposals in `.planning/design/`.
 
-Keep durable user- or operator-facing documentation in `docs/` and product design assets in `design/`. Do not create new root `PLAN.md`, `CONTEXT.md`, `plans/`, `goals/`, `docs/plans/`, or `docs/handoffs/` paths for agent artifacts.
+Keep durable user- or operator-facing documentation and product design assets in `docs/`. Do not create new root `PLAN.md`, `CONTEXT.md`, `plans/`, `goals/`, `docs/plans/`, or `docs/handoffs/` paths for agent artifacts.
 
 Tauri is the only application backend. Do not reintroduce Python application code, Electron, native Node modules, an Electron preload, or a second desktop backend.
 
@@ -47,10 +50,29 @@ From the repository root:
 - `just test` — run renderer and Rust tests
 - `just typecheck` — TypeScript typecheck
 - `just check` — typecheck plus all tests
-- `just dist mac|win|linux` — build a platform bundle
-- `just smoke-openrouter` — credentialed native OpenRouter integration gate
-- `just smoke-assistant` — credentialed packaged assistant loopback
+- `just smoke-openrouter` — credentialed native OpenRouter schema/response gate
+- `just smoke-assistant-ai` — credentialed ignored Rust assistant behavior tests
+- `just smoke-group-albums` — credentialed ignored assistant grouping test
+- `just smoke-assistant` — credentialed packaged assistant loopback through WebdriverIO
 - `just smoke-cover-picker` — macOS native picker cancellation gate
+- `just model [model-name]` — inspect or update `LLM_MODEL` in `.env.local`
+- `just dist mac|win|linux` — build an unsigned macOS, Windows, or Linux bundle
+- `just dist-mac-intel` — cross-build deterministic Intel macOS bundles
+
+The npm scripts are useful when a task needs one layer directly:
+
+- `npm run dev:web` / `npm run build:web` — run or build the Vite renderer used by Tauri.
+- `npm run build:e2e` — build the no-bundle Tauri app with the `wdio` feature.
+- `npm run test:web` / `npm run test:rust` — run the selected Vitest or Cargo suites.
+- `npm run test:e2e` — build and run the WebdriverIO native-app suite.
+- `npm run test:watch` — run the focused renderer tests in watch mode.
+- `npm run preview` — serve the built renderer with Vite.
+- `npm run dist:mac` / `npm run dist:win` / `npm run dist:linux` — invoke the platform-specific Tauri bundle targets.
+
+The standalone toolbox script has its own command-specific help and tests:
+
+- `scripts/toolbox.sh <command> -h` — inspect `cue-split`, `dsf-to-flac`, `slice-iso`, `unrar`, `doctor`, `corpus`, `corruption-report`, or `aggregate-checkpoint`.
+- `npx vitest run test/scripts` — run the toolbox and standalone utility tests.
 
 The deprecated `fe-*` forms remain compatibility aliases and delegate to the
 canonical commands with a deprecation notice.
@@ -82,7 +104,7 @@ The node-backed commands are thin delegates by design: the JS tools must stay st
 
 ## Changelog
 
-`CHANGELOG.md` at the repository root follows
+`docs/CHANGELOG.md` follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and documents
 user-visible changes between releases.
 

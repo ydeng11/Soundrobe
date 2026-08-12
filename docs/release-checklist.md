@@ -7,7 +7,7 @@ Set the same semantic version in `package.json`, `src-tauri/Cargo.toml`, and
 test suite rejects drift between these manifests, and the Settings footer reads
 the compiled Cargo version through the native `app_info` command.
 
-Finalize `CHANGELOG.md` before tagging: move the `[Unreleased]` entries into a
+Finalize `docs/CHANGELOG.md` before tagging: move the `[Unreleased]` entries into a
 dated section for the new version and leave an empty `[Unreleased]` heading.
 Push the matching `vX.Y.Z` tag after the version bump. The `release.yml`
 workflow validates the tag against all three manifests, rebuilds the unsigned
@@ -39,7 +39,7 @@ scripting; the app contents and disk image remain the same release artifacts.
 The Intel recipe cross-builds the x86_64 app and DMG from Apple Silicon.
 
 Windows NSIS and Linux AppImage/deb bundles are built and launch-smoked by the
-`tauri.yml` CI matrix. A desktop release is not complete until those platform
+`tests.yml` CI matrix. A desktop release is not complete until those platform
 jobs and the macOS app/DMG job pass.
 
 Do not commit `.env.local`, API keys, signing credentials, or notarization

@@ -249,8 +249,8 @@ desktop release.
 - **Legacy `grill-with-docs` agent skill** — the retired planning interview
   workflow is no longer installed in the project skill catalog.
 
-- Standalone `fix-medium` toolbox command (the underlying
-  `fix-medium-flac-tracks.js` tool remains available in `scripts/`).
+- Standalone `fix-medium` toolbox command and its obsolete
+  `fix-medium-flac-tracks.js` implementation.
 - Legacy Python CLI and Electron prototype artifacts (2026-07-18).
 
 ## [1.0.0] - 2026-05-10

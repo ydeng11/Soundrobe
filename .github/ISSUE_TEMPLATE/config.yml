@@ -18,5 +18,5 @@ contact_links:
     about: Share your library workflow, setup, or project built around Soundrobe.
 
   - name: Contributing guide
-    url: https://github.com/ydeng11/Soundrobe/blob/main/CONTRIBUTING.md
+    url: https://github.com/ydeng11/Soundrobe/blob/main/docs/CONTRIBUTING.md
     about: Read the development setup, testing, and pull request guidelines.
