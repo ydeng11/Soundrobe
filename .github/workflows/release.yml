@@ -67,15 +67,26 @@ jobs:
           - os: macos-latest
             command: npm run dist:mac
             artifact: macos-arm64
+            release_os: macos
+            release_arch: arm64
           - os: macos-15-intel
             command: npm run dist:mac
-            artifact: macos-x64
+            artifact: macos-intel
+            release_os: macos
+            release_arch: intel
           - os: windows-latest
             command: npm run dist:win
             artifact: windows-x64
           - os: ubuntu-22.04
             command: npm run dist:linux
             artifact: linux-x64
+            release_os: linux
+            release_arch: x64
+          - os: ubuntu-24.04-arm
+            command: npm run dist:linux
+            artifact: linux-arm64
+            release_os: linux
+            release_arch: arm64
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -94,6 +105,25 @@ jobs:
         env:
           CI: "true"
         run: ${{ matrix.command }}
+      - name: Rename macOS release bundles
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          version="$(node -p "require('./src-tauri/tauri.conf.json').version")"
+          mv \
+            src-tauri/target/release/bundle/dmg/*.dmg \
+            "src-tauri/target/release/bundle/dmg/soundrobe-${version}-${{ matrix.release_os }}-${{ matrix.release_arch }}.dmg"
+      - name: Rename Linux release bundles
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          version="$(node -p "require('./src-tauri/tauri.conf.json').version")"
+          mv \
+            src-tauri/target/release/bundle/appimage/*.AppImage \
+            "src-tauri/target/release/bundle/appimage/soundrobe-${version}-${{ matrix.release_os }}-${{ matrix.release_arch }}.AppImage"
+          mv \
+            src-tauri/target/release/bundle/deb/*.deb \
+            "src-tauri/target/release/bundle/deb/soundrobe-${version}-${{ matrix.release_os }}-${{ matrix.release_arch }}.deb"
       - name: Smoke macOS app bundle and DMG
         if: runner.os == 'macOS'
         shell: bash

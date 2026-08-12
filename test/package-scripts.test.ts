@@ -187,9 +187,27 @@ describe("package scripts", () => {
     expect(releaseWorkflow).toContain("release_needed=true");
     expect(releaseWorkflow).toContain("needs.version.outputs.release_needed == 'true'");
     expect(releaseWorkflow).toContain("macos-arm64");
-    expect(releaseWorkflow).toContain("macos-x64");
+    expect(releaseWorkflow).toContain("macos-intel");
     expect(releaseWorkflow).toContain("windows-x64");
     expect(releaseWorkflow).toContain("linux-x64");
+    expect(releaseWorkflow).toContain("linux-arm64");
+    expect(releaseWorkflow).toContain("release_os: macos");
+    expect(releaseWorkflow).toContain("release_os: linux");
+    expect(releaseWorkflow).toContain("release_arch: arm64");
+    expect(releaseWorkflow).toContain("release_arch: intel");
+    expect(releaseWorkflow).toContain("release_arch: x64");
+    expect(releaseWorkflow).toContain("ubuntu-24.04-arm");
+    expect(releaseWorkflow).toContain("Rename macOS release bundles");
+    expect(releaseWorkflow).toContain("Rename Linux release bundles");
+    expect(releaseWorkflow).toContain(
+      "soundrobe-${version}-${{ matrix.release_os }}-${{ matrix.release_arch }}.dmg",
+    );
+    expect(releaseWorkflow).toContain(
+      "soundrobe-${version}-${{ matrix.release_os }}-${{ matrix.release_arch }}.AppImage",
+    );
+    expect(releaseWorkflow).toContain(
+      "soundrobe-${version}-${{ matrix.release_os }}-${{ matrix.release_arch }}.deb",
+    );
     expect(releaseWorkflow).toContain("release-${{ matrix.artifact }}");
     expect(releaseWorkflow).toContain("actions/download-artifact@v4");
     expect(releaseWorkflow).toContain("softprops/action-gh-release@v2");

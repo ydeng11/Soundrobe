@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Explicit release artifact names** — macOS and Linux GitHub release
+  downloads are now named `soundrobe-{version}-{os}-{arch}` (for example
+  `soundrobe-0.1.0-macos-arm64.dmg`, `soundrobe-0.1.0-macos-intel.dmg`, or
+  `soundrobe-0.1.0-linux-arm64.deb`), so the app name, version, OS, and
+  architecture are visible in each filename.
+
+- **Linux ARM64 releases** — the release pipeline now builds and publishes
+  ARM64 AppImage and deb packages alongside the existing x64 ones.
+
 - WAV files whose terminal ID3 chunk omits its optional RIFF padding byte can
   now be edited without changing their PCM audio.
 
