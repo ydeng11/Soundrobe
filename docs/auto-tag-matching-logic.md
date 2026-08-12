@@ -5,7 +5,7 @@ release, how it aligns local files to remote tracks, and how final tag values
 are assembled for writing. It is meant to be the working map for improving the
 logic without guessing at the code path.
 
-Active implementation lives under `frontend/`. The legacy Python CLI is not
+Active implementation lives in root-level `src/` and `src-tauri/`. The legacy Python CLI is not
 covered here.
 
 ## Main Objects

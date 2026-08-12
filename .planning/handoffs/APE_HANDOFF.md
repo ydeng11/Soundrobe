@@ -1,4 +1,8 @@
-# APE Tag Support — Handoff Document
+# APE Tag Support — Historical Handoff Document
+
+> Archived material: this handoff documents the retired Electron implementation
+> and preserves its original paths for historical context. Soundrobe's active
+> application is now the root-level Tauri app.
 
 ## Status ✅ **All bugs fixed and verified**
 

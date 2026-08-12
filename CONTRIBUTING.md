@@ -29,13 +29,13 @@ Prerequisites:
 Install dependencies and start the development app:
 
 ```bash
-just fe-install
-just fe-dev
+just install
+just dev
 ```
 
-The maintained application lives under `frontend/`. Renderer code should use
+The maintained application lives at the repository root. Renderer code should use
 the shared `DesktopAPI` contract. Direct Tauri transport calls belong in the
-bridge modules under `frontend/src/shared/`; filesystem, HTTP, SQLite, secrets,
+bridge modules under `src/shared/`; filesystem, HTTP, SQLite, secrets,
 and metadata I/O stay in the native Rust process.
 
 ## Tests and quality checks
@@ -43,24 +43,24 @@ and metadata I/O stay in the native Rust process.
 Run the default local gate before opening a pull request:
 
 ```bash
-just fe-check
+just check
 ```
 
 Useful targeted checks are:
 
 ```bash
-just fe-typecheck
-just fe-test
-cd frontend/src-tauri && cargo clippy --all-targets -- -D warnings
+just typecheck
+just test
+cd src-tauri && cargo clippy --all-targets -- -D warnings
 ```
 
 Credentialed or real-display checks are separate and should be run when the
 change affects those workflows:
 
 ```bash
-just fe-smoke-openrouter
-just fe-smoke-assistant
-just fe-smoke-cover-picker
+just smoke-openrouter
+just smoke-assistant
+just smoke-cover-picker
 ```
 
 Tests should explain the behavior they protect. For metadata changes, preserve

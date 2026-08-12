@@ -2,22 +2,22 @@
 
 ## Project overview
 
-Soundrobe is a Tauri 2 + React desktop app for editing and enriching audio metadata. The maintained application is entirely under `frontend/`:
+Soundrobe is a Tauri 2 + React desktop app for editing and enriching audio metadata. The maintained application follows the root-level Tauri layout:
 
-- `frontend/src/` — React renderer and the renderer-neutral `DesktopAPI` contract.
-- `frontend/src/shared/tauri-adapter.ts` and `install-desktop-api.ts` — the renderer bridge from `DesktopAPI` calls and startup subscriptions to Tauri `invoke` and events.
-- `frontend/src-tauri/src/commands/` — Tauri commands and orchestration.
-- `frontend/src-tauri/src/state/` — managed configuration, tasks, caches, providers, and write queue.
-- `frontend/src-tauri/src/infra/` — tag I/O, HTTP, SQLite, artwork, logging, encoding, and OpenRouter.
-- `frontend/test/` — renderer component/state/adapter tests and shared media fixtures.
-- `frontend/e2e-tauri/` — WebdriverIO workflows against the built native app; credentialed and real-display smokes are selected explicitly.
-- `frontend/src-tauri` inline `#[cfg(test)]` modules — Rust unit and integration contracts.
+- `src/` — React renderer and the renderer-neutral `DesktopAPI` contract.
+- `src/shared/tauri-adapter.ts` and `install-desktop-api.ts` — the renderer bridge from `DesktopAPI` calls and startup subscriptions to Tauri `invoke` and events.
+- `src-tauri/src/commands/` — Tauri commands and orchestration.
+- `src-tauri/src/state/` — managed configuration, tasks, caches, providers, and write queue.
+- `src-tauri/src/infra/` — tag I/O, HTTP, SQLite, artwork, logging, encoding, and OpenRouter.
+- `test/` — renderer component/state/adapter tests and shared media fixtures.
+- `e2e-tauri/` — WebdriverIO workflows against the built native app; credentialed and real-display smokes are selected explicitly.
+- `src-tauri` inline `#[cfg(test)]` modules — Rust unit and integration contracts.
 
 ## Agent-generated documentation
 
 Keep agent working artifacts in the hidden `.planning/` tree. Use `.planning/` and its existing `phases/`, `quick/`, `research/`, `debug/`, and `milestones/` directories for structured planning; use `.planning/plans/` for standalone plans, `.planning/goals/` for goals and their interview/facts artifacts, and `.planning/handoffs/` for completed or session handoffs. Put design proposals in `.planning/design/`.
 
-Keep durable user- or operator-facing documentation in `docs/` and product design assets in `design/`. Do not create new root `PLAN.md`, `CONTEXT.md`, `plans/`, `goals/`, `frontend/plans/`, `docs/plans/`, or `docs/handoffs/` paths for agent artifacts.
+Keep durable user- or operator-facing documentation in `docs/` and product design assets in `design/`. Do not create new root `PLAN.md`, `CONTEXT.md`, `plans/`, `goals/`, `docs/plans/`, or `docs/handoffs/` paths for agent artifacts.
 
 Tauri is the only application backend. Do not reintroduce Python application code, Electron, native Node modules, an Electron preload, or a second desktop backend.
 
@@ -31,7 +31,7 @@ Tauri is the only application backend. Do not reintroduce Python application cod
 - Native bridge: Tauri commands for request/response and Tauri events for pushed progress
 - Tests: Cargo test, Vitest, and WebdriverIO with the Tauri driver
 
-Renderer code should use the shared `DesktopAPI` contract. Keep direct Tauri `invoke` and `listen` calls inside the bridge modules under `frontend/src/shared/`; do not leak Tauri transport details into components or state. Tauri commands receive renderer requests and wire services, while filesystem access, HTTP, SQLite, secrets, and tag I/O remain in the native process. Pure deterministic logic should remain independently testable.
+Renderer code should use the shared `DesktopAPI` contract. Keep direct Tauri `invoke` and `listen` calls inside the bridge modules under `src/shared/`; do not leak Tauri transport details into components or state. Tauri commands receive renderer requests and wire services, while filesystem access, HTTP, SQLite, secrets, and tag I/O remain in the native process. Pure deterministic logic should remain independently testable.
 
 All media writes must go through the shared Rust `WriteQueue`; never create a parallel writer or bypass atomic validation. Register every new command in the Tauri `generate_handler!` list, expose it through the existing adapter contract, and fail explicitly when a command or format is unsupported.
 
@@ -41,26 +41,29 @@ The metadata pipeline remains: folder hints → exact provider IDs / artist rele
 
 From the repository root:
 
-- `just fe-install` — install renderer and Tauri CLI dependencies
-- `just fe-dev` — run Tauri with Vite HMR
-- `just fe-build` — build the Tauri app/bundle
-- `just fe-test` — run renderer and Rust tests
-- `just fe-typecheck` — TypeScript typecheck
-- `just fe-check` — typecheck plus all tests
-- `just fe-dist mac|win|linux` — build a platform bundle
-- `just fe-smoke-openrouter` — credentialed native OpenRouter integration gate
-- `just fe-smoke-assistant` — credentialed packaged assistant loopback
-- `just fe-smoke-cover-picker` — macOS native picker cancellation gate
+- `just install` — install renderer and Tauri CLI dependencies
+- `just dev` — run Tauri with Vite HMR
+- `just build` — build the Tauri app/bundle
+- `just test` — run renderer and Rust tests
+- `just typecheck` — TypeScript typecheck
+- `just check` — typecheck plus all tests
+- `just dist mac|win|linux` — build a platform bundle
+- `just smoke-openrouter` — credentialed native OpenRouter integration gate
+- `just smoke-assistant` — credentialed packaged assistant loopback
+- `just smoke-cover-picker` — macOS native picker cancellation gate
+
+The deprecated `fe-*` forms remain compatibility aliases and delegate to the
+canonical commands with a deprecation notice.
 
 Targeted checks:
 
-- `cd frontend && npm run test:web`
-- `cd frontend && npm run test:e2e`
-- `cd frontend && npm run typecheck`
-- `cd frontend/src-tauri && cargo test <filter>`
-- `cd frontend/src-tauri && cargo clippy --all-targets -- -D warnings`
+- `npm run test:web`
+- `npm run test:e2e`
+- `npm run typecheck`
+- `cd src-tauri && cargo test <filter>`
+- `cd src-tauri && cargo clippy --all-targets -- -D warnings`
 
-`just fe-check` is the deterministic default gate and does not run credentialed or real-display smoke tests. Run the relevant smoke explicitly when changing OpenRouter, assistant loopback, native dialogs, or packaged-app integration.
+`just check` is the deterministic default gate and does not run credentialed or real-display smoke tests. Run the relevant smoke explicitly when changing OpenRouter, assistant loopback, native dialogs, or packaged-app integration.
 
 ## Media toolbox scripts
 
@@ -75,7 +78,7 @@ Targeted checks:
 - `corruption-report <report> [output.html]` — render a doctor scan into an HTML corruption report; delegates to `generate-corruption-report.js`.
 - `aggregate-checkpoint <checkpoint-dir> [output.json]` — merge checkpoint batches into one report JSON; delegates to `aggregate-checkpoint.js`.
 
-The node-backed commands are thin delegates by design: the JS tools must stay standalone files — the doctor forks worker processes by path, and `frontend/test/scripts/` runs them directly (see `frontend/test/scripts/toolbox.test.ts` for dispatcher and cue-split coverage). Do not fold the node tools into `toolbox.sh`. Script tests: `cd frontend && npx vitest run test/scripts`.
+The node-backed commands are thin delegates by design: the JS tools must stay standalone files — the doctor forks worker processes by path, and `test/scripts/` runs them directly (see `test/scripts/toolbox.test.ts` for dispatcher and cue-split coverage). Do not fold the node tools into `toolbox.sh`. Script tests: `npx vitest run test/scripts`.
 
 ## Changelog
 

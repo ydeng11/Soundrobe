@@ -127,27 +127,27 @@ Prerequisites:
 Install dependencies and start the desktop app:
 
 ```bash
-just fe-install
-just fe-dev
+just install
+just dev
 ```
 
-The Rust backend is in `frontend/src-tauri`, the React renderer is in
-`frontend/src`, and renderer/Rust tests live beside those maintained surfaces.
+The Rust backend is in `src-tauri`, the React renderer is in `src`, and
+renderer/Rust tests live in `test` and beside the Rust modules they cover.
 
 ## Verification
 
 Run the complete local quality gate:
 
 ```bash
-just fe-check
+just check
 ```
 
 Useful targeted commands:
 
 ```bash
-just fe-typecheck
-just fe-test
-cd frontend/src-tauri && cargo clippy --all-targets -- -D warnings
+just typecheck
+just test
+cd src-tauri && cargo clippy --all-targets -- -D warnings
 ```
 
 Credentialed provider smoke tests are separate from the default offline suite;

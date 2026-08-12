@@ -19,8 +19,13 @@ reports/
 .claude/get-shit-done/bin/lib/
 .codex/get-shit-done/bin/lib/
 
-# Frontend (Tauri)
+# Tauri application
 node_modules/
-frontend/dist/
-frontend/test-results/
+dist/
+test-results/
 .planning/
+!.planning/
+.planning/*
+!.planning/handoffs/
+.planning/handoffs/*
+!.planning/handoffs/APE_HANDOFF.md
