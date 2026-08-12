@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- WAV files whose terminal ID3 chunk omits its optional RIFF padding byte can
+  now be edited without changing their PCM audio.
+
 - Pull requests now report a single required test result, while cross-platform
   release bundles are built nightly only when the app version is unpublished.
 
