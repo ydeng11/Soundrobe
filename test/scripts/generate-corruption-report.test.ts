@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-const repoRoot = path.resolve(__dirname, "../../..");
+const repoRoot = path.resolve(__dirname, "../..");
 const scriptPath = path.join(repoRoot, "scripts/generate-corruption-report.js");
 
 describe("generate-corruption-report script", () => {

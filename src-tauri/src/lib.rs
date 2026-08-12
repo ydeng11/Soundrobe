@@ -1,7 +1,7 @@
 //! Soundrobe — Tauri 2 native shell (Electron migration).
 //!
 //! The renderer-neutral `window.api` contract lives in
-//! `frontend/src/shared/desktop-api.ts`. This crate implements the same
+//! `src/shared/desktop-api.ts`. This crate implements the same
 //! surface with Tauri commands (request/response via `invoke`) and Tauri
 //! events (the low-frequency `auto-tag:event`, `audit:event`,
 //! `assistant:event`, and `debug:log` streams). Structured Rust errors

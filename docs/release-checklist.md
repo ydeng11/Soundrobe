@@ -2,8 +2,8 @@
 
 ## Version
 
-Set the same semantic version in `frontend/package.json`,
-`frontend/src-tauri/Cargo.toml`, and `frontend/src-tauri/tauri.conf.json`. The
+Set the same semantic version in `package.json`, `src-tauri/Cargo.toml`, and
+`src-tauri/tauri.conf.json`. The
 test suite rejects drift between these manifests, and the Settings footer reads
 the compiled Cargo version through the native `app_info` command.
 
@@ -19,19 +19,19 @@ NSIS installer, AppImage, and deb packages to the GitHub Release.
 Run the local quality and credentialed production-client gates:
 
 ```bash
-just fe-check
-just fe-smoke-openrouter
-just fe-smoke-assistant
+just check
+just smoke-openrouter
+just smoke-assistant
 ```
 
 On macOS, also exercise the real native image picker and build the unsigned app
 and DMG:
 
 ```bash
-just fe-smoke-cover-picker
-CI=true just fe-dist mac
+just smoke-cover-picker
+CI=true just dist mac
 rustup target add x86_64-apple-darwin
-just fe-dist-mac-intel
+just dist-mac-intel
 ```
 
 `CI=true` uses Tauri's deterministic DMG path and skips Finder-only cosmetic

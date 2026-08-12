@@ -50,19 +50,18 @@ describe("package scripts", () => {
 
   it("keeps Tauri as the only application and packaging backend", () => {
     const legacyPaths = [
-      "src",
       "tests",
       "pyproject.toml",
       "uv.lock",
       "packaging/homebrew",
-      "frontend/electron",
-      "frontend/electron-builder.yml",
-      "frontend/dist-electron",
-      "frontend/e2e",
+      "electron",
+      "electron-builder.yml",
+      "dist-electron",
+      "e2e",
     ];
 
     for (const legacyPath of legacyPaths) {
-      expect(existsSync(resolve(__dirname, "../..", legacyPath)), legacyPath).toBe(false);
+      expect(existsSync(resolve(__dirname, "..", legacyPath)), legacyPath).toBe(false);
     }
   });
 
@@ -121,9 +120,14 @@ describe("package scripts", () => {
   });
 
   it("loads the local dotenv file for the credentialed OpenRouter release gate", () => {
-    const justfile = readFileSync(resolve(__dirname, "../../Justfile"), "utf8");
+    const justfile = readFileSync(resolve(__dirname, "../Justfile"), "utf8");
 
     expect(justfile).toContain('set dotenv-path := ".env.local"');
+    for (const recipe of ["install", "dev", "build", "test", "typecheck", "check", "dist"]) {
+      expect(justfile).toMatch(new RegExp(`^${recipe}(?: [^:]*)?:`, "m"));
+      expect(justfile).toContain(`DEPRECATED: use 'just ${recipe}'`);
+    }
+    expect(justfile).toContain("smoke-openrouter:");
     expect(justfile).toContain("fe-smoke-openrouter:");
     expect(justfile).toContain("live_openrouter_returns_schema_constrained_json");
     expect(justfile).toContain("fe-smoke-assistant:");
@@ -134,7 +138,7 @@ describe("package scripts", () => {
 
   it("declares every required unsigned Tauri bundle target", () => {
     const { scripts } = readPackageJson();
-    const justfile = readFileSync(resolve(__dirname, "../../Justfile"), "utf8");
+    const justfile = readFileSync(resolve(__dirname, "../Justfile"), "utf8");
     const tauriConfig = JSON.parse(
       readFileSync(resolve(__dirname, "../src-tauri/tauri.conf.json"), "utf8"),
     ) as { bundle: { category: string } };
@@ -149,7 +153,7 @@ describe("package scripts", () => {
 
   it("keeps pull request status checks limited to tests", () => {
     const workflow = readFileSync(
-      resolve(__dirname, "../../.github/workflows/tests.yml"),
+      resolve(__dirname, "../.github/workflows/tests.yml"),
       "utf8",
     );
 
@@ -167,7 +171,7 @@ describe("package scripts", () => {
 
   it("checks nightly for a new app version before publishing release bundles", () => {
     const releaseWorkflow = readFileSync(
-      resolve(__dirname, "../../.github/workflows/release.yml"),
+      resolve(__dirname, "../.github/workflows/release.yml"),
       "utf8",
     );
 
@@ -198,7 +202,7 @@ describe("package scripts", () => {
   it("runs test-only embedded WebdriverIO coverage on every desktop platform", () => {
     const { scripts } = readPackageJson();
     const workflow = readFileSync(
-      resolve(__dirname, "../../.github/workflows/tests.yml"),
+      resolve(__dirname, "../.github/workflows/tests.yml"),
       "utf8",
     );
     const wdioConfig = readFileSync(resolve(__dirname, "../wdio.conf.ts"), "utf8");

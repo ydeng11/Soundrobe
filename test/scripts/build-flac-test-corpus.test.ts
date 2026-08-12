@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-const repoRoot = path.resolve(__dirname, "../../..");
+const repoRoot = path.resolve(__dirname, "../..");
 const scriptPath = path.join(repoRoot, "scripts/build-flac-test-corpus.js");
 
 function writeFile(filePath: string, contents = "fake flac") {

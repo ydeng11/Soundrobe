@@ -29,9 +29,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           PUSHED_TAG: ${{ github.event_name == 'push' && github.ref_name || '' }}
         run: |
-          package_version="$(node -p "require('./frontend/package.json').version")"
-          tauri_version="$(node -p "require('./frontend/src-tauri/tauri.conf.json').version")"
-          cargo_version="$(sed -n 's/^version = \"\([^\"]*\)\"/\1/p' frontend/src-tauri/Cargo.toml | head -n 1)"
+          package_version="$(node -p "require('./package.json').version")"
+          tauri_version="$(node -p "require('./src-tauri/tauri.conf.json').version")"
+          cargo_version="$(sed -n 's/^version = \"\([^\"]*\)\"/\1/p' src-tauri/Cargo.toml | head -n 1)"
           release_tag="v$package_version"
 
           test -z "$PUSHED_TAG" || test "$PUSHED_TAG" = "$release_tag" || {
@@ -83,23 +83,20 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: frontend/package-lock.json
+          cache-dependency-path: package-lock.json
       - uses: dtolnay/rust-toolchain@stable
       - name: Install Linux build dependencies
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf xvfb
-      - name: Install frontend dependencies
+      - name: Install app dependencies
         run: npm ci
-        working-directory: frontend
       - name: Build unsigned release bundles
         env:
           CI: "true"
         run: ${{ matrix.command }}
-        working-directory: frontend
       - name: Smoke macOS app bundle and DMG
         if: runner.os == 'macOS'
         shell: bash
-        working-directory: frontend
         run: |
           app="$(find src-tauri/target/release/bundle/macos -name '*.app' -print -quit)"
           dmg="$(find src-tauri/target/release/bundle/dmg -name '*.dmg' -print -quit)"
@@ -115,7 +112,6 @@ jobs:
       - name: Smoke Windows NSIS installer
         if: runner.os == 'Windows'
         shell: pwsh
-        working-directory: frontend
         run: |
           $installer = Get-ChildItem "src-tauri/target/release/bundle/nsis/*-setup.exe" | Select-Object -First 1
           if (-not $installer) { throw "NSIS installer not found" }
@@ -130,7 +126,6 @@ jobs:
       - name: Smoke Linux AppImage bundle
         if: runner.os == 'Linux'
         shell: bash
-        working-directory: frontend
         run: |
           appimage="$(find src-tauri/target/release/bundle/appimage -name '*.AppImage' -print -quit)"
           test -n "$appimage"
@@ -143,7 +138,6 @@ jobs:
       - name: Smoke Linux deb installer
         if: runner.os == 'Linux'
         shell: bash
-        working-directory: frontend
         run: |
           deb="$(find src-tauri/target/release/bundle/deb -name '*.deb' -print -quit)"
           test -n "$deb"
@@ -156,7 +150,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: release-${{ matrix.artifact }}
-          path: frontend/src-tauri/target/release/bundle/**
+          path: src-tauri/target/release/bundle/**
           if-no-files-found: error
 
   publish:

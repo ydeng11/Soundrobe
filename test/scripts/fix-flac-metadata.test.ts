@@ -6,7 +6,7 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { flacHeaderWithDuration, paddingBlock, vorbisCommentBlock } from "../helpers/flac-helpers";
 
-const repoRoot = path.resolve(__dirname, "../../..");
+const repoRoot = path.resolve(__dirname, "../..");
 const scriptPath = path.join(repoRoot, "scripts/fix-flac-metadata.js");
 
 function writeBrokenAudioFlac(filePath: string, title: string) {
