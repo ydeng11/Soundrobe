@@ -1,5 +1,7 @@
 name: Tests
 
+# Dummy change to verify required status checks on pull requests.
+
 on:
   push:
     branches: [main]
