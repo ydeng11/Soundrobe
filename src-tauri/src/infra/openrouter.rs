@@ -158,8 +158,8 @@ impl LlmEndpoint {
     /// Backward compat: when provider is absent/unknown -> OpenAi.
     /// When base_url is set it takes priority over the provider default.
     pub fn from_config(provider: Option<&str>, base_url: Option<&str>) -> Self {
-        let provider = provider.and_then(|p| if p.is_empty() { None } else { Some(p) });
-        let base_url = base_url.and_then(|u| if u.is_empty() { None } else { Some(u) });
+        let provider = provider.filter(|&p| !p.is_empty());
+        let base_url = base_url.filter(|&u| !u.is_empty());
         match (provider, base_url) {
             (Some(p), Some(u)) => Self {
                 provider: ProviderKind::from_provider_str(p),

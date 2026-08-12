@@ -3247,7 +3247,7 @@ fn canonical_json(value: &Value) -> String {
     match value {
         Value::Object(object) => {
             let mut entries = object.iter().collect::<Vec<_>>();
-            entries.sort_by(|(left, _), (right, _)| left.cmp(right));
+            entries.sort_by_key(|(left, _)| *left);
             let body = entries
                 .into_iter()
                 .map(|(key, value)| {
