@@ -75,6 +75,27 @@ appropriate. Soundrobe preserves individual collaborator values in plural
 artist fields where the format supports them; this avoids hiding multiple
 artists inside one display string.
 
+### Tag format support by file type
+
+Soundrobe reads the native tag format(s) of each supported file type and
+rewrites metadata in the format shown below.
+
+| File type | Tags read | Tags written |
+| --- | --- | --- |
+| MP3 | ID3v1 (fallback), ID3v2.2, ID3v2.3, ID3v2.4 | ID3v2.4 |
+| WAV | ID3v2.2, ID3v2.3, ID3v2.4, RIFF `LIST INFO` | ID3v2.4 (in the RIFF `ID3 ` chunk) |
+| FLAC | Vorbis comments | Vorbis comments |
+| OGG / Opus | Vorbis comments | Vorbis comments |
+| M4A / MP4 | MPEG-4 `ilst` | MPEG-4 `ilst` |
+| APE | APEv2 | APEv2 |
+| AIFF | ID3v2, RIFF `LIST INFO` | — (read-only) |
+
+- MP3 and WAV edits rewrite existing ID3v2.2/2.3 tags as ID3v2.4.
+- ID3v1 values are read as a fallback when ID3v2 does not define a field. MP3
+  edits preserve a trailing ID3v1 tag without refreshing it, while APE writes
+  remove it.
+- AIFF metadata is read-only in Soundrobe; use another tool to tag AIFF files.
+
 ## A safe workflow
 
 1. Put new music into the `Artist/Album/` structure above and keep a backup.
