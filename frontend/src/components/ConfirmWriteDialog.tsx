@@ -22,6 +22,7 @@ interface RowState {
   selectedRemoteIndex: number | null; // null = "Do not update"
   editedTitle: string;
   editedArtist: string;
+  editedArtists: string[];
   editedTrackNumber: string;
   editedTrackTotal: string;
   editedDiscNumber: string;
@@ -51,6 +52,7 @@ export function ConfirmWriteDialog({
         selectedRemoteIndex: remoteIdx,
         editedTitle: remoteTrack?.title ?? "",
         editedArtist: remoteTrack?.artist ?? "",
+        editedArtists: remoteTrack?.artists ?? [],
         editedTrackNumber: remoteTrack?.trackNumber?.toString() ?? "",
         editedTrackTotal: remoteTrack?.trackTotal?.toString() ?? "",
         editedDiscNumber: remoteTrack?.discNumber?.toString() ?? "",
@@ -72,6 +74,7 @@ export function ConfirmWriteDialog({
         selectedRemoteIndex: newRemoteIdx,
         editedTitle: remoteTrack?.title ?? "",
         editedArtist: remoteTrack?.artist ?? "",
+        editedArtists: remoteTrack?.artists ?? [],
         editedTrackNumber: remoteTrack?.trackNumber?.toString() ?? "",
         editedTrackTotal: remoteTrack?.trackTotal?.toString() ?? "",
         editedDiscNumber: remoteTrack?.discNumber?.toString() ?? "",
@@ -84,6 +87,11 @@ export function ConfirmWriteDialog({
     setRows((prev) => {
       const next = [...prev];
       (next[localIdx] as unknown as Record<string, unknown>)[field] = value;
+      if (field === "editedArtist") {
+        // Once the display credit is manually edited, the native boundary
+        // deterministically rebuilds ARTISTS from this value.
+        next[localIdx].editedArtists = value ? [value] : [];
+      }
       return next;
     });
   }, []);
@@ -124,7 +132,7 @@ export function ConfirmWriteDialog({
       return {
         title: r.editedTitle || undefined,
         artist: r.editedArtist || undefined,
-        artists: r.editedArtist ? [r.editedArtist] : [],
+        artists: r.editedArtists,
         // Native contract is snake_case (TrackCandidate); camelCase keys are
         // silently dropped by serde, so disc/track numbers never reached the
         // writer before.
@@ -208,6 +216,12 @@ export function ConfirmWriteDialog({
                     ({unusedRemoteTracks.length} unused remote track{unusedRemoteTracks.length !== 1 ? "s" : ""})
                   </span>
                 )}
+              </div>
+
+              <div className="mb-4 text-[12px] text-text-muted">
+                {previewResult.albumCandidate.genre
+                  ? `Genre: ${previewResult.albumCandidate.genre}`
+                  : "Genre unavailable; existing genre will be preserved."}
               </div>
 
               <div className="overflow-x-auto">
