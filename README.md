@@ -1,5 +1,11 @@
 # <img src="docs/assets/design/logo-final-2026-07-28/soundrobe-s-inline.png" alt="S" width="26" height="32" valign="middle">oundrobe
 
+[![License: MIT](https://img.shields.io/github/license/ydeng11/Soundrobe)](LICENSE)
+[![Tests](https://img.shields.io/github/actions/workflow/status/ydeng11/Soundrobe/tests.yml?branch=main&label=Tests&logo=github)](https://github.com/ydeng11/Soundrobe/actions/workflows/tests.yml)
+[![Release](https://img.shields.io/github/actions/workflow/status/ydeng11/Soundrobe/release.yml?branch=main&label=Release&logo=github)](https://github.com/ydeng11/Soundrobe/actions/workflows/release.yml)
+[![CodeQL](https://img.shields.io/github/actions/workflow/status/ydeng11/Soundrobe/codeql.yml?branch=main&label=CodeQL&logo=github)](https://github.com/ydeng11/Soundrobe/actions/workflows/codeql.yml)
+[![Commit activity](https://img.shields.io/github/commit-activity/m/ydeng11/Soundrobe)](https://github.com/ydeng11/Soundrobe/commits/main)
+
 Soundrobe is a Tauri 2 desktop application for preparing and maintaining
 Navidrome-friendly music libraries. It combines metadata automation, an AI
 assistant, path-aware metadata auditing, and album/artist artwork downloading
