@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-08-11
+
 ### Changed
 
 - **Explicit release artifact names** — macOS and Linux GitHub release
@@ -275,5 +277,6 @@ Navidrome-oriented libraries:
 - ReplayGain calculation and ffprobe-based audio validation.
 - Local MusicMoveArr dataset lookup.
 
-[Unreleased]: https://github.com/ydeng11/Soundrobe/compare/v1.0...HEAD
+[Unreleased]: https://github.com/ydeng11/Soundrobe/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/ydeng11/Soundrobe/releases/tag/v0.1.0
 [1.0.0]: https://github.com/ydeng11/Soundrobe/releases/tag/v1.0
