@@ -16,6 +16,38 @@ in one workflow.
 > on a backup or copy of your music library and review changes before asking
 > Navidrome to rescan it.
 
+> **Note: opening Soundrobe on macOS.** Soundrobe is currently tested on macOS
+> only; Windows and Linux builds are not verified yet. When opening a
+> downloaded build, macOS Gatekeeper may refuse it and only offer "Move to
+> Trash". First try Control-click (right-click) the app in Finder and choose
+> **Open**. If that option is not available, clear the quarantine flag and
+> re-sign the app locally:
+>
+> ```bash
+> xattr -dr com.apple.quarantine /Applications/Soundrobe.app
+> codesign --force --deep -s - /Applications/Soundrobe.app
+> open /Applications/Soundrobe.app
+> ```
+>
+> If `open` still fails, re-register the app with LaunchServices and try again:
+>
+> ```bash
+> /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f /Applications/Soundrobe.app
+> open /Applications/Soundrobe.app
+> ```
+>
+> Adjust the path if the app is stored elsewhere. This trusts the app only on
+> your own Mac; distributing it to other users requires Developer ID signing
+> and notarization.
+
+## Documentation
+
+- [Changelog](docs/CHANGELOG.md) — release history and per-version changes.
+- [Security](docs/SECURITY.md) — security policy and how to report a
+  vulnerability.
+- [Contributing](docs/CONTRIBUTING.md) — development setup, testing, and
+  contribution guidelines.
+
 ![Soundrobe desktop workflow](docs/assets/Soundrobe-1.gif)
 
 ## What makes Soundrobe different
