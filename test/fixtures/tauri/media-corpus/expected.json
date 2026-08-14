@@ -21,7 +21,11 @@
     "composer": "Corpus Composer",
     "comment": "Corpus Comment",
     "description": "Corpus Description",
-    "lyrics": "Corpus Lyrics",
+    "lyrics": {
+      "syncedLyrics": null,
+      "plainLyrics": "Corpus Lyrics",
+      "language": "eng"
+    },
     "compilation": null,
     "musicbrainzTrackId": "corpus-mb-track",
     "musicbrainzAlbumId": "corpus-mb-album",

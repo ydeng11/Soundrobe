@@ -217,7 +217,7 @@ export function TitleBar({
             ? "text-[#34c759]/60 cursor-wait"
             : "text-[#34c759] hover:bg-[#34c759]/10"
         }`}
-        title="Download missing lyrics and fix encoding of existing .lrc/.txt files"
+        title="Embed missing lyrics from valid local sidecars or LRCLIB without modifying sidecar files"
       >
         {lyricsGetting ? (
           <SpinnerIcon />

@@ -154,6 +154,38 @@ describe("App — batch save progress", () => {
     expect(screen.getByText("Open Library")).toBeTruthy();
   });
 
+  it("summarizes structured lyrics embedding results", async () => {
+    const downloadAlbumLyrics = vi.fn().mockResolvedValue({
+      total: 5,
+      written: 2,
+      embeddedPreserved: 1,
+      noLyrics: 0,
+      unsupported: 1,
+      failed: 1,
+      results: [],
+    });
+    window.api.downloadAlbumLyrics = downloadAlbumLyrics;
+
+    render(<App />);
+    await act(async () => {
+      fireEvent.click(screen.getByText("Open Library"));
+    });
+    await waitFor(() => expect(screen.getAllByTestId(/^file-row-/)).toHaveLength(2));
+
+    await act(async () => {
+      fireEvent.click(screen.getByText("Get Lyrics"));
+    });
+
+    await waitFor(() => {
+      expect(downloadAlbumLyrics).toHaveBeenCalledWith("/music/Test Album");
+      expect(
+        screen.getByText(
+          "Lyrics: 2 embedded, 1 preserved, 0 unavailable, 1 unsupported, 1 failed",
+        ),
+      ).toBeTruthy();
+    });
+  });
+
   it("subscribes to onTrackWriteEvent on batch save and dispatches progress", async () => {
     render(<App />);
     await act(async () => { await Promise.resolve(); });

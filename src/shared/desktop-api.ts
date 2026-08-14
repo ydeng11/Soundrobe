@@ -27,6 +27,35 @@ export interface CoverInfo {
   dataUrl: string | null;
 }
 
+export interface LyricsDocument {
+  syncedLyrics: string | null;
+  plainLyrics: string;
+  language: string;
+}
+
+export type LyricsSource = "embedded" | "lrc" | "txt" | "remote";
+export type LyricsTrackStatus =
+  | "embeddedPreserved"
+  | "written"
+  | "noLyrics"
+  | "unsupported"
+  | "failed";
+
+export interface LyricsBatchReport {
+  total: number;
+  written: number;
+  embeddedPreserved: number;
+  noLyrics: number;
+  unsupported: number;
+  failed: number;
+  results: Array<{
+    path: string;
+    status: LyricsTrackStatus;
+    source: LyricsSource | null;
+    error: string | null;
+  }>;
+}
+
 export interface TrackData {
   path: string;
   title: string | null;
@@ -44,7 +73,7 @@ export interface TrackData {
   composer: string | null;
   comment: string | null;
   description: string | null;
-  lyrics: string | null;
+  lyrics: LyricsDocument | null;
   compilation: boolean | null;
   musicbrainzTrackId: string | null;
   musicbrainzAlbumId: string | null;
@@ -530,7 +559,7 @@ export interface DesktopAPI {
 
   // Auto-tag
   autoTagAlbum: (albumPath: string) => Promise<string>;
-  downloadAlbumLyrics: (albumPath: string) => Promise<number>;
+  downloadAlbumLyrics: (albumPath: string) => Promise<LyricsBatchReport>;
   onAutoTagEvent: (callback: (event: AutoTagEvent) => void) => () => void;
   onTrackWriteEvent: (callback: (event: TrackWriteEvent) => void) => () => void;
   getTaskProgress: (taskId: string) => Promise<TaskProgress | null>;
@@ -561,7 +590,7 @@ export interface DesktopAPI {
     artistName: string,
     albumName?: string,
     duration?: number,
-  ) => Promise<string | null>;
+  ) => Promise<LyricsDocument | null>;
 
   // Config
   getConfig: () => Promise<Record<string, unknown>>;

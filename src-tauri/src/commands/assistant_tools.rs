@@ -101,7 +101,7 @@ pub(crate) fn assistant_tool_definitions() -> Vec<AssistantToolDefinition> {
         },
         ToolSpec {
             name: "api.lyricsSearch",
-            description: "Fetch lyrics for a track by artist and title from the configured lyrics API.",
+            description: "Fetch a canonical lyrics document for a track by artist and title from the configured lyrics API, including synchronized LRC, derived plain lyrics, and language when available.",
             read_only: true, public: true,
             operation_kind: Kind::Lookup,
         },

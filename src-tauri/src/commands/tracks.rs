@@ -6,6 +6,7 @@
 
 use crate::commands::covers::{cover_cache_source, cover_cache_warm};
 use crate::commands::library::is_audio_file;
+use crate::commands::lyrics::{read_embedded_lyrics, LyricsDocument};
 use crate::error::ApiError;
 use lofty::config::ParseOptions;
 use lofty::file::{AudioFile, TaggedFileExt};
@@ -51,7 +52,7 @@ pub struct TrackData {
     pub composer: Option<String>,
     pub comment: Option<String>,
     pub description: Option<String>,
-    pub lyrics: Option<String>,
+    pub lyrics: Option<LyricsDocument>,
     pub compilation: Option<bool>,
     #[serde(rename = "musicbrainzTrackId")]
     pub musicbrainz_track_id: Option<String>,
@@ -571,38 +572,39 @@ fn canonical_extra_provider_key(key: &str) -> Option<String> {
 }
 
 fn is_metadata_editor_key(key: &str) -> bool {
-    matches!(
-        key.trim().to_ascii_uppercase().as_str(),
-        "TIT2"
-            | "TITLE"
-            | "TPE1"
-            | "ARTIST"
-            | "TALB"
-            | "ALBUM"
-            | "TPE2"
-            | "ALBUMARTIST"
-            | "ALBUM ARTIST"
-            | "TDRC"
-            | "TYER"
-            | "DATE"
-            | "YEAR"
-            | "TRCK"
-            | "TRACK"
-            | "TRACKNUMBER"
-            | "TRACKTOTAL"
-            | "TOTALTRACKS"
-            | "TPOS"
-            | "DISC"
-            | "DISCNUMBER"
-            | "DISCTOTAL"
-            | "TOTALDISCS"
-            | "TCON"
-            | "GENRE"
-            | "TCOM"
-            | "COMPOSER"
-            | "METADATA_BLOCK_PICTURE"
-            | "APIC"
-    )
+    crate::commands::lyrics::is_lyrics_alias(key)
+        || matches!(
+            key.trim().to_ascii_uppercase().as_str(),
+            "TIT2"
+                | "TITLE"
+                | "TPE1"
+                | "ARTIST"
+                | "TALB"
+                | "ALBUM"
+                | "TPE2"
+                | "ALBUMARTIST"
+                | "ALBUM ARTIST"
+                | "TDRC"
+                | "TYER"
+                | "DATE"
+                | "YEAR"
+                | "TRCK"
+                | "TRACK"
+                | "TRACKNUMBER"
+                | "TRACKTOTAL"
+                | "TOTALTRACKS"
+                | "TPOS"
+                | "DISC"
+                | "DISCNUMBER"
+                | "DISCTOTAL"
+                | "TOTALDISCS"
+                | "TCON"
+                | "GENRE"
+                | "TCOM"
+                | "COMPOSER"
+                | "METADATA_BLOCK_PICTURE"
+                | "APIC"
+        )
 }
 
 /// Read one track into the renderer DTO. Generic containers use Lofty; FLAC
@@ -610,6 +612,22 @@ fn is_metadata_editor_key(key: &str) -> bool {
 /// uses the raw APEv2 fallback because a trailing ID3v1 tag makes normal parsers
 /// unreliable (matching Electron's post-parse fallback policy).
 pub fn read_track_metadata(path: &Path) -> Result<TrackData, ApiError> {
+    let mut track = read_track_metadata_without_lyrics(path)?;
+    track.lyrics = match read_embedded_lyrics(path) {
+        Ok(lyrics) => lyrics,
+        Err(error) => {
+            tracing::warn!(
+                path = %path.display(),
+                %error,
+                "embedded lyrics could not be decoded; preserving the readable track without lyrics"
+            );
+            None
+        }
+    };
+    Ok(track)
+}
+
+pub(crate) fn read_track_metadata_without_lyrics(path: &Path) -> Result<TrackData, ApiError> {
     let size_bytes = fs::metadata(path)?.len();
     let extension = path
         .extension()
@@ -1068,8 +1086,7 @@ fn from_tags(
         composer: first_string(tags, ItemKey::Composer),
         comment: first_string(tags, ItemKey::Comment),
         description: first_string(tags, ItemKey::Description),
-        lyrics: first_string(tags, ItemKey::Lyrics)
-            .or_else(|| first_string(tags, ItemKey::UnsyncLyrics)),
+        lyrics: None,
         compilation: first_string(tags, ItemKey::FlagCompilation).and_then(parse_bool),
         musicbrainz_track_id: first_string(tags, ItemKey::MusicBrainzRecordingId),
         musicbrainz_album_id: first_string(tags, ItemKey::MusicBrainzReleaseId),
@@ -1416,7 +1433,7 @@ fn read_ogg_vorbis_fallback(path: &Path, size_bytes: u64) -> Result<Option<Track
         composer: first_comment(&comments, "COMPOSER"),
         comment: first_comment(&comments, "COMMENT"),
         description: first_comment(&comments, "DESCRIPTION"),
-        lyrics: first_comment(&comments, "LYRICS"),
+        lyrics: None,
         compilation: first_comment(&comments, "COMPILATION").and_then(parse_bool),
         musicbrainz_track_id: first_comment(&comments, "MUSICBRAINZ_TRACKID"),
         musicbrainz_album_id: first_comment(&comments, "MUSICBRAINZ_ALBUMID"),
@@ -1978,7 +1995,7 @@ fn read_flac_fallback(path: &Path, size_bytes: u64) -> Result<Option<TrackData>,
         composer: first_comment(&comments, "COMPOSER"),
         comment: first_comment(&comments, "COMMENT"),
         description: first_comment(&comments, "DESCRIPTION"),
-        lyrics: first_comment(&comments, "LYRICS"),
+        lyrics: None,
         compilation: None,
         musicbrainz_track_id: first_comment(&comments, "MUSICBRAINZ_TRACKID"),
         musicbrainz_album_id: first_comment(&comments, "MUSICBRAINZ_ALBUMID"),
@@ -2243,7 +2260,7 @@ fn ape_track_from_parts(
         composer: first_tag(&tags, "COMPOSER"),
         comment: first_tag(&tags, "COMMENT"),
         description: first_tag(&tags, "DESCRIPTION"),
-        lyrics: first_tag(&tags, "LYRICS"),
+        lyrics: None,
         compilation: None,
         musicbrainz_track_id: first_tag(&tags, "MUSICBRAINZ_TRACKID"),
         musicbrainz_album_id: first_tag(&tags, "MUSICBRAINZ_ALBUMID"),
@@ -2338,6 +2355,19 @@ fn parse_ape_items(data: &[u8]) -> Vec<(String, String)> {
     } else {
         Vec::new()
     }
+}
+
+pub(crate) fn ape_text_values(path: &Path, wanted: &str) -> Vec<String> {
+    fs::read(path).map_or_else(
+        |_| Vec::new(),
+        |bytes| {
+            parse_ape_items(&bytes)
+                .into_iter()
+                .filter(|(key, _)| key.eq_ignore_ascii_case(wanted))
+                .map(|(_, value)| value)
+                .collect()
+        },
+    )
 }
 
 fn ape_stream_info(data: &[u8]) -> (Option<u32>, Option<f64>) {
