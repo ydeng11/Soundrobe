@@ -17,11 +17,28 @@ function walk(root) {
 }
 
 function semverFromTag(tag) {
-  const match = /^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/.exec(
-    tag,
-  );
-  if (!match) throw new Error("tag must match v<semver>");
+  const semver = /^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/;
+  if (!semver.test(tag)) throw new Error("tag must match v<semver>");
+  if (!/^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.test(tag)) {
+    throw new Error("tag must identify a stable release without prerelease or build metadata");
+  }
   return tag.slice(1);
+}
+
+export function releaseNotesFromChangelog(changelog, version) {
+  const escapedVersion = version.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const heading = new RegExp(`^## \\[${escapedVersion}\\](?:\\s+-\\s+.*)?$`, "m");
+  const match = heading.exec(changelog);
+  if (!match) throw new Error(`missing changelog section for ${version}`);
+  const remainder = changelog.slice(match.index + match[0].length).replace(/^\s+/, "");
+  const nextSection = remainder.search(/^##\s+/m);
+  const section = nextSection >= 0 ? remainder.slice(0, nextSection) : remainder;
+  return section
+    .trim()
+    .replace(/^###\s+(.+)$/gm, "$1")
+    .replace(/\[([^\]]+)]\([^)]+\)/g, "$1")
+    .replace(/\*\*([^*]+)\*\*/g, "$1")
+    .replace(/`([^`]+)`/g, "$1");
 }
 
 function platformSpecs(version) {
@@ -83,11 +100,13 @@ function main(args) {
   const assetsDir = option(args, "--assets");
   const tag = option(args, "--tag");
   const output = option(args, "--output");
+  const version = semverFromTag(tag);
+  const changelog = readFileSync(option(args, "--changelog"), "utf8");
   const manifest = buildUpdaterManifest({
     assetsDir,
     tag,
     pubDate: option(args, "--pub-date", false) ?? null,
-    notes: option(args, "--notes", false) ?? "",
+    notes: releaseNotesFromChangelog(changelog, version),
   });
   writeFileSync(output, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
 }

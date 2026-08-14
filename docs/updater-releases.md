@@ -68,7 +68,9 @@ still applies.
 
 After all matrix artifacts are downloaded, the workflow runs
 `scripts/generate-updater-manifest.mjs` once. The generator rejects missing or
-duplicate artifacts/signatures and creates seven installer-aware entries:
+duplicate artifacts/signatures, rejects non-stable release tags, copies the
+matching version section from `docs/CHANGELOG.md` into the in-app prompt as
+plain text, and creates seven installer-aware entries:
 
 - `darwin-aarch64-app` and `darwin-x86_64-app`;
 - `windows-x86_64-nsis`;

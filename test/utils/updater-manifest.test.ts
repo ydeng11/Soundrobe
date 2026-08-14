@@ -4,7 +4,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 // @ts-expect-error The release script is plain ESM so GitHub Actions can run it directly.
-import { buildUpdaterManifest } from "../../scripts/generate-updater-manifest.mjs";
+import {
+  buildUpdaterManifest,
+  releaseNotesFromChangelog,
+} from "../../scripts/generate-updater-manifest.mjs";
 
 const roots: string[] = [];
 
@@ -35,6 +38,33 @@ function writeArtifacts(root: string, version = "1.2.3") {
 }
 
 describe("updater manifest generator", () => {
+  it("extracts plain-text notes from the exact versioned changelog section", () => {
+    const changelog = `# Changelog
+
+## [Unreleased]
+
+- Future work
+
+## [1.2.3] - 2026-08-14
+
+### Added
+
+- **Signed updates** — Install from [GitHub](https://github.com/example).
+- Uses \`latest.json\`.
+
+## [1.2.2] - 2026-08-01
+
+- Previous release
+`;
+
+    expect(releaseNotesFromChangelog(changelog, "1.2.3")).toBe(
+      "Added\n\n- Signed updates — Install from GitHub.\n- Uses latest.json.",
+    );
+    expect(() => releaseNotesFromChangelog(changelog, "1.2.4")).toThrow(
+      /missing changelog section.*1\.2\.4/i,
+    );
+  });
+
   it("builds deterministic installer-aware targets with tag-specific URLs and inline signatures", () => {
     const root = fixtureRoot();
     writeArtifacts(root);
@@ -98,5 +128,16 @@ describe("updater manifest generator", () => {
     expect(() =>
       buildUpdaterManifest({ assetsDir: root, tag: "latest" }),
     ).toThrow(/tag must match v<semver>/i);
+  });
+
+  it("rejects prerelease and build-metadata tags so latest stays stable", () => {
+    const root = fixtureRoot();
+
+    expect(() =>
+      buildUpdaterManifest({ assetsDir: root, tag: "v1.2.3-beta.1" }),
+    ).toThrow(/stable release/i);
+    expect(() =>
+      buildUpdaterManifest({ assetsDir: root, tag: "v1.2.3+nightly" }),
+    ).toThrow(/stable release/i);
   });
 });

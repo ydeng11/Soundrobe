@@ -2,6 +2,7 @@ use crate::error::ApiError;
 use crate::state::updater::UpdaterState;
 use crate::state::write_queue::WriteQueue;
 use serde::Serialize;
+use std::future::Future;
 use std::path::Path;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
@@ -67,6 +68,25 @@ fn update_info(update: &tauri_plugin_updater::Update) -> AppUpdateInfo {
     }
 }
 
+async fn coordinate_pending_install<T, F, Fut>(
+    state: &crate::state::updater::PendingUpdateState<T>,
+    queue: &WriteQueue,
+    install: F,
+) -> Result<(), String>
+where
+    T: Clone,
+    F: FnOnce(T) -> Fut,
+    Fut: Future<Output = Result<(), String>>,
+{
+    let update = state.begin_install().await.map_err(str::to_owned)?;
+    let installation = queue.try_run_exclusive(install(update)).await;
+    let result = installation.unwrap_or_else(|| {
+        Err("Cannot install an update while a protected disk operation is active".into())
+    });
+    state.finish_install(result.is_ok()).await;
+    result
+}
+
 #[tauri::command]
 pub async fn updater_check(
     app: AppHandle,
@@ -99,10 +119,6 @@ pub async fn updater_install(
     state: State<'_, UpdaterState>,
     queue: State<'_, WriteQueue>,
 ) -> Result<(), ApiError> {
-    let update = state
-        .begin_install()
-        .await
-        .map_err(|message| ApiError::Message(message.into()))?;
     let progress_app = app.clone();
     let finish_app = app.clone();
     let downloaded = Arc::new(AtomicU64::new(0));
@@ -115,57 +131,45 @@ pub async fn updater_install(
     let finish_total = Arc::clone(&total);
     let finish_total_known = Arc::clone(&total_known);
 
-    let installation = queue
-        .try_run_exclusive(async move {
-            update
-                .download_and_install(
-                    move |chunk_length, content_length| {
-                        let current = chunk_downloaded
-                            .fetch_add(chunk_length as u64, Ordering::AcqRel)
-                            + chunk_length as u64;
-                        if let Some(content_length) = content_length {
-                            chunk_total.store(content_length, Ordering::Release);
-                            chunk_total_known.store(true, Ordering::Release);
-                        }
-                        let _ = progress_app.emit(
-                            "updater:progress",
-                            AppUpdateProgress {
-                                phase: "downloading",
-                                downloaded: current,
-                                total: chunk_total_known
-                                    .load(Ordering::Acquire)
-                                    .then(|| chunk_total.load(Ordering::Acquire)),
-                            },
-                        );
-                    },
-                    move || {
-                        let _ = finish_app.emit(
-                            "updater:progress",
-                            AppUpdateProgress {
-                                phase: "installing",
-                                downloaded: finish_downloaded.load(Ordering::Acquire),
-                                total: finish_total_known
-                                    .load(Ordering::Acquire)
-                                    .then(|| finish_total.load(Ordering::Acquire)),
-                            },
-                        );
-                    },
-                )
-                .await
-        })
-        .await;
-
-    let result = match installation {
-        Some(Ok(())) => Ok(()),
-        Some(Err(error)) => Err(ApiError::Message(format!(
-            "failed to download or install update: {error}"
-        ))),
-        None => Err(ApiError::Message(
-            "Cannot install an update while a protected disk operation is active".into(),
-        )),
-    };
-    state.finish_install(result.is_ok()).await;
-    result?;
+    coordinate_pending_install(state.inner(), queue.inner(), move |update| async move {
+        update
+            .download_and_install(
+                move |chunk_length, content_length| {
+                    let current = chunk_downloaded.fetch_add(chunk_length as u64, Ordering::AcqRel)
+                        + chunk_length as u64;
+                    if let Some(content_length) = content_length {
+                        chunk_total.store(content_length, Ordering::Release);
+                        chunk_total_known.store(true, Ordering::Release);
+                    }
+                    let _ = progress_app.emit(
+                        "updater:progress",
+                        AppUpdateProgress {
+                            phase: "downloading",
+                            downloaded: current,
+                            total: chunk_total_known
+                                .load(Ordering::Acquire)
+                                .then(|| chunk_total.load(Ordering::Acquire)),
+                        },
+                    );
+                },
+                move || {
+                    let _ = finish_app.emit(
+                        "updater:progress",
+                        AppUpdateProgress {
+                            phase: "installing",
+                            downloaded: finish_downloaded.load(Ordering::Acquire),
+                            total: finish_total_known
+                                .load(Ordering::Acquire)
+                                .then(|| finish_total.load(Ordering::Acquire)),
+                        },
+                    );
+                },
+            )
+            .await
+            .map_err(|error| format!("failed to download or install update: {error}"))
+    })
+    .await
+    .map_err(ApiError::Message)?;
 
     #[cfg(not(target_os = "windows"))]
     app.restart();
@@ -176,8 +180,11 @@ pub async fn updater_install(
 
 #[cfg(test)]
 mod tests {
-    use super::updater_enabled;
+    use super::{coordinate_pending_install, updater_enabled};
+    use crate::state::updater::PendingUpdateState;
+    use crate::state::write_queue::WriteQueue;
     use std::path::Path;
+    use std::sync::{Arc, Mutex};
 
     #[test]
     fn updater_is_disabled_for_all_debug_builds() {
@@ -215,5 +222,36 @@ mod tests {
             true,
             Path::new("/Applications/Soundrobe.app/Contents/MacOS/soundrobe")
         ));
+    }
+
+    /// Intent: the command's install path must consume pending state only
+    /// after owning the shared write exclusion and must preserve progress
+    /// emitted by the installer operation.
+    #[tokio::test]
+    async fn coordinated_install_crosses_pending_state_queue_and_progress() {
+        let state = PendingUpdateState::default();
+        state.replace(Some("v2")).await.unwrap();
+        let queue = WriteQueue::default();
+        let operation_queue = queue.clone();
+        let progress = Arc::new(Mutex::new(Vec::new()));
+        let operation_progress = Arc::clone(&progress);
+
+        coordinate_pending_install(&state, &queue, move |update| async move {
+            assert_eq!(update, "v2");
+            assert!(operation_queue.is_active());
+            operation_progress.lock().unwrap().push("downloading");
+            operation_progress.lock().unwrap().push("installing");
+            Ok(())
+        })
+        .await
+        .unwrap();
+
+        assert_eq!(*progress.lock().unwrap(), ["downloading", "installing"]);
+        assert!(!queue.is_active());
+        assert!(!state.is_installing());
+        assert_eq!(
+            state.begin_install().await.unwrap_err(),
+            "there is no pending update to install"
+        );
     }
 }

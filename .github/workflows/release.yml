@@ -247,12 +247,12 @@ jobs:
         run: find release-assets -type f -print
       - name: Generate and verify updater manifest
         run: |
-          pub_date="$(git show -s --format=%cI "${{ github.sha }}")"
+          pub_date="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           node scripts/generate-updater-manifest.mjs \
             --assets release-assets \
             --tag "${{ needs.version.outputs.release_tag }}" \
             --pub-date "$pub_date" \
-            --notes "See the Soundrobe ${{ needs.version.outputs.release_tag }} release notes on GitHub." \
+            --changelog docs/CHANGELOG.md \
             --output release-assets/latest.json
           node -e "const m=require('./release-assets/latest.json'); if (Object.keys(m.platforms).length !== 7) throw new Error('latest.json must contain seven installer-aware targets')"
       - name: Create GitHub release and upload installers
