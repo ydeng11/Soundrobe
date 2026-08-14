@@ -1,5 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { UndoManager } from "../../src/state/UndoManager";
+import {
+  UndoManager,
+  revertHistoryThrough,
+} from "../../src/state/UndoManager";
 
 describe("UndoManager", () => {
   it("starts with canUndo = false", () => {
@@ -19,55 +22,83 @@ describe("UndoManager", () => {
     expect(um.currentDescription).toBe("Edit title");
   });
 
-  it("pop returns the most recent operation", () => {
-    const um = new UndoManager();
-    um.push("Edit title", [
-      { path: "/music/song.mp3", fields: { title: "Old Title" } },
-    ]);
-    um.push("Edit artist", [
-      { path: "/music/song.mp3", fields: { artist: "Old Artist" } },
-    ]);
-
-    const op = um.pop();
-    expect(op).not.toBeNull();
-    expect(op!.description).toBe("Edit artist");
-    expect(op!.snapshots).toHaveLength(1);
-    expect(op!.snapshots[0].fields.artist).toBe("Old Artist");
-    expect(um.length).toBe(1);
-  });
-
-  it("pop returns null when stack is empty", () => {
-    const um = new UndoManager();
-    expect(um.pop()).toBeNull();
-  });
-
   it("clear empties the stack", () => {
     const um = new UndoManager();
-    um.push("Edit 1", []);
-    um.push("Edit 2", []);
+    um.push("Edit 1", [{ path: "/one", fields: { title: "One" } }]);
+    um.push("Edit 2", [{ path: "/two", fields: { title: "Two" } }]);
     um.clear();
     expect(um.length).toBe(0);
     expect(um.canUndo).toBe(false);
   });
 
-  it("respects max depth by dropping oldest operations", () => {
-    const um = new UndoManager(3);
-    um.push("Op 1", []);
-    um.push("Op 2", []);
-    um.push("Op 3", []);
-    um.push("Op 4", []);
+  it("exposes newest-first history and caps the session at 20 commands", () => {
+    const um = new UndoManager();
+    for (let index = 1; index <= 21; index++) {
+      um.push(`Op ${index}`, [
+        { path: `/music/${index}.flac`, fields: { title: `Old ${index}` } },
+      ]);
+    }
 
-    expect(um.length).toBe(3);
-    // The oldest (Op 1) should be gone
-    expect(um.currentDescription).toBe("Op 4");
-    um.pop(); // Op 4
-    um.pop(); // Op 3
-    expect(um.currentDescription).toBe("Op 2");
-    um.pop(); // Op 2
-    expect(um.canUndo).toBe(false);
+    expect(um.length).toBe(20);
+    expect(um.history[0].description).toBe("Op 21");
+    expect(um.history[0].affectedFileCount).toBe(1);
+    expect(um.history.at(-1)?.description).toBe("Op 2");
   });
 
-  it("preserves snapshot data through push/pop cycle", () => {
+  it("reverts a selected older command and every newer command newest-first", async () => {
+    const um = new UndoManager();
+    um.push("Oldest", [{ path: "/oldest", fields: { title: "a" } }]);
+    um.push("Middle", [{ path: "/middle", fields: { title: "b" } }]);
+    um.push("Newest", [{ path: "/newest", fields: { title: "c" } }]);
+    const calls: string[] = [];
+
+    const result = await revertHistoryThrough(
+      um,
+      um.history[1].id,
+      async (snapshot) => {
+        calls.push(snapshot.path);
+        return null;
+      },
+    );
+
+    expect(calls).toEqual(["/newest", "/middle"]);
+    expect(result.manager.history.map((operation) => operation.description)).toEqual([
+      "Oldest",
+    ]);
+    expect(result.failures).toEqual([]);
+  });
+
+  it("retains failed snapshots as the latest retryable remainder and stops before older commands", async () => {
+    const um = new UndoManager();
+    um.push("Older", [{ path: "/older", fields: { title: "a" } }]);
+    um.push("Newest", [
+      { path: "/success", fields: { title: "b" } },
+      { path: "/failure", fields: { title: "c", genre: "Pop" } },
+    ]);
+
+    const result = await revertHistoryThrough(
+      um,
+      um.history[1].id,
+      async (snapshot) =>
+        snapshot.path === "/failure"
+          ? {
+              snapshot: { path: snapshot.path, fields: { genre: "Pop" } },
+              error: "disk full",
+            }
+          : null,
+    );
+
+    expect(result.manager.history.map((operation) => operation.description)).toEqual([
+      "Newest",
+      "Older",
+    ]);
+    expect(result.manager.history[0].snapshots).toEqual([
+      { path: "/failure", fields: { genre: "Pop" } },
+    ]);
+    expect(result.failures).toEqual([{ path: "/failure", error: "disk full" }]);
+  });
+
+  it("preserves snapshot data in exposed history", () => {
     const um = new UndoManager();
     const snapshot = {
       path: "/music/song.mp3",
@@ -80,7 +111,7 @@ describe("UndoManager", () => {
     };
 
     um.push("Edit multiple", [snapshot]);
-    const op = um.pop();
+    const op = um.history[0];
     expect(op!.snapshots).toHaveLength(1);
     expect(op!.snapshots[0].path).toBe("/music/song.mp3");
     expect(op!.snapshots[0].fields.title).toBe("Old Title");
@@ -97,7 +128,7 @@ describe("UndoManager", () => {
       { path: "/music/track3.mp3", fields: { title: "T3 Old" } },
     ]);
 
-    const op = um.pop();
+    const op = um.history[0];
     expect(op!.snapshots).toHaveLength(3);
     expect(op!.description).toBe("Batch edit");
   });

@@ -8,13 +8,21 @@ export interface TrackSnapshot {
   fields: Record<string, unknown>;
 }
 
-interface UndoOperation {
+export interface UndoOperation {
+  id: number;
   description: string;
   timestamp: number;
   snapshots: TrackSnapshot[];
+  affectedFileCount: number;
 }
 
-const MAX_STACK_DEPTH = 50;
+export interface SnapshotRevertFailure {
+  snapshot: TrackSnapshot;
+  error: string;
+}
+
+const MAX_STACK_DEPTH = 20;
+let nextOperationId = 1;
 
 export class UndoManager {
   private stack: UndoOperation[] = [];
@@ -36,10 +44,14 @@ export class UndoManager {
   }
 
   push(description: string, snapshots: TrackSnapshot[]): void {
+    if (snapshots.length === 0) return;
     this.stack.push({
+      id: nextOperationId++,
       description,
       timestamp: Date.now(),
       snapshots: [...snapshots],
+      affectedFileCount: new Set(snapshots.map((snapshot) => snapshot.path))
+        .size,
     });
     if (this.stack.length > this.maxDepth) {
       this.stack.shift();
@@ -51,18 +63,52 @@ export class UndoManager {
    * operation already pushed. The original is not mutated.
    */
   cloneAndPush(description: string, snapshots: TrackSnapshot[]): UndoManager {
-    const clone = new UndoManager(this.maxDepth);
-    clone.stack = this.stack.map((op) => ({
-      ...op,
-      snapshots: [...op.snapshots],
-    }));
+    const clone = this.clone();
     clone.push(description, snapshots);
     return clone;
   }
 
-  pop(): UndoOperation | null {
-    if (this.stack.length === 0) return null;
-    return this.stack.pop()!;
+  clone(): UndoManager {
+    const clone = new UndoManager(this.maxDepth);
+    clone.stack = this.stack.map((operation) => ({
+      ...operation,
+      snapshots: operation.snapshots.map((snapshot) => ({
+        ...snapshot,
+        fields: { ...snapshot.fields },
+      })),
+    }));
+    return clone;
+  }
+
+  get history(): UndoOperation[] {
+    return this.stack
+      .slice()
+      .reverse()
+      .map((operation) => ({
+        ...operation,
+        snapshots: operation.snapshots.map((snapshot) => ({
+          ...snapshot,
+          fields: { ...snapshot.fields },
+        })),
+      }));
+  }
+
+  replaceHistory(history: UndoOperation[]): UndoManager {
+    const clone = new UndoManager(this.maxDepth);
+    clone.stack = history
+      .slice(0, this.maxDepth)
+      .reverse()
+      .map((operation) => ({
+        ...operation,
+        snapshots: operation.snapshots.map((snapshot) => ({
+          ...snapshot,
+          fields: { ...snapshot.fields },
+        })),
+        affectedFileCount: new Set(
+          operation.snapshots.map((snapshot) => snapshot.path),
+        ).size,
+      }));
+    return clone;
   }
 
   clear(): void {
@@ -72,4 +118,62 @@ export class UndoManager {
   get length(): number {
     return this.stack.length;
   }
+}
+
+/**
+ * Revert the selected command and every newer command. The callback returns
+ * null after a complete snapshot revert, or the retryable remainder after a
+ * partial/failed revert.
+ */
+export async function revertHistoryThrough(
+  manager: UndoManager,
+  targetId: number,
+  revertSnapshot: (
+    snapshot: TrackSnapshot,
+  ) => Promise<SnapshotRevertFailure | null>,
+): Promise<{
+  manager: UndoManager;
+  failures: Array<{ path: string; error: string }>;
+}> {
+  const history = manager.history;
+  const targetIndex = history.findIndex((operation) => operation.id === targetId);
+  if (targetIndex < 0) {
+    return { manager, failures: [] };
+  }
+
+  let remainingHistory = history;
+  for (const operation of history.slice(0, targetIndex + 1)) {
+    const failedSnapshots: TrackSnapshot[] = [];
+    const failures: Array<{ path: string; error: string }> = [];
+
+    for (const snapshot of operation.snapshots) {
+      const failure = await revertSnapshot(snapshot);
+      if (failure) {
+        failedSnapshots.push(failure.snapshot);
+        failures.push({ path: snapshot.path, error: failure.error });
+      }
+    }
+
+    remainingHistory = remainingHistory.filter(
+      (candidate) => candidate.id !== operation.id,
+    );
+    if (failedSnapshots.length > 0) {
+      remainingHistory.unshift({
+        ...operation,
+        snapshots: failedSnapshots,
+        affectedFileCount: new Set(
+          failedSnapshots.map((snapshot) => snapshot.path),
+        ).size,
+      });
+      return {
+        manager: manager.replaceHistory(remainingHistory),
+        failures,
+      };
+    }
+  }
+
+  return {
+    manager: manager.replaceHistory(remainingHistory),
+    failures: [],
+  };
 }

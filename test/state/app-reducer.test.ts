@@ -221,7 +221,7 @@ describe("appReducer", () => {
     });
   });
 
-  describe("PUSH_UNDO / POP_UNDO", () => {
+  describe("modification history", () => {
     it("push adds to the undo stack", () => {
       const state = { ...initialAppState, undoManager: new UndoManager() };
       const afterPush = appReducer(state, {
@@ -233,19 +233,27 @@ describe("appReducer", () => {
       expect(afterPush.undoManager.length).toBe(1);
     });
 
-    it("POP_UNDO triggers a re-render without modifying the undo stack", () => {
-      const um = new UndoManager();
-      um.push("Edit", [
-        { path: "/music/s.mp3", fields: { title: "Old" } },
+    it("preserves a command pushed while a revert was in progress", () => {
+      const base = new UndoManager();
+      base.push("Older", [{ path: "/older", fields: { title: "Old" } }]);
+      const baseIds = base.history.map((operation) => operation.id);
+      const current = base.cloneAndPush("Concurrent", [
+        { path: "/concurrent", fields: { genre: "Rock" } },
       ]);
-      const state = { ...initialAppState, undoManager: um };
-      const afterPop = appReducer(state, {
-        type: "POP_UNDO",
-      });
-      // POP_UNDO just returns the same state (triggers re-render).
-      // The actual pop is done by handleRevert before dispatching POP_UNDO.
-      expect(afterPop.undoManager.canUndo).toBe(true);
-      expect(afterPop.undoManager.length).toBe(1);
+      const reverted = base.replaceHistory([]);
+
+      const next = appReducer(
+        { ...initialAppState, undoManager: current },
+        {
+          type: "APPLY_UNDO_RESULT",
+          undoManager: reverted,
+          baseOperationIds: baseIds,
+        },
+      );
+
+      expect(next.undoManager.history.map((operation) => operation.description)).toEqual([
+        "Concurrent",
+      ]);
     });
   });
 
