@@ -12,7 +12,7 @@ use crate::{
     commands::{
         covers::{download_album_artwork_at, download_artist_artwork_at},
         library::collect_audio_files,
-        lyrics::{fetch_album_lyrics, DEFAULT_BASE_URL},
+        lyrics::{fetch_album_lyrics, LyricsDocument, DEFAULT_BASE_URL},
         mutations::{write_track_queued, TrackPatch},
         tracks::read_album,
     },
@@ -2097,7 +2097,7 @@ async fn apply_candidate_tags_reported(
     candidate: &AlbumCandidate,
     queue: &WriteQueue,
     scope: CandidateApplyScope<'_>,
-    lyrics_map: HashMap<PathBuf, String>,
+    lyrics_map: HashMap<PathBuf, LyricsDocument>,
     mut report_write: impl FnMut(&str),
 ) -> Result<usize, ApiError> {
     let fallback_artist = album_path

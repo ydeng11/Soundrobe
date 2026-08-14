@@ -11,6 +11,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Reliable embedded lyrics** — lyrics now preserve valid embedded content
+  before checking `.lrc`, `.txt`, or LRCLIB sources; strictly reject uncertain
+  or malformed text instead of writing mojibake; embed synchronized and plain
+  lyrics in Navidrome-compatible tags without modifying sidecar files; and
+  report written, preserved, unavailable, unsupported, and failed tracks.
+
 - **Explicit release artifact names** — macOS and Linux GitHub release
   downloads are now named `soundrobe-{version}-{os}-{arch}` (for example
   `soundrobe-0.1.0-macos-arm64.dmg`, `soundrobe-0.1.0-macos-intel.dmg`, or

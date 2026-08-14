@@ -1,6 +1,7 @@
 //! Media mutation core. Commands and queue integration land only after each
 //! format's pure writer passes differential and payload-safety tests.
 
+use crate::commands::lyrics::{is_lyrics_alias, LyricsDocument};
 use crate::commands::tracks::{
     id3_user_text_values, read_track_metadata, strip_wav_padding, unreadable_track_data, TrackData,
 };
@@ -10,7 +11,10 @@ use lofty::ape::{ApeFile, ApeItem, ApeTag};
 use lofty::config::{ParseOptions, WriteOptions};
 use lofty::file::{AudioFile, TaggedFileExt};
 use lofty::flac::FlacFile;
-use lofty::id3::v2::{Frame, FrameId, Id3v2Tag, TextInformationFrame, UnsynchronizedTextFrame};
+use lofty::id3::v2::{
+    BinaryFrame, Frame, FrameId, Id3v2Tag, SyncTextContentType, SynchronizedTextFrame,
+    TextInformationFrame, TimestampFormat, UnsynchronizedTextFrame,
+};
 use lofty::iff::wav::WavFile;
 use lofty::mp4::{Atom, AtomData, AtomIdent, Ilst, Mp4File};
 use lofty::mpeg::MpegFile;
@@ -135,8 +139,8 @@ pub struct TrackPatch {
     pub comment: Patch<String>,
     #[serde(default)]
     pub description: Patch<String>,
-    #[serde(default)]
-    pub lyrics: Patch<String>,
+    #[serde(default, deserialize_with = "deserialize_lyrics_patch")]
+    pub lyrics: Patch<LyricsDocument>,
     #[serde(default)]
     pub compilation: Patch<bool>,
     #[serde(default)]
@@ -149,6 +153,26 @@ pub struct TrackPatch {
     pub discogs_artist_id: Patch<String>,
     #[serde(default)]
     pub discogs_release_id: Patch<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(untagged)]
+enum LyricsPatchWire {
+    Legacy(String),
+    Document(LyricsDocument),
+}
+
+fn deserialize_lyrics_patch<'de, D>(deserializer: D) -> Result<Patch<LyricsDocument>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    Option::<LyricsPatchWire>::deserialize(deserializer).and_then(|value| match value {
+        None => Ok(Patch::Null),
+        Some(LyricsPatchWire::Legacy(text)) => LyricsDocument::from_text(&text, "und")
+            .map(Patch::Value)
+            .map_err(serde::de::Error::custom),
+        Some(LyricsPatchWire::Document(document)) => Ok(Patch::Value(document)),
+    })
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -1243,31 +1267,29 @@ fn normalized_extra_tags(tags: &[ExtraTagUpdate]) -> Vec<ExtraTagUpdate> {
 }
 
 fn is_reserved_extra_key(key: &str) -> bool {
-    matches!(
-        key.trim().to_ascii_uppercase().as_str(),
-        "TITLE"
-            | "ARTIST"
-            | "ARTISTS"
-            | "ALBUM"
-            | "ALBUMARTIST"
-            | "ALBUM ARTIST"
-            | "DATE"
-            | "YEAR"
-            | "GENRE"
-            | "COMPOSER"
-            | "LYRICS"
-            | "UNSYNCEDLYRICS"
-            | "UNSYNCHRONISEDLYRICS"
-            | "TRACK"
-            | "TRACKNUMBER"
-            | "TRACKTOTAL"
-            | "TOTALTRACKS"
-            | "DISC"
-            | "DISCNUMBER"
-            | "DISCTOTAL"
-            | "TOTALDISCS"
-            | "METADATA_BLOCK_PICTURE"
-    )
+    is_lyrics_alias(key)
+        || matches!(
+            key.trim().to_ascii_uppercase().as_str(),
+            "TITLE"
+                | "ARTIST"
+                | "ARTISTS"
+                | "ALBUM"
+                | "ALBUMARTIST"
+                | "ALBUM ARTIST"
+                | "DATE"
+                | "YEAR"
+                | "GENRE"
+                | "COMPOSER"
+                | "TRACK"
+                | "TRACKNUMBER"
+                | "TRACKTOTAL"
+                | "TOTALTRACKS"
+                | "DISC"
+                | "DISCNUMBER"
+                | "DISCTOTAL"
+                | "TOTALDISCS"
+                | "METADATA_BLOCK_PICTURE"
+        )
 }
 
 fn apply_id3_extra_tags(tag: &mut Id3v2Tag, updates: &[ExtraTagUpdate]) {
@@ -1846,7 +1868,8 @@ fn write_id3_extra_tags_atomic(
             .unwrap_or_default()
     };
     apply_id3_extra_tags(&mut tag, updates);
-    normalize_empty_id3_picture_descriptions(&mut tag);
+    let use_id3v23 = tag_has_lyrics(&tag);
+    normalize_empty_id3_picture_descriptions(&mut tag, use_id3v23);
     let original_wav_ranges = if wav {
         Some(
             wav_data_ranges(&original)
@@ -1858,7 +1881,7 @@ fn write_id3_extra_tags_atomic(
     let temporary = sibling_temp_path(path);
     let result = (|| {
         write_loaded_file_data(&original, &temporary)?;
-        tag.save_to_path(&temporary, WriteOptions::new())?;
+        tag.save_to_path(&temporary, id3_write_options(use_id3v23))?;
         let candidate = fs::read(&temporary)?;
         let payload_equal = if wav {
             let candidate_ranges = wav_data_ranges(&candidate).ok_or_else(|| {
@@ -2234,7 +2257,8 @@ pub fn write_wav_atomic(path: &Path, patch: &TrackPatch) -> Result<TrackWriteOut
     let mut tag = parsed.id3v2().cloned().unwrap_or_default();
     preserve_omitted_list_from_tag(&mut tag, "ARTISTS", &patch.artists);
     preserve_omitted_list_from_tag(&mut tag, "ALBUMARTISTS", &patch.album_artists);
-    apply_patch(&mut tag, patch);
+    let use_id3v23 = should_use_id3v23(&tag, patch);
+    apply_patch(&mut tag, patch, use_id3v23)?;
 
     let temporary = sibling_temp_path(path);
     let result = (|| {
@@ -2247,7 +2271,7 @@ pub fn write_wav_atomic(path: &Path, patch: &TrackPatch) -> Result<TrackWriteOut
         write_wav_without_list_info(&original_bytes, &mut staging)
             .map_err(|e| ApiError::Io(std::io::Error::other(format!("write WAV staging: {e}"))))?;
         drop(staging);
-        tag.save_to_path(&temporary, WriteOptions::new())?;
+        tag.save_to_path(&temporary, id3_write_options(use_id3v23))?;
         let mut candidate = File::open(&temporary)?;
         let candidate_len = candidate.metadata()?.len();
         if !wav_payloads_match(
@@ -2474,7 +2498,8 @@ fn try_id3v2_inplace_update(
     let before = read_track_metadata(path)?;
     preserve_omitted_list(tag, path, "ARTISTS", &patch.artists);
     preserve_omitted_list(tag, path, "ALBUMARTISTS", &patch.album_artists);
-    apply_patch(tag, patch);
+    let use_id3v23 = should_use_id3v23(tag, patch);
+    apply_patch(tag, patch, use_id3v23)?;
 
     // Build the new file locally by copying the original file and letting
     // Lofty modify the tag.  Since Lofty's save_to_path expects the file
@@ -2482,7 +2507,7 @@ fn try_id3v2_inplace_update(
     // we copy the entire original and then measure the tag size change.
     let scratch = sibling_temp_path(path);
     copy_file_data(path, &scratch)?;
-    tag.save_to_path(&scratch, WriteOptions::new())?;
+    tag.save_to_path(&scratch, id3_write_options(use_id3v23))?;
     let candidate = fs::read(&scratch)?;
     let after = read_track_metadata(&scratch)?;
     let _ = fs::remove_file(&scratch);
@@ -2551,13 +2576,14 @@ pub fn write_mp3_atomic(path: &Path, patch: &TrackPatch) -> Result<TrackWriteOut
     let mut tag = read_id3v2(path)?;
     preserve_omitted_list(&mut tag, path, "ARTISTS", &patch.artists);
     preserve_omitted_list(&mut tag, path, "ALBUMARTISTS", &patch.album_artists);
-    apply_patch(&mut tag, patch);
-    normalize_empty_id3_picture_descriptions(&mut tag);
+    let use_id3v23 = should_use_id3v23(&tag, patch);
+    apply_patch(&mut tag, patch, use_id3v23)?;
+    normalize_empty_id3_picture_descriptions(&mut tag, use_id3v23);
 
     let temporary = sibling_temp_path(path);
     let result = (|| {
         write_loaded_file_data(&original_bytes, &temporary)?;
-        tag.save_to_path(&temporary, WriteOptions::new())?;
+        tag.save_to_path(&temporary, id3_write_options(use_id3v23))?;
 
         let candidate_bytes = fs::read(&temporary)?;
         let candidate_payload = mpeg_payload(&candidate_bytes)
@@ -2600,7 +2626,24 @@ fn read_id3v2(path: &Path) -> Result<Id3v2Tag, ApiError> {
 /// its declared encoding. For UTF-16 pictures that creates a tag Lofty cannot
 /// read back. An empty description has no encoding-dependent content, so use
 /// UTF-8 while preserving the picture, frame flags, and all non-picture frames.
-fn normalize_empty_id3_picture_descriptions(tag: &mut Id3v2Tag) {
+fn should_use_id3v23(tag: &Id3v2Tag, patch: &TrackPatch) -> bool {
+    !patch.lyrics.is_omitted() || tag_has_lyrics(tag)
+}
+
+fn tag_has_lyrics(tag: &Id3v2Tag) -> bool {
+    tag.into_iter()
+        .any(|frame| matches!(frame.id_str(), "USLT" | "SYLT"))
+}
+
+fn id3_write_options(use_id3v23: bool) -> WriteOptions {
+    if use_id3v23 {
+        WriteOptions::new().use_id3v23(true)
+    } else {
+        WriteOptions::new()
+    }
+}
+
+fn normalize_empty_id3_picture_descriptions(tag: &mut Id3v2Tag, use_id3v23: bool) {
     let pictures = tag.remove(&frame_id("APIC")).collect::<Vec<_>>();
     for mut frame in pictures {
         if let Frame::Picture(picture) = &mut frame {
@@ -2610,7 +2653,14 @@ fn normalize_empty_id3_picture_descriptions(tag: &mut Id3v2Tag) {
                     TextEncoding::UTF16 | TextEncoding::UTF16BE
                 )
             {
-                picture.encoding = TextEncoding::UTF8;
+                if use_id3v23 {
+                    picture
+                        .picture
+                        .to_mut()
+                        .set_description(Some(String::new()));
+                } else {
+                    picture.encoding = TextEncoding::UTF8;
+                }
             }
         }
         tag.insert(frame);
@@ -2626,7 +2676,7 @@ fn apply_ape_patch(tag: &mut ApeTag, patch: &TrackPatch) -> Result<(), ApiError>
     apply_ape_text(tag, "COMPOSER", &patch.composer)?;
     apply_ape_text(tag, "COMMENT", &patch.comment)?;
     apply_ape_text(tag, "DESCRIPTION", &patch.description)?;
-    apply_ape_text(tag, "LYRICS", &patch.lyrics)?;
+    apply_ape_lyrics(tag, &patch.lyrics)?;
     apply_ape_merged_list(tag, "ARTIST", &patch.artist, &patch.artists)?;
     apply_ape_merged_list(
         tag,
@@ -2654,6 +2704,41 @@ fn apply_ape_text(tag: &mut ApeTag, key: &str, patch: &Patch<String>) -> Result<
             key.to_string(),
             ItemValue::Text(value.clone()),
         )?),
+    }
+    Ok(())
+}
+
+fn apply_ape_lyrics(tag: &mut ApeTag, patch: &Patch<LyricsDocument>) -> Result<(), ApiError> {
+    if matches!(patch, Patch::Omitted) {
+        return Ok(());
+    }
+    let aliases = (&*tag)
+        .into_iter()
+        .filter(|item| is_lyrics_alias(item.key()))
+        .map(|item| item.key().to_string())
+        .collect::<Vec<_>>();
+    for alias in aliases {
+        tag.remove(&alias);
+    }
+    if let Patch::Value(document) = patch {
+        let preferred = document
+            .synced_lyrics
+            .as_ref()
+            .unwrap_or(&document.plain_lyrics);
+        tag.insert(ApeItem::new(
+            "LYRICS".to_string(),
+            ItemValue::Text(preferred.clone()),
+        )?);
+        tag.insert(ApeItem::new(
+            "LYRICSLANGUAGE".to_string(),
+            ItemValue::Text(document.language.clone()),
+        )?);
+        if document.synced_lyrics.is_some() {
+            tag.insert(ApeItem::new(
+                "UNSYNCEDLYRICS".to_string(),
+                ItemValue::Text(document.plain_lyrics.clone()),
+            )?);
+        }
     }
     Ok(())
 }
@@ -2763,7 +2848,7 @@ fn apply_mp4_patch(tag: &mut Ilst, patch: &TrackPatch) {
     apply_mp4_text(tag, AtomIdent::Fourcc(*b"\xa9wrt"), &patch.composer);
     apply_mp4_text(tag, AtomIdent::Fourcc(*b"\xa9cmt"), &patch.comment);
     apply_mp4_text(tag, AtomIdent::Fourcc(*b"desc"), &patch.description);
-    apply_mp4_text(tag, AtomIdent::Fourcc(*b"\xa9lyr"), &patch.lyrics);
+    apply_mp4_lyrics(tag, &patch.lyrics);
     match patch.compilation {
         Patch::Omitted => {}
         Patch::Null => drop(tag.remove(&AtomIdent::Fourcc(*b"cpil"))),
@@ -2781,6 +2866,37 @@ fn apply_mp4_text(tag: &mut Ilst, ident: AtomIdent<'static>, patch: &Patch<Strin
         Patch::Omitted => {}
         Patch::Null => drop(tag.remove(&ident)),
         Patch::Value(value) => tag.replace_atom(Atom::new(ident, AtomData::UTF8(value.clone()))),
+    }
+}
+
+fn apply_mp4_lyrics(tag: &mut Ilst, patch: &Patch<LyricsDocument>) {
+    if matches!(patch, Patch::Omitted) {
+        return;
+    }
+    drop(tag.remove(&AtomIdent::Fourcc(*b"\xa9lyr")));
+    for name in [
+        "LYRICS",
+        "SYNCEDLYRICS",
+        "SYNCHRONIZEDLYRICS",
+        "UNSYNCEDLYRICS",
+        "LYRICSLANGUAGE",
+    ] {
+        drop(tag.remove(&mp4_freeform(name)));
+    }
+    if let Patch::Value(document) = patch {
+        let value = document
+            .synced_lyrics
+            .as_ref()
+            .unwrap_or(&document.plain_lyrics)
+            .clone();
+        tag.replace_atom(Atom::new(
+            AtomIdent::Fourcc(*b"\xa9lyr"),
+            AtomData::UTF8(value),
+        ));
+        tag.replace_atom(Atom::new(
+            mp4_freeform("LYRICSLANGUAGE"),
+            AtomData::UTF8(document.language.clone()),
+        ));
     }
 }
 
@@ -2887,7 +3003,7 @@ fn apply_vorbis_patch(tag: &mut lofty::ogg::VorbisComments, patch: &TrackPatch) 
     apply_vorbis_string(tag, "COMPOSER", &patch.composer);
     apply_vorbis_string(tag, "COMMENT", &patch.comment);
     apply_vorbis_string(tag, "DESCRIPTION", &patch.description);
-    apply_vorbis_string(tag, "LYRICS", &patch.lyrics);
+    apply_vorbis_lyrics(tag, &patch.lyrics);
     apply_vorbis_bool(tag, "COMPILATION", &patch.compilation);
     apply_vorbis_provider(tag, "MUSICBRAINZ_TRACKID", &patch.musicbrainz_track_id);
     apply_vorbis_provider(tag, "MUSICBRAINZ_ALBUMID", &patch.musicbrainz_album_id);
@@ -2901,6 +3017,31 @@ fn apply_vorbis_string(tag: &mut lofty::ogg::VorbisComments, key: &str, patch: &
         Patch::Omitted => {}
         Patch::Null => drop(tag.remove(key)),
         Patch::Value(value) => tag.insert(key.to_string(), value.clone()),
+    }
+}
+
+fn apply_vorbis_lyrics(tag: &mut lofty::ogg::VorbisComments, patch: &Patch<LyricsDocument>) {
+    if matches!(patch, Patch::Omitted) {
+        return;
+    }
+    let aliases = tag
+        .items()
+        .filter(|(key, _)| is_lyrics_alias(key))
+        .map(|(key, _)| key.to_string())
+        .collect::<Vec<_>>();
+    for alias in aliases {
+        drop(tag.remove(&alias));
+    }
+    if let Patch::Value(document) = patch {
+        let preferred = document
+            .synced_lyrics
+            .as_ref()
+            .unwrap_or(&document.plain_lyrics);
+        tag.insert("LYRICS".to_string(), preferred.clone());
+        tag.insert("LYRICSLANGUAGE".to_string(), document.language.clone());
+        if document.synced_lyrics.is_some() {
+            tag.insert("UNSYNCEDLYRICS".to_string(), document.plain_lyrics.clone());
+        }
     }
 }
 
@@ -2978,7 +3119,7 @@ fn apply_vorbis_bool(tag: &mut lofty::ogg::VorbisComments, key: &str, patch: &Pa
     }
 }
 
-fn apply_patch(tag: &mut Id3v2Tag, patch: &TrackPatch) {
+fn apply_patch(tag: &mut Id3v2Tag, patch: &TrackPatch, use_id3v23: bool) -> Result<(), ApiError> {
     match &patch.title {
         Patch::Omitted => {}
         Patch::Null => tag.remove_title(),
@@ -3004,7 +3145,7 @@ fn apply_patch(tag: &mut Id3v2Tag, patch: &TrackPatch) {
             tag.remove_user_text(desc);
         }
     }
-    apply_year(tag, &patch.year);
+    apply_year(tag, &patch.year, use_id3v23);
     apply_text_frame(tag, "TCOM", &patch.composer);
     match &patch.genre {
         Patch::Omitted => {}
@@ -3045,14 +3186,15 @@ fn apply_patch(tag: &mut Id3v2Tag, patch: &TrackPatch) {
     apply_user_text(tag, "Discogs Artist Id", &patch.discogs_artist_id);
     apply_user_text(tag, "Discogs Release Id", &patch.discogs_release_id);
     apply_compilation(tag, &patch.compilation);
-    apply_lyrics(tag, &patch.lyrics);
+    apply_lyrics(tag, &patch.lyrics)?;
+    Ok(())
 }
 
 fn frame_id(id: &'static str) -> FrameId<'static> {
     FrameId::Valid(Cow::Borrowed(id))
 }
 
-fn apply_year(tag: &mut Id3v2Tag, patch: &Patch<String>) {
+fn apply_year(tag: &mut Id3v2Tag, patch: &Patch<String>, use_id3v23: bool) {
     if matches!(patch, Patch::Omitted) {
         return;
     }
@@ -3060,7 +3202,7 @@ fn apply_year(tag: &mut Id3v2Tag, patch: &Patch<String>) {
     drop(tag.remove(&frame_id("TDRC")));
     if let Patch::Value(value) = patch {
         tag.insert(Frame::Text(TextInformationFrame::new(
-            frame_id("TDRC"),
+            frame_id(if use_id3v23 { "TYER" } else { "TDRC" }),
             TextEncoding::UTF8,
             value.clone(),
         )));
@@ -3187,21 +3329,47 @@ fn apply_compilation(tag: &mut Id3v2Tag, patch: &Patch<bool>) {
     }
 }
 
-fn apply_lyrics(tag: &mut Id3v2Tag, patch: &Patch<String>) {
+fn apply_lyrics(tag: &mut Id3v2Tag, patch: &Patch<LyricsDocument>) -> Result<(), ApiError> {
     if matches!(patch, Patch::Omitted) {
-        return;
+        return Ok(());
     }
     drop(tag.remove(&frame_id("USLT")));
-    if let Patch::Value(value) = patch {
-        if !value.is_empty() {
-            tag.insert(Frame::UnsynchronizedText(UnsynchronizedTextFrame::new(
-                TextEncoding::UTF8,
-                *b"eng",
-                "",
-                value.clone(),
-            )));
+    drop(tag.remove(&frame_id("SYLT")));
+    let mut aliases = Vec::new();
+    for frame in &*tag {
+        if let Frame::UserText(frame) = frame {
+            if is_lyrics_alias(&frame.description) {
+                aliases.push(frame.description.to_string());
+            }
         }
     }
+    for alias in aliases {
+        while tag.remove_user_text(&alias).is_some() {}
+    }
+    if let Patch::Value(document) = patch {
+        let language = document.id3_language();
+        tag.insert(Frame::UnsynchronizedText(UnsynchronizedTextFrame::new(
+            TextEncoding::UTF16,
+            language,
+            "",
+            document.plain_lyrics.clone(),
+        )));
+        if document.synced_lyrics.is_some() {
+            let frame = SynchronizedTextFrame::new(
+                TextEncoding::UTF16,
+                language,
+                TimestampFormat::MS,
+                SyncTextContentType::Lyrics,
+                Some(String::new()),
+                document.timed_lines().map_err(ApiError::Message)?,
+            );
+            let bytes = frame
+                .as_bytes(WriteOptions::new().use_id3v23(true))
+                .map_err(ApiError::from)?;
+            tag.insert(Frame::Binary(BinaryFrame::new(frame_id("SYLT"), bytes)));
+        }
+    }
+    Ok(())
 }
 
 fn same_metadata(before: TrackData, mut after: TrackData) -> bool {
@@ -4342,6 +4510,13 @@ mod tests {
         assert_eq!(omitted.title, Patch::Omitted);
         assert_eq!(null.title, Patch::Null);
         assert_eq!(value.title, Patch::Value("Changed".to_string()));
+
+        let legacy_lyrics: TrackPatch =
+            serde_json::from_value(serde_json::json!({"lyrics": "你好"})).unwrap();
+        assert_eq!(
+            legacy_lyrics.lyrics,
+            Patch::Value(LyricsDocument::from_plain("你好", "zho").unwrap())
+        );
     }
 
     #[test]
@@ -4498,6 +4673,11 @@ mod tests {
             mpeg_payload(&fs::read(&path).unwrap())
         );
         let written_tag = read_id3v2(&path).unwrap();
+        assert_eq!(
+            written_tag.original_version(),
+            lofty::id3::v2::Id3v2Version::V3,
+            "tracks with embedded lyrics must retain the broad-compatible ID3v2.3 tag"
+        );
         let written_picture = (&written_tag)
             .into_iter()
             .find_map(|frame| match frame {
@@ -4508,7 +4688,7 @@ mod tests {
             })
             .unwrap();
         assert_eq!(written_picture.picture.data(), [0xff, 0xd8, 0xff, 0xd9]);
-        assert_eq!(written_picture.encoding, TextEncoding::UTF8);
+        assert_eq!(written_picture.encoding, TextEncoding::UTF16);
         fs::remove_dir_all(root).unwrap();
     }
 
@@ -4530,10 +4710,14 @@ mod tests {
             .unwrap(),
             TrackWriteOutcome::Replaced
         );
+        let written = read_id3v2(&path).unwrap();
+        assert_eq!(written.get_user_text("MOOD"), Some("Bright"));
         assert_eq!(
-            read_id3v2(&path).unwrap().get_user_text("MOOD"),
-            Some("Bright")
+            written.original_version(),
+            lofty::id3::v2::Id3v2Version::V3,
+            "extra-tag edits must not upgrade a track with lyrics to ID3v2.4"
         );
+        assert!(tag_has_lyrics(&written));
         assert_eq!(
             mpeg_payload(&before),
             mpeg_payload(&fs::read(&path).unwrap())
@@ -6631,6 +6815,10 @@ mod tests {
             ExtraTagUpdate {
                 key: "GENRE".to_string(),
                 value: "Rock".to_string(),
+            },
+            ExtraTagUpdate {
+                key: "SYNCEDLYRICS".to_string(),
+                value: "[00:01]must use the canonical lyrics writer".to_string(),
             },
             ExtraTagUpdate {
                 key: "EMPTY".to_string(),

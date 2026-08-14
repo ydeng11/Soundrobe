@@ -488,7 +488,7 @@ function hasDetailedTags(track: TrackData): boolean {
     track.musicbrainzAlbumId ||
     track.musicbrainzArtistId ||
     track.compilation != null ||
-    (typeof track.lyrics === "string" && track.lyrics) ||
+    track.lyrics?.plainLyrics ||
     track.discNumber != null
   );
 }
@@ -499,7 +499,7 @@ function formatDetailedTags(track: TrackData): string {
   if (track.musicbrainzAlbumId) tags.push(`MusicBrainz Album ID: ${track.musicbrainzAlbumId}`);
   if (track.musicbrainzArtistId) tags.push(`MusicBrainz Artist ID: ${track.musicbrainzArtistId}`);
   if (track.compilation != null) tags.push(`Compilation: ${track.compilation}`);
-  const lyricsStr = typeof track.lyrics === "string" ? track.lyrics : null;
+  const lyricsStr = track.lyrics?.syncedLyrics ?? track.lyrics?.plainLyrics ?? null;
   if (lyricsStr) {
     tags.push(
       `Lyrics: ${lyricsStr.slice(0, 100)}${lyricsStr.length > 100 ? "…" : ""}`,

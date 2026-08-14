@@ -979,13 +979,23 @@ export default function App() {
     dispatch({ type: "SET_LYRICS_GETTING", lyricsGetting: true });
 
     try {
-      let totalDownloaded = 0;
+      const totals = {
+        written: 0,
+        embeddedPreserved: 0,
+        noLyrics: 0,
+        unsupported: 0,
+        failed: 0,
+      };
       for (const albumPath of targetPaths) {
-        const count = await window.api.downloadAlbumLyrics(albumPath);
-        totalDownloaded += count;
+        const report = await window.api.downloadAlbumLyrics(albumPath);
+        totals.written += report.written;
+        totals.embeddedPreserved += report.embeddedPreserved;
+        totals.noLyrics += report.noLyrics;
+        totals.unsupported += report.unsupported;
+        totals.failed += report.failed;
       }
 
-      if (totalDownloaded > 0) {
+      if (totals.written > 0) {
         // Refresh the active album to show new lyrics in sidebar
         if (state.activeAlbumPath) {
           const detail = await window.api.readAlbum(state.activeAlbumPath);
@@ -996,9 +1006,8 @@ export default function App() {
       dispatch({
         type: "SET_ERROR",
         error:
-          totalDownloaded > 0
-            ? `Got lyrics for ${totalDownloaded} track(s)`
-            : null,
+          `Lyrics: ${totals.written} embedded, ${totals.embeddedPreserved} preserved, ` +
+          `${totals.noLyrics} unavailable, ${totals.unsupported} unsupported, ${totals.failed} failed`,
       });
     } catch (err: unknown) {
       const message =
