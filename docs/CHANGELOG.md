@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Command-level modification history** — metadata edits now appear in a
+  20-command session history with explicit Undo and history controls, including
+  grouped Extra Tags, auto-tag, assistant, search, conversion, numbering, and
+  audit changes that can be reverted to an earlier point without a keyboard
+  shortcut.
+
 ## [0.1.0] - 2026-08-11
 
 ### Changed

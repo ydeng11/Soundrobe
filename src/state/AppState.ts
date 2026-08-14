@@ -190,6 +190,8 @@ export interface AppState {
 
   /** Undo manager instance */
   undoManager: UndoManager;
+  /** Modification history rollback in progress */
+  reverting: boolean;
 
   /** Currently saving flag */
   saving: boolean;
@@ -238,6 +240,7 @@ export const initialAppState: AppState = {
   loaded: false,
   error: null,
   undoManager: new UndoManager(),
+  reverting: false,
   saving: false,
   saveProgress: null,
   showSettings: false,
@@ -268,9 +271,14 @@ export type AppAction =
   | { type: "UPDATE_TRACKS"; tracks: TrackData[] }
   | { type: "PATCH_TRACKS"; paths: string[]; fields: Record<string, string> }
   | { type: "PUSH_UNDO"; description: string; snapshots: TrackSnapshot[] }
-  | { type: "POP_UNDO" }
+  | {
+      type: "APPLY_UNDO_RESULT";
+      undoManager: UndoManager;
+      baseOperationIds: number[];
+    }
   | { type: "CLEAR_UNDO" }
   | { type: "SET_SAVING"; saving: boolean }
+  | { type: "SET_REVERTING"; reverting: boolean }
   | { type: "SET_SAVE_PROGRESS"; progress: { current: number; total: number } | null }
   | { type: "TOGGLE_SETTINGS"; show: boolean }
   | { type: "SET_AUTO_TAGGING"; autoTagging: boolean }
@@ -454,9 +462,19 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         ),
       };
 
-    case "POP_UNDO":
-      // handleRevert does the actual pop; this just triggers a re-render
-      return { ...state };
+    case "APPLY_UNDO_RESULT": {
+      const baseIds = new Set(action.baseOperationIds);
+      const concurrentOperations = state.undoManager.history.filter(
+        (operation) => !baseIds.has(operation.id),
+      );
+      return {
+        ...state,
+        undoManager: action.undoManager.replaceHistory([
+          ...concurrentOperations,
+          ...action.undoManager.history,
+        ]),
+      };
+    }
 
     case "CLEAR_UNDO":
       state.undoManager.clear();
@@ -464,6 +482,8 @@ export function appReducer(state: AppState, action: AppAction): AppState {
 
     case "SET_SAVING":
       return { ...state, saving: action.saving };
+    case "SET_REVERTING":
+      return { ...state, reverting: action.reverting };
     case "SET_SAVE_PROGRESS":
       return { ...state, saveProgress: action.progress };
 

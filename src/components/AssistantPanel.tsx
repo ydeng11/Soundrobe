@@ -59,6 +59,8 @@ interface AssistantPanelProps {
   allTracks: TrackData[];
   allAlbums: Array<{ path: string; name: string; artistHint: string; albumHint: string; trackCount: number }>;
   autonomous: boolean;
+  mutationsDisabled?: boolean;
+  onApplyingChange?: (applying: boolean) => void;
   onRefreshRequest: () => void;
   onAssistantRunTask?: (
     task: "auto_tag" | "audit",
@@ -66,9 +68,10 @@ interface AssistantPanelProps {
   ) => Promise<void> | void;
   onAssistantApplyUndo?: (
     description: string,
-    snapshots: TrackUndoSnapshot[] | ExtraTagUndoSnapshot[],
-    kind: "tag-update" | "extra-tag-update",
-  ) => void;
+    snapshots: TrackUndoSnapshot[],
+    extraSnapshots: ExtraTagUndoSnapshot[],
+    preserveUnverified: boolean,
+  ) => Promise<void> | void;
 }
 
 const SUGGESTED_PROMPTS = [
@@ -81,6 +84,20 @@ const SUGGESTED_PROMPTS = [
 function basename(path: string): string {
   const parts = path.split(/[\\/]/).filter(Boolean);
   return parts[parts.length - 1] ?? path;
+}
+
+function failedTrackPaths(value: unknown): Set<string> {
+  if (!Array.isArray(value)) return new Set();
+  return new Set(
+    value.flatMap((failure) =>
+      failure &&
+      typeof failure === "object" &&
+      "trackPath" in failure &&
+      typeof failure.trackPath === "string"
+        ? [failure.trackPath]
+        : [],
+    ),
+  );
 }
 
 function verificationFailureDetail(data: unknown): string | null {
@@ -123,6 +140,8 @@ export function AssistantPanel({
   allTracks,
   allAlbums,
   autonomous,
+  mutationsDisabled = false,
+  onApplyingChange,
   onRefreshRequest,
   onAssistantRunTask,
   onAssistantApplyUndo,
@@ -591,9 +610,11 @@ export function AssistantPanel({
   };
 
   const handleApply = async (batchId: string) => {
+    if (mutationsDisabled) return;
     applyingBatchIdRef.current = batchId;
     setApplyProgress(null);
     setApplying(true);
+    onApplyingChange?.(true);
     try {
       const result = await window.api.assistantApplyActions(batchId);
       const detail =
@@ -605,14 +626,49 @@ export function AssistantPanel({
               )
               .join("\n")
           : "";
+      let undoSnapshots = result.undoSnapshots ?? [];
+      let extraUndoSnapshots = result.extraUndoSnapshots ?? [];
+      let failedStandard = new Set<string>();
+      let failedExtra = new Set<string>();
+      if (result.verification?.phase === "write") {
+        failedStandard = failedTrackPaths(
+          Array.isArray(result.results)
+            ? result.results
+            : (result.results as { standard?: unknown } | undefined)?.standard,
+        );
+        failedExtra = failedTrackPaths(
+          Array.isArray(result.results)
+            ? result.results
+            : (result.results as { extra?: unknown } | undefined)?.extra,
+        );
+        undoSnapshots = undoSnapshots.filter(
+          (snapshot) => !failedStandard.has(snapshot.path),
+        );
+        extraUndoSnapshots = extraUndoSnapshots.filter(
+          (snapshot) => !failedExtra.has(snapshot.path),
+        );
+      }
+      const mayHaveWritten =
+        result.success ||
+        result.verification?.phase === "write" ||
+        result.verification?.phase === "readback";
+      const preserveUnverified =
+        result.success ||
+        result.verification?.phase === "readback" ||
+        (result.verification?.phase === "write" &&
+          (failedStandard.size > 0 || failedExtra.size > 0));
+      if (
+        mayHaveWritten &&
+        (undoSnapshots.length > 0 || extraUndoSnapshots.length > 0)
+      ) {
+        await onAssistantApplyUndo?.(
+          result.success ? "Assistant Apply" : "Assistant Apply (partial)",
+          undoSnapshots,
+          extraUndoSnapshots,
+          preserveUnverified,
+        );
+      }
       if (result.success) {
-        // Push undo snapshots if available
-        if (result.undoSnapshots && result.undoSnapshots.length > 0) {
-          onAssistantApplyUndo?.("Assistant tag edit", result.undoSnapshots, "tag-update");
-        }
-        if (result.extraUndoSnapshots && result.extraUndoSnapshots.length > 0) {
-          onAssistantApplyUndo?.("Assistant extra tag edit", result.extraUndoSnapshots, "extra-tag-update");
-        }
         if (result.task && result.trackPaths) {
           if (!onAssistantRunTask) {
             throw new Error("Assistant task runner is unavailable");
@@ -659,6 +715,7 @@ export function AssistantPanel({
       setApplyProgress(null);
     }
     setApplying(false);
+    onApplyingChange?.(false);
   };
 
   const handleReject = async (batchId: string) => {
@@ -921,7 +978,7 @@ export function AssistantPanel({
                     <button
                       type="button"
                       onClick={() => handleApply(batch.id)}
-                      disabled={applying}
+                      disabled={applying || mutationsDisabled}
                       className="flex-1 rounded-lg bg-accent px-3 py-1.5 text-[11px] font-medium text-white shadow-sm transition-all hover:bg-accent/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 disabled:opacity-50"
                     >
                       {applying ? "Applying…" : "Apply changes"}

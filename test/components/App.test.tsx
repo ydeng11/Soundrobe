@@ -386,6 +386,326 @@ describe("App — batch save progress", () => {
   });
 });
 
+describe("App — modification history", () => {
+  it("does not bind Cmd/Ctrl+Z and restores only right-panel-owned fields", async () => {
+    const path = "/music/Test Album/01.mp3";
+    const writeTrack = window.api.writeTrack as ReturnType<typeof vi.fn>;
+    writeTrack
+      .mockResolvedValueOnce(makeTrack(path, { title: "New title" }))
+      .mockResolvedValueOnce(makeTrack(path, { title: "Old title" }));
+
+    render(<App />);
+    fireEvent.click(screen.getByText("Open Library"));
+    const row = (await screen.findAllByTestId(/^file-row-/))[0];
+    fireEvent.click(row);
+    const titleInput = await screen.findByPlaceholderText("Track title");
+    fireEvent.change(titleInput, { target: { value: "New title" } });
+    fireEvent.click(screen.getByRole("button", { name: "Apply Changes" }));
+
+    await waitFor(() => expect(writeTrack).toHaveBeenCalledTimes(1));
+    fireEvent.keyDown(window, { key: "z", metaKey: true });
+    expect(writeTrack).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Undo latest modification" }),
+    );
+    await waitFor(() => expect(writeTrack).toHaveBeenCalledTimes(2));
+    expect(writeTrack.mock.calls[1]).toEqual([path, { title: expect.any(String) }]);
+    expect(writeTrack.mock.calls[1][1]).not.toHaveProperty("artists");
+  });
+
+  it("captures and restores complete Extra Tags through the native API", async () => {
+    const path = "/music/Test Album/01.mp3";
+    (window.api.showTrackContextMenu as ReturnType<typeof vi.fn>).mockResolvedValue(
+      "extra-tags",
+    );
+    (window.api.readExtraTags as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce([
+        { key: "MOOD", value: "Calm", source: "Vorbis" },
+      ])
+      .mockResolvedValueOnce([
+        { key: "MOOD", value: "Calm", source: "Vorbis" },
+      ])
+      .mockResolvedValueOnce([
+        { key: "MOOD", value: "Bright", source: "Vorbis" },
+      ])
+      .mockResolvedValueOnce([
+        { key: "MOOD", value: "Calm", source: "Vorbis" },
+      ]);
+    const writeExtraTags = window.api.writeExtraTags as ReturnType<typeof vi.fn>;
+    writeExtraTags.mockResolvedValue(makeTrack(path));
+
+    render(<App />);
+    fireEvent.click(screen.getByText("Open Library"));
+    const row = (await screen.findAllByTestId(/^file-row-/))[0];
+    fireEvent.contextMenu(row);
+
+    const valueInput = await screen.findByDisplayValue("Calm");
+    fireEvent.change(valueInput, { target: { value: "Bright" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save Changes" }));
+    await waitFor(() => expect(writeExtraTags).toHaveBeenCalledTimes(1));
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Undo latest modification" }),
+    );
+    await waitFor(() => expect(writeExtraTags).toHaveBeenCalledTimes(2));
+    expect(writeExtraTags.mock.calls[1]).toEqual([
+      path,
+      [{ key: "MOOD", value: "Calm" }],
+    ]);
+  });
+
+  it("records and reverts successful files from a partially failed Batch Extra Tags save", async () => {
+    const paths = [
+      "/music/Test Album/01.mp3",
+      "/music/Test Album/02.mp3",
+    ];
+    const tagState = new Map(
+      paths.map((path) => [path, [{ key: "MOOD", value: "Calm" }]]),
+    );
+    (window.api.showTrackContextMenu as ReturnType<typeof vi.fn>).mockResolvedValue(
+      "extra-tags",
+    );
+    (window.api.readExtraTags as ReturnType<typeof vi.fn>).mockImplementation(
+      async (path: string) =>
+        (tagState.get(path) ?? []).map((tag) => ({ ...tag, source: "Vorbis" })),
+    );
+    (window.api.writeExtraTagsBatch as ReturnType<typeof vi.fn>).mockImplementation(
+      async (updates: Array<{ path: string; tags: Array<{ key: string; value: string }> }>) => {
+        tagState.set(updates[0].path, updates[0].tags);
+        throw new Error("second file failed");
+      },
+    );
+    const writeExtraTags = window.api.writeExtraTags as ReturnType<typeof vi.fn>;
+    writeExtraTags.mockImplementation(
+      async (path: string, tags: Array<{ key: string; value: string }>) => {
+        tagState.set(path, tags);
+        return makeTrack(path);
+      },
+    );
+
+    render(<App />);
+    fireEvent.click(screen.getByText("Open Library"));
+    const rows = await screen.findAllByTestId(/^file-row-/);
+    fireEvent.click(rows[0], { metaKey: true });
+    fireEvent.click(rows[1], { metaKey: true });
+    fireEvent.contextMenu(rows[0]);
+
+    const valueInput = await screen.findByDisplayValue("Calm");
+    fireEvent.change(valueInput, { target: { value: "Bright" } });
+    fireEvent.click(screen.getByRole("button", { name: "Apply to 2 files" }));
+    await screen.findByText("second file failed");
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Undo latest modification" }),
+    );
+    await waitFor(() => expect(writeExtraTags).toHaveBeenCalledOnce());
+    expect(writeExtraTags).toHaveBeenCalledWith(paths[0], [
+      { key: "MOOD", value: "Calm" },
+    ]);
+  });
+
+  it("keeps completed albums revertible when a later auto-tag start fails", async () => {
+    const albums = ["/music/Album One", "/music/Album Two"];
+    const modifiedAlbums = new Set<string>();
+    (window.api.scanLibrary as ReturnType<typeof vi.fn>).mockResolvedValue(
+      albums.map((path) => ({
+        path,
+        name: path.split("/").at(-1)!,
+        artistHint: "",
+        albumHint: "",
+        trackCount: 2,
+      })),
+    );
+    (window.api.readAlbum as ReturnType<typeof vi.fn>).mockImplementation(
+      async (albumPath: string) => ({
+        path: albumPath,
+        name: albumPath.split("/").at(-1)!,
+        artistHint: "",
+        albumHint: "",
+        status: "complete",
+        tracks: [1, 2].map((number) =>
+          makeTrack(`${albumPath}/0${number}.mp3`, {
+            title: modifiedAlbums.has(albumPath)
+              ? `Tagged ${number}`
+              : `Original ${number}`,
+          }),
+        ),
+        coverInfo: { path: null, source: "missing", dataUrl: null },
+      }),
+    );
+    (window.api.autoTagAlbum as ReturnType<typeof vi.fn>).mockImplementation(
+      async (albumPath: string) => {
+        if (albumPath === albums[1]) throw new Error("could not start second album");
+        modifiedAlbums.add(albumPath);
+        return "task-one";
+      },
+    );
+    (window.api.getTaskProgress as ReturnType<typeof vi.fn>).mockResolvedValue({
+      status: "completed",
+      taskId: "task-one",
+      progress: 1,
+      total: 1,
+      message: "Done",
+      result: null,
+    });
+    const writeTrack = window.api.writeTrack as ReturnType<typeof vi.fn>;
+    writeTrack.mockImplementation(async (path: string, fields: Record<string, unknown>) =>
+      makeTrack(path, fields as Partial<TrackData>),
+    );
+
+    render(<App />);
+    fireEvent.click(screen.getByText("Open Library"));
+    await waitFor(() => expect(screen.getAllByTestId(/^file-row-/)).toHaveLength(4));
+    fireEvent.click(screen.getByText("Auto-Tag"));
+    await screen.findByText("could not start second album");
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Undo latest modification" }),
+    );
+    await waitFor(() => expect(writeTrack).toHaveBeenCalledTimes(2));
+    expect(writeTrack.mock.calls.map((call) => call[0])).toEqual([
+      `${albums[0]}/01.mp3`,
+      `${albums[0]}/02.mp3`,
+    ]);
+  });
+
+  it("records readable auto-tag changes when another album readback fails", async () => {
+    const albums = ["/music/Unreadable", "/music/Readable"];
+    const modifiedAlbums = new Set<string>();
+    const readCounts = new Map<string, number>();
+    (window.api.scanLibrary as ReturnType<typeof vi.fn>).mockResolvedValue(
+      albums.map((path) => ({
+        path,
+        name: path.split("/").at(-1)!,
+        artistHint: "",
+        albumHint: "",
+        trackCount: 2,
+      })),
+    );
+    (window.api.readAlbum as ReturnType<typeof vi.fn>).mockImplementation(
+      async (albumPath: string) => {
+        const count = (readCounts.get(albumPath) ?? 0) + 1;
+        readCounts.set(albumPath, count);
+        if (albumPath === albums[0] && count > 1) {
+          throw new Error("readback unavailable");
+        }
+        return {
+          path: albumPath,
+          name: albumPath.split("/").at(-1)!,
+          artistHint: "",
+          albumHint: "",
+          status: "complete",
+          tracks: [1, 2].map((number) =>
+            makeTrack(`${albumPath}/0${number}.mp3`, {
+              title: modifiedAlbums.has(albumPath)
+                ? `Tagged ${number}`
+                : `Original ${number}`,
+            }),
+          ),
+          coverInfo: { path: null, source: "missing", dataUrl: null },
+        };
+      },
+    );
+    (window.api.autoTagAlbum as ReturnType<typeof vi.fn>).mockImplementation(
+      async (albumPath: string) => {
+        modifiedAlbums.add(albumPath);
+        return `task-${albumPath}`;
+      },
+    );
+    (window.api.getTaskProgress as ReturnType<typeof vi.fn>).mockResolvedValue({
+      status: "completed",
+      taskId: "task",
+      progress: 1,
+      total: 1,
+      message: "Done",
+      result: null,
+    });
+    const writeTrack = window.api.writeTrack as ReturnType<typeof vi.fn>;
+    writeTrack.mockImplementation(async (path: string, fields: Record<string, unknown>) =>
+      makeTrack(path, fields as Partial<TrackData>),
+    );
+
+    render(<App />);
+    fireEvent.click(screen.getByText("Open Library"));
+    await waitFor(() => expect(screen.getAllByTestId(/^file-row-/)).toHaveLength(4));
+    fireEvent.click(screen.getByText("Auto-Tag"));
+    await screen.findByText(/Auto-tag readback failed.*readback unavailable/);
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Undo latest modification" }),
+    );
+    await waitFor(() => expect(writeTrack).toHaveBeenCalledTimes(2));
+    expect(writeTrack.mock.calls.map((call) => call[0])).toEqual([
+      `${albums[1]}/01.mp3`,
+      `${albums[1]}/02.mp3`,
+    ]);
+  });
+
+  it("reverts an older history point newest-first after confirmation", async () => {
+    const path = "/music/Test Album/01.mp3";
+    const originalTitle = makeTrack(path).title;
+    const writeTrack = window.api.writeTrack as ReturnType<typeof vi.fn>;
+    writeTrack
+      .mockResolvedValueOnce(makeTrack(path, { title: "First edit" }))
+      .mockResolvedValueOnce(makeTrack(path, { title: "Second edit" }))
+      .mockResolvedValueOnce(makeTrack(path, { title: "First edit" }))
+      .mockResolvedValueOnce(makeTrack(path, { title: originalTitle }));
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
+
+    render(<App />);
+    fireEvent.click(screen.getByText("Open Library"));
+    fireEvent.click((await screen.findAllByTestId(/^file-row-/))[0]);
+
+    let titleInput = await screen.findByPlaceholderText("Track title");
+    fireEvent.change(titleInput, { target: { value: "First edit" } });
+    fireEvent.click(screen.getByRole("button", { name: "Apply Changes" }));
+    await waitFor(() => expect(writeTrack).toHaveBeenCalledTimes(1));
+
+    titleInput = await screen.findByPlaceholderText("Track title");
+    fireEvent.change(titleInput, { target: { value: "Second edit" } });
+    fireEvent.click(screen.getByRole("button", { name: "Apply Changes" }));
+    await waitFor(() => expect(writeTrack).toHaveBeenCalledTimes(2));
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Open modification history" }),
+    );
+    fireEvent.click(screen.getAllByRole("menuitem")[1]);
+
+    await waitFor(() => expect(writeTrack).toHaveBeenCalledTimes(4));
+    expect(confirm).toHaveBeenCalledOnce();
+    expect(writeTrack.mock.calls[2]).toEqual([path, { title: "First edit" }]);
+    expect(writeTrack.mock.calls[3]).toEqual([path, { title: originalTitle }]);
+    confirm.mockRestore();
+  });
+
+  it("keeps a failed revert retryable and removes it after a successful retry", async () => {
+    const path = "/music/Test Album/01.mp3";
+    const writeTrack = window.api.writeTrack as ReturnType<typeof vi.fn>;
+    writeTrack
+      .mockResolvedValueOnce(makeTrack(path, { title: "New title" }))
+      .mockRejectedValueOnce(new Error("disk full"))
+      .mockResolvedValueOnce(makeTrack(path));
+
+    render(<App />);
+    fireEvent.click(screen.getByText("Open Library"));
+    fireEvent.click((await screen.findAllByTestId(/^file-row-/))[0]);
+    const titleInput = await screen.findByPlaceholderText("Track title");
+    fireEvent.change(titleInput, { target: { value: "New title" } });
+    fireEvent.click(screen.getByRole("button", { name: "Apply Changes" }));
+    await waitFor(() => expect(writeTrack).toHaveBeenCalledTimes(1));
+
+    const undo = screen.getByRole("button", { name: "Undo latest modification" });
+    fireEvent.click(undo);
+    await screen.findByText(/Revert stopped after 1 file\(s\) failed/);
+    expect(undo.getAttribute("disabled")).toBeNull();
+
+    fireEvent.click(undo);
+    await waitFor(() => expect(writeTrack).toHaveBeenCalledTimes(3));
+    await waitFor(() => expect(undo.getAttribute("disabled")).not.toBeNull());
+  });
+});
+
 describe("App — cover removal", () => {
   beforeEach(() => {
     // Override cover-related mocks for this block: show a cover so the
