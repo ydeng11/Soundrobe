@@ -136,6 +136,45 @@ describe("SettingsModal", () => {
     expect(screen.getByText("Debug Mode")).toBeTruthy();
   });
 
+  it("checks for updates manually from Advanced settings and shows the result", async () => {
+    const onCheckForUpdates = vi.fn().mockResolvedValue(undefined);
+    render(
+      <SettingsModal
+        open={true}
+        onClose={() => {}}
+        onCheckForUpdates={onCheckForUpdates}
+        updateCheckMessage="Soundrobe is up to date."
+      />,
+    );
+
+    await screen.findByDisplayValue("mock-model");
+    clickTab("Advanced");
+    fireEvent.click(screen.getByRole("button", { name: "Check for updates" }));
+
+    await waitFor(() => expect(onCheckForUpdates).toHaveBeenCalledTimes(1));
+    expect(screen.getByText("Soundrobe is up to date.")).toBeTruthy();
+  });
+
+  it("disables manual updates outside packaged production builds", async () => {
+    const onCheckForUpdates = vi.fn().mockResolvedValue(undefined);
+    render(
+      <SettingsModal
+        open={true}
+        onClose={() => {}}
+        onCheckForUpdates={onCheckForUpdates}
+        updateSupported={false}
+      />,
+    );
+
+    await screen.findByDisplayValue("mock-model");
+    clickTab("Advanced");
+    const button = screen.getByRole("button", { name: "Check for updates" });
+    expect((button as HTMLButtonElement).disabled).toBe(true);
+    expect(
+      screen.getByText("Updates are available in packaged production builds."),
+    ).toBeTruthy();
+  });
+
   it("preserves values when switching tabs and back", async () => {
     window.api.getConfig = vi.fn().mockResolvedValue({
       llmModel: "gpt-4",

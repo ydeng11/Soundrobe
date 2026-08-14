@@ -27,6 +27,7 @@ const CHANNEL_PARITY: Array<{
   args: Record<string, unknown>;
 }> = [
   { method: "appInfo", command: "app_info", args: {} },
+  { method: "checkForUpdate", command: "updater_check", args: {} },
   { method: "scanLibrary", command: "library_scan", args: { dirPath: "/lib" } },
   { method: "refreshAlbum", command: "album_refresh", args: { albumPath: "/a" } },
   { method: "openFolderDialog", command: "dialog_open_folder", args: {} },
@@ -152,7 +153,7 @@ describe("tauri-adapter channel parity", () => {
     const covered = new Set(CHANNEL_PARITY.map((r) => r.method));
     // The event methods are exercised in the subscribe suite and are not
     // request/response rows; every DesktopAPI method must be accounted for.
-    const eventMethods = ["onAutoTagEvent", "onTrackWriteEvent", "onAuditEvent", "onAssistantEvent"];
+    const eventMethods = ["installUpdate", "onAutoTagEvent", "onTrackWriteEvent", "onAuditEvent", "onAssistantEvent"];
     const apiKeys = Object.keys(api).sort();
     const expected = [...covered, ...eventMethods].sort();
     expect(apiKeys).toEqual(expected);
@@ -201,6 +202,33 @@ describe("tauri-adapter event subscribe contract", () => {
     unlisten = vi.fn();
     listenMock.mockResolvedValue(unlisten);
     api = createTauriDesktopApi();
+  });
+
+  it("attaches updater progress before install starts and always detaches it", async () => {
+    const received: unknown[] = [];
+    invokeMock.mockResolvedValue(undefined);
+
+    await api.installUpdate((event) => received.push(event));
+
+    expect(listenMock).toHaveBeenCalledTimes(1);
+    expect(listenMock.mock.calls[0][0]).toBe("updater:progress");
+    const registeredHandler = listenMock.mock.calls[0][1] as (e: { payload: unknown }) => void;
+    const progress = { phase: "downloading", downloaded: 25, total: 100 };
+    registeredHandler({ payload: progress });
+    expect(received).toEqual([progress]);
+    expect(invokeMock).toHaveBeenCalledWith("updater_install", undefined);
+    expect(unlisten).toHaveBeenCalledTimes(1);
+    expect(listenMock.mock.invocationCallOrder[0]).toBeLessThan(
+      invokeMock.mock.invocationCallOrder[0],
+    );
+  });
+
+  it("detaches updater progress after a failed install", async () => {
+    invokeMock.mockRejectedValue("download failed");
+
+    await expect(api.installUpdate(() => {})).rejects.toThrow("download failed");
+
+    expect(unlisten).toHaveBeenCalledTimes(1);
   });
 
   it("onTrackWriteEvent subscribes to tracks:write-event and forwards event.payload", async () => {

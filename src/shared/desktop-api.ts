@@ -508,9 +508,26 @@ export interface ConversationEntry {
   metadata: string | null;
 }
 
+export interface AppUpdateInfo {
+  currentVersion: string;
+  availableVersion: string;
+  date: string | null;
+  notes: string | null;
+}
+
+export interface AppUpdateProgress {
+  phase: "downloading" | "installing";
+  downloaded: number;
+  total: number | null;
+}
+
 export interface DesktopAPI {
   // App
   appInfo: () => Promise<AppInfo>;
+  checkForUpdate: () => Promise<AppUpdateInfo | null>;
+  installUpdate: (
+    onProgress: (progress: AppUpdateProgress) => void,
+  ) => Promise<void>;
 
   // Library
   scanLibrary: (dirPath: string) => Promise<AlbumInfo[]>;

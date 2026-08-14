@@ -26,9 +26,20 @@ interface SettingsState {
 interface SettingsModalProps {
   open: boolean;
   onClose: () => void;
+  onCheckForUpdates?: () => Promise<void>;
+  updateSupported?: boolean;
+  updateChecking?: boolean;
+  updateCheckMessage?: string | null;
 }
 
-export function SettingsModal({ open, onClose }: SettingsModalProps) {
+export function SettingsModal({
+  open,
+  onClose,
+  onCheckForUpdates,
+  updateSupported = true,
+  updateChecking = false,
+  updateCheckMessage = null,
+}: SettingsModalProps) {
   const [settings, setSettings] = useState<SettingsState>({
     llmApiKey: "",
     llmModel: "",
@@ -361,6 +372,29 @@ export function SettingsModal({ open, onClose }: SettingsModalProps) {
                     checked={settings.debug}
                     onChange={(v) => setSettings({ ...settings, debug: v })}
                   />
+                  {onCheckForUpdates && (
+                    <div className="flex items-start justify-between gap-3 border-t border-border/60 pt-4">
+                      <div>
+                        <div className="text-[12px] font-medium text-text-primary">
+                          Application updates
+                        </div>
+                        <div className="mt-0.5 text-[10px] leading-tight text-text-muted">
+                          {updateCheckMessage ??
+                            (updateSupported
+                              ? "Check GitHub Releases for a newer signed version."
+                              : "Updates are available in packaged production builds.")}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        disabled={!updateSupported || updateChecking}
+                        onClick={() => void onCheckForUpdates()}
+                        className="shrink-0 rounded-lg border border-border px-3 py-1.5 text-[11px] font-medium text-text-secondary hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {updateChecking ? "Checking…" : "Check for updates"}
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
             </>

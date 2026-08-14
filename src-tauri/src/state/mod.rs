@@ -16,6 +16,7 @@ pub mod providers;
 pub mod quit_guard;
 pub mod sqlite;
 pub mod tasks;
+pub mod updater;
 pub mod write_queue;
 
 /// `~/.soundrobe/window-state.json` persistence + off-screen recovery.

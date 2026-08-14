@@ -15,7 +15,7 @@
 
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
-import type { DesktopAPI } from "./desktop-api";
+import type { AppUpdateProgress, DesktopAPI } from "./desktop-api";
 
 /** Map a desktop API channel to a Tauri command name.
  *
@@ -79,6 +79,20 @@ export function createTauriDesktopApi(): DesktopAPI {
   return {
     // App
     appInfo: () => invokeCommand("app:info"),
+    checkForUpdate: () => invokeCommand("updater:check"),
+    installUpdate: async (onProgress) => {
+      const unlisten = await listen<AppUpdateProgress>(
+        "updater:progress",
+        (event) => onProgress(event.payload),
+      ).catch((reason) => {
+        throw toError(reason);
+      });
+      try {
+        await invokeCommand("updater:install");
+      } finally {
+        unlisten();
+      }
+    },
 
     // Library
     scanLibrary: (dirPath) => invokeCommand("library:scan", { dirPath }),

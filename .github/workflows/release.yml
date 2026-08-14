@@ -77,6 +77,8 @@ jobs:
           - os: windows-latest
             command: npm run dist:win
             artifact: windows-x64
+            release_os: windows
+            release_arch: x64
           - os: ubuntu-22.04
             command: npm run dist:linux
             artifact: linux-x64
@@ -101,29 +103,76 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf xvfb
       - name: Install app dependencies
         run: npm ci
-      - name: Build unsigned release bundles
+      - name: Require updater signing key
+        shell: bash
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+        run: |
+          test -n "$TAURI_SIGNING_PRIVATE_KEY" || {
+            echo "TAURI_SIGNING_PRIVATE_KEY GitHub secret is required for updater artifacts" >&2
+            exit 1
+          }
+      - name: Build signed macOS updater release bundles
+        if: runner.os == 'macOS'
         env:
           CI: "true"
-        run: ${{ matrix.command }}
+          APPLE_SIGNING_IDENTITY: "-"
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ""
+        run: ${{ matrix.command }} -- --config src-tauri/tauri.updater.conf.json
+      - name: Build signed updater release bundles
+        if: runner.os != 'macOS'
+        env:
+          CI: "true"
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ""
+        run: ${{ matrix.command }} -- --config src-tauri/tauri.updater.conf.json
       - name: Rename macOS release bundles
         if: runner.os == 'macOS'
         shell: bash
         run: |
+          shopt -s nullglob
           version="$(node -p "require('./src-tauri/tauri.conf.json').version")"
-          mv \
-            src-tauri/target/release/bundle/dmg/*.dmg \
-            "src-tauri/target/release/bundle/dmg/soundrobe-${version}-${{ matrix.release_os }}-${{ matrix.release_arch }}.dmg"
+          dmgs=(src-tauri/target/release/bundle/dmg/*.dmg)
+          updaters=(src-tauri/target/release/bundle/macos/*.app.tar.gz)
+          test "${#dmgs[@]}" -eq 1 || { echo "Expected exactly one DMG" >&2; exit 1; }
+          test "${#updaters[@]}" -eq 1 || { echo "Expected exactly one macOS updater archive" >&2; exit 1; }
+          test -f "${updaters[0]}.sig" || { echo "Missing macOS updater signature" >&2; exit 1; }
+          dmg_target="src-tauri/target/release/bundle/dmg/soundrobe-${version}-${{ matrix.release_os }}-${{ matrix.release_arch }}.dmg"
+          updater_target="src-tauri/target/release/bundle/macos/soundrobe-${version}-${{ matrix.release_os }}-${{ matrix.release_arch }}.app.tar.gz"
+          mv "${dmgs[0]}" "$dmg_target"
+          mv "${updaters[0]}" "$updater_target"
+          mv "${updaters[0]}.sig" "${updater_target}.sig"
+      - name: Rename Windows release bundles
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $version = node -p "require('./src-tauri/tauri.conf.json').version"
+          $installers = @(Get-ChildItem "src-tauri/target/release/bundle/nsis/*-setup.exe")
+          if ($installers.Count -ne 1) { throw "Expected exactly one NSIS installer" }
+          $signature = "$($installers[0].FullName).sig"
+          if (-not (Test-Path $signature)) { throw "Missing NSIS updater signature" }
+          $target = Join-Path $installers[0].DirectoryName "soundrobe-$version-${{ matrix.release_os }}-${{ matrix.release_arch }}-setup.exe"
+          Move-Item $installers[0].FullName $target
+          Move-Item $signature "$target.sig"
       - name: Rename Linux release bundles
         if: runner.os == 'Linux'
         shell: bash
         run: |
+          shopt -s nullglob
           version="$(node -p "require('./src-tauri/tauri.conf.json').version")"
-          mv \
-            src-tauri/target/release/bundle/appimage/*.AppImage \
-            "src-tauri/target/release/bundle/appimage/soundrobe-${version}-${{ matrix.release_os }}-${{ matrix.release_arch }}.AppImage"
-          mv \
-            src-tauri/target/release/bundle/deb/*.deb \
-            "src-tauri/target/release/bundle/deb/soundrobe-${version}-${{ matrix.release_os }}-${{ matrix.release_arch }}.deb"
+          appimages=(src-tauri/target/release/bundle/appimage/*.AppImage)
+          debs=(src-tauri/target/release/bundle/deb/*.deb)
+          test "${#appimages[@]}" -eq 1 || { echo "Expected exactly one AppImage" >&2; exit 1; }
+          test "${#debs[@]}" -eq 1 || { echo "Expected exactly one deb package" >&2; exit 1; }
+          test -f "${appimages[0]}.sig" || { echo "Missing AppImage updater signature" >&2; exit 1; }
+          test -f "${debs[0]}.sig" || { echo "Missing deb updater signature" >&2; exit 1; }
+          appimage_target="src-tauri/target/release/bundle/appimage/soundrobe-${version}-${{ matrix.release_os }}-${{ matrix.release_arch }}.AppImage"
+          deb_target="src-tauri/target/release/bundle/deb/soundrobe-${version}-${{ matrix.release_os }}-${{ matrix.release_arch }}.deb"
+          mv "${appimages[0]}" "$appimage_target"
+          mv "${appimages[0]}.sig" "${appimage_target}.sig"
+          mv "${debs[0]}" "$deb_target"
+          mv "${debs[0]}.sig" "${deb_target}.sig"
       - name: Smoke macOS app bundle and DMG
         if: runner.os == 'macOS'
         shell: bash
@@ -132,6 +181,7 @@ jobs:
           dmg="$(find src-tauri/target/release/bundle/dmg -name '*.dmg' -print -quit)"
           test -n "$app"
           test -n "$dmg"
+          codesign --verify --deep --strict "$app"
           hdiutil verify "$dmg"
           "$app/Contents/MacOS/soundrobe" &
           pid=$!
@@ -188,12 +238,23 @@ jobs:
     needs: [version, bundle]
     runs-on: ubuntu-22.04
     steps:
+      - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
           pattern: release-*
           path: release-assets
       - name: List release assets
         run: find release-assets -type f -print
+      - name: Generate and verify updater manifest
+        run: |
+          pub_date="$(git show -s --format=%cI "${{ github.sha }}")"
+          node scripts/generate-updater-manifest.mjs \
+            --assets release-assets \
+            --tag "${{ needs.version.outputs.release_tag }}" \
+            --pub-date "$pub_date" \
+            --notes "See the Soundrobe ${{ needs.version.outputs.release_tag }} release notes on GitHub." \
+            --output release-assets/latest.json
+          node -e "const m=require('./release-assets/latest.json'); if (Object.keys(m.platforms).length !== 7) throw new Error('latest.json must contain seven installer-aware targets')"
       - name: Create GitHub release and upload installers
         uses: softprops/action-gh-release@v2
         with:
@@ -206,4 +267,7 @@ jobs:
             release-assets/**/*-setup.exe
             release-assets/**/*.AppImage
             release-assets/**/*.deb
+            release-assets/**/*.app.tar.gz
+            release-assets/**/*.sig
+            release-assets/latest.json
           fail_on_unmatched_files: true

@@ -95,6 +95,27 @@ impl WriteQueue {
         drop(activity);
         output
     }
+
+    /// Claim exclusive coordination only when no write is already active.
+    /// Used by application replacement, which must reject instead of waiting
+    /// behind disk work the user may still expect to complete in this process.
+    pub async fn try_run_exclusive<F, T>(&self, operation: F) -> Option<T>
+    where
+        F: Future<Output = T>,
+    {
+        if self.is_active() {
+            return None;
+        }
+        let coordination = self.0.coordination.try_write().ok()?;
+        if self.is_active() {
+            return None;
+        }
+        let activity = ActivityGuard::new(&self.0.active);
+        let output = operation.await;
+        drop(activity);
+        drop(coordination);
+        Some(output)
+    }
 }
 
 struct ActivityGuard<'a> {
@@ -400,5 +421,72 @@ mod tests {
         folder.await.unwrap();
         assert!(global_started.load(Ordering::Acquire));
         assert!(folder_started.load(Ordering::Acquire));
+    }
+
+    /// Intent: updater installation must fail immediately when a media write
+    /// is already active; waiting and then replacing the application could
+    /// make the user believe the protected operation was safely coordinated.
+    #[tokio::test]
+    async fn try_exclusive_rejects_an_already_active_write() {
+        let queue = WriteQueue::default();
+        let entered = Arc::new(Barrier::new(2));
+        let release = Arc::new(Notify::new());
+        let write_queue = queue.clone();
+        let write_entered = Arc::clone(&entered);
+        let write_release = Arc::clone(&release);
+        let write = tokio::spawn(async move {
+            write_queue
+                .run(async move {
+                    write_entered.wait().await;
+                    write_release.notified().await;
+                })
+                .await;
+        });
+        entered.wait().await;
+
+        let result = queue.try_run_exclusive(async { "installed" }).await;
+        assert_eq!(result, None);
+
+        release.notify_one();
+        write.await.unwrap();
+    }
+
+    /// Intent: once updater installation claims coordination, it is itself a
+    /// protected disk operation and later writes remain blocked until it ends.
+    #[tokio::test]
+    async fn try_exclusive_tracks_activity_and_blocks_new_writes() {
+        let queue = WriteQueue::default();
+        let entered = Arc::new(Barrier::new(2));
+        let release = Arc::new(Notify::new());
+        let install_queue = queue.clone();
+        let install_entered = Arc::clone(&entered);
+        let install_release = Arc::clone(&release);
+        let install = tokio::spawn(async move {
+            install_queue
+                .try_run_exclusive(async move {
+                    install_entered.wait().await;
+                    install_release.notified().await;
+                })
+                .await
+        });
+        entered.wait().await;
+        assert!(queue.is_active());
+
+        let write_started = Arc::new(AtomicBool::new(false));
+        let write_flag = Arc::clone(&write_started);
+        let write_queue = queue.clone();
+        let write = tokio::spawn(async move {
+            write_queue
+                .run(async move { write_flag.store(true, Ordering::Release) })
+                .await;
+        });
+        tokio::task::yield_now().await;
+        assert!(!write_started.load(Ordering::Acquire));
+
+        release.notify_one();
+        assert_eq!(install.await.unwrap(), Some(()));
+        write.await.unwrap();
+        assert!(write_started.load(Ordering::Acquire));
+        assert!(!queue.is_active());
     }
 }

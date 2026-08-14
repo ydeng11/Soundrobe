@@ -45,11 +45,18 @@ use crate::state::providers::ProviderState;
 use crate::state::quit_guard::QuitGuard;
 use crate::state::sqlite::CacheState;
 use crate::state::tasks::TaskRegistry;
+use crate::state::updater::UpdaterState;
 use crate::state::window_state::{DisplayWorkArea, PositionAction, WindowState};
 use crate::state::write_queue::WriteQueue;
 
 #[cfg(target_os = "macos")]
 const GUARDED_QUIT_MENU_ID: &str = "app.guarded-quit";
+
+const PROTECTED_OPERATION_QUIT_MESSAGE: &str = concat!(
+    "A protected disk operation is in progress (for example, writing tags or installing an update).\n\n",
+    "Quitting now may leave files or the application partially updated. ",
+    "Do you want to quit anyway?"
+);
 
 #[cfg(target_os = "macos")]
 fn is_guarded_quit_menu_event(id: &str) -> bool {
@@ -118,6 +125,11 @@ pub fn run() {
     let builder = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_clipboard_manager::init())
+        .plugin(
+            tauri_plugin_updater::Builder::new()
+                .default_version_comparator(|current, release| release.version > current)
+                .build(),
+        )
         .on_page_load(|webview, payload| {
             tracing::debug!(
                 window = webview.label(),
@@ -193,6 +205,7 @@ pub fn run() {
             app.manage(WriteQueue::default());
             app.manage(QuitGuard::default());
             app.manage(TaskRegistry::default());
+            app.manage(UpdaterState::default());
             // Tauri menu events are global; ContextMenuState scopes recognized
             // IDs to the single active popup so ordinary app/tray menu events
             // cannot resolve a renderer context-menu promise.
@@ -269,6 +282,8 @@ pub fn run() {
             commands::audit::audit_run_album,
             commands::audit::audit_apply_fixes,
             commands::audit::audit_cancel,
+            commands::updater::updater_check,
+            commands::updater::updater_install,
         ])
         .build(tauri::generate_context!())
         .expect("error while building the Soundrobe Tauri shell");
@@ -289,12 +304,8 @@ pub fn run() {
 
         let prompt_app = app.clone();
         app.dialog()
-            .message(concat!(
-                "Tags are currently being written to disk.\n\n",
-                "Quitting now may leave some files partially updated. ",
-                "Do you want to quit anyway?"
-            ))
-            .title("Write in Progress")
+            .message(PROTECTED_OPERATION_QUIT_MESSAGE)
+            .title("Disk Operation in Progress")
             .kind(MessageDialogKind::Warning)
             .buttons(MessageDialogButtons::OkCancelCustom(
                 "Quit Anyway".to_string(),
@@ -420,6 +431,13 @@ mod tests {
         assert!(!should_reveal_window("main", PageLoadEvent::Started));
         assert!(!should_reveal_window("settings", PageLoadEvent::Finished));
         assert!(should_reveal_window("main", PageLoadEvent::Finished));
+    }
+
+    #[test]
+    fn quit_warning_covers_every_write_queue_operation() {
+        assert!(PROTECTED_OPERATION_QUIT_MESSAGE.contains("protected disk operation"));
+        assert!(PROTECTED_OPERATION_QUIT_MESSAGE.contains("installing an update"));
+        assert!(PROTECTED_OPERATION_QUIT_MESSAGE.contains("writing tags"));
     }
 
     #[cfg(target_os = "macos")]
