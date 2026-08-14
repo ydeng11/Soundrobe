@@ -890,6 +890,97 @@ describe("AssistantPanel — new conversation button", () => {
 });
 
 describe("AssistantPanel — core behavior preserved", () => {
+  it("groups mixed standard and extra-tag snapshots into one history command", async () => {
+    mockApi.assistantGetBatches.mockResolvedValueOnce([{
+      id: "batch-mixed",
+      createdAt: "now",
+      sessionId: "session",
+      kind: "metadata-update",
+      title: "Apply mixed tags",
+      summary: "Apply standard and extra tags",
+      riskLevel: "low",
+      actions: [{ trackPath: "/music/track.flac", field: "genre", newValue: "Pop" }],
+      reversible: true,
+      status: "pending",
+    }]);
+    const undoSnapshots = [{ path: "/music/track.flac", metadata: { genre: "Rock" } }];
+    const extraUndoSnapshots = [{
+      path: "/music/track.flac",
+      extraTags: [{ key: "MOOD", value: "Calm" }],
+    }];
+    mockApi.assistantApplyActions.mockResolvedValueOnce({
+      success: true,
+      results: [],
+      undoSnapshots,
+      extraUndoSnapshots,
+    });
+    const onAssistantApplyUndo = vi.fn();
+    const onApplyingChange = vi.fn();
+    renderPanel({ onAssistantApplyUndo, onApplyingChange });
+
+    fireEvent.click(await screen.findByRole("button", { name: "Apply changes" }));
+
+    await waitFor(() => {
+      expect(onAssistantApplyUndo).toHaveBeenCalledOnce();
+      expect(onAssistantApplyUndo).toHaveBeenCalledWith(
+        "Assistant Apply",
+        undoSnapshots,
+        extraUndoSnapshots,
+        true,
+      );
+      expect(onApplyingChange.mock.calls.map(([applying]) => applying)).toEqual([
+        true,
+        false,
+      ]);
+    });
+  });
+
+  it("retains undo evidence when an assistant apply partially writes before failing", async () => {
+    mockApi.assistantGetBatches.mockResolvedValueOnce([{
+      id: "batch-partial",
+      createdAt: "now",
+      sessionId: "session",
+      kind: "metadata-update",
+      title: "Apply tags",
+      summary: "Apply tags to two tracks",
+      riskLevel: "low",
+      actions: [{ trackPath: "/music/track.flac", field: "genre", newValue: "Pop" }],
+      reversible: true,
+      status: "pending",
+    }]);
+    const undoSnapshots = [
+      { path: "/music/success.flac", metadata: { genre: "Rock" } },
+      { path: "/music/failure.flac", metadata: { genre: "Jazz" } },
+    ];
+    mockApi.assistantApplyActions.mockResolvedValueOnce({
+      success: false,
+      error: "one track failed",
+      results: [{ trackPath: "/music/failure.flac", error: "disk full" }],
+      undoSnapshots,
+      verification: {
+        status: "failed",
+        phase: "write",
+        scopeCount: 1,
+        expectedActionCount: 1,
+        verifiedActionCount: 0,
+        failures: [{ error: "disk full" }],
+      },
+    });
+    const onAssistantApplyUndo = vi.fn();
+    renderPanel({ onAssistantApplyUndo });
+
+    fireEvent.click(await screen.findByRole("button", { name: "Apply changes" }));
+
+    await waitFor(() => {
+      expect(onAssistantApplyUndo).toHaveBeenCalledWith(
+        "Assistant Apply (partial)",
+        [undoSnapshots[0]],
+        [],
+        true,
+      );
+    });
+  });
+
   it("finalizes delegated task batches only after the renderer task succeeds", async () => {
     mockApi.assistantGetBatches.mockResolvedValueOnce([{
       id: "batch-task",

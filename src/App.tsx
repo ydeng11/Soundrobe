@@ -13,7 +13,10 @@ import {
   initialAppState,
   type AuditApplyAlbumResult,
 } from "./state/AppState";
-import type { TrackSnapshot } from "./state/UndoManager";
+import {
+  revertHistoryThrough,
+  type TrackSnapshot,
+} from "./state/UndoManager";
 import { TitleBar } from "./components/TitleBar";
 import { dirname as dirPath, basename, isInsideDirectory } from "./utils/path";
 import { AssistantPanel } from "./components/AssistantPanel";
@@ -46,6 +49,7 @@ import {
 import { parseDiscField } from "./shared/fields";
 import type {
   ExtraTagUndoSnapshot,
+  TrackUndoSnapshot,
   TrackData,
   AlbumInfo,
   AlbumDetail,
@@ -109,6 +113,7 @@ export default function App() {
   );
   const [batchExtraTagsOpen, setBatchExtraTagsOpen] = React.useState(false);
   const [showAssistant, setShowAssistant] = React.useState(false);
+  const [assistantApplying, setAssistantApplying] = React.useState(false);
   const [assistantApiKeyConfigured, setAssistantApiKeyConfigured] = React.useState(false);
   const [assistantModel, setAssistantModel] = React.useState("");
 
@@ -424,15 +429,17 @@ export default function App() {
       dispatch({ type: "SET_SAVING", saving: true });
 
       try {
+        const snapshot = createOwnedTrackSnapshot(track, writeFields);
         const result = await window.api.writeTrack(track.path, writeFields);
 
-        // Push undo snapshot only after a successful write
-        const snapshot = createTrackSnapshot(track);
-        dispatch({
-          type: "PUSH_UNDO",
-          description: "Metadata save",
-          snapshots: [snapshot],
-        });
+        const changedSnapshots = filterChangedSnapshots([snapshot], [result]);
+        if (changedSnapshots.length > 0) {
+          dispatch({
+            type: "PUSH_UNDO",
+            description: "Metadata save",
+            snapshots: changedSnapshots,
+          });
+        }
 
         // Treat the readback from the API as authoritative
         dispatch({
@@ -465,16 +472,58 @@ export default function App() {
       dispatch({ type: "SET_ERROR", error: null });
 
       try {
+        const previousTags = (await window.api.readExtraTags(
+          extraTagsTrack.path,
+        )).map(({ key, value }) => ({ key, value }));
         const result = await window.api.writeExtraTags(
           extraTagsTrack.path,
           tags,
         );
+        let savedTags: Array<{ key: string; value: string }>;
+        try {
+          savedTags = (await window.api.readExtraTags(extraTagsTrack.path)).map(
+            ({ key, value }) => ({ key, value }),
+          );
+        } catch (error) {
+          if (!extraTagsEqual(previousTags, tags)) {
+            dispatch({
+              type: "PUSH_UNDO",
+              description: "Extra Tags save (unverified)",
+              snapshots: [
+                {
+                  path: extraTagsTrack.path,
+                  fields: { [EXTRA_TAG_UNDO_FIELD]: previousTags },
+                },
+              ],
+            });
+          }
+          throw new Error(
+            `Extra Tags were written but readback failed: ${
+              error instanceof Error ? error.message : "unknown error"
+            }`,
+          );
+        }
+        if (!extraTagsEqual(previousTags, savedTags)) {
+          dispatch({
+            type: "PUSH_UNDO",
+            description: "Extra Tags save",
+            snapshots: [
+              {
+                path: extraTagsTrack.path,
+                fields: { [EXTRA_TAG_UNDO_FIELD]: previousTags },
+              },
+            ],
+          });
+        }
         dispatch({
           type: "UPDATE_TRACK",
           path: extraTagsTrack.path,
           track: result,
         });
         setExtraTagsTrack(result);
+        if (!extraTagsEqual(tags, savedTags)) {
+          throw new Error("Extra Tags readback did not match the requested tags");
+        }
       } catch (err: unknown) {
         const message =
           err instanceof Error ? err.message : "Failed to save extra tags";
@@ -581,61 +630,132 @@ export default function App() {
     }
   }, [state.selectedTrack, state.selectedTrackPaths]);
 
-  // --- Undo (triggered by Cmd+Z) ---
+  // --- Session modification history ---
 
-  const handleRevert = useCallback(async () => {
-    const op = state.undoManager.pop();
-    if (!op) return;
-    if (op.snapshots.length === 0) {
-      console.warn(
-        "Undo popped an operation with 0 snapshots — nothing to revert",
+  const handleRevert = useCallback(
+    async (operationId?: number) => {
+      if (state.saving || state.reverting) return;
+      const history = state.undoManager.history;
+      const baseOperationIds = history.map((operation) => operation.id);
+      const targetId = operationId ?? history[0]?.id;
+      if (targetId === undefined) return;
+
+      const targetIndex = history.findIndex(
+        (operation) => operation.id === targetId,
       );
-      dispatch({ type: "POP_UNDO" });
-      return;
-    }
-    await Promise.all(
-      op.snapshots.map(async (snap) => {
-        // Detect rename undo: fields contains a "path" key (string) =
-        // this was a file rename operation, not a tag write
-        const oldPath =
-          typeof snap.fields.path === "string" ? snap.fields.path : null;
-        const extraTags = snap.fields[EXTRA_TAG_UNDO_FIELD];
-        if (Array.isArray(extraTags)) {
-          try {
-            const track = await window.api.writeExtraTags(
-              snap.path,
-              extraTags as Array<{ key: string; value: string }>,
-            );
-            dispatch({ type: "UPDATE_TRACK", path: snap.path, track });
-          } catch {
-            console.warn("Undo extra tags failed for:", snap.path);
-          }
-        } else if (oldPath && snap.path !== oldPath) {
-          // Rename the file back to its original path
-          try {
-            const track = await window.api.renameTrack(snap.path, oldPath);
-            dispatch({
-              type: "UPDATE_TRACK",
-              path: snap.path,
-              track: { ...track, path: oldPath },
-            });
-          } catch {
-            console.warn("Undo rename failed for:", snap.path);
-          }
-        } else {
-          // Normal tag write undo
-          try {
-            const { path: _path, ...fields } = snap.fields;
-            const track = await window.api.writeTrack(snap.path, fields);
-            dispatch({ type: "UPDATE_TRACK", path: snap.path, track });
-          } catch {
-            console.warn("Undo write failed for:", snap.path);
-          }
+      if (targetIndex < 0) return;
+      const commandCount = targetIndex + 1;
+      if (
+        commandCount > 1 &&
+        !window.confirm(
+          `Revert ${commandCount} modifications? This will undo the selected modification and every newer one.`,
+        )
+      ) {
+        return;
+      }
+
+      dispatch({ type: "SET_REVERTING", reverting: true });
+      dispatch({ type: "SET_ERROR", error: null });
+      try {
+        const result = await revertHistoryThrough(
+          state.undoManager,
+          targetId,
+          async (snapshot) => {
+            const remainingFields = { ...snapshot.fields };
+            const oldPath =
+              typeof remainingFields.path === "string"
+                ? remainingFields.path
+                : null;
+
+            try {
+              if (oldPath && snapshot.path !== oldPath) {
+                const track = await window.api.renameTrack(
+                  snapshot.path,
+                  oldPath,
+                );
+                dispatch({
+                  type: "UPDATE_TRACK",
+                  path: snapshot.path,
+                  track: { ...track, path: oldPath },
+                });
+                return null;
+              }
+
+              const extraTags = remainingFields[EXTRA_TAG_UNDO_FIELD];
+              const standardFields = Object.fromEntries(
+                Object.entries(remainingFields).filter(
+                  ([key]) => key !== EXTRA_TAG_UNDO_FIELD && key !== "path",
+                ),
+              );
+              if (Object.keys(standardFields).length > 0) {
+                const track = await window.api.writeTrack(
+                  snapshot.path,
+                  standardFields,
+                );
+                dispatch({
+                  type: "UPDATE_TRACK",
+                  path: snapshot.path,
+                  track,
+                });
+                for (const key of Object.keys(standardFields)) {
+                  delete remainingFields[key];
+                }
+              }
+
+              if (Array.isArray(extraTags)) {
+                const track = await window.api.writeExtraTags(
+                  snapshot.path,
+                  extraTags as Array<{ key: string; value: string }>,
+                );
+                const restoredTags = (
+                  await window.api.readExtraTags(snapshot.path)
+                ).map(({ key, value }) => ({ key, value }));
+                if (
+                  !extraTagsEqual(
+                    extraTags as Array<{ key: string; value: string }>,
+                    restoredTags,
+                  )
+                ) {
+                  throw new Error("Extra Tags readback did not match the undo snapshot");
+                }
+                dispatch({
+                  type: "UPDATE_TRACK",
+                  path: snapshot.path,
+                  track,
+                });
+                delete remainingFields[EXTRA_TAG_UNDO_FIELD];
+              }
+              return null;
+            } catch (error) {
+              return {
+                snapshot: { path: snapshot.path, fields: remainingFields },
+                error:
+                  error instanceof Error ? error.message : "Revert failed",
+              };
+            }
+          },
+        );
+        dispatch({
+          type: "APPLY_UNDO_RESULT",
+          undoManager: result.manager,
+          baseOperationIds,
+        });
+        if (result.failures.length > 0) {
+          const details = result.failures
+            .slice(0, 3)
+            .map((failure) => `${failure.path}: ${failure.error}`)
+            .join("; ");
+          dispatch({
+            type: "SET_ERROR",
+            error: `Revert stopped after ${result.failures.length} file(s) failed. ${details}`,
+          });
         }
-      }),
-    );
-    dispatch({ type: "POP_UNDO" });
-  }, [state.undoManager]);
+      } finally {
+        dispatch({ type: "SET_REVERTING", reverting: false });
+      }
+    },
+    [state.reverting, state.saving, state.undoManager],
+  );
 
   // --- Auto-Tag ---
 
@@ -659,18 +779,60 @@ export default function App() {
 
     let completed = 0;
     let totalErrors = 0;
+    let snapshots: TrackSnapshot[] = [];
+    const attemptedAlbumPaths: string[] = [];
+    let autoTagReadback: TrackData[] = [];
+    let historyRecorded = false;
+
+    const recordAttemptedAutoTag = async () => {
+      if (historyRecorded || attemptedAlbumPaths.length === 0) {
+        return autoTagReadback;
+      }
+      const readbackFailures: string[] = [];
+      for (const albumPath of attemptedAlbumPaths) {
+        try {
+          const detail = await window.api.readAlbum(albumPath);
+          autoTagReadback.push(...detail.tracks);
+        } catch (error) {
+          readbackFailures.push(
+            `${albumPath}: ${
+              error instanceof Error ? error.message : "readback failed"
+            }`,
+          );
+        }
+      }
+      if (autoTagReadback.length > 0) {
+        dispatch({ type: "UPDATE_TRACKS", tracks: autoTagReadback });
+      }
+      const attempted = new Set(attemptedAlbumPaths);
+      const changedSnapshots = filterChangedSnapshots(
+        snapshots.filter((snapshot) => attempted.has(dirPath(snapshot.path))),
+        autoTagReadback,
+      );
+      if (changedSnapshots.length > 0) {
+        dispatch({
+          type: "PUSH_UNDO",
+          description: `Auto-tag (${targetPaths.length} album${targetPaths.length !== 1 ? "s" : ""})`,
+          snapshots: changedSnapshots,
+        });
+      }
+      historyRecorded = true;
+      if (readbackFailures.length > 0) {
+        throw new Error(
+          `Auto-tag readback failed for ${readbackFailures
+            .slice(0, 3)
+            .join("; ")}`,
+        );
+      }
+      return autoTagReadback;
+    };
 
     try {
-      const snapshots = await buildAutoTagUndoSnapshots(
+      snapshots = await buildAutoTagUndoSnapshots(
         targetPaths,
         state.tracks,
         window.api.readAlbum,
       );
-      dispatch({
-        type: "PUSH_UNDO",
-        description: `Auto-tag (${targetPaths.length} album${targetPaths.length !== 1 ? "s" : ""})`,
-        snapshots,
-      });
 
       for (const albumPath of targetPaths) {
         const albumName = basename(albumPath) ?? albumPath;
@@ -686,6 +848,7 @@ export default function App() {
         });
 
         const taskId = await window.api.autoTagAlbum(albumPath);
+        attemptedAlbumPaths.push(albumPath);
         const unsubscribe = window.api.onAutoTagEvent((event) => {
           if (event.taskId !== taskId) return;
           dispatch({
@@ -762,24 +925,13 @@ export default function App() {
             }
           : { current: 9, total: 9, message: "Refreshing tracks..." },
       });
+      const updatedTrackList = await recordAttemptedAutoTag();
       const scannedAlbums = await window.api.scanLibrary(state.libraryPath);
       dispatch({ type: "SET_ALBUMS", albums: scannedAlbums });
 
       const taggedAlbumSet = new Set(targetPaths);
       if (state.activeAlbumPath) {
         taggedAlbumSet.add(state.activeAlbumPath);
-      }
-      const updatedTrackList: TrackData[] = [];
-      for (const albumPath of taggedAlbumSet) {
-        try {
-          const detail = await window.api.readAlbum(albumPath);
-          updatedTrackList.push(...detail.tracks);
-        } catch {
-          // Skip albums that fail to read
-        }
-      }
-      if (updatedTrackList.length > 0) {
-        dispatch({ type: "UPDATE_TRACKS", tracks: updatedTrackList });
       }
 
       for (const albumPath of taggedAlbumSet) {
@@ -805,7 +957,16 @@ export default function App() {
         });
       }
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Auto-tag failed";
+      let message = err instanceof Error ? err.message : "Auto-tag failed";
+      try {
+        await recordAttemptedAutoTag();
+      } catch (readbackError) {
+        const detail =
+          readbackError instanceof Error
+            ? readbackError.message
+            : "readback failed";
+        message = `${message}; completed changes could not be read back: ${detail}`;
+      }
       dispatch({ type: "SET_ERROR", error: message });
     } finally {
       dispatch({ type: "SET_AUTO_TAGGING", autoTagging: false });
@@ -1117,28 +1278,23 @@ export default function App() {
             continue;
           }
 
-          const writeFields = parsed.fields as Record<string, unknown>;
+          const parsedFields = parsed.fields as Record<string, string>;
+          const writeFields: Record<string, unknown> = {};
+          for (const [key, value] of Object.entries(parsedFields)) {
+            if (key === "track") {
+              writeFields.trackNumber = parseNum(value);
+            } else if (key === "disc") {
+              writeFields.discNumber = parseNum(value);
+            } else {
+              writeFields[key] = value;
+            }
+          }
           if (Object.keys(writeFields).length === 0) {
             errors.push(`${filename}: No fields extracted`);
             continue;
           }
 
-          // Build undo fields
-          const undoFields: Record<string, unknown> = {};
-          for (const key of Object.keys(writeFields)) {
-            if (key === "track") {
-              undoFields.track = track.trackNumber ?? null;
-            } else if (key === "disc") {
-              undoFields.disc = track.discNumber ?? null;
-            } else {
-              const tr = track as unknown as Record<string, unknown>;
-              undoFields[key] = tr[key] ?? null;
-            }
-          }
-          undoSnapshots.push({
-            path: track.path,
-            fields: undoFields,
-          });
+          const snapshot = createOwnedTrackSnapshot(track, writeFields);
 
           try {
             const apiResult = await window.api.writeTrack(
@@ -1150,6 +1306,9 @@ export default function App() {
               path: track.path,
               track: apiResult,
             });
+            if (filterChangedSnapshots([snapshot], [apiResult]).length > 0) {
+              undoSnapshots.push(snapshot);
+            }
             successes.push(filename);
           } catch (err: unknown) {
             errors.push(
@@ -1214,11 +1373,6 @@ export default function App() {
             // Ignore check errors
           }
 
-          undoSnapshots.push({
-            path: newPath,
-            fields: { path: track.path },
-          });
-
           try {
             const updatedTrack = await window.api.renameTrack(
               track.path,
@@ -1228,6 +1382,10 @@ export default function App() {
               type: "UPDATE_TRACK",
               path: track.path,
               track: { ...updatedTrack, path: newPath },
+            });
+            undoSnapshots.push({
+              path: newPath,
+              fields: { path: track.path },
             });
             successes.push(`${filename} → ${newFilename}`);
           } catch (err: unknown) {
@@ -1320,10 +1478,9 @@ export default function App() {
       try {
         const result = await window.api.writeTracks(updates);
 
-        // Push undo only for successfully numbered tracks
-        const successPaths = new Set(result.tracks.map((t) => t.path));
-        const successSnapshots = snapshots.filter((s) =>
-          successPaths.has(s.path),
+        const successSnapshots = filterChangedSnapshots(
+          snapshots,
+          result.tracks,
         );
         if (successSnapshots.length > 0) {
           dispatch({
@@ -1396,33 +1553,64 @@ export default function App() {
       if (!activeAlbumPath) return;
       setSearchWriting(true);
       setSearchWriteError(null);
+      let historyRecorded = false;
+      let snapshots: TrackSnapshot[] = [];
 
       try {
         // Capture undo snapshots (mirrors handleAutoTag)
         const albumTracks = state.tracks.filter(
           (t) => isInsideDirectory(t.path, activeAlbumPath),
         );
-        const snapshots = await buildAutoTagUndoSnapshots(
+        snapshots = await buildAutoTagUndoSnapshots(
           [activeAlbumPath],
           albumTracks,
           window.api.readAlbum,
         );
-        dispatch({
-          type: "PUSH_UNDO",
-          description: "Manual search tag",
-          snapshots,
-        });
-
+        const recordChangedSearchTracks = async () => {
+          if (historyRecorded) return;
+          const readback = await window.api.readAlbum(activeAlbumPath);
+          const changedSnapshots = filterChangedSnapshots(
+            snapshots,
+            readback.tracks,
+          );
+          if (changedSnapshots.length > 0) {
+            dispatch({
+              type: "PUSH_UNDO",
+              description: "Manual search tag",
+              snapshots: changedSnapshots,
+            });
+            historyRecorded = true;
+          }
+        };
         const written = await window.api.searchApplyCandidate(
           activeAlbumPath,
           candidate,
           selectedTrackIndices,
         );
         if (written > 0) {
+          await recordChangedSearchTracks();
           await handleRefresh();
         }
         setShowConfirmDialog(false);
       } catch (err) {
+        if (!historyRecorded) {
+          try {
+            const readback = await window.api.readAlbum(activeAlbumPath);
+            const changedSnapshots = filterChangedSnapshots(
+              snapshots,
+              readback.tracks,
+            );
+            if (changedSnapshots.length > 0) {
+              dispatch({
+                type: "PUSH_UNDO",
+                description: "Manual search tag (partial)",
+                snapshots: changedSnapshots,
+              });
+            }
+          } catch {
+            // The original write error remains authoritative.
+          }
+        }
         setSearchWriteError(err instanceof Error ? err.message : String(err));
       } finally {
         setSearchWriting(false);
@@ -1495,21 +1683,69 @@ export default function App() {
   }, [state.activeAlbumPath, state.libraryPath, loadAlbumTracks]);
 
   const handleAssistantApplyUndo = useCallback(
-    (
+    async (
       description: string,
-      snapshots: Array<
-        | { path: string; metadata?: Record<string, unknown> }
-        | ExtraTagUndoSnapshot
-      >,
-      kind: "tag-update" | "extra-tag-update",
+      snapshots: TrackUndoSnapshot[],
+      extraSnapshots: ExtraTagUndoSnapshot[],
+      preserveUnverified: boolean,
     ) => {
-      const trackSnapshots = snapshots.map((s) => ({
-        path: s.path,
-        fields:
-          kind === "extra-tag-update"
-            ? { [EXTRA_TAG_UNDO_FIELD]: (s as ExtraTagUndoSnapshot).extraTags }
-            : ((s as { metadata?: Record<string, unknown> }).metadata ?? {}),
+      const standardCandidates = snapshots.map((snapshot) => ({
+        path: snapshot.path,
+        fields: { ...snapshot.metadata },
       }));
+      const changedStandardSnapshots: TrackSnapshot[] = [];
+      for (const albumPath of new Set(
+        standardCandidates.map((snapshot) => dirPath(snapshot.path)),
+      )) {
+        const albumCandidates = standardCandidates.filter(
+          (snapshot) => dirPath(snapshot.path) === albumPath,
+        );
+        try {
+          const detail = await window.api.readAlbum(albumPath);
+          changedStandardSnapshots.push(
+            ...filterChangedSnapshots(albumCandidates, detail.tracks),
+          );
+        } catch {
+          if (preserveUnverified) {
+            changedStandardSnapshots.push(...albumCandidates);
+          }
+        }
+      }
+
+      const snapshotsByPath = new Map<string, TrackSnapshot>();
+      for (const snapshot of changedStandardSnapshots) {
+        snapshotsByPath.set(snapshot.path, {
+          path: snapshot.path,
+          fields: { ...snapshot.fields },
+        });
+      }
+      for (const snapshot of extraSnapshots) {
+        let currentTags: Array<{ key: string; value: string }>;
+        let readVerified = true;
+        try {
+          currentTags = (await window.api.readExtraTags(snapshot.path)).map(
+            ({ key, value }) => ({ key, value }),
+          );
+        } catch {
+          readVerified = false;
+          if (!preserveUnverified) continue;
+          currentTags = [];
+        }
+        if (readVerified && extraTagsEqual(snapshot.extraTags, currentTags)) {
+          continue;
+        }
+        const existing = snapshotsByPath.get(snapshot.path);
+        snapshotsByPath.set(snapshot.path, {
+          path: snapshot.path,
+          fields: {
+            ...existing?.fields,
+            [EXTRA_TAG_UNDO_FIELD]: snapshot.extraTags,
+          },
+        });
+      }
+      const trackSnapshots = Array.from(snapshotsByPath.values()).filter(
+        (snapshot) => Object.keys(snapshot.fields).length > 0,
+      );
       dispatch({ type: "PUSH_UNDO", description, snapshots: trackSnapshots });
     },
     [],
@@ -1586,24 +1822,60 @@ export default function App() {
       }
 
       const albumPaths = Array.from(new Set(trackPaths.map(dirPath)));
-      const affectedAlbums = new Set(albumPaths);
-      const snapshots: TrackSnapshot[] = state.tracks
-        .filter((track) => affectedAlbums.has(dirPath(track.path)))
-        .map(createTrackSnapshot);
-      if (snapshots.length > 0) {
-        dispatch({
-          type: "PUSH_UNDO",
-          description: `Assistant auto-tag (${albumPaths.length} album${albumPaths.length !== 1 ? "s" : ""})`,
-          snapshots,
-        });
-      }
-
+      const snapshots = await buildAutoTagUndoSnapshots(
+        albumPaths,
+        state.tracks,
+        window.api.readAlbum,
+      );
+      const attemptedAlbumPaths: string[] = [];
+      let historyRecorded = false;
+      const recordAttemptedAutoTag = async () => {
+        if (historyRecorded || attemptedAlbumPaths.length === 0) return;
+        const attempted = new Set(attemptedAlbumPaths);
+        const readbacks: TrackData[] = [];
+        const readbackFailures: string[] = [];
+        for (const albumPath of attemptedAlbumPaths) {
+          try {
+            const detail = await window.api.readAlbum(albumPath);
+            readbacks.push(...detail.tracks);
+          } catch (error) {
+            readbackFailures.push(
+              `${albumPath}: ${
+                error instanceof Error ? error.message : "readback failed"
+              }`,
+            );
+          }
+        }
+        if (readbacks.length > 0) {
+          dispatch({ type: "UPDATE_TRACKS", tracks: readbacks });
+        }
+        const changedSnapshots = filterChangedSnapshots(
+          snapshots.filter((snapshot) => attempted.has(dirPath(snapshot.path))),
+          readbacks,
+        );
+        if (changedSnapshots.length > 0) {
+          dispatch({
+            type: "PUSH_UNDO",
+            description: `Assistant auto-tag (${albumPaths.length} album${albumPaths.length !== 1 ? "s" : ""})`,
+            snapshots: changedSnapshots,
+          });
+        }
+        historyRecorded = true;
+        if (readbackFailures.length > 0) {
+          throw new Error(
+            `Assistant auto-tag readback failed for ${readbackFailures
+              .slice(0, 3)
+              .join("; ")}`,
+          );
+        }
+      };
       dispatch({ type: "SET_AUTO_TAGGING", autoTagging: true });
       dispatch({ type: "SET_ERROR", error: null });
 
       try {
         let completed = 0;
         for (const albumPath of albumPaths) {
+          attemptedAlbumPaths.push(albumPath);
           const taskId = await window.api.autoTagAlbum(albumPath);
           let done = false;
           while (!done) {
@@ -1636,8 +1908,22 @@ export default function App() {
           }
           completed++;
         }
+        await recordAttemptedAutoTag();
         await handleAssistantRefresh();
       } catch (err: unknown) {
+        try {
+          await recordAttemptedAutoTag();
+        } catch (readbackError) {
+          const detail =
+            readbackError instanceof Error
+              ? readbackError.message
+              : "readback failed";
+          dispatch({
+            type: "SET_ERROR",
+            error: `Assistant auto-tag failed and completed changes could not be read back: ${detail}`,
+          });
+          throw err;
+        }
         const message = err instanceof Error ? err.message : "Auto-tag failed";
         dispatch({ type: "SET_ERROR", error: message });
         throw err;
@@ -1703,14 +1989,10 @@ export default function App() {
         e.preventDefault();
         handleRefresh();
       }
-      if ((e.metaKey || e.ctrlKey) && e.key === "z" && !e.shiftKey) {
-        e.preventDefault();
-        handleRevert();
-      }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [handleOpenLibrary, handleAutoTag, handleRefresh, handleRevert]);
+  }, [handleOpenLibrary, handleAutoTag, handleRefresh]);
 
   // --- File watching: re-scan on page visibility change ---
 
@@ -1793,11 +2075,45 @@ export default function App() {
 
   const handleApplyAuditFixes = useCallback(
     async (albumResults: AuditApplyAlbumResult[]) => {
-      if (albumResults.length === 0) return;
+      if (albumResults.length === 0 || state.reverting) return;
 
       dispatch({ type: "SET_SAVING", saving: true });
       dispatch({ type: "SET_ERROR", error: null });
+      const auditSnapshots: TrackSnapshot[] = [];
+      const auditTracksByAlbum = new Map<string, TrackData[]>();
+      let writesStarted = false;
+      let historyRecorded = false;
       try {
+        for (const albumResult of albumResults) {
+          const detail = await window.api.readAlbum(albumResult.albumPath);
+          auditTracksByAlbum.set(albumResult.albumPath, detail.tracks);
+          const fieldsByTrack = new Map<number, Record<string, unknown>>();
+          for (const result of albumResult.results) {
+            if (!result.autoFixEligible) continue;
+            const fields = fieldsByTrack.get(result.index) ?? {};
+            if (result.corrected) {
+              for (const [key, value] of Object.entries(result.corrected)) {
+                if (value !== undefined) fields[key] = value;
+              }
+            } else {
+              const key = normalizeAuditField(result.field);
+              if (key) fields[key] = result.suggestion ?? null;
+            }
+            fieldsByTrack.set(result.index, fields);
+          }
+          for (const [trackIndex, fields] of fieldsByTrack) {
+            const track = detail.tracks[trackIndex];
+            const current = track as unknown as Record<string, unknown>;
+            const wouldChange = Object.entries(fields).some(
+              ([key, value]) => !valuesEqual(current?.[key] ?? null, value),
+            );
+            if (track && wouldChange) {
+              auditSnapshots.push(createOwnedTrackSnapshot(track, fields));
+            }
+          }
+        }
+
+        writesStarted = true;
         const summary = await window.api.applyAuditFixes(albumResults);
         for (const albumResult of summary.albumResults) {
           dispatch({
@@ -1808,25 +2124,90 @@ export default function App() {
         }
 
         const refreshedTracks: TrackData[] = [];
+        const refreshFailures: string[] = [];
         for (const albumResult of summary.albumResults) {
           try {
             const detail = await window.api.readAlbum(albumResult.albumPath);
             refreshedTracks.push(...detail.tracks);
-          } catch {
-            // Keep the fix result visible even if a post-write refresh fails.
+          } catch (error) {
+            refreshFailures.push(
+              `${albumResult.albumPath}: ${
+                error instanceof Error ? error.message : "readback failed"
+              }`,
+            );
           }
         }
         if (refreshedTracks.length > 0) {
           dispatch({ type: "UPDATE_TRACKS", tracks: refreshedTracks });
         }
+        if (summary.fixed > 0) {
+          const successfulPaths = new Set<string>();
+          for (const albumResult of summary.albumResults) {
+            const tracks = auditTracksByAlbum.get(albumResult.albumPath) ?? [];
+            for (const result of albumResult.results) {
+              if (result.autoFixed && tracks[result.index]) {
+                successfulPaths.add(tracks[result.index].path);
+              }
+            }
+          }
+          const readbackPaths = new Set(
+            refreshedTracks.map((track) => track.path),
+          );
+          const changedSnapshots = [
+            ...filterChangedSnapshots(auditSnapshots, refreshedTracks),
+            ...auditSnapshots.filter(
+              (snapshot) =>
+                successfulPaths.has(snapshot.path) &&
+                !readbackPaths.has(snapshot.path),
+            ),
+          ].filter(
+            (snapshot, index, all) =>
+              all.findIndex((candidate) => candidate.path === snapshot.path) ===
+              index,
+          );
+          if (changedSnapshots.length > 0) {
+            dispatch({
+              type: "PUSH_UNDO",
+              description: `Audit fix (${summary.fixed})`,
+              snapshots: changedSnapshots,
+            });
+            historyRecorded = true;
+          }
+        }
         dispatch({
           type: "SET_ERROR",
           error:
-            summary.fixed > 0
+            refreshFailures.length > 0
+              ? `Applied ${summary.fixed} audit fix(es), but readback failed: ${refreshFailures.slice(0, 3).join("; ")}`
+              : summary.fixed > 0
               ? `Applied ${summary.fixed} audit fix(es)`
               : "No eligible audit fixes to apply",
         });
       } catch (err: unknown) {
+        if (writesStarted && !historyRecorded && auditSnapshots.length > 0) {
+          try {
+            const readbacks: TrackData[] = [];
+            for (const albumPath of new Set(
+              albumResults.map((result) => result.albumPath),
+            )) {
+              const detail = await window.api.readAlbum(albumPath);
+              readbacks.push(...detail.tracks);
+            }
+            const changedSnapshots = filterChangedSnapshots(
+              auditSnapshots,
+              readbacks,
+            );
+            if (changedSnapshots.length > 0) {
+              dispatch({
+                type: "PUSH_UNDO",
+                description: "Audit fix (partial)",
+                snapshots: changedSnapshots,
+              });
+            }
+          } catch {
+            // The original apply error remains authoritative.
+          }
+        }
         const message =
           err instanceof Error ? err.message : "Failed to apply audit fixes";
         dispatch({ type: "SET_ERROR", error: message });
@@ -1834,7 +2215,7 @@ export default function App() {
         dispatch({ type: "SET_SAVING", saving: false });
       }
     },
-    [],
+    [state.reverting],
   );
 
   // Handle batch field save from BatchEditor — single IPC call
@@ -1867,7 +2248,7 @@ export default function App() {
         const track = state.tracks.find((t) => t.path === path);
         if (!track) continue;
 
-        snapshots.push(createTrackSnapshot(track));
+        snapshots.push(createOwnedTrackSnapshot(track, writeFields));
         updates.push({ path, fields: writeFields });
       }
 
@@ -1884,10 +2265,9 @@ export default function App() {
       try {
         const result = await window.api.writeTracks(updates);
 
-        // Push undo snapshot only for paths that were successfully written
-        const successPaths = new Set(result.tracks.map((t) => t.path));
-        const successSnapshots = snapshots.filter((s) =>
-          successPaths.has(s.path),
+        const successSnapshots = filterChangedSnapshots(
+          snapshots,
+          result.tracks,
         );
         if (successSnapshots.length > 0) {
           dispatch({
@@ -1943,8 +2323,105 @@ export default function App() {
       dispatch({ type: "SET_ERROR", error: null });
 
       try {
-        const results = await window.api.writeExtraTagsBatch(updates);
-        dispatch({ type: "UPDATE_TRACKS", tracks: results });
+        const previousTags = new Map(
+          await Promise.all(
+            updates.map(async (update) => [
+              update.path,
+              (await window.api.readExtraTags(update.path)).map(
+                ({ key, value }) => ({ key, value }),
+              ),
+            ] as const),
+          ),
+        );
+        let results: TrackData[] = [];
+        let writeError: unknown = null;
+        try {
+          results = await window.api.writeExtraTagsBatch(updates);
+        } catch (error) {
+          writeError = error;
+        }
+
+        const snapshots: TrackSnapshot[] = [];
+        const readbackFailures: string[] = [];
+        const verificationFailures: string[] = [];
+        const successfulPaths = new Set(results.map((track) => track.path));
+        const writeErrorMessage =
+          writeError instanceof Error ? writeError.message : String(writeError ?? "");
+        const failedWritePaths = new Set(
+          updates
+            .filter((update) => writeErrorMessage.includes(`${update.path}:`))
+            .map((update) => update.path),
+        );
+        for (const update of updates) {
+          const before = previousTags.get(update.path)!;
+          try {
+            const after = (await window.api.readExtraTags(update.path)).map(
+              ({ key, value }) => ({ key, value }),
+            );
+            const changed = !extraTagsEqual(before, after);
+            if (changed) {
+              snapshots.push({
+                path: update.path,
+                fields: { [EXTRA_TAG_UNDO_FIELD]: before },
+              });
+            }
+            if ((!writeError || changed) && !extraTagsEqual(update.tags, after)) {
+              verificationFailures.push(update.path);
+            }
+          } catch (error) {
+            readbackFailures.push(
+              `${update.path}: ${
+                error instanceof Error ? error.message : "readback failed"
+              }`,
+            );
+            if (
+              (successfulPaths.has(update.path) ||
+                (writeError && !failedWritePaths.has(update.path))) &&
+              !extraTagsEqual(before, update.tags)
+            ) {
+              snapshots.push({
+                path: update.path,
+                fields: { [EXTRA_TAG_UNDO_FIELD]: before },
+              });
+            }
+          }
+        }
+        if (snapshots.length > 0) {
+          dispatch({
+            type: "PUSH_UNDO",
+            description: writeError
+              ? "Batch Extra Tags save (partial)"
+              : "Batch Extra Tags save",
+            snapshots,
+          });
+        }
+        if (results.length > 0) {
+          dispatch({ type: "UPDATE_TRACKS", tracks: results });
+        } else if (writeError && snapshots.length > 0) {
+          for (const albumPath of new Set(updates.map((update) => dirPath(update.path)))) {
+            try {
+              const detail = await window.api.readAlbum(albumPath);
+              dispatch({ type: "UPDATE_TRACKS", tracks: detail.tracks });
+            } catch {
+              // The batch error below remains the useful failure to surface.
+            }
+          }
+        }
+        if (writeError) throw writeError;
+        if (verificationFailures.length > 0) {
+          throw new Error(
+            `Extra Tags readback did not match the requested tags for: ${verificationFailures
+              .slice(0, 3)
+              .join("; ")}`,
+          );
+        }
+        if (readbackFailures.length > 0) {
+          throw new Error(
+            `Extra Tags were written but readback failed: ${readbackFailures
+              .slice(0, 3)
+              .join("; ")}`,
+          );
+        }
         setBatchExtraTagsOpen(false);
       } catch (err: unknown) {
         const message =
@@ -1957,6 +2434,8 @@ export default function App() {
     [],
   );
 
+  const mutationBusy = state.saving || state.reverting || assistantApplying;
+
   return (
     <div className="flex flex-col h-screen bg-surface text-text-primary overflow-hidden">
       <TitleBar
@@ -1965,11 +2444,13 @@ export default function App() {
         filterText={state.filterText}
         onFilterChange={handleFilterChange}
         selectedFilePath={state.selectedTrackPath}
-        saving={state.saving}
+        saving={mutationBusy}
         autoTagging={state.autoTagging}
         lyricsGetting={state.lyricsGetting}
         auditing={state.auditing}
         error={state.error}
+        modificationHistory={state.undoManager.history}
+        reverting={state.reverting}
         onOpenLibrary={handleOpenLibrary}
         onRefresh={handleRefresh}
         onConvert={handleConvert}
@@ -1985,6 +2466,8 @@ export default function App() {
         onOpenSettings={handleOpenSettings}
         onToggleAssistant={handleToggleAssistant}
         onErrorDismiss={() => dispatch({ type: "SET_ERROR", error: null })}
+        onUndoLatest={() => handleRevert()}
+        onUndoThrough={handleRevert}
       />
 
       <ScanProgressBar
@@ -2053,7 +2536,7 @@ export default function App() {
             <BatchEditor
               tracks={selectedTracksForBatch}
               coverDataUrl={state.coverDataUrl}
-              saving={state.saving}
+              saving={mutationBusy}
               onSave={handleBatchSave}
               onChangeCover={handleChangeCover}
               onRemoveCover={handleRemoveCover}
@@ -2082,14 +2565,14 @@ export default function App() {
                       ),
                     )
                   }
-                  applying={state.saving}
+                  applying={mutationBusy}
                 />
               )}
               <MetadataEditor
                 track={state.selectedTrack}
                 dirPath={dirPath(state.selectedTrack.path)}
                 coverDataUrl={state.coverDataUrl}
-                saving={state.saving}
+                saving={mutationBusy}
                 onSave={handleSaveMetadata}
                 onChangeCover={handleChangeCover}
                 onRemoveCover={handleRemoveCover}
@@ -2118,7 +2601,7 @@ export default function App() {
                   ),
                 )
               }
-              applying={state.saving}
+              applying={mutationBusy}
             />
           ) : (
             <div className="flex items-center justify-center h-full">
@@ -2163,6 +2646,8 @@ export default function App() {
           allTracks={state.tracks}
           allAlbums={state.albums}
           autonomous={false}
+          mutationsDisabled={state.reverting}
+          onApplyingChange={setAssistantApplying}
           onRefreshRequest={handleAssistantRefresh}
           onAssistantRunTask={handleAssistantRunTask}
           onAssistantApplyUndo={handleAssistantApplyUndo}
@@ -2215,7 +2700,7 @@ export default function App() {
       {extraTagsTrack && (
         <ExtraTagsEditor
           track={extraTagsTrack}
-          saving={state.saving}
+          saving={mutationBusy}
           onClose={() => setExtraTagsTrack(null)}
           onSave={handleSaveExtraTags}
         />
@@ -2224,7 +2709,7 @@ export default function App() {
       {batchExtraTagsOpen && state.selectedTrackPaths.length > 1 && (
         <BatchExtraTagsEditor
           tracks={selectedTracksForBatch}
-          saving={state.saving}
+          saving={mutationBusy}
           onClose={() => setBatchExtraTagsOpen(false)}
           onSave={handleBatchExtraTagsSave}
         />
@@ -2240,10 +2725,10 @@ function createTrackSnapshot(track: TrackData): TrackSnapshot {
     fields: {
       title: track.title,
       artist: track.artist,
-      artists: track.artists,
+      artists: [...track.artists],
       album: track.album,
       albumArtist: track.albumArtist,
-      albumArtists: track.albumArtists,
+      albumArtists: [...track.albumArtists],
       year: track.year,
       trackNumber: track.trackNumber,
       trackTotal: track.trackTotal,
@@ -2252,11 +2737,113 @@ function createTrackSnapshot(track: TrackData): TrackSnapshot {
       genre: track.genre,
       composer: track.composer,
       comment: track.comment ?? null,
+      description: track.description ?? null,
+      compilation: track.compilation,
       musicbrainzTrackId: track.musicbrainzTrackId,
       musicbrainzAlbumId: track.musicbrainzAlbumId,
       musicbrainzArtistId: track.musicbrainzArtistId,
+      discogsArtistId: track.discogsArtistId,
+      discogsReleaseId: track.discogsReleaseId,
     },
   };
+}
+
+/** Capture only values the pending standard metadata patch can change. */
+export function createOwnedTrackSnapshot(
+  track: TrackData,
+  writeFields: Record<string, unknown>,
+): TrackSnapshot {
+  const trackValues = track as unknown as Record<string, unknown>;
+  const fields: Record<string, unknown> = {};
+  for (const key of Object.keys(writeFields)) {
+    const value = trackValues[key];
+    fields[key] = Array.isArray(value) ? [...value] : (value ?? null);
+  }
+  return { path: track.path, fields };
+}
+
+function valuesEqual(left: unknown, right: unknown): boolean {
+  return JSON.stringify(left) === JSON.stringify(right);
+}
+
+/** Keep only successful readbacks that differ from their pre-write values. */
+export function filterChangedSnapshots(
+  snapshots: TrackSnapshot[],
+  readbacks: TrackData[],
+): TrackSnapshot[] {
+  const readbackByPath = new Map(readbacks.map((track) => [track.path, track]));
+  return snapshots.filter((snapshot) => {
+    const readback = readbackByPath.get(snapshot.path);
+    if (!readback) return false;
+    const values = readback as unknown as Record<string, unknown>;
+    return Object.entries(snapshot.fields).some(
+      ([key, oldValue]) => !valuesEqual(values[key] ?? null, oldValue),
+    );
+  });
+}
+
+export function extraTagsEqual(
+  left: Array<{ key: string; value: string }>,
+  right: Array<{ key: string; value: string }>,
+): boolean {
+  const normalize = (tags: Array<{ key: string; value: string }>) => {
+    const seen = new Set<string>();
+    const normalized = tags.flatMap(({ key, value }) => {
+      const rawKey = key.trim();
+      const normalizedProviderKey = rawKey
+        .replace(/^TXXX:/i, "")
+        .replace(/[ _-]/g, "")
+        .toUpperCase()
+        .replace(/^MUSICBRAINS/, "MUSICBRAINZ");
+      const canonicalKey =
+        {
+          MUSICBRAINZTRACKID: "MUSICBRAINZ_TRACKID",
+          MUSICBRAINZRECORDINGID: "MUSICBRAINZ_TRACKID",
+          MUSICBRAINZALBUMID: "MUSICBRAINZ_ALBUMID",
+          MUSICBRAINZRELEASEID: "MUSICBRAINZ_ALBUMID",
+          MUSICBRAINZARTISTID: "MUSICBRAINZ_ARTISTID",
+          DISCOGSARTISTID: "DISCOGS_ARTIST_ID",
+          DISCOGSRELEASEID: "DISCOGS_RELEASE_ID",
+        }[normalizedProviderKey] ??
+        (rawKey.toUpperCase() === "COMM" ? "COMMENT" : rawKey.toUpperCase());
+      const normalizedValue = value.trim();
+      const identity = `${canonicalKey}\0${normalizedValue}`;
+      if (!canonicalKey || !normalizedValue || seen.has(identity)) return [];
+      seen.add(identity);
+      return [{ key: canonicalKey, value: normalizedValue }];
+    });
+    return normalized.sort((a, b) => a.key.localeCompare(b.key));
+  };
+  return valuesEqual(normalize(left), normalize(right));
+}
+
+function normalizeAuditField(field: string): keyof TrackData | null {
+  const aliases: Record<string, keyof TrackData> = {
+    album_artist: "albumArtist",
+    album_artists: "albumArtists",
+    track_number: "trackNumber",
+    track_total: "trackTotal",
+    disc_number: "discNumber",
+    disc_total: "discTotal",
+  };
+  const normalized = aliases[field] ?? field;
+  const supported = new Set<keyof TrackData>([
+    "title",
+    "artist",
+    "artists",
+    "album",
+    "albumArtist",
+    "albumArtists",
+    "year",
+    "genre",
+    "trackNumber",
+    "trackTotal",
+    "discNumber",
+    "discTotal",
+  ]);
+  return supported.has(normalized as keyof TrackData)
+    ? (normalized as keyof TrackData)
+    : null;
 }
 
 export async function buildAutoTagUndoSnapshots(

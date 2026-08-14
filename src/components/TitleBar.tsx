@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import type { OrderingRule } from "../shared/track-numbering";
 import { ORDERING_RULE_LABELS } from "../shared/track-numbering";
+import type { UndoOperation } from "../state/UndoManager";
 
 /** All ordering rules, derived from the canonical label map. */
 const NUMBERING_RULES = Object.keys(ORDERING_RULE_LABELS) as OrderingRule[];
@@ -18,6 +19,8 @@ interface TitleBarProps {
   darkMode: boolean;
   assistantOpen: boolean;
   error: string | null;
+  modificationHistory: UndoOperation[];
+  reverting: boolean;
   onOpenLibrary: () => void;
   onRefresh: () => void;
   onConvert: () => void;
@@ -31,6 +34,8 @@ interface TitleBarProps {
   onOpenSettings: () => void;
   onToggleAssistant: () => void;
   onErrorDismiss: () => void;
+  onUndoLatest: () => void;
+  onUndoThrough: (operationId: number) => void;
 }
 
 
@@ -48,6 +53,8 @@ export function TitleBar({
   darkMode,
   assistantOpen,
   error,
+  modificationHistory,
+  reverting,
   onOpenLibrary,
   onRefresh,
   onConvert,
@@ -61,10 +68,15 @@ export function TitleBar({
   onOpenSettings,
   onToggleAssistant,
   onErrorDismiss,
+  onUndoLatest,
+  onUndoThrough,
 }: TitleBarProps) {
   const [numberMenuOpen, setNumberMenuOpen] = useState(false);
+  const [historyMenuOpen, setHistoryMenuOpen] = useState(false);
   const numberBtnRef = useRef<HTMLButtonElement>(null);
   const numberMenuRef = useRef<HTMLDivElement>(null);
+  const historyBtnRef = useRef<HTMLButtonElement>(null);
+  const historyMenuRef = useRef<HTMLDivElement>(null);
 
   // Close the numbering dropdown when clicking outside
   useEffect(() => {
@@ -83,6 +95,28 @@ export function TitleBar({
     return () => document.removeEventListener("mousedown", handler);
   }, [numberMenuOpen]);
 
+  useEffect(() => {
+    if (!historyMenuOpen) return;
+    const handleMouseDown = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (
+        !historyBtnRef.current?.contains(target) &&
+        !historyMenuRef.current?.contains(target)
+      ) {
+        setHistoryMenuOpen(false);
+      }
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setHistoryMenuOpen(false);
+    };
+    document.addEventListener("mousedown", handleMouseDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handleMouseDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [historyMenuOpen]);
+
   const handleNumberClick = useCallback(() => {
     setNumberMenuOpen((prev) => !prev);
   }, []);
@@ -95,7 +129,17 @@ export function TitleBar({
     [onNumberTracks],
   );
 
-  const numberDisabled = !libraryPath || !activeAlbumPath;
+  const commandBusy = saving || reverting;
+  const numberDisabled = !libraryPath || !activeAlbumPath || commandBusy;
+  const undoDisabled = modificationHistory.length === 0 || commandBusy;
+
+  const handleHistorySelect = useCallback(
+    (operationId: number) => {
+      setHistoryMenuOpen(false);
+      onUndoThrough(operationId);
+    },
+    [onUndoThrough],
+  );
 
   return (
     <div
@@ -169,12 +213,94 @@ export function TitleBar({
 
       <div className="flex-1" />
 
+      <div className="relative no-drag">
+        <div
+          data-testid="undo-control-group"
+          className="inline-flex overflow-hidden rounded-md border border-border/80"
+        >
+          <button
+            type="button"
+            onClick={onUndoLatest}
+            disabled={undoDisabled}
+            aria-label="Undo latest modification"
+            className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-[11.5px] font-medium transition-colors ${
+              undoDisabled
+                ? "cursor-not-allowed text-text-muted/40"
+                : "text-text-secondary hover:bg-surface-hover hover:text-text-primary"
+            }`}
+            title={
+              modificationHistory[0]
+                ? `Undo ${modificationHistory[0].description}`
+                : "No modifications to undo"
+            }
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9 14 4 9l5-5" />
+              <path d="M4 9h10a6 6 0 0 1 6 6v1" />
+            </svg>
+            <span>Undo</span>
+          </button>
+          <button
+            ref={historyBtnRef}
+            type="button"
+            onClick={() => setHistoryMenuOpen((open) => !open)}
+            disabled={undoDisabled}
+            aria-label="Open modification history"
+            aria-haspopup="menu"
+            aria-expanded={historyMenuOpen}
+            className={`inline-flex w-6 items-center justify-center border-l border-border/80 transition-colors ${
+              undoDisabled
+                ? "cursor-not-allowed text-text-muted/40"
+                : "text-text-secondary hover:bg-surface-hover hover:text-text-primary"
+            }`}
+          >
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="m6 9 6 6 6-6" />
+            </svg>
+          </button>
+        </div>
+
+        {historyMenuOpen && !undoDisabled && (
+          <div
+            ref={historyMenuRef}
+            role="menu"
+            className="absolute right-0 top-full z-50 mt-1 min-w-[280px] rounded-lg border border-border bg-white py-1 shadow-lg"
+          >
+            <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-widest text-text-muted">
+              Modification history
+            </div>
+            <div className="mx-2 my-0.5 h-px bg-border/50" />
+            {modificationHistory.map((operation) => (
+              <button
+                key={operation.id}
+                type="button"
+                role="menuitem"
+                onClick={() => handleHistorySelect(operation.id)}
+                className="flex w-full items-start justify-between gap-4 px-3 py-2 text-left transition-colors hover:bg-surface-hover"
+              >
+                <span className="min-w-0">
+                  <span className="block truncate text-[12px] text-text-primary">
+                    {operation.description}
+                  </span>
+                  <span className="block text-[10px] text-text-muted">
+                    {new Date(operation.timestamp).toLocaleString()}
+                  </span>
+                </span>
+                <span className="shrink-0 pt-0.5 text-[10px] text-text-muted">
+                  {operation.affectedFileCount} {operation.affectedFileCount === 1 ? "file" : "files"}
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
       {/* Auto-Tag button */}
       <button
         onClick={onAutoTag}
-        disabled={!libraryPath || autoTagging}
+        disabled={!libraryPath || autoTagging || commandBusy}
         className={`no-drag inline-flex items-center gap-1.5 px-3 py-1 text-[11.5px] font-medium rounded-md transition-all duration-200 active:scale-[0.95] hover:scale-[1.03] ${
-          autoTagging
+          autoTagging || commandBusy
             ? "text-accent/60 cursor-wait"
             : "text-accent hover:bg-accent/10"
         }`}
@@ -193,9 +319,9 @@ export function TitleBar({
       {/* Search button */}
       <button
         onClick={onSearch}
-        disabled={!activeAlbumPath || autoTagging || saving}
+        disabled={!activeAlbumPath || autoTagging || commandBusy}
         className={`no-drag inline-flex items-center gap-1.5 px-3 py-1 text-[11.5px] font-medium rounded-md transition-all duration-200 active:scale-[0.95] hover:scale-[1.03] ${
-          !activeAlbumPath || autoTagging || saving
+          !activeAlbumPath || autoTagging || commandBusy
             ? "text-text-muted/40 cursor-not-allowed"
             : "text-[#5e5ce6] hover:bg-[#5e5ce6]/10"
         }`}
@@ -211,9 +337,9 @@ export function TitleBar({
       {/* Get Lyrics button */}
       <button
         onClick={onGetLyrics}
-        disabled={!libraryPath || lyricsGetting}
+        disabled={!libraryPath || lyricsGetting || commandBusy}
         className={`no-drag inline-flex items-center gap-1.5 px-3 py-1 text-[11.5px] font-medium rounded-md transition-all duration-200 active:scale-[0.95] hover:scale-[1.03] ${
-          lyricsGetting
+          lyricsGetting || commandBusy
             ? "text-[#34c759]/60 cursor-wait"
             : "text-[#34c759] hover:bg-[#34c759]/10"
         }`}
@@ -236,9 +362,9 @@ export function TitleBar({
       {/* Audit button */}
       <button
         onClick={onAudit}
-        disabled={!libraryPath || auditing}
+        disabled={!libraryPath || auditing || commandBusy}
         className={`no-drag inline-flex items-center gap-1.5 px-3 py-1 text-[11.5px] font-medium rounded-md transition-all duration-200 active:scale-[0.95] hover:scale-[1.03] ${
-          auditing
+          auditing || commandBusy
             ? "text-[#ff9f0a]/60 cursor-wait"
             : "text-[#ff9f0a] hover:bg-[#ff9f0a]/10"
         }`}
@@ -312,6 +438,7 @@ export function TitleBar({
           </svg>
         }
         label="Convert"
+        disabled={commandBusy}
         onClick={onConvert}
       />
 
@@ -395,16 +522,16 @@ export function TitleBar({
           </button>
         ) : (
           <>
-            {saving && (
+            {(saving || reverting) && (
               <span className="text-accent flex items-center gap-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" />
-                Saving
+                {reverting ? "Reverting" : "Saving"}
               </span>
             )}
-            {selectedFilePath && !saving ? (
+            {selectedFilePath && !saving && !reverting ? (
               <span className="text-accent tabular-nums">1 selected</span>
             ) : (
-              !saving && <span className="tabular-nums">{trackCount} file{trackCount !== 1 ? "s" : ""}</span>
+              !saving && !reverting && <span className="tabular-nums">{trackCount} file{trackCount !== 1 ? "s" : ""}</span>
             )}
           </>
         )}

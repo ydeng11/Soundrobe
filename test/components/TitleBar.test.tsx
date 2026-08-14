@@ -25,6 +25,8 @@ function defaultProps(overrides?: Record<string, unknown>) {
     darkMode: false,
     assistantOpen: false,
     error: null,
+    modificationHistory: [],
+    reverting: false,
     onOpenLibrary: vi.fn(),
     onRefresh: vi.fn(),
     onConvert: vi.fn(),
@@ -38,6 +40,8 @@ function defaultProps(overrides?: Record<string, unknown>) {
     onOpenSettings: vi.fn(),
     onToggleAssistant: vi.fn(),
     onErrorDismiss: vi.fn(),
+    onUndoLatest: vi.fn(),
+    onUndoThrough: vi.fn(),
     ...overrides,
   } as const;
 }
@@ -141,6 +145,89 @@ describe("TitleBar — all buttons", () => {
   });
 
   // ── Auto-Tag button ──────────────────────────────────────
+
+  describe("modification history controls", () => {
+    const history = [
+      {
+        id: 2,
+        description: "Batch edit",
+        timestamp: new Date("2026-08-14T14:30:00Z").getTime(),
+        snapshots: [{ path: "/music/one.flac", fields: { artist: "Old" } }],
+        affectedFileCount: 1,
+      },
+      {
+        id: 1,
+        description: "Number tracks",
+        timestamp: new Date("2026-08-14T14:00:00Z").getTime(),
+        snapshots: [
+          { path: "/music/one.flac", fields: { trackNumber: 9 } },
+          { path: "/music/two.flac", fields: { trackNumber: 8 } },
+        ],
+        affectedFileCount: 2,
+      },
+    ];
+
+    it("renders exactly two adjacent split controls and disables both without history", () => {
+      render(<TitleBar {...defaultProps()} />);
+      const group = screen.getByTestId("undo-control-group");
+      expect(group.children).toHaveLength(2);
+      expect(screen.getByRole("button", { name: "Undo latest modification" }).getAttribute("disabled")).not.toBeNull();
+      expect(screen.getByRole("button", { name: "Open modification history" }).getAttribute("disabled")).not.toBeNull();
+    });
+
+    it("undoes the latest command from the primary button", () => {
+      const onUndoLatest = vi.fn();
+      render(<TitleBar {...defaultProps({ modificationHistory: history, onUndoLatest })} />);
+      fireEvent.click(screen.getByRole("button", { name: "Undo latest modification" }));
+      expect(onUndoLatest).toHaveBeenCalledOnce();
+    });
+
+    it("shows newest-first descriptions, local timestamps, and affected-file counts", () => {
+      render(<TitleBar {...defaultProps({ modificationHistory: history })} />);
+      fireEvent.click(screen.getByRole("button", { name: "Open modification history" }));
+
+      const items = screen.getAllByRole("menuitem");
+      expect(items[0].textContent).toContain("Batch edit");
+      expect(items[0].textContent).toContain("1 file");
+      expect(items[1].textContent).toContain("Number tracks");
+      expect(items[1].textContent).toContain("2 files");
+      expect(items[0].textContent).toContain(
+        new Date(history[0].timestamp).toLocaleString(),
+      );
+    });
+
+    it("closes on selection, outside click, and Escape", () => {
+      const onUndoThrough = vi.fn();
+      render(<TitleBar {...defaultProps({ modificationHistory: history, onUndoThrough })} />);
+      const chevron = screen.getByRole("button", { name: "Open modification history" });
+
+      fireEvent.click(chevron);
+      fireEvent.click(screen.getAllByRole("menuitem")[0]);
+      expect(onUndoThrough).toHaveBeenCalledWith(history[0].id);
+      expect(screen.queryByRole("menu")).toBeNull();
+
+      fireEvent.click(chevron);
+      fireEvent.mouseDown(document.body);
+      expect(screen.queryByRole("menu")).toBeNull();
+
+      fireEvent.click(chevron);
+      fireEvent.keyDown(document, { key: "Escape" });
+      expect(screen.queryByRole("menu")).toBeNull();
+    });
+
+    it("disables both controls while saving or reverting", () => {
+      const { rerender } = render(
+        <TitleBar {...defaultProps({ modificationHistory: history, saving: true })} />,
+      );
+      expect(screen.getByRole("button", { name: "Undo latest modification" }).getAttribute("disabled")).not.toBeNull();
+      rerender(
+        <TitleBar {...defaultProps({ modificationHistory: history, reverting: true })} />,
+      );
+      expect(screen.getByRole("button", { name: "Open modification history" }).getAttribute("disabled")).not.toBeNull();
+      expect(screen.getByRole("button", { name: "Auto-Tag" }).getAttribute("disabled")).not.toBeNull();
+      expect(screen.getByRole("button", { name: "Convert" }).getAttribute("disabled")).not.toBeNull();
+    });
+  });
 
   describe("Auto-Tag button", () => {
     it("renders the button", () => {
