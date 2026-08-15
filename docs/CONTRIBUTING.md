@@ -63,6 +63,12 @@ just smoke-assistant
 just smoke-cover-picker
 ```
 
+Ordinary `just build` and `just dist` development builds do not create updater
+artifacts and do not need updater signing credentials. The release workflow
+adds `src-tauri/tauri.updater.conf.json` and supplies the updater signing key
+only in GitHub Actions. See [Updater releases](updater-releases.md) before
+changing updater configuration, artifact names, or release automation.
+
 Tests should explain the behavior they protect. For metadata changes, preserve
 audio payload bytes, provider IDs, per-track credits, multi-disc positions, and
 the shared Rust `WriteQueue` and verify readback where applicable.

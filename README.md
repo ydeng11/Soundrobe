@@ -47,6 +47,8 @@ in one workflow.
   vulnerability.
 - [Contributing](docs/CONTRIBUTING.md) — development setup, testing, and
   contribution guidelines.
+- [Updater releases](docs/updater-releases.md) — signing-key custody, release
+  automation, and artifact/manifest verification.
 
 ![Soundrobe desktop workflow](docs/assets/Soundrobe-1.gif)
 
@@ -241,7 +243,8 @@ Build the current platform bundle:
 just fe-build
 ```
 
-Build an explicit unsigned distribution target:
+Build an explicit local distribution target. These ordinary builds do not
+create signed updater artifacts or require updater signing credentials:
 
 ```bash
 just fe-dist mac
@@ -249,8 +252,11 @@ just fe-dist win
 just fe-dist linux
 ```
 
-Cross-platform bundle and native workflow smoke coverage is defined in
-`.github/workflows/tauri.yml`.
+The GitHub release workflow separately creates signed updater artifacts. See
+[Updater releases](docs/updater-releases.md) for the bootstrap limitation,
+required secret, and post-release verification. macOS release bundles are
+ad-hoc signed, so the Gatekeeper warning and recovery steps near the beginning
+of this README still apply.
 
 ## License
 

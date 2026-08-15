@@ -29,6 +29,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
+use semver::Version;
 use tauri::webview::PageLoadEvent;
 use tauri::{Manager, PhysicalPosition, PhysicalSize, RunEvent, WindowEvent};
 use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
@@ -45,11 +46,77 @@ use crate::state::providers::ProviderState;
 use crate::state::quit_guard::QuitGuard;
 use crate::state::sqlite::CacheState;
 use crate::state::tasks::TaskRegistry;
+use crate::state::updater::UpdaterState;
 use crate::state::window_state::{DisplayWorkArea, PositionAction, WindowState};
 use crate::state::write_queue::WriteQueue;
 
 #[cfg(target_os = "macos")]
 const GUARDED_QUIT_MENU_ID: &str = "app.guarded-quit";
+
+const PROTECTED_OPERATION_QUIT_MESSAGE: &str = concat!(
+    "A protected disk operation is in progress (for example, writing tags).\n\n",
+    "Quitting now may leave files partially updated. ",
+    "Do you want to quit anyway?"
+);
+
+const UPDATE_INSTALL_QUIT_MESSAGE: &str =
+    "Soundrobe is installing an update and cannot quit until installation finishes.";
+
+#[derive(Debug, PartialEq, Eq)]
+enum QuitProtection {
+    None,
+    ConfirmProtectedOperation,
+    BlockUpdateInstall,
+}
+
+fn quit_protection(write_active: bool, update_installing: bool) -> QuitProtection {
+    if update_installing {
+        QuitProtection::BlockUpdateInstall
+    } else if write_active {
+        QuitProtection::ConfirmProtectedOperation
+    } else {
+        QuitProtection::None
+    }
+}
+
+fn is_stable_newer_version(current: &Version, candidate: &Version) -> bool {
+    candidate.pre.is_empty() && candidate > current
+}
+
+#[cfg(test)]
+mod updater_policy_tests {
+    use super::{is_stable_newer_version, quit_protection, QuitProtection, Version};
+
+    #[test]
+    fn updater_accepts_only_newer_stable_versions() {
+        let current = Version::parse("1.2.3").unwrap();
+        assert!(is_stable_newer_version(
+            &current,
+            &Version::parse("1.3.0").unwrap()
+        ));
+        assert!(!is_stable_newer_version(
+            &current,
+            &Version::parse("1.3.0-beta.1").unwrap()
+        ));
+        assert!(!is_stable_newer_version(
+            &current,
+            &Version::parse("1.2.3").unwrap()
+        ));
+    }
+
+    #[test]
+    fn updater_install_cannot_be_force_quit() {
+        assert_eq!(
+            quit_protection(true, true),
+            QuitProtection::BlockUpdateInstall
+        );
+        assert_eq!(
+            quit_protection(true, false),
+            QuitProtection::ConfirmProtectedOperation
+        );
+        assert_eq!(quit_protection(false, false), QuitProtection::None);
+    }
+}
 
 #[cfg(target_os = "macos")]
 fn is_guarded_quit_menu_event(id: &str) -> bool {
@@ -118,6 +185,13 @@ pub fn run() {
     let builder = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_clipboard_manager::init())
+        .plugin(
+            tauri_plugin_updater::Builder::new()
+                .default_version_comparator(|current, release| {
+                    is_stable_newer_version(&current, &release.version)
+                })
+                .build(),
+        )
         .on_page_load(|webview, payload| {
             tracing::debug!(
                 window = webview.label(),
@@ -193,6 +267,7 @@ pub fn run() {
             app.manage(WriteQueue::default());
             app.manage(QuitGuard::default());
             app.manage(TaskRegistry::default());
+            app.manage(UpdaterState::default());
             // Tauri menu events are global; ContextMenuState scopes recognized
             // IDs to the single active popup so ordinary app/tray menu events
             // cannot resolve a renderer context-menu promise.
@@ -269,6 +344,8 @@ pub fn run() {
             commands::audit::audit_run_album,
             commands::audit::audit_apply_fixes,
             commands::audit::audit_cancel,
+            commands::updater::updater_check,
+            commands::updater::updater_install,
         ])
         .build(tauri::generate_context!())
         .expect("error while building the Soundrobe Tauri shell");
@@ -278,34 +355,51 @@ pub fn run() {
             return;
         };
         let queue = app.state::<WriteQueue>();
+        let updater = app.state::<UpdaterState>();
         let guard = app.state::<QuitGuard>();
-        if !guard.should_prompt(queue.is_active()) {
-            return;
-        }
-        api.prevent_exit();
-        if !guard.begin_dialog() {
-            return;
-        }
-
-        let prompt_app = app.clone();
-        app.dialog()
-            .message(concat!(
-                "Tags are currently being written to disk.\n\n",
-                "Quitting now may leave some files partially updated. ",
-                "Do you want to quit anyway?"
-            ))
-            .title("Write in Progress")
-            .kind(MessageDialogKind::Warning)
-            .buttons(MessageDialogButtons::OkCancelCustom(
-                "Quit Anyway".to_string(),
-                "Cancel".to_string(),
-            ))
-            .show(move |quit_anyway| {
-                prompt_app.state::<QuitGuard>().finish_dialog(quit_anyway);
-                if quit_anyway {
-                    prompt_app.exit(0);
+        match quit_protection(queue.is_active(), updater.is_installing()) {
+            QuitProtection::None => {}
+            QuitProtection::BlockUpdateInstall => {
+                api.prevent_exit();
+                if !guard.begin_dialog() {
+                    return;
                 }
-            });
+                let prompt_app = app.clone();
+                app.dialog()
+                    .message(UPDATE_INSTALL_QUIT_MESSAGE)
+                    .title("Update Installation in Progress")
+                    .kind(MessageDialogKind::Info)
+                    .buttons(MessageDialogButtons::Ok)
+                    .show(move |_| {
+                        prompt_app.state::<QuitGuard>().finish_dialog(false);
+                    });
+            }
+            QuitProtection::ConfirmProtectedOperation => {
+                if !guard.should_prompt(true) {
+                    return;
+                }
+                api.prevent_exit();
+                if !guard.begin_dialog() {
+                    return;
+                }
+
+                let prompt_app = app.clone();
+                app.dialog()
+                    .message(PROTECTED_OPERATION_QUIT_MESSAGE)
+                    .title("Disk Operation in Progress")
+                    .kind(MessageDialogKind::Warning)
+                    .buttons(MessageDialogButtons::OkCancelCustom(
+                        "Quit Anyway".to_string(),
+                        "Cancel".to_string(),
+                    ))
+                    .show(move |quit_anyway| {
+                        prompt_app.state::<QuitGuard>().finish_dialog(quit_anyway);
+                        if quit_anyway {
+                            prompt_app.exit(0);
+                        }
+                    });
+            }
+        }
     });
 }
 
@@ -420,6 +514,14 @@ mod tests {
         assert!(!should_reveal_window("main", PageLoadEvent::Started));
         assert!(!should_reveal_window("settings", PageLoadEvent::Finished));
         assert!(should_reveal_window("main", PageLoadEvent::Finished));
+    }
+
+    #[test]
+    fn quit_messages_distinguish_forceable_writes_from_update_installation() {
+        assert!(PROTECTED_OPERATION_QUIT_MESSAGE.contains("protected disk operation"));
+        assert!(PROTECTED_OPERATION_QUIT_MESSAGE.contains("writing tags"));
+        assert!(UPDATE_INSTALL_QUIT_MESSAGE.contains("installing an update"));
+        assert!(UPDATE_INSTALL_QUIT_MESSAGE.contains("cannot quit"));
     }
 
     #[cfg(target_os = "macos")]

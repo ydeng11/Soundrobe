@@ -49,3 +49,5 @@ pub mod tasks;
 mod track_matcher;
 /// `album:read`, `track:write`, `tracks:batch-write`, extra-tags, rename, exists.
 pub mod tracks;
+/// Signed packaged-app update checks and coordinated installation.
+pub mod updater;

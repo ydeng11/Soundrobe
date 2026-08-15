@@ -32,6 +32,7 @@ import {
   SelectedTrackAuditFindings,
 } from "./components/AuditPanel";
 import { SettingsModal } from "./components/SettingsModal";
+import { UpdateDialog } from "./components/UpdateDialog";
 import { ConvertDialog } from "./components/ConvertDialog";
 import { SearchDialog } from "./components/SearchDialog";
 import { ConfirmWriteDialog } from "./components/ConfirmWriteDialog";
@@ -62,6 +63,7 @@ import {
   computeNumberedTracks,
   type OrderingRule,
 } from "./shared/track-numbering";
+import { useAppUpdater } from "./state/useAppUpdater";
 
 const EXTRA_TAG_UNDO_FIELD = "__assistantExtraTags";
 
@@ -93,6 +95,13 @@ function mapAuditResultForState(r: {
 
 export default function App() {
   const [state, dispatch] = useReducer(appReducer, initialAppState);
+  const appBusy =
+    state.saving ||
+    state.autoTagging ||
+    state.lyricsGetting ||
+    state.auditing ||
+    state.scanning;
+  const updater = useAppUpdater(appBusy);
   const [showConvertDialog, setShowConvertDialog] = React.useState(false);
   const [showSearchDialog, setShowSearchDialog] = React.useState(false);
   const [showConfirmDialog, setShowConfirmDialog] = React.useState(false);
@@ -2645,7 +2654,24 @@ export default function App() {
         />
       </ErrorBoundary>
 
-      <SettingsModal open={state.showSettings} onClose={handleCloseSettings} />
+      <SettingsModal
+        open={state.showSettings}
+        onClose={handleCloseSettings}
+        onCheckForUpdates={updater.checkManually}
+        updateSupported={updater.supported}
+        updateChecking={updater.checking}
+        updateCheckMessage={updater.checkMessage}
+      />
+
+      <UpdateDialog
+        update={updater.update}
+        busy={appBusy}
+        installing={updater.installing}
+        progress={updater.progress}
+        error={updater.installError}
+        onLater={updater.dismiss}
+        onInstall={() => void updater.install()}
+      />
 
       <ConvertDialog
         open={showConvertDialog}

@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Signed in-app updates** — packaged production builds check once at startup
+  and can also check from Settings. Available releases show their version,
+  date, and notes before an explicit download; installation reports progress,
+  refuses to interrupt protected library work, cannot be bypassed by quitting,
+  and can be retried after failure.
+
+### Changed
+
+- **Verifiable updater releases** — the release workflow now signs every
+  platform updater bundle, publishes installer-aware `latest.json` metadata
+  for macOS ARM/Intel, Windows x64, and Linux x64/ARM64 AppImage and deb
+  packages, includes the versioned changelog notes, rejects prereleases, and
+  fails when a required artifact or signature is missing.
+  
 - **Command-level modification history** — metadata edits now appear in a
   20-command session history with explicit Undo and history controls, including
   grouped Extra Tags, auto-tag, assistant, search, conversion, numbering, and

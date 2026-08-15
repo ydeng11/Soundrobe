@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
+import { parse } from "yaml";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -11,6 +12,25 @@ interface PackageJson {
   author: string;
   homepage: string;
   scripts: Record<string, string>;
+}
+
+interface WorkflowStep {
+  name?: string;
+  if?: string;
+  uses?: string;
+  run?: string;
+  env?: Record<string, string>;
+  with?: Record<string, string | boolean>;
+}
+
+interface ReleaseWorkflow {
+  jobs: Record<string, { if?: string; steps: WorkflowStep[] }>;
+}
+
+function namedStep(workflow: ReleaseWorkflow, job: string, name: string): WorkflowStep {
+  const step = workflow.jobs[job]?.steps.find((candidate) => candidate.name === name);
+  expect(step, `${job} step ${name}`).toBeDefined();
+  return step!;
 }
 
 function readPackageJson(): PackageJson {
@@ -151,6 +171,40 @@ describe("package scripts", () => {
     expect(tauriConfig.bundle.category).toBe("Music");
   });
 
+  it("keeps updater signing release-only and renderer access behind app commands", () => {
+    const tauriConfig = JSON.parse(
+      readFileSync(resolve(__dirname, "../src-tauri/tauri.conf.json"), "utf8"),
+    ) as {
+      bundle: { createUpdaterArtifacts?: boolean };
+      plugins: { updater: { endpoints: string[]; pubkey: string } };
+    };
+    const releaseConfig = JSON.parse(
+      readFileSync(
+        resolve(__dirname, "../src-tauri/tauri.updater.conf.json"),
+        "utf8",
+      ),
+    ) as { bundle: { createUpdaterArtifacts: boolean } };
+    const capability = readFileSync(
+      resolve(__dirname, "../src-tauri/capabilities/default.json"),
+      "utf8",
+    );
+    const cargoToml = readFileSync(
+      resolve(__dirname, "../src-tauri/Cargo.toml"),
+      "utf8",
+    );
+
+    expect(tauriConfig.bundle.createUpdaterArtifacts).toBeUndefined();
+    expect(releaseConfig.bundle.createUpdaterArtifacts).toBe(true);
+    expect(tauriConfig.plugins.updater.endpoints).toEqual([
+      "https://github.com/ydeng11/Soundrobe/releases/latest/download/latest.json",
+    ]);
+    const temporaryKeyMarker = ["__SOUNDROBE", "UPDATER_PUBLIC_KEY__"].join("_");
+    expect(tauriConfig.plugins.updater.pubkey).not.toContain(temporaryKeyMarker);
+    expect(tauriConfig.plugins.updater.pubkey.length).toBeGreaterThan(80);
+    expect(cargoToml).toMatch(/^tauri-plugin-updater = "2\.10\.1"$/m);
+    expect(capability).not.toContain("updater:");
+  });
+
   it("keeps pull request status checks limited to tests", () => {
     const workflow = readFileSync(
       resolve(__dirname, "../.github/workflows/tests.yml"),
@@ -174,6 +228,27 @@ describe("package scripts", () => {
       resolve(__dirname, "../.github/workflows/release.yml"),
       "utf8",
     );
+    const parsedWorkflow = parse(releaseWorkflow) as ReleaseWorkflow;
+    const macBuild = namedStep(
+      parsedWorkflow,
+      "bundle",
+      "Build signed macOS updater release bundles",
+    );
+    const otherBuild = namedStep(
+      parsedWorkflow,
+      "bundle",
+      "Build signed updater release bundles",
+    );
+    const manifest = namedStep(
+      parsedWorkflow,
+      "publish",
+      "Generate and verify updater manifest",
+    );
+    const publish = namedStep(
+      parsedWorkflow,
+      "publish",
+      "Create GitHub release and upload installers",
+    );
 
     expect(releaseWorkflow).toMatch(/^name: Release$/m);
     expect(releaseWorkflow).toContain('tags:\n      - "v*.*.*"');
@@ -186,6 +261,9 @@ describe("package scripts", () => {
     expect(releaseWorkflow).toContain("gh release view");
     expect(releaseWorkflow).toContain("release_needed=true");
     expect(releaseWorkflow).toContain("needs.version.outputs.release_needed == 'true'");
+    expect(parsedWorkflow.jobs.bundle?.if).toBe(
+      "needs.version.outputs.release_needed == 'true'",
+    );
     expect(releaseWorkflow).toContain("macos-arm64");
     expect(releaseWorkflow).toContain("macos-intel");
     expect(releaseWorkflow).toContain("windows-x64");
@@ -198,6 +276,7 @@ describe("package scripts", () => {
     expect(releaseWorkflow).toContain("release_arch: x64");
     expect(releaseWorkflow).toContain("ubuntu-24.04-arm");
     expect(releaseWorkflow).toContain("Rename macOS release bundles");
+    expect(releaseWorkflow).toContain("Rename Windows release bundles");
     expect(releaseWorkflow).toContain("Rename Linux release bundles");
     expect(releaseWorkflow).toContain(
       "soundrobe-${version}-${{ matrix.release_os }}-${{ matrix.release_arch }}.dmg",
@@ -209,12 +288,32 @@ describe("package scripts", () => {
       "soundrobe-${version}-${{ matrix.release_os }}-${{ matrix.release_arch }}.deb",
     );
     expect(releaseWorkflow).toContain("release-${{ matrix.artifact }}");
+    for (const build of [macBuild, otherBuild]) {
+      expect(build.env?.TAURI_SIGNING_PRIVATE_KEY).toBe(
+        "${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}",
+      );
+      expect(build.env?.TAURI_SIGNING_PRIVATE_KEY_PASSWORD).toBe("");
+      expect(build.run).toContain("--config src-tauri/tauri.updater.conf.json");
+    }
+    expect(macBuild.env?.APPLE_SIGNING_IDENTITY).toBe("-");
+    expect(macBuild.if).toBe("runner.os == 'macOS'");
+    expect(otherBuild.if).toBe("runner.os != 'macOS'");
+    expect(releaseWorkflow).toContain("codesign --verify --deep --strict");
     expect(releaseWorkflow).toContain("actions/download-artifact@v4");
-    expect(releaseWorkflow).toContain("softprops/action-gh-release@v2");
-    expect(releaseWorkflow).toContain("release-assets/**/*.dmg");
-    expect(releaseWorkflow).toContain("release-assets/**/*-setup.exe");
-    expect(releaseWorkflow).toContain("release-assets/**/*.AppImage");
-    expect(releaseWorkflow).toContain("release-assets/**/*.deb");
+    expect(manifest.run).toContain("generate-updater-manifest.mjs");
+    expect(manifest.run).toContain("date -u +%Y-%m-%dT%H:%M:%SZ");
+    expect(manifest.run).toContain("--changelog docs/CHANGELOG.md");
+    expect(manifest.run).not.toContain("--notes \"");
+    expect(manifest.run).toContain("--output release-assets/latest.json");
+    expect(publish.uses).toBe("softprops/action-gh-release@v2");
+    expect(publish.with?.files).toContain("release-assets/**/*.dmg");
+    expect(publish.with?.files).toContain("release-assets/**/*-setup.exe");
+    expect(publish.with?.files).toContain("release-assets/**/*.AppImage");
+    expect(publish.with?.files).toContain("release-assets/**/*.deb");
+    expect(publish.with?.files).toContain("release-assets/**/*.sig");
+    expect(publish.with?.files).toContain("release-assets/**/*.app.tar.gz");
+    expect(publish.with?.files).toContain("release-assets/latest.json");
+    expect(publish.with?.fail_on_unmatched_files).toBe(true);
   });
 
   it("runs test-only embedded WebdriverIO coverage on every desktop platform", () => {
