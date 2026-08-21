@@ -6,7 +6,7 @@
 
 use crate::commands::covers::{cover_cache_source, cover_cache_warm};
 use crate::commands::library::is_audio_file;
-use crate::commands::lyrics::{read_embedded_lyrics, LyricsDocument};
+use crate::commands::lyrics::{id3_lyrics_document, read_embedded_lyrics, LyricsDocument};
 use crate::error::ApiError;
 use lofty::config::ParseOptions;
 use lofty::file::{AudioFile, TaggedFileExt};
@@ -612,8 +612,25 @@ fn is_metadata_editor_key(key: &str) -> bool {
 /// uses the raw APEv2 fallback because a trailing ID3v1 tag makes normal parsers
 /// unreliable (matching Electron's post-parse fallback policy).
 pub fn read_track_metadata(path: &Path) -> Result<TrackData, ApiError> {
+    if path
+        .extension()
+        .and_then(|ext| ext.to_str())
+        .is_some_and(|ext| ext.eq_ignore_ascii_case("wav"))
+    {
+        let size_bytes = fs::metadata(path)?.len();
+        return read_wav_metadata(path, size_bytes, WavLyricsMode::Include);
+    }
+
     let mut track = read_track_metadata_without_lyrics(path)?;
-    track.lyrics = match read_embedded_lyrics(path) {
+    track.lyrics = embedded_lyrics_or_none(path, read_embedded_lyrics(path));
+    Ok(track)
+}
+
+fn embedded_lyrics_or_none(
+    path: &Path,
+    result: Result<Option<LyricsDocument>, ApiError>,
+) -> Option<LyricsDocument> {
+    match result {
         Ok(lyrics) => lyrics,
         Err(error) => {
             tracing::warn!(
@@ -623,8 +640,7 @@ pub fn read_track_metadata(path: &Path) -> Result<TrackData, ApiError> {
             );
             None
         }
-    };
-    Ok(track)
+    }
 }
 
 pub(crate) fn read_track_metadata_without_lyrics(path: &Path) -> Result<TrackData, ApiError> {
@@ -642,7 +658,7 @@ pub(crate) fn read_track_metadata_without_lyrics(path: &Path) -> Result<TrackDat
     }
 
     if extension == "wav" {
-        return read_wav_metadata(path, size_bytes);
+        return read_wav_metadata(path, size_bytes, WavLyricsMode::Skip);
     }
 
     let read_result: std::result::Result<lofty::file::TaggedFile, ApiError> =
@@ -762,12 +778,22 @@ fn apply_wav_native_fields(
         .map(ToOwned::to_owned);
 }
 
-fn read_wav_metadata(path: &Path, size_bytes: u64) -> Result<TrackData, ApiError> {
+#[derive(Clone, Copy)]
+enum WavLyricsMode {
+    Include,
+    Skip,
+}
+
+fn read_wav_metadata(
+    path: &Path,
+    size_bytes: u64,
+    lyrics_mode: WavLyricsMode,
+) -> Result<TrackData, ApiError> {
     let mut file = File::open(path)?;
-    if let Some(track) = read_wav_metadata_seekable(&mut file, path, size_bytes)? {
+    if let Some(track) = read_wav_metadata_seekable(&mut file, path, size_bytes, lyrics_mode)? {
         return Ok(track);
     }
-    read_wav_metadata_from_bytes(path, size_bytes, fs::read(path)?)
+    read_wav_metadata_from_bytes(path, size_bytes, fs::read(path)?, lyrics_mode)
 }
 
 struct WavLayout {
@@ -782,6 +808,7 @@ fn read_wav_metadata_seekable<R: Read + Seek>(
     reader: &mut R,
     path: &Path,
     size_bytes: u64,
+    lyrics_mode: WavLyricsMode,
 ) -> Result<Option<TrackData>, ApiError> {
     let Some(layout) = standard_wav_layout(reader, size_bytes)? else {
         return Ok(None);
@@ -798,7 +825,21 @@ fn read_wav_metadata_seekable<R: Read + Seek>(
     let mut track = from_lofty(path, size_bytes, "wav", &tagged);
     track.bitrate = layout.bitrate.map(f64::from).or(track.bitrate);
     apply_wav_native_fields(layout.id3_data.as_deref(), id3v2.as_ref(), &mut track);
+    apply_wav_lyrics(path, id3v2.as_ref(), lyrics_mode, &mut track);
     Ok(Some(track))
+}
+
+fn apply_wav_lyrics(
+    path: &Path,
+    id3v2: Option<&Id3v2Tag>,
+    mode: WavLyricsMode,
+    track: &mut TrackData,
+) {
+    if matches!(mode, WavLyricsMode::Skip) {
+        return;
+    }
+    let lyrics = id3v2.map(id3_lyrics_document).unwrap_or(Ok(None));
+    track.lyrics = embedded_lyrics_or_none(path, lyrics);
 }
 
 fn standard_wav_layout<R: Read + Seek>(
@@ -884,6 +925,7 @@ fn read_wav_metadata_from_bytes(
     path: &Path,
     size_bytes: u64,
     mut data: Vec<u8>,
+    lyrics_mode: WavLyricsMode,
 ) -> Result<TrackData, ApiError> {
     strip_wav_padding(&mut data);
     let parsed = WavFile::read_from(&mut Cursor::new(data.as_slice()), ParseOptions::new())?;
@@ -893,6 +935,7 @@ fn read_wav_metadata_from_bytes(
     track.bitrate = wav_bitrate(&data).map(f64::from).or(track.bitrate);
     let id3_data = wav_id3_offset(&data).and_then(|start| data.get(start..));
     apply_wav_native_fields(id3_data, id3v2.as_ref(), &mut track);
+    apply_wav_lyrics(path, id3v2.as_ref(), lyrics_mode, &mut track);
     Ok(track)
 }
 
@@ -2900,7 +2943,7 @@ mod tests {
         riff_fix_size(&mut wav);
         let size_bytes = wav.len() as u64;
 
-        let track = read_wav_metadata_from_bytes(&path, size_bytes, wav)
+        let track = read_wav_metadata_from_bytes(&path, size_bytes, wav, WavLyricsMode::Include)
             .expect("owned WAV bytes should be sufficient for all metadata extraction");
 
         assert_eq!(track.title.as_deref(), Some("ID3 title"));
@@ -2921,38 +2964,49 @@ mod tests {
         assert_eq!(track.sample_rate, Some(44_100));
         assert!(track.has_cover);
         assert_eq!(track.size_bytes, size_bytes);
+        assert_eq!(track.lyrics, None);
     }
 
     /// Intent: consolidating WAV parsing must not turn malformed input into a
     /// partial success merely because all extraction now shares one buffer.
     #[test]
     fn wav_metadata_from_owned_bytes_rejects_malformed_input() {
-        let result = read_wav_metadata_from_bytes(Path::new("missing.wav"), 5, b"short".to_vec());
+        let result = read_wav_metadata_from_bytes(
+            Path::new("missing.wav"),
+            5,
+            b"short".to_vec(),
+            WavLyricsMode::Skip,
+        );
         assert!(matches!(result, Err(ApiError::Lofty(_))));
     }
 
     /// Intent: normal WAV reads must scale with metadata, not PCM size, so
     /// large lossless files do not require transferring their audio payload.
     #[test]
-    fn wav_seekable_metadata_read_skips_large_pcm_payload() {
+    fn wav_seekable_metadata_and_lyrics_read_skips_large_pcm_payload() {
         let path = Path::new("bounded.wav");
         let mut wav = wav_before_payload();
         let data_size = 8 * 1024 * 1024_u32;
         let size_offset = wav.len() - 4;
         wav[size_offset..].copy_from_slice(&data_size.to_le_bytes());
         wav.resize(wav.len() + data_size as usize, 0);
-        append_riff_chunk(&mut wav, b"ID3 ", &metadata_rich_id3v23());
+        append_riff_chunk(&mut wav, b"ID3 ", &metadata_rich_id3v23_with_lyrics());
         riff_fix_size(&mut wav);
 
         let bytes_read = Rc::new(Cell::new(0));
         let mut reader = CountingReader::new(Cursor::new(wav), Rc::clone(&bytes_read));
         let size_bytes = reader.len();
-        let track = read_wav_metadata_seekable(&mut reader, path, size_bytes)
-            .expect("standard WAV should parse")
-            .expect("standard WAV should use the seekable path");
+        let track =
+            read_wav_metadata_seekable(&mut reader, path, size_bytes, WavLyricsMode::Include)
+                .expect("standard WAV should parse")
+                .expect("standard WAV should use the seekable path");
 
         assert_eq!(track.title.as_deref(), Some("ID3 title"));
         assert_eq!(track.artists, ["Primary artist", "Guest artist"]);
+        assert_eq!(
+            track.lyrics,
+            Some(LyricsDocument::from_synced("[00:01.250]你好\n[00:03.500]音乐", "zho").unwrap())
+        );
         assert!(
             bytes_read.get() < 64 * 1024,
             "metadata read transferred {} bytes from an 8 MiB PCM payload",
@@ -2966,19 +3020,72 @@ mod tests {
     fn wav_seekable_metadata_matches_owned_reader_across_chunk_order() {
         let path = Path::new("ordered.wav");
         for id3_before_data in [false, true] {
-            let wav = metadata_rich_wav(id3_before_data);
+            let wav =
+                metadata_rich_wav_with_id3(id3_before_data, metadata_rich_id3v23_with_lyrics());
             let size_bytes = wav.len() as u64;
-            let expected = read_wav_metadata_from_bytes(path, size_bytes, wav.clone())
-                .expect("owned compatibility reader should parse fixture");
-            let actual = read_wav_metadata_seekable(&mut Cursor::new(wav), path, size_bytes)
-                .expect("seekable reader should parse fixture")
-                .expect("standard fixture should use the seekable path");
+            let expected =
+                read_wav_metadata_from_bytes(path, size_bytes, wav.clone(), WavLyricsMode::Include)
+                    .expect("owned compatibility reader should parse fixture");
+            let actual = read_wav_metadata_seekable(
+                &mut Cursor::new(wav),
+                path,
+                size_bytes,
+                WavLyricsMode::Include,
+            )
+            .expect("seekable reader should parse fixture")
+            .expect("standard fixture should use the seekable path");
 
             assert_eq!(actual, expected);
             assert_eq!(actual.title.as_deref(), Some("ID3 title"));
             assert_eq!(actual.artists, ["Primary artist", "Guest artist"]);
             assert!(actual.has_cover);
+            assert!(actual.lyrics.is_some());
         }
+    }
+
+    /// Intent: callers that explicitly request metadata without lyrics must
+    /// remain lyrics-free even when the reused WAV tag contains valid SYLT.
+    #[test]
+    fn wav_metadata_without_lyrics_keeps_embedded_lyrics_excluded() {
+        let root = album_test_root();
+        std::fs::create_dir_all(&root).unwrap();
+        let path = root.join("lyrics.wav");
+        std::fs::write(
+            &path,
+            metadata_rich_wav_with_id3(false, metadata_rich_id3v23_with_lyrics()),
+        )
+        .unwrap();
+
+        let track = read_track_metadata_without_lyrics(&path).unwrap();
+
+        assert_eq!(track.title.as_deref(), Some("ID3 title"));
+        assert_eq!(track.lyrics, None);
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    /// Intent: malformed embedded lyrics remain nonfatal on both WAV readers,
+    /// preserving all other readable metadata exactly as before.
+    #[test]
+    fn wav_malformed_lyrics_are_nonfatal_for_seekable_and_owned_readers() {
+        let path = Path::new("malformed-lyrics.wav");
+        let wav = metadata_rich_wav_with_id3(false, metadata_rich_id3v23_with_malformed_lyrics());
+        let size_bytes = wav.len() as u64;
+
+        let owned =
+            read_wav_metadata_from_bytes(path, size_bytes, wav.clone(), WavLyricsMode::Include)
+                .expect("malformed lyrics must not hide readable WAV metadata");
+        let seekable = read_wav_metadata_seekable(
+            &mut Cursor::new(wav),
+            path,
+            size_bytes,
+            WavLyricsMode::Include,
+        )
+        .expect("seekable WAV inspection should succeed")
+        .expect("standard WAV should use the seekable path");
+
+        assert_eq!(seekable, owned);
+        assert_eq!(owned.title.as_deref(), Some("ID3 title"));
+        assert_eq!(owned.lyrics, None);
     }
 
     /// Intent: ambiguous RIFF layouts must keep using the proven owned-buffer
@@ -2991,20 +3098,26 @@ mod tests {
         padded.extend_from_slice(&[0_u8; 8]);
         riff_fix_size(&mut padded);
         let padded_size = padded.len() as u64;
-        assert!(
-            read_wav_metadata_seekable(&mut Cursor::new(padded), path, padded_size)
-                .expect("layout inspection should not fail")
-                .is_none()
-        );
+        assert!(read_wav_metadata_seekable(
+            &mut Cursor::new(padded),
+            path,
+            padded_size,
+            WavLyricsMode::Skip,
+        )
+        .expect("layout inspection should not fail")
+        .is_none());
 
         let mut orphaned = metadata_rich_wav(false);
         orphaned.extend_from_slice(b"ORPHAN!!");
         let orphaned_size = orphaned.len() as u64;
-        assert!(
-            read_wav_metadata_seekable(&mut Cursor::new(orphaned), path, orphaned_size)
-                .expect("layout inspection should not fail")
-                .is_none()
-        );
+        assert!(read_wav_metadata_seekable(
+            &mut Cursor::new(orphaned),
+            path,
+            orphaned_size,
+            WavLyricsMode::Skip,
+        )
+        .expect("layout inspection should not fail")
+        .is_none());
 
         let mut malformed_id3 = metadata_rich_wav(false);
         let id3 = malformed_id3
@@ -3013,17 +3126,64 @@ mod tests {
             .expect("fixture ID3 chunk");
         malformed_id3[id3 + 8..id3 + 11].copy_from_slice(b"BAD");
         let malformed_size = malformed_id3.len() as u64;
-        assert!(
-            read_wav_metadata_seekable(&mut Cursor::new(malformed_id3), path, malformed_size,)
-                .expect("layout inspection should not fail")
-                .is_none()
-        );
+        assert!(read_wav_metadata_seekable(
+            &mut Cursor::new(malformed_id3),
+            path,
+            malformed_size,
+            WavLyricsMode::Skip,
+        )
+        .expect("layout inspection should not fail")
+        .is_none());
+    }
+
+    /// Intent: adding optional lyrics extraction must not change the owned
+    /// compatibility path's success/error behavior for ambiguous layouts.
+    #[test]
+    fn wav_owned_compatibility_outcomes_do_not_depend_on_lyrics_mode() {
+        let path = Path::new("compatibility.wav");
+        let mut padded = metadata_rich_wav(false);
+        padded.extend_from_slice(&[0_u8; 8]);
+        riff_fix_size(&mut padded);
+
+        let mut orphaned = metadata_rich_wav(false);
+        orphaned.extend_from_slice(b"ORPHAN!!");
+
+        let mut malformed_id3 = metadata_rich_wav(false);
+        let id3 = malformed_id3
+            .windows(4)
+            .position(|bytes| bytes == b"ID3 ")
+            .expect("fixture ID3 chunk");
+        malformed_id3[id3 + 8..id3 + 11].copy_from_slice(b"BAD");
+
+        for wav in [padded, orphaned, malformed_id3] {
+            let size_bytes = wav.len() as u64;
+            let skipped =
+                read_wav_metadata_from_bytes(path, size_bytes, wav.clone(), WavLyricsMode::Skip);
+            let included =
+                read_wav_metadata_from_bytes(path, size_bytes, wav, WavLyricsMode::Include);
+
+            match (skipped, included) {
+                (Ok(skipped), Ok(mut included)) => {
+                    included.lyrics = None;
+                    assert_eq!(included, skipped);
+                }
+                (Err(skipped), Err(included)) => {
+                    assert_eq!(included.to_string(), skipped.to_string());
+                }
+                (skipped, included) => panic!(
+                    "lyrics mode changed compatibility outcome: skipped={skipped:?}, included={included:?}"
+                ),
+            }
+        }
     }
 
     fn metadata_rich_wav(id3_before_data: bool) -> Vec<u8> {
+        metadata_rich_wav_with_id3(id3_before_data, metadata_rich_id3v23())
+    }
+
+    fn metadata_rich_wav_with_id3(id3_before_data: bool, id3: Vec<u8>) -> Vec<u8> {
         let prefix = wav_before_payload();
         let mut wav = prefix[..prefix.len() - 8].to_vec();
-        let id3 = metadata_rich_id3v23();
         let list = list_info_title("stale LIST title");
         if id3_before_data {
             append_riff_chunk(&mut wav, b"ID3 ", &id3);
@@ -3106,6 +3266,35 @@ mod tests {
         let mut tag = Vec::from(&b"ID3\x03\0\0"[..]);
         tag.extend_from_slice(&syncsafe_bytes(frames.len() as u32));
         tag.extend_from_slice(&frames);
+        tag
+    }
+
+    fn metadata_rich_id3v23_with_lyrics() -> Vec<u8> {
+        use lofty::id3::v2::{SyncTextContentType, SynchronizedTextFrame, TimestampFormat};
+
+        let mut tag = metadata_rich_id3v23();
+        let frame = SynchronizedTextFrame::new(
+            lofty::TextEncoding::UTF16,
+            *b"zho",
+            TimestampFormat::MS,
+            SyncTextContentType::Lyrics,
+            Some(String::new()),
+            vec![(1_250, "你好".to_string()), (3_500, "音乐".to_string())],
+        );
+        let payload = frame
+            .as_bytes(lofty::config::WriteOptions::new().use_id3v23(true))
+            .unwrap();
+        append_id3v23_frame(&mut tag, b"SYLT", &payload);
+        let frame_bytes = tag.len() - 10;
+        tag[6..10].copy_from_slice(&syncsafe_bytes(frame_bytes as u32));
+        tag
+    }
+
+    fn metadata_rich_id3v23_with_malformed_lyrics() -> Vec<u8> {
+        let mut tag = metadata_rich_id3v23();
+        append_id3v23_frame(&mut tag, b"SYLT", &[0xff]);
+        let frame_bytes = tag.len() - 10;
+        tag[6..10].copy_from_slice(&syncsafe_bytes(frame_bytes as u32));
         tag
     }
 

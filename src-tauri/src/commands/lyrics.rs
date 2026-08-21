@@ -1003,7 +1003,7 @@ pub(crate) fn read_embedded_lyrics(path: &Path) -> Result<Option<LyricsDocument>
     }
 }
 
-fn id3_lyrics_document(tag: &Id3v2Tag) -> Result<Option<LyricsDocument>, ApiError> {
+pub(crate) fn id3_lyrics_document(tag: &Id3v2Tag) -> Result<Option<LyricsDocument>, ApiError> {
     let mut first_error = None;
     for frame in tag {
         if frame.id_str() != "SYLT" {
