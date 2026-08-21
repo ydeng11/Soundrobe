@@ -17,6 +17,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Keka-backed RAR extraction** — the media toolbox now prefers Keka’s bundled
+  RAR decoder and reports its password or access errors directly.
+
 - **Verifiable updater releases** — the release workflow now signs every
   platform updater bundle, publishes installer-aware `latest.json` metadata
   for macOS ARM/Intel, Windows x64, and Linux x64/ARM64 AppImage and deb

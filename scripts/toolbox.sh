@@ -18,7 +18,7 @@
 #   dsf-to-flac          Convert DSF (DSD/SACD) files to FLAC with metadata
 #   slice-iso            Slice audio ISO images (K2HD SACD UDF / raw CD)
 #                        into FLAC tracks
-#   unrar                Extract RAR archives (unar, 7z fallback)
+#   unrar                Extract RAR archives (Keka, unar, 7z fallback)
 #   doctor               Scan, diagnose, and fix FLAC metadata corruption
 #                        (delegates to fix-flac-metadata.js; renders the HTML
 #                        report automatically when one is saved)
@@ -967,8 +967,8 @@ cmd_unrar() {
         cat <<EOF
 Usage: $(basename "$0") unrar [options] [directory | --file RARFILE]
 
-Extract all .rar files in a directory (or a specific file). Uses unar
-(primary) or 7z (fallback); handles RAR5 and encrypted archives.
+Extract all .rar files in a directory (or a specific file). Uses Keka when
+available, then unar or 7z; handles RAR5 and encrypted archives.
 
 Options:
   -f, --file F       Extract a single .rar file
@@ -1035,6 +1035,30 @@ EOF
 
     EXTRACT_OUTPUT="$(mktemp)"
 
+    if command -v keka &>/dev/null; then
+      local -a KEKA_CMD=(keka unrar x -o+)
+      if [[ -n "$PASSWORD" ]]; then
+        KEKA_CMD+=("-p$PASSWORD")
+      else
+        KEKA_CMD+=(-p-)
+      fi
+      KEKA_CMD+=("$rar" "$TARGET_DIR/")
+
+      if (cd "$TARGET_DIR" && "${KEKA_CMD[@]}") > "$EXTRACT_OUTPUT" 2>&1; then
+        echo "  ✓ Done (via Keka) → $TARGET_DIR"
+        rm -f "$EXTRACT_OUTPUT"
+        EXTRACT_OK=$((EXTRACT_OK + 1))
+        continue
+      fi
+
+      grep -i 'error\|wrong\|incorrect\|unsupported\|cannot\|fail\|password\|operation not permitted' "$EXTRACT_OUTPUT" 2>/dev/null \
+        | head -10 | sed 's/^/  /'
+      rm -f "$EXTRACT_OUTPUT"
+      echo "  ✗ Failed via Keka"
+      EXTRACT_FAIL=$((EXTRACT_FAIL + 1))
+      continue
+    fi
+
     local -a UNAR_CMD=(unar -q -f -o "$TARGET_DIR")
     if [[ -n "$PASSWORD" ]]; then
       UNAR_CMD+=(-p "$PASSWORD")
@@ -1042,7 +1066,7 @@ EOF
     UNAR_CMD+=("$rar")
 
     if "${UNAR_CMD[@]}" > "$EXTRACT_OUTPUT" 2>&1; then
-      echo "  ✓ Done → $TARGET_DIR"
+      echo "  ✓ Done (via unar) → $TARGET_DIR"
       rm -f "$EXTRACT_OUTPUT"
       EXTRACT_OK=$((EXTRACT_OK + 1))
       continue
