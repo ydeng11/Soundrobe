@@ -16,10 +16,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and can be retried after failure.
 
 ### Changed
-
 - **Faster WAV library reads** — embedded lyrics now reuse the WAV metadata
   parse, avoiding a second file open and full Lofty pass while preserving
   large-file metadata-only reads and compatibility fallbacks.
+
+- **Keka-backed RAR extraction** — the media toolbox now prefers Keka’s bundled
+  RAR decoder and reports its password or access errors directly.
 
 - **Verifiable updater releases** — the release workflow now signs every
   platform updater bundle, publishes installer-aware `latest.json` metadata

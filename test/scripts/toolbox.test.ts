@@ -53,10 +53,11 @@ function makeSineFlac(filePath: string, seconds: number) {
   );
 }
 
-function runTool(args: string[]) {
+function runTool(args: string[], env: NodeJS.ProcessEnv = {}) {
   const result = spawnSync("bash", [toolboxPath, ...args], {
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"],
+    env: { ...process.env, ...env },
   });
   return { status: result.status, stdout: result.stdout ?? "", stderr: result.stderr ?? "" };
 }
@@ -86,6 +87,32 @@ describe("toolbox.sh dispatcher", () => {
     expect(r.status).toBe(0);
     expect(r.stdout).toContain("Usage:");
     expect(r.stdout).toContain("cue-split");
+  });
+
+  it("prefers Keka when it is available", () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "toolbox-unrar-"));
+    try {
+      const binDir = path.join(tmpDir, "bin");
+      const outputDir = path.join(tmpDir, "out");
+      const archive = path.join(tmpDir, "album.rar");
+      fs.mkdirSync(binDir, { recursive: true });
+      writeFile(archive, "not-an-archive");
+      const fakeKeka = path.join(binDir, "keka");
+      writeFile(
+        fakeKeka,
+        `#!/bin/sh\nmkdir -p "$6"\ntouch "$6/keka.txt"\n`,
+      );
+      fs.chmodSync(fakeKeka, 0o755);
+
+      const r = runTool(["unrar", "--file", archive, "--output-dir", outputDir], {
+        PATH: `${binDir}:${process.env.PATH ?? ""}`,
+      });
+      expect(r.status).toBe(0);
+      expect(r.stdout).toContain("Done (via Keka)");
+      expect(fs.existsSync(path.join(outputDir, "keka.txt"))).toBe(true);
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
   });
 });
 
