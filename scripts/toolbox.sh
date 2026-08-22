@@ -686,7 +686,7 @@ cmd_slice_iso() {
   local SOURCE_DIR="${SOURCE_DIR:-/Volumes/downloads/邓丽君}"
   local ARTIST="${ARTIST:-Teresa Teng}"
   local OUTPUT_BASE="${OUTPUT_BASE:-}"
-  local LOG_FILE="${SCRIPT_DIR}/slice-isos.log"
+  local LOG_FILE="${SLICE_ISOS_LOG:-${SCRIPT_DIR}/slice-isos.log}"
 
   while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -936,7 +936,7 @@ PYEOF
     else
         log "  SKIP: no track list and not a standard K2HD ISO"
     fi
-  done < <(find "${SOURCE_DIR}" -maxdepth 2 -name "*.iso" -print0 | sort -zV)
+  done < <(find "${SOURCE_DIR}" -maxdepth 2 -type f -iname "*.iso" -print0 | sort -zV)
 
   log ""
   log "============================================================"

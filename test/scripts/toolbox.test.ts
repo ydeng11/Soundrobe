@@ -114,6 +114,34 @@ describe("toolbox.sh dispatcher", () => {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }
   });
+
+  it("discovers uppercase ISO extensions", () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "toolbox-slice-iso-"));
+    try {
+      const sourceDir = path.join(tmpDir, "Album");
+      const binDir = path.join(tmpDir, "bin");
+      fs.mkdirSync(binDir, { recursive: true });
+      writeFile(path.join(sourceDir, "album.ISO"), "not-an-iso");
+      for (const command of ["hdiutil", "7z"]) {
+        const fake = path.join(binDir, command);
+        writeFile(fake, "#!/bin/sh\nexit 1\n");
+        fs.chmodSync(fake, 0o755);
+      }
+
+      const r = runTool(
+        ["slice-iso", sourceDir, "--artist", "The Beatles", "--output", path.join(tmpDir, "out")],
+        {
+          PATH: `${binDir}:${process.env.PATH ?? ""}`,
+          SLICE_ISOS_LOG: path.join(tmpDir, "slice-isos.log"),
+        },
+      );
+      expect(r.status).toBe(0);
+      expect(r.stdout).toContain("--- Album ---");
+      expect(r.stdout).toContain("SKIP: no track list and not a standard K2HD ISO");
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
 });
 
 describe("toolbox.sh cue-split discovery", () => {
