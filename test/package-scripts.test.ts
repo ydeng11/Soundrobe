@@ -121,6 +121,32 @@ describe("package scripts", () => {
     expect(scripts.dist).toBe("tauri build");
   });
 
+  it("keeps the headless server behind an opt-in Cargo feature", () => {
+    const cargoToml = readFileSync(
+      resolve(__dirname, "../src-tauri/Cargo.toml"),
+      "utf8",
+    );
+    const rustLib = readFileSync(
+      resolve(__dirname, "../src-tauri/src/lib.rs"),
+      "utf8",
+    );
+
+    expect(cargoToml).toMatch(/^default = \["desktop"\]$/m);
+    expect(cargoToml).toMatch(/^desktop = \[/m);
+    const serverFeature = cargoToml.match(/^server = \[([^\]]*)\]$/m)?.[1];
+    expect(serverFeature).toBeDefined();
+    expect(
+      serverFeature!
+        .split(",")
+        .map((entry) => entry.trim().replaceAll('"', "")),
+    ).toEqual(["dep:axum", "dep:tower"]);
+    expect(cargoToml).toMatch(/^name = "soundrobe-server"$/m);
+    expect(cargoToml).toMatch(/^required-features = \["server"\]$/m);
+    expect(cargoToml).toMatch(/^tauri = \{[^\n]*optional = true[^\n]*\}$/m);
+    expect(rustLib).toContain('cfg(all(feature = "desktop", feature = "server"))');
+    expect(rustLib).toContain('compile_error!("desktop and server features are mutually exclusive")');
+  });
+
   it("keeps the renderer build separate for Tauri lifecycle hooks", () => {
     const { scripts } = readPackageJson();
 
@@ -201,7 +227,9 @@ describe("package scripts", () => {
     const temporaryKeyMarker = ["__SOUNDROBE", "UPDATER_PUBLIC_KEY__"].join("_");
     expect(tauriConfig.plugins.updater.pubkey).not.toContain(temporaryKeyMarker);
     expect(tauriConfig.plugins.updater.pubkey.length).toBeGreaterThan(80);
-    expect(cargoToml).toMatch(/^tauri-plugin-updater = "2\.10\.1"$/m);
+    expect(cargoToml).toMatch(
+      /^tauri-plugin-updater = \{ version = "2\.10\.1", optional = true \}$/m,
+    );
     expect(capability).not.toContain("updater:");
   });
 

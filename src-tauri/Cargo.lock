@@ -3886,6 +3886,7 @@ name = "soundrobe"
 version = "0.1.1"
 dependencies = [
  "anyhow",
+ "axum",
  "base64 0.22.1",
  "chardetng",
  "dirs",
@@ -3913,6 +3914,7 @@ dependencies = [
  "thiserror 2.0.18",
  "time",
  "tokio",
+ "tower",
  "tracing",
  "tracing-subscriber",
  "unicode-normalization",

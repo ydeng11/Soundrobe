@@ -6,18 +6,31 @@
 //!
 //! Not yet ported — populated per slice.
 
-pub mod assistant;
-pub mod assistant_task;
-pub mod audit;
-pub mod config;
-pub mod conversation;
 pub mod paths;
+
+#[cfg(feature = "desktop")]
+pub mod assistant;
+#[cfg(feature = "desktop")]
+pub mod assistant_task;
+#[cfg(feature = "desktop")]
+pub mod audit;
+#[cfg(any(feature = "desktop", feature = "server"))]
+pub mod config;
+#[cfg(any(feature = "desktop", feature = "server"))]
+pub mod conversation;
+#[cfg(feature = "desktop")]
 pub mod providers;
+#[cfg(feature = "desktop")]
 pub mod quit_guard;
+#[cfg(any(feature = "desktop", feature = "server"))]
 pub mod sqlite;
+#[cfg(feature = "desktop")]
 pub mod tasks;
+#[cfg(feature = "desktop")]
 pub mod updater;
+#[cfg(any(feature = "desktop", feature = "server"))]
 pub mod write_queue;
 
 /// `~/.soundrobe/window-state.json` persistence + off-screen recovery.
+#[cfg(feature = "desktop")]
 pub mod window_state;

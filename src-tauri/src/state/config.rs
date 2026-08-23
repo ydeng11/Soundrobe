@@ -834,6 +834,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "desktop")]
     fn migrated_aliases_are_saved_in_soundrobe() {
         let home = cfg_home();
         fs::create_dir_all(home.join(".auto-tagger")).unwrap();

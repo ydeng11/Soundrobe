@@ -15,7 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   inspecting or migrating a container home, while native folder selection,
   desktop data migration, and updater behavior remain unchanged. Batch writes
   also honor the active runtime's configured concurrency without consulting a
-  separate home-directory config.
+  separate home-directory config. A headless, Tauri-free server build now
+  starts with an unauthenticated `/healthz` readiness endpoint.
 
 ## [0.1.1] - 2026-08-21
 
