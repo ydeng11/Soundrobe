@@ -228,6 +228,7 @@ pub fn run() {
 
     let app = builder
         .setup(|app| {
+            let mut write_concurrency = None;
             // Migrate legacy application data before loading the managed
             // config from ~/.soundrobe/config.yaml + env,
             // mirroring Electron's `initializeAssistantServices(getRawApi
@@ -241,6 +242,7 @@ pub fn run() {
                 let data_dir = paths.data_dir().to_path_buf();
                 let config = ConfigState::init_in(data_dir.clone());
                 let raw_config = config.raw();
+                write_concurrency = raw_config.write_concurrency;
                 let debug_enabled = raw_config.debug.unwrap_or(false);
                 let cache = CacheState::new_in(data_dir.clone());
                 let _ = cache.initialize(raw_config.cache_path.as_deref());
@@ -272,7 +274,7 @@ pub fn run() {
             app.manage(AuditState::default());
             app.manage(ContextMenuState::default());
             app.manage(ProviderState::default());
-            app.manage(WriteQueue::default());
+            app.manage(WriteQueue::with_concurrency(write_concurrency));
             app.manage(QuitGuard::default());
             app.manage(TaskRegistry::default());
             app.manage(UpdaterState::default());

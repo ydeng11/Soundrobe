@@ -228,14 +228,6 @@ fn apply_yaml_key(config: &mut AutoTagConfig, key: &str, value: &str) {
     }
 }
 
-/// Resolve the effective write concurrency from config + env.
-/// Returns `None` when neither the file nor the env specifies a value,
-/// meaning the caller should use its built-in default (currently 4).
-pub fn resolve_write_concurrency(home: &Path) -> Option<usize> {
-    let text = std::fs::read_to_string(config_file_path(home)).unwrap_or_default();
-    load_from(&text, &ProcessEnv).write_concurrency
-}
-
 /// Map a renderer camelCase config key to its YAML key (CONFIG_KEY_MAP).
 pub fn yaml_key_for(camel_key: &str) -> Option<&'static str> {
     match camel_key {

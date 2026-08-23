@@ -13,7 +13,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   distinguish browser deployments and enumerate their mounted music-library
   roots. Server state can use its configured data directory directly without
   inspecting or migrating a container home, while native folder selection,
-  desktop data migration, and updater behavior remain unchanged.
+  desktop data migration, and updater behavior remain unchanged. Batch writes
+  also honor the active runtime's configured concurrency without consulting a
+  separate home-directory config.
 
 ## [0.1.1] - 2026-08-21
 

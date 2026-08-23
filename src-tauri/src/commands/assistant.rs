@@ -22,7 +22,7 @@ use crate::state::assistant::{
     AssistantAction, AssistantActionBatch, AssistantCompletionPostcondition, AssistantRuntimeState,
     AssistantServicesConfig, AssistantServicesSnapshot, AssistantServicesState,
 };
-use crate::state::config::{AutoTagConfig, ConfigState};
+use crate::state::config::ConfigState;
 use crate::state::conversation::{ConversationEntry, ConversationState};
 use crate::state::providers::convert_chinese_text;
 use crate::state::providers::{DiscogsClient, MusicBrainzClient, ProviderState};
@@ -187,10 +187,6 @@ pub(crate) fn resolve_credentials(
     (api_key, model)
 }
 
-fn configured_dataset_path(config: &AutoTagConfig) -> Option<PathBuf> {
-    config.dataset_path.as_deref().map(PathBuf::from)
-}
-
 #[cfg(test)]
 mod credential_tests {
     use super::*;
@@ -252,11 +248,6 @@ mod credential_tests {
         assert_eq!(key, None);
     }
 
-    #[test]
-    fn dataset_lookup_does_not_fall_back_to_process_home() {
-        let config = crate::state::config::AutoTagConfig::default();
-        assert_eq!(configured_dataset_path(&config), None);
-    }
 }
 
 #[derive(Clone, Copy)]
@@ -286,7 +277,7 @@ async fn execute_native_assistant_tool(
     }
     let result = match name {
         "query.datasetStatus" => {
-            let path = configured_dataset_path(services.config);
+            let path = services.config.dataset_path.as_deref().map(PathBuf::from);
             let status = path
                 .as_deref()
                 .map(dataset_status_at)
@@ -4261,13 +4252,11 @@ fn finish_metadata_apply(
 }
 
 async fn apply_standard_actions(
-    runtime: &AssistantRuntimeState,
     batch: &AssistantActionBatch,
-    batch_id: &str,
     metadata_only: bool,
-    mark_status: bool,
     undo_tracks: &BTreeMap<String, crate::commands::tracks::TrackData>,
     progress: Option<TrackWriteProgress>,
+    max_folder_concurrency: usize,
 ) -> Value {
     let mut updates: Vec<(String, TrackPatch)> = Vec::new();
     for action in &batch.actions {
@@ -4282,9 +4271,6 @@ async fn apply_standard_actions(
         let patch = match action_patch(field, action.new_value.as_deref()) {
             Ok(patch) => patch,
             Err(error) => {
-                if mark_status {
-                    runtime.mark_batch_failed(batch_id, &error.to_string());
-                }
                 return serde_json::json!({ "success": false, "error": error.to_string() });
             }
         };
@@ -4304,9 +4290,6 @@ async fn apply_standard_actions(
         .collect::<Vec<_>>();
     if undo.len() != updates.len() {
         let message = "Could not capture complete standard-tag undo evidence";
-        if mark_status {
-            runtime.mark_batch_failed(batch_id, message);
-        }
         return serde_json::json!({ "success": false, "error": message, "undoSnapshots": undo });
     }
     let write_result = match batch_write_with_exclusive_queue_held(
@@ -4315,6 +4298,7 @@ async fn apply_standard_actions(
             .map(|(path, fields)| TrackUpdate { path, fields })
             .collect(),
         progress,
+        max_folder_concurrency,
     )
     .await
     {
@@ -4345,14 +4329,8 @@ async fn apply_standard_actions(
         .count();
     if failed > 0 {
         let error = format!("Failed to update {failed} track(s)");
-        if mark_status {
-            runtime.mark_batch_failed(batch_id, &error);
-        }
         serde_json::json!({ "success": false, "error": error, "results": results.into_iter().filter(|result| result["success"] == false).collect::<Vec<_>>(), "undoSnapshots": undo })
     } else {
-        if mark_status {
-            runtime.mark_batch_applied(batch_id);
-        }
         serde_json::json!({ "success": true, "results": results, "undoSnapshots": undo })
     }
 }
@@ -4794,6 +4772,7 @@ async fn apply_metadata_action_batch(
     batch: &AssistantActionBatch,
     batch_id: &str,
     progress: Option<AssistantApplyProgress>,
+    max_folder_concurrency: usize,
 ) -> Value {
     let mut standard_paths = BTreeSet::new();
     let mut extra_paths = BTreeSet::new();
@@ -4904,13 +4883,11 @@ async fn apply_metadata_action_batch(
     let write_result = match batch.kind.as_str() {
         "tag-update" => {
             apply_standard_actions(
-                runtime,
                 batch,
-                batch_id,
-                false,
                 false,
                 &standard_undo,
                 standard_progress,
+                max_folder_concurrency,
             )
             .await
         }
@@ -4929,13 +4906,11 @@ async fn apply_metadata_action_batch(
         }
         "metadata-update" => {
             let standard = apply_standard_actions(
-                runtime,
                 batch,
-                batch_id,
                 true,
-                false,
                 &standard_undo,
                 standard_progress,
+                max_folder_concurrency,
             )
             .await;
             let extra = apply_extra_actions(
@@ -5088,7 +5063,11 @@ async fn apply_action_batch_with_progress(
     ) {
         return queue
             .run_exclusive(apply_metadata_action_batch(
-                runtime, &batch, batch_id, progress,
+                runtime,
+                &batch,
+                batch_id,
+                progress,
+                queue.max_folder_concurrency(),
             ))
             .await;
     }

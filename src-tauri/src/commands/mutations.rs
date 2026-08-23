@@ -298,13 +298,6 @@ impl ExtraTagWriteReport {
 /// single folder worker. Albums larger than this are split into chunks so
 /// memory stays bounded and each chunk acts as a natural checkpoint.
 pub(crate) const SUBBATCH_SIZE: usize = 20;
-const DEFAULT_FOLDER_WRITE_CONCURRENCY: usize = 4;
-
-fn effective_write_concurrency(configured: Option<usize>) -> usize {
-    configured
-        .filter(|value| *value > 0)
-        .unwrap_or(DEFAULT_FOLDER_WRITE_CONCURRENCY)
-}
 
 /// Group a flat list of track updates by their parent album folder.
 ///
@@ -868,6 +861,7 @@ async fn batch_write_grouped(
     updates: Vec<TrackUpdate>,
     progress: Option<TrackWriteProgress>,
     accum: &Arc<Mutex<BatchAccumulator>>,
+    max_concurrency: usize,
 ) -> Result<(), ApiError> {
     let total = updates.len() as u64;
     // 1. Partition by folder (Path::parent() — no syscall needed)
@@ -886,15 +880,9 @@ async fn batch_write_grouped(
     //    Within a folder, tracks are written in sub-batches of SUBBATCH_SIZE
     //    (sequential within the folder worker) to keep memory bounded.
     //
-    //    Cap concurrent folder workers at 4 by default. Controlled local and
-    //    SMB benchmarks both improved through four workers after per-file I/O
-    //    amplification was removed. The user can override
-    //    via `write_concurrency` in ~/.soundrobe/config.yaml or the
-    //    AUTO_TAG_WRITE_CONCURRENCY environment variable (e.g. 8 for
-    //    local NVMe).
-    let max_concurrency = effective_write_concurrency(
-        crate::state::config::resolve_write_concurrency(&dirs::home_dir().unwrap_or_default()),
-    );
+    //    The shared WriteQueue owns the configured process policy. Controlled
+    //    local and SMB benchmarks use four workers by default; runtimes may
+    //    supply an explicit override when constructing the queue.
     let io_quota = Arc::new(tokio::sync::Semaphore::new(max_concurrency));
     let mut handles = Vec::new();
     for (folder, folder_updates) in folder_groups {
@@ -1005,7 +993,14 @@ async fn batch_write_queued(
             );
         }) as TrackWriteProgress
     });
-    batch_write_grouped(Some(queue.clone()), updates, progress, accum).await?;
+    batch_write_grouped(
+        Some(queue.clone()),
+        updates,
+        progress,
+        accum,
+        queue.max_folder_concurrency(),
+    )
+    .await?;
 
     // After all folder workers complete, check whether anything succeeded.
     let acc = accum.lock().expect("accum lock poisoned");
@@ -1034,9 +1029,17 @@ async fn batch_write_queued(
 pub(crate) async fn batch_write_with_exclusive_queue_held(
     updates: Vec<TrackUpdate>,
     progress: Option<TrackWriteProgress>,
+    max_folder_concurrency: usize,
 ) -> Result<ExclusiveBatchWriteResult, ApiError> {
     let accum = Arc::new(Mutex::new(BatchAccumulator::default()));
-    batch_write_grouped(None, updates, progress, &accum).await?;
+    batch_write_grouped(
+        None,
+        updates,
+        progress,
+        &accum,
+        max_folder_concurrency,
+    )
+    .await?;
     let mut accum = accum.lock().expect("accum lock poisoned");
     Ok(ExclusiveBatchWriteResult {
         successes: std::mem::take(&mut accum.successes),
@@ -7067,9 +7070,13 @@ mod tests {
                 .push((current, total));
         }) as TrackWriteProgress;
 
-        let result = batch_write_with_exclusive_queue_held(updates, Some(progress))
-            .await
-            .unwrap();
+        let result = batch_write_with_exclusive_queue_held(
+            updates,
+            Some(progress),
+            WriteQueue::default().max_folder_concurrency(),
+        )
+        .await
+        .unwrap();
 
         assert_eq!(result.successes.len(), 1);
         assert_eq!(result.failures.len(), 1);
@@ -7319,16 +7326,6 @@ mod tests {
         let groups = group_by_folder(updates);
         assert_eq!(groups.len(), 1);
         assert_eq!(groups.get(Path::new("/single")).map(|v| v.len()), Some(1));
-    }
-
-    /// Intent: the measured cross-folder default should use four workers while
-    /// preserving an explicit user override for slower storage.
-    #[test]
-    fn effective_write_concurrency_uses_measured_default_and_override() {
-        assert_eq!(effective_write_concurrency(None), 4);
-        assert_eq!(effective_write_concurrency(Some(0)), 4);
-        assert_eq!(effective_write_concurrency(Some(1)), 1);
-        assert_eq!(effective_write_concurrency(Some(8)), 8);
     }
 
     #[test]
