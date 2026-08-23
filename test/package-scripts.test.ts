@@ -139,7 +139,7 @@ describe("package scripts", () => {
       serverFeature!
         .split(",")
         .map((entry) => entry.trim().replaceAll('"', "")),
-    ).toEqual(["dep:axum", "dep:tower"]);
+    ).toEqual(["dep:axum", "dep:tower", "dep:subtle", "dep:url"]);
     expect(cargoToml).toMatch(/^name = "soundrobe-server"$/m);
     expect(cargoToml).toMatch(/^required-features = \["server"\]$/m);
     expect(cargoToml).toMatch(/^tauri = \{[^\n]*optional = true[^\n]*\}$/m);
