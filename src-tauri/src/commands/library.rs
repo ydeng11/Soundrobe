@@ -40,6 +40,15 @@ pub struct AlbumInfo {
     pub track_count: usize,
 }
 
+/// A browser-selectable mounted library root. Desktop builds retain their
+/// native folder picker, so [`library_list_roots`] returns no entries.
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub struct LibraryRoot {
+    pub id: String,
+    pub name: String,
+    pub path: String,
+}
+
 /// True if `path`'s extension is a supported audio extension (case-insensitive),
 /// matching Electron's `SUPPORTED_EXTENSIONS.has(ext.toLowerCase())`.
 pub fn is_audio_file(path: &Path) -> bool {
@@ -271,6 +280,13 @@ pub fn library_scan(dir_path: String) -> Result<Vec<AlbumInfo>, String> {
     Ok(scan_directory(&path))
 }
 
+/// `library:list-roots` command. Mounted roots are supplied only by the web
+/// service; the desktop shell continues to select arbitrary folders natively.
+#[tauri::command]
+pub fn library_list_roots() -> Result<Vec<LibraryRoot>, ApiError> {
+    Ok(Vec::new())
+}
+
 /// `album:refresh` / `refreshAlbum()`: Electron delegates directly to
 /// `readAlbum`, so use the same read-only implementation and error behavior.
 #[tauri::command]
@@ -302,6 +318,15 @@ mod tests {
             fs::create_dir_all(parent).unwrap();
         }
         fs::write(p, bytes).unwrap();
+    }
+
+    /// Intent: desktop keeps its native folder picker and therefore exposes no
+    /// container-mounted roots through the cross-runtime API.
+    #[test]
+    fn desktop_library_roots_are_empty() {
+        assert!(library_list_roots()
+            .expect("desktop root listing should resolve")
+            .is_empty());
     }
 
     /// Intent: only supported extensions count as audio so non-media files

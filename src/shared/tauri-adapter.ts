@@ -95,6 +95,7 @@ export function createTauriDesktopApi(): DesktopAPI {
     },
 
     // Library
+    listLibraryRoots: () => invokeCommand("library:list-roots"),
     scanLibrary: (dirPath) => invokeCommand("library:scan", { dirPath }),
     refreshAlbum: (albumPath) => invokeCommand("album:refresh", { albumPath }),
 

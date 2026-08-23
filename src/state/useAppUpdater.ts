@@ -46,7 +46,7 @@ export function useAppUpdater(busy: boolean) {
     void window.api
       .appInfo()
       .then((info) => {
-        if (info.dev) return;
+        if (info.runtime !== "tauri" || info.dev) return;
         setSupported(true);
         return check(false);
       })

@@ -17,8 +17,14 @@ export interface AlbumInfo {
 export interface AppInfo {
   identifier: string;
   version: string;
-  runtime: "tauri";
+  runtime: "tauri" | "web";
   dev: boolean;
+}
+
+export interface LibraryRoot {
+  id: string;
+  name: string;
+  path: string;
 }
 
 export interface CoverInfo {
@@ -530,6 +536,7 @@ export interface DesktopAPI {
   ) => Promise<void>;
 
   // Library
+  listLibraryRoots: () => Promise<LibraryRoot[]>;
   scanLibrary: (dirPath: string) => Promise<AlbumInfo[]>;
   refreshAlbum: (albumPath: string) => Promise<AlbumDetail>;
 

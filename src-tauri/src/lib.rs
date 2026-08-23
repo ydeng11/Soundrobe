@@ -293,6 +293,7 @@ pub fn run() {
             commands::shell::window_focused,
             commands::directories::directory_list,
             commands::directories::directory_read,
+            commands::library::library_list_roots,
             commands::library::library_scan,
             commands::library::album_refresh,
             commands::tracks::album_read,
