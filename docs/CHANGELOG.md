@@ -11,8 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Web-service runtime foundation** — the shared renderer contract can now
   distinguish browser deployments and enumerate their mounted music-library
-  roots while preserving native folder selection and updater behavior on the
-  desktop.
+  roots. Server state can use its configured data directory directly without
+  inspecting or migrating a container home, while native folder selection,
+  desktop data migration, and updater behavior remain unchanged.
 
 ## [0.1.1] - 2026-08-21
 

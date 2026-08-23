@@ -162,6 +162,11 @@ fn guarded_default_menu<R: tauri::Runtime>(
 /// `~/.soundrobe/auto-tagger.log`. `SOUNDROBE_LOG` controls the filter without
 /// changing the persisted path.
 pub fn init_logging() {
+    let data_dir = dirs::home_dir().map(|home| crate::state::paths::app_dir(&home));
+    init_logging_in(data_dir.as_deref());
+}
+
+pub fn init_logging_in(data_dir: Option<&std::path::Path>) {
     let filter = EnvFilter::try_from_env("SOUNDROBE_LOG")
         .unwrap_or_else(|_| EnvFilter::new("soundrobe=debug,info"));
     let builder = tracing_subscriber::fmt()
@@ -169,7 +174,7 @@ pub fn init_logging() {
         .with_target(false)
         .with_ansi(false);
     if let Some((_, writer)) =
-        dirs::home_dir().and_then(|home| crate::infra::logging::general_log_writer(&home).ok())
+        data_dir.and_then(|directory| crate::infra::logging::general_log_writer_in(directory).ok())
     {
         let _ = builder.with_writer(writer.and(std::io::stderr)).try_init();
     } else {
@@ -229,26 +234,29 @@ pub fn run() {
             // Config())` config bootstrapping (the full auto-tag TaskManager
             // port lands in a later slice; config is the first managed state).
             if let Some(home) = dirs::home_dir() {
-                crate::state::paths::migrate_legacy_dir(&home)
+                let paths = crate::state::paths::AppDataPaths::desktop(home);
+                paths
+                    .prepare()
                     .map_err(|error| -> Box<dyn std::error::Error> { Box::new(error) })?;
-                let config = ConfigState::init(home.clone());
+                let data_dir = paths.data_dir().to_path_buf();
+                let config = ConfigState::init_in(data_dir.clone());
                 let raw_config = config.raw();
                 let debug_enabled = raw_config.debug.unwrap_or(false);
-                let cache = CacheState::new(home.clone());
+                let cache = CacheState::new_in(data_dir.clone());
                 let _ = cache.initialize(raw_config.cache_path.as_deref());
-                app.manage(DebugState::new(home.clone(), debug_enabled));
+                app.manage(DebugState::new_in(data_dir.clone(), debug_enabled));
 
                 // Persistent task state for the assistant harness.
                 let task_path = raw_config
                     .cache_path
                     .as_deref()
                     .map(std::path::PathBuf::from)
-                    .unwrap_or_else(|| crate::state::paths::canonical_path(&home, "cache.db"));
+                    .unwrap_or_else(|| data_dir.join("cache.db"));
                 let task_state = crate::state::assistant_task::AssistantTaskState::new(task_path);
                 let _ = task_state.initialize();
                 app.manage(task_state);
 
-                app.manage(ConversationState::new(home));
+                app.manage(ConversationState::new_in(data_dir));
                 app.manage(cache);
                 app.manage(config);
             } else {

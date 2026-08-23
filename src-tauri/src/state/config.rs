@@ -18,7 +18,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, MutexGuard};
 
-use super::paths::canonical_path;
+use super::paths::{app_dir, canonical_path};
 
 /// Resolved app configuration. Fields mirror `AutoTagConfig`.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -82,6 +82,10 @@ impl Env for EnvMap {
 /// Canonical `~/.soundrobe/config.yaml` path used for new writes.
 pub fn config_file_path(home: &Path) -> PathBuf {
     canonical_path(home, "config.yaml")
+}
+
+pub fn config_file_path_in(data_dir: &Path) -> PathBuf {
+    data_dir.join("config.yaml")
 }
 
 /// Load config from a flat YAML body plus environment overrides. Mirrors
@@ -321,10 +325,14 @@ pub fn apply_key(text: &str, yaml_key: &str, formatted_value: &str) -> String {
 /// Persist a renderer camelCase key to the config file in place. Creates the
 /// parent directory. Unknown keys are ignored (matches Electron's early return).
 pub fn save_config(home: &Path, camel_key: &str, value: &Value) -> std::io::Result<()> {
+    save_config_in(&app_dir(home), camel_key, value)
+}
+
+pub fn save_config_in(data_dir: &Path, camel_key: &str, value: &Value) -> std::io::Result<()> {
     let Some(yaml_key) = yaml_key_for(camel_key) else {
         return Ok(()); // unknown key — skip, never partially write
     };
-    let path = config_file_path(home);
+    let path = config_file_path_in(data_dir);
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)?;
     }
@@ -383,9 +391,18 @@ pub fn redacted(config: &AutoTagConfig) -> Value {
 /// Load config from the on-disk YAML at `home/.soundrobe/config.yaml` plus an
 /// env. Missing/unreadable file yields the empty text (defaults), matching
 /// Electron's behavior when no config exists yet.
-fn load_from_disk(home: &Path, env: &dyn Env) -> AutoTagConfig {
-    let text = fs::read_to_string(config_file_path(home)).unwrap_or_default();
-    load_from(&text, env)
+fn load_from_disk_in(data_dir: &Path, env: &dyn Env) -> AutoTagConfig {
+    let text = fs::read_to_string(config_file_path_in(data_dir)).unwrap_or_default();
+    let mut config = load_from(&text, env);
+    if config.dataset_path.is_none() {
+        config.dataset_path = Some(
+            data_dir
+                .join("dataset-index.sqlite")
+                .to_string_lossy()
+                .into_owned(),
+        );
+    }
+    config
 }
 
 /// Managed state holding the live app config, mirroring the role of
@@ -394,7 +411,7 @@ fn load_from_disk(home: &Path, env: &dyn Env) -> AutoTagConfig {
 /// `set_config` write. Held behind a `Mutex` so Tauri commands read it
 /// concurrently without holding a SQLite/network lock.
 pub struct ConfigState {
-    home: PathBuf,
+    data_dir: PathBuf,
     env: Arc<dyn Env>,
     inner: Arc<Mutex<AutoTagConfig>>,
     /// Serialises concurrent read-modify-write of the YAML file.
@@ -407,15 +424,25 @@ pub struct ConfigState {
 impl ConfigState {
     /// Load config from `~/.soundrobe/config.yaml` + the real process env.
     pub fn init(home: PathBuf) -> Self {
-        Self::init_with_env(home, Arc::new(ProcessEnv))
+        Self::init_in(app_dir(&home))
     }
 
     /// Load config from a given home dir + an injected env (tests).
     pub fn init_with_env(home: PathBuf, env: Arc<dyn Env>) -> Self {
-        let config = load_from_disk(&home, env.as_ref());
+        Self::init_in_with_env(app_dir(&home), env)
+    }
+
+    /// Load config from an explicit application-data directory.
+    pub fn init_in(data_dir: PathBuf) -> Self {
+        Self::init_in_with_env(data_dir, Arc::new(ProcessEnv))
+    }
+
+    /// Load config from an explicit data directory + injected env (tests).
+    pub fn init_in_with_env(data_dir: PathBuf, env: Arc<dyn Env>) -> Self {
+        let config = load_from_disk_in(&data_dir, env.as_ref());
         tracing::info!("config loaded: chinese_script={:?}", config.chinese_script);
         Self {
-            home,
+            data_dir,
             env,
             inner: Arc::new(Mutex::new(config)),
             write_lock: Arc::new(Mutex::new(())),
@@ -451,7 +478,11 @@ impl ConfigState {
     }
 
     pub fn alias_file_path(&self) -> PathBuf {
-        canonical_path(&self.home, "artist-aliases.json")
+        self.data_dir.join("artist-aliases.json")
+    }
+
+    pub fn data_file(&self, file_name: &str) -> PathBuf {
+        self.data_dir.join(file_name)
     }
 
     /// Reload config from disk + env (matches `refreshConfig()`). On a poisoned
@@ -462,7 +493,7 @@ impl ConfigState {
     /// until the app is restarted), never panicking. The on-disk file is still
     /// correct, so a restart picks it up.
     pub fn refresh(&self) {
-        let config = load_from_disk(&self.home, self.env.as_ref());
+        let config = load_from_disk_in(&self.data_dir, self.env.as_ref());
         match self.inner.lock() {
             Ok(mut guard) => *guard = config,
             Err(_) => {
@@ -497,7 +528,7 @@ impl ConfigState {
                 return;
             }
         };
-        if let Err(e) = save_config(&self.home, camel_key, value) {
+        if let Err(e) = save_config_in(&self.data_dir, camel_key, value) {
             tracing::warn!("failed to save config key {camel_key}: {e}");
             return;
         }
@@ -738,6 +769,29 @@ mod tests {
         let raw = state.raw();
         assert_eq!(raw.debug, Some(true));
         assert_eq!(raw.llm_api_key.as_deref(), Some("sk-or-v1-1234567890"));
+    }
+
+    #[test]
+    fn server_config_state_uses_exact_data_directory() {
+        let data_dir = cfg_home().join("config");
+        let state = ConfigState::init_in_with_env(data_dir.clone(), Arc::new(EnvMap::new()));
+
+        state.set("debug", &json!(true));
+
+        assert_eq!(
+            fs::read_to_string(data_dir.join("config.yaml")).unwrap(),
+            "debug: true\n"
+        );
+        assert_eq!(
+            state.alias_file_path(),
+            data_dir.join("artist-aliases.json")
+        );
+        assert_eq!(
+            state.raw().dataset_path.as_deref(),
+            data_dir.join("dataset-index.sqlite").to_str(),
+        );
+        assert!(!data_dir.join(".soundrobe").exists());
+        fs::remove_dir_all(data_dir.parent().unwrap()).unwrap();
     }
 
     #[test]

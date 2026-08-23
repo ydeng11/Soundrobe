@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use time::OffsetDateTime;
 
-use super::paths::canonical_path;
+use super::paths::app_dir;
 
 const CACHE_SCHEMA: &str = r#"
 CREATE TABLE IF NOT EXISTS lookup_cache (
@@ -58,14 +58,18 @@ pub struct AlbumState {
 }
 
 pub struct CacheState {
-    home: PathBuf,
+    data_dir: PathBuf,
     inner: Mutex<Option<Connection>>,
 }
 
 impl CacheState {
     pub fn new(home: PathBuf) -> Self {
+        Self::new_in(app_dir(&home))
+    }
+
+    pub fn new_in(data_dir: PathBuf) -> Self {
         Self {
-            home,
+            data_dir,
             inner: Mutex::new(None),
         }
     }
@@ -79,7 +83,7 @@ impl CacheState {
         }
         let path = configured_path
             .map(PathBuf::from)
-            .unwrap_or_else(|| canonical_path(&self.home, "cache.db"));
+            .unwrap_or_else(|| self.data_dir.join("cache.db"));
         if let Some(parent) = path
             .parent()
             .filter(|parent| !parent.as_os_str().is_empty())
@@ -441,6 +445,18 @@ mod tests {
         assert!(state.initialize(None));
         assert!(root.join(".soundrobe/cache.db").exists());
         assert!(!root.join(".auto-tagger/cache.db").exists());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn server_cache_uses_exact_data_directory() {
+        let root = root();
+        let data_dir = root.join("config");
+        let state = CacheState::new_in(data_dir.clone());
+
+        assert!(state.initialize(None));
+        assert!(data_dir.join("cache.db").exists());
+        assert!(!data_dir.join(".soundrobe").exists());
         fs::remove_dir_all(root).unwrap();
     }
 

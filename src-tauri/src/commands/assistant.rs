@@ -22,7 +22,7 @@ use crate::state::assistant::{
     AssistantAction, AssistantActionBatch, AssistantCompletionPostcondition, AssistantRuntimeState,
     AssistantServicesConfig, AssistantServicesSnapshot, AssistantServicesState,
 };
-use crate::state::config::ConfigState;
+use crate::state::config::{AutoTagConfig, ConfigState};
 use crate::state::conversation::{ConversationEntry, ConversationState};
 use crate::state::providers::convert_chinese_text;
 use crate::state::providers::{DiscogsClient, MusicBrainzClient, ProviderState};
@@ -187,6 +187,10 @@ pub(crate) fn resolve_credentials(
     (api_key, model)
 }
 
+fn configured_dataset_path(config: &AutoTagConfig) -> Option<PathBuf> {
+    config.dataset_path.as_deref().map(PathBuf::from)
+}
+
 #[cfg(test)]
 mod credential_tests {
     use super::*;
@@ -247,6 +251,12 @@ mod credential_tests {
         let (key, _model) = resolve_credentials(Some(""), None, "", "");
         assert_eq!(key, None);
     }
+
+    #[test]
+    fn dataset_lookup_does_not_fall_back_to_process_home() {
+        let config = crate::state::config::AutoTagConfig::default();
+        assert_eq!(configured_dataset_path(&config), None);
+    }
 }
 
 #[derive(Clone, Copy)]
@@ -276,15 +286,7 @@ async fn execute_native_assistant_tool(
     }
     let result = match name {
         "query.datasetStatus" => {
-            let path = services
-                .config
-                .dataset_path
-                .as_deref()
-                .map(PathBuf::from)
-                .or_else(|| {
-                    dirs::home_dir()
-                        .map(|home| crate::state::paths::canonical_path(&home, "dataset-index.sqlite"))
-                });
+            let path = configured_dataset_path(services.config);
             let status = path
                 .as_deref()
                 .map(dataset_status_at)

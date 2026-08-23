@@ -52,12 +52,18 @@ impl<'a> MakeWriter<'a> for GeneralLogWriter {
     }
 }
 
+#[cfg(test)]
 pub(crate) fn general_log_writer(
     home: &std::path::Path,
 ) -> io::Result<(PathBuf, GeneralLogWriter)> {
-    let directory = app_dir(home);
-    fs::create_dir_all(&directory)?;
-    let path = directory.join("auto-tagger.log");
+    general_log_writer_in(&app_dir(home))
+}
+
+pub(crate) fn general_log_writer_in(
+    data_dir: &std::path::Path,
+) -> io::Result<(PathBuf, GeneralLogWriter)> {
+    fs::create_dir_all(data_dir)?;
+    let path = data_dir.join("auto-tagger.log");
     let file = OpenOptions::new().create(true).append(true).open(&path)?;
     Ok((
         path,
@@ -93,8 +99,12 @@ pub struct DebugState {
 
 impl DebugState {
     pub fn new(home: PathBuf, enabled: bool) -> Self {
+        Self::new_in(app_dir(&home), enabled)
+    }
+
+    pub fn new_in(data_dir: PathBuf, enabled: bool) -> Self {
         let state = Self {
-            log_dir: app_dir(&home),
+            log_dir: data_dir,
             inner: Mutex::new(DebugInner {
                 enabled: false,
                 log_file: None,
@@ -227,6 +237,17 @@ mod tests {
     }
 
     #[test]
+    fn server_debug_logs_use_exact_data_directory() {
+        let root = home();
+        let data_dir = root.join("config");
+        let state = DebugState::new_in(data_dir.clone(), true);
+
+        assert!(state.log_file().unwrap().starts_with(&data_dir));
+        assert!(!data_dir.join(".soundrobe").exists());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
     fn general_log_writer_appends_in_place_without_truncating() {
         let home = home();
         let directory = home.join(".soundrobe");
@@ -245,5 +266,17 @@ mod tests {
             "previous session\ncurrent session\n"
         );
         fs::remove_dir_all(home).unwrap();
+    }
+
+    #[test]
+    fn server_general_log_uses_exact_data_directory() {
+        let root = home();
+        let data_dir = root.join("config");
+
+        let (path, _) = general_log_writer_in(&data_dir).unwrap();
+
+        assert_eq!(path, data_dir.join("auto-tagger.log"));
+        assert!(!data_dir.join(".soundrobe").exists());
+        fs::remove_dir_all(root).unwrap();
     }
 }
