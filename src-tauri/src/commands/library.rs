@@ -18,6 +18,7 @@
 
 use crate::commands::tracks::{read_album, AlbumDetail};
 use crate::error::ApiError;
+pub use crate::state::library::LibraryRoot;
 use serde::Serialize;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -42,13 +43,6 @@ pub struct AlbumInfo {
 
 /// A browser-selectable mounted library root. Desktop builds retain their
 /// native folder picker, so [`library_list_roots`] returns no entries.
-#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
-pub struct LibraryRoot {
-    pub id: String,
-    pub name: String,
-    pub path: String,
-}
-
 /// True if `path`'s extension is a supported audio extension (case-insensitive),
 /// matching Electron's `SUPPORTED_EXTENSIONS.has(ext.toLowerCase())`.
 pub fn is_audio_file(path: &Path) -> bool {

@@ -40,7 +40,7 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 thiserror = "2"
 anyhow = "1"
-tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time", "fs", "io-util"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time", "fs", "io-util", "signal"] }
 dirs = "6"
 # Reader plus format-by-format writer cores, enabled only behind differential
 # media-safety tests before command exposure.
@@ -61,6 +61,7 @@ sha2 = "0.10"
 regex = "1"
 semver = "1"
 subtle = { version = "2", optional = true }
+tokio-util = { version = "0.7", optional = true }
 url = { version = "2", optional = true }
 tauri-plugin-wdio = { version = "1", optional = true }
 tauri-plugin-wdio-webdriver = { version = "1", optional = true }
@@ -85,7 +86,7 @@ desktop = [
   "dep:tauri-plugin-clipboard-manager",
   "dep:tauri-plugin-updater",
 ]
-server = ["dep:axum", "dep:tower", "dep:subtle", "dep:url"]
+server = ["dep:axum", "dep:tower", "dep:subtle", "dep:tokio-util", "dep:url"]
 wdio = ["desktop", "dep:tauri-plugin-wdio", "dep:tauri-plugin-wdio-webdriver"]
 
 # memchr uses explicit SIMD intrinsics (SSE2/AVX2 on x86_64, NEON on aarch64)

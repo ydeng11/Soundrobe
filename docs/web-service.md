@@ -8,6 +8,7 @@ settings are present:
 SOUNDROBE_LISTEN_ADDR=0.0.0.0:8080
 SOUNDROBE_PUBLIC_URL=https://soundrobe.example.com
 SOUNDROBE_DATA_DIR=/config
+SOUNDROBE_LIBRARY_ROOT_DIR=/libraries
 SOUNDROBE_AUTH_PASSWORD_FILE=/run/secrets/soundrobe_password
 # SOUNDROBE_AUTH_PASSWORD is the documented fallback when no file is used.
 ~~~
@@ -23,3 +24,11 @@ password file cannot be read, or when the public origin is invalid. Passwords
 are not logged or returned in API response bodies. Successful logins create
 in-memory, 24-hour HttpOnly/SameSite=Strict sessions; restarting the server
 invalidates them.
+
+The service discovers only immediate directories under
+SOUNDROBE_LIBRARY_ROOT_DIR. The server path-confinement layer is ready for
+browser operations: it canonicalizes supplied paths against their originating
+mount and rejects traversal, symlink escapes, and cross-root moves.
+
+SIGINT and SIGTERM initiate graceful shutdown: new API requests are rejected
+and active queued writes are allowed to drain before the process exits.

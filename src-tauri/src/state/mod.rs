@@ -18,6 +18,10 @@ pub mod audit;
 pub mod config;
 #[cfg(any(feature = "desktop", feature = "server"))]
 pub mod conversation;
+#[cfg(any(feature = "desktop", feature = "server"))]
+pub mod library;
+#[cfg(feature = "server")]
+pub mod operation;
 #[cfg(feature = "desktop")]
 pub mod providers;
 #[cfg(feature = "desktop")]

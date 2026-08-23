@@ -14,15 +14,22 @@ use std::{
     collections::HashMap,
     net::SocketAddr,
     path::{Path, PathBuf},
+    sync::atomic::{AtomicBool, Ordering},
     sync::Arc,
     time::{Duration, Instant},
 };
 use subtle::ConstantTimeEq;
 use tokio::sync::{Mutex, RwLock};
+use tokio_util::sync::CancellationToken;
 use url::Url;
 use uuid::Uuid;
 
-use crate::state::paths::AppDataPaths;
+use crate::state::{
+    library::{discover_library_roots, LibraryRoots},
+    operation::{OperationCoordinator, OperationKind},
+    paths::AppDataPaths,
+    write_queue::WriteQueue,
+};
 
 const SESSION_COOKIE: &str = "soundrobe_session";
 const DEFAULT_SESSION_TTL: Duration = Duration::from_secs(24 * 60 * 60);
@@ -33,6 +40,7 @@ const DEFAULT_MAX_FAILED_LOGINS: u32 = 5;
 pub struct ServerConfig {
     listen_addr: SocketAddr,
     data_dir: PathBuf,
+    library_root_dir: PathBuf,
     auth: AuthConfig,
     session_ttl: Duration,
     login_window: Duration,
@@ -47,6 +55,9 @@ impl ServerConfig {
         let data_dir = std::env::var_os("SOUNDROBE_DATA_DIR")
             .map(PathBuf::from)
             .unwrap_or_else(|| PathBuf::from("/config"));
+        let library_root_dir = std::env::var_os("SOUNDROBE_LIBRARY_ROOT_DIR")
+            .map(PathBuf::from)
+            .unwrap_or_else(|| PathBuf::from("/libraries"));
         let password_file = std::env::var_os("SOUNDROBE_AUTH_PASSWORD_FILE").map(PathBuf::from);
         let auth = AuthConfig::from_sources(
             password_file.as_deref(),
@@ -57,6 +68,7 @@ impl ServerConfig {
         Ok(Self {
             listen_addr,
             data_dir,
+            library_root_dir,
             auth,
             session_ttl: DEFAULT_SESSION_TTL,
             login_window: DEFAULT_LOGIN_WINDOW,
@@ -69,6 +81,7 @@ impl ServerConfig {
         Self {
             listen_addr: "127.0.0.1:0".parse().unwrap(),
             data_dir: PathBuf::from("/tmp/soundrobe-test-config"),
+            library_root_dir: PathBuf::from("/tmp/soundrobe-test-libraries"),
             auth: AuthConfig::from_sources(None, Some(password), Some(public_url)).unwrap(),
             session_ttl: DEFAULT_SESSION_TTL,
             login_window: DEFAULT_LOGIN_WINDOW,
@@ -151,6 +164,27 @@ fn parse_public_origin(public_url: &str) -> anyhow::Result<(String, bool)> {
 #[derive(Clone)]
 struct ServerState {
     auth: AuthService,
+    libraries: Result<LibraryRoots, String>,
+    operations: OperationCoordinator,
+    lifecycle: ServerLifecycle,
+    _write_queue: WriteQueue,
+}
+
+#[derive(Clone, Default)]
+struct ServerLifecycle {
+    shutting_down: Arc<AtomicBool>,
+    cancellation: CancellationToken,
+}
+
+impl ServerLifecycle {
+    fn begin_shutdown(&self) {
+        self.shutting_down.store(true, Ordering::Release);
+        self.cancellation.cancel();
+    }
+
+    fn is_shutting_down(&self) -> bool {
+        self.shutting_down.load(Ordering::Acquire)
+    }
 }
 
 #[derive(Clone)]
@@ -288,6 +322,16 @@ async fn health() -> Json<HealthResponse> {
     })
 }
 
+async fn libraries(State(state): State<ServerState>) -> Response {
+    match &state.libraries {
+        Ok(roots) => Json(roots.roots()).into_response(),
+        Err(_) => error_response(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "library roots unavailable",
+        ),
+    }
+}
+
 fn error_response(status: StatusCode, message: &'static str) -> Response {
     (status, Json(ErrorResponse { error: message })).into_response()
 }
@@ -328,12 +372,66 @@ fn is_public_auth_endpoint(path: &str) -> bool {
     )
 }
 
+fn operation_kind(method: &Method, path: &str) -> Option<OperationKind> {
+    if method != Method::POST {
+        return None;
+    }
+    if path == "/api/v1/covers" {
+        return Some(OperationKind::Mutation);
+    }
+    let command = path.strip_prefix("/api/v1/commands/")?;
+    match command {
+        "assistant:send"
+        | "assistant:clear"
+        | "assistant:apply-actions"
+        | "assistant:complete-task-actions"
+        | "assistant:reject-actions"
+        | "assistant:init-runtime"
+        | "assistant:init-services" => Some(OperationKind::Assistant),
+        "audit:run" | "audit:run-specified" | "audit:run-album" | "audit:apply-fixes" => {
+            Some(OperationKind::Audit)
+        }
+        "album:auto-tag" => Some(OperationKind::AutoTag),
+        "files:sort-by-album" => Some(OperationKind::Organizer),
+        "lyrics:fetch" | "album:download-lyrics" => Some(OperationKind::Lyrics),
+        "track:write"
+        | "tracks:batch-write"
+        | "track:extra-tags:write"
+        | "tracks:batch-write-extra-tags"
+        | "track:rename"
+        | "track:delete-files"
+        | "cover:set"
+        | "cover:remove"
+        | "cover:download"
+        | "cover:download-artist-art"
+        | "config:set"
+        | "volume:probe-write"
+        | "volume:probe-write-real"
+        | "debug:set-mode"
+        | "album:search-apply-candidate" => Some(OperationKind::Mutation),
+        _ => None,
+    }
+}
+
+fn request_operation_kind(method: &Method, path: &str) -> Option<OperationKind> {
+    if path == "/api/v1/commands/album:auto-tag" {
+        // This command returns a task ID before its spawned work completes.
+        // Its future handler must retain an explicit OperationToken instead
+        // of using the request-scoped guard below.
+        return None;
+    }
+    operation_kind(method, path)
+}
+
 async fn enforce_web_security(
     State(state): State<ServerState>,
     request: Request<axum::body::Body>,
     next: Next,
 ) -> Response {
     let path = request.uri().path();
+    if state.lifecycle.is_shutting_down() && path.starts_with("/api/") {
+        return error_response(StatusCode::SERVICE_UNAVAILABLE, "server shutting down");
+    }
     if is_api_mutation(request.method(), path) {
         let origin_matches = request
             .headers()
@@ -354,6 +452,15 @@ async fn enforce_web_security(
     {
         return error_response(StatusCode::UNAUTHORIZED, "authentication required");
     }
+    let _operation_guard = match request_operation_kind(request.method(), path) {
+        Some(kind) => match state.operations.try_acquire(kind) {
+            Ok(guard) => Some(guard),
+            Err(_) => {
+                return error_response(StatusCode::CONFLICT, "another operation is busy");
+            }
+        },
+        None => None,
+    };
     next.run(request).await
 }
 
@@ -462,8 +569,21 @@ async fn logout(State(state): State<ServerState>, headers: HeaderMap) -> Respons
 }
 
 pub fn router(config: ServerConfig) -> Router {
+    router_with_runtime(config, ServerLifecycle::default(), WriteQueue::default())
+}
+
+fn router_with_runtime(
+    config: ServerConfig,
+    lifecycle: ServerLifecycle,
+    write_queue: WriteQueue,
+) -> Router {
     let state = ServerState {
         auth: AuthService::new(&config),
+        libraries: discover_library_roots(&config.library_root_dir)
+            .map_err(|error| error.to_string()),
+        operations: OperationCoordinator::default(),
+        lifecycle,
+        _write_queue: write_queue,
     };
     let login_route = Router::new()
         .route("/api/v1/auth/login", post(login))
@@ -472,6 +592,7 @@ pub fn router(config: ServerConfig) -> Router {
     Router::new()
         .route("/healthz", get(health))
         .route("/api/v1/auth/session", get(session))
+        .route("/api/v1/libraries", get(libraries))
         .route("/api/v1/auth/logout", post(logout))
         .merge(login_route)
         .with_state(state.clone())
@@ -487,8 +608,48 @@ pub async fn run() -> anyhow::Result<()> {
     AppDataPaths::server(config.data_dir.clone()).prepare()?;
 
     let listener = tokio::net::TcpListener::bind(config.listen_addr).await?;
-    axum::serve(listener, router(config)).await?;
+    let lifecycle = ServerLifecycle::default();
+    let write_queue = WriteQueue::default();
+    axum::serve(
+        listener,
+        router_with_runtime(config, lifecycle.clone(), write_queue.clone()),
+    )
+    .with_graceful_shutdown(shutdown_signal(lifecycle))
+    .await?;
+    wait_for_active_writes(write_queue).await;
     Ok(())
+}
+
+async fn wait_for_active_writes(queue: WriteQueue) {
+    while queue.is_active() {
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
+}
+
+async fn shutdown_signal(lifecycle: ServerLifecycle) {
+    #[cfg(unix)]
+    {
+        let ctrl_c = async {
+            tokio::signal::ctrl_c()
+                .await
+                .expect("failed to install Ctrl-C handler");
+        };
+        let terminate = async {
+            let mut signal =
+                tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
+                    .expect("failed to install SIGTERM handler");
+            signal.recv().await;
+        };
+        tokio::select! {
+            _ = ctrl_c => {}
+            _ = terminate => {}
+        }
+    }
+    #[cfg(not(unix))]
+    tokio::signal::ctrl_c()
+        .await
+        .expect("failed to install Ctrl-C handler");
+    lifecycle.begin_shutdown();
 }
 
 #[cfg(test)]
@@ -497,6 +658,7 @@ mod tests {
     use axum::body::Body;
     use axum::http::{header, Request, StatusCode};
     use std::time::Duration;
+    use tokio::sync::{Barrier, Notify};
     use tower::ServiceExt;
 
     fn test_config() -> ServerConfig {
@@ -617,6 +779,228 @@ mod tests {
             r#"{"error":"authentication required"}"#,
         )
         .await;
+    }
+
+    #[tokio::test]
+    async fn shutdown_lifecycle_rejects_new_api_requests() {
+        let lifecycle = ServerLifecycle::default();
+        let app = router_with_runtime(test_config(), lifecycle.clone(), WriteQueue::default());
+        lifecycle.begin_shutdown();
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri("/api/v1/libraries")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_json_error(
+            response,
+            StatusCode::SERVICE_UNAVAILABLE,
+            r#"{"error":"server shutting down"}"#,
+        )
+        .await;
+        assert!(lifecycle.cancellation.is_cancelled());
+    }
+
+    #[tokio::test]
+    async fn shutdown_waits_for_active_write_queue_operations() {
+        let queue = WriteQueue::default();
+        let entered = Arc::new(Barrier::new(2));
+        let release = Arc::new(Notify::new());
+        let worker_queue = queue.clone();
+        let worker_entered = entered.clone();
+        let worker_release = release.clone();
+        let worker = tokio::spawn(async move {
+            worker_queue
+                .run(async move {
+                    worker_entered.wait().await;
+                    worker_release.notified().await;
+                })
+                .await;
+        });
+        entered.wait().await;
+
+        let drain = tokio::spawn(wait_for_active_writes(queue));
+        tokio::task::yield_now().await;
+        assert!(!drain.is_finished());
+        release.notify_one();
+        drain.await.unwrap();
+        worker.await.unwrap();
+    }
+
+    #[test]
+    fn existing_mutating_command_ids_are_coordinated_and_reads_are_not() {
+        assert_eq!(
+            operation_kind(&Method::POST, "/api/v1/commands/tracks"),
+            None
+        );
+        assert_eq!(
+            operation_kind(&Method::POST, "/api/v1/commands/assistant:apply-actions"),
+            Some(OperationKind::Assistant)
+        );
+        assert_eq!(
+            operation_kind(&Method::POST, "/api/v1/commands/audit:apply-fixes"),
+            Some(OperationKind::Audit)
+        );
+        assert_eq!(
+            operation_kind(&Method::POST, "/api/v1/commands/album:auto-tag"),
+            Some(OperationKind::AutoTag)
+        );
+        assert_eq!(
+            operation_kind(&Method::POST, "/api/v1/commands/assistant:cancel"),
+            None
+        );
+        assert_eq!(
+            operation_kind(&Method::POST, "/api/v1/commands/audit:cancel"),
+            None
+        );
+        assert_eq!(
+            request_operation_kind(&Method::POST, "/api/v1/commands/album:auto-tag"),
+            None
+        );
+        assert_eq!(
+            operation_kind(&Method::POST, "/api/v1/commands/files:sort-by-album"),
+            Some(OperationKind::Organizer)
+        );
+        assert_eq!(
+            operation_kind(&Method::POST, "/api/v1/commands/lyrics:fetch"),
+            Some(OperationKind::Lyrics)
+        );
+        assert_eq!(
+            operation_kind(&Method::POST, "/api/v1/commands/tracks:batch-write"),
+            Some(OperationKind::Mutation)
+        );
+        assert_eq!(
+            operation_kind(&Method::POST, "/api/v1/commands/album:read"),
+            None
+        );
+    }
+
+    #[tokio::test]
+    async fn an_active_command_operation_returns_conflict() {
+        let config = test_config();
+        let state = ServerState {
+            auth: AuthService::new(&config),
+            libraries: Ok(LibraryRoots::default()),
+            operations: OperationCoordinator::default(),
+            lifecycle: ServerLifecycle::default(),
+            _write_queue: WriteQueue::default(),
+        };
+        let _active = state
+            .operations
+            .try_acquire(OperationKind::AutoTag)
+            .unwrap();
+        let token = state.auth.create_session().await;
+        let app = Router::new()
+            .route(
+                "/api/v1/commands/assistant:apply-actions",
+                post(|| async { StatusCode::NO_CONTENT }),
+            )
+            .with_state(state.clone())
+            .layer(middleware::from_fn_with_state(state, enforce_web_security));
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/v1/commands/assistant:apply-actions")
+                    .header(header::ORIGIN, "https://soundrobe.test")
+                    .header(header::COOKIE, format!("{SESSION_COOKIE}={token}"))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_json_error(
+            response,
+            StatusCode::CONFLICT,
+            r#"{"error":"another operation is busy"}"#,
+        )
+        .await;
+    }
+
+    #[tokio::test]
+    async fn authenticated_library_listing_returns_only_mounted_roots() {
+        let base =
+            std::env::temp_dir().join(format!("soundrobe-http-libraries-{}", Uuid::new_v4()));
+        std::fs::create_dir_all(base.join("alpha/nested")).unwrap();
+        std::fs::create_dir_all(base.join("beta")).unwrap();
+        let mut config = test_config();
+        config.library_root_dir = base.clone();
+        let app = router(config);
+        let login_response = login(app.clone(), "correct horse battery staple").await;
+        let cookie = login_response
+            .headers()
+            .get(header::SET_COOKIE)
+            .unwrap()
+            .to_str()
+            .unwrap()
+            .split(';')
+            .next()
+            .unwrap()
+            .to_string();
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri("/api/v1/libraries")
+                    .header(header::COOKIE, cookie)
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let roots: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(roots.as_array().unwrap().len(), 2);
+        assert_eq!(roots[0]["id"], "alpha");
+        assert_eq!(roots[1]["id"], "beta");
+        std::fs::remove_dir_all(base).unwrap();
+    }
+
+    #[tokio::test]
+    async fn library_listing_reports_discovery_errors_instead_of_empty_success() {
+        let path = std::env::temp_dir().join(format!("soundrobe-library-file-{}", Uuid::new_v4()));
+        std::fs::write(&path, b"not a directory").unwrap();
+        let mut config = test_config();
+        config.library_root_dir = path.clone();
+        let app = router(config);
+        let login_response = login(app.clone(), "correct horse battery staple").await;
+        let cookie = login_response
+            .headers()
+            .get(header::SET_COOKIE)
+            .unwrap()
+            .to_str()
+            .unwrap()
+            .split(';')
+            .next()
+            .unwrap()
+            .to_string();
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri("/api/v1/libraries")
+                    .header(header::COOKIE, cookie)
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_json_error(
+            response,
+            StatusCode::INTERNAL_SERVER_ERROR,
+            r#"{"error":"internal server error"}"#,
+        )
+        .await;
+        std::fs::remove_file(path).unwrap();
     }
 
     #[test]
@@ -1026,6 +1410,10 @@ mod tests {
     async fn internal_failures_use_the_stable_json_error_contract() {
         let state = ServerState {
             auth: AuthService::new(&test_config()),
+            libraries: Ok(LibraryRoots::default()),
+            operations: OperationCoordinator::default(),
+            lifecycle: ServerLifecycle::default(),
+            _write_queue: WriteQueue::default(),
         };
         let app = Router::new()
             .route("/boom", get(|| async { StatusCode::INTERNAL_SERVER_ERROR }))

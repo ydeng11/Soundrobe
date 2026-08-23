@@ -18,7 +18,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   separate home-directory config. A headless, Tauri-free server build now
   starts with an unauthenticated `/healthz` readiness endpoint and a
   same-origin, password-protected login with expiring HttpOnly/SameSite
-  sessions and defensive browser headers.
+  sessions and defensive browser headers. Authenticated web requests can now
+  enumerate immediate mounted library roots. The headless runtime now gates
+  new API work during shutdown and drains its write queue before exit.
 
 ## [0.1.1] - 2026-08-21
 
