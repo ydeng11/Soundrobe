@@ -230,20 +230,30 @@ describe("Tauri desktop workflows", () => {
   });
 
   it("auto-tags an album through the offline native task pipeline", async () => {
-    const result = await browser.execute(async (albumPath) => {
-      const taskId = await window.api.autoTagAlbum(albumPath);
-      for (let attempt = 0; attempt < 100; attempt += 1) {
-        const progress = await window.api.getTaskProgress(taskId);
-        if (progress && progress.status !== "running") {
-          return {
-            progress,
-            track: (await window.api.readAlbum(albumPath)).tracks[0],
-          };
-        }
-        await new Promise((resolve) => window.setTimeout(resolve, 50));
-      }
-      throw new Error("Offline auto-tag task did not reach a terminal state");
-    }, manifest.autoTagAlbum);
+    const taskId = await browser.execute(
+      (albumPath) => window.api.autoTagAlbum(albumPath),
+      manifest.autoTagAlbum,
+    );
+    const progress = await browser.waitUntil(
+      async () => {
+        const current = await browser.execute(
+          (id) => window.api.getTaskProgress(id),
+          taskId,
+        );
+        return current && current.status !== "running" ? current : false;
+      },
+      {
+        // Windows CI can take longer than five seconds to finish the native
+        // task, but a bounded wait still makes a stalled task fail clearly.
+        timeout: 30_000,
+        timeoutMsg: "Offline auto-tag task did not reach a terminal state",
+      },
+    );
+    const track = await browser.execute(
+      async (albumPath) => (await window.api.readAlbum(albumPath)).tracks[0],
+      manifest.autoTagAlbum,
+    );
+    const result = { progress, track };
 
     expect(result.progress.status).toBe("completed");
     expect(result.track.title).toBe("Offline Song");

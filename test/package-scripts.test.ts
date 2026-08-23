@@ -338,6 +338,9 @@ describe("package scripts", () => {
     expect(workflowSpec).toContain("previews and applies deterministic assistant organization");
     expect(workflowSpec).toContain("audits and applies deterministic metadata fixes");
     expect(workflowSpec).toContain("auto-tags an album through the offline native task pipeline");
+    // Windows CI can take longer than five seconds to finish the native task;
+    // keep the terminal-state wait bounded without making it an unbounded hang.
+    expect(workflowSpec).toContain("timeout: 30_000");
     expect(workflowSpec).toContain("converts a title into artist and title tags through the renderer");
     expect(workflowSpec).toContain("numbers tracks through the renderer and native batch writer");
     expect(workflow).toContain("npm run test:e2e");
