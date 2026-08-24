@@ -1004,12 +1004,15 @@ fn start_auto_tag_task(state: &ServerState, album_path: PathBuf) -> Response {
             Err(error) => {
                 let message = error.to_string();
                 let data = serde_json::json!({"error": message});
-                task_state.finish(
+                if !task_state.finish(
                     &task_id_for_work,
                     TaskStatus::Failed,
                     &message,
                     data.clone(),
-                );
+                ) {
+                    operations.finish(token);
+                    return;
+                }
                 let _ = event_bus.publish(
                     "auto-tag:event",
                     &auto_tag_event(&task_id_for_work, "failed", message, 0, Some(data)),

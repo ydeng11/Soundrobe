@@ -203,6 +203,12 @@ mod tests {
             "Done",
             serde_json::json!({"ok": true})
         ));
+        assert!(!registry.finish(
+            &id,
+            TaskStatus::Failed,
+            "Failed",
+            serde_json::json!({"error": "late"})
+        ));
         assert_eq!(registry.get(&id).unwrap().status, TaskStatus::Cancelled);
     }
 

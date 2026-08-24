@@ -5,7 +5,7 @@ use crate::state::config::ConfigState;
 use rusqlite::{Connection, OpenFlags};
 use serde::Serialize;
 use std::path::Path;
-#[cfg(feature = "desktop")]
+#[cfg(any(feature = "desktop", test))]
 use std::path::PathBuf;
 #[cfg(feature = "desktop")]
 use tauri::State;
