@@ -29,6 +29,7 @@ use url::Url;
 use uuid::Uuid;
 
 use crate::state::{
+    album::read_album_with_cancellation,
     events::{EventBus, EventEnvelope},
     library::{
         discover_library_roots, scan_directory_with_cancellation, LibraryRoots, PathSecurityError,
@@ -329,6 +330,13 @@ struct ScanCommandRequest {
     dir_path: String,
 }
 
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct AlbumReadCommandRequest {
+    #[serde(rename = "albumPath")]
+    album_path: String,
+}
+
 #[derive(Serialize)]
 struct WebAppInfo {
     identifier: &'static str,
@@ -505,7 +513,10 @@ async fn next_event(
 }
 
 fn supported_web_command(command: &str) -> bool {
-    matches!(command, "app:info" | "library:list-roots" | "library:scan")
+    matches!(
+        command,
+        "app:info" | "library:list-roots" | "library:scan" | "album:read"
+    )
 }
 
 fn decode_command_payload<T: DeserializeOwned>(payload: serde_json::Value) -> Result<T, ()> {
@@ -591,6 +602,43 @@ async fn command(
                     Ok(Some(albums)) => Json(albums).into_response(),
                     Ok(None) => error_response(StatusCode::SERVICE_UNAVAILABLE, "server shutting down"),
                     Err(_) => error_response(StatusCode::INTERNAL_SERVER_ERROR, "library scan failed"),
+                },
+            }
+        }
+        "album:read" => {
+            let request = match decode_command_payload::<AlbumReadCommandRequest>(payload) {
+                Ok(request) => request,
+                Err(_) => return error_response(StatusCode::BAD_REQUEST, "invalid command request"),
+            };
+            let roots = match &state.libraries {
+                Ok(roots) => roots,
+                Err(_) => {
+                    return error_response(
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        "library roots unavailable",
+                    )
+                }
+            };
+            let resolved = match roots.resolve_path(Path::new(&request.album_path)) {
+                Ok(path) => path,
+                Err(error) => return scan_path_error(error),
+            };
+            if !resolved.path.is_dir() {
+                return error_response(StatusCode::BAD_REQUEST, "album path not found");
+            }
+            let cancellation = state.lifecycle.cancellation.clone();
+            let scan = tokio::task::spawn_blocking(move || {
+                read_album_with_cancellation(&resolved.path, &|| cancellation.is_cancelled())
+            });
+            tokio::select! {
+                _ = state.lifecycle.cancellation.cancelled() => {
+                    error_response(StatusCode::SERVICE_UNAVAILABLE, "server shutting down")
+                }
+                result = scan => match result {
+                    Ok(Ok(Some(album))) => Json(album).into_response(),
+                    Ok(Ok(None)) => error_response(StatusCode::SERVICE_UNAVAILABLE, "server shutting down"),
+                    Ok(Err(_)) => error_response(StatusCode::INTERNAL_SERVER_ERROR, "album read failed"),
+                    Err(_) => error_response(StatusCode::INTERNAL_SERVER_ERROR, "album read failed"),
                 },
             }
         }
@@ -1145,6 +1193,50 @@ mod tests {
         let albums: serde_json::Value = serde_json::from_slice(&body).unwrap();
         assert_eq!(albums[0]["name"], "Album");
         assert_eq!(albums[0]["trackCount"], 1);
+        std::fs::remove_dir_all(base).unwrap();
+    }
+
+    #[tokio::test]
+    async fn authenticated_command_transport_reads_a_confined_album() {
+        let base = std::env::temp_dir().join(format!(
+            "soundrobe-web-album-read-{}",
+            Uuid::new_v4().simple()
+        ));
+        let album = base.join("Artist/Album");
+        std::fs::create_dir_all(&album).unwrap();
+        std::fs::write(album.join("01.flac"), b"fixture").unwrap();
+        let mut config = test_config();
+        config.library_root_dir = base.clone();
+        let app = router(config);
+        let login_response = login(app.clone(), "correct horse battery staple").await;
+        let cookie = login_response.headers()[header::SET_COOKIE].clone();
+
+        let response = app
+            .oneshot(
+                origin_request(
+                    Request::builder()
+                        .method("POST")
+                        .uri("/api/v1/commands/album%3Aread")
+                        .header(header::COOKIE, cookie)
+                        .header(header::CONTENT_TYPE, "application/json")
+                        .body(Body::from(format!(
+                            r#"{{"albumPath":"{}"}}"#,
+                            album.canonicalize().unwrap().display()
+                        )))
+                        .unwrap(),
+                ),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let detail: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(detail["name"], "Album");
+        assert_eq!(detail["tracks"].as_array().unwrap().len(), 1);
+        assert_eq!(detail["tracks"][0]["title"], "01.flac");
         std::fs::remove_dir_all(base).unwrap();
     }
 

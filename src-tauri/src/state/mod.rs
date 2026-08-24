@@ -24,6 +24,8 @@ pub mod library;
 pub mod operation;
 #[cfg(any(feature = "desktop", feature = "server"))]
 pub mod events;
+#[cfg(any(feature = "desktop", feature = "server"))]
+pub mod album;
 #[cfg(feature = "desktop")]
 pub mod providers;
 #[cfg(feature = "desktop")]

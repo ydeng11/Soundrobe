@@ -17,8 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   folder selection, data migration, updater behavior, and the existing native
   workflows remain unchanged. The headless service now exposes a sequenced,
   reconnect-aware event stream for the web operation handlers as they are
-  added; browser sessions can scan a mounted library root, and expired replay
-  windows report that a refresh is required.
+  added; browser sessions can scan a mounted library root and read its track
+  metadata, and expired replay windows report that a refresh is required.
 
 ## [0.1.1] - 2026-08-21
 
