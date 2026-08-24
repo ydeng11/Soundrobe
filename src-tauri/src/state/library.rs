@@ -6,6 +6,208 @@ use std::{
     sync::Arc,
 };
 
+const AUDIO_EXTENSIONS: &[&str] = &[
+    ".mp3", ".flac", ".m4a", ".mp4", ".wav", ".ogg", ".opus", ".aiff", ".ape",
+];
+
+#[derive(Debug, Clone, Serialize, PartialEq)]
+pub struct AlbumInfo {
+    pub path: String,
+    pub name: String,
+    #[serde(rename = "artistHint")]
+    pub artist_hint: String,
+    #[serde(rename = "albumHint")]
+    pub album_hint: String,
+    #[serde(rename = "trackCount")]
+    pub track_count: usize,
+}
+
+pub fn is_audio_file(path: &Path) -> bool {
+    let Some(extension) = path.extension().and_then(|extension| extension.to_str()) else {
+        return false;
+    };
+    let extension = format!(".{}", extension.to_lowercase());
+    AUDIO_EXTENSIONS.contains(&extension.as_str())
+}
+
+pub fn collect_audio_files(dir_path: &Path) -> Vec<String> {
+    collect_audio_files_with_cancellation(dir_path, &|| false).unwrap_or_default()
+}
+
+fn collect_audio_files_with_cancellation<F>(
+    dir_path: &Path,
+    is_cancelled: &F,
+) -> Option<Vec<String>>
+where
+    F: Fn() -> bool,
+{
+    let mut files = fs::read_dir(dir_path)
+        .into_iter()
+        .flatten()
+        .filter_map(Result::ok)
+        .filter_map(|entry| {
+            if is_cancelled() {
+                return None;
+            }
+            let name = entry.file_name();
+            let file_type = entry.file_type().ok()?;
+            let path = entry.path();
+            if name.to_string_lossy().starts_with('.')
+                || !file_type.is_file()
+                || !is_audio_file(&path)
+            {
+                return None;
+            }
+            Some(path.to_string_lossy().into_owned())
+        })
+        .collect::<Vec<_>>();
+    if is_cancelled() {
+        return None;
+    }
+    files.sort();
+    Some(files)
+}
+
+pub fn parse_artist_album_hint(dir_path: &Path, parent_dir: &str) -> (String, String) {
+    let dir_name = dir_path
+        .file_name()
+        .map(|name| name.to_string_lossy().into_owned())
+        .unwrap_or_default();
+    if let Some((artist, album)) = dir_name.split_once('-') {
+        let artist = artist.trim();
+        let album = album.trim();
+        let is_year = artist.len() == 4 && artist.chars().all(|char| char.is_ascii_digit());
+        if !artist.is_empty() && !album.is_empty() && !is_year {
+            return (artist.to_string(), album.to_string());
+        }
+    }
+    (parent_dir.to_string(), dir_name)
+}
+
+pub fn scan_directory(library_path: &Path) -> Vec<AlbumInfo> {
+    scan_directory_with_cancellation(library_path, &|| false).unwrap_or_default()
+}
+
+pub fn scan_directory_with_cancellation<F>(
+    library_path: &Path,
+    is_cancelled: &F,
+) -> Option<Vec<AlbumInfo>>
+where
+    F: Fn() -> bool,
+{
+    let mut albums = Vec::new();
+    if is_cancelled() {
+        return None;
+    }
+    let Ok(metadata) = fs::metadata(library_path) else {
+        return Some(albums);
+    };
+    if metadata.is_file() {
+        if is_cancelled() {
+            return None;
+        }
+        let parent = library_path.parent().unwrap_or_else(|| Path::new(""));
+        let grand_parent = parent.parent().unwrap_or_else(|| Path::new(""));
+        let grand_name = grand_parent
+            .file_name()
+            .map(|name| name.to_string_lossy().into_owned())
+            .unwrap_or_default();
+        let (artist_hint, album_hint) = parse_artist_album_hint(parent, &grand_name);
+        albums.push(AlbumInfo {
+            path: parent.to_string_lossy().into_owned(),
+            name: album_hint.clone(),
+            artist_hint,
+            album_hint,
+            track_count: 1,
+        });
+        return Some(albums);
+    }
+
+    let Ok(entries) = fs::read_dir(library_path) else {
+        return Some(albums);
+    };
+    let parent_name = library_path
+        .file_name()
+        .map(|name| name.to_string_lossy().into_owned())
+        .unwrap_or_default();
+    let mut root_audio_files = Vec::new();
+    for entry in entries.flatten() {
+        if is_cancelled() {
+            return None;
+        }
+        let name = entry.file_name();
+        if name.to_string_lossy().starts_with('.') {
+            continue;
+        }
+        let path = entry.path();
+        let Ok(file_type) = entry.file_type() else {
+            continue;
+        };
+        if !file_type.is_dir() {
+            if is_audio_file(&path) {
+                root_audio_files.push(path);
+            }
+            continue;
+        }
+        let direct_audio = collect_audio_files_with_cancellation(&path, is_cancelled)?;
+        if !direct_audio.is_empty() {
+            let (artist_hint, album_hint) = parse_artist_album_hint(&path, &parent_name);
+            albums.push(AlbumInfo {
+                path: path.to_string_lossy().into_owned(),
+                name: album_hint.clone(),
+                artist_hint,
+                album_hint,
+                track_count: direct_audio.len(),
+            });
+            continue;
+        }
+
+        let Ok(subdirs) = fs::read_dir(&path) else {
+            continue;
+        };
+        let artist_name = name.to_string_lossy().into_owned();
+        for subdir in subdirs.flatten() {
+            if is_cancelled() {
+                return None;
+            }
+            let sub_name = subdir.file_name();
+            let sub_path = subdir.path();
+            let Ok(sub_type) = subdir.file_type() else {
+                continue;
+            };
+            if sub_name.to_string_lossy().starts_with('.') || !sub_type.is_dir() {
+                continue;
+            }
+            let audio = collect_audio_files_with_cancellation(&sub_path, is_cancelled)?;
+            if audio.is_empty() {
+                continue;
+            }
+            let (artist_hint, album_hint) = parse_artist_album_hint(&sub_path, &artist_name);
+            albums.push(AlbumInfo {
+                path: sub_path.to_string_lossy().into_owned(),
+                name: album_hint.clone(),
+                artist_hint,
+                album_hint,
+                track_count: audio.len(),
+            });
+        }
+    }
+    if !root_audio_files.is_empty() {
+        let name = library_path
+            .file_name()
+            .map(|value| value.to_string_lossy().into_owned())
+            .unwrap_or_default();
+        albums.push(AlbumInfo {
+            path: library_path.to_string_lossy().into_owned(),
+            name: name.clone(),
+            artist_hint: String::new(),
+            album_hint: name,
+            track_count: root_audio_files.len(),
+        });
+    }
+    Some(albums)
+}
+
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 pub struct LibraryRoot {
     pub id: String,
@@ -190,6 +392,55 @@ mod tests {
             "soundrobe-{label}-{}",
             uuid::Uuid::new_v4().simple()
         ))
+    }
+
+    #[test]
+    fn scans_direct_and_artist_album_layouts_with_stable_metadata() {
+        let base = temp_dir("scan");
+        fs::create_dir_all(base.join("Artist/Album")).unwrap();
+        fs::write(base.join("Artist/Album/02.flac"), b"audio").unwrap();
+        fs::write(base.join("Artist/Album/01.mp3"), b"audio").unwrap();
+
+        let albums = scan_directory(&base);
+
+        assert_eq!(albums.len(), 1);
+        assert_eq!(albums[0].artist_hint, "Artist");
+        assert_eq!(albums[0].album_hint, "Album");
+        assert_eq!(albums[0].track_count, 2);
+        fs::remove_dir_all(base).unwrap();
+    }
+
+    #[test]
+    fn cancellable_scan_stops_before_returning_partial_results() {
+        let base = temp_dir("library-cancel");
+        fs::create_dir_all(base.join("Artist/Album")).unwrap();
+        fs::write(base.join("Artist/Album/01.mp3"), b"audio").unwrap();
+        let checks = std::cell::Cell::new(0);
+
+        let result = scan_directory_with_cancellation(&base, &|| {
+            let count = checks.get() + 1;
+            checks.set(count);
+            count > 1
+        });
+
+        assert!(result.is_none());
+        fs::remove_dir_all(base).unwrap();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn root_level_audio_symlinks_match_desktop_scan_behavior() {
+        use std::os::unix::fs::symlink;
+
+        let base = temp_dir("scan-symlink");
+        fs::create_dir_all(&base).unwrap();
+        fs::write(base.join("target.mp3"), b"audio").unwrap();
+        symlink(base.join("target.mp3"), base.join("alias.mp3")).unwrap();
+
+        let albums = scan_directory(&base);
+
+        assert_eq!(albums[0].track_count, 2);
+        fs::remove_dir_all(base).unwrap();
     }
 
     #[test]

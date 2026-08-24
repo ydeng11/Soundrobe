@@ -11,6 +11,7 @@ use axum::{
     Router,
 };
 use serde::Deserialize;
+use serde::de::DeserializeOwned;
 use serde::Serialize;
 use std::{
     collections::{HashMap, VecDeque},
@@ -29,7 +30,9 @@ use uuid::Uuid;
 
 use crate::state::{
     events::{EventBus, EventEnvelope},
-    library::{discover_library_roots, LibraryRoots},
+    library::{
+        discover_library_roots, scan_directory_with_cancellation, LibraryRoots, PathSecurityError,
+    },
     operation::{OperationCoordinator, OperationKind},
     paths::AppDataPaths,
     write_queue::WriteQueue,
@@ -319,6 +322,13 @@ struct SessionResponse {
 #[serde(deny_unknown_fields)]
 struct EmptyCommandRequest {}
 
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ScanCommandRequest {
+    #[serde(rename = "dirPath")]
+    dir_path: String,
+}
+
 #[derive(Serialize)]
 struct WebAppInfo {
     identifier: &'static str,
@@ -329,7 +339,7 @@ struct WebAppInfo {
 
 #[derive(Serialize)]
 struct ErrorResponse {
-    error: &'static str,
+    error: String,
 }
 
 async fn health() -> Json<HealthResponse> {
@@ -495,36 +505,107 @@ async fn next_event(
 }
 
 fn supported_web_command(command: &str) -> bool {
-    matches!(command, "app:info" | "library:list-roots")
+    matches!(command, "app:info" | "library:list-roots" | "library:scan")
+}
+
+fn decode_command_payload<T: DeserializeOwned>(payload: serde_json::Value) -> Result<T, ()> {
+    serde_json::from_value(payload).map_err(|_| ())
+}
+
+fn scan_path_error(error: PathSecurityError) -> Response {
+    match error {
+        PathSecurityError::RelativePath | PathSecurityError::Traversal => {
+            error_response(StatusCode::BAD_REQUEST, "invalid library path")
+        }
+        PathSecurityError::OutsideRoots | PathSecurityError::CrossRoot => {
+            error_response(StatusCode::FORBIDDEN, "path outside library roots")
+        }
+        PathSecurityError::Unresolvable(_) => {
+            error_response(StatusCode::INTERNAL_SERVER_ERROR, "library path unavailable")
+        }
+    }
 }
 
 async fn command(
     AxumPath(command): AxumPath<String>,
     State(state): State<ServerState>,
-    payload: Result<Json<EmptyCommandRequest>, JsonRejection>,
+    payload: Result<Json<serde_json::Value>, JsonRejection>,
 ) -> Response {
     if !supported_web_command(&command) {
         return error_response(StatusCode::NOT_FOUND, "unsupported command");
     }
-    if payload.is_err() {
-        return error_response(StatusCode::BAD_REQUEST, "invalid command request");
-    }
+    let Json(payload) = match payload {
+        Ok(payload) => payload,
+        Err(_) => return error_response(StatusCode::BAD_REQUEST, "invalid command request"),
+    };
 
     match command.as_str() {
-        "app:info" => Json(WebAppInfo {
-            identifier: "com.ihelio.soundrobe",
-            version: env!("CARGO_PKG_VERSION"),
-            runtime: "web",
-            dev: cfg!(debug_assertions),
-        })
-        .into_response(),
-        "library:list-roots" => libraries(State(state)).await,
+        "app:info" => {
+            if decode_command_payload::<EmptyCommandRequest>(payload).is_err() {
+                return error_response(StatusCode::BAD_REQUEST, "invalid command request");
+            }
+            Json(WebAppInfo {
+                identifier: "com.ihelio.soundrobe",
+                version: env!("CARGO_PKG_VERSION"),
+                runtime: "web",
+                dev: cfg!(debug_assertions),
+            })
+            .into_response()
+        }
+        "library:list-roots" => {
+            if decode_command_payload::<EmptyCommandRequest>(payload).is_err() {
+                return error_response(StatusCode::BAD_REQUEST, "invalid command request");
+            }
+            libraries(State(state)).await
+        }
+        "library:scan" => {
+            let request = match decode_command_payload::<ScanCommandRequest>(payload) {
+                Ok(request) => request,
+                Err(_) => return error_response(StatusCode::BAD_REQUEST, "invalid command request"),
+            };
+            let roots = match &state.libraries {
+                Ok(roots) => roots,
+                Err(_) => {
+                    return error_response(
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        "library roots unavailable",
+                    )
+                }
+            };
+            let resolved = match roots.resolve_path(Path::new(&request.dir_path)) {
+                Ok(path) => path,
+                Err(error) => return scan_path_error(error),
+            };
+            if !resolved.path.exists() {
+                return error_response(StatusCode::BAD_REQUEST, "library path not found");
+            }
+            let cancellation = state.lifecycle.cancellation.clone();
+            let scan = tokio::task::spawn_blocking(move || {
+                scan_directory_with_cancellation(&resolved.path, &|| cancellation.is_cancelled())
+            });
+            tokio::select! {
+                _ = state.lifecycle.cancellation.cancelled() => {
+                    error_response(StatusCode::SERVICE_UNAVAILABLE, "server shutting down")
+                }
+                result = scan => match result {
+                    Ok(Some(albums)) => Json(albums).into_response(),
+                    Ok(None) => error_response(StatusCode::SERVICE_UNAVAILABLE, "server shutting down"),
+                    Err(_) => error_response(StatusCode::INTERNAL_SERVER_ERROR, "library scan failed"),
+                },
+            }
+        }
         _ => unreachable!("supported_web_command and command dispatch diverged"),
     }
 }
 
-fn error_response(status: StatusCode, message: &'static str) -> Response {
-    (status, Json(ErrorResponse { error: message })).into_response()
+fn error_response(status: StatusCode, message: impl Into<String>) -> Response {
+    (
+        status,
+        Json(ErrorResponse {
+            error: message.into(),
+        }),
+    )
+        .into_response()
 }
 
 fn normalize_error_response(mut response: Response) -> Response {
@@ -1022,6 +1103,71 @@ mod tests {
         let value: serde_json::Value = serde_json::from_slice(&body).unwrap();
         assert_eq!(value["identifier"], "com.ihelio.soundrobe");
         assert_eq!(value["runtime"], "web");
+    }
+
+    #[tokio::test]
+    async fn authenticated_command_transport_scans_a_confined_library_root() {
+        let base = std::env::temp_dir().join(format!(
+            "soundrobe-web-scan-{}",
+            Uuid::new_v4().simple()
+        ));
+        std::fs::create_dir_all(base.join("Artist/Album")).unwrap();
+        std::fs::write(base.join("Artist/Album/01.flac"), b"fixture").unwrap();
+        let canonical_base = base.canonicalize().unwrap();
+        let mut config = test_config();
+        config.library_root_dir = base.clone();
+        let app = router(config);
+        let login_response = login(app.clone(), "correct horse battery staple").await;
+        let cookie = login_response.headers()[header::SET_COOKIE].clone();
+
+        let response = app
+            .oneshot(
+                origin_request(
+                    Request::builder()
+                        .method("POST")
+                        .uri("/api/v1/commands/library%3Ascan")
+                        .header(header::COOKIE, cookie)
+                        .header(header::CONTENT_TYPE, "application/json")
+                        .body(Body::from(format!(
+                            r#"{{"dirPath":"{}"}}"#,
+                            canonical_base.join("Artist").display()
+                        )))
+                        .unwrap(),
+                ),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let albums: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(albums[0]["name"], "Album");
+        assert_eq!(albums[0]["trackCount"], 1);
+        std::fs::remove_dir_all(base).unwrap();
+    }
+
+    #[tokio::test]
+    async fn scan_path_errors_preserve_stable_security_statuses() {
+        assert_json_error(
+            scan_path_error(PathSecurityError::RelativePath),
+            StatusCode::BAD_REQUEST,
+            r#"{"error":"invalid library path"}"#,
+        )
+        .await;
+        assert_json_error(
+            scan_path_error(PathSecurityError::OutsideRoots),
+            StatusCode::FORBIDDEN,
+            r#"{"error":"path outside library roots"}"#,
+        )
+        .await;
+        assert_json_error(
+            scan_path_error(PathSecurityError::Unresolvable("io".to_string())),
+            StatusCode::INTERNAL_SERVER_ERROR,
+            r#"{"error":"library path unavailable"}"#,
+        )
+        .await;
     }
 
     #[tokio::test]
