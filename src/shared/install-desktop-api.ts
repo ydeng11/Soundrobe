@@ -9,6 +9,7 @@
 import { listen } from "@tauri-apps/api/event";
 import type { LogEntry } from "./desktop-api";
 import { createTauriDesktopApi } from "./tauri-adapter";
+import { createWebDesktopApi } from "./web-adapter";
 
 /** True when running inside the Tauri webview. */
 export function isTauriRuntime(): boolean {
@@ -32,15 +33,17 @@ const CONSOLE_METHOD: Record<LogEntry["level"], "error" | "warn" | "debug" | "lo
 };
 
 /**
- * Install `window.api` for the Tauri runtime. Idempotent and a no-op in a
- * plain browser. Call once before React renders.
+ * Install `window.api` for the active runtime. Idempotent; plain browsers use
+ * the fetch-backed web adapter and Tauri uses the native bridge. Call once
+ * before React renders.
  */
 export function installDesktopApi(): void {
-  if (!isTauriRuntime()) {
-    return;
-  }
   const w = window as unknown as { api?: unknown };
   if (w.api) {
+    return;
+  }
+  if (!isTauriRuntime()) {
+    w.api = createWebDesktopApi();
     return;
   }
   w.api = createTauriDesktopApi();

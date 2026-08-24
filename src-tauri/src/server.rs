@@ -1,7 +1,7 @@
 //! Headless HTTP runtime.
 
 use axum::{
-    extract::{rejection::JsonRejection, DefaultBodyLimit, Json, State},
+    extract::{rejection::JsonRejection, DefaultBodyLimit, Json, Path as AxumPath, State},
     http::{header, HeaderMap, HeaderValue, Method, Request, StatusCode},
     middleware::{self, Next},
     response::{IntoResponse, Response},
@@ -310,6 +310,18 @@ struct SessionResponse {
     authenticated: bool,
 }
 
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct EmptyCommandRequest {}
+
+#[derive(Serialize)]
+struct WebAppInfo {
+    identifier: &'static str,
+    version: &'static str,
+    runtime: &'static str,
+    dev: bool,
+}
+
 #[derive(Serialize)]
 struct ErrorResponse {
     error: &'static str,
@@ -332,11 +344,48 @@ async fn libraries(State(state): State<ServerState>) -> Response {
     }
 }
 
+fn supported_web_command(command: &str) -> bool {
+    matches!(command, "app:info" | "library:list-roots")
+}
+
+async fn command(
+    AxumPath(command): AxumPath<String>,
+    State(state): State<ServerState>,
+    payload: Result<Json<EmptyCommandRequest>, JsonRejection>,
+) -> Response {
+    if !supported_web_command(&command) {
+        return error_response(StatusCode::NOT_FOUND, "unsupported command");
+    }
+    if payload.is_err() {
+        return error_response(StatusCode::BAD_REQUEST, "invalid command request");
+    }
+
+    match command.as_str() {
+        "app:info" => Json(WebAppInfo {
+            identifier: "com.ihelio.soundrobe",
+            version: env!("CARGO_PKG_VERSION"),
+            runtime: "web",
+            dev: cfg!(debug_assertions),
+        })
+        .into_response(),
+        "library:list-roots" => libraries(State(state)).await,
+        _ => unreachable!("supported_web_command and command dispatch diverged"),
+    }
+}
+
 fn error_response(status: StatusCode, message: &'static str) -> Response {
     (status, Json(ErrorResponse { error: message })).into_response()
 }
 
 fn normalize_error_response(mut response: Response) -> Response {
+    if response.status() == StatusCode::NOT_FOUND
+        && response
+            .headers()
+            .get(header::CONTENT_TYPE)
+            .is_some_and(|value| value.as_bytes().starts_with(b"application/json"))
+    {
+        return response;
+    }
     let status = response.status();
     let Some(message) = (match status {
         StatusCode::NOT_FOUND => Some("not found"),
@@ -593,6 +642,7 @@ fn router_with_runtime(
         .route("/healthz", get(health))
         .route("/api/v1/auth/session", get(session))
         .route("/api/v1/libraries", get(libraries))
+        .route("/api/v1/commands/{command}", post(command))
         .route("/api/v1/auth/logout", post(logout))
         .merge(login_route)
         .with_state(state.clone())
@@ -777,6 +827,94 @@ mod tests {
             response,
             StatusCode::UNAUTHORIZED,
             r#"{"error":"authentication required"}"#,
+        )
+        .await;
+    }
+
+    #[tokio::test]
+    async fn authenticated_command_transport_exposes_web_app_info() {
+        let app = router(test_config());
+        let login_response = login(app.clone(), "correct horse battery staple").await;
+        let cookie = login_response.headers()[header::SET_COOKIE].clone();
+
+        let response = app
+            .oneshot(
+                origin_request(
+                    Request::builder()
+                        .method("POST")
+                        .uri("/api/v1/commands/app%3Ainfo")
+                        .header(header::COOKIE, cookie)
+                        .header(header::CONTENT_TYPE, "application/json")
+                        .body(Body::from("{}"))
+                        .unwrap(),
+                ),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let value: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(value["identifier"], "com.ihelio.soundrobe");
+        assert_eq!(value["runtime"], "web");
+    }
+
+    #[tokio::test]
+    async fn command_transport_rejects_unknown_payload_fields() {
+        let app = router(test_config());
+        let login_response = login(app.clone(), "correct horse battery staple").await;
+        let cookie = login_response.headers()[header::SET_COOKIE].clone();
+
+        let response = app
+            .oneshot(
+                origin_request(
+                    Request::builder()
+                        .method("POST")
+                        .uri("/api/v1/commands/app%3Ainfo")
+                        .header(header::COOKIE, cookie)
+                        .header(header::CONTENT_TYPE, "application/json")
+                        .body(Body::from(r#"{"unexpected":true}"#))
+                        .unwrap(),
+                ),
+            )
+            .await
+            .unwrap();
+
+        assert_json_error(
+            response,
+            StatusCode::BAD_REQUEST,
+            r#"{"error":"invalid command request"}"#,
+        )
+        .await;
+    }
+
+    #[tokio::test]
+    async fn unsupported_web_commands_fail_loudly() {
+        let app = router(test_config());
+        let login_response = login(app.clone(), "correct horse battery staple").await;
+        let cookie = login_response.headers()[header::SET_COOKIE].clone();
+
+        let response = app
+            .oneshot(
+                origin_request(
+                    Request::builder()
+                        .method("POST")
+                        .uri("/api/v1/commands/unknown")
+                        .header(header::COOKIE, cookie)
+                        .header(header::CONTENT_TYPE, "application/json")
+                        .body(Body::from("{}"))
+                        .unwrap(),
+                ),
+            )
+            .await
+            .unwrap();
+
+        assert_json_error(
+            response,
+            StatusCode::NOT_FOUND,
+            r#"{"error":"unsupported command"}"#,
         )
         .await;
     }

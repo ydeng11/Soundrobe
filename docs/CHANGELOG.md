@@ -9,18 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **Web-service runtime foundation** — the shared renderer contract can now
-  distinguish browser deployments and enumerate their mounted music-library
-  roots. Server state can use its configured data directory directly without
-  inspecting or migrating a container home, while native folder selection,
-  desktop data migration, and updater behavior remain unchanged. Batch writes
-  also honor the active runtime's configured concurrency without consulting a
-  separate home-directory config. A headless, Tauri-free server build now
-  starts with an unauthenticated `/healthz` readiness endpoint and a
-  same-origin, password-protected login with expiring HttpOnly/SameSite
-  sessions and defensive browser headers. Authenticated web requests can now
-  enumerate immediate mounted library roots. The headless runtime now gates
-  new API work during shutdown and drains its write queue before exit.
+- **Web-service runtime foundation** — browser deployments can now identify the
+  web runtime, authenticate against the headless service, enumerate mounted
+  music-library roots, and receive clear errors when a workflow is not yet
+  available in the browser. Desktop folder selection, data migration, updater
+  behavior, and the existing native workflows remain unchanged.
 
 ## [0.1.1] - 2026-08-21
 
