@@ -41,6 +41,7 @@ use crate::commands::album_search::{
 use crate::commands::covers::{
     download_album_artwork_at, download_artist_artwork_at, remote_client, ArtistArtResult,
 };
+use crate::commands::organizer::{sort_by_album, SortByAlbumOptions};
 use crate::commands::mutations::{
     batch_write_with_readback, delete_files_queued, rename_track_queued,
     write_extra_tags_batch_with_readback, write_extra_tags_with_readback,
@@ -492,6 +493,14 @@ struct AlbumReadCommandRequest {
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
+struct OrganizerCommandRequest {
+    #[serde(rename = "sourceDir")]
+    source_dir: String,
+    options: Option<SortByAlbumOptions>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 struct CoverDataCommandRequest {
     #[serde(rename = "albumPath")]
     album_path: String,
@@ -722,6 +731,7 @@ fn supported_web_command(command: &str) -> bool {
             | "album:resolve-release"
             | "album:preview-release-match"
             | "album:search-apply-candidate"
+            | "files:sort-by-album"
             | "track:write"
             | "tracks:batch-write"
             | "track:extra-tags:read"
@@ -1241,6 +1251,37 @@ async fn command(
                 paths.push(resolved.path.to_string_lossy().into_owned());
             }
             Json(delete_files_queued(&state.write_queue, paths).await).into_response()
+        }
+        "files:sort-by-album" => {
+            let request = match decode_command_payload::<OrganizerCommandRequest>(payload) {
+                Ok(request) => request,
+                Err(_) => return error_response(StatusCode::BAD_REQUEST, "invalid command request"),
+            };
+            let roots = match &state.libraries {
+                Ok(roots) => roots,
+                Err(_) => return error_response(StatusCode::INTERNAL_SERVER_ERROR, "library roots unavailable"),
+            };
+            let resolved = match roots.resolve_path(Path::new(&request.source_dir)) {
+                Ok(path) => path,
+                Err(error) => return scan_path_error(error),
+            };
+            if !resolved.path.is_dir() {
+                return error_response(StatusCode::BAD_REQUEST, "source directory not found");
+            }
+            let copy = request.options.and_then(|options| options.copy).unwrap_or(true);
+            let source_dir = resolved.path;
+            let result = state
+                .write_queue
+                .run(async move {
+                    tokio::task::spawn_blocking(move || sort_by_album(&source_dir, copy))
+                        .await
+                        .map_err(|error| crate::error::ApiError::WriteTask(error.to_string()))?
+                })
+                .await;
+            match result {
+                Ok(result) => Json(result).into_response(),
+                Err(error) => media_error(error),
+            }
         }
         "lyrics:fetch" => {
             let request = match decode_command_payload::<LyricsFetchCommandRequest>(payload) {
@@ -3254,6 +3295,73 @@ mod tests {
                     .header(header::COOKIE, cookie)
                     .header(header::CONTENT_TYPE, "application/json")
                     .body(Body::from(r#"{"albumPath":"/tmp/not-mounted"}"#))
+                    .unwrap(),
+            ))
+            .await
+            .unwrap();
+        assert_json_error(
+            response,
+            StatusCode::FORBIDDEN,
+            r#"{"error":"path outside library roots"}"#,
+        )
+        .await;
+        std::fs::remove_dir_all(base).unwrap();
+    }
+
+    #[tokio::test]
+    async fn organizer_sort_commands_are_confined_to_mounted_roots() {
+        let base = std::env::temp_dir().join(format!("soundrobe-web-organizer-{}", Uuid::new_v4()));
+        let library = base.join("library");
+        std::fs::create_dir_all(&library).unwrap();
+        std::fs::copy(
+            PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                .join("../test/fixtures/tauri/media-corpus/minimal.mp3"),
+            library.join("song.mp3"),
+        )
+        .unwrap();
+        let mut config = test_config();
+        config.library_root_dir = base.clone();
+        let app = router(config);
+        let login_response = login(app.clone(), "correct horse battery staple").await;
+        let cookie = login_response.headers()[header::SET_COOKIE].clone();
+
+        let valid_response = app
+            .clone()
+            .oneshot(origin_request(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/v1/commands/files%3Asort-by-album")
+                    .header(header::COOKIE, cookie.clone())
+                    .header(header::CONTENT_TYPE, "application/json")
+                    .body(Body::from(
+                        serde_json::to_vec(&json!({
+                            "sourceDir": library.canonicalize().unwrap(),
+                            "options": { "copy": true }
+                        }))
+                        .unwrap(),
+                    ))
+                    .unwrap(),
+            ))
+            .await
+            .unwrap();
+        assert_eq!(valid_response.status(), StatusCode::OK);
+        let valid_body: serde_json::Value = serde_json::from_slice(
+            &axum::body::to_bytes(valid_response.into_body(), usize::MAX)
+                .await
+                .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(valid_body["totalFiles"], 1);
+        assert!(library.join("Corpus Album/song.mp3").is_file());
+
+        let response = app
+            .oneshot(origin_request(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/v1/commands/files%3Asort-by-album")
+                    .header(header::COOKIE, cookie)
+                    .header(header::CONTENT_TYPE, "application/json")
+                    .body(Body::from(r#"{"sourceDir":"/tmp/not-mounted","options":{"copy":true}}"#))
                     .unwrap(),
             ))
             .await

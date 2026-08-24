@@ -60,7 +60,7 @@ pub mod lyrics;
 #[cfg(any(feature = "desktop", feature = "server"))]
 pub mod mutations;
 /// `files:sort-by-album` — `electron/handlers/organizer.ts`.
-#[cfg(feature = "desktop")]
+#[cfg(any(feature = "desktop", feature = "server"))]
 pub mod organizer;
 /// `task:progress`, `task:cancel`, `album:auto-tag` — `electron/handlers/auto-tag.ts`.
 #[cfg(feature = "desktop")]
