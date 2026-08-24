@@ -107,16 +107,8 @@ pub fn cover_data_url(
     if album_path.join(COVER_REMOVED_MARKER).exists() {
         return Ok(None);
     }
-    for name in COVER_NAMES {
-        for extension in ["jpg", "jpeg", "png", "webp"] {
-            let candidate = album_path.join(format!("{name}.{extension}"));
-            if !candidate.is_file() {
-                continue;
-            }
-            let metadata = fs::metadata(&candidate)?;
-            if metadata.len() > MAX_COVER_BYTES {
-                continue;
-            }
+    if let Some(candidate) = find_external_cover(album_path) {
+        if fs::metadata(&candidate)?.len() <= MAX_COVER_BYTES {
             let bytes = fs::read(candidate)?;
             if let Some(jpeg) = normalize_cover_image(&bytes) {
                 let encoded = base64::engine::general_purpose::STANDARD.encode(jpeg);
@@ -200,16 +192,60 @@ pub fn write_cover_upload(album_path: &Path, bytes: &[u8]) -> io::Result<String>
 }
 
 pub fn remove_cover(album_path: &Path) -> io::Result<bool> {
-    for name in COVER_NAMES {
-        for extension in ["jpg", "jpeg", "png", "webp"] {
-            let candidate = album_path.join(format!("{name}.{extension}"));
-            if candidate.is_file() {
-                fs::remove_file(candidate)?;
-            }
-        }
+    if let Some(candidate) = find_external_cover(album_path) {
+        fs::remove_file(candidate)?;
     }
     fs::write(album_path.join(COVER_REMOVED_MARKER), [])?;
     Ok(true)
+}
+
+fn find_external_cover(album_path: &Path) -> Option<std::path::PathBuf> {
+    let entries = fs::read_dir(album_path)
+        .ok()?
+        .flatten()
+        .filter(|entry| entry.file_type().map(|kind| kind.is_file()).unwrap_or(false))
+        .collect::<Vec<_>>();
+    for wanted_name in COVER_NAMES {
+        for wanted_extension in ["jpg", "jpeg", "png"] {
+            if let Some(entry) = entries.iter().find(|entry| {
+                let path = entry.path();
+                let name = entry.file_name().to_string_lossy().into_owned();
+                !name.starts_with('.')
+                    && !name.eq_ignore_ascii_case("artist.jpg")
+                    && path
+                        .file_stem()
+                        .and_then(|stem| stem.to_str())
+                        .is_some_and(|stem| stem.eq_ignore_ascii_case(wanted_name))
+                    && path
+                        .extension()
+                        .and_then(|extension| extension.to_str())
+                        .is_some_and(|extension| extension.eq_ignore_ascii_case(wanted_extension))
+            }) {
+                return Some(entry.path());
+            }
+        }
+    }
+    entries
+        .into_iter()
+        .filter(|entry| {
+            let path = entry.path();
+            let name = entry.file_name().to_string_lossy().into_owned();
+            let extension = path
+                .extension()
+                .and_then(|extension| extension.to_str())
+                .unwrap_or_default();
+            !name.starts_with('.')
+                && !name.eq_ignore_ascii_case("artist.jpg")
+                && ["jpg", "jpeg", "png"]
+                    .iter()
+                    .any(|value| extension.eq_ignore_ascii_case(value))
+        })
+        .filter_map(|entry| {
+            let size = fs::metadata(entry.path()).ok()?.len();
+            (size >= 1024).then_some((size, entry.path()))
+        })
+        .max_by_key(|(size, _)| *size)
+        .map(|(_, path)| path)
 }
 
 pub fn read_album_with_cancellation<F>(

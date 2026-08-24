@@ -22,6 +22,14 @@ pub struct AlbumInfo {
     pub track_count: usize,
 }
 
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+pub struct DirectoryEntry {
+    pub name: String,
+    pub path: String,
+    #[serde(rename = "isDirectory")]
+    pub is_directory: bool,
+}
+
 pub fn is_audio_file(path: &Path) -> bool {
     let Some(extension) = path.extension().and_then(|extension| extension.to_str()) else {
         return false;
@@ -32,6 +40,27 @@ pub fn is_audio_file(path: &Path) -> bool {
 
 pub fn collect_audio_files(dir_path: &Path) -> Vec<String> {
     collect_audio_files_with_cancellation(dir_path, &|| false).unwrap_or_default()
+}
+
+pub fn list_directory_entries(dir_path: &Path) -> Vec<DirectoryEntry> {
+    let mut entries = fs::read_dir(dir_path)
+        .into_iter()
+        .flatten()
+        .filter_map(Result::ok)
+        .filter_map(|entry| {
+            let name = entry.file_name();
+            if name.to_string_lossy().starts_with('.') || !entry.file_type().ok()?.is_dir() {
+                return None;
+            }
+            Some(DirectoryEntry {
+                name: name.to_string_lossy().into_owned(),
+                path: entry.path().to_string_lossy().into_owned(),
+                is_directory: true,
+            })
+        })
+        .collect::<Vec<_>>();
+    entries.sort_by(|left, right| left.name.cmp(&right.name));
+    entries
 }
 
 fn collect_audio_files_with_cancellation<F>(

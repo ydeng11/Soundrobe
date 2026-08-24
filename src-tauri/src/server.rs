@@ -37,7 +37,8 @@ use crate::state::{
     },
     events::{EventBus, EventEnvelope},
     library::{
-        discover_library_roots, scan_directory_with_cancellation, LibraryRoots, PathSecurityError,
+        discover_library_roots, list_directory_entries, scan_directory_with_cancellation,
+        LibraryRoots, PathSecurityError,
     },
     operation::{OperationCoordinator, OperationKind},
     paths::AppDataPaths,
@@ -337,6 +338,20 @@ struct ScanCommandRequest {
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
+struct DirectoryListCommandRequest {
+    #[serde(rename = "dirPath")]
+    dir_path: String,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct FileExistsCommandRequest {
+    #[serde(rename = "filePath")]
+    file_path: String,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 struct AlbumReadCommandRequest {
     #[serde(rename = "albumPath")]
     album_path: String,
@@ -535,6 +550,8 @@ fn supported_web_command(command: &str) -> bool {
             | "album:read"
             | "cover:data-url"
             | "cover:remove"
+            | "directory:list"
+            | "file:exists"
     )
 }
 
@@ -623,6 +640,41 @@ async fn command(
                     Err(_) => error_response(StatusCode::INTERNAL_SERVER_ERROR, "library scan failed"),
                 },
             }
+        }
+        "directory:list" => {
+            let request = match decode_command_payload::<DirectoryListCommandRequest>(payload) {
+                Ok(request) => request,
+                Err(_) => return error_response(StatusCode::BAD_REQUEST, "invalid command request"),
+            };
+            let roots = match &state.libraries {
+                Ok(roots) => roots,
+                Err(_) => return error_response(StatusCode::INTERNAL_SERVER_ERROR, "library roots unavailable"),
+            };
+            let resolved = match roots.resolve_path(Path::new(&request.dir_path)) {
+                Ok(path) => path,
+                Err(error) => return scan_path_error(error),
+            };
+            Json(if resolved.path.is_dir() {
+                list_directory_entries(&resolved.path)
+            } else {
+                Vec::new()
+            })
+            .into_response()
+        }
+        "file:exists" => {
+            let request = match decode_command_payload::<FileExistsCommandRequest>(payload) {
+                Ok(request) => request,
+                Err(_) => return error_response(StatusCode::BAD_REQUEST, "invalid command request"),
+            };
+            let roots = match &state.libraries {
+                Ok(roots) => roots,
+                Err(_) => return error_response(StatusCode::INTERNAL_SERVER_ERROR, "library roots unavailable"),
+            };
+            let resolved = match roots.resolve_path(Path::new(&request.file_path)) {
+                Ok(path) => path,
+                Err(error) => return scan_path_error(error),
+            };
+            Json(resolved.path.is_file()).into_response()
         }
         "album:read" => {
             let request = match decode_command_payload::<AlbumReadCommandRequest>(payload) {
@@ -1515,6 +1567,7 @@ mod tests {
         let album = base.join("Artist/Album");
         std::fs::create_dir_all(&album).unwrap();
         std::fs::write(album.join("cover.jpg"), b"cover").unwrap();
+        std::fs::write(album.join("front.png"), b"front").unwrap();
         let mut config = test_config();
         config.library_root_dir = base.clone();
         let app = router(config);
@@ -1545,7 +1598,96 @@ mod tests {
             .unwrap();
         assert_eq!(body.as_ref(), b"true");
         assert!(!album.join("cover.jpg").exists());
+        assert!(album.join("front.png").exists());
         assert!(album.join(".auto-tagger-cover-removed").exists());
+        std::fs::remove_dir_all(base).unwrap();
+    }
+
+    #[tokio::test]
+    async fn authenticated_directory_listing_and_file_exists_stay_inside_roots() {
+        let base = std::env::temp_dir().join(format!(
+            "soundrobe-web-directory-reads-{}",
+            Uuid::new_v4().simple()
+        ));
+        let artist = base.join("Artist");
+        let album = artist.join("Album");
+        std::fs::create_dir_all(&album).unwrap();
+        std::fs::create_dir_all(artist.join("Second")).unwrap();
+        std::fs::create_dir_all(artist.join(".hidden")).unwrap();
+        let track = album.join("01.flac");
+        std::fs::write(&track, b"fixture").unwrap();
+        let mut config = test_config();
+        config.library_root_dir = base.clone();
+        let app = router(config);
+        let login_response = login(app.clone(), "correct horse battery staple").await;
+        let cookie = login_response.headers()[header::SET_COOKIE].clone();
+        let artist_path = artist.canonicalize().unwrap().display().to_string();
+
+        let listing = app
+            .clone()
+            .oneshot(
+                origin_request(
+                    Request::builder()
+                        .method("POST")
+                        .uri("/api/v1/commands/directory%3Alist")
+                        .header(header::COOKIE, cookie.clone())
+                        .header(header::CONTENT_TYPE, "application/json")
+                        .body(Body::from(format!(r#"{{"dirPath":"{artist_path}"}}"#)))
+                        .unwrap(),
+                ),
+            )
+            .await
+            .unwrap();
+        assert_eq!(listing.status(), StatusCode::OK);
+        let listing_body = axum::body::to_bytes(listing.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let entries: serde_json::Value = serde_json::from_slice(&listing_body).unwrap();
+        assert_eq!(entries.as_array().unwrap().len(), 2);
+        assert_eq!(entries[0]["name"], "Album");
+        assert_eq!(entries[1]["name"], "Second");
+
+        let track_path = track.canonicalize().unwrap().display().to_string();
+        let exists = app
+            .clone()
+            .oneshot(
+                origin_request(
+                    Request::builder()
+                        .method("POST")
+                        .uri("/api/v1/commands/file%3Aexists")
+                        .header(header::COOKIE, cookie.clone())
+                        .header(header::CONTENT_TYPE, "application/json")
+                        .body(Body::from(format!(r#"{{"filePath":"{track_path}"}}"#)))
+                        .unwrap(),
+                ),
+            )
+            .await
+            .unwrap();
+        assert_eq!(exists.status(), StatusCode::OK);
+        assert_eq!(axum::body::to_bytes(exists.into_body(), usize::MAX).await.unwrap().as_ref(), b"true");
+
+        let missing_path = artist
+            .canonicalize()
+            .unwrap()
+            .join("missing.flac")
+            .display()
+            .to_string();
+        let missing = app
+            .oneshot(
+                origin_request(
+                    Request::builder()
+                        .method("POST")
+                        .uri("/api/v1/commands/file%3Aexists")
+                        .header(header::COOKIE, cookie)
+                        .header(header::CONTENT_TYPE, "application/json")
+                        .body(Body::from(format!(r#"{{"filePath":"{missing_path}"}}"#)))
+                        .unwrap(),
+                ),
+            )
+            .await
+            .unwrap();
+        assert_eq!(missing.status(), StatusCode::OK);
+        assert_eq!(axum::body::to_bytes(missing.into_body(), usize::MAX).await.unwrap().as_ref(), b"false");
         std::fs::remove_dir_all(base).unwrap();
     }
 
