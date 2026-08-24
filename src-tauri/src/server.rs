@@ -1601,16 +1601,20 @@ async fn command(
             if !album.is_dir() {
                 return error_response(StatusCode::BAD_REQUEST, "album path not found");
             }
-            let cancelled = std::sync::atomic::AtomicBool::new(false);
+            let token = match start_audit(state.audit.as_ref()) {
+                Ok(token) => token,
+                Err(error) => return media_error(error),
+            };
             let (client, remote) = audit_clients(&state.providers, &state.config);
             let findings = audit_album_with_services(
                 &album,
-                &cancelled,
+                &token,
                 client.as_deref(),
                 remote.as_deref(),
                 &state.config.alias_file_path(),
             )
             .await;
+            state.audit.finish(&token);
             Json(findings).into_response()
         }
         "audit:apply-fixes" => {
@@ -4055,6 +4059,16 @@ mod tests {
             operation_kind(&Method::POST, "/api/v1/commands/album:read"),
             None
         );
+    }
+
+    #[test]
+    fn web_single_album_audits_register_a_cancellable_state_token() {
+        let state = AuditState::default();
+        let token = start_audit(&state).unwrap();
+        assert!(!token.load(Ordering::Acquire));
+        state.cancel();
+        assert!(token.load(Ordering::Acquire));
+        state.finish(&token);
     }
 
     #[test]

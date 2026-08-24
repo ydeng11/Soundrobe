@@ -23,7 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Web-service audits** — authenticated browser sessions can now audit a
   mounted library or selected albums/tracks, receive audit events, and apply
-  confined approved fixes.
+  confined approved fixes; single-album audits also honor cancellation.
 
 - **Web-service auto-tagging** — authenticated browser sessions can now start
   confined auto-tag tasks, inspect task progress, cancel tasks, and receive the
