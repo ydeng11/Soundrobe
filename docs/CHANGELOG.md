@@ -27,7 +27,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Web-service auto-tagging** — authenticated browser sessions can now start
   confined auto-tag tasks, inspect task progress, cancel tasks, and receive the
-  existing auto-tag progress events over SSE.
+  existing auto-tag progress events over SSE; cancellation remains terminal
+  when late work completes.
 
 - **Web-service album refresh** — browser metadata refreshes now use the same
   confined album reader as the desktop refresh command.

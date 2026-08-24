@@ -946,14 +946,14 @@ fn start_auto_tag_task(state: &ServerState, album_path: PathBuf) -> Response {
                 }
             },
             move |kind, message, data| {
-                let progress = report_tasks
-                    .get(&report_task_id)
-                    .map(|task| task.progress)
-                    .unwrap_or(0);
-                let _ = report_events.publish(
-                    "auto-tag:event",
-                    &auto_tag_event(&report_task_id, kind, message, progress, data),
-                );
+                if let Some(task) = report_tasks.get(&report_task_id) {
+                    if task.status != TaskStatus::Cancelled {
+                        let _ = report_events.publish(
+                            "auto-tag:event",
+                            &auto_tag_event(&report_task_id, kind, message, task.progress, data),
+                        );
+                    }
+                }
             },
         )
         .await;
@@ -962,12 +962,15 @@ fn start_auto_tag_task(state: &ServerState, album_path: PathBuf) -> Response {
             Ok(result) => {
                 let data = serde_json::to_value(&result.candidate).unwrap_or_default();
                 let message = auto_tag_completion_message(&result.candidate);
-                task_state.finish(
+                if !task_state.finish(
                     &task_id_for_work,
                     TaskStatus::Completed,
                     message,
                     data.clone(),
-                );
+                ) {
+                    operations.finish(token);
+                    return;
+                }
                 let _ = event_bus.publish(
                     "auto-tag:event",
                     &auto_tag_event(&task_id_for_work, "completed", message, 9, Some(data)),

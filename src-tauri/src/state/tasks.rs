@@ -108,6 +108,9 @@ impl TaskRegistry {
         let Some(entry) = tasks.get_mut(task_id) else {
             return false;
         };
+        if entry.progress.status == TaskStatus::Cancelled && status != TaskStatus::Cancelled {
+            return false;
+        }
         entry.progress.status = status;
         entry.progress.message = message.into();
         entry.progress.result = result;
@@ -186,6 +189,21 @@ mod tests {
         let progress = registry.get(&id).unwrap();
         assert_eq!(progress.status, TaskStatus::Cancelled);
         assert_eq!(progress.message, "Cancelled");
+    }
+
+    #[test]
+    fn cancellation_remains_terminal_when_work_finishes_late() {
+        let registry = TaskRegistry::default();
+        let id = registry.create("auto-tag", 9, "Starting...");
+        registry.cancel(&id);
+
+        assert!(!registry.finish(
+            &id,
+            TaskStatus::Completed,
+            "Done",
+            serde_json::json!({"ok": true})
+        ));
+        assert_eq!(registry.get(&id).unwrap().status, TaskStatus::Cancelled);
     }
 
     #[test]
