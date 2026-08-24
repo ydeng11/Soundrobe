@@ -796,6 +796,7 @@ fn supported_web_command(command: &str) -> bool {
             | "audit:run-album"
             | "audit:apply-fixes"
             | "audit:cancel"
+            | "album:refresh"
             | "track:write"
             | "tracks:batch-write"
             | "track:extra-tags:read"
@@ -1301,7 +1302,7 @@ async fn command(
                 Err(error) => search_operation_error_response(error),
             }
         }
-        "album:read" => {
+        "album:read" | "album:refresh" => {
             let request = match decode_command_payload::<AlbumReadCommandRequest>(payload) {
                 Ok(request) => request,
                 Err(_) => return error_response(StatusCode::BAD_REQUEST, "invalid command request"),
@@ -2802,7 +2803,7 @@ mod tests {
                 origin_request(
                     Request::builder()
                         .method("POST")
-                        .uri("/api/v1/commands/album%3Aread")
+                        .uri("/api/v1/commands/album%3Arefresh")
                         .header(header::COOKIE, cookie)
                         .header(header::CONTENT_TYPE, "application/json")
                         .body(Body::from(format!(
@@ -4069,6 +4070,11 @@ mod tests {
         state.cancel();
         assert!(token.load(Ordering::Acquire));
         state.finish(&token);
+    }
+
+    #[test]
+    fn web_command_allowlist_includes_browser_album_refresh() {
+        assert!(supported_web_command("album:refresh"));
     }
 
     #[test]

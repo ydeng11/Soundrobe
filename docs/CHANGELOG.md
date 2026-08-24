@@ -29,6 +29,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   confined auto-tag tasks, inspect task progress, cancel tasks, and receive the
   existing auto-tag progress events over SSE.
 
+- **Web-service album refresh** — browser metadata refreshes now use the same
+  confined album reader as the desktop refresh command.
+
 - **Web-service runtime foundation** — browser deployments can now identify the
   web runtime, authenticate against the headless service, enumerate mounted
   music-library roots, and receive clear errors when a workflow is not yet
