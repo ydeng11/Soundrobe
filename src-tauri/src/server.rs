@@ -1,7 +1,7 @@
 //! Headless HTTP runtime.
 
 use axum::{
-    body::Bytes,
+    body::{to_bytes, Body},
     extract::{
         rejection::JsonRejection, DefaultBodyLimit, Json, Path as AxumPath, Query, State,
     },
@@ -969,7 +969,7 @@ async fn upload_cover(
     State(state): State<ServerState>,
     Query(query): Query<CoverUploadQuery>,
     headers: HeaderMap,
-    body: Bytes,
+    body: Body,
 ) -> Response {
     let content_type = headers
         .get(header::CONTENT_TYPE)
@@ -979,9 +979,12 @@ async fn upload_cover(
     if !matches!(content_type, "image/jpeg" | "image/png" | "image/webp") {
         return error_response(StatusCode::BAD_REQUEST, "unsupported cover image type");
     }
-    if body.len() > MAX_COVER_UPLOAD_BYTES {
-        return error_response(StatusCode::PAYLOAD_TOO_LARGE, "cover image is too large");
-    }
+    let body = match to_bytes(body, MAX_COVER_UPLOAD_BYTES + 1).await {
+        Ok(body) if body.len() <= MAX_COVER_UPLOAD_BYTES => body,
+        Ok(_) | Err(_) => {
+            return error_response(StatusCode::PAYLOAD_TOO_LARGE, "cover image is too large")
+        }
+    };
 
     let roots = match &state.libraries {
         Ok(roots) => roots,
@@ -1009,7 +1012,12 @@ async fn upload_cover(
     match result {
         Ok(data_url) => Json(data_url).into_response(),
         Err(error) if error.kind() == io::ErrorKind::InvalidInput => {
-            error_response(StatusCode::BAD_REQUEST, error.to_string())
+            let message = if error.to_string() == "cover image is too large" {
+                "cover image is too large"
+            } else {
+                "invalid cover image"
+            };
+            error_response(StatusCode::BAD_REQUEST, message)
         }
         Err(_) => error_response(StatusCode::INTERNAL_SERVER_ERROR, "cover upload failed"),
     }
@@ -1046,8 +1054,7 @@ fn router_with_runtime_and_events(
         .route("/api/v1/auth/login", post(login))
         .layer(DefaultBodyLimit::max(64 * 1024));
     let cover_upload_route = Router::new()
-        .route("/api/v1/covers", post(upload_cover))
-        .layer(DefaultBodyLimit::max(MAX_COVER_UPLOAD_BYTES));
+        .route("/api/v1/covers", post(upload_cover));
 
     Router::new()
         .route("/healthz", get(health))
@@ -1459,6 +1466,67 @@ mod tests {
         let data_url: String = serde_json::from_slice(&body).unwrap();
         assert!(data_url.starts_with("data:image/jpeg;base64,"));
         assert!(album.join("cover.jpg").is_file());
+        std::fs::remove_dir_all(base).unwrap();
+    }
+
+    #[tokio::test]
+    async fn cover_upload_rejects_unsupported_invalid_and_oversized_payloads() {
+        let base = std::env::temp_dir().join(format!(
+            "soundrobe-web-cover-errors-{}",
+            Uuid::new_v4().simple()
+        ));
+        let album = base.join("Artist/Album");
+        std::fs::create_dir_all(&album).unwrap();
+        let mut config = test_config();
+        config.library_root_dir = base.clone();
+        let app = router(config);
+        let login_response = login(app.clone(), "correct horse battery staple").await;
+        let cookie = login_response
+            .headers()
+            .get(header::SET_COOKIE)
+            .unwrap()
+            .to_str()
+            .unwrap()
+            .split(';')
+            .next()
+            .unwrap()
+            .to_string();
+        let album_path = album.canonicalize().unwrap().to_string_lossy().into_owned();
+        let query = url::form_urlencoded::Serializer::new(String::new())
+            .append_pair("albumPath", &album_path)
+            .finish();
+        let request = |content_type: &str, bytes: Vec<u8>| {
+            origin_request(
+                Request::builder()
+                    .method("POST")
+                    .uri(format!("/api/v1/covers?{query}"))
+                    .header(header::COOKIE, &cookie)
+                    .header(header::CONTENT_TYPE, content_type)
+                    .body(Body::from(bytes))
+                    .unwrap(),
+            )
+        };
+
+        assert_json_error(
+            app.clone().oneshot(request("text/plain", b"cover".to_vec())).await.unwrap(),
+            StatusCode::BAD_REQUEST,
+            r#"{"error":"unsupported cover image type"}"#,
+        )
+        .await;
+        assert_json_error(
+            app.clone().oneshot(request("image/png", b"not-an-image".to_vec())).await.unwrap(),
+            StatusCode::BAD_REQUEST,
+            r#"{"error":"invalid cover image"}"#,
+        )
+        .await;
+        assert_json_error(
+            app.oneshot(request("image/png", vec![0; MAX_COVER_UPLOAD_BYTES + 1]))
+                .await
+                .unwrap(),
+            StatusCode::PAYLOAD_TOO_LARGE,
+            r#"{"error":"cover image is too large"}"#,
+        )
+        .await;
         std::fs::remove_dir_all(base).unwrap();
     }
 
