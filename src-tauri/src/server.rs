@@ -27,6 +27,7 @@ use std::{
 use subtle::ConstantTimeEq;
 use tokio::sync::{Mutex, RwLock};
 use tokio_util::sync::CancellationToken;
+use tower_http::services::{ServeDir, ServeFile};
 use url::Url;
 use uuid::Uuid;
 
@@ -65,6 +66,7 @@ pub struct ServerConfig {
     listen_addr: SocketAddr,
     data_dir: PathBuf,
     library_root_dir: PathBuf,
+    web_root: PathBuf,
     auth: AuthConfig,
     session_ttl: Duration,
     login_window: Duration,
@@ -82,6 +84,9 @@ impl ServerConfig {
         let library_root_dir = std::env::var_os("SOUNDROBE_LIBRARY_ROOT_DIR")
             .map(PathBuf::from)
             .unwrap_or_else(|| PathBuf::from("/libraries"));
+        let web_root = std::env::var_os("SOUNDROBE_WEB_ROOT")
+            .map(PathBuf::from)
+            .unwrap_or_else(|| PathBuf::from("/app/dist"));
         let password_file = std::env::var_os("SOUNDROBE_AUTH_PASSWORD_FILE").map(PathBuf::from);
         let auth = AuthConfig::from_sources(
             password_file.as_deref(),
@@ -93,6 +98,7 @@ impl ServerConfig {
             listen_addr,
             data_dir,
             library_root_dir,
+            web_root,
             auth,
             session_ttl: DEFAULT_SESSION_TTL,
             login_window: DEFAULT_LOGIN_WINDOW,
@@ -106,6 +112,7 @@ impl ServerConfig {
             listen_addr: "127.0.0.1:0".parse().unwrap(),
             data_dir: PathBuf::from("/tmp/soundrobe-test-config"),
             library_root_dir: PathBuf::from("/tmp/soundrobe-test-libraries"),
+            web_root: PathBuf::from("/tmp/soundrobe-test-web"),
             auth: AuthConfig::from_sources(None, Some(password), Some(public_url)).unwrap(),
             session_ttl: DEFAULT_SESSION_TTL,
             login_window: DEFAULT_LOGIN_WINDOW,
@@ -1529,6 +1536,8 @@ fn router_with_runtime_and_events(
     event_bus: EventBus,
 ) -> Router {
     let config_state = ConfigState::init_in(config.data_dir.clone());
+    let web_root = config.web_root.clone();
+    let spa = ServeDir::new(&web_root).fallback(ServeFile::new(web_root.join("index.html")));
     let state = ServerState {
         auth: AuthService::new(&config),
         debug: WebDebugState::new(config_state.raw().debug.unwrap_or(false)),
@@ -1555,6 +1564,7 @@ fn router_with_runtime_and_events(
         .route("/api/v1/auth/logout", post(logout))
         .merge(login_route)
         .merge(cover_upload_route)
+        .fallback_service(spa)
         .with_state(state.clone())
         .layer(middleware::from_fn_with_state(
             state.clone(),
@@ -1621,7 +1631,7 @@ mod tests {
     use serde_json::json;
     use std::time::Duration;
     use tokio::sync::{Barrier, Notify};
-    use tower::ServiceExt;
+use tower::ServiceExt;
 
     fn test_config() -> ServerConfig {
         ServerConfig::for_tests("correct horse battery staple", "https://soundrobe.test")
@@ -1720,6 +1730,38 @@ mod tests {
             .headers()
             .get(header::ACCESS_CONTROL_ALLOW_ORIGIN)
             .is_none());
+    }
+
+    #[tokio::test]
+    async fn browser_routes_serve_the_built_spa_shell() {
+        let web_root = std::env::temp_dir().join(format!(
+            "soundrobe-web-static-{}",
+            Uuid::new_v4().simple()
+        ));
+        std::fs::create_dir_all(&web_root).unwrap();
+        std::fs::write(&web_root.join("index.html"), "<main>Soundrobe</main>").unwrap();
+        let mut config = test_config();
+        config.web_root = web_root.clone();
+
+        let response = router(config)
+            .oneshot(
+                Request::builder()
+                    .uri("/")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(
+            axum::body::to_bytes(response.into_body(), usize::MAX)
+                .await
+                .unwrap()
+                .as_ref(),
+            b"<main>Soundrobe</main>"
+        );
+        std::fs::remove_dir_all(web_root).unwrap();
     }
 
     #[tokio::test]
