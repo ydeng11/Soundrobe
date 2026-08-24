@@ -66,7 +66,7 @@ pub mod organizer;
 #[cfg(feature = "desktop")]
 pub mod tasks;
 /// Deterministic provider-track alignment used by auto-tag.
-#[cfg(feature = "desktop")]
+#[cfg(any(feature = "desktop", feature = "server"))]
 mod track_matcher;
 /// `album:read`, `track:write`, `tracks:batch-write`, extra-tags, rename, exists.
 #[cfg(any(feature = "desktop", feature = "server"))]

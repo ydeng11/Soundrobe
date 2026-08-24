@@ -1308,25 +1308,51 @@ impl DiscogsClient {
     }
 
     pub async fn artist_image(&self, artist_id: &str) -> Option<RemoteImage> {
-        let artist: ArtistDetail = self.get_json(&format!("artists/{artist_id}")).await?;
+        let artist: ArtistDetail = self
+            .get_json(&format!("artists/{}", encode_path_segment(artist_id)))
+            .await?;
         let image_url = preferred_image_url(&artist.images)?;
         self.fetch_image("discogs", &image_url).await
     }
 
     pub async fn release_metadata(&self, release_id: &str) -> Option<ProviderAlbum> {
+        self.release_metadata_result(release_id).await.ok()
+    }
+
+    pub async fn release_metadata_result(&self, release_id: &str) -> Result<ProviderAlbum, String> {
         let release: serde_json::Value = self
-            .get_json(&format!("releases/{}", encode_path_segment(release_id)))
-            .await?;
+            .get_json_result(&format!("releases/{}", encode_path_segment(release_id)))
+            .await
+            .map_err(|error| {
+                if error.contains("HTTP 404") {
+                    format!("Discogs release not found: {release_id}")
+                } else {
+                    error
+                }
+            })?;
         parse_discogs_release(&release, release_id)
+            .ok_or_else(|| format!("Discogs release not found: {release_id}"))
     }
 
     /// Resolve a Discogs master release. The master JSON has the same
     /// structure as a release for our purposes (title, artists, tracklist).
     pub async fn master_metadata(&self, master_id: &str) -> Option<ProviderAlbum> {
+        self.master_metadata_result(master_id).await.ok()
+    }
+
+    pub async fn master_metadata_result(&self, master_id: &str) -> Result<ProviderAlbum, String> {
         let master: serde_json::Value = self
-            .get_json(&format!("masters/{}", encode_path_segment(master_id)))
-            .await?;
+            .get_json_result(&format!("masters/{}", encode_path_segment(master_id)))
+            .await
+            .map_err(|error| {
+                if error.contains("HTTP 404") {
+                    format!("Discogs master not found: {master_id}")
+                } else {
+                    error
+                }
+            })?;
         parse_discogs_release(&master, master_id)
+            .ok_or_else(|| format!("Discogs master not found: {master_id}"))
     }
 
     pub async fn search_album(
@@ -1426,7 +1452,8 @@ impl DiscogsClient {
     ) -> Vec<ProviderReleaseSummary> {
         let Some(body) = self
             .get_json::<serde_json::Value>(&format!(
-                "artists/{artist_id}/releases?per_page={per_page}&page={page}&sort=year&sort_order=desc"
+                "artists/{}/releases?per_page={per_page}&page={page}&sort=year&sort_order=desc",
+                encode_path_segment(artist_id)
             ))
             .await
         else {
@@ -1505,7 +1532,8 @@ impl DiscogsClient {
         for page in 1..=3 {
             let response: ArtistReleasesResponse = self
                 .get_json(&format!(
-                    "artists/{artist_id}/releases?per_page=50&page={page}"
+                    "artists/{}/releases?per_page=50&page={page}",
+                    encode_path_segment(artist_id)
                 ))
                 .await?;
             for release in &response.releases {
@@ -1565,11 +1593,28 @@ impl DiscogsClient {
     }
 
     async fn get_json<T: for<'de> Deserialize<'de>>(&self, path: &str) -> Option<T> {
+        self.get_json_result(path).await.ok()
+    }
+
+    async fn get_json_result<T: for<'de> Deserialize<'de>>(
+        &self,
+        path: &str,
+    ) -> Result<T, String> {
         self.limiter.wait().await;
         let url = format!("{}/{}", self.base_url, path);
         let request = self.authorized(self.http.get(url));
-        let response = request.send().await.ok()?.error_for_status().ok()?;
-        response.json().await.ok()
+        let response = request
+            .send()
+            .await
+            .map_err(|error| format!("Discogs request failed: {error}"))?;
+        let status = response.status();
+        if !status.is_success() {
+            return Err(format!("Discogs request failed with HTTP {status}"));
+        }
+        response
+            .json()
+            .await
+            .map_err(|error| format!("Discogs response could not be parsed: {error}"))
     }
 
     async fn get_json_with_query<T: for<'de> Deserialize<'de>>(
@@ -2477,6 +2522,17 @@ mod tests {
         ("200 OK", "VALID_IMAGE".to_string(), "image/jpeg")
     }
 
+    fn encoded_release_route(path: &str, _base: &str) -> (&'static str, String, &'static str) {
+        if path == "/releases/%2E%2E%2Fprivate" {
+            return (
+                "200 OK",
+                r#"{"id":1,"title":"Safe","artists":[{"name":"Artist"}],"tracklist":[]}"#.to_string(),
+                "application/json",
+            );
+        }
+        ("404 Not Found", "{}".to_string(), "application/json")
+    }
+
     fn album_provider_route(path: &str, base: &str) -> (&'static str, String, &'static str) {
         if path == "/caa/release/mbid" {
             return (
@@ -3190,6 +3246,34 @@ mod tests {
         assert!(paths[1].contains("/artists/7/releases"));
         assert!(paths[2].contains("/database/search"));
         assert!(paths[3].contains("/fallback"));
+    }
+
+    #[tokio::test]
+    async fn discogs_release_ids_are_encoded_on_the_wire() {
+        let (base, requests) = server(1, encoded_release_route);
+        let client = DiscogsClient::at(ProviderState::new().http(), None, &base);
+
+        let result = client.release_metadata_result("../private").await.unwrap();
+
+        assert_eq!(result.title, "Safe");
+        assert!(requests
+            .recv()
+            .unwrap()
+            .lines()
+            .next()
+            .unwrap()
+            .contains("/releases/%2E%2E%2Fprivate"));
+    }
+
+    #[tokio::test]
+    async fn discogs_release_result_preserves_not_found_status() {
+        let (base, requests) = server(1, fallback_route);
+        let client = DiscogsClient::at(ProviderState::new().http(), None, &base);
+
+        let error = client.release_metadata_result("404").await.unwrap_err();
+
+        assert_eq!(error, "Discogs release not found: 404");
+        assert!(requests.recv().unwrap().contains("/releases/404"));
     }
 
     #[tokio::test]

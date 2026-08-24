@@ -33,8 +33,9 @@ use url::Url;
 use uuid::Uuid;
 
 use crate::commands::album_search::{
-    discogs_token, normalise_page, normalise_page_size, resolve_release_inner, search_releases_inner,
-    ResolveReleaseRequest, SearchReleasesRequest,
+    album_preview_release_match, apply_search_candidate, discogs_token, normalise_page,
+    normalise_page_size, resolve_release_inner, search_releases_inner, ApplyCandidateRequest,
+    PreviewMatchRequest, ResolveReleaseRequest, SearchReleasesRequest,
 };
 use crate::commands::mutations::{
     batch_write_with_readback, delete_files_queued, rename_track_queued,
@@ -715,6 +716,8 @@ fn supported_web_command(command: &str) -> bool {
             | "album:read"
             | "album:search-releases"
             | "album:resolve-release"
+            | "album:preview-release-match"
+            | "album:search-apply-candidate"
             | "track:write"
             | "tracks:batch-write"
             | "track:extra-tags:read"
@@ -989,6 +992,68 @@ async fn command(
             match resolve_release_inner(&request, state.providers.as_ref(), &state.config).await {
                 Ok(result) => Json(result).into_response(),
                 Err(error) => provider_error_response(error),
+            }
+        }
+        "album:preview-release-match" => {
+            let mut request =
+                match decode_command_payload::<WrappedCommandRequest<PreviewMatchRequest>>(payload)
+                {
+                    Ok(request) => request.request,
+                    Err(_) => {
+                        return error_response(StatusCode::BAD_REQUEST, "invalid command request")
+                    }
+                };
+            let roots = match &state.libraries {
+                Ok(roots) => roots,
+                Err(_) => {
+                    return error_response(
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        "library roots unavailable",
+                    )
+                }
+            };
+            let resolved = match roots.resolve_path(Path::new(&request.album_path)) {
+                Ok(path) => path,
+                Err(error) => return scan_path_error(error),
+            };
+            if !resolved.path.is_dir() {
+                return error_response(StatusCode::BAD_REQUEST, "album path not found");
+            }
+            request.album_path = resolved.path.to_string_lossy().into_owned();
+            match album_preview_release_match(request).await {
+                Ok(result) => Json(result).into_response(),
+                Err(error) => search_operation_error_response(error),
+            }
+        }
+        "album:search-apply-candidate" => {
+            let mut request =
+                match decode_command_payload::<WrappedCommandRequest<ApplyCandidateRequest>>(payload)
+                {
+                    Ok(request) => request.request,
+                    Err(_) => {
+                        return error_response(StatusCode::BAD_REQUEST, "invalid command request")
+                    }
+                };
+            let roots = match &state.libraries {
+                Ok(roots) => roots,
+                Err(_) => {
+                    return error_response(
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        "library roots unavailable",
+                    )
+                }
+            };
+            let resolved = match roots.resolve_path(Path::new(&request.album_path)) {
+                Ok(path) => path,
+                Err(error) => return scan_path_error(error),
+            };
+            if !resolved.path.is_dir() {
+                return error_response(StatusCode::BAD_REQUEST, "album path not found");
+            }
+            request.album_path = resolved.path.to_string_lossy().into_owned();
+            match apply_search_candidate(&request, &state.config, &state.write_queue).await {
+                Ok(written) => Json(written).into_response(),
+                Err(error) => search_operation_error_response(error),
             }
         }
         "album:read" => {
@@ -1314,6 +1379,19 @@ fn provider_error_response(error: String) -> Response {
         StatusCode::BAD_REQUEST
     } else if error.to_ascii_lowercase().contains("not found") {
         StatusCode::NOT_FOUND
+    } else {
+        StatusCode::INTERNAL_SERVER_ERROR
+    };
+    error_response(status, error)
+}
+
+fn search_operation_error_response(error: String) -> Response {
+    let status = if error.starts_with("Unknown provider:")
+        || error.starts_with("Album directory does not exist:")
+        || error.starts_with("Track count mismatch:")
+        || error.starts_with("Selected track index")
+    {
+        StatusCode::BAD_REQUEST
     } else {
         StatusCode::INTERNAL_SERVER_ERROR
     };
@@ -3022,6 +3100,83 @@ mod tests {
             provider_error_response("Unknown provider: other".to_string()).status(),
             StatusCode::BAD_REQUEST
         );
+    }
+
+    #[tokio::test]
+    async fn provider_preview_and_apply_routes_keep_the_album_inside_a_mount() {
+        let base = std::env::temp_dir().join(format!("soundrobe-web-provider-{}", Uuid::new_v4()));
+        let album = base.join("album");
+        std::fs::create_dir_all(&album).unwrap();
+        std::fs::copy(
+            PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                .join("../test/fixtures/tauri/media-corpus/minimal.flac"),
+            album.join("01.flac"),
+        )
+        .unwrap();
+        let mut config = test_config();
+        config.library_root_dir = base.clone();
+        let app = router(config);
+        let login_response = login(app.clone(), "correct horse battery staple").await;
+        let cookie = login_response.headers()[header::SET_COOKIE].clone();
+        let album_path = album.canonicalize().unwrap().to_string_lossy().into_owned();
+
+        let preview_response = app
+            .clone()
+            .oneshot(origin_request(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/v1/commands/album%3Apreview-release-match")
+                    .header(header::COOKIE, cookie.clone())
+                    .header(header::CONTENT_TYPE, "application/json")
+                    .body(Body::from(
+                        serde_json::to_vec(&json!({
+                            "request": {
+                                "albumPath": album_path,
+                                "provider": "unknown",
+                                "release": { "id": "id", "title": "Album", "artists": [], "tracks": [] }
+                            }
+                        }))
+                        .unwrap(),
+                    ))
+                    .unwrap(),
+            ))
+            .await
+            .unwrap();
+        assert_json_error(
+            preview_response,
+            StatusCode::BAD_REQUEST,
+            r#"{"error":"Unknown provider: unknown"}"#,
+        )
+        .await;
+
+        let apply_response = app
+            .oneshot(origin_request(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/v1/commands/album%3Asearch-apply-candidate")
+                    .header(header::COOKIE, cookie)
+                    .header(header::CONTENT_TYPE, "application/json")
+                    .body(Body::from(
+                        serde_json::to_vec(&json!({
+                            "request": {
+                                "albumPath": album_path,
+                                "candidate": { "artists": [], "albumArtists": [], "tracks": [], "source": "musicbrainz" },
+                                "selectedTrackIndices": [0]
+                            }
+                        }))
+                        .unwrap(),
+                    ))
+                    .unwrap(),
+            ))
+            .await
+            .unwrap();
+        assert_json_error(
+            apply_response,
+            StatusCode::BAD_REQUEST,
+            r#"{"error":"Track count mismatch: album has 1 audio files but candidate has 0 tracks"}"#,
+        )
+        .await;
+        std::fs::remove_dir_all(base).unwrap();
     }
 
     #[tokio::test]

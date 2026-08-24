@@ -24,7 +24,7 @@ use crate::{
     state::{
         config::AutoTagConfig,
         providers::{
-            album_names_match, convert_chinese_text, ArtistIdentity, DiscogsClient,
+            album_names_match, ArtistIdentity, DiscogsClient,
             MusicBrainzClient, ProviderAlbum, ProviderReleaseSummary, ProviderState,
             RemoteArtworkClient,
         },
@@ -37,64 +37,11 @@ use crate::state::events::emit_event;
 
 use super::track_matcher::{match_remote_candidate_tracks, MatchEvidence};
 
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum LookupSource {
-    #[default]
-    Beets,
-    Dataset,
-    Discogs,
-    Folder,
-    Llm,
-    Musicbrainz,
-}
-
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub struct TrackCandidate {
-    pub title: Option<String>,
-    #[serde(default)]
-    pub match_titles: Vec<String>,
-    pub artist: Option<String>,
-    #[serde(default)]
-    pub artists: Vec<String>,
-    pub track_number: Option<u32>,
-    pub track_total: Option<u32>,
-    pub disc_number: Option<u32>,
-    pub disc_total: Option<u32>,
-    #[serde(rename = "musicbrainz_trackid")]
-    pub musicbrainz_track_id: Option<String>,
-    pub length: Option<f64>,
-    pub genre: Option<String>,
-    /// File stem (without extension) for LLM title inference.
-    #[serde(default)]
-    pub filename: Option<String>,
-}
-
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub struct AlbumCandidate {
-    pub artist: Option<String>,
-    #[serde(default)]
-    pub artists: Vec<String>,
-    pub album: Option<String>,
-    pub album_artist: Option<String>,
-    #[serde(default)]
-    pub album_artists: Vec<String>,
-    pub year: Option<String>,
-    pub genre: Option<String>,
-    #[serde(rename = "musicbrainz_albumid")]
-    pub musicbrainz_album_id: Option<String>,
-    #[serde(rename = "musicbrainz_artistid")]
-    pub musicbrainz_artist_id: Option<String>,
-    pub discogs_artist_id: Option<String>,
-    pub discogs_release_id: Option<String>,
-    #[serde(default)]
-    pub tracks: Vec<TrackCandidate>,
-    pub distance: Option<f64>,
-    pub source: LookupSource,
-    pub verification: Option<String>,
-}
+pub use super::album_search::{
+    convert_candidate_chinese, discogs_candidate, musicbrainz_candidate,
+    AlbumCandidate, LookupSource, TrackCandidate,
+};
+pub(crate) use super::album_search::split_collaborative_artists;
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -355,34 +302,6 @@ pub fn folder_candidate(request: &LookupRequest) -> AlbumCandidate {
         tracks,
         source: LookupSource::Folder,
         ..AlbumCandidate::default()
-    }
-}
-
-/// Normalize a fallback (Folder/LLM) artist list so a collaborative credit
-/// stored as a single concatenated string (e.g. "陶晶莹&张雨生") is split into
-/// individual ARTISTS entries. The display `artist` credit is the split
-/// source (preferred over a possibly stale one-item `artists` list left by an
-/// LLM correction); an already-explicit multi-artist list is left untouched,
-/// and a solo artist that does not match any collaborative separator stays
-/// as-is. When `artists` is empty and `artist` is set, the list is derived
-/// from `artist` so a solo credit still produces a single ARTISTS entry.
-pub(crate) fn split_collaborative_artists(
-    artist: &Option<String>,
-    artists: &[String],
-) -> Vec<String> {
-    if artists.len() > 1 {
-        return artists.to_vec();
-    }
-    let source = artist
-        .as_deref()
-        .filter(|value| !value.trim().is_empty())
-        .or_else(|| artists.first().map(String::as_str))
-        .unwrap_or_default();
-    let split = crate::state::providers::split_artist_names(&[source.to_string()]);
-    if split.is_empty() {
-        artists.to_vec()
-    } else {
-        split
     }
 }
 
@@ -751,113 +670,6 @@ pub fn query_hash(request: &LookupRequest) -> String {
     };
     let payload = serde_json::to_vec(&query).expect("hash query serializes");
     format!("{:x}", Sha256::digest(payload))
-}
-
-pub fn musicbrainz_candidate(album: ProviderAlbum) -> AlbumCandidate {
-    let artist = album.artist.clone();
-    AlbumCandidate {
-        artist: artist.clone(),
-        artists: album.artists.clone(),
-        album: Some(album.title),
-        album_artist: artist,
-        album_artists: album.artists,
-        year: album.year,
-        genre: album.genre,
-        musicbrainz_album_id: Some(album.id),
-        musicbrainz_artist_id: album.artist_id,
-        tracks: album
-            .tracks
-            .into_iter()
-            .map(|track| TrackCandidate {
-                title: track.title,
-                match_titles: track.match_titles,
-                artist: track.artist,
-                artists: track.artists,
-                track_number: track.track_number,
-                track_total: track.track_total,
-                disc_number: track.disc_number,
-                musicbrainz_track_id: track.recording_id,
-                length: track.length,
-                ..TrackCandidate::default()
-            })
-            .collect(),
-        source: LookupSource::Musicbrainz,
-        ..AlbumCandidate::default()
-    }
-}
-
-pub fn discogs_candidate(album: ProviderAlbum) -> AlbumCandidate {
-    let artist = album.artist.clone();
-    AlbumCandidate {
-        artist: artist.clone(),
-        artists: album.artists.clone(),
-        album: Some(album.title),
-        album_artist: artist,
-        album_artists: album.artists,
-        year: album.year,
-        genre: album.genre,
-        discogs_artist_id: album.artist_id,
-        discogs_release_id: Some(album.id),
-        tracks: album
-            .tracks
-            .into_iter()
-            .map(|track| TrackCandidate {
-                title: track.title,
-                match_titles: track.match_titles,
-                artist: track.artist,
-                artists: track.artists,
-                track_number: track.track_number,
-                track_total: track.track_total,
-                disc_number: track.disc_number,
-                length: track.length,
-                ..TrackCandidate::default()
-            })
-            .collect(),
-        source: LookupSource::Discogs,
-        ..AlbumCandidate::default()
-    }
-}
-
-pub fn convert_candidate_chinese(
-    candidate: &AlbumCandidate,
-    target: Option<&str>,
-) -> AlbumCandidate {
-    let Some(target) = target.filter(|target| matches!(*target, "traditional" | "simplified"))
-    else {
-        return candidate.clone();
-    };
-    let convert = |value: &Option<String>| {
-        value
-            .as_deref()
-            .map(|value| convert_chinese_text(value, target))
-    };
-    let convert_many = |values: &[String]| {
-        values
-            .iter()
-            .map(|value| convert_chinese_text(value, target))
-            .collect()
-    };
-    let mut converted = candidate.clone();
-    converted.artist = convert(&candidate.artist);
-    converted.artists = convert_many(&candidate.artists);
-    converted.album = convert(&candidate.album);
-    converted.album_artist = convert(&candidate.album_artist);
-    converted.album_artists = convert_many(&candidate.album_artists);
-    converted.year = convert(&candidate.year);
-    converted.genre = convert(&candidate.genre);
-    converted.tracks = candidate
-        .tracks
-        .iter()
-        .map(|track| {
-            let mut track = track.clone();
-            track.title = convert(&track.title);
-            track.artist = convert(&track.artist);
-            track.artists = convert_many(&track.artists);
-            track.genre = convert(&track.genre);
-            track
-        })
-        .collect();
-    converted
 }
 
 pub fn protect_candidate_tracks(

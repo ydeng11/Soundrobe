@@ -11,7 +11,7 @@ use std::sync::OnceLock;
 use regex::Regex;
 use unicode_normalization::UnicodeNormalization;
 
-use super::auto_tag::TrackCandidate;
+use super::album_search::TrackCandidate;
 use crate::state::providers::convert_chinese_text;
 
 const ANNOTATION_KEYWORDS: &str =
