@@ -27,7 +27,7 @@ pub(crate) mod assistant_metadata_tools;
 #[cfg(feature = "desktop")]
 pub(crate) mod assistant_tools;
 /// `audit:*` — `electron/handlers/audit.ts`.
-#[cfg(feature = "desktop")]
+#[cfg(any(feature = "desktop", feature = "server"))]
 pub mod audit;
 /// `album:auto-tag` candidate normalization and orchestration.
 #[cfg(feature = "desktop")]

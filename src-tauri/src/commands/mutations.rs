@@ -69,7 +69,7 @@ impl<T> Patch<T> {
         matches!(self, Self::Omitted)
     }
 
-    #[cfg(all(test, feature = "desktop"))]
+    #[cfg(test)]
     pub(crate) fn value(&self) -> Option<&T> {
         match self {
             Self::Value(value) => Some(value),

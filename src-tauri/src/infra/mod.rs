@@ -23,6 +23,7 @@ pub mod artwork;
 pub mod encoding;
 pub mod fs;
 pub mod http;
+#[cfg(feature = "desktop")]
 pub mod logging;
 pub mod openrouter;
 pub mod sqlite;

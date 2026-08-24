@@ -21,6 +21,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Web-service LLM checks** — authenticated browser settings can now test the
   configured LLM connection through the headless service.
 
+- **Web-service audits** — authenticated browser sessions can now audit a
+  mounted library or selected albums/tracks, receive audit events, and apply
+  confined approved fixes.
+
 - **Web-service runtime foundation** — browser deployments can now identify the
   web runtime, authenticate against the headless service, enumerate mounted
   music-library roots, and receive clear errors when a workflow is not yet

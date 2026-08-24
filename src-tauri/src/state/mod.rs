@@ -12,7 +12,7 @@ pub mod paths;
 pub mod assistant;
 #[cfg(feature = "desktop")]
 pub mod assistant_task;
-#[cfg(feature = "desktop")]
+#[cfg(any(feature = "desktop", feature = "server"))]
 pub mod audit;
 #[cfg(any(feature = "desktop", feature = "server"))]
 pub mod config;

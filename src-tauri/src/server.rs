@@ -42,6 +42,10 @@ use crate::commands::covers::{
     download_album_artwork_at, download_artist_artwork_at, remote_client, ArtistArtResult,
 };
 use crate::commands::configuration::test_llm_connection_at;
+use crate::commands::audit::{
+    apply_audit_fixes_for_album_results, audit_album_with_services, audit_clients,
+    audit_specific_albums, discover_album_dirs, finish_audit_run, start_audit, AuditAlbumResult,
+};
 use crate::commands::organizer::{sort_by_album, SortByAlbumOptions};
 use crate::commands::mutations::{
     batch_write_with_readback, delete_files_queued, rename_track_queued,
@@ -58,6 +62,7 @@ use crate::state::{
         MAX_COVER_UPLOAD_BYTES,
     },
     config::{ConfigSetError, ConfigState},
+    audit::AuditState,
     events::{EventBus, EventEnvelope},
     library::{
         discover_library_roots, list_directory_entries, scan_directory_with_cancellation,
@@ -215,6 +220,7 @@ struct ServerState {
     lifecycle: ServerLifecycle,
     debug: WebDebugState,
     write_queue: WriteQueue,
+    audit: Arc<AuditState>,
 }
 
 #[derive(Clone, Default)]
@@ -506,6 +512,29 @@ struct AlbumReadCommandRequest {
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
+struct AuditRunCommandRequest {
+    #[serde(rename = "libraryPath")]
+    library_path: String,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct AuditSpecifiedCommandRequest {
+    #[serde(rename = "trackPaths", default)]
+    track_paths: Option<Vec<String>>,
+    #[serde(rename = "albumPaths", default)]
+    album_paths: Option<Vec<String>>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct AuditApplyFixesCommandRequest {
+    #[serde(rename = "albumResults")]
+    album_results: Vec<AuditAlbumResult>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 struct OrganizerCommandRequest {
     #[serde(rename = "sourceDir")]
     source_dir: String,
@@ -745,6 +774,11 @@ fn supported_web_command(command: &str) -> bool {
             | "album:preview-release-match"
             | "album:search-apply-candidate"
             | "files:sort-by-album"
+            | "audit:run"
+            | "audit:run-specified"
+            | "audit:run-album"
+            | "audit:apply-fixes"
+            | "audit:cancel"
             | "track:write"
             | "tracks:batch-write"
             | "track:extra-tags:read"
@@ -824,6 +858,28 @@ fn resolve_existing_track(
         )));
     }
     Ok(resolved)
+}
+
+async fn execute_audit(state: &ServerState, paths: Vec<String>) -> Response {
+    let token = match start_audit(state.audit.as_ref()) {
+        Ok(token) => token,
+        Err(error) => return media_error(error),
+    };
+    let (client, remote) = audit_clients(&state.providers, &state.config);
+    let events = state.events.clone();
+    let emit = move |event| crate::commands::audit::emit_audit(&events, event);
+    let operation = audit_specific_albums(
+        &emit,
+        paths,
+        client,
+        remote,
+        state.config.alias_file_path(),
+        &token,
+    );
+    match finish_audit_run(&emit, state.audit.as_ref(), token.clone(), operation).await {
+        Ok(summary) => Json(summary).into_response(),
+        Err(error) => media_error(error),
+    }
 }
 
 async fn command(
@@ -1322,6 +1378,138 @@ async fn command(
                 Ok(result) => Json(result).into_response(),
                 Err(error) => media_error(error),
             }
+        }
+        "audit:run" => {
+            let request = match decode_command_payload::<AuditRunCommandRequest>(payload) {
+                Ok(request) => request,
+                Err(_) => return error_response(StatusCode::BAD_REQUEST, "invalid command request"),
+            };
+            let roots = match &state.libraries {
+                Ok(roots) => roots,
+                Err(_) => return error_response(StatusCode::INTERNAL_SERVER_ERROR, "library roots unavailable"),
+            };
+            let resolved = match roots.resolve_path(Path::new(&request.library_path)) {
+                Ok(path) => path.path,
+                Err(error) => return scan_path_error(error),
+            };
+            if !resolved.is_dir() {
+                return error_response(StatusCode::BAD_REQUEST, "library path not found");
+            }
+            let paths = discover_album_dirs(&resolved)
+                .into_iter()
+                .map(|path| path.to_string_lossy().into_owned())
+                .collect();
+            execute_audit(&state, paths).await
+        }
+        "audit:run-specified" => {
+            let request = match decode_command_payload::<AuditSpecifiedCommandRequest>(payload) {
+                Ok(request) => request,
+                Err(_) => return error_response(StatusCode::BAD_REQUEST, "invalid command request"),
+            };
+            let roots = match &state.libraries {
+                Ok(roots) => roots,
+                Err(_) => return error_response(StatusCode::INTERNAL_SERVER_ERROR, "library roots unavailable"),
+            };
+            let paths = if let Some(track_paths) = request.track_paths.filter(|paths| !paths.is_empty()) {
+                let mut albums = Vec::new();
+                for track_path in track_paths {
+                    let track = match resolve_existing_track(roots, &track_path) {
+                        Ok(track) => track.path,
+                        Err(response) => return *response,
+                    };
+                    let Some(album) = track.parent() else {
+                        return error_response(StatusCode::BAD_REQUEST, "track path not found");
+                    };
+                    let album = album.to_path_buf();
+                    if !albums.contains(&album) {
+                        albums.push(album);
+                    }
+                }
+                albums
+            } else if let Some(album_paths) = request.album_paths.filter(|paths| !paths.is_empty()) {
+                let mut albums = Vec::new();
+                for album_path in album_paths {
+                    let album = match roots.resolve_path(Path::new(&album_path)) {
+                        Ok(album) => album.path,
+                        Err(error) => return scan_path_error(error),
+                    };
+                    if !album.is_dir() {
+                        return error_response(StatusCode::BAD_REQUEST, "album path not found");
+                    }
+                    if !albums.contains(&album) {
+                        albums.push(album);
+                    }
+                }
+                albums
+            } else {
+                return error_response(StatusCode::BAD_REQUEST, "no tracks or albums specified for audit");
+            };
+            execute_audit(
+                &state,
+                paths.into_iter()
+                    .map(|path| path.to_string_lossy().into_owned())
+                    .collect(),
+            )
+            .await
+        }
+        "audit:run-album" => {
+            let request = match decode_command_payload::<AlbumReadCommandRequest>(payload) {
+                Ok(request) => request,
+                Err(_) => return error_response(StatusCode::BAD_REQUEST, "invalid command request"),
+            };
+            let roots = match &state.libraries {
+                Ok(roots) => roots,
+                Err(_) => return error_response(StatusCode::INTERNAL_SERVER_ERROR, "library roots unavailable"),
+            };
+            let album = match roots.resolve_path(Path::new(&request.album_path)) {
+                Ok(album) => album.path,
+                Err(error) => return scan_path_error(error),
+            };
+            if !album.is_dir() {
+                return error_response(StatusCode::BAD_REQUEST, "album path not found");
+            }
+            let cancelled = std::sync::atomic::AtomicBool::new(false);
+            let (client, remote) = audit_clients(&state.providers, &state.config);
+            let findings = audit_album_with_services(
+                &album,
+                &cancelled,
+                client.as_deref(),
+                remote.as_deref(),
+                &state.config.alias_file_path(),
+            )
+            .await;
+            Json(findings).into_response()
+        }
+        "audit:apply-fixes" => {
+            let mut request = match decode_command_payload::<AuditApplyFixesCommandRequest>(payload) {
+                Ok(request) => request.album_results,
+                Err(_) => return error_response(StatusCode::BAD_REQUEST, "invalid command request"),
+            };
+            let roots = match &state.libraries {
+                Ok(roots) => roots,
+                Err(_) => return error_response(StatusCode::INTERNAL_SERVER_ERROR, "library roots unavailable"),
+            };
+            for album_result in &mut request {
+                let album = match roots.resolve_path(Path::new(&album_result.album_path)) {
+                    Ok(album) => album.path,
+                    Err(error) => return scan_path_error(error),
+                };
+                if !album.is_dir() {
+                    return error_response(StatusCode::BAD_REQUEST, "album path not found");
+                }
+                album_result.album_path = album.to_string_lossy().into_owned();
+            }
+            match apply_audit_fixes_for_album_results(&state.write_queue, request).await {
+                Ok(summary) => Json(summary).into_response(),
+                Err(error) => media_error(error),
+            }
+        }
+        "audit:cancel" => {
+            if decode_command_payload::<EmptyCommandRequest>(payload).is_err() {
+                return error_response(StatusCode::BAD_REQUEST, "invalid command request");
+            }
+            state.audit.cancel();
+            Json(serde_json::Value::Null).into_response()
         }
         "lyrics:fetch" => {
             let request = match decode_command_payload::<LyricsFetchCommandRequest>(payload) {
@@ -1868,6 +2056,7 @@ fn router_with_runtime_and_events(
         providers: Arc::new(crate::state::providers::ProviderState::default()),
         libraries: discover_library_roots(&config.library_root_dir)
             .map_err(|error| error.to_string()),
+        audit: Arc::new(AuditState::default()),
         events: event_bus,
         operations: OperationCoordinator::default(),
         lifecycle,
@@ -2219,6 +2408,87 @@ mod tests {
             r#"{"error":"No model provided and none configured. Set LLM_MODEL in Settings or env."}"#,
         )
         .await;
+    }
+
+    #[tokio::test]
+    async fn authenticated_command_transport_runs_a_confined_audit() {
+        let base = std::env::temp_dir().join(format!(
+            "soundrobe-web-audit-{}",
+            Uuid::new_v4().simple()
+        ));
+        let library = base.join("Artist");
+        let album = library.join("Album");
+        std::fs::create_dir_all(&album).unwrap();
+        let fixture = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../test/fixtures/tauri/media-corpus/minimal.mp3");
+        std::fs::copy(fixture, album.join("01.mp3")).unwrap();
+
+        let mut config = test_config();
+        config.library_root_dir = base;
+        let root_dir = config.library_root_dir.clone();
+        let app = router(config.clone());
+        let outside_app = router(config);
+        let login_response = login(app.clone(), "correct horse battery staple").await;
+        let cookie = login_response.headers()[header::SET_COOKIE].clone();
+        let response = app
+            .oneshot(
+                origin_request(
+                    Request::builder()
+                        .method("POST")
+                        .uri("/api/v1/commands/audit%3Arun")
+                        .header(header::COOKIE, cookie)
+                        .header(header::CONTENT_TYPE, "application/json")
+                        .body(Body::from(
+                            serde_json::to_vec(&json!({
+                                "libraryPath": library.canonicalize().unwrap()
+                            }))
+                            .unwrap(),
+                        ))
+                        .unwrap(),
+                ),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        let summary: serde_json::Value = serde_json::from_slice(
+            &axum::body::to_bytes(response.into_body(), usize::MAX)
+                .await
+                .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(summary["albums"], 1);
+        assert_eq!(
+            summary["albumResults"][0]["albumPath"],
+            album.canonicalize().unwrap().to_string_lossy().as_ref()
+        );
+
+        let outside_login = login(outside_app.clone(), "correct horse battery staple").await;
+        let outside_response = outside_app
+            .oneshot(
+                origin_request(
+                    Request::builder()
+                        .method("POST")
+                        .uri("/api/v1/commands/audit%3Arun")
+                        .header(
+                            header::COOKIE,
+                            outside_login.headers()[header::SET_COOKIE].clone(),
+                        )
+                        .header(header::CONTENT_TYPE, "application/json")
+                        .body(Body::from(r#"{"libraryPath":"/tmp/not-mounted"}"#))
+                        .unwrap(),
+                ),
+            )
+            .await
+            .unwrap();
+        assert_json_error(
+            outside_response,
+            StatusCode::FORBIDDEN,
+            r#"{"error":"path outside library roots"}"#,
+        )
+        .await;
+
+        std::fs::remove_dir_all(root_dir).unwrap();
     }
 
     #[tokio::test]
@@ -3566,6 +3836,7 @@ mod tests {
             lifecycle: ServerLifecycle::default(),
             debug: WebDebugState::default(),
             write_queue: WriteQueue::default(),
+            audit: Arc::new(AuditState::default()),
         };
         let _active = state
             .operations
@@ -4096,6 +4367,7 @@ mod tests {
             lifecycle: ServerLifecycle::default(),
             debug: WebDebugState::default(),
             write_queue: WriteQueue::default(),
+            audit: Arc::new(AuditState::default()),
         };
         let app = Router::new()
             .route("/boom", get(|| async { StatusCode::INTERNAL_SERVER_ERROR }))
