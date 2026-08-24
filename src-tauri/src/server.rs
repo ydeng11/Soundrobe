@@ -35,7 +35,7 @@ use crate::state::{
         cover_data_url, read_album_with_cancellation, remove_cover, write_cover_upload,
         MAX_COVER_UPLOAD_BYTES,
     },
-    config::ConfigState,
+    config::{ConfigSetError, ConfigState},
     events::{EventBus, EventEnvelope},
     library::{
         discover_library_roots, list_directory_entries, scan_directory_with_cancellation,
@@ -707,10 +707,13 @@ async fn command(
             };
             match state.config.try_set(&request.key, &request.value) {
                 Ok(()) => Json(serde_json::Value::Null).into_response(),
-                Err(error) if error.starts_with("unsupported config key:") => {
-                    error_response(StatusCode::BAD_REQUEST, error)
+                Err(ConfigSetError::UnsupportedKey(key)) => error_response(
+                    StatusCode::BAD_REQUEST,
+                    format!("unsupported config key: {key}"),
+                ),
+                Err(ConfigSetError::Persistence) => {
+                    error_response(StatusCode::INTERNAL_SERVER_ERROR, "config persistence failed")
                 }
-                Err(error) => error_response(StatusCode::INTERNAL_SERVER_ERROR, error),
             }
         }
         "debug:set-mode" => {
@@ -720,7 +723,12 @@ async fn command(
             };
             match state.config.try_set("debug", &request.enabled.into()) {
                 Ok(()) => Json(serde_json::Value::Null).into_response(),
-                Err(error) => error_response(StatusCode::INTERNAL_SERVER_ERROR, error),
+                Err(ConfigSetError::Persistence) => {
+                    error_response(StatusCode::INTERNAL_SERVER_ERROR, "config persistence failed")
+                }
+                Err(ConfigSetError::UnsupportedKey(_)) => {
+                    error_response(StatusCode::INTERNAL_SERVER_ERROR, "config persistence failed")
+                }
             }
         }
         "album:read" => {
@@ -1811,8 +1819,12 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(debug_response.status(), StatusCode::OK);
+        assert!(std::fs::read_to_string(base.join("config.yaml"))
+            .unwrap()
+            .contains("debug: false"));
 
-        let unknown_response = app
+        let assistant_response = app
+            .clone()
             .oneshot(
                 origin_request(
                     Request::builder()
@@ -1826,10 +1838,29 @@ mod tests {
             )
             .await
             .unwrap();
+        assert_eq!(assistant_response.status(), StatusCode::OK);
+        assert!(std::fs::read_to_string(base.join("config.yaml"))
+            .unwrap()
+            .contains("assistant_autonomous: true"));
+
+        let unknown_response = app
+            .oneshot(
+                origin_request(
+                    Request::builder()
+                        .method("POST")
+                        .uri("/api/v1/commands/config%3Aset")
+                        .header(header::COOKIE, login_response.headers()[header::SET_COOKIE].clone())
+                        .header(header::CONTENT_TYPE, "application/json")
+                        .body(Body::from(r#"{"key":"notARealKey","value":true}"#))
+                        .unwrap(),
+                ),
+            )
+            .await
+            .unwrap();
         assert_json_error(
             unknown_response,
             StatusCode::BAD_REQUEST,
-            r#"{"error":"unsupported config key: assistantAutonomous"}"#,
+            r#"{"error":"unsupported config key: notARealKey"}"#,
         )
         .await;
         std::fs::remove_dir_all(base).unwrap();

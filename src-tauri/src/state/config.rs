@@ -33,6 +33,7 @@ pub struct AutoTagConfig {
     pub remote_lookup_enabled: Option<bool>,
     pub discogs_enabled: Option<bool>,
     pub debug: Option<bool>,
+    pub assistant_autonomous: Option<bool>,
     pub lyrics_download_enabled: Option<bool>,
     pub lyrics_api_url: Option<String>,
     pub theaudiodb_api_key: Option<String>,
@@ -178,14 +179,18 @@ fn parse_bool_or_null(v: &str) -> Option<bool> {
     }
 }
 
+fn parse_string_or_null(v: &str) -> Option<String> {
+    (!v.is_empty() && v != "null").then(|| v.to_string())
+}
+
 fn apply_yaml_key(config: &mut AutoTagConfig, key: &str, value: &str) {
     match key {
-        "llm_api_key" => config.llm_api_key = Some(value.to_string()),
-        "llm_model" => config.llm_model = Some(value.to_string()),
-        "llm_provider" => config.llm_provider = Some(value.to_string()),
-        "llm_base_url" => config.llm_base_url = Some(value.to_string()),
-        "discogs_token" => config.discogs_token = Some(value.to_string()),
-        "dataset_path" => config.dataset_path = Some(value.to_string()),
+        "llm_api_key" => config.llm_api_key = parse_string_or_null(value),
+        "llm_model" => config.llm_model = parse_string_or_null(value),
+        "llm_provider" => config.llm_provider = parse_string_or_null(value),
+        "llm_base_url" => config.llm_base_url = parse_string_or_null(value),
+        "discogs_token" => config.discogs_token = parse_string_or_null(value),
+        "dataset_path" => config.dataset_path = parse_string_or_null(value),
         "remote_lookup_enabled" => {
             if let Some(b) = parse_bool_or_null(value) {
                 config.remote_lookup_enabled = Some(b);
@@ -201,13 +206,18 @@ fn apply_yaml_key(config: &mut AutoTagConfig, key: &str, value: &str) {
                 config.debug = Some(b);
             }
         }
+        "assistant_autonomous" => {
+            if let Some(b) = parse_bool_or_null(value) {
+                config.assistant_autonomous = Some(b);
+            }
+        }
         "lyrics_download_enabled" => {
             if let Some(b) = parse_bool_or_null(value) {
                 config.lyrics_download_enabled = Some(b);
             }
         }
-        "lyrics_api_url" => config.lyrics_api_url = Some(value.to_string()),
-        "theaudiodb_api_key" => config.theaudiodb_api_key = Some(value.to_string()),
+        "lyrics_api_url" => config.lyrics_api_url = parse_string_or_null(value),
+        "theaudiodb_api_key" => config.theaudiodb_api_key = parse_string_or_null(value),
         "chinese_script" => {
             if value == "null" || value.is_empty() {
                 config.chinese_script = None;
@@ -239,6 +249,7 @@ pub fn yaml_key_for(camel_key: &str) -> Option<&'static str> {
         "remoteLookupEnabled" => Some("remote_lookup_enabled"),
         "discogsEnabled" => Some("discogs_enabled"),
         "debug" => Some("debug"),
+        "assistantAutonomous" => Some("assistant_autonomous"),
         "lyricsDownloadEnabled" => Some("lyrics_download_enabled"),
         "lyricsApiUrl" => Some("lyrics_api_url"),
         "theAudioDbApiKey" => Some("theaudiodb_api_key"),
@@ -372,6 +383,7 @@ pub fn redacted(config: &AutoTagConfig) -> Value {
         "remoteLookupEnabled": config.remote_lookup_enabled.unwrap_or(true),
         "discogsEnabled": config.discogs_enabled.unwrap_or(true),
         "debug": config.debug.unwrap_or(false),
+        "assistantAutonomous": config.assistant_autonomous.unwrap_or(false),
         "lyricsDownloadEnabled": config.lyrics_download_enabled.unwrap_or(false),
         "lyricsApiUrl": config.lyrics_api_url.clone().map(Value::String).unwrap_or(Value::Null),
         "theAudioDbApiKey": mask(&config.theaudiodb_api_key),
@@ -412,6 +424,21 @@ pub struct ConfigState {
     /// simultaneously; without this lock, independent read-modify-write
     /// cycles in `set` overwrite one another, losing keys.
     write_lock: Arc<Mutex<()>>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ConfigSetError {
+    UnsupportedKey(String),
+    Persistence,
+}
+
+impl std::fmt::Display for ConfigSetError {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::UnsupportedKey(key) => write!(formatter, "unsupported config key: {key}"),
+            Self::Persistence => formatter.write_str("config persistence failed"),
+        }
+    }
 }
 
 impl ConfigState {
@@ -511,15 +538,20 @@ impl ConfigState {
     /// and produce a stale in-memory snapshot.  Since `refresh` acquires
     /// `inner.lock()` independently there is no deadlock risk (no code path
     /// acquires `write_lock` while holding `inner.lock()`).
-    pub fn try_set(&self, camel_key: &str, value: &Value) -> Result<(), String> {
+    pub fn try_set(&self, camel_key: &str, value: &Value) -> Result<(), ConfigSetError> {
         yaml_key_for(camel_key)
-            .ok_or_else(|| format!("unsupported config key: {camel_key}"))?;
+            .ok_or_else(|| ConfigSetError::UnsupportedKey(camel_key.to_string()))?;
         let _guard: MutexGuard<'_, ()> = match self.write_lock.lock() {
             Ok(g) => g,
-            Err(e) => return Err(format!("config write-lock poisoned: {e}")),
+            Err(error) => {
+                tracing::warn!(%error, "config write-lock poisoned");
+                return Err(ConfigSetError::Persistence);
+            }
         };
-        save_config_in(&self.data_dir, camel_key, value)
-            .map_err(|error| format!("failed to save config key {camel_key}: {error}"))?;
+        if let Err(error) = save_config_in(&self.data_dir, camel_key, value) {
+            tracing::warn!(%error, key = camel_key, "failed to save config");
+            return Err(ConfigSetError::Persistence);
+        }
         // `refresh` already handles a poisoned mutex without panicking.
         self.refresh();
         // _guard dropped here — write-lock released after the in-memory state
@@ -776,8 +808,21 @@ mod tests {
             .try_set("assistantAutonomous", &json!(true))
             .expect_err("unknown settings must fail explicitly");
 
-        assert_eq!(error, "unsupported config key: assistantAutonomous");
+        assert_eq!(error.to_string(), "unsupported config key: assistantAutonomous");
         assert!(!config_file_path(&home).exists());
+    }
+
+    #[test]
+    fn null_string_values_reload_as_unset() {
+        let parsed = load_from(
+            "llm_model: null\nllm_provider: null\nllm_base_url: null\nlyrics_api_url: null\n",
+            &EnvMap::new(),
+        );
+
+        assert_eq!(parsed.llm_model, None);
+        assert_eq!(parsed.llm_provider, None);
+        assert_eq!(parsed.llm_base_url, None);
+        assert_eq!(parsed.lyrics_api_url, None);
     }
 
     #[test]
@@ -915,6 +960,7 @@ mod tests {
             "remoteLookupEnabled": true,
             "discogsEnabled": true,
             "debug": true,
+            "assistantAutonomous": false,
             "lyricsDownloadEnabled": false,
             "lyricsApiUrl": "https://lr.example/api",
             "theAudioDbApiKey": null,
