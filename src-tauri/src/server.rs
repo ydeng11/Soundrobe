@@ -35,6 +35,9 @@ use crate::commands::mutations::{
     write_extra_tags_batch_with_readback, write_extra_tags_with_readback,
     write_track_with_readback, ExtraTagBatchUpdate, ExtraTagUpdate, TrackPatch, TrackUpdate,
 };
+use crate::commands::lyrics::{
+    download_album_lyrics_at, fetch_lyrics_at, resolve_lyrics_base_url,
+};
 use crate::commands::tracks::read_extra_tags;
 use crate::state::{
     album::{
@@ -445,6 +448,19 @@ struct TrackDeleteCommandRequest {
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
+struct LyricsFetchCommandRequest {
+    #[serde(rename = "trackName")]
+    track_name: String,
+    #[serde(rename = "artistName")]
+    artist_name: String,
+    #[serde(rename = "albumName", default)]
+    album_name: Option<String>,
+    #[serde(default)]
+    duration: Option<f64>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 struct AlbumReadCommandRequest {
     #[serde(rename = "albumPath")]
     album_path: String,
@@ -648,6 +664,8 @@ fn supported_web_command(command: &str) -> bool {
             | "tracks:batch-write-extra-tags"
             | "track:rename"
             | "track:delete-files"
+            | "lyrics:fetch"
+            | "album:download-lyrics"
             | "cover:data-url"
             | "cover:remove"
             | "directory:list"
@@ -1049,6 +1067,49 @@ async fn command(
                 paths.push(resolved.path.to_string_lossy().into_owned());
             }
             Json(delete_files_queued(&state.write_queue, paths).await).into_response()
+        }
+        "lyrics:fetch" => {
+            let request = match decode_command_payload::<LyricsFetchCommandRequest>(payload) {
+                Ok(request) => request,
+                Err(_) => return error_response(StatusCode::BAD_REQUEST, "invalid command request"),
+            };
+            let base_url = resolve_lyrics_base_url(&state.config.raw());
+            Json(
+                fetch_lyrics_at(
+                    &base_url,
+                    &request.track_name,
+                    &request.artist_name,
+                    request.album_name.as_deref(),
+                    request.duration,
+                )
+                .await,
+            )
+            .into_response()
+        }
+        "album:download-lyrics" => {
+            let request = match decode_command_payload::<AlbumReadCommandRequest>(payload) {
+                Ok(request) => request,
+                Err(_) => return error_response(StatusCode::BAD_REQUEST, "invalid command request"),
+            };
+            let roots = match &state.libraries {
+                Ok(roots) => roots,
+                Err(_) => return error_response(StatusCode::INTERNAL_SERVER_ERROR, "library roots unavailable"),
+            };
+            let resolved = match roots.resolve_path(Path::new(&request.album_path)) {
+                Ok(path) => path,
+                Err(error) => return scan_path_error(error),
+            };
+            if !resolved.path.is_dir() {
+                return error_response(StatusCode::BAD_REQUEST, "album path not found");
+            }
+            let base_url = resolve_lyrics_base_url(&state.config.raw());
+            let report = download_album_lyrics_at(
+                &resolved.path,
+                &base_url,
+                &state.write_queue,
+            )
+            .await;
+            Json(report).into_response()
         }
         "cover:data-url" => {
             let request = match decode_command_payload::<CoverDataCommandRequest>(payload) {
@@ -2009,6 +2070,87 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(outside.status(), StatusCode::FORBIDDEN);
+        std::fs::remove_dir_all(base).unwrap();
+    }
+
+    #[tokio::test]
+    async fn authenticated_lyrics_commands_preserve_typed_results_and_confinement() {
+        let base = std::env::temp_dir().join(format!(
+            "soundrobe-web-lyrics-{}",
+            Uuid::new_v4().simple()
+        ));
+        let album = base.join("Artist/Album");
+        std::fs::create_dir_all(&album).unwrap();
+        let mut config = test_config();
+        config.library_root_dir = base.clone();
+        let app = router(config);
+        let login_response = login(app.clone(), "correct horse battery staple").await;
+        let cookie = login_response.headers()[header::SET_COOKIE].clone();
+
+        let fetch_response = app
+            .clone()
+            .oneshot(origin_request(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/v1/commands/lyrics%3Afetch")
+                    .header(header::COOKIE, cookie.clone())
+                    .header(header::CONTENT_TYPE, "application/json")
+                    .body(Body::from(
+                        r#"{"trackName":"","artistName":"Artist"}"#,
+                    ))
+                    .unwrap(),
+            ))
+            .await
+            .unwrap();
+        assert_eq!(fetch_response.status(), StatusCode::OK);
+        assert_eq!(
+            axum::body::to_bytes(fetch_response.into_body(), usize::MAX)
+                .await
+                .unwrap()
+                .as_ref(),
+            b"null"
+        );
+
+        let album_path = album.canonicalize().unwrap().to_string_lossy().into_owned();
+        let download_response = app
+            .clone()
+            .oneshot(origin_request(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/v1/commands/album%3Adownload-lyrics")
+                    .header(header::COOKIE, cookie.clone())
+                    .header(header::CONTENT_TYPE, "application/json")
+                    .body(Body::from(
+                        serde_json::to_vec(&json!({ "albumPath": album_path })).unwrap(),
+                    ))
+                    .unwrap(),
+            ))
+            .await
+            .unwrap();
+        assert_eq!(download_response.status(), StatusCode::OK);
+        let report: serde_json::Value = serde_json::from_slice(
+            &axum::body::to_bytes(download_response.into_body(), usize::MAX)
+                .await
+                .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(report["total"], 0);
+
+        let outside_response = app
+            .oneshot(origin_request(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/v1/commands/album%3Adownload-lyrics")
+                    .header(header::COOKIE, cookie)
+                    .header(header::CONTENT_TYPE, "application/json")
+                    .body(Body::from(
+                        r#"{"albumPath":"/tmp/not-mounted-album"}"#,
+                    ))
+                    .unwrap(),
+            ))
+            .await
+            .unwrap();
+        assert_eq!(outside_response.status(), StatusCode::FORBIDDEN);
         std::fs::remove_dir_all(base).unwrap();
     }
 

@@ -5,8 +5,9 @@ use crate::commands::tracks::{
     ape_text_values, read_track_metadata, read_track_metadata_without_lyrics,
 };
 use crate::error::ApiError;
+use crate::state::config::AutoTagConfig;
 #[cfg(feature = "desktop")]
-use crate::state::config::{AutoTagConfig, ConfigState};
+use crate::state::config::ConfigState;
 use crate::state::write_queue::WriteQueue;
 use chardetng::EncodingDetector;
 use encoding_rs::{Encoding, BIG5, EUC_KR, GB18030, SHIFT_JIS, WINDOWS_1252};
@@ -45,8 +46,7 @@ const AUDIO_EXTENSIONS: &[&str] = &[
 ];
 
 /// Resolve the lyrics API base URL from config, falling back to LRCLIB.
-#[cfg(feature = "desktop")]
-fn resolve_lyrics_base_url(config: &AutoTagConfig) -> String {
+pub(crate) fn resolve_lyrics_base_url(config: &AutoTagConfig) -> String {
     config
         .lyrics_api_url
         .as_ref()

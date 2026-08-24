@@ -22,7 +22,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   writers, apply batch changes, rename/delete files, preview local or embedded
   cover art, upload normalized cover images, and remove covers with suppression
   preserved. Browser directory listings, confined
-  file-existence checks, and redacted settings reads/writes are also available;
+  file-existence checks, redacted settings reads/writes, and lyrics fetch/download
+  commands are also available;
   optional settings can be cleared without leaving stale values, and browser
   debug and assistant-autonomy toggles take effect in the running app. Expired
   replay windows report that a refresh is required.
