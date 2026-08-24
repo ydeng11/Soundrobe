@@ -9,10 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **Web-service container profile** — a non-root multi-stage image with a
-  lockfile-compatible Rust builder, hardened Compose deployment, password-file
-  secret, persistent `/config` mount, and direct per-library bind-mount
-  guidance are available for self-hosting.
+- **Web-service container profile** — a non-root multi-stage image, hardened
+  Compose deployment, password-file secret, persistent `/config` mount, direct
+  per-library bind-mount guidance, and a container build that resolves the
+  locked dependency set are available for self-hosting.
 
 - **Web-service runtime foundation** — browser deployments can now identify the
   web runtime, authenticate against the headless service, enumerate mounted

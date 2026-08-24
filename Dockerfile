@@ -6,7 +6,7 @@ RUN npm ci
 COPY . .
 RUN npm run build:web
 
-FROM rust:1.97-bookworm AS server-build
+FROM rust:1.97-bookworm@sha256:0e2bcaef56d041a486784e54104a81aebe0da44bd03019bd70bc0401e42e4a97 AS server-build
 
 WORKDIR /workspace
 COPY src-tauri/Cargo.toml src-tauri/Cargo.lock ./src-tauri/
