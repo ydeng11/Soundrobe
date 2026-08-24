@@ -46,6 +46,7 @@ use crate::commands::audit::{
     apply_audit_fixes_for_album_results, audit_album_with_services, audit_clients,
     audit_specific_albums, discover_album_dirs, finish_audit_run, start_audit, AuditAlbumResult,
 };
+use crate::commands::dataset::dataset_status_at;
 use crate::commands::auto_tag::{
     auto_tag_completion_message, auto_tag_event, resolve_and_apply_album, AutoTagServices,
 };
@@ -791,6 +792,7 @@ fn supported_web_command(command: &str) -> bool {
             | "album:auto-tag"
             | "task:progress"
             | "task:cancel"
+            | "dataset:status"
             | "audit:run"
             | "audit:run-specified"
             | "audit:run-album"
@@ -1684,6 +1686,21 @@ async fn command(
             };
             state.tasks.cancel(&request.task_id);
             Json(serde_json::Value::Null).into_response()
+        }
+        "dataset:status" => {
+            if decode_command_payload::<EmptyCommandRequest>(payload).is_err() {
+                return error_response(StatusCode::BAD_REQUEST, "invalid command request");
+            }
+            let path = state
+                .config
+                .raw()
+                .dataset_path
+                .map(PathBuf::from)
+                .unwrap_or_else(|| state.config.data_file("dataset-index.sqlite"));
+            match tokio::task::spawn_blocking(move || dataset_status_at(&path)).await {
+                Ok(status) => Json(status).into_response(),
+                Err(_) => error_response(StatusCode::INTERNAL_SERVER_ERROR, "dataset status failed"),
+            }
         }
         "lyrics:fetch" => {
             let request = match decode_command_payload::<LyricsFetchCommandRequest>(payload) {
@@ -2587,6 +2604,38 @@ mod tests {
             r#"{"error":"No model provided and none configured. Set LLM_MODEL in Settings or env."}"#,
         )
         .await;
+    }
+
+    #[tokio::test]
+    async fn authenticated_command_transport_reports_unavailable_dataset_status() {
+        let app = router(test_config());
+        let login_response = login(app.clone(), "correct horse battery staple").await;
+        let cookie = login_response.headers()[header::SET_COOKIE].clone();
+
+        let response = app
+            .oneshot(
+                origin_request(
+                    Request::builder()
+                        .method("POST")
+                        .uri("/api/v1/commands/dataset%3Astatus")
+                        .header(header::COOKIE, cookie)
+                        .header(header::CONTENT_TYPE, "application/json")
+                        .body(Body::from("{}"))
+                        .unwrap(),
+                ),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        let status: serde_json::Value = serde_json::from_slice(
+            &axum::body::to_bytes(response.into_body(), usize::MAX)
+                .await
+                .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(status["available"], false);
+        assert_eq!(status["totalRecords"], 0);
     }
 
     #[tokio::test]
@@ -4078,6 +4127,11 @@ mod tests {
     #[test]
     fn web_command_allowlist_includes_browser_album_refresh() {
         assert!(supported_web_command("album:refresh"));
+    }
+
+    #[test]
+    fn web_command_allowlist_includes_dataset_status() {
+        assert!(supported_web_command("dataset:status"));
     }
 
     #[test]

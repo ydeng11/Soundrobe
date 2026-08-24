@@ -33,6 +33,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Web-service album refresh** — browser metadata refreshes now use the same
   confined album reader as the desktop refresh command.
 
+- **Web-service dataset status** — browser settings can now report the
+  read-only local dataset availability and record count.
+
 - **Web-service runtime foundation** — browser deployments can now identify the
   web runtime, authenticate against the headless service, enumerate mounted
   music-library roots, and receive clear errors when a workflow is not yet

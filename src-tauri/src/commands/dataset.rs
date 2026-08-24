@@ -1,9 +1,13 @@
 //! Read-only local dataset status.
 
+#[cfg(feature = "desktop")]
 use crate::state::config::ConfigState;
 use rusqlite::{Connection, OpenFlags};
 use serde::Serialize;
-use std::path::{Path, PathBuf};
+use std::path::Path;
+#[cfg(feature = "desktop")]
+use std::path::PathBuf;
+#[cfg(feature = "desktop")]
 use tauri::State;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -26,6 +30,7 @@ impl DatasetStatus {
     }
 }
 
+#[cfg(feature = "desktop")]
 #[tauri::command]
 pub fn dataset_status(config: State<'_, ConfigState>) -> DatasetStatus {
     let raw = config.raw();

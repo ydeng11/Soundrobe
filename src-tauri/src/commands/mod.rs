@@ -43,7 +43,7 @@ pub mod conversation;
 #[cfg(any(feature = "desktop", feature = "server"))]
 pub mod covers;
 /// `dataset:status` — `electron/handlers/dataset.ts`.
-#[cfg(feature = "desktop")]
+#[cfg(any(feature = "desktop", feature = "server"))]
 pub mod dataset;
 /// `debug:subscribe` / `debug:set-mode` and renderer log forwarding.
 #[cfg(feature = "desktop")]
