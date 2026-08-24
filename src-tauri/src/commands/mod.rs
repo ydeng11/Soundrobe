@@ -30,7 +30,7 @@ pub(crate) mod assistant_tools;
 #[cfg(any(feature = "desktop", feature = "server"))]
 pub mod audit;
 /// `album:auto-tag` candidate normalization and orchestration.
-#[cfg(feature = "desktop")]
+#[cfg(any(feature = "desktop", feature = "server"))]
 pub mod auto_tag;
 /// `config:get`/`config:set` (redacted) and LLM connection checks —
 /// `electron/handlers/auto-tag.ts`.

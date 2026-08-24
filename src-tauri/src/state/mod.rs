@@ -32,7 +32,7 @@ pub mod providers;
 pub mod quit_guard;
 #[cfg(any(feature = "desktop", feature = "server"))]
 pub mod sqlite;
-#[cfg(feature = "desktop")]
+#[cfg(any(feature = "desktop", feature = "server"))]
 pub mod tasks;
 #[cfg(feature = "desktop")]
 pub mod updater;

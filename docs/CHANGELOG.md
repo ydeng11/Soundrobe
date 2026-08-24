@@ -25,6 +25,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   mounted library or selected albums/tracks, receive audit events, and apply
   confined approved fixes.
 
+- **Web-service auto-tagging** — authenticated browser sessions can now start
+  confined auto-tag tasks, inspect task progress, cancel tasks, and receive the
+  existing auto-tag progress events over SSE.
+
 - **Web-service runtime foundation** — browser deployments can now identify the
   web runtime, authenticate against the headless service, enumerate mounted
   music-library roots, and receive clear errors when a workflow is not yet

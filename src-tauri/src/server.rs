@@ -46,6 +46,9 @@ use crate::commands::audit::{
     apply_audit_fixes_for_album_results, audit_album_with_services, audit_clients,
     audit_specific_albums, discover_album_dirs, finish_audit_run, start_audit, AuditAlbumResult,
 };
+use crate::commands::auto_tag::{
+    auto_tag_completion_message, auto_tag_event, resolve_and_apply_album, AutoTagServices,
+};
 use crate::commands::organizer::{sort_by_album, SortByAlbumOptions};
 use crate::commands::mutations::{
     batch_write_with_readback, delete_files_queued, rename_track_queued,
@@ -70,6 +73,8 @@ use crate::state::{
     },
     operation::{OperationCoordinator, OperationKind},
     paths::AppDataPaths,
+    sqlite::CacheState,
+    tasks::{TaskRegistry, TaskStatus},
     write_queue::WriteQueue,
 };
 
@@ -221,6 +226,8 @@ struct ServerState {
     debug: WebDebugState,
     write_queue: WriteQueue,
     audit: Arc<AuditState>,
+    cache: Arc<CacheState>,
+    tasks: Arc<TaskRegistry>,
 }
 
 #[derive(Clone, Default)]
@@ -535,6 +542,13 @@ struct AuditApplyFixesCommandRequest {
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
+struct TaskProgressCommandRequest {
+    #[serde(rename = "taskId")]
+    task_id: String,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 struct OrganizerCommandRequest {
     #[serde(rename = "sourceDir")]
     source_dir: String,
@@ -774,6 +788,9 @@ fn supported_web_command(command: &str) -> bool {
             | "album:preview-release-match"
             | "album:search-apply-candidate"
             | "files:sort-by-album"
+            | "album:auto-tag"
+            | "task:progress"
+            | "task:cancel"
             | "audit:run"
             | "audit:run-specified"
             | "audit:run-album"
@@ -880,6 +897,122 @@ async fn execute_audit(state: &ServerState, paths: Vec<String>) -> Response {
         Ok(summary) => Json(summary).into_response(),
         Err(error) => media_error(error),
     }
+}
+
+fn start_auto_tag_task(state: &ServerState, album_path: PathBuf) -> Response {
+    let token = match state.operations.try_start(OperationKind::AutoTag) {
+        Ok(token) => token,
+        Err(_) => return error_response(StatusCode::CONFLICT, "another operation is busy"),
+    };
+    let task_id = state.tasks.create("auto-tag", 9, "Starting...");
+    let task_id_for_work = task_id.clone();
+    let task_state = state.tasks.clone();
+    let event_bus = state.events.clone();
+    let providers = state.providers.clone();
+    let cache = state.cache.clone();
+    let queue = state.write_queue.clone();
+    let config = state.config.clone();
+    let operations = state.operations.clone();
+    tokio::spawn(async move {
+        let Some(cancelled) = task_state.cancellation(&task_id_for_work) else {
+            operations.finish(token);
+            return;
+        };
+        let config_values = config.raw();
+        let alias_file = config.alias_file_path();
+        let progress_tasks = task_state.clone();
+        let progress_events = event_bus.clone();
+        let progress_task_id = task_id_for_work.clone();
+        let report_tasks = task_state.clone();
+        let report_events = event_bus.clone();
+        let report_task_id = task_id_for_work.clone();
+        let result = resolve_and_apply_album(
+            &album_path,
+            &config_values,
+            AutoTagServices {
+                providers: providers.as_ref(),
+                cache: cache.as_ref(),
+                queue: &queue,
+                alias_file: &alias_file,
+            },
+            &cancelled,
+            move |step, message| {
+                if progress_tasks.update(&progress_task_id, step, message) {
+                    let _ = progress_events.publish(
+                        "auto-tag:event",
+                        &auto_tag_event(&progress_task_id, "progress", message, step, None),
+                    );
+                }
+            },
+            move |kind, message, data| {
+                let progress = report_tasks
+                    .get(&report_task_id)
+                    .map(|task| task.progress)
+                    .unwrap_or(0);
+                let _ = report_events.publish(
+                    "auto-tag:event",
+                    &auto_tag_event(&report_task_id, kind, message, progress, data),
+                );
+            },
+        )
+        .await;
+
+        match result {
+            Ok(result) => {
+                let data = serde_json::to_value(&result.candidate).unwrap_or_default();
+                let message = auto_tag_completion_message(&result.candidate);
+                task_state.finish(
+                    &task_id_for_work,
+                    TaskStatus::Completed,
+                    message,
+                    data.clone(),
+                );
+                let _ = event_bus.publish(
+                    "auto-tag:event",
+                    &auto_tag_event(&task_id_for_work, "completed", message, 9, Some(data)),
+                );
+            }
+            Err(error) if cancelled.load(Ordering::Acquire) => {
+                let progress = task_state
+                    .get(&task_id_for_work)
+                    .map(|task| task.progress)
+                    .unwrap_or(0);
+                task_state.finish(
+                    &task_id_for_work,
+                    TaskStatus::Cancelled,
+                    "Cancelled",
+                    serde_json::Value::Null,
+                );
+                let _ = event_bus.publish(
+                    "auto-tag:event",
+                    &auto_tag_event(
+                        &task_id_for_work,
+                        "cancelled",
+                        "Cancelled",
+                        progress,
+                        None,
+                    ),
+                );
+                tracing::debug!(%error, "web auto-tag task cancelled");
+            }
+            Err(error) => {
+                let message = error.to_string();
+                let data = serde_json::json!({"error": message});
+                task_state.finish(
+                    &task_id_for_work,
+                    TaskStatus::Failed,
+                    &message,
+                    data.clone(),
+                );
+                let _ = event_bus.publish(
+                    "auto-tag:event",
+                    &auto_tag_event(&task_id_for_work, "failed", message, 0, Some(data)),
+                );
+            }
+        }
+        operations.finish(token);
+    });
+    Json(task_id).into_response()
 }
 
 async fn command(
@@ -1511,6 +1644,39 @@ async fn command(
             state.audit.cancel();
             Json(serde_json::Value::Null).into_response()
         }
+        "album:auto-tag" => {
+            let request = match decode_command_payload::<AlbumReadCommandRequest>(payload) {
+                Ok(request) => request,
+                Err(_) => return error_response(StatusCode::BAD_REQUEST, "invalid command request"),
+            };
+            let roots = match &state.libraries {
+                Ok(roots) => roots,
+                Err(_) => return error_response(StatusCode::INTERNAL_SERVER_ERROR, "library roots unavailable"),
+            };
+            let album = match roots.resolve_path(Path::new(&request.album_path)) {
+                Ok(album) => album.path,
+                Err(error) => return scan_path_error(error),
+            };
+            if !album.is_dir() {
+                return error_response(StatusCode::BAD_REQUEST, "album path not found");
+            }
+            start_auto_tag_task(&state, album)
+        }
+        "task:progress" => {
+            let request = match decode_command_payload::<TaskProgressCommandRequest>(payload) {
+                Ok(request) => request,
+                Err(_) => return error_response(StatusCode::BAD_REQUEST, "invalid command request"),
+            };
+            Json(state.tasks.get(&request.task_id)).into_response()
+        }
+        "task:cancel" => {
+            let request = match decode_command_payload::<TaskProgressCommandRequest>(payload) {
+                Ok(request) => request,
+                Err(_) => return error_response(StatusCode::BAD_REQUEST, "invalid command request"),
+            };
+            state.tasks.cancel(&request.task_id);
+            Json(serde_json::Value::Null).into_response()
+        }
         "lyrics:fetch" => {
             let request = match decode_command_payload::<LyricsFetchCommandRequest>(payload) {
                 Ok(request) => request,
@@ -2047,6 +2213,9 @@ fn router_with_runtime_and_events(
     event_bus: EventBus,
 ) -> Router {
     let config_state = ConfigState::init_in(config.data_dir.clone());
+    let cache = Arc::new(CacheState::new_in(config.data_dir.clone()));
+    let _ = cache.initialize(config_state.raw().cache_path.as_deref());
+    let tasks = Arc::new(TaskRegistry::default());
     let web_root = safe_web_root(&config.web_root);
     let spa = ServeDir::new(&web_root).fallback(ServeFile::new(web_root.join("index.html")));
     let state = ServerState {
@@ -2061,6 +2230,8 @@ fn router_with_runtime_and_events(
         operations: OperationCoordinator::default(),
         lifecycle,
         write_queue,
+        cache,
+        tasks,
     };
     let login_route = Router::new()
         .route("/api/v1/auth/login", post(login))
@@ -2488,6 +2659,79 @@ mod tests {
         )
         .await;
 
+        std::fs::remove_dir_all(root_dir).unwrap();
+    }
+
+    #[tokio::test]
+    async fn authenticated_command_transport_starts_confined_auto_tag_tasks() {
+        let base = std::env::temp_dir().join(format!(
+            "soundrobe-web-auto-tag-{}",
+            Uuid::new_v4().simple()
+        ));
+        let library = base.join("Artist");
+        let album = library.join("Empty Album");
+        std::fs::create_dir_all(&album).unwrap();
+
+        let mut config = test_config();
+        config.library_root_dir = base;
+        let root_dir = config.library_root_dir.clone();
+        let app = router(config);
+        let login_response = login(app.clone(), "correct horse battery staple").await;
+        let cookie = login_response.headers()[header::SET_COOKIE].clone();
+        let progress_app = app.clone();
+        let response = app
+            .oneshot(
+                origin_request(
+                    Request::builder()
+                        .method("POST")
+                        .uri("/api/v1/commands/album%3Aauto-tag")
+                        .header(header::COOKIE, cookie.clone())
+                        .header(header::CONTENT_TYPE, "application/json")
+                        .body(Body::from(
+                            serde_json::to_vec(&json!({
+                                "albumPath": album.canonicalize().unwrap()
+                            }))
+                            .unwrap(),
+                        ))
+                        .unwrap(),
+                ),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        let task_id: String = serde_json::from_slice(
+            &axum::body::to_bytes(response.into_body(), usize::MAX)
+                .await
+                .unwrap(),
+        )
+        .unwrap();
+        assert!(task_id.starts_with("auto-tag-"));
+
+        let progress_response = progress_app
+            .oneshot(
+                origin_request(
+                    Request::builder()
+                        .method("POST")
+                        .uri("/api/v1/commands/task%3Aprogress")
+                        .header(header::COOKIE, cookie)
+                        .header(header::CONTENT_TYPE, "application/json")
+                        .body(Body::from(
+                            serde_json::to_vec(&json!({"taskId": task_id})).unwrap(),
+                        ))
+                        .unwrap(),
+                ),
+            )
+            .await
+            .unwrap();
+        assert_eq!(progress_response.status(), StatusCode::OK);
+        let progress: serde_json::Value = serde_json::from_slice(
+            &axum::body::to_bytes(progress_response.into_body(), usize::MAX)
+                .await
+                .unwrap(),
+        )
+        .unwrap();
+        assert!(progress["taskId"].is_string());
         std::fs::remove_dir_all(root_dir).unwrap();
     }
 
@@ -3837,6 +4081,8 @@ mod tests {
             debug: WebDebugState::default(),
             write_queue: WriteQueue::default(),
             audit: Arc::new(AuditState::default()),
+            cache: Arc::new(CacheState::new_in(config.data_dir.clone())),
+            tasks: Arc::new(TaskRegistry::default()),
         };
         let _active = state
             .operations
@@ -4368,6 +4614,8 @@ mod tests {
             debug: WebDebugState::default(),
             write_queue: WriteQueue::default(),
             audit: Arc::new(AuditState::default()),
+            cache: Arc::new(CacheState::new_in(config.data_dir.clone())),
+            tasks: Arc::new(TaskRegistry::default()),
         };
         let app = Router::new()
             .route("/boom", get(|| async { StatusCode::INTERNAL_SERVER_ERROR }))
