@@ -39,7 +39,7 @@ pub mod configuration;
 #[cfg(feature = "desktop")]
 pub mod conversation;
 /// `cover:*` — `electron/handlers/cover.ts`.
-#[cfg(feature = "desktop")]
+#[cfg(any(feature = "desktop", feature = "server"))]
 pub mod covers;
 /// `dataset:status` — `electron/handlers/dataset.ts`.
 #[cfg(feature = "desktop")]

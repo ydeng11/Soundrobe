@@ -11,6 +11,7 @@ use axum::{
     routing::{any, get, post},
     Router,
 };
+use base64::Engine;
 use serde::Deserialize;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
@@ -36,6 +37,9 @@ use crate::commands::album_search::{
     album_preview_release_match, apply_search_candidate, discogs_token, normalise_page,
     normalise_page_size, resolve_release_inner, search_releases_inner, ApplyCandidateRequest,
     PreviewMatchRequest, ResolveReleaseRequest, SearchReleasesRequest,
+};
+use crate::commands::covers::{
+    download_album_artwork_at, download_artist_artwork_at, remote_client, ArtistArtResult,
 };
 use crate::commands::mutations::{
     batch_write_with_readback, delete_files_queued, rename_track_queued,
@@ -729,6 +733,8 @@ fn supported_web_command(command: &str) -> bool {
             | "album:download-lyrics"
             | "cover:data-url"
             | "cover:remove"
+            | "cover:download"
+            | "cover:download-artist-art"
             | "directory:list"
             | "file:exists"
             | "config:get"
@@ -1359,6 +1365,57 @@ async fn command(
                 Ok(removed) => Json(removed).into_response(),
                 Err(_) => error_response(StatusCode::INTERNAL_SERVER_ERROR, "cover removal failed"),
             }
+        }
+        "cover:download" => {
+            let request = match decode_command_payload::<AlbumReadCommandRequest>(payload) {
+                Ok(request) => request,
+                Err(_) => return error_response(StatusCode::BAD_REQUEST, "invalid command request"),
+            };
+            let roots = match &state.libraries {
+                Ok(roots) => roots,
+                Err(_) => return error_response(StatusCode::INTERNAL_SERVER_ERROR, "library roots unavailable"),
+            };
+            let resolved = match roots.resolve_path(Path::new(&request.album_path)) {
+                Ok(path) => path,
+                Err(error) => return scan_path_error(error),
+            };
+            if !resolved.path.is_dir() {
+                return error_response(StatusCode::BAD_REQUEST, "album path not found");
+            }
+            let remote = remote_client(state.providers.as_ref(), &state.config);
+            let result = download_album_artwork_at(&resolved.path, &remote, &state.write_queue).await;
+            let data_url = result.map(|(bytes, _, _)| {
+                format!(
+                    "data:image/jpeg;base64,{}",
+                    base64::engine::general_purpose::STANDARD.encode(bytes)
+                )
+            });
+            Json(data_url).into_response()
+        }
+        "cover:download-artist-art" => {
+            let request = match decode_command_payload::<AlbumReadCommandRequest>(payload) {
+                Ok(request) => request,
+                Err(_) => return error_response(StatusCode::BAD_REQUEST, "invalid command request"),
+            };
+            let roots = match &state.libraries {
+                Ok(roots) => roots,
+                Err(_) => return error_response(StatusCode::INTERNAL_SERVER_ERROR, "library roots unavailable"),
+            };
+            let resolved = match roots.resolve_path(Path::new(&request.album_path)) {
+                Ok(path) => path,
+                Err(error) => return scan_path_error(error),
+            };
+            if !resolved.path.is_dir() {
+                return error_response(StatusCode::BAD_REQUEST, "album path not found");
+            }
+            let remote = remote_client(state.providers.as_ref(), &state.config);
+            let result = download_artist_artwork_at(&resolved.path, &remote, &state.write_queue)
+                .await
+                .map(|(_, source, path)| ArtistArtResult {
+                    path: path.to_string_lossy().into_owned(),
+                    source: source.to_string(),
+                });
+            Json(result).into_response()
         }
         _ => unreachable!("supported_web_command and command dispatch diverged"),
     }
@@ -3174,6 +3231,37 @@ mod tests {
             apply_response,
             StatusCode::BAD_REQUEST,
             r#"{"error":"Track count mismatch: album has 1 audio files but candidate has 0 tracks"}"#,
+        )
+        .await;
+        std::fs::remove_dir_all(base).unwrap();
+    }
+
+    #[tokio::test]
+    async fn provider_cover_download_commands_are_confined_to_mounted_albums() {
+        let base = std::env::temp_dir().join(format!("soundrobe-web-cover-{}", Uuid::new_v4()));
+        std::fs::create_dir_all(base.join("album")).unwrap();
+        let mut config = test_config();
+        config.library_root_dir = base.clone();
+        let app = router(config);
+        let login_response = login(app.clone(), "correct horse battery staple").await;
+        let cookie = login_response.headers()[header::SET_COOKIE].clone();
+
+        let response = app
+            .oneshot(origin_request(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/v1/commands/cover%3Adownload")
+                    .header(header::COOKIE, cookie)
+                    .header(header::CONTENT_TYPE, "application/json")
+                    .body(Body::from(r#"{"albumPath":"/tmp/not-mounted"}"#))
+                    .unwrap(),
+            ))
+            .await
+            .unwrap();
+        assert_json_error(
+            response,
+            StatusCode::FORBIDDEN,
+            r#"{"error":"path outside library roots"}"#,
         )
         .await;
         std::fs::remove_dir_all(base).unwrap();

@@ -29,8 +29,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   preserved. Browser directory listings, confined
   file-existence checks, redacted settings reads/writes, MusicBrainz and Discogs
   release search/resolve commands with bounded provider requests, release-match
-  previews, and selected candidate writes, and lyrics fetch/download commands
-  are also available; the headless server serves the built browser SPA
+  previews, selected candidate writes, and provider-backed album/artist artwork
+  downloads, and lyrics fetch/download commands are also available; the
+  headless server serves the built browser SPA
   with client-route fallback;
   optional settings can be cleared without leaving stale values, and browser
   debug and assistant-autonomy toggles take effect in the running app. Expired
