@@ -35,6 +35,7 @@ use crate::state::{
         cover_data_url, read_album_with_cancellation, remove_cover, write_cover_upload,
         MAX_COVER_UPLOAD_BYTES,
     },
+    config::ConfigState,
     events::{EventBus, EventEnvelope},
     library::{
         discover_library_roots, list_directory_entries, scan_directory_with_cancellation,
@@ -178,6 +179,7 @@ fn parse_public_origin(public_url: &str) -> anyhow::Result<(String, bool)> {
 #[derive(Clone)]
 struct ServerState {
     auth: AuthService,
+    config: ConfigState,
     libraries: Result<LibraryRoots, String>,
     events: EventBus,
     operations: OperationCoordinator,
@@ -348,6 +350,13 @@ struct DirectoryListCommandRequest {
 struct FileExistsCommandRequest {
     #[serde(rename = "filePath")]
     file_path: String,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ConfigSetCommandRequest {
+    key: String,
+    value: serde_json::Value,
 }
 
 #[derive(Deserialize)]
@@ -552,6 +561,8 @@ fn supported_web_command(command: &str) -> bool {
             | "cover:remove"
             | "directory:list"
             | "file:exists"
+            | "config:get"
+            | "config:set"
     )
 }
 
@@ -675,6 +686,20 @@ async fn command(
                 Err(error) => return scan_path_error(error),
             };
             Json(resolved.path.is_file()).into_response()
+        }
+        "config:get" => {
+            if decode_command_payload::<EmptyCommandRequest>(payload).is_err() {
+                return error_response(StatusCode::BAD_REQUEST, "invalid command request");
+            }
+            Json(state.config.redacted()).into_response()
+        }
+        "config:set" => {
+            let request = match decode_command_payload::<ConfigSetCommandRequest>(payload) {
+                Ok(request) => request,
+                Err(_) => return error_response(StatusCode::BAD_REQUEST, "invalid command request"),
+            };
+            state.config.set(&request.key, &request.value);
+            Json(serde_json::Value::Null).into_response()
         }
         "album:read" => {
             let request = match decode_command_payload::<AlbumReadCommandRequest>(payload) {
@@ -1132,6 +1157,7 @@ fn router_with_runtime_and_events(
 ) -> Router {
     let state = ServerState {
         auth: AuthService::new(&config),
+        config: ConfigState::init_in(config.data_dir.clone()),
         libraries: discover_library_roots(&config.library_root_dir)
             .map_err(|error| error.to_string()),
         events: event_bus,
@@ -1692,6 +1718,63 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn authenticated_config_commands_return_redacted_settings_and_persist_safe_values() {
+        let base = std::env::temp_dir().join(format!(
+            "soundrobe-web-config-{}",
+            Uuid::new_v4().simple()
+        ));
+        std::fs::create_dir_all(&base).unwrap();
+        let mut config = test_config();
+        config.data_dir = base.clone();
+        let app = router(config);
+        let login_response = login(app.clone(), "correct horse battery staple").await;
+        let cookie = login_response.headers()[header::SET_COOKIE].clone();
+
+        let get_response = app
+            .clone()
+            .oneshot(
+                origin_request(
+                    Request::builder()
+                        .method("POST")
+                        .uri("/api/v1/commands/config%3Aget")
+                        .header(header::COOKIE, cookie.clone())
+                        .header(header::CONTENT_TYPE, "application/json")
+                        .body(Body::from("{}"))
+                        .unwrap(),
+                ),
+            )
+            .await
+            .unwrap();
+        assert_eq!(get_response.status(), StatusCode::OK);
+        let get_body = axum::body::to_bytes(get_response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let settings: serde_json::Value = serde_json::from_slice(&get_body).unwrap();
+        assert_eq!(settings["llmApiKey"], serde_json::Value::Null);
+        assert_eq!(settings["llmApiKeyConfigured"], false);
+
+        let set_response = app
+            .oneshot(
+                origin_request(
+                    Request::builder()
+                        .method("POST")
+                        .uri("/api/v1/commands/config%3Aset")
+                        .header(header::COOKIE, cookie)
+                        .header(header::CONTENT_TYPE, "application/json")
+                        .body(Body::from(r#"{"key":"debug","value":true}"#))
+                        .unwrap(),
+                ),
+            )
+            .await
+            .unwrap();
+        assert_eq!(set_response.status(), StatusCode::OK);
+        assert!(std::fs::read_to_string(base.join("config.yaml"))
+            .unwrap()
+            .contains("debug: true"));
+        std::fs::remove_dir_all(base).unwrap();
+    }
+
+    #[tokio::test]
     async fn cover_upload_rejects_unsupported_invalid_and_oversized_payloads() {
         let base = std::env::temp_dir().join(format!(
             "soundrobe-web-cover-errors-{}",
@@ -1998,6 +2081,7 @@ mod tests {
         let config = test_config();
         let state = ServerState {
             auth: AuthService::new(&config),
+            config: ConfigState::init_in(config.data_dir.clone()),
             libraries: Ok(LibraryRoots::default()),
             events: EventBus::default(),
             operations: OperationCoordinator::default(),
@@ -2522,8 +2606,10 @@ mod tests {
 
     #[tokio::test]
     async fn internal_failures_use_the_stable_json_error_contract() {
+        let config = test_config();
         let state = ServerState {
-            auth: AuthService::new(&test_config()),
+            auth: AuthService::new(&config),
+            config: ConfigState::init_in(config.data_dir.clone()),
             libraries: Ok(LibraryRoots::default()),
             events: EventBus::default(),
             operations: OperationCoordinator::default(),

@@ -19,9 +19,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   reconnect-aware event stream for the web operation handlers as they are
   added; browser sessions can scan a mounted library root and read its track
   metadata, preview local or embedded cover art, upload normalized cover images,
-  and remove covers with suppression preserved. Browser directory listings and
-  confined file-existence checks are also available; expired replay windows
-  report that a refresh is required.
+  and remove covers with suppression preserved, using the same prioritized
+  external-cover selection as desktop. Browser directory listings, confined
+  file-existence checks, and redacted settings reads/writes are also available;
+  expired replay windows report that a refresh is required.
 
 ## [0.1.1] - 2026-08-21
 

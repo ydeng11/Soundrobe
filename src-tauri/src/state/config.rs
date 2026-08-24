@@ -402,6 +402,7 @@ fn load_from_disk_in(data_dir: &Path, env: &dyn Env) -> AutoTagConfig {
 /// startup from `config.yaml` + the process environment, and refreshed after a
 /// `set_config` write. Held behind a `Mutex` so Tauri commands read it
 /// concurrently without holding a SQLite/network lock.
+#[derive(Clone)]
 pub struct ConfigState {
     data_dir: PathBuf,
     env: Arc<dyn Env>,
