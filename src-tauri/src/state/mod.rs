@@ -26,7 +26,7 @@ pub mod operation;
 pub mod events;
 #[cfg(any(feature = "desktop", feature = "server"))]
 pub mod album;
-#[cfg(feature = "desktop")]
+#[cfg(any(feature = "desktop", feature = "server"))]
 pub mod providers;
 #[cfg(feature = "desktop")]
 pub mod quit_guard;

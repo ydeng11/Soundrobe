@@ -4,30 +4,30 @@
 //! These commands are used by the Search button (manual workflow) and do not
 //! change the existing auto-tag pipeline.
 
+#[cfg(feature = "desktop")]
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
+#[cfg(feature = "desktop")]
 use tauri::State;
 
-use crate::{
-    commands::{
-        auto_tag::{
-            apply_selected_candidate_tags, convert_candidate_chinese, discogs_candidate,
-            fill_manual_candidate_genre_if_missing, musicbrainz_candidate,
-            split_collaborative_artists, AlbumCandidate, TrackCandidate,
-        },
-        library::collect_audio_files,
-        track_matcher::match_remote_candidate_tracks,
-        tracks::read_album,
+#[cfg(feature = "desktop")]
+use crate::commands::{
+    auto_tag::{
+        apply_selected_candidate_tags, convert_candidate_chinese, discogs_candidate,
+        fill_manual_candidate_genre_if_missing, musicbrainz_candidate, split_collaborative_artists,
+        AlbumCandidate, TrackCandidate,
     },
-    state::{
-        config::ConfigState,
-        providers::{
-            DiscogsClient, MusicBrainzClient, ProviderAlbum, ProviderState, ReleaseSearchSummary,
-        },
-        write_queue::WriteQueue,
-    },
+    library::collect_audio_files,
+    track_matcher::match_remote_candidate_tracks,
+    tracks::read_album,
 };
+use crate::state::{
+    config::ConfigState,
+    providers::{DiscogsClient, MusicBrainzClient, ProviderAlbum, ProviderState, ReleaseSearchSummary},
+};
+#[cfg(feature = "desktop")]
+use crate::state::write_queue::WriteQueue;
 
 // ── Request / response types ─────────────────────────────────────────
 
@@ -66,6 +66,7 @@ pub struct ResolveReleaseRequest {
     pub kind: Option<String>,
 }
 
+#[cfg(feature = "desktop")]
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PreviewMatchRequest {
@@ -74,6 +75,7 @@ pub struct PreviewMatchRequest {
     pub provider: String,
 }
 
+#[cfg(feature = "desktop")]
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TrackMappingRow {
@@ -88,6 +90,7 @@ pub struct TrackMappingRow {
     pub evidence: Option<String>,
 }
 
+#[cfg(feature = "desktop")]
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PreviewMatchResult {
@@ -97,6 +100,7 @@ pub struct PreviewMatchResult {
     pub album_candidate: AlbumCandidate,
 }
 
+#[cfg(feature = "desktop")]
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ApplyCandidateRequest {
@@ -107,11 +111,11 @@ pub struct ApplyCandidateRequest {
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
-fn discogs_token(config: &ConfigState) -> Option<String> {
+pub(crate) fn discogs_token(config: &ConfigState) -> Option<String> {
     config.raw().discogs_token.clone()
 }
 
-fn normalise_page_size(page_size: Option<u32>) -> u32 {
+pub(crate) fn normalise_page_size(page_size: Option<u32>) -> u32 {
     page_size.unwrap_or(10).clamp(1, 100)
 }
 
@@ -121,7 +125,7 @@ fn normalise_page_size(page_size: Option<u32>) -> u32 {
 /// omits empty ones downstream. Returns `Err` when both artist and album
 /// are empty after trimming.
 #[allow(clippy::too_many_arguments)]
-async fn search_releases_inner(
+pub(crate) async fn search_releases_inner(
     provider: &str,
     trimmed_artist: Option<String>,
     trimmed_album: Option<String>,
@@ -257,6 +261,7 @@ async fn search_releases_inner(
 
 /// Lightweight paged release search.
 /// Returns summary records only — no per-result track detail fetch.
+#[cfg(feature = "desktop")]
 #[tauri::command]
 pub async fn album_search_releases(
     request: SearchReleasesRequest,
@@ -285,6 +290,7 @@ pub async fn album_search_releases(
 }
 
 /// Resolve a single release by provider + ID, returning full `ProviderAlbum` with tracks.
+#[cfg(feature = "desktop")]
 #[tauri::command]
 pub async fn album_resolve_release(
     request: ResolveReleaseRequest,
@@ -294,12 +300,12 @@ pub async fn album_resolve_release(
     resolve_release_inner(&request, &providers, &config).await
 }
 
-async fn resolve_release_inner(
+pub(crate) async fn resolve_release_inner(
     request: &ResolveReleaseRequest,
     providers: &ProviderState,
     config: &ConfigState,
 ) -> Result<ProviderAlbum, String> {
-    let mut album = match request.provider.as_str() {
+    let album = match request.provider.as_str() {
         "musicbrainz" => {
             let client = MusicBrainzClient::at(providers.http(), providers.musicbrainz_base());
             client.release_by_id_result(&request.release_id).await
@@ -321,6 +327,10 @@ async fn resolve_release_inner(
         other => Err(format!("Unknown provider: {other}")),
     }?;
 
+    #[cfg(feature = "desktop")]
+    let mut album = album;
+
+    #[cfg(feature = "desktop")]
     if album.genre.is_none() {
         let candidate = match request.provider.as_str() {
             "musicbrainz" => musicbrainz_candidate(album.clone()),
@@ -337,6 +347,7 @@ async fn resolve_release_inner(
 /// Preview local-to-remote track matching for a selected release.
 /// The release was already resolved on the renderer side, so this command
 /// receives the full `ProviderAlbum` and runs matching against local tracks.
+#[cfg(feature = "desktop")]
 #[tauri::command]
 pub async fn album_preview_release_match(
     request: PreviewMatchRequest,
@@ -448,6 +459,7 @@ pub async fn album_preview_release_match(
 /// Apply a user-edited album candidate to the given album directory.
 /// Validates the positional track selection, applies the configured
 /// Chinese-script conversion, then writes only explicitly selected rows.
+#[cfg(feature = "desktop")]
 #[tauri::command]
 pub async fn album_search_apply_candidate(
     request: ApplyCandidateRequest,
@@ -457,6 +469,7 @@ pub async fn album_search_apply_candidate(
     apply_search_candidate(&request, &config, &queue).await
 }
 
+#[cfg(feature = "desktop")]
 async fn apply_search_candidate(
     request: &ApplyCandidateRequest,
     config: &ConfigState,
@@ -510,7 +523,7 @@ async fn apply_search_candidate(
     .map_err(|e| format!("Failed to apply candidate tags: {e}"))
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "desktop"))]
 mod tests {
     use super::*;
     use crate::state::config::EnvMap;

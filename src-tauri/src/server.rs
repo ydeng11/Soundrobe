@@ -32,6 +32,10 @@ use tower_http::services::{ServeDir, ServeFile};
 use url::Url;
 use uuid::Uuid;
 
+use crate::commands::album_search::{
+    discogs_token, normalise_page_size, resolve_release_inner, search_releases_inner,
+    ResolveReleaseRequest, SearchReleasesRequest,
+};
 use crate::commands::mutations::{
     batch_write_with_readback, delete_files_queued, rename_track_queued,
     write_extra_tags_batch_with_readback, write_extra_tags_with_readback,
@@ -197,6 +201,7 @@ fn parse_public_origin(public_url: &str) -> anyhow::Result<(String, bool)> {
 struct ServerState {
     auth: AuthService,
     config: ConfigState,
+    providers: Arc<crate::state::providers::ProviderState>,
     libraries: Result<LibraryRoots, String>,
     events: EventBus,
     operations: OperationCoordinator,
@@ -369,6 +374,12 @@ struct SessionResponse {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct EmptyCommandRequest {}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct WrappedCommandRequest<T> {
+    request: T,
+}
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -702,6 +713,8 @@ fn supported_web_command(command: &str) -> bool {
             | "library:list-roots"
             | "library:scan"
             | "album:read"
+            | "album:search-releases"
+            | "album:resolve-release"
             | "track:write"
             | "tracks:batch-write"
             | "track:extra-tags:read"
@@ -931,6 +944,51 @@ async fn command(
                 Err(ConfigSetError::UnsupportedKey(_)) => {
                     error_response(StatusCode::INTERNAL_SERVER_ERROR, "config persistence failed")
                 }
+            }
+        }
+        "album:search-releases" => {
+            let WrappedCommandRequest { request } =
+                match decode_command_payload::<WrappedCommandRequest<SearchReleasesRequest>>(payload)
+                {
+                    Ok(request) => request,
+                    Err(_) => {
+                        return error_response(StatusCode::BAD_REQUEST, "invalid command request")
+                    }
+                };
+            let page = request.page.unwrap_or(1).max(1);
+            let page_size = normalise_page_size(request.page_size);
+            match search_releases_inner(
+                &request.provider,
+                request.artist,
+                request.album,
+                request.year,
+                request.country,
+                request.format,
+                request.catalog_number,
+                request.barcode,
+                page,
+                page_size,
+                state.providers.as_ref(),
+                discogs_token(&state.config),
+            )
+            .await
+            {
+                Ok(result) => Json(result).into_response(),
+                Err(error) => error_response(StatusCode::BAD_REQUEST, error),
+            }
+        }
+        "album:resolve-release" => {
+            let WrappedCommandRequest { request } =
+                match decode_command_payload::<WrappedCommandRequest<ResolveReleaseRequest>>(payload)
+                {
+                    Ok(request) => request,
+                    Err(_) => {
+                        return error_response(StatusCode::BAD_REQUEST, "invalid command request")
+                    }
+                };
+            match resolve_release_inner(&request, state.providers.as_ref(), &state.config).await {
+                Ok(result) => Json(result).into_response(),
+                Err(error) => error_response(StatusCode::BAD_REQUEST, error),
             }
         }
         "album:read" => {
@@ -1580,6 +1638,7 @@ fn router_with_runtime_and_events(
         auth: AuthService::new(&config),
         debug: WebDebugState::new(config_state.raw().debug.unwrap_or(false)),
         config: config_state,
+        providers: Arc::new(crate::state::providers::ProviderState::default()),
         libraries: discover_library_roots(&config.library_root_dir)
             .map_err(|error| error.to_string()),
         events: event_bus,
@@ -2872,6 +2931,37 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn provider_commands_are_recognized_before_provider_validation() {
+        let app = router(test_config());
+        let login_response = login(app.clone(), "correct horse battery staple").await;
+        let cookie = login_response.headers()[header::SET_COOKIE].clone();
+
+        let response = app
+            .oneshot(
+                origin_request(
+                    Request::builder()
+                        .method("POST")
+                        .uri("/api/v1/commands/album%3Asearch-releases")
+                        .header(header::COOKIE, cookie)
+                        .header(header::CONTENT_TYPE, "application/json")
+                        .body(Body::from(
+                            r#"{"request":{"provider":"unknown","album":"Test"}}"#,
+                        ))
+                        .unwrap(),
+                ),
+            )
+            .await
+            .unwrap();
+
+        assert_json_error(
+            response,
+            StatusCode::BAD_REQUEST,
+            r#"{"error":"Unknown provider: unknown"}"#,
+        )
+        .await;
+    }
+
+    #[tokio::test]
     async fn shutdown_lifecycle_rejects_new_api_requests() {
         let lifecycle = ServerLifecycle::default();
         let app = router_with_runtime(test_config(), lifecycle.clone(), WriteQueue::default());
@@ -2986,6 +3076,7 @@ mod tests {
         let state = ServerState {
             auth: AuthService::new(&config),
             config: ConfigState::init_in(config.data_dir.clone()),
+            providers: Arc::new(crate::state::providers::ProviderState::default()),
             libraries: Ok(LibraryRoots::default()),
             events: EventBus::default(),
             operations: OperationCoordinator::default(),
@@ -3515,6 +3606,7 @@ mod tests {
         let state = ServerState {
             auth: AuthService::new(&config),
             config: ConfigState::init_in(config.data_dir.clone()),
+            providers: Arc::new(crate::state::providers::ProviderState::default()),
             libraries: Ok(LibraryRoots::default()),
             events: EventBus::default(),
             operations: OperationCoordinator::default(),

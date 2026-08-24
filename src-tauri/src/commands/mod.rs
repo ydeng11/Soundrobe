@@ -15,7 +15,7 @@ pub mod shell;
 
 // ── Parity owners (slices; wired as they turn green) ────────────────
 /// `album:search-releases` / `album:resolve-release` / `album:preview-release-match` / `album:search-apply-candidate`
-#[cfg(feature = "desktop")]
+#[cfg(any(feature = "desktop", feature = "server"))]
 pub mod album_search;
 /// `assistant:*` — `electron/handlers/assistant.ts`.
 #[cfg(feature = "desktop")]
