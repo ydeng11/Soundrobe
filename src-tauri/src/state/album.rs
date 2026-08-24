@@ -199,6 +199,19 @@ pub fn write_cover_upload(album_path: &Path, bytes: &[u8]) -> io::Result<String>
     ))
 }
 
+pub fn remove_cover(album_path: &Path) -> io::Result<bool> {
+    for name in COVER_NAMES {
+        for extension in ["jpg", "jpeg", "png", "webp"] {
+            let candidate = album_path.join(format!("{name}.{extension}"));
+            if candidate.is_file() {
+                fs::remove_file(candidate)?;
+            }
+        }
+    }
+    fs::write(album_path.join(COVER_REMOVED_MARKER), [])?;
+    Ok(true)
+}
+
 pub fn read_album_with_cancellation<F>(
     album_path: &Path,
     is_cancelled: &F,

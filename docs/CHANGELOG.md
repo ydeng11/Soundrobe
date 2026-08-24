@@ -18,8 +18,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   workflows remain unchanged. The headless service now exposes a sequenced,
   reconnect-aware event stream for the web operation handlers as they are
   added; browser sessions can scan a mounted library root and read its track
-  metadata, preview local or embedded cover art, and upload normalized cover
-  images; expired replay windows report that a refresh is required.
+  metadata, preview local or embedded cover art, upload normalized cover images,
+  and remove covers with suppression preserved; expired replay windows report
+  that a refresh is required.
 
 ## [0.1.1] - 2026-08-21
 

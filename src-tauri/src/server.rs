@@ -32,7 +32,8 @@ use uuid::Uuid;
 
 use crate::state::{
     album::{
-        cover_data_url, read_album_with_cancellation, write_cover_upload, MAX_COVER_UPLOAD_BYTES,
+        cover_data_url, read_album_with_cancellation, remove_cover, write_cover_upload,
+        MAX_COVER_UPLOAD_BYTES,
     },
     events::{EventBus, EventEnvelope},
     library::{
@@ -533,6 +534,7 @@ fn supported_web_command(command: &str) -> bool {
             | "library:scan"
             | "album:read"
             | "cover:data-url"
+            | "cover:remove"
     )
 }
 
@@ -703,6 +705,41 @@ async fn command(
                     Ok(data_url) => Json(data_url).into_response(),
                     Err(_) => error_response(StatusCode::INTERNAL_SERVER_ERROR, "cover read failed"),
                 },
+            }
+        }
+        "cover:remove" => {
+            let request = match decode_command_payload::<AlbumReadCommandRequest>(payload) {
+                Ok(request) => request,
+                Err(_) => return error_response(StatusCode::BAD_REQUEST, "invalid command request"),
+            };
+            let roots = match &state.libraries {
+                Ok(roots) => roots,
+                Err(_) => {
+                    return error_response(
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        "library roots unavailable",
+                    )
+                }
+            };
+            let resolved = match roots.resolve_path(Path::new(&request.album_path)) {
+                Ok(path) => path,
+                Err(error) => return scan_path_error(error),
+            };
+            if !resolved.path.is_dir() {
+                return error_response(StatusCode::BAD_REQUEST, "album path not found");
+            }
+            let result = state
+                .write_queue
+                .run(async move {
+                    tokio::task::spawn_blocking(move || remove_cover(&resolved.path))
+                        .await
+                        .map_err(|error| io::Error::other(error.to_string()))
+                        .and_then(|result| result)
+                })
+                .await;
+            match result {
+                Ok(removed) => Json(removed).into_response(),
+                Err(_) => error_response(StatusCode::INTERNAL_SERVER_ERROR, "cover removal failed"),
             }
         }
         _ => unreachable!("supported_web_command and command dispatch diverged"),
@@ -1466,6 +1503,49 @@ mod tests {
         let data_url: String = serde_json::from_slice(&body).unwrap();
         assert!(data_url.starts_with("data:image/jpeg;base64,"));
         assert!(album.join("cover.jpg").is_file());
+        std::fs::remove_dir_all(base).unwrap();
+    }
+
+    #[tokio::test]
+    async fn authenticated_cover_remove_deletes_external_art_and_suppresses_reappearance() {
+        let base = std::env::temp_dir().join(format!(
+            "soundrobe-web-cover-remove-{}",
+            Uuid::new_v4().simple()
+        ));
+        let album = base.join("Artist/Album");
+        std::fs::create_dir_all(&album).unwrap();
+        std::fs::write(album.join("cover.jpg"), b"cover").unwrap();
+        let mut config = test_config();
+        config.library_root_dir = base.clone();
+        let app = router(config);
+        let login_response = login(app.clone(), "correct horse battery staple").await;
+        let cookie = login_response.headers()[header::SET_COOKIE].clone();
+
+        let response = app
+            .oneshot(
+                origin_request(
+                    Request::builder()
+                        .method("POST")
+                        .uri("/api/v1/commands/cover%3Aremove")
+                        .header(header::COOKIE, cookie)
+                        .header(header::CONTENT_TYPE, "application/json")
+                        .body(Body::from(format!(
+                            r#"{{"albumPath":"{}"}}"#,
+                            album.canonicalize().unwrap().display()
+                        )))
+                        .unwrap(),
+                ),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        assert_eq!(body.as_ref(), b"true");
+        assert!(!album.join("cover.jpg").exists());
+        assert!(album.join(".auto-tagger-cover-removed").exists());
         std::fs::remove_dir_all(base).unwrap();
     }
 
