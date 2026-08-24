@@ -129,6 +129,9 @@ impl TaskRegistry {
             return;
         };
         if let Some(entry) = tasks.get_mut(task_id) {
+            if entry.progress.status != TaskStatus::Running {
+                return;
+            }
             entry.cancelled.store(true, Ordering::Release);
             entry.progress.status = TaskStatus::Cancelled;
             entry.progress.message = "Cancelled".to_string();
@@ -210,6 +213,22 @@ mod tests {
             serde_json::json!({"error": "late"})
         ));
         assert_eq!(registry.get(&id).unwrap().status, TaskStatus::Cancelled);
+    }
+
+    #[test]
+    fn cancellation_does_not_rewrite_a_finished_task() {
+        let registry = TaskRegistry::default();
+        let id = registry.create("auto-tag", 9, "Starting...");
+        assert!(registry.finish(
+            &id,
+            TaskStatus::Completed,
+            "Done",
+            serde_json::json!({"ok": true})
+        ));
+
+        registry.cancel(&id);
+
+        assert_eq!(registry.get(&id).unwrap().status, TaskStatus::Completed);
     }
 
     #[test]
