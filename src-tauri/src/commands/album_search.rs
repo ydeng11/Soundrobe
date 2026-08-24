@@ -32,7 +32,7 @@ use crate::state::write_queue::WriteQueue;
 // ── Request / response types ─────────────────────────────────────────
 
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SearchReleasesRequest {
     pub provider: String,
     /// At least one of artist or album is required.
@@ -59,7 +59,7 @@ pub struct SearchReleasesResponse {
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ResolveReleaseRequest {
     pub provider: String,
     pub release_id: String,
@@ -117,6 +117,10 @@ pub(crate) fn discogs_token(config: &ConfigState) -> Option<String> {
 
 pub(crate) fn normalise_page_size(page_size: Option<u32>) -> u32 {
     page_size.unwrap_or(10).clamp(1, 100)
+}
+
+pub(crate) fn normalise_page(page: Option<u32>) -> u32 {
+    page.unwrap_or(1).clamp(1, 10_000)
 }
 
 // ── Commands ─────────────────────────────────────────────────────────
@@ -268,7 +272,7 @@ pub async fn album_search_releases(
     providers: State<'_, ProviderState>,
     config: State<'_, ConfigState>,
 ) -> Result<SearchReleasesResponse, String> {
-    let page = request.page.unwrap_or(1).max(1);
+    let page = normalise_page(request.page);
     let page_size = normalise_page_size(request.page_size);
 
     let token = discogs_token(&config);

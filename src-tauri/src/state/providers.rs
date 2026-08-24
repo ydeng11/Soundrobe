@@ -19,6 +19,19 @@ static OPENCC: OnceLock<OpenCC> = OnceLock::new();
 static DISCOGS_LIMITER: OnceLock<Arc<DiscogsRateLimiter>> = OnceLock::new();
 static MUSICBRAINZ_LAST_REQUEST: OnceLock<tokio::sync::Mutex<Option<Instant>>> = OnceLock::new();
 
+fn encode_path_segment(value: &str) -> String {
+    let mut encoded = String::with_capacity(value.len());
+    for byte in value.bytes() {
+        if byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_' | b'~') {
+            encoded.push(byte as char);
+        } else {
+            encoded.push('%');
+            encoded.push_str(&format!("{byte:02X}"));
+        }
+    }
+    encoded
+}
+
 pub fn convert_chinese_text(value: &str, target: &str) -> String {
     let converter = OPENCC.get_or_init(OpenCC::new);
     match target {
@@ -330,7 +343,11 @@ impl MusicBrainzClient {
         wait_for_musicbrainz().await;
         let response = self
             .http
-            .get(format!("{}/release/{release_id}", self.base_url))
+            .get(format!(
+                "{}/release/{}",
+                self.base_url,
+                encode_path_segment(release_id)
+            ))
             .query(&[("fmt", "json"), ("inc", "recordings+artist-credits")])
             .send()
             .await
@@ -1297,14 +1314,18 @@ impl DiscogsClient {
     }
 
     pub async fn release_metadata(&self, release_id: &str) -> Option<ProviderAlbum> {
-        let release: serde_json::Value = self.get_json(&format!("releases/{release_id}")).await?;
+        let release: serde_json::Value = self
+            .get_json(&format!("releases/{}", encode_path_segment(release_id)))
+            .await?;
         parse_discogs_release(&release, release_id)
     }
 
     /// Resolve a Discogs master release. The master JSON has the same
     /// structure as a release for our purposes (title, artists, tracklist).
     pub async fn master_metadata(&self, master_id: &str) -> Option<ProviderAlbum> {
-        let master: serde_json::Value = self.get_json(&format!("masters/{master_id}")).await?;
+        let master: serde_json::Value = self
+            .get_json(&format!("masters/{}", encode_path_segment(master_id)))
+            .await?;
         parse_discogs_release(&master, master_id)
     }
 
@@ -1472,7 +1493,9 @@ impl DiscogsClient {
     }
 
     pub async fn release_cover(&self, release_id: &str) -> Option<RemoteImage> {
-        let release: ReleaseDetail = self.get_json(&format!("releases/{release_id}")).await?;
+        let release: ReleaseDetail = self
+            .get_json(&format!("releases/{}", encode_path_segment(release_id)))
+            .await?;
         let image_url = preferred_image_url(&release.images)?;
         self.fetch_image("discogs", &image_url).await
     }
@@ -2331,6 +2354,12 @@ mod tests {
     use std::thread;
 
     type Route = fn(&str, &str) -> (&'static str, String, &'static str);
+
+    #[test]
+    fn provider_release_ids_are_encoded_as_single_path_segments() {
+        assert_eq!(encode_path_segment("release-id"), "release-id");
+        assert_eq!(encode_path_segment("../private"), "%2E%2E%2Fprivate");
+    }
 
     fn retry_server() -> (String, mpsc::Receiver<String>) {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();

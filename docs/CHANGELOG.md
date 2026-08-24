@@ -28,8 +28,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   cover art, upload normalized cover images, and remove covers with suppression
   preserved. Browser directory listings, confined
   file-existence checks, redacted settings reads/writes, MusicBrainz and Discogs
-  release search/resolve commands, and lyrics fetch/download commands are also
-  available; the headless server serves the built browser SPA
+  release search/resolve commands with bounded provider requests, and lyrics
+  fetch/download commands are also available; the headless server serves the built
+  browser SPA
   with client-route fallback;
   optional settings can be cleared without leaving stale values, and browser
   debug and assistant-autonomy toggles take effect in the running app. Expired

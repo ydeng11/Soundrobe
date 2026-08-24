@@ -33,7 +33,7 @@ use url::Url;
 use uuid::Uuid;
 
 use crate::commands::album_search::{
-    discogs_token, normalise_page_size, resolve_release_inner, search_releases_inner,
+    discogs_token, normalise_page, normalise_page_size, resolve_release_inner, search_releases_inner,
     ResolveReleaseRequest, SearchReleasesRequest,
 };
 use crate::commands::mutations::{
@@ -955,7 +955,7 @@ async fn command(
                         return error_response(StatusCode::BAD_REQUEST, "invalid command request")
                     }
                 };
-            let page = request.page.unwrap_or(1).max(1);
+            let page = normalise_page(request.page);
             let page_size = normalise_page_size(request.page_size);
             match search_releases_inner(
                 &request.provider,
@@ -974,7 +974,7 @@ async fn command(
             .await
             {
                 Ok(result) => Json(result).into_response(),
-                Err(error) => error_response(StatusCode::BAD_REQUEST, error),
+                Err(error) => provider_error_response(error),
             }
         }
         "album:resolve-release" => {
@@ -988,7 +988,7 @@ async fn command(
                 };
             match resolve_release_inner(&request, state.providers.as_ref(), &state.config).await {
                 Ok(result) => Json(result).into_response(),
-                Err(error) => error_response(StatusCode::BAD_REQUEST, error),
+                Err(error) => provider_error_response(error),
             }
         }
         "album:read" => {
@@ -1307,6 +1307,17 @@ fn error_response(status: StatusCode, message: impl Into<String>) -> Response {
         }),
     )
         .into_response()
+}
+
+fn provider_error_response(error: String) -> Response {
+    let status = if error == "Artist or album is required" || error.starts_with("Unknown provider:") {
+        StatusCode::BAD_REQUEST
+    } else if error.to_ascii_lowercase().contains("not found") {
+        StatusCode::NOT_FOUND
+    } else {
+        StatusCode::INTERNAL_SERVER_ERROR
+    };
+    error_response(status, error)
 }
 
 fn normalize_error_response(mut response: Response) -> Response {
@@ -2959,6 +2970,58 @@ mod tests {
             r#"{"error":"Unknown provider: unknown"}"#,
         )
         .await;
+    }
+
+    #[tokio::test]
+    async fn provider_command_payloads_reject_unknown_nested_fields() {
+        let app = router(test_config());
+        let login_response = login(app.clone(), "correct horse battery staple").await;
+        let cookie = login_response.headers()[header::SET_COOKIE].clone();
+
+        let response = app
+            .oneshot(origin_request(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/v1/commands/album%3Aresolve-release")
+                    .header(header::COOKIE, cookie)
+                    .header(header::CONTENT_TYPE, "application/json")
+                    .body(Body::from(
+                        r#"{"request":{"provider":"musicbrainz","releaseId":"id","unexpected":true}}"#,
+                    ))
+                    .unwrap(),
+            ))
+            .await
+            .unwrap();
+
+        assert_json_error(
+            response,
+            StatusCode::BAD_REQUEST,
+            r#"{"error":"invalid command request"}"#,
+        )
+        .await;
+    }
+
+    #[test]
+    fn provider_search_pages_are_bounded_before_multiplication() {
+        assert_eq!(normalise_page(None), 1);
+        assert_eq!(normalise_page(Some(0)), 1);
+        assert_eq!(normalise_page(Some(u32::MAX)), 10_000);
+    }
+
+    #[test]
+    fn provider_upstream_failures_are_not_reported_as_bad_requests() {
+        assert_eq!(
+            provider_error_response("MusicBrainz request failed: offline".to_string()).status(),
+            StatusCode::INTERNAL_SERVER_ERROR
+        );
+        assert_eq!(
+            provider_error_response("MusicBrainz release not found: id".to_string()).status(),
+            StatusCode::NOT_FOUND
+        );
+        assert_eq!(
+            provider_error_response("Unknown provider: other".to_string()).status(),
+            StatusCode::BAD_REQUEST
+        );
     }
 
     #[tokio::test]
