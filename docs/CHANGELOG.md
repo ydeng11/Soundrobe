@@ -12,11 +12,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Web-service runtime foundation** — browser deployments can now identify the
   web runtime, authenticate against the headless service, enumerate mounted
   music-library roots, and receive clear errors when a workflow is not yet
-  available in the browser. Desktop folder selection, data migration, updater
-  behavior, and the existing native workflows remain unchanged. The headless
-  service now exposes a sequenced, reconnect-aware event stream for the web
-  operation handlers as they are added; browser sessions can scan a mounted
-  library root, and expired replay windows report that a refresh is required.
+  available in the browser. The browser now provides sign-in, sign-out, and a
+  mounted-library picker that opens the only root automatically. Desktop
+  folder selection, data migration, updater behavior, and the existing native
+  workflows remain unchanged. The headless service now exposes a sequenced,
+  reconnect-aware event stream for the web operation handlers as they are
+  added; browser sessions can scan a mounted library root, and expired replay
+  windows report that a refresh is required.
 
 ## [0.1.1] - 2026-08-21
 

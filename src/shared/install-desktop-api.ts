@@ -22,7 +22,13 @@ declare global {
   interface Window {
     /** Tauri internal IPC handle — presence identifies the Tauri runtime. */
     __TAURI_INTERNALS__?: unknown;
+    /** Runtime marker set before React starts so browser UI can gate auth. */
+    __SOUNDROBE_RUNTIME__?: "tauri" | "web";
   }
+}
+
+export function isWebRuntime(): boolean {
+  return typeof window !== "undefined" && window.__SOUNDROBE_RUNTIME__ === "web";
 }
 
 const CONSOLE_METHOD: Record<LogEntry["level"], "error" | "warn" | "debug" | "log"> = {
@@ -43,9 +49,11 @@ export function installDesktopApi(): void {
     return;
   }
   if (!isTauriRuntime()) {
+    window.__SOUNDROBE_RUNTIME__ = "web";
     w.api = createWebDesktopApi();
     return;
   }
+  window.__SOUNDROBE_RUNTIME__ = "tauri";
   w.api = createTauriDesktopApi();
 
   // A failed attach is logged so a broken live-log stream stays observable.

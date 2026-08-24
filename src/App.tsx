@@ -53,6 +53,7 @@ import type {
   TrackData,
   AlbumInfo,
   AlbumDetail,
+  LibraryRoot,
   AuditRunSummary,
   AuditTrackResult,
   PreviewMatchResult,
@@ -64,6 +65,14 @@ import {
   type OrderingRule,
 } from "./shared/track-numbering";
 import { useAppUpdater } from "./state/useAppUpdater";
+import { WebLibraryPicker } from "./components/WebLibraryPicker";
+import { WebLoginScreen } from "./components/WebLoginScreen";
+import {
+  getWebSession,
+  loginWebSession,
+  logoutWebSession,
+} from "./shared/web-adapter";
+import { isWebRuntime } from "./shared/install-desktop-api";
 
 const EXTRA_TAG_UNDO_FIELD = "__assistantExtraTags";
 
@@ -95,6 +104,14 @@ function mapAuditResultForState(r: {
 
 export default function App() {
   const [state, dispatch] = useReducer(appReducer, initialAppState);
+  const webRuntime = isWebRuntime();
+  const [webAuthState, setWebAuthState] = React.useState<
+    "desktop" | "checking" | "login" | "authenticated"
+  >(webRuntime ? "checking" : "desktop");
+  const [webRoots, setWebRoots] = React.useState<LibraryRoot[] | null>(null);
+  const [webPickerOpen, setWebPickerOpen] = React.useState(false);
+  const [webRootsLoading, setWebRootsLoading] = React.useState(false);
+  const [webRootsError, setWebRootsError] = React.useState<string | null>(null);
   const appBusy =
     state.saving ||
     state.autoTagging ||
@@ -262,30 +279,46 @@ export default function App() {
 
   // --- Library loading ---
 
+  const loadLibrary = useCallback(async (selectedPath: string) => {
+    dispatch({ type: "SET_LIBRARY", path: selectedPath });
+    dispatch({ type: "SET_SCANNING", scanning: true });
+    dispatch({ type: "SET_ERROR", error: null });
+
+    try {
+      const albums = await window.api.scanLibrary(selectedPath);
+      dispatch({ type: "SET_ALBUMS", albums });
+      await loadAlbumTracks(albums);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to scan library";
+      dispatch({ type: "SET_ERROR", error: message });
+    } finally {
+      dispatch({ type: "SET_SCANNING", scanning: false });
+    }
+  }, [loadAlbumTracks]);
+
   const handleOpenLibrary = useCallback(async () => {
     try {
       if (!window.api) {
         throw new Error("Tauri desktop bridge is unavailable");
       }
 
+      if (webRuntime) {
+        const roots = await window.api.listLibraryRoots();
+        setWebRootsError(null);
+        if (roots.length === 1) {
+          setWebRoots(null);
+          setWebPickerOpen(false);
+          await loadLibrary(roots[0].path);
+        } else {
+          setWebRoots(roots);
+          setWebPickerOpen(true);
+        }
+        return;
+      }
+
       const selectedPath = await window.api.openFolderDialog();
       if (!selectedPath) return;
-
-      dispatch({ type: "SET_LIBRARY", path: selectedPath });
-      dispatch({ type: "SET_SCANNING", scanning: true });
-      dispatch({ type: "SET_ERROR", error: null });
-
-      try {
-        const albums = await window.api.scanLibrary(selectedPath);
-        dispatch({ type: "SET_ALBUMS", albums });
-        await loadAlbumTracks(albums);
-      } catch (err: unknown) {
-        const message =
-          err instanceof Error ? err.message : "Failed to scan library";
-        dispatch({ type: "SET_ERROR", error: message });
-      } finally {
-        dispatch({ type: "SET_SCANNING", scanning: false });
-      }
+      await loadLibrary(selectedPath);
     } catch (err: unknown) {
       const message =
         err instanceof Error ? err.message : "Failed to open folder dialog";
@@ -294,7 +327,39 @@ export default function App() {
         error: `Failed to open library: ${message}`,
       });
     }
-  }, [loadAlbumTracks]);
+  }, [loadLibrary, webRuntime]);
+
+  const handleWebRootSelect = useCallback(async (path: string) => {
+    setWebRoots(null);
+    setWebPickerOpen(false);
+    setWebRootsError(null);
+    setWebRootsLoading(true);
+    try {
+      await loadLibrary(path);
+    } finally {
+      setWebRootsLoading(false);
+    }
+  }, [loadLibrary]);
+
+  const handleWebLogin = useCallback(async (password: string) => {
+    const session = await loginWebSession(password);
+    if (!session.authenticated) {
+      throw new Error("Sign in failed");
+    }
+    setWebAuthState("authenticated");
+  }, []);
+
+  const handleWebLogout = useCallback(async () => {
+    try {
+      await logoutWebSession();
+    } finally {
+      dispatch({ type: "CLEAR_ALL" });
+      setWebRoots(null);
+      setWebPickerOpen(false);
+      setWebRootsError(null);
+      setWebAuthState("login");
+    }
+  }, []);
 
   // --- Album selection (in-memory filter, no disk reads) ---
 
@@ -2011,6 +2076,57 @@ export default function App() {
       document.removeEventListener("visibilitychange", handleVisibility);
   }, []);
 
+  useEffect(() => {
+    if (!webRuntime) return;
+    let active = true;
+    void getWebSession()
+      .then((session) => {
+        if (active) setWebAuthState(session.authenticated ? "authenticated" : "login");
+      })
+      .catch(() => {
+        if (active) setWebAuthState("login");
+      });
+    return () => {
+      active = false;
+    };
+  }, [webRuntime]);
+
+  useEffect(() => {
+    if (
+      !webRuntime ||
+      webAuthState !== "authenticated" ||
+      state.libraryPath ||
+      webRoots !== null ||
+      webRootsLoading
+    ) {
+      return;
+    }
+
+    let active = true;
+    setWebRootsLoading(true);
+    setWebRootsError(null);
+    void window.api.listLibraryRoots()
+      .then(async (roots) => {
+        if (!active) return;
+        if (roots.length === 1) {
+          await loadLibrary(roots[0].path);
+          return;
+        }
+        setWebRoots(roots);
+        setWebPickerOpen(true);
+      })
+      .catch((reason: unknown) => {
+        if (!active) return;
+        setWebRootsError(reason instanceof Error ? reason.message : "Failed to load libraries");
+      })
+      .finally(() => {
+        if (active) setWebRootsLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [loadLibrary, state.libraryPath, webAuthState, webRoots, webRootsLoading, webRuntime]);
+
   // Filter tracks by active album — in-memory filter, no disk reads
   const filteredTracks = useMemo(() => {
     const activeAlbumPath = state.activeAlbumPath;
@@ -2436,6 +2552,28 @@ export default function App() {
 
   const mutationBusy = state.saving || state.reverting || assistantApplying;
 
+  if (webAuthState === "checking") {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-surface text-sm text-text-muted">
+        Loading Soundrobe…
+      </main>
+    );
+  }
+  if (webAuthState === "login") {
+    return <WebLoginScreen onLogin={handleWebLogin} />;
+  }
+  if (webRuntime && (!state.libraryPath || webPickerOpen)) {
+    return (
+      <WebLibraryPicker
+        roots={webRoots ?? []}
+        loading={webRootsLoading}
+        error={webRootsError}
+        onSelect={handleWebRootSelect}
+        onLogout={handleWebLogout}
+      />
+    );
+  }
+
   return (
     <div className="flex flex-col h-screen bg-surface text-text-primary overflow-hidden">
       <TitleBar
@@ -2468,6 +2606,7 @@ export default function App() {
         onErrorDismiss={() => dispatch({ type: "SET_ERROR", error: null })}
         onUndoLatest={() => handleRevert()}
         onUndoThrough={handleRevert}
+        onLogout={webRuntime ? handleWebLogout : undefined}
       />
 
       <ScanProgressBar

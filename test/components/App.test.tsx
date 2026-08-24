@@ -8,6 +8,7 @@ import type { TrackData, AlbumInfo, TaskProgress } from "../../src/shared/deskto
 afterEach(() => {
   cleanup();
   delete (window as unknown as Record<string, unknown>).api;
+  delete window.__SOUNDROBE_RUNTIME__;
 });
 
 function makeTrack(path: string, overrides?: Partial<TrackData>): TrackData {
@@ -52,6 +53,9 @@ beforeEach(() => {
       dev: false,
     }),
     openFolderDialog: vi.fn().mockResolvedValue("/music"),
+    listLibraryRoots: vi.fn().mockResolvedValue([
+      { id: "music", name: "music", path: "/libraries/music" },
+    ]),
     scanLibrary: vi.fn().mockResolvedValue([
       {
         path: "/music/Test Album",
@@ -152,6 +156,22 @@ describe("App — batch save progress", () => {
   it("renders the title bar and open-library button", async () => {
     render(<App />);
     expect(screen.getByText("Open Library")).toBeTruthy();
+  });
+
+  it("auto-selects the sole mounted library in the web runtime", async () => {
+    window.__SOUNDROBE_RUNTIME__ = "web";
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(new Response(JSON.stringify({ authenticated: true })));
+
+    render(<App />);
+
+    await waitFor(() => expect(screen.getAllByTestId(/^file-row-/)).toHaveLength(2));
+    expect(window.api.listLibraryRoots).toHaveBeenCalledTimes(1);
+    expect(window.api.openFolderDialog).not.toHaveBeenCalled();
+    expect(window.api.scanLibrary).toHaveBeenCalledWith("/libraries/music");
+
+    fetchMock.mockRestore();
   });
 
   it("summarizes structured lyrics embedding results", async () => {

@@ -15,6 +15,15 @@ export interface WebDesktopApiOptions {
   eventSource?: (url: string) => WebEventSource;
 }
 
+export interface WebAuthOptions {
+  fetch?: typeof globalThis.fetch;
+  baseUrl?: string;
+}
+
+export interface WebSession {
+  authenticated: boolean;
+}
+
 export interface WebEventSource {
   addEventListener: (type: string, listener: (event: WebEventMessage) => void) => void;
   close: () => void;
@@ -116,20 +125,18 @@ function commandUrl(baseUrl: string, channel: string): string {
   return `${baseUrl}/api/v1/commands/${encodeURIComponent(channel)}`;
 }
 
-async function requestCommand<T>(
+function authUrl(baseUrl: string, action: "login" | "logout" | "session"): string {
+  return `${baseUrl}/api/v1/auth/${action}`;
+}
+
+async function requestJson<T>(
   fetchImpl: typeof globalThis.fetch,
-  baseUrl: string,
-  channel: string,
-  payload: Record<string, unknown> = {},
+  url: string,
+  init: RequestInit,
 ): Promise<T> {
   let response: Response;
   try {
-    response = await fetchImpl(commandUrl(baseUrl, channel), {
-      method: "POST",
-      credentials: "same-origin",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(payload),
-    });
+    response = await fetchImpl(url, init);
   } catch (reason) {
     throw toError(reason);
   }
@@ -147,10 +154,63 @@ async function requestCommand<T>(
     const message =
       body && typeof body === "object" && "error" in body
         ? String((body as { error: unknown }).error)
-        : `Web command failed (${response.status})`;
+        : `Web request failed (${response.status})`;
     throw new Error(message);
   }
   return body as T;
+}
+
+async function requestCommand<T>(
+  fetchImpl: typeof globalThis.fetch,
+  baseUrl: string,
+  channel: string,
+  payload: Record<string, unknown> = {},
+): Promise<T> {
+  return requestJson<T>(fetchImpl, commandUrl(baseUrl, channel), {
+    method: "POST",
+    credentials: "same-origin",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+}
+
+function webAuthOptions(options: WebAuthOptions): {
+  fetchImpl: typeof globalThis.fetch;
+  baseUrl: string;
+} {
+  return {
+    fetchImpl: options.fetch ?? globalThis.fetch.bind(globalThis),
+    baseUrl: (options.baseUrl ?? "").replace(/\/$/, ""),
+  };
+}
+
+export function getWebSession(options: WebAuthOptions = {}): Promise<WebSession> {
+  const { fetchImpl, baseUrl } = webAuthOptions(options);
+  return requestJson<WebSession>(fetchImpl, authUrl(baseUrl, "session"), {
+    method: "GET",
+    credentials: "same-origin",
+  });
+}
+
+export function loginWebSession(
+  password: string,
+  options: WebAuthOptions = {},
+): Promise<WebSession> {
+  const { fetchImpl, baseUrl } = webAuthOptions(options);
+  return requestJson<WebSession>(fetchImpl, authUrl(baseUrl, "login"), {
+    method: "POST",
+    credentials: "same-origin",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ password }),
+  });
+}
+
+export function logoutWebSession(options: WebAuthOptions = {}): Promise<WebSession> {
+  const { fetchImpl, baseUrl } = webAuthOptions(options);
+  return requestJson<WebSession>(fetchImpl, authUrl(baseUrl, "logout"), {
+    method: "POST",
+    credentials: "same-origin",
+  });
 }
 
 /** Build the `DesktopAPI` facade backed by the headless HTTP service. */

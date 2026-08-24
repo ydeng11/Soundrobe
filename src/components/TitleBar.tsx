@@ -36,6 +36,7 @@ interface TitleBarProps {
   onErrorDismiss: () => void;
   onUndoLatest: () => void;
   onUndoThrough: (operationId: number) => void;
+  onLogout?: () => void;
 }
 
 
@@ -70,6 +71,7 @@ export function TitleBar({
   onErrorDismiss,
   onUndoLatest,
   onUndoThrough,
+  onLogout,
 }: TitleBarProps) {
   const [numberMenuOpen, setNumberMenuOpen] = useState(false);
   const [historyMenuOpen, setHistoryMenuOpen] = useState(false);
@@ -212,6 +214,16 @@ export function TitleBar({
       </div>
 
       <div className="flex-1" />
+
+      {onLogout && (
+        <button
+          type="button"
+          onClick={onLogout}
+          className="no-drag px-2 py-1 text-[11px] text-text-muted hover:text-text-primary"
+        >
+          Sign out
+        </button>
+      )}
 
       <div className="relative no-drag">
         <div
