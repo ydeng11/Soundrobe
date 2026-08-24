@@ -13,7 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   web runtime, authenticate against the headless service, enumerate mounted
   music-library roots, and receive clear errors when a workflow is not yet
   available in the browser. Desktop folder selection, data migration, updater
-  behavior, and the existing native workflows remain unchanged.
+  behavior, and the existing native workflows remain unchanged. The headless
+  service now exposes a sequenced, reconnect-aware event stream for the web
+  operation handlers as they are added; expired replay windows report that a
+  refresh is required.
 
 ## [0.1.1] - 2026-08-21
 

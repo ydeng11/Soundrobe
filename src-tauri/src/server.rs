@@ -1,17 +1,20 @@
 //! Headless HTTP runtime.
 
 use axum::{
-    extract::{rejection::JsonRejection, DefaultBodyLimit, Json, Path as AxumPath, State},
+    extract::{
+        rejection::JsonRejection, DefaultBodyLimit, Json, Path as AxumPath, Query, State,
+    },
     http::{header, HeaderMap, HeaderValue, Method, Request, StatusCode},
     middleware::{self, Next},
-    response::{IntoResponse, Response},
+    response::{sse::{Event, KeepAlive, Sse}, IntoResponse, Response},
     routing::{get, post},
     Router,
 };
 use serde::Deserialize;
 use serde::Serialize;
 use std::{
-    collections::HashMap,
+    collections::{HashMap, VecDeque},
+    convert::Infallible,
     net::SocketAddr,
     path::{Path, PathBuf},
     sync::atomic::{AtomicBool, Ordering},
@@ -25,6 +28,7 @@ use url::Url;
 use uuid::Uuid;
 
 use crate::state::{
+    events::{EventBus, EventEnvelope},
     library::{discover_library_roots, LibraryRoots},
     operation::{OperationCoordinator, OperationKind},
     paths::AppDataPaths,
@@ -165,6 +169,7 @@ fn parse_public_origin(public_url: &str) -> anyhow::Result<(String, bool)> {
 struct ServerState {
     auth: AuthService,
     libraries: Result<LibraryRoots, String>,
+    events: EventBus,
     operations: OperationCoordinator,
     lifecycle: ServerLifecycle,
     _write_queue: WriteQueue,
@@ -341,6 +346,151 @@ async fn libraries(State(state): State<ServerState>) -> Response {
             StatusCode::INTERNAL_SERVER_ERROR,
             "library roots unavailable",
         ),
+    }
+}
+
+#[derive(Debug, Deserialize, Default)]
+struct EventsQuery {
+    after: Option<String>,
+    channels: Option<String>,
+}
+
+fn event_channels(query: &EventsQuery) -> Vec<String> {
+    query
+        .channels
+        .as_deref()
+        .unwrap_or_default()
+        .split(',')
+        .filter(|channel| !channel.is_empty())
+        .map(str::to_string)
+        .collect()
+}
+
+fn event_matches(event: &EventEnvelope, channels: &[String]) -> bool {
+    channels.is_empty() || channels.iter().any(|channel| channel == &event.channel)
+}
+
+#[derive(Clone)]
+struct EventCursor {
+    generation: String,
+    sequence: u64,
+}
+
+fn parse_event_cursor(value: &str) -> Option<EventCursor> {
+    let (generation, sequence) = value.rsplit_once(':')?;
+    Some(EventCursor {
+        generation: generation.to_string(),
+        sequence: sequence.parse().ok()?,
+    })
+}
+
+fn last_event_id(headers: &HeaderMap) -> Option<EventCursor> {
+    headers
+        .get("last-event-id")
+        .and_then(|value| value.to_str().ok())
+        .and_then(parse_event_cursor)
+}
+
+fn sse_event(envelope: EventEnvelope) -> Result<Event, Infallible> {
+    Ok(Event::default()
+        .id(format!("{}:{}", envelope.generation, envelope.sequence))
+        .event(envelope.channel)
+        .json_data(envelope.payload)
+        .expect("event payloads are serialized JSON values"))
+}
+
+async fn events(
+    State(state): State<ServerState>,
+    Query(query): Query<EventsQuery>,
+    headers: HeaderMap,
+) -> Sse<impl futures_util::Stream<Item = Result<Event, Infallible>>> {
+    let channels = event_channels(&query);
+    let channel_refs = channels.iter().map(String::as_str).collect::<Vec<_>>();
+    let cursor = query
+        .after
+        .as_deref()
+        .and_then(parse_event_cursor)
+        .or_else(|| last_event_id(&headers));
+    let after = cursor.as_ref().map_or(0, |cursor| cursor.sequence);
+    let generation = cursor.as_ref().map(|cursor| cursor.generation.as_str());
+    let (replay, receiver, gap) = state
+        .events
+        .replay_and_subscribe(after, generation, &channel_refs);
+    let stream_state = EventStreamState {
+        replay: replay.into(),
+        receiver,
+        channels,
+        last_sequence: after,
+        cancellation: state.lifecycle.cancellation.clone(),
+        generation: state.events.generation().to_string(),
+        gap,
+        terminated: false,
+    };
+    let stream = futures_util::stream::unfold(stream_state, next_event);
+    Sse::new(stream).keep_alive(
+        KeepAlive::new()
+            .interval(Duration::from_secs(15))
+            .text("keep-alive"),
+    )
+}
+
+struct EventStreamState {
+    replay: VecDeque<EventEnvelope>,
+    receiver: tokio::sync::broadcast::Receiver<EventEnvelope>,
+    channels: Vec<String>,
+    last_sequence: u64,
+    generation: String,
+    cancellation: CancellationToken,
+    gap: bool,
+    terminated: bool,
+}
+
+async fn next_event(
+    mut state: EventStreamState,
+) -> Option<(Result<Event, Infallible>, EventStreamState)> {
+    if state.terminated || state.cancellation.is_cancelled() {
+        return None;
+    }
+    if state.gap {
+        state.gap = false;
+        state.terminated = true;
+        let payload = serde_json::json!({
+            "after": state.last_sequence,
+            "message": "event replay window was exceeded; resync required",
+        });
+        return Some((
+            Ok(Event::default()
+                .event("soundrobe:replay-gap")
+                .id(format!("{}:0", state.generation))
+                .data(serde_json::to_string(&payload).expect("replay gap payload is JSON"))),
+            state,
+        ));
+    }
+    if let Some(event) = state.replay.pop_front() {
+        state.last_sequence = event.sequence;
+        return Some((sse_event(event), state));
+    }
+
+    loop {
+        let received = tokio::select! {
+            _ = state.cancellation.cancelled() => return None,
+            received = state.receiver.recv() => received,
+        };
+        match received {
+            Ok(event) => {
+                if event.sequence <= state.last_sequence || !event_matches(&event, &state.channels) {
+                    continue;
+                }
+                state.last_sequence = event.sequence;
+                return Some((sse_event(event), state));
+            }
+            Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => {
+                // Closing makes EventSource reconnect with Last-Event-ID so the
+                // bounded replay window can be applied deterministically.
+                return None;
+            }
+            Err(tokio::sync::broadcast::error::RecvError::Closed) => return None,
+        }
     }
 }
 
@@ -626,10 +776,20 @@ fn router_with_runtime(
     lifecycle: ServerLifecycle,
     write_queue: WriteQueue,
 ) -> Router {
+    router_with_runtime_and_events(config, lifecycle, write_queue, EventBus::default())
+}
+
+fn router_with_runtime_and_events(
+    config: ServerConfig,
+    lifecycle: ServerLifecycle,
+    write_queue: WriteQueue,
+    event_bus: EventBus,
+) -> Router {
     let state = ServerState {
         auth: AuthService::new(&config),
         libraries: discover_library_roots(&config.library_root_dir)
             .map_err(|error| error.to_string()),
+        events: event_bus,
         operations: OperationCoordinator::default(),
         lifecycle,
         _write_queue: write_queue,
@@ -642,6 +802,7 @@ fn router_with_runtime(
         .route("/healthz", get(health))
         .route("/api/v1/auth/session", get(session))
         .route("/api/v1/libraries", get(libraries))
+        .route("/api/v1/events", get(events))
         .route("/api/v1/commands/{command}", post(command))
         .route("/api/v1/auth/logout", post(logout))
         .merge(login_route)
@@ -707,6 +868,8 @@ mod tests {
     use super::*;
     use axum::body::Body;
     use axum::http::{header, Request, StatusCode};
+    use futures_util::StreamExt;
+    use serde_json::json;
     use std::time::Duration;
     use tokio::sync::{Barrier, Notify};
     use tower::ServiceExt;
@@ -859,6 +1022,68 @@ mod tests {
         let value: serde_json::Value = serde_json::from_slice(&body).unwrap();
         assert_eq!(value["identifier"], "com.ihelio.soundrobe");
         assert_eq!(value["runtime"], "web");
+    }
+
+    #[tokio::test]
+    async fn authenticated_events_replay_sequenced_channel_data() {
+        let event_bus = EventBus::with_capacity(4);
+        event_bus
+            .publish("audit:event", &json!({ "message": "started" }))
+            .unwrap();
+        let app = router_with_runtime_and_events(
+            test_config(),
+            ServerLifecycle::default(),
+            WriteQueue::default(),
+            event_bus,
+        );
+        let login_response = login(app.clone(), "correct horse battery staple").await;
+        let cookie = login_response.headers()[header::SET_COOKIE].clone();
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri("/api/v1/events?channels=audit%3Aevent")
+                    .header(header::COOKIE, cookie)
+                    .header("last-event-id", "test:0")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(
+            response.headers()[header::CONTENT_TYPE],
+            "text/event-stream"
+        );
+        let mut body = response.into_body().into_data_stream();
+        let frame = body.next().await.unwrap().unwrap();
+        let text = String::from_utf8_lossy(&frame);
+        assert!(text.contains("id: test:1\n"));
+        assert!(text.contains("event: audit:event\n"));
+        assert!(text.contains(r#"data: {"message":"started"}"#));
+    }
+
+    #[tokio::test]
+    async fn active_event_stream_stops_when_lifecycle_is_cancelled() {
+        let lifecycle = ServerLifecycle::default();
+        let event_bus = EventBus::default();
+        let (_, receiver, _) = event_bus.replay_and_subscribe(0, Some("test"), &[]);
+        let state = EventStreamState {
+            replay: VecDeque::new(),
+            receiver,
+            channels: Vec::new(),
+            last_sequence: 0,
+            generation: event_bus.generation().to_string(),
+            cancellation: lifecycle.cancellation.clone(),
+            gap: false,
+            terminated: false,
+        };
+        let task = tokio::spawn(next_event(state));
+        tokio::task::yield_now().await;
+        lifecycle.begin_shutdown();
+
+        assert!(task.await.unwrap().is_none());
     }
 
     #[tokio::test]
@@ -1024,6 +1249,7 @@ mod tests {
         let state = ServerState {
             auth: AuthService::new(&config),
             libraries: Ok(LibraryRoots::default()),
+            events: EventBus::default(),
             operations: OperationCoordinator::default(),
             lifecycle: ServerLifecycle::default(),
             _write_queue: WriteQueue::default(),
@@ -1549,6 +1775,7 @@ mod tests {
         let state = ServerState {
             auth: AuthService::new(&test_config()),
             libraries: Ok(LibraryRoots::default()),
+            events: EventBus::default(),
             operations: OperationCoordinator::default(),
             lifecycle: ServerLifecycle::default(),
             _write_queue: WriteQueue::default(),

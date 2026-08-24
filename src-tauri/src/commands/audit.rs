@@ -12,9 +12,10 @@ use crate::{
         aliases::save_alias,
         openrouter::{ChatMessage, OpenRouterClient},
     },
-    state::{
-        config::ConfigState,
-        providers::{DiscogsAliasResolution, ProviderState, RemoteArtworkClient},
+        state::{
+            config::ConfigState,
+            events::{emit_event, EventSink},
+            providers::{DiscogsAliasResolution, ProviderState, RemoteArtworkClient},
         write_queue::WriteQueue,
     },
 };
@@ -25,7 +26,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
-use tauri::{AppHandle, Emitter, State};
+use tauri::{AppHandle, State};
 use unicode_normalization::UnicodeNormalization;
 
 const DETERMINISTIC_CONFIDENCE: f64 = 0.98;
@@ -1414,10 +1415,8 @@ fn track_patch_has_field(fields: &TrackPatch) -> bool {
         || !fields.disc_total.is_omitted()
 }
 
-fn emit_audit(app: &AppHandle, event: AuditEvent) {
-    if let Err(error) = app.emit("audit:event", event) {
-        tracing::warn!("failed to emit audit event: {error}");
-    }
+fn emit_audit<S: EventSink>(sink: &S, event: AuditEvent) {
+    emit_event(sink, "audit:event", &event);
 }
 
 fn audit_event(kind: &'static str, message: Option<String>) -> AuditEvent {

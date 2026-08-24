@@ -8,12 +8,12 @@ use std::io::{self, Write};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
-use tauri::{AppHandle, Emitter};
 use time::format_description::well_known::Rfc3339;
 use time::OffsetDateTime;
 use tracing_subscriber::fmt::MakeWriter;
 
 use crate::state::paths::app_dir;
+use crate::state::events::{emit_event, EventSink};
 
 #[derive(Clone)]
 pub(crate) struct GeneralLogWriter {
@@ -152,9 +152,9 @@ impl DebugState {
             .and_then(|inner| inner.log_file.clone())
     }
 
-    pub fn emit(
+    pub fn emit<S: EventSink>(
         &self,
-        app: &AppHandle,
+        sink: &S,
         level: &str,
         tag: &str,
         message: impl Into<String>,
@@ -185,7 +185,7 @@ impl DebugState {
             }
         }
         self.forwarded.fetch_add(1, Ordering::AcqRel);
-        let _ = app.emit("debug:log", entry);
+        emit_event(sink, "debug:log", &entry);
     }
 }
 

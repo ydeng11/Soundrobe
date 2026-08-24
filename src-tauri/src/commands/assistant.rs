@@ -24,6 +24,7 @@ use crate::state::assistant::{
 };
 use crate::state::config::ConfigState;
 use crate::state::conversation::{ConversationEntry, ConversationState};
+use crate::state::events::emit_event;
 use crate::state::providers::convert_chinese_text;
 use crate::state::providers::{DiscogsClient, MusicBrainzClient, ProviderState};
 use crate::state::write_queue::WriteQueue;
@@ -35,7 +36,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
-use tauri::{AppHandle, Emitter, State};
+use tauri::{AppHandle, State};
 
 const ASSISTANT_LLM_TIMEOUT_SECS: u64 = 120;
 const ASSISTANT_SESSION_TIMEOUT_SECS: u64 = 600;
@@ -757,7 +758,7 @@ pub async fn assistant_send(
                     "actionBatches": stored_batches
                 })),
             };
-            let _ = app.emit("assistant:event", &event);
+            emit_event(&app, "assistant:event", &event);
             return Ok(event);
         }
 
@@ -863,7 +864,7 @@ pub async fn assistant_send(
             message: assistant_step_message(step_number),
             data: None,
         };
-        let _ = app.emit("assistant:event", step);
+        emit_event(&app, "assistant:event", &step);
         let response = tokio::time::timeout_at(
             deadline,
             client.complete_json(
@@ -881,7 +882,7 @@ pub async fn assistant_send(
                 message: "Cancelled".into(),
                 data: None,
             };
-            let _ = app.emit("assistant:event", &event);
+            emit_event(&app, "assistant:event", &event);
             return Ok(event);
         }
         let response = match response {
@@ -1051,7 +1052,7 @@ pub async fn assistant_send(
                 data: None,
             };
             conversation.record("assistant_message", &event.message, Some(&model), 0, 0, 0);
-            let _ = app.emit("assistant:event", &event);
+            emit_event(&app, "assistant:event", &event);
             return Ok(event);
         }
         if would_repeat_tool_call(&signatures, &tool_call.tool_name, &tool_call.args) {
@@ -1074,7 +1075,7 @@ pub async fn assistant_send(
                 "toolArgs": tool_call.args
             })),
         };
-        let _ = app.emit("assistant:event", &running);
+        emit_event(&app, "assistant:event", &running);
         conversation.record(
             "tool_call",
             &serde_json::json!({
@@ -1180,7 +1181,7 @@ pub async fn assistant_send(
                 "error": result.error
             })),
         };
-        let _ = app.emit("assistant:event", &tool_result);
+        emit_event(&app, "assistant:event", &tool_result);
         if !result.ok {
             let validation_error = result
                 .error
@@ -1211,7 +1212,7 @@ pub async fn assistant_send(
                 })),
             };
             conversation.record("assistant_message", &event.message, Some(&model), 0, 0, 0);
-            let _ = app.emit("assistant:event", &event);
+            emit_event(&app, "assistant:event", &event);
             return Ok(event);
         }
         messages.push(ChatMessage {
@@ -1248,7 +1249,7 @@ pub async fn assistant_send(
             data: None,
         };
         conversation.record("assistant_message", &event.message, Some(&model), 0, 0, 0);
-        let _ = app.emit("assistant:event", &event);
+        emit_event(&app, "assistant:event", &event);
         return Ok(event);
     }
     match resolve_assistant_outcome(&draft, &pending_tool_batches, &session_id, &input) {
@@ -1302,7 +1303,7 @@ pub async fn assistant_send(
                 }
             };
             conversation.record("assistant_message", &event.message, Some(&model), 0, 0, 0);
-            let _ = app.emit("assistant:event", &event);
+            emit_event(&app, "assistant:event", &event);
             Ok(event)
         }
         Err(error) => assistant_error_event(&app, Some(session_id), &error.to_string()),
@@ -1336,7 +1337,7 @@ fn assistant_error_event_with_conversation(
         message: message.to_string(),
         data: None,
     };
-    let _ = app.emit("assistant:event", &event);
+    emit_event(app, "assistant:event", &event);
     Ok(event)
 }
 
@@ -3695,15 +3696,16 @@ pub fn assistant_cancel(
             "Failed to record assistant cancellation".to_string(),
         ));
     }
-    app.emit(
+    emit_event(
+        &app,
         "assistant:event",
-        AssistantEvent {
+        &AssistantEvent {
             session_id: current.session_id,
             event_type: "cancelled",
             message: "Session cancelled".to_string(),
             data: None,
         },
-    )?;
+    );
     Ok(())
 }
 
@@ -3740,15 +3742,16 @@ pub fn assistant_reject_actions(
         .current()
         .ok_or_else(|| ApiError::Message("No active assistant session".to_string()))?;
     conversation.record("system", &format!("Rejected: {title}"), None, 0, 0, 0);
-    app.emit(
+    emit_event(
+        &app,
         "assistant:event",
-        AssistantEvent {
+        &AssistantEvent {
             session_id: current.session_id,
             event_type: "action_batch_rejected",
             message: format!("Rejected: {title}"),
             data: Some(serde_json::json!({ "batchId": action_batch_id })),
         },
-    )?;
+    );
     Ok(())
 }
 
@@ -5112,9 +5115,10 @@ pub async fn assistant_apply_actions(
         let batch_id = action_batch_id.clone();
         Arc::new(
             move |phase: &'static str, current: u64, total: u64, message: String| {
-                let _ = app.emit(
+                emit_event(
+                    &app,
                     "assistant:event",
-                    AssistantEvent {
+                    &AssistantEvent {
                         session_id: session_id.clone(),
                         event_type: "action_batch_progress",
                         message,
@@ -5212,9 +5216,10 @@ pub async fn assistant_apply_actions(
         _ => return Ok(result),
     };
     conversation.record("system", &message, None, 0, 0, 0);
-    let _ = app.emit(
+    emit_event(
+        &app,
         "assistant:event",
-        AssistantEvent {
+        &AssistantEvent {
             session_id: current.session_id,
             event_type,
             message,
@@ -5286,9 +5291,10 @@ pub fn assistant_complete_task_actions(
     };
     if let Some(current) = conversation.current() {
         conversation.record("system", &message, None, 0, 0, 0);
-        let _ = app.emit(
+        emit_event(
+            &app,
             "assistant:event",
-            AssistantEvent {
+            &AssistantEvent {
                 session_id: current.session_id,
                 event_type,
                 message: message.clone(),

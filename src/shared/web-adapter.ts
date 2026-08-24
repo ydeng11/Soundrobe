@@ -12,7 +12,27 @@ import type { DesktopAPI } from "./desktop-api";
 export interface WebDesktopApiOptions {
   fetch?: typeof globalThis.fetch;
   baseUrl?: string;
+  eventSource?: (url: string) => WebEventSource;
 }
+
+export interface WebEventSource {
+  addEventListener: (type: string, listener: (event: WebEventMessage) => void) => void;
+  close: () => void;
+}
+
+interface WebEventMessage {
+  data: string;
+  lastEventId?: string;
+}
+
+const WEB_EVENT_CHANNELS = [
+  "auto-tag:event",
+  "tracks:write-event",
+  "audit:event",
+  "assistant:event",
+  "debug:log",
+  "soundrobe:replay-gap",
+] as const;
 
 function toError(reason: unknown): Error {
   if (reason instanceof Error) return reason;
@@ -25,6 +45,71 @@ function toError(reason: unknown): Error {
 
 function unsupportedWebAction(action: string): never {
   throw new Error(`${action} is unavailable in the web runtime`);
+}
+
+class WebEventBus {
+  private source: WebEventSource | null = null;
+  private lastEventId: string | null = null;
+  private readonly listeners = new Map<string, Set<(payload: unknown) => void>>();
+
+  constructor(
+    private readonly url: string,
+    private readonly createSource: (url: string) => WebEventSource,
+  ) {}
+
+  subscribe<T>(channel: string, callback: (payload: T) => void): () => void {
+    let channelListeners = this.listeners.get(channel);
+    if (!channelListeners) {
+      channelListeners = new Set();
+      this.listeners.set(channel, channelListeners);
+    }
+    channelListeners.add(callback as (payload: unknown) => void);
+    this.ensureSource();
+
+    return () => {
+      channelListeners?.delete(callback as (payload: unknown) => void);
+      if (channelListeners?.size === 0) {
+        this.listeners.delete(channel);
+      }
+      if (this.listeners.size === 0) {
+        this.source?.close();
+        this.source = null;
+      }
+    };
+  }
+
+  private ensureSource(): void {
+    if (this.source) return;
+    const channels = encodeURIComponent(WEB_EVENT_CHANNELS.join(","));
+    const cursor = this.lastEventId
+      ? `&after=${encodeURIComponent(this.lastEventId)}`
+      : "";
+    this.source = this.createSource(
+      `${this.url}/api/v1/events?channels=${channels}${cursor}`,
+    );
+    for (const channel of WEB_EVENT_CHANNELS) {
+      this.source.addEventListener(channel, (event) => {
+        this.lastEventId = event.lastEventId ?? this.lastEventId;
+        let payload: unknown;
+        try {
+          payload = JSON.parse(event.data) as unknown;
+        } catch (reason) {
+          console.error(`[soundrobe] invalid SSE payload for "${channel}":`, reason);
+          return;
+        }
+        for (const listener of this.listeners.get(channel) ?? []) {
+          listener(payload);
+        }
+      });
+    }
+    this.source.addEventListener("soundrobe:replay-gap", (event) => {
+      this.lastEventId = event.lastEventId ?? this.lastEventId;
+      console.error("[soundrobe] SSE replay gap; refresh is required:", event.data);
+      const source = this.source;
+      this.source = null;
+      source?.close();
+    });
+  }
 }
 
 function commandUrl(baseUrl: string, channel: string): string {
@@ -72,6 +157,16 @@ async function requestCommand<T>(
 export function createWebDesktopApi(options: WebDesktopApiOptions = {}): DesktopAPI {
   const fetchImpl = options.fetch ?? globalThis.fetch.bind(globalThis);
   const baseUrl = (options.baseUrl ?? "").replace(/\/$/, "");
+  const createSource =
+    options.eventSource ??
+    ((url: string) => {
+      if (typeof globalThis.EventSource !== "function") {
+        throw new Error("EventSource is unavailable in the web runtime");
+      }
+      return new globalThis.EventSource(url) as unknown as WebEventSource;
+    });
+  const eventBus = new WebEventBus(baseUrl, createSource);
+  let debugDisposer: (() => void) | null = null;
   const command = <T>(channel: string, payload?: Record<string, unknown>) =>
     requestCommand<T>(fetchImpl, baseUrl, channel, payload);
 
@@ -131,8 +226,9 @@ export function createWebDesktopApi(options: WebDesktopApiOptions = {}): Desktop
     autoTagAlbum: (albumPath) => command("album:auto-tag", { albumPath }),
     downloadAlbumLyrics: (albumPath) =>
       command("album:download-lyrics", { albumPath }),
-    onAutoTagEvent: () => unsupportedWebAction("onAutoTagEvent"),
-    onTrackWriteEvent: () => unsupportedWebAction("onTrackWriteEvent"),
+    onAutoTagEvent: (callback) => eventBus.subscribe("auto-tag:event", callback),
+    onTrackWriteEvent: (callback) =>
+      eventBus.subscribe("tracks:write-event", callback),
     getTaskProgress: (taskId) => command("task:progress", { taskId }),
     cancelTask: (taskId) => command("task:cancel", { taskId }),
     getDatasetStatus: () => command("dataset:status"),
@@ -146,7 +242,7 @@ export function createWebDesktopApi(options: WebDesktopApiOptions = {}): Desktop
     runAlbumAudit: (albumPath) => command("audit:run-album", { albumPath }),
     applyAuditFixes: (albumResults) =>
       command("audit:apply-fixes", { albumResults }),
-    onAuditEvent: () => unsupportedWebAction("onAuditEvent"),
+    onAuditEvent: (callback) => eventBus.subscribe("audit:event", callback),
     cancelAudit: () => command("audit:cancel"),
 
     // Assistant
@@ -167,10 +263,15 @@ export function createWebDesktopApi(options: WebDesktopApiOptions = {}): Desktop
     assistantInitServices: (config) => command("assistant:init-services", { config }),
     testLlmConnection: (apiKey, model, provider, baseUrl) =>
       command("test-llm-connection", { apiKey, model, provider, baseUrl }),
-    onAssistantEvent: () => unsupportedWebAction("onAssistantEvent"),
+    onAssistantEvent: (callback) => eventBus.subscribe("assistant:event", callback),
 
-    // Debug and window focus are desktop-only until the web event bus lands.
-    subscribeDebugLogs: () => command("debug:subscribe"),
+    // Debug logs use the shared SSE connection; focus is a browser no-op.
+    subscribeDebugLogs: async () => {
+      if (debugDisposer) return;
+      debugDisposer = eventBus.subscribe("debug:log", (entry) => {
+        console.debug("[soundrobe]", entry);
+      });
+    },
     setDebugMode: (enabled) => command("debug:set-mode", { enabled }),
     onFocus: async () => {},
 

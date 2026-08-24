@@ -1,10 +1,19 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-import { createWebDesktopApi } from "../../src/shared/web-adapter";
+import {
+  createWebDesktopApi,
+  type WebEventSource,
+} from "../../src/shared/web-adapter";
 
 describe("web-adapter command transport", () => {
   const fetchMock = vi.fn();
+  const eventSourceMock = vi.fn<(url: string) => WebEventSource>();
+  const eventHandlers = new Map<
+    string,
+    (event: { data: string; lastEventId?: string }) => void
+  >();
+  const eventSourceClose = vi.fn();
   let api: ReturnType<typeof createWebDesktopApi>;
 
   beforeEach(() => {
@@ -17,7 +26,19 @@ describe("web-adapter command transport", () => {
         }),
       ),
     );
-    api = createWebDesktopApi({ fetch: fetchMock });
+    eventHandlers.clear();
+    eventSourceClose.mockReset();
+    eventSourceMock.mockReset();
+    eventSourceMock.mockImplementation((url) => ({
+      addEventListener: (type, listener) => {
+        eventHandlers.set(type, listener);
+      },
+      close: eventSourceClose,
+    }));
+    api = createWebDesktopApi({
+      fetch: fetchMock,
+      eventSource: eventSourceMock,
+    });
   });
 
   it("posts appInfo to the typed command endpoint", async () => {
@@ -95,7 +116,6 @@ describe("web-adapter command transport", () => {
       ["assistantInitRuntime", () => api.assistantInitRuntime(), "assistant:init-runtime"],
       ["assistantInitServices", () => api.assistantInitServices({ apiKey: "key" }), "assistant:init-services"],
       ["testLlmConnection", () => api.testLlmConnection("key", "model"), "test-llm-connection"],
-      ["subscribeDebugLogs", () => api.subscribeDebugLogs(), "debug:subscribe"],
       ["setDebugMode", () => api.setDebugMode(true), "debug:set-mode"],
       ["searchReleases", () => api.searchReleases({ provider: "musicbrainz" }), "album:search-releases"],
       ["resolveRelease", () => api.resolveRelease("musicbrainz", "release"), "album:resolve-release"],
@@ -126,14 +146,57 @@ describe("web-adapter command transport", () => {
     }
   });
 
-  it.each([
-    ["onAutoTagEvent", "onAutoTagEvent"],
-    ["onTrackWriteEvent", "onTrackWriteEvent"],
-    ["onAuditEvent", "onAuditEvent"],
-    ["onAssistantEvent", "onAssistantEvent"],
-  ] as const)("fails loudly until the %s SSE channel is available", (method, action) => {
-    const fn = (api as unknown as Record<string, (callback: () => void) => unknown>)[method];
-    expect(() => fn(() => {})).toThrow(`${action} is unavailable in the web runtime`);
+  it("multiplexes event channels over one SSE connection and disposes it", () => {
+    const received: unknown[] = [];
+    const dispose = api.onAutoTagEvent((event) => received.push(event));
+    const secondDispose = api.onAssistantEvent(() => {});
+
+    expect(eventSourceMock).toHaveBeenCalledTimes(1);
+    expect(eventSourceMock.mock.calls[0][0]).toBe(
+      "/api/v1/events?channels=auto-tag%3Aevent%2Ctracks%3Awrite-event%2Caudit%3Aevent%2Cassistant%3Aevent%2Cdebug%3Alog%2Csoundrobe%3Areplay-gap",
+    );
+    eventHandlers.get("auto-tag:event")?.({
+      data: JSON.stringify({ taskId: "task", type: "progress" }),
+    });
+    expect(received).toEqual([{ taskId: "task", type: "progress" }]);
+
+    dispose();
+    expect(eventSourceClose).not.toHaveBeenCalled();
+    secondDispose();
+    expect(eventSourceClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("forwards debug events through the web console subscription", async () => {
+    const debugSpy = vi.spyOn(console, "debug").mockImplementation(() => {});
+    await api.subscribeDebugLogs();
+
+    eventHandlers.get("debug:log")?.({ data: JSON.stringify({ tag: "web" }) });
+    expect(debugSpy).toHaveBeenCalledWith("[soundrobe]", { tag: "web" });
+    debugSpy.mockRestore();
+  });
+
+  it("retains the last event cursor when a source is recreated", () => {
+    const dispose = api.onAutoTagEvent(() => {});
+    eventHandlers.get("auto-tag:event")?.({
+      data: JSON.stringify({ taskId: "task" }),
+      lastEventId: "test:4",
+    });
+    dispose();
+
+    api.onAutoTagEvent(() => {});
+    expect(eventSourceMock.mock.calls[1][0]).toContain("after=test%3A4");
+  });
+
+  it("closes the SSE source after a replay gap instead of reconnecting forever", () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    api.onAutoTagEvent(() => {});
+
+    eventHandlers.get("soundrobe:replay-gap")?.({
+      data: JSON.stringify({ message: "resync required" }),
+    });
+
+    expect(eventSourceClose).toHaveBeenCalledTimes(1);
+    errorSpy.mockRestore();
   });
 
   it("converts stable JSON HTTP errors into rejected Errors", async () => {

@@ -6,7 +6,7 @@ use sha2::{Digest, Sha256};
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
-use tauri::{AppHandle, Emitter, Manager, State};
+use tauri::{AppHandle, Manager, State};
 
 use crate::{
     commands::{
@@ -33,6 +33,7 @@ use crate::{
         write_queue::WriteQueue,
     },
 };
+use crate::state::events::emit_event;
 
 use super::track_matcher::{match_remote_candidate_tracks, MatchEvidence};
 
@@ -1941,9 +1942,10 @@ pub fn album_auto_tag(
             move |step, message| {
                 let tasks = progress_app.state::<TaskRegistry>();
                 if tasks.update(&progress_task_id, step, message) {
-                    let _ = progress_app.emit(
+                    emit_event(
+                        &progress_app,
                         "auto-tag:event",
-                        auto_tag_event(&progress_task_id, "progress", message, step, None),
+                        &auto_tag_event(&progress_task_id, "progress", message, step, None),
                     );
                 }
             },
@@ -1953,9 +1955,10 @@ pub fn album_auto_tag(
                     .get(&report_task_id)
                     .map(|task| task.progress)
                     .unwrap_or(0);
-                let _ = report_app.emit(
+                emit_event(
+                    &report_app,
                     "auto-tag:event",
-                    auto_tag_event(&report_task_id, kind, message, progress, data),
+                    &auto_tag_event(&report_task_id, kind, message, progress, data),
                 );
             },
         )
@@ -1971,9 +1974,10 @@ pub fn album_auto_tag(
                     message,
                     data.clone(),
                 );
-                let _ = app.emit(
+                emit_event(
+                    &app,
                     "auto-tag:event",
-                    auto_tag_event(&spawned_task_id, "completed", message, 9, Some(data)),
+                    &auto_tag_event(&spawned_task_id, "completed", message, 9, Some(data)),
                 );
             }
             Err(error) if cancelled.load(Ordering::Acquire) => {
@@ -1987,9 +1991,10 @@ pub fn album_auto_tag(
                     "Cancelled",
                     serde_json::Value::Null,
                 );
-                let _ = app.emit(
+                emit_event(
+                    &app,
                     "auto-tag:event",
-                    auto_tag_event(&spawned_task_id, "cancelled", "Cancelled", progress, None),
+                    &auto_tag_event(&spawned_task_id, "cancelled", "Cancelled", progress, None),
                 );
                 tracing::debug!(%error, "auto-tag task cancelled");
             }
@@ -1997,9 +2002,10 @@ pub fn album_auto_tag(
                 let message = error.to_string();
                 let data = serde_json::json!({"error": message});
                 tasks.finish(&spawned_task_id, TaskStatus::Failed, &message, data.clone());
-                let _ = app.emit(
+                emit_event(
+                    &app,
                     "auto-tag:event",
-                    auto_tag_event(&spawned_task_id, "failed", message, 0, Some(data)),
+                    &auto_tag_event(&spawned_task_id, "failed", message, 0, Some(data)),
                 );
             }
         }

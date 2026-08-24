@@ -6,6 +6,7 @@ use crate::commands::tracks::{
     id3_user_text_values, read_track_metadata, strip_wav_padding, unreadable_track_data, TrackData,
 };
 use crate::error::ApiError;
+use crate::state::events::{emit_event, EventSink};
 use crate::state::write_queue::WriteQueue;
 use lofty::ape::{ApeFile, ApeItem, ApeTag};
 use lofty::config::{ParseOptions, WriteOptions};
@@ -33,7 +34,7 @@ use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
-use tauri::{Emitter, State};
+use tauri::State;
 
 static TEMP_SEQUENCE: AtomicU64 = AtomicU64::new(0);
 
@@ -978,14 +979,15 @@ async fn join_folder_workers(
 async fn batch_write_queued(
     queue: &WriteQueue,
     updates: Vec<TrackUpdate>,
-    progress_tracker: Option<(tauri::AppHandle, u64)>,
+    progress_tracker: Option<(Arc<dyn EventSink>, u64)>,
     accum: &Arc<Mutex<BatchAccumulator>>,
 ) -> Result<(), ApiError> {
-    let progress = progress_tracker.map(|(app, _)| {
+    let progress = progress_tracker.map(|(sink, _)| {
         Arc::new(move |current, total| {
-            let _ = app.emit(
+            emit_event(
+                &sink,
                 "tracks:write-event",
-                TrackWriteEvent {
+                &TrackWriteEvent {
                     current,
                     total,
                     message: format!("Writing {current}/{total}"),
@@ -1077,7 +1079,13 @@ async fn batch_write_with_readback(
     let input_paths: Vec<String> = updates.iter().map(|u| u.path.clone()).collect();
     let total = updates.len() as u64;
     let accum = Arc::new(Mutex::new(BatchAccumulator::default()));
-    batch_write_queued(queue, updates, app.map(|a| (a, total)), &accum).await?;
+    batch_write_queued(
+        queue,
+        updates,
+        app.map(|a| (Arc::new(a) as Arc<dyn EventSink>, total)),
+        &accum,
+    )
+    .await?;
     let mut acc = accum.lock().expect("accum lock poisoned");
     let successes: std::collections::HashSet<String> = acc.successes.drain(..).collect();
     let failures = acc.failures.clone();

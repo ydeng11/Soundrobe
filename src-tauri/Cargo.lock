@@ -3901,6 +3901,7 @@ dependencies = [
  "chardetng",
  "dirs",
  "encoding_rs",
+ "futures-util",
  "image",
  "libc",
  "lofty",

@@ -22,6 +22,8 @@ pub mod conversation;
 pub mod library;
 #[cfg(feature = "server")]
 pub mod operation;
+#[cfg(any(feature = "desktop", feature = "server"))]
+pub mod events;
 #[cfg(feature = "desktop")]
 pub mod providers;
 #[cfg(feature = "desktop")]
