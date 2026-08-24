@@ -66,6 +66,7 @@ use crate::state::{
         MAX_COVER_UPLOAD_BYTES,
     },
     config::{ConfigSetError, ConfigState},
+    conversation::ConversationState,
     audit::AuditState,
     events::{EventBus, EventEnvelope},
     library::{
@@ -229,6 +230,7 @@ struct ServerState {
     audit: Arc<AuditState>,
     cache: Arc<CacheState>,
     tasks: Arc<TaskRegistry>,
+    conversations: Arc<ConversationState>,
 }
 
 #[derive(Clone, Default)]
@@ -550,6 +552,20 @@ struct TaskProgressCommandRequest {
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
+struct AssistantListSessionsCommandRequest {
+    #[serde(default)]
+    limit: Option<i64>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct AssistantSessionCommandRequest {
+    #[serde(rename = "sessionUuidOrNumber")]
+    session_uuid_or_number: String,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 struct OrganizerCommandRequest {
     #[serde(rename = "sourceDir")]
     source_dir: String,
@@ -793,6 +809,10 @@ fn supported_web_command(command: &str) -> bool {
             | "task:progress"
             | "task:cancel"
             | "dataset:status"
+            | "assistant:list-sessions"
+            | "assistant:get-conversation"
+            | "assistant:get-session"
+            | "assistant:current-session"
             | "audit:run"
             | "audit:run-specified"
             | "audit:run-album"
@@ -1705,6 +1725,49 @@ async fn command(
                 Err(_) => error_response(StatusCode::INTERNAL_SERVER_ERROR, "dataset status failed"),
             }
         }
+        "assistant:list-sessions" => {
+            let request = match decode_command_payload::<AssistantListSessionsCommandRequest>(payload) {
+                Ok(request) => request,
+                Err(_) => return error_response(StatusCode::BAD_REQUEST, "invalid command request"),
+            };
+            let conversations = state.conversations.clone();
+            match tokio::task::spawn_blocking(move || conversations.sessions(request.limit.unwrap_or(50))).await {
+                Ok(sessions) => Json(sessions).into_response(),
+                Err(_) => error_response(StatusCode::INTERNAL_SERVER_ERROR, "conversation query failed"),
+            }
+        }
+        "assistant:get-conversation" => {
+            let request = match decode_command_payload::<AssistantSessionCommandRequest>(payload) {
+                Ok(request) => request,
+                Err(_) => return error_response(StatusCode::BAD_REQUEST, "invalid command request"),
+            };
+            let conversations = state.conversations.clone();
+            match tokio::task::spawn_blocking(move || conversations.conversation(&request.session_uuid_or_number)).await {
+                Ok(entries) => Json(entries).into_response(),
+                Err(_) => error_response(StatusCode::INTERNAL_SERVER_ERROR, "conversation query failed"),
+            }
+        }
+        "assistant:get-session" => {
+            let request = match decode_command_payload::<AssistantSessionCommandRequest>(payload) {
+                Ok(request) => request,
+                Err(_) => return error_response(StatusCode::BAD_REQUEST, "invalid command request"),
+            };
+            let conversations = state.conversations.clone();
+            match tokio::task::spawn_blocking(move || conversations.session(&request.session_uuid_or_number)).await {
+                Ok(session) => Json(session).into_response(),
+                Err(_) => error_response(StatusCode::INTERNAL_SERVER_ERROR, "conversation query failed"),
+            }
+        }
+        "assistant:current-session" => {
+            if decode_command_payload::<EmptyCommandRequest>(payload).is_err() {
+                return error_response(StatusCode::BAD_REQUEST, "invalid command request");
+            }
+            let conversations = state.conversations.clone();
+            match tokio::task::spawn_blocking(move || conversations.current()).await {
+                Ok(session) => Json(session).into_response(),
+                Err(_) => error_response(StatusCode::INTERNAL_SERVER_ERROR, "conversation query failed"),
+            }
+        }
         "lyrics:fetch" => {
             let request = match decode_command_payload::<LyricsFetchCommandRequest>(payload) {
                 Ok(request) => request,
@@ -2244,6 +2307,8 @@ fn router_with_runtime_and_events(
     let cache = Arc::new(CacheState::new_in(config.data_dir.clone()));
     let _ = cache.initialize(config_state.raw().cache_path.as_deref());
     let tasks = Arc::new(TaskRegistry::default());
+    let conversations = Arc::new(ConversationState::new_in(config.data_dir.clone()));
+    let _ = conversations.initialize(config_state.raw().cache_path.as_deref());
     let web_root = safe_web_root(&config.web_root);
     let spa = ServeDir::new(&web_root).fallback(ServeFile::new(web_root.join("index.html")));
     let state = ServerState {
@@ -2260,6 +2325,7 @@ fn router_with_runtime_and_events(
         write_queue,
         cache,
         tasks,
+        conversations,
     };
     let login_route = Router::new()
         .route("/api/v1/auth/login", post(login))
@@ -4137,6 +4203,38 @@ mod tests {
         assert!(supported_web_command("dataset:status"));
     }
 
+    #[tokio::test]
+    async fn authenticated_command_transport_exposes_current_assistant_session() {
+        let app = router(test_config());
+        let login_response = login(app.clone(), "correct horse battery staple").await;
+        let cookie = login_response.headers()[header::SET_COOKIE].clone();
+
+        let response = app
+            .oneshot(
+                origin_request(
+                    Request::builder()
+                        .method("POST")
+                        .uri("/api/v1/commands/assistant%3Acurrent-session")
+                        .header(header::COOKIE, cookie)
+                        .header(header::CONTENT_TYPE, "application/json")
+                        .body(Body::from("{}"))
+                        .unwrap(),
+                ),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        let session: serde_json::Value = serde_json::from_slice(
+            &axum::body::to_bytes(response.into_body(), usize::MAX)
+                .await
+                .unwrap(),
+        )
+        .unwrap();
+        assert!(session["sessionId"].is_string());
+        assert!(session["sessionNumber"].is_string());
+    }
+
     #[test]
     fn web_debug_state_changes_for_the_running_server() {
         let state = WebDebugState::new(false);
@@ -4163,6 +4261,7 @@ mod tests {
             audit: Arc::new(AuditState::default()),
             cache: Arc::new(CacheState::new_in(config.data_dir.clone())),
             tasks: Arc::new(TaskRegistry::default()),
+            conversations: Arc::new(ConversationState::new_in(config.data_dir.clone())),
         };
         let _active = state
             .operations
@@ -4696,6 +4795,7 @@ mod tests {
             audit: Arc::new(AuditState::default()),
             cache: Arc::new(CacheState::new_in(config.data_dir.clone())),
             tasks: Arc::new(TaskRegistry::default()),
+            conversations: Arc::new(ConversationState::new_in(config.data_dir.clone())),
         };
         let app = Router::new()
             .route("/boom", get(|| async { StatusCode::INTERNAL_SERVER_ERROR }))
