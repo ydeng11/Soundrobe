@@ -13,18 +13,23 @@
 //! cached credentials from the resulting live config, matching Electron's
 //! `setStoredConfig` synchronization without exposing secrets to the renderer.
 
-use serde_json::{json, Value};
+use serde_json::json;
+#[cfg(feature = "desktop")]
+use serde_json::Value;
+#[cfg(feature = "desktop")]
 use tauri::State;
 
 use crate::error::ApiError;
 use crate::infra::is_not_redacted;
 use crate::infra::openrouter::{LlmEndpoint, OpenRouterClient};
+#[cfg(feature = "desktop")]
 use crate::state::assistant::AssistantServicesState;
 use crate::state::config::ConfigState;
 
 /// `getConfig()` — redacted renderer view. Sync because `ConfigState` is a
 /// `Mutex` snapshot (no async work); never rejects so renderer `try/catch` is a
 /// no-op (matches Electron, which catches and returns / logs).
+#[cfg(feature = "desktop")]
 #[tauri::command]
 pub fn config_get(state: State<'_, ConfigState>) -> Value {
     state.redacted()
@@ -32,6 +37,7 @@ pub fn config_get(state: State<'_, ConfigState>) -> Value {
 
 /// `setConfig(key, value)` — persist a renderer camelCase key and refresh.
 /// Sync; never rejects — failures are logged inside `ConfigState::set`.
+#[cfg(feature = "desktop")]
 #[tauri::command]
 pub fn config_set(
     state: State<'_, ConfigState>,
@@ -59,6 +65,7 @@ pub fn config_set(
 /// persistent config (file/env).  When `provider` is absent the command
 /// falls back to the stored config value.  This lets users test an
 /// already-configured key without re-entering it in Settings.
+#[cfg(feature = "desktop")]
 #[tauri::command]
 pub async fn test_llm_connection(
     api_key: String,
@@ -67,11 +74,31 @@ pub async fn test_llm_connection(
     base_url: Option<String>,
     config: State<'_, ConfigState>,
 ) -> Result<serde_json::Value, ApiError> {
+    test_llm_connection_at(
+        &api_key,
+        &model,
+        provider.as_deref(),
+        base_url.as_deref(),
+        &config,
+    )
+    .await
+}
+
+/// Test an LLM connection using a shared config snapshot. The desktop and
+/// server transports both call this helper so credential resolution and
+/// redaction rules cannot drift between runtimes.
+pub async fn test_llm_connection_at(
+    api_key: &str,
+    model: &str,
+    provider: Option<&str>,
+    base_url: Option<&str>,
+    config: &ConfigState,
+) -> Result<serde_json::Value, ApiError> {
     let raw = config.raw();
     // Resolve api_key: explicit (from renderer) → config file/env.
     // Redacted placeholders ("****...") from the UI must be rejected —
     // the real key always lives in ConfigState.
-    let effective_key = if api_key.is_empty() || !is_not_redacted(&api_key) {
+    let effective_key = if api_key.is_empty() || !is_not_redacted(api_key) {
         raw.llm_api_key
             .as_deref()
             .filter(|k| is_not_redacted(k))
@@ -83,7 +110,7 @@ pub async fn test_llm_connection(
             })?
             .to_string()
     } else {
-        api_key
+        api_key.to_string()
     };
     let effective_model = if model.is_empty() {
         raw.llm_model
@@ -97,17 +124,15 @@ pub async fn test_llm_connection(
             })?
             .to_string()
     } else {
-        model
+        model.to_string()
     };
     // Resolve provider + base_url: explicit → config → defaults.
     let effective_provider = provider
-        .as_deref()
         .filter(|p| !p.is_empty())
         .or(raw.llm_provider.as_deref());
     let endpoint = LlmEndpoint::from_config(
         effective_provider,
         base_url
-            .as_deref()
             .filter(|u| !u.is_empty())
             .or(raw.llm_base_url.as_deref()),
     );

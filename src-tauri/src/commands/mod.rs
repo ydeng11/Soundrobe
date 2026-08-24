@@ -32,8 +32,9 @@ pub mod audit;
 /// `album:auto-tag` candidate normalization and orchestration.
 #[cfg(feature = "desktop")]
 pub mod auto_tag;
-/// `config:get`/`config:set` (redacted) — `electron/handlers/auto-tag.ts`.
-#[cfg(feature = "desktop")]
+/// `config:get`/`config:set` (redacted) and LLM connection checks —
+/// `electron/handlers/auto-tag.ts`.
+#[cfg(any(feature = "desktop", feature = "server"))]
 pub mod configuration;
 /// `assistant:list-sessions` / `get-conversation` / `get-session` / `current-session`.
 #[cfg(feature = "desktop")]

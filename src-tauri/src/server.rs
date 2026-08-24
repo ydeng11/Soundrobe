@@ -41,6 +41,7 @@ use crate::commands::album_search::{
 use crate::commands::covers::{
     download_album_artwork_at, download_artist_artwork_at, remote_client, ArtistArtResult,
 };
+use crate::commands::configuration::test_llm_connection_at;
 use crate::commands::organizer::{sort_by_album, SortByAlbumOptions};
 use crate::commands::mutations::{
     batch_write_with_readback, delete_files_queued, rename_track_queued,
@@ -417,6 +418,18 @@ struct ConfigSetCommandRequest {
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
+struct TestLlmConnectionCommandRequest {
+    #[serde(rename = "apiKey", default)]
+    api_key: String,
+    model: String,
+    #[serde(default)]
+    provider: Option<String>,
+    #[serde(rename = "baseUrl", default)]
+    base_url: Option<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 struct DebugSetModeCommandRequest {
     enabled: bool,
 }
@@ -749,6 +762,7 @@ fn supported_web_command(command: &str) -> bool {
             | "file:exists"
             | "config:get"
             | "config:set"
+            | "test-llm-connection"
             | "debug:set-mode"
     )
 }
@@ -934,6 +948,32 @@ async fn command(
                 ),
                 Err(ConfigSetError::Persistence) => {
                     error_response(StatusCode::INTERNAL_SERVER_ERROR, "config persistence failed")
+                }
+            }
+        }
+        "test-llm-connection" => {
+            let request = match decode_command_payload::<TestLlmConnectionCommandRequest>(payload) {
+                Ok(request) => request,
+                Err(_) => return error_response(StatusCode::BAD_REQUEST, "invalid command request"),
+            };
+            match test_llm_connection_at(
+                &request.api_key,
+                &request.model,
+                request.provider.as_deref(),
+                request.base_url.as_deref(),
+                &state.config,
+            )
+            .await
+            {
+                Ok(result) => Json(result).into_response(),
+                Err(crate::error::ApiError::Message(message))
+                    if message.starts_with("No API key provided")
+                        || message.starts_with("No model provided") =>
+                {
+                    error_response(StatusCode::BAD_REQUEST, message)
+                }
+                Err(crate::error::ApiError::Message(_)) | Err(_) => {
+                    error_response(StatusCode::BAD_GATEWAY, "LLM connection failed")
                 }
             }
         }
@@ -2150,6 +2190,35 @@ mod tests {
         let value: serde_json::Value = serde_json::from_slice(&body).unwrap();
         assert_eq!(value["identifier"], "com.ihelio.soundrobe");
         assert_eq!(value["runtime"], "web");
+    }
+
+    #[tokio::test]
+    async fn authenticated_command_transport_validates_llm_test_payload_without_network() {
+        let app = router(test_config());
+        let login_response = login(app.clone(), "correct horse battery staple").await;
+        let cookie = login_response.headers()[header::SET_COOKIE].clone();
+
+        let response = app
+            .oneshot(
+                origin_request(
+                    Request::builder()
+                        .method("POST")
+                        .uri("/api/v1/commands/test-llm-connection")
+                        .header(header::COOKIE, cookie)
+                        .header(header::CONTENT_TYPE, "application/json")
+                        .body(Body::from(r#"{"apiKey":"x","model":""}"#))
+                        .unwrap(),
+                ),
+            )
+            .await
+            .unwrap();
+
+        assert_json_error(
+            response,
+            StatusCode::BAD_REQUEST,
+            r#"{"error":"No model provided and none configured. Set LLM_MODEL in Settings or env."}"#,
+        )
+        .await;
     }
 
     #[tokio::test]
