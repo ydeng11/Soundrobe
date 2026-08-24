@@ -16,9 +16,12 @@
 //! reads per-track metadata via the `music-metadata` Node library; that depends
 //! on the Rust audio-tag strategy decided separately.
 
+#[cfg(feature = "desktop")]
 use crate::commands::tracks::{read_album, AlbumDetail};
+#[cfg(feature = "desktop")]
 use crate::error::ApiError;
 pub use crate::state::library::LibraryRoot;
+#[cfg(feature = "desktop")]
 use std::path::{Path, PathBuf};
 
 pub use crate::state::library::{
@@ -29,6 +32,7 @@ pub use crate::state::library::{
 /// otherwise returns the album list. We surface the missing-path error to keep
 /// renderer-visible behavior identical (Electron's `scanDirectory` throws and
 /// the handler propagates it).
+#[cfg(feature = "desktop")]
 #[tauri::command]
 pub fn library_scan(dir_path: String) -> Result<Vec<AlbumInfo>, String> {
     let path = PathBuf::from(&dir_path);
@@ -40,6 +44,7 @@ pub fn library_scan(dir_path: String) -> Result<Vec<AlbumInfo>, String> {
 
 /// `library:list-roots` command. Mounted roots are supplied only by the web
 /// service; the desktop shell continues to select arbitrary folders natively.
+#[cfg(feature = "desktop")]
 #[tauri::command]
 pub fn library_list_roots() -> Result<Vec<LibraryRoot>, ApiError> {
     Ok(Vec::new())
@@ -47,12 +52,13 @@ pub fn library_list_roots() -> Result<Vec<LibraryRoot>, ApiError> {
 
 /// `album:refresh` / `refreshAlbum()`: Electron delegates directly to
 /// `readAlbum`, so use the same read-only implementation and error behavior.
+#[cfg(feature = "desktop")]
 #[tauri::command]
 pub fn album_refresh(album_path: String) -> Result<AlbumDetail, ApiError> {
     read_album(Path::new(&album_path))
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "desktop"))]
 mod tests {
     use super::*;
     use std::fs;

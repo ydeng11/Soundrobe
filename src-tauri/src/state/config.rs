@@ -805,10 +805,10 @@ mod tests {
         let state = ConfigState::init_with_env(home.clone(), Arc::new(EnvMap::new()));
 
         let error = state
-            .try_set("assistantAutonomous", &json!(true))
+            .try_set("notARealKey", &json!(true))
             .expect_err("unknown settings must fail explicitly");
 
-        assert_eq!(error.to_string(), "unsupported config key: assistantAutonomous");
+        assert_eq!(error.to_string(), "unsupported config key: notARealKey");
         assert!(!config_file_path(&home).exists());
     }
 

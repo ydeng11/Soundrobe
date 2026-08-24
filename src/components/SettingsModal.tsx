@@ -251,7 +251,7 @@ export function SettingsModal({
                         setSettings({
                           ...settings,
                           llmProvider: provider,
-                          llmBaseUrl: baseUrl || settings.llmBaseUrl,
+                          llmBaseUrl: baseUrl,
                           llmModel: defaultModel || settings.llmModel,
                         });
                       }}

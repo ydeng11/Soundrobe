@@ -30,6 +30,12 @@ use tokio_util::sync::CancellationToken;
 use url::Url;
 use uuid::Uuid;
 
+use crate::commands::mutations::{
+    batch_write_with_readback, delete_files_queued, rename_track_queued,
+    write_extra_tags_batch_with_readback, write_extra_tags_with_readback,
+    write_track_with_readback, ExtraTagBatchUpdate, ExtraTagUpdate, TrackPatch, TrackUpdate,
+};
+use crate::commands::tracks::read_extra_tags;
 use crate::state::{
     album::{
         cover_data_url, read_album_with_cancellation, remove_cover, write_cover_upload,
@@ -39,7 +45,7 @@ use crate::state::{
     events::{EventBus, EventEnvelope},
     library::{
         discover_library_roots, list_directory_entries, scan_directory_with_cancellation,
-        LibraryRoots, PathSecurityError,
+        ConfinedPath, LibraryRoots, PathSecurityError,
     },
     operation::{OperationCoordinator, OperationKind},
     paths::AppDataPaths,
@@ -184,7 +190,29 @@ struct ServerState {
     events: EventBus,
     operations: OperationCoordinator,
     lifecycle: ServerLifecycle,
+    debug: WebDebugState,
     write_queue: WriteQueue,
+}
+
+#[derive(Clone, Default)]
+struct WebDebugState {
+    enabled: Arc<AtomicBool>,
+}
+
+impl WebDebugState {
+    fn new(enabled: bool) -> Self {
+        let state = Self::default();
+        state.set_enabled(enabled);
+        state
+    }
+
+    fn set_enabled(&self, enabled: bool) {
+        self.enabled.store(enabled, Ordering::Release);
+    }
+
+    fn enabled(&self) -> bool {
+        self.enabled.load(Ordering::Acquire)
+    }
 }
 
 #[derive(Clone, Default)]
@@ -363,6 +391,56 @@ struct ConfigSetCommandRequest {
 #[serde(deny_unknown_fields)]
 struct DebugSetModeCommandRequest {
     enabled: bool,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct TrackWriteCommandRequest {
+    path: String,
+    fields: TrackPatch,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct TrackBatchWriteCommandRequest {
+    updates: Vec<TrackUpdate>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ExtraTagsReadCommandRequest {
+    #[serde(rename = "trackPath")]
+    track_path: String,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ExtraTagsWriteCommandRequest {
+    #[serde(rename = "trackPath")]
+    track_path: String,
+    tags: Vec<ExtraTagUpdate>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ExtraTagsBatchWriteCommandRequest {
+    updates: Vec<ExtraTagBatchUpdate>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct TrackRenameCommandRequest {
+    #[serde(rename = "oldPath")]
+    old_path: String,
+    #[serde(rename = "newPath")]
+    new_path: String,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct TrackDeleteCommandRequest {
+    #[serde(rename = "filePaths")]
+    file_paths: Vec<String>,
 }
 
 #[derive(Deserialize)]
@@ -563,6 +641,13 @@ fn supported_web_command(command: &str) -> bool {
             | "library:list-roots"
             | "library:scan"
             | "album:read"
+            | "track:write"
+            | "tracks:batch-write"
+            | "track:extra-tags:read"
+            | "track:extra-tags:write"
+            | "tracks:batch-write-extra-tags"
+            | "track:rename"
+            | "track:delete-files"
             | "cover:data-url"
             | "cover:remove"
             | "directory:list"
@@ -589,6 +674,47 @@ fn scan_path_error(error: PathSecurityError) -> Response {
             error_response(StatusCode::INTERNAL_SERVER_ERROR, "library path unavailable")
         }
     }
+}
+
+fn media_error(error: crate::error::ApiError) -> Response {
+    match error {
+        crate::error::ApiError::NotImplemented(_)
+        | crate::error::ApiError::UnsupportedFormat(_)
+        | crate::error::ApiError::Message(_) => {
+            error_response(StatusCode::BAD_REQUEST, "unsupported media operation")
+        }
+        crate::error::ApiError::Io(_)
+        | crate::error::ApiError::Lofty(_)
+        | crate::error::ApiError::MediaSafety(_)
+        | crate::error::ApiError::WriteTask(_)
+        | crate::error::ApiError::ReadTask(_) => {
+            error_response(StatusCode::INTERNAL_SERVER_ERROR, "media operation failed")
+        }
+        #[cfg(feature = "desktop")]
+        crate::error::ApiError::Tauri(_) => {
+            error_response(StatusCode::INTERNAL_SERVER_ERROR, "media operation failed")
+        }
+        crate::error::ApiError::ContextMenuAlreadyActive
+        | crate::error::ApiError::ContextMenuStatePoisoned => {
+            error_response(StatusCode::INTERNAL_SERVER_ERROR, "media operation failed")
+        }
+    }
+}
+
+fn resolve_existing_track(
+    roots: &LibraryRoots,
+    supplied: &str,
+) -> Result<ConfinedPath, Box<Response>> {
+    let resolved = roots
+        .resolve_path(Path::new(supplied))
+        .map_err(|error| Box::new(scan_path_error(error)))?;
+    if !resolved.path.is_file() {
+        return Err(Box::new(error_response(
+            StatusCode::BAD_REQUEST,
+            "track path not found",
+        )));
+    }
+    Ok(resolved)
 }
 
 async fn command(
@@ -722,7 +848,20 @@ async fn command(
                 Err(_) => return error_response(StatusCode::BAD_REQUEST, "invalid command request"),
             };
             match state.config.try_set("debug", &request.enabled.into()) {
-                Ok(()) => Json(serde_json::Value::Null).into_response(),
+                Ok(()) => {
+                    state.debug.set_enabled(request.enabled);
+                    if state.debug.enabled() {
+                        let _ = state.events.publish(
+                            "debug:log",
+                            &serde_json::json!({
+                                "tag": "debug",
+                                "level": "info",
+                                "message": "Debug logging enabled"
+                            }),
+                        );
+                    }
+                    Json(serde_json::Value::Null).into_response()
+                }
                 Err(ConfigSetError::Persistence) => {
                     error_response(StatusCode::INTERNAL_SERVER_ERROR, "config persistence failed")
                 }
@@ -767,6 +906,149 @@ async fn command(
                     Err(_) => error_response(StatusCode::INTERNAL_SERVER_ERROR, "album read failed"),
                 },
             }
+        }
+        "track:write" => {
+            let request = match decode_command_payload::<TrackWriteCommandRequest>(payload) {
+                Ok(request) => request,
+                Err(_) => return error_response(StatusCode::BAD_REQUEST, "invalid command request"),
+            };
+            let roots = match &state.libraries {
+                Ok(roots) => roots,
+                Err(_) => return error_response(StatusCode::INTERNAL_SERVER_ERROR, "library roots unavailable"),
+            };
+            let path = match resolve_existing_track(roots, &request.path) {
+                Ok(path) => path.path,
+                Err(response) => return *response,
+            };
+            match write_track_with_readback(&state.write_queue, path, request.fields).await {
+                Ok(track) => Json(track).into_response(),
+                Err(error) => media_error(error),
+            }
+        }
+        "tracks:batch-write" => {
+            let request = match decode_command_payload::<TrackBatchWriteCommandRequest>(payload) {
+                Ok(request) => request,
+                Err(_) => return error_response(StatusCode::BAD_REQUEST, "invalid command request"),
+            };
+            let roots = match &state.libraries {
+                Ok(roots) => roots,
+                Err(_) => return error_response(StatusCode::INTERNAL_SERVER_ERROR, "library roots unavailable"),
+            };
+            let mut updates = request.updates;
+            for update in &mut updates {
+                let resolved = match resolve_existing_track(roots, &update.path) {
+                    Ok(path) => path,
+                    Err(response) => return *response,
+                };
+                update.path = resolved.path.to_string_lossy().into_owned();
+            }
+            let sink = Some(Arc::new(state.events.clone()) as Arc<dyn crate::state::events::EventSink>);
+            match batch_write_with_readback(&state.write_queue, updates, sink).await {
+                Ok(result) => Json(result).into_response(),
+                Err(error) => media_error(error),
+            }
+        }
+        "track:extra-tags:read" => {
+            let request = match decode_command_payload::<ExtraTagsReadCommandRequest>(payload) {
+                Ok(request) => request,
+                Err(_) => return error_response(StatusCode::BAD_REQUEST, "invalid command request"),
+            };
+            let roots = match &state.libraries {
+                Ok(roots) => roots,
+                Err(_) => return error_response(StatusCode::INTERNAL_SERVER_ERROR, "library roots unavailable"),
+            };
+            let path = match resolve_existing_track(roots, &request.track_path) {
+                Ok(path) => path.path,
+                Err(response) => return *response,
+            };
+            match tokio::task::spawn_blocking(move || read_extra_tags(&path)).await {
+                Ok(tags) => Json(tags).into_response(),
+                Err(_) => error_response(StatusCode::INTERNAL_SERVER_ERROR, "media read failed"),
+            }
+        }
+        "track:extra-tags:write" => {
+            let request = match decode_command_payload::<ExtraTagsWriteCommandRequest>(payload) {
+                Ok(request) => request,
+                Err(_) => return error_response(StatusCode::BAD_REQUEST, "invalid command request"),
+            };
+            let roots = match &state.libraries {
+                Ok(roots) => roots,
+                Err(_) => return error_response(StatusCode::INTERNAL_SERVER_ERROR, "library roots unavailable"),
+            };
+            let path = match resolve_existing_track(roots, &request.track_path) {
+                Ok(path) => path.path,
+                Err(response) => return *response,
+            };
+            match write_extra_tags_with_readback(&state.write_queue, path, request.tags).await {
+                Ok(track) => Json(track).into_response(),
+                Err(error) => media_error(error),
+            }
+        }
+        "tracks:batch-write-extra-tags" => {
+            let request = match decode_command_payload::<ExtraTagsBatchWriteCommandRequest>(payload) {
+                Ok(request) => request,
+                Err(_) => return error_response(StatusCode::BAD_REQUEST, "invalid command request"),
+            };
+            let roots = match &state.libraries {
+                Ok(roots) => roots,
+                Err(_) => return error_response(StatusCode::INTERNAL_SERVER_ERROR, "library roots unavailable"),
+            };
+            let mut updates = request.updates;
+            for update in &mut updates {
+                let resolved = match resolve_existing_track(roots, &update.path) {
+                    Ok(path) => path,
+                    Err(response) => return *response,
+                };
+                update.path = resolved.path.to_string_lossy().into_owned();
+            }
+            match write_extra_tags_batch_with_readback(&state.write_queue, updates).await {
+                Ok(tracks) => Json(tracks).into_response(),
+                Err(error) => media_error(error),
+            }
+        }
+        "track:rename" => {
+            let request = match decode_command_payload::<TrackRenameCommandRequest>(payload) {
+                Ok(request) => request,
+                Err(_) => return error_response(StatusCode::BAD_REQUEST, "invalid command request"),
+            };
+            let roots = match &state.libraries {
+                Ok(roots) => roots,
+                Err(_) => return error_response(StatusCode::INTERNAL_SERVER_ERROR, "library roots unavailable"),
+            };
+            let source = match resolve_existing_track(roots, &request.old_path) {
+                Ok(path) => path,
+                Err(response) => return *response,
+            };
+            let destination = match roots.resolve_path(Path::new(&request.new_path)) {
+                Ok(path) => path,
+                Err(error) => return scan_path_error(error),
+            };
+            if source.root_id != destination.root_id {
+                return error_response(StatusCode::FORBIDDEN, "path outside library roots");
+            }
+            match rename_track_queued(&state.write_queue, source.path, destination.path).await {
+                Ok(track) => Json(track).into_response(),
+                Err(error) => media_error(error),
+            }
+        }
+        "track:delete-files" => {
+            let request = match decode_command_payload::<TrackDeleteCommandRequest>(payload) {
+                Ok(request) => request,
+                Err(_) => return error_response(StatusCode::BAD_REQUEST, "invalid command request"),
+            };
+            let roots = match &state.libraries {
+                Ok(roots) => roots,
+                Err(_) => return error_response(StatusCode::INTERNAL_SERVER_ERROR, "library roots unavailable"),
+            };
+            let mut paths = Vec::with_capacity(request.file_paths.len());
+            for supplied in request.file_paths {
+                let resolved = match roots.resolve_path(Path::new(&supplied)) {
+                    Ok(path) => path,
+                    Err(error) => return scan_path_error(error),
+                };
+                paths.push(resolved.path.to_string_lossy().into_owned());
+            }
+            Json(delete_files_queued(&state.write_queue, paths).await).into_response()
         }
         "cover:data-url" => {
             let request = match decode_command_payload::<CoverDataCommandRequest>(payload) {
@@ -1185,9 +1467,11 @@ fn router_with_runtime_and_events(
     write_queue: WriteQueue,
     event_bus: EventBus,
 ) -> Router {
+    let config_state = ConfigState::init_in(config.data_dir.clone());
     let state = ServerState {
         auth: AuthService::new(&config),
-        config: ConfigState::init_in(config.data_dir.clone()),
+        debug: WebDebugState::new(config_state.raw().debug.unwrap_or(false)),
+        config: config_state,
         libraries: discover_library_roots(&config.library_root_dir)
             .map_err(|error| error.to_string()),
         events: event_bus,
@@ -1324,6 +1608,15 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(actual.as_ref(), body.as_bytes());
+    }
+
+    async fn delete_response_body(response: axum::response::Response) -> serde_json::Value {
+        serde_json::from_slice(
+            &axum::body::to_bytes(response.into_body(), usize::MAX)
+                .await
+                .unwrap(),
+        )
+        .unwrap()
     }
 
     #[tokio::test]
@@ -1512,6 +1805,210 @@ mod tests {
         assert_eq!(detail["name"], "Album");
         assert_eq!(detail["tracks"].as_array().unwrap().len(), 1);
         assert_eq!(detail["tracks"][0]["title"], "01.flac");
+        std::fs::remove_dir_all(base).unwrap();
+    }
+
+    #[tokio::test]
+    async fn authenticated_track_mutations_use_shared_writers_and_stay_confined() {
+        let base = std::env::temp_dir().join(format!(
+            "soundrobe-web-track-write-{}",
+            Uuid::new_v4().simple()
+        ));
+        let album = base.join("Artist/Album");
+        std::fs::create_dir_all(&album).unwrap();
+        let track = album.join("01.mp3");
+        let batch_track = album.join("02.mp3");
+        let fixture = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../test/fixtures/tauri/media-corpus/minimal.mp3");
+        std::fs::copy(&fixture, &track).unwrap();
+        std::fs::copy(&fixture, &batch_track).unwrap();
+
+        let mut config = test_config();
+        config.library_root_dir = base.clone();
+        let app = router(config);
+        let login_response = login(app.clone(), "correct horse battery staple").await;
+        let cookie = login_response.headers()[header::SET_COOKIE].clone();
+        let track_path = track.canonicalize().unwrap().to_string_lossy().into_owned();
+
+        let write_response = app
+            .clone()
+            .oneshot(origin_request(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/v1/commands/track%3Awrite")
+                    .header(header::COOKIE, cookie.clone())
+                    .header(header::CONTENT_TYPE, "application/json")
+                    .body(Body::from(
+                        serde_json::to_vec(&json!({
+                            "path": track_path.clone(),
+                            "fields": { "title": "Web title" }
+                        }))
+                        .unwrap(),
+                    ))
+                    .unwrap(),
+            ))
+            .await
+            .unwrap();
+        assert_eq!(write_response.status(), StatusCode::OK);
+        let written: serde_json::Value = serde_json::from_slice(
+            &axum::body::to_bytes(write_response.into_body(), usize::MAX)
+                .await
+                .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(written["title"], "Web title");
+
+        let extra_write_response = app
+            .clone()
+            .oneshot(origin_request(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/v1/commands/track%3Aextra-tags%3Awrite")
+                    .header(header::COOKIE, cookie.clone())
+                    .header(header::CONTENT_TYPE, "application/json")
+                    .body(Body::from(
+                        serde_json::to_vec(&json!({
+                            "trackPath": track_path.clone(),
+                            "tags": [{ "key": "CUSTOM_WEB", "value": "yes" }]
+                        }))
+                        .unwrap(),
+                    ))
+                    .unwrap(),
+            ))
+            .await
+            .unwrap();
+        assert_eq!(extra_write_response.status(), StatusCode::OK);
+        let extra_read_response = app
+            .clone()
+            .oneshot(origin_request(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/v1/commands/track%3Aextra-tags%3Aread")
+                    .header(header::COOKIE, cookie.clone())
+                    .header(header::CONTENT_TYPE, "application/json")
+                    .body(Body::from(
+                        serde_json::to_vec(&json!({ "trackPath": track_path.clone() })).unwrap(),
+                    ))
+                    .unwrap(),
+            ))
+            .await
+            .unwrap();
+        assert_eq!(extra_read_response.status(), StatusCode::OK);
+        let extra_tags: serde_json::Value = serde_json::from_slice(
+            &axum::body::to_bytes(extra_read_response.into_body(), usize::MAX)
+                .await
+                .unwrap(),
+        )
+        .unwrap();
+        assert!(extra_tags
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|tag| tag["key"] == "CUSTOM_WEB" && tag["value"] == "yes"));
+
+        let batch_path = batch_track.canonicalize().unwrap().to_string_lossy().into_owned();
+        let batch_response = app
+            .clone()
+            .oneshot(origin_request(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/v1/commands/tracks%3Abatch-write")
+                    .header(header::COOKIE, cookie.clone())
+                    .header(header::CONTENT_TYPE, "application/json")
+                    .body(Body::from(
+                        serde_json::to_vec(&json!({
+                            "updates": [{ "path": batch_path, "fields": { "title": "Batch title" } }]
+                        }))
+                        .unwrap(),
+                    ))
+                    .unwrap(),
+            ))
+            .await
+            .unwrap();
+        assert_eq!(batch_response.status(), StatusCode::OK);
+        let batch: serde_json::Value = serde_json::from_slice(
+            &axum::body::to_bytes(batch_response.into_body(), usize::MAX)
+                .await
+                .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(batch["tracks"][0]["title"], "Batch title");
+        assert_eq!(batch["failures"].as_array().unwrap().len(), 0);
+
+        let renamed = album.canonicalize().unwrap().join("renamed.mp3");
+        let rename_response = app
+            .clone()
+            .oneshot(origin_request(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/v1/commands/track%3Arename")
+                    .header(header::COOKIE, cookie.clone())
+                    .header(header::CONTENT_TYPE, "application/json")
+                    .body(Body::from(
+                        serde_json::to_vec(&json!({
+                            "oldPath": track_path,
+                            "newPath": renamed.to_string_lossy()
+                        }))
+                        .unwrap(),
+                    ))
+                    .unwrap(),
+            ))
+            .await
+            .unwrap();
+        assert_eq!(
+            rename_response.status(),
+            StatusCode::OK,
+            "rename response: {}",
+            String::from_utf8_lossy(
+                &axum::body::to_bytes(rename_response.into_body(), usize::MAX)
+                    .await
+                    .unwrap()
+            )
+        );
+        assert!(renamed.is_file());
+        assert!(!track.is_file());
+
+        let delete_response = app
+            .clone()
+            .oneshot(origin_request(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/v1/commands/track%3Adelete-files")
+                    .header(header::COOKIE, cookie.clone())
+                    .header(header::CONTENT_TYPE, "application/json")
+                    .body(Body::from(
+                        serde_json::to_vec(&json!({
+                            "filePaths": [renamed.to_string_lossy()]
+                        }))
+                        .unwrap(),
+                    ))
+                    .unwrap(),
+            ))
+            .await
+            .unwrap();
+        assert_eq!(delete_response.status(), StatusCode::OK);
+        assert_eq!(delete_response_body(delete_response).await[0]["success"], true);
+        assert!(!renamed.exists());
+
+        let outside = app
+            .oneshot(origin_request(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/v1/commands/track%3Awrite")
+                    .header(header::COOKIE, cookie)
+                    .header(header::CONTENT_TYPE, "application/json")
+                    .body(Body::from(
+                        serde_json::to_vec(&json!({
+                            "path": "/tmp/not-mounted.mp3",
+                            "fields": { "title": "escape" }
+                        }))
+                        .unwrap(),
+                    ))
+                    .unwrap(),
+            ))
+            .await
+            .unwrap();
+        assert_eq!(outside.status(), StatusCode::FORBIDDEN);
         std::fs::remove_dir_all(base).unwrap();
     }
 
@@ -1843,6 +2340,45 @@ mod tests {
             .unwrap()
             .contains("assistant_autonomous: true"));
 
+        let clear_response = app
+            .clone()
+            .oneshot(
+                origin_request(
+                    Request::builder()
+                        .method("POST")
+                        .uri("/api/v1/commands/config%3Aset")
+                        .header(header::COOKIE, login_response.headers()[header::SET_COOKIE].clone())
+                        .header(header::CONTENT_TYPE, "application/json")
+                        .body(Body::from(r#"{"key":"llmProvider","value":null}"#))
+                        .unwrap(),
+                ),
+            )
+            .await
+            .unwrap();
+        assert_eq!(clear_response.status(), StatusCode::OK);
+        let refreshed = app
+            .clone()
+            .oneshot(
+                origin_request(
+                    Request::builder()
+                        .method("POST")
+                        .uri("/api/v1/commands/config%3Aget")
+                        .header(header::COOKIE, login_response.headers()[header::SET_COOKIE].clone())
+                        .header(header::CONTENT_TYPE, "application/json")
+                        .body(Body::from("{}"))
+                        .unwrap(),
+                ),
+            )
+            .await
+            .unwrap();
+        let refreshed_settings: serde_json::Value = serde_json::from_slice(
+            &axum::body::to_bytes(refreshed.into_body(), usize::MAX)
+                .await
+                .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(refreshed_settings["llmProvider"], serde_json::Value::Null);
+
         let unknown_response = app
             .oneshot(
                 origin_request(
@@ -2168,6 +2704,16 @@ mod tests {
         );
     }
 
+    #[test]
+    fn web_debug_state_changes_for_the_running_server() {
+        let state = WebDebugState::new(false);
+        assert!(!state.enabled());
+        state.set_enabled(true);
+        assert!(state.enabled());
+        state.set_enabled(false);
+        assert!(!state.enabled());
+    }
+
     #[tokio::test]
     async fn an_active_command_operation_returns_conflict() {
         let config = test_config();
@@ -2178,6 +2724,7 @@ mod tests {
             events: EventBus::default(),
             operations: OperationCoordinator::default(),
             lifecycle: ServerLifecycle::default(),
+            debug: WebDebugState::default(),
             write_queue: WriteQueue::default(),
         };
         let _active = state
@@ -2706,6 +3253,7 @@ mod tests {
             events: EventBus::default(),
             operations: OperationCoordinator::default(),
             lifecycle: ServerLifecycle::default(),
+            debug: WebDebugState::default(),
             write_queue: WriteQueue::default(),
         };
         let app = Router::new()

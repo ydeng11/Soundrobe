@@ -10,7 +10,9 @@ use crate::state::events::{emit_event, EventSink};
 use crate::state::write_queue::WriteQueue;
 use lofty::ape::{ApeFile, ApeItem, ApeTag};
 use lofty::config::{ParseOptions, WriteOptions};
-use lofty::file::{AudioFile, TaggedFileExt};
+use lofty::file::AudioFile;
+#[cfg(feature = "desktop")]
+use lofty::file::TaggedFileExt;
 use lofty::flac::FlacFile;
 use lofty::id3::v2::{
     BinaryFrame, Frame, FrameId, Id3v2Tag, SyncTextContentType, SynchronizedTextFrame,
@@ -20,7 +22,9 @@ use lofty::iff::wav::WavFile;
 use lofty::mp4::{Atom, AtomData, AtomIdent, Ilst, Mp4File};
 use lofty::mpeg::MpegFile;
 use lofty::ogg::{OggPictureStorage, OpusFile, VorbisFile};
+#[cfg(feature = "desktop")]
 use lofty::probe::Probe;
+#[cfg(feature = "desktop")]
 use lofty::tag::TagType;
 use lofty::tag::{Accessor, ItemValue, TagExt};
 use lofty::TextEncoding;
@@ -34,6 +38,7 @@ use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
+#[cfg(feature = "desktop")]
 use tauri::State;
 
 static TEMP_SEQUENCE: AtomicU64 = AtomicU64::new(0);
@@ -64,7 +69,7 @@ impl<T> Patch<T> {
         matches!(self, Self::Omitted)
     }
 
-    #[cfg(test)]
+    #[cfg(all(test, feature = "desktop"))]
     pub(crate) fn value(&self) -> Option<&T> {
         match self {
             Self::Value(value) => Some(value),
@@ -317,6 +322,7 @@ pub(crate) fn group_by_folder(updates: Vec<TrackUpdate>) -> HashMap<PathBuf, Vec
     groups
 }
 
+#[cfg(feature = "desktop")]
 #[tauri::command]
 pub async fn track_write(
     path: String,
@@ -326,27 +332,42 @@ pub async fn track_write(
     write_track_with_readback(&queue, PathBuf::from(path), fields).await
 }
 
+#[cfg(feature = "desktop")]
 #[tauri::command]
 pub async fn tracks_batch_write(
     app: tauri::AppHandle,
     updates: Vec<TrackUpdate>,
     queue: State<'_, WriteQueue>,
 ) -> Result<BatchWriteResult, ApiError> {
-    batch_write_with_readback(&queue, updates, Some(app)).await
+    batch_write_with_readback(
+        &queue,
+        updates,
+        Some(Arc::new(app) as Arc<dyn EventSink>),
+    )
+    .await
 }
 
+#[cfg(feature = "desktop")]
 #[tauri::command]
 pub async fn track_extra_tags_write(
     track_path: String,
     tags: Vec<ExtraTagUpdate>,
     queue: State<'_, WriteQueue>,
 ) -> Result<TrackData, ApiError> {
-    let path = PathBuf::from(track_path);
-    write_extra_tags_queued(&queue, path.clone(), tags).await?;
+    write_extra_tags_with_readback(&queue, PathBuf::from(track_path), tags).await
+}
+
+pub(crate) async fn write_extra_tags_with_readback(
+    queue: &WriteQueue,
+    path: PathBuf,
+    tags: Vec<ExtraTagUpdate>,
+) -> Result<TrackData, ApiError> {
+    write_extra_tags_queued(queue, path.clone(), tags).await?;
     read_track_metadata(&path)
 }
 
 /// Helper: record a single probe phase outcome.
+#[cfg(feature = "desktop")]
 fn probe_phase(name: &str, result: &std::io::Result<()>) -> WriteProbePhase {
     match result {
         Ok(_) => WriteProbePhase {
@@ -366,6 +387,7 @@ fn probe_phase(name: &str, result: &std::io::Result<()>) -> WriteProbePhase {
 
 /// Diagnose why writes to a given path or its parent directory may be failing.
 /// Creates and cleans up temp files but never modifies the target.
+#[cfg(feature = "desktop")]
 #[tauri::command]
 pub async fn volume_probe_write(path: String) -> WriteProbeResult {
     let target = PathBuf::from(&path);
@@ -492,6 +514,7 @@ pub struct RealWriteProbeResult {
 /// Diagnostic: copies `path` to a sibling `.probe-test.flac`, runs the real
 /// `write_track_dispatch` with the given JSON field patch on the copy, reads
 /// back before/after metadata, cleans up, and reports everything.
+#[cfg(feature = "desktop")]
 #[tauri::command]
 pub async fn volume_probe_write_real(
     path: String,
@@ -591,11 +614,13 @@ pub async fn volume_probe_write_real(
     }
 }
 
+#[cfg(feature = "desktop")]
 #[tauri::command]
 pub fn file_exists(file_path: String) -> bool {
     Path::new(&file_path).exists()
 }
 
+#[cfg(feature = "desktop")]
 #[tauri::command]
 pub async fn track_delete_files(
     file_paths: Vec<String>,
@@ -604,6 +629,7 @@ pub async fn track_delete_files(
     Ok(delete_files_queued(&queue, file_paths).await)
 }
 
+#[cfg(feature = "desktop")]
 #[tauri::command]
 pub async fn track_rename(
     old_path: String,
@@ -613,7 +639,10 @@ pub async fn track_rename(
     rename_track_queued(&queue, PathBuf::from(old_path), PathBuf::from(new_path)).await
 }
 
-async fn delete_files_queued(queue: &WriteQueue, file_paths: Vec<String>) -> Vec<DeleteFileResult> {
+pub(crate) async fn delete_files_queued(
+    queue: &WriteQueue,
+    file_paths: Vec<String>,
+) -> Vec<DeleteFileResult> {
     let fallback_paths = file_paths.clone();
     match queue
         .run(async move {
@@ -672,10 +701,18 @@ pub(crate) async fn rename_track_queued(
     read_track_metadata(&readback_path)
 }
 
+#[cfg(feature = "desktop")]
 #[tauri::command]
 pub async fn tracks_batch_write_extra_tags(
     updates: Vec<ExtraTagBatchUpdate>,
     queue: State<'_, WriteQueue>,
+) -> Result<Vec<TrackData>, ApiError> {
+    write_extra_tags_batch_with_readback(&queue, updates).await
+}
+
+pub(crate) async fn write_extra_tags_batch_with_readback(
+    queue: &WriteQueue,
+    updates: Vec<ExtraTagBatchUpdate>,
 ) -> Result<Vec<TrackData>, ApiError> {
     let supported = updates
         .iter()
@@ -683,7 +720,7 @@ pub async fn tracks_batch_write_extra_tags(
         .cloned()
         .collect::<Vec<_>>();
     if !supported.is_empty() {
-        batch_write_extra_tags_queued(&queue, supported).await?;
+        batch_write_extra_tags_queued(queue, supported).await?;
     }
     updates
         .into_iter()
@@ -774,6 +811,7 @@ pub(crate) async fn write_track_queued(
 
 /// Remove all embedded cover art pictures from a single audio track file.
 /// Uses lofty's unified `Probe` + `TaggedFile` API to handle all formats.
+#[cfg(feature = "desktop")]
 pub(crate) fn remove_embedded_cover_at(path: &Path) -> Result<(), ApiError> {
     let mut tagged_file = Probe::open(path)
         .map_err(|e| ApiError::WriteTask(format!("Failed to open track for cover removal: {e}")))?
@@ -809,6 +847,7 @@ pub(crate) fn remove_embedded_cover_at(path: &Path) -> Result<(), ApiError> {
 }
 
 /// Remove embedded cover art from a single track, queued through the global write lock.
+#[cfg(feature = "desktop")]
 pub(crate) async fn remove_embedded_cover_queued(
     queue: &WriteQueue,
     path: PathBuf,
@@ -852,6 +891,7 @@ struct BatchAccumulator {
 pub(crate) type TrackWriteProgress = Arc<dyn Fn(u64, u64) + Send + Sync>;
 
 #[derive(Debug)]
+#[cfg(feature = "desktop")]
 pub(crate) struct ExclusiveBatchWriteResult {
     pub successes: Vec<String>,
     pub failures: Vec<TrackWriteFailure>,
@@ -1028,6 +1068,7 @@ async fn batch_write_queued(
 /// `WriteQueue::run_exclusive`. Queue locks are intentionally skipped to avoid
 /// recursive coordination-lock acquisition; this function still serializes
 /// same-folder writes and applies configured cross-folder concurrency.
+#[cfg(feature = "desktop")]
 pub(crate) async fn batch_write_with_exclusive_queue_held(
     updates: Vec<TrackUpdate>,
     progress: Option<TrackWriteProgress>,
@@ -1061,7 +1102,7 @@ fn read_track_with_fallback(path: &Path) -> Result<TrackData, ApiError> {
     })
 }
 
-async fn write_track_with_readback(
+pub(crate) async fn write_track_with_readback(
     queue: &WriteQueue,
     path: PathBuf,
     patch: TrackPatch,
@@ -1070,10 +1111,10 @@ async fn write_track_with_readback(
     read_track_with_fallback(&path)
 }
 
-async fn batch_write_with_readback(
+pub(crate) async fn batch_write_with_readback(
     queue: &WriteQueue,
     updates: Vec<TrackUpdate>,
-    app: Option<tauri::AppHandle>,
+    sink: Option<Arc<dyn EventSink>>,
 ) -> Result<BatchWriteResult, ApiError> {
     // Preserve input paths before updates is moved into batch_write_queued
     let input_paths: Vec<String> = updates.iter().map(|u| u.path.clone()).collect();
@@ -1082,7 +1123,7 @@ async fn batch_write_with_readback(
     batch_write_queued(
         queue,
         updates,
-        app.map(|a| (Arc::new(a) as Arc<dyn EventSink>, total)),
+        sink.map(|sink| (sink, total)),
         &accum,
     )
     .await?;
@@ -1150,6 +1191,7 @@ pub(crate) async fn write_extra_tags_queued(
     Ok(())
 }
 
+#[cfg(feature = "desktop")]
 pub(crate) async fn write_extra_tags_with_exclusive_queue_held(
     path: PathBuf,
     tags: Vec<ExtraTagUpdate>,
@@ -3619,7 +3661,7 @@ fn wav_data_ranges(bytes: &[u8]) -> Option<Vec<Range<usize>>> {
     (!ranges.is_empty()).then_some(ranges)
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "desktop"))]
 fn wav_data_payloads(bytes: &[u8]) -> Option<Vec<Vec<u8>>> {
     wav_data_ranges(bytes).map(|ranges| {
         ranges
@@ -3718,7 +3760,7 @@ fn wav_payloads_match<R: Read + Seek>(
 /// Strip the RIFF `LIST` chunk from a WAV byte buffer, returning a new
 /// buffer with the same audio payload but no LIST INFO metadata.
 /// The RIFF total size in the header is updated accordingly.
-#[cfg(test)]
+#[cfg(all(test, feature = "desktop"))]
 fn strip_wav_list_chunk(bytes: &[u8]) -> Vec<u8> {
     let mut out = Vec::with_capacity(bytes.len());
     if write_wav_without_list_info(bytes, &mut out).is_err() {
@@ -3801,7 +3843,7 @@ fn mp4_mdat_payload_ranges(bytes: &[u8]) -> Option<Vec<Range<usize>>> {
     (offset == bytes.len() && !payloads.is_empty()).then_some(payloads)
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "desktop"))]
 fn mp4_mdat_payloads(bytes: &[u8]) -> Option<Vec<Vec<u8>>> {
     mp4_mdat_payload_ranges(bytes).map(|payloads| {
         payloads
@@ -3844,7 +3886,7 @@ fn ogg_audio_packet_ranges(bytes: &[u8], header_packets: usize) -> Option<Vec<Ve
     Some(packets.into_iter().skip(header_packets).collect())
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "desktop"))]
 fn ogg_audio_packets(bytes: &[u8], header_packets: usize) -> Option<Vec<Vec<u8>>> {
     ogg_audio_packet_ranges(bytes, header_packets).map(|packets| {
         packets
@@ -4289,7 +4331,7 @@ fn on_different_filesystem(path: &Path) -> bool {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "desktop"))]
 mod tests {
     use super::*;
     use lofty::id3::v2::BinaryFrame;

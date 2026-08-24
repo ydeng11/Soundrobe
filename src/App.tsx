@@ -1,5 +1,6 @@
 import React, {
   useReducer,
+  useState,
   useCallback,
   useEffect,
   useMemo,
@@ -136,6 +137,7 @@ export default function App() {
   const [assistantApplying, setAssistantApplying] = React.useState(false);
   const [assistantApiKeyConfigured, setAssistantApiKeyConfigured] = React.useState(false);
   const [assistantModel, setAssistantModel] = React.useState("");
+  const [assistantAutonomous, setAssistantAutonomous] = useState(false);
 
   // Cover URL cache: albumPath → dataUrl | null
   const coverUrlCacheRef = useRef<Map<string, string | null>>(new Map());
@@ -1760,6 +1762,7 @@ export default function App() {
         const model = (cfg.llmModel as string) ?? "";
         setAssistantApiKeyConfigured(configured);
         setAssistantModel(model);
+        setAssistantAutonomous((cfg.assistantAutonomous as boolean) ?? false);
       },
       () => {
         // Silently fail — assistant just won't work until API key is configured
@@ -2835,7 +2838,7 @@ export default function App() {
           selectedTrackPaths={state.selectedTrackPaths}
           allTracks={state.tracks}
           allAlbums={state.albums}
-          autonomous={false}
+          autonomous={assistantAutonomous}
           mutationsDisabled={state.reverting}
           onApplyingChange={setAssistantApplying}
           onRefreshRequest={handleAssistantRefresh}

@@ -4,6 +4,7 @@
 //! Atomic mutation cores live in `commands::mutations`; extra tags, rename, and
 //! remaining formats are enabled only as their differential contracts turn green.
 
+#[cfg(feature = "desktop")]
 use crate::commands::covers::{cover_cache_source, cover_cache_warm};
 use crate::commands::library::is_audio_file;
 use crate::commands::lyrics::{id3_lyrics_document, read_embedded_lyrics, LyricsDocument};
@@ -25,6 +26,12 @@ use std::fs;
 use std::fs::File;
 use std::io::{Cursor, Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
+
+#[cfg(feature = "server")]
+fn cover_cache_source(_: &str, _: &str, _: &str) {}
+
+#[cfg(feature = "server")]
+fn cover_cache_warm(_: &Path, _: Option<&str>, _: bool) {}
 
 /// Renderer-facing metadata DTO. Field names/null/default behavior match
 /// `src/shared/desktop-api.ts::TrackData` exactly.
@@ -274,6 +281,7 @@ fn detect_external_cover(album_path: &Path) -> Option<String> {
 
 /// `album:read` / `readAlbum()`. Read-only; propagates an unreadable album
 /// directory while containing individual malformed track files in the result.
+#[cfg(feature = "desktop")]
 #[tauri::command]
 pub async fn album_read(album_path: String) -> Result<AlbumDetail, ApiError> {
     let path = PathBuf::from(album_path);
@@ -307,6 +315,7 @@ pub async fn read_albums(album_paths: &[PathBuf]) -> Vec<Result<AlbumDetail, Api
     results
 }
 
+#[cfg(feature = "desktop")]
 #[tauri::command]
 pub fn track_extra_tags_read(track_path: String) -> Vec<ExtraTag> {
     read_extra_tags(Path::new(&track_path))
@@ -2490,7 +2499,7 @@ fn u32_be(data: &[u8], offset: usize) -> Option<u32> {
     Some(u32::from_be_bytes(bytes))
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "desktop"))]
 mod tests {
     use super::*;
     use std::cell::Cell;
