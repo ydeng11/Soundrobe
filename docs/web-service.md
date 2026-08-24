@@ -57,6 +57,12 @@ boundary.
 
 ## Updates and checks
 
+The repository publishes `ghcr.io/ydeng11/soundrobe:<version>` and `:latest`
+for version tags after an amd64 container smoke test. Manual workflow runs may
+provide an explicit version and always include a commit-SHA tag. Publication
+proves the image build and CI smoke test only; it does not verify a particular
+NAS, reverse proxy, DNS, or HTTPS deployment.
+
 Pull the desired image tag and recreate the service, preserving `/config` and
 the library mounts:
 

@@ -14,6 +14,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   per-library bind-mount guidance, and a container build that resolves the
   locked dependency set are available for self-hosting.
 
+- **Web-service image publication** — tagged releases and explicit manual
+  builds now have a GHCR workflow that smoke-tests an amd64 image before
+  publishing linux/amd64 and linux/arm64 images.
+
 - **Web-service runtime foundation** — browser deployments can now identify the
   web runtime, authenticate against the headless service, enumerate mounted
   music-library roots, and receive clear errors when a workflow is not yet

@@ -155,6 +155,27 @@ describe("package scripts", () => {
     expect(rustLib).toContain('compile_error!("desktop and server features are mutually exclusive")');
   });
 
+  it("publishes only smoke-tested multi-architecture web images", () => {
+    const workflow = readFileSync(
+      resolve(__dirname, "../.github/workflows/web-service.yml"),
+      "utf8",
+    );
+
+    expect(workflow).toMatch(/^name: Web service image$/m);
+    expect(workflow).toContain('tags:\n      - "v*.*.*"');
+    expect(workflow).toContain("workflow_dispatch:");
+    expect(workflow).toContain("packages: write");
+    expect(workflow).toContain("docker/setup-qemu-action@v3");
+    expect(workflow).toContain("platforms: linux/amd64");
+    expect(workflow).toContain("platforms: linux/amd64,linux/arm64");
+    expect(workflow).toContain("Build amd64 smoke-test image");
+    expect(workflow).toContain("Smoke-test the image before publication");
+    expect(workflow).toContain("--read-only");
+    expect(workflow).toContain("--cap-drop ALL");
+    expect(workflow).toContain("Publish multi-architecture image");
+    expect(workflow).toContain("push: true");
+  });
+
   it("keeps the renderer build separate for Tauri lifecycle hooks", () => {
     const { scripts } = readPackageJson();
 

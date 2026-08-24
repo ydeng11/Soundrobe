@@ -1,0 +1,111 @@
+name: Web service image
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Optional image version tag for a manual build"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  IMAGE_NAME: ghcr.io/${{ github.repository }}
+
+jobs:
+  publish:
+    name: Build and publish web service image
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.version != '' && github.sha || github.ref }}
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Extract image metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_NAME }}
+          tags: |
+            type=semver,pattern={{version}},enable=${{ startsWith(github.ref, 'refs/tags/v') }}
+            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
+            type=raw,value=${{ inputs.version }},enable=${{ inputs.version != '' }}
+            type=sha,prefix=sha-
+
+      - name: Build amd64 smoke-test image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          platforms: linux/amd64
+          tags: soundrobe:web-smoke
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Smoke-test the image before publication
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/soundrobe-config" "$RUNNER_TEMP/soundrobe-library"
+          docker run --detach --rm \
+            --name soundrobe-web-smoke \
+            --read-only \
+            --tmpfs /tmp \
+            --cap-drop ALL \
+            --security-opt no-new-privileges \
+            --publish 18080:8080 \
+            --env SOUNDROBE_LISTEN_ADDR=0.0.0.0:8080 \
+            --env SOUNDROBE_PUBLIC_URL=http://127.0.0.1:18080 \
+            --env SOUNDROBE_AUTH_PASSWORD=ci-smoke-password \
+            --env SOUNDROBE_DATA_DIR=/config \
+            --env SOUNDROBE_LIBRARY_ROOT_DIR=/libraries \
+            --volume "$RUNNER_TEMP/soundrobe-config:/config" \
+            --volume "$RUNNER_TEMP/soundrobe-library:/libraries:rw" \
+            soundrobe:web-smoke
+          trap 'docker stop soundrobe-web-smoke >/dev/null 2>&1 || true' EXIT
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent --show-error http://127.0.0.1:18080/healthz; then
+              break
+            fi
+            test "$attempt" -lt 30 || exit 1
+            sleep 1
+          done
+          curl --fail --silent --show-error \
+            --cookie-jar "$RUNNER_TEMP/soundrobe-cookie" \
+            --header 'Content-Type: application/json' \
+            --header 'Origin: http://127.0.0.1:18080' \
+            --data '{"password":"ci-smoke-password"}' \
+            http://127.0.0.1:18080/api/v1/auth/login
+          curl --fail --silent --show-error \
+            --cookie "$RUNNER_TEMP/soundrobe-cookie" \
+            http://127.0.0.1:18080/api/v1/libraries
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish multi-architecture image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
