@@ -213,6 +213,21 @@ export function logoutWebSession(options: WebAuthOptions = {}): Promise<WebSessi
   });
 }
 
+export function uploadWebCover(
+  albumPath: string,
+  file: Blob,
+  options: WebAuthOptions = {},
+): Promise<string | null> {
+  const { fetchImpl, baseUrl } = webAuthOptions(options);
+  const query = new URLSearchParams({ albumPath });
+  return requestJson<string | null>(fetchImpl, `${baseUrl}/api/v1/covers?${query}`, {
+    method: "POST",
+    credentials: "same-origin",
+    headers: { "content-type": file.type },
+    body: file,
+  });
+}
+
 /** Build the `DesktopAPI` facade backed by the headless HTTP service. */
 export function createWebDesktopApi(options: WebDesktopApiOptions = {}): DesktopAPI {
   const fetchImpl = options.fetch ?? globalThis.fetch.bind(globalThis);

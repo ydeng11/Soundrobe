@@ -174,6 +174,34 @@ describe("App — batch save progress", () => {
     fetchMock.mockRestore();
   });
 
+  it("uploads a browser-selected cover without invoking the native picker", async () => {
+    window.__SOUNDROBE_RUNTIME__ = "web";
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(new Response(JSON.stringify({ authenticated: true })))
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify("data:image/jpeg;base64,uploaded")),
+      );
+
+    render(<App />);
+    const row = (await screen.findAllByTestId(/^file-row-/))[0];
+    fireEvent.click(row);
+    fireEvent.click(await screen.findByRole("button", { name: "Change" }));
+    fireEvent.change(screen.getByLabelText("Cover artwork"), {
+      target: { files: [new File(["cover"], "cover.png", { type: "image/png" })] },
+    });
+
+    await waitFor(() => {
+      expect(screen.getByAltText("Cover art").getAttribute("src")).toBe(
+        "data:image/jpeg;base64,uploaded",
+      );
+    });
+    expect(window.api.setCover).not.toHaveBeenCalled();
+    expect(fetchMock.mock.calls[1][0]).toContain("/api/v1/covers?albumPath=");
+
+    fetchMock.mockRestore();
+  });
+
   it("summarizes structured lyrics embedding results", async () => {
     const downloadAlbumLyrics = vi.fn().mockResolvedValue({
       total: 5,

@@ -6,6 +6,7 @@ import {
   getWebSession,
   loginWebSession,
   logoutWebSession,
+  uploadWebCover,
   type WebEventSource,
 } from "../../src/shared/web-adapter";
 
@@ -246,6 +247,30 @@ describe("web-adapter command transport", () => {
       ],
       ["/api/v1/auth/logout", expect.objectContaining({ method: "POST" })],
     ]);
+  });
+
+  it("uploads a browser-selected cover through the dedicated cover endpoint", async () => {
+    fetchMock.mockResolvedValue(
+      new Response(JSON.stringify("data:image/jpeg;base64,encoded"), { status: 200 }),
+    );
+    const file = new File(["cover"], "cover.png", { type: "image/png" });
+
+    await expect(
+      uploadWebCover("/libraries/music/Album", file, {
+        fetch: fetchMock,
+        baseUrl: "https://soundrobe.test",
+      }),
+    ).resolves.toBe("data:image/jpeg;base64,encoded");
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://soundrobe.test/api/v1/covers?albumPath=%2Flibraries%2Fmusic%2FAlbum",
+      expect.objectContaining({
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "content-type": "image/png" },
+        body: file,
+      }),
+    );
   });
 
   it("keeps the complete DesktopAPI method surface available", () => {

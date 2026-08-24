@@ -71,6 +71,7 @@ import {
   getWebSession,
   loginWebSession,
   logoutWebSession,
+  uploadWebCover,
 } from "./shared/web-adapter";
 import { isWebRuntime } from "./shared/install-desktop-api";
 
@@ -112,6 +113,8 @@ export default function App() {
   const [webPickerOpen, setWebPickerOpen] = React.useState(false);
   const [webRootsLoading, setWebRootsLoading] = React.useState(false);
   const [webRootsError, setWebRootsError] = React.useState<string | null>(null);
+  const webCoverInputRef = useRef<HTMLInputElement | null>(null);
+  const webCoverTargetRef = useRef<string | null>(null);
   const appBusy =
     state.saving ||
     state.autoTagging ||
@@ -608,6 +611,11 @@ export default function App() {
     const trackPath = state.selectedTrack?.path ?? state.selectedTrackPaths[0];
     if (!trackPath) return;
     const albumPath = dirPath(trackPath);
+    if (webRuntime) {
+      webCoverTargetRef.current = albumPath;
+      webCoverInputRef.current?.click();
+      return;
+    }
     try {
       const url = await window.api.setCover(albumPath);
       if (url) {
@@ -616,7 +624,39 @@ export default function App() {
     } catch {
       dispatch({ type: "SET_ERROR", error: "Failed to set cover art" });
     }
-  }, [state.selectedTrack, state.selectedTrackPaths]);
+  }, [state.selectedTrack, state.selectedTrackPaths, webRuntime]);
+
+  const handleWebCoverSelected = useCallback(
+    async (event: React.ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+      const albumPath = webCoverTargetRef.current;
+      event.target.value = "";
+      webCoverTargetRef.current = null;
+      if (!file || !albumPath) return;
+      if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+        dispatch({ type: "SET_ERROR", error: "Choose a JPEG, PNG, or WebP cover image" });
+        return;
+      }
+      dispatch({ type: "SET_SAVING", saving: true });
+      dispatch({ type: "SET_ERROR", error: null });
+      try {
+        const url = await uploadWebCover(albumPath, file);
+        if (!url) {
+          throw new Error("Cover upload returned no image");
+        }
+        coverUrlCacheRef.current.set(albumPath, url);
+        dispatch({ type: "SET_COVER_URL", url });
+      } catch (reason) {
+        dispatch({
+          type: "SET_ERROR",
+          error: reason instanceof Error ? reason.message : "Failed to upload cover art",
+        });
+      } finally {
+        dispatch({ type: "SET_SAVING", saving: false });
+      }
+    },
+    [],
+  );
 
   const handleRemoveCover = useCallback(async () => {
     // Fall back to the first multi-selected track so this button works in batch mode.
@@ -2608,6 +2648,17 @@ export default function App() {
         onUndoThrough={handleRevert}
         onLogout={webRuntime ? handleWebLogout : undefined}
       />
+
+      {webRuntime && (
+        <input
+          ref={webCoverInputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          aria-label="Cover artwork"
+          className="hidden"
+          onChange={handleWebCoverSelected}
+        />
+      )}
 
       <ScanProgressBar
         scanning={state.scanning || state.autoTagging}
