@@ -1,6 +1,7 @@
 //! Read-only album DTOs and metadata loading shared by headless HTTP handlers.
 
 use crate::state::library::is_audio_file;
+use base64::Engine;
 use lofty::file::{AudioFile, TaggedFileExt};
 use lofty::tag::{ItemKey, Tag};
 use serde::Serialize;
@@ -88,6 +89,26 @@ pub fn read_album(album_path: &Path) -> io::Result<AlbumDetail> {
     read_album_with_cancellation(album_path, &|| false)?.ok_or_else(|| {
         io::Error::new(io::ErrorKind::Interrupted, "album read was cancelled")
     })
+}
+
+pub fn cover_data_url(album_path: &Path) -> io::Result<Option<String>> {
+    for name in ["cover", "folder", "front", "albumart"] {
+        for (extension, mime) in [
+            ("jpg", "image/jpeg"),
+            ("jpeg", "image/jpeg"),
+            ("png", "image/png"),
+            ("webp", "image/webp"),
+        ] {
+            let candidate = album_path.join(format!("{name}.{extension}"));
+            if !candidate.is_file() {
+                continue;
+            }
+            let bytes = fs::read(candidate)?;
+            let encoded = base64::engine::general_purpose::STANDARD.encode(bytes);
+            return Ok(Some(format!("data:{mime};base64,{encoded}")));
+        }
+    }
+    Ok(None)
 }
 
 pub fn read_album_with_cancellation<F>(

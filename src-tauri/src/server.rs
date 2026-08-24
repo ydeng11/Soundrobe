@@ -29,7 +29,7 @@ use url::Url;
 use uuid::Uuid;
 
 use crate::state::{
-    album::read_album_with_cancellation,
+    album::{cover_data_url, read_album_with_cancellation},
     events::{EventBus, EventEnvelope},
     library::{
         discover_library_roots, scan_directory_with_cancellation, LibraryRoots, PathSecurityError,
@@ -337,6 +337,15 @@ struct AlbumReadCommandRequest {
     album_path: String,
 }
 
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct CoverDataCommandRequest {
+    #[serde(rename = "albumPath")]
+    album_path: String,
+    #[serde(rename = "preferredTrackPath", default)]
+    _preferred_track_path: Option<String>,
+}
+
 #[derive(Serialize)]
 struct WebAppInfo {
     identifier: &'static str,
@@ -515,7 +524,11 @@ async fn next_event(
 fn supported_web_command(command: &str) -> bool {
     matches!(
         command,
-        "app:info" | "library:list-roots" | "library:scan" | "album:read"
+        "app:info"
+            | "library:list-roots"
+            | "library:scan"
+            | "album:read"
+            | "cover:data-url"
     )
 }
 
@@ -639,6 +652,44 @@ async fn command(
                     Ok(Ok(None)) => error_response(StatusCode::SERVICE_UNAVAILABLE, "server shutting down"),
                     Ok(Err(_)) => error_response(StatusCode::INTERNAL_SERVER_ERROR, "album read failed"),
                     Err(_) => error_response(StatusCode::INTERNAL_SERVER_ERROR, "album read failed"),
+                },
+            }
+        }
+        "cover:data-url" => {
+            let request = match decode_command_payload::<CoverDataCommandRequest>(payload) {
+                Ok(request) => request,
+                Err(_) => return error_response(StatusCode::BAD_REQUEST, "invalid command request"),
+            };
+            let roots = match &state.libraries {
+                Ok(roots) => roots,
+                Err(_) => {
+                    return error_response(
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        "library roots unavailable",
+                    )
+                }
+            };
+            let resolved = match roots.resolve_path(Path::new(&request.album_path)) {
+                Ok(path) => path,
+                Err(error) => return scan_path_error(error),
+            };
+            if !resolved.path.is_dir() {
+                return error_response(StatusCode::BAD_REQUEST, "album path not found");
+            }
+            let cancellation = state.lifecycle.cancellation.clone();
+            let cover = tokio::task::spawn_blocking(move || {
+                if cancellation.is_cancelled() {
+                    return None;
+                }
+                cover_data_url(&resolved.path).ok().flatten()
+            });
+            tokio::select! {
+                _ = state.lifecycle.cancellation.cancelled() => {
+                    error_response(StatusCode::SERVICE_UNAVAILABLE, "server shutting down")
+                }
+                result = cover => match result {
+                    Ok(data_url) => Json(data_url).into_response(),
+                    Err(_) => error_response(StatusCode::INTERNAL_SERVER_ERROR, "cover read failed"),
                 },
             }
         }
@@ -1237,6 +1288,50 @@ mod tests {
         assert_eq!(detail["name"], "Album");
         assert_eq!(detail["tracks"].as_array().unwrap().len(), 1);
         assert_eq!(detail["tracks"][0]["title"], "01.flac");
+        std::fs::remove_dir_all(base).unwrap();
+    }
+
+    #[tokio::test]
+    async fn authenticated_command_transport_reads_a_confined_external_cover() {
+        let base = std::env::temp_dir().join(format!(
+            "soundrobe-web-cover-read-{}",
+            Uuid::new_v4().simple()
+        ));
+        let album = base.join("Artist/Album");
+        std::fs::create_dir_all(&album).unwrap();
+        std::fs::write(album.join("cover.jpg"), b"cover-bytes").unwrap();
+        let mut config = test_config();
+        config.library_root_dir = base.clone();
+        let app = router(config);
+        let login_response = login(app.clone(), "correct horse battery staple").await;
+        let cookie = login_response.headers()[header::SET_COOKIE].clone();
+
+        let response = app
+            .oneshot(
+                origin_request(
+                    Request::builder()
+                        .method("POST")
+                        .uri("/api/v1/commands/cover%3Adata-url")
+                        .header(header::COOKIE, cookie)
+                        .header(header::CONTENT_TYPE, "application/json")
+                        .body(Body::from(format!(
+                            r#"{{"albumPath":"{}"}}"#,
+                            album.canonicalize().unwrap().display()
+                        )))
+                        .unwrap(),
+                ),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        assert_eq!(
+            body.as_ref(),
+            br#""data:image/jpeg;base64,Y292ZXItYnl0ZXM=""#
+        );
         std::fs::remove_dir_all(base).unwrap();
     }
 
