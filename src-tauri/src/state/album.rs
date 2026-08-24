@@ -2,10 +2,19 @@
 
 use crate::state::library::is_audio_file;
 use base64::Engine;
+use image::codecs::jpeg::JpegEncoder;
 use lofty::file::{AudioFile, TaggedFileExt};
 use lofty::tag::{ItemKey, Tag};
 use serde::Serialize;
 use std::{fs, io, path::Path};
+
+const COVER_REMOVED_MARKER: &str = ".auto-tagger-cover-removed";
+const MAX_COVER_BYTES: u64 = 10 * 1024 * 1024;
+pub const MAX_COVER_UPLOAD_BYTES: usize = 10 * 1024 * 1024;
+const COVER_NAMES: &[&str] = &[
+    "cover", "Cover", "COVER", "front", "Front", "FRONT", "folder", "Folder", "FOLDER",
+    "albumart", "AlbumArt",
+];
 
 #[derive(Clone, Debug, Serialize)]
 pub struct LyricsDocument {
@@ -91,24 +100,103 @@ pub fn read_album(album_path: &Path) -> io::Result<AlbumDetail> {
     })
 }
 
-pub fn cover_data_url(album_path: &Path) -> io::Result<Option<String>> {
-    for name in ["cover", "folder", "front", "albumart"] {
-        for (extension, mime) in [
-            ("jpg", "image/jpeg"),
-            ("jpeg", "image/jpeg"),
-            ("png", "image/png"),
-            ("webp", "image/webp"),
-        ] {
+pub fn cover_data_url(
+    album_path: &Path,
+    preferred_track_path: Option<&Path>,
+) -> io::Result<Option<String>> {
+    if album_path.join(COVER_REMOVED_MARKER).exists() {
+        return Ok(None);
+    }
+    for name in COVER_NAMES {
+        for extension in ["jpg", "jpeg", "png", "webp"] {
             let candidate = album_path.join(format!("{name}.{extension}"));
             if !candidate.is_file() {
                 continue;
             }
+            let metadata = fs::metadata(&candidate)?;
+            if metadata.len() > MAX_COVER_BYTES {
+                continue;
+            }
             let bytes = fs::read(candidate)?;
-            let encoded = base64::engine::general_purpose::STANDARD.encode(bytes);
-            return Ok(Some(format!("data:{mime};base64,{encoded}")));
+            if let Some(jpeg) = normalize_cover_image(&bytes) {
+                let encoded = base64::engine::general_purpose::STANDARD.encode(jpeg);
+                return Ok(Some(format!("data:image/jpeg;base64,{encoded}")));
+            }
+        }
+    }
+
+    if let Some(track_path) = preferred_track_path
+        .filter(|path| path.is_file() && path.starts_with(album_path))
+    {
+        if let Some(data_url) = embedded_cover_data_url(track_path) {
+            return Ok(Some(data_url));
+        }
+    }
+    for entry in fs::read_dir(album_path)? {
+        let entry = entry?;
+        let path = entry.path();
+        if entry.file_name().to_string_lossy().starts_with('.')
+            || !entry.file_type()?.is_file()
+            || !is_audio_file(&path)
+        {
+            continue;
+        }
+        if let Some(data_url) = embedded_cover_data_url(&path) {
+            return Ok(Some(data_url));
         }
     }
     Ok(None)
+}
+
+fn embedded_cover_data_url(path: &Path) -> Option<String> {
+    let tagged = lofty::read_from_path(path).ok()?;
+    let picture = tagged
+        .tags()
+        .iter()
+        .find_map(|tag| tag.pictures().first())?;
+    let jpeg = normalize_cover_image(picture.data())?;
+    Some(format!(
+        "data:image/jpeg;base64,{}",
+        base64::engine::general_purpose::STANDARD.encode(jpeg)
+    ))
+}
+
+fn normalize_cover_image(bytes: &[u8]) -> Option<Vec<u8>> {
+    let image = image::load_from_memory(bytes).ok()?;
+    let image = if image.width() > 500 || image.height() > 500 {
+        image.thumbnail(500, 500)
+    } else {
+        image
+    };
+    let mut jpeg = Vec::new();
+    JpegEncoder::new_with_quality(&mut jpeg, 85)
+        .encode_image(&image)
+        .ok()?;
+    Some(jpeg)
+}
+
+pub fn write_cover_upload(album_path: &Path, bytes: &[u8]) -> io::Result<String> {
+    if bytes.len() > MAX_COVER_UPLOAD_BYTES {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "cover image is too large",
+        ));
+    }
+    let jpeg = normalize_cover_image(bytes).ok_or_else(|| {
+        io::Error::new(io::ErrorKind::InvalidInput, "invalid cover image")
+    })?;
+    let temporary = album_path.join(format!(".cover-upload-{}.tmp", uuid::Uuid::new_v4()));
+    let destination = album_path.join("cover.jpg");
+    fs::write(&temporary, &jpeg)?;
+    if let Err(error) = fs::rename(&temporary, &destination) {
+        let _ = fs::remove_file(&temporary);
+        return Err(error);
+    }
+    let _ = fs::remove_file(album_path.join(COVER_REMOVED_MARKER));
+    Ok(format!(
+        "data:image/jpeg;base64,{}",
+        base64::engine::general_purpose::STANDARD.encode(jpeg)
+    ))
 }
 
 pub fn read_album_with_cancellation<F>(
@@ -351,6 +439,22 @@ fn detect_external_cover(album_path: &Path) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs;
+
+    fn temp_album(label: &str) -> std::path::PathBuf {
+        std::env::temp_dir().join(format!("soundrobe-web-{label}-{}", uuid::Uuid::new_v4()))
+    }
+
+    #[test]
+    fn cover_preview_rejects_invalid_bytes_and_honors_suppression() {
+        let album = temp_album("cover-contract");
+        fs::create_dir_all(&album).unwrap();
+        fs::write(album.join("cover.jpg"), b"not-an-image").unwrap();
+        assert!(cover_data_url(&album, None).unwrap().is_none());
+        fs::write(album.join(COVER_REMOVED_MARKER), []).unwrap();
+        assert!(cover_data_url(&album, None).unwrap().is_none());
+        fs::remove_dir_all(album).unwrap();
+    }
 
     #[test]
     fn cancellable_album_read_stops_before_work_begins() {

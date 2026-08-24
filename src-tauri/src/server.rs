@@ -1,6 +1,7 @@
 //! Headless HTTP runtime.
 
 use axum::{
+    body::Bytes,
     extract::{
         rejection::JsonRejection, DefaultBodyLimit, Json, Path as AxumPath, Query, State,
     },
@@ -16,6 +17,7 @@ use serde::Serialize;
 use std::{
     collections::{HashMap, VecDeque},
     convert::Infallible,
+    io,
     net::SocketAddr,
     path::{Path, PathBuf},
     sync::atomic::{AtomicBool, Ordering},
@@ -29,7 +31,9 @@ use url::Url;
 use uuid::Uuid;
 
 use crate::state::{
-    album::{cover_data_url, read_album_with_cancellation},
+    album::{
+        cover_data_url, read_album_with_cancellation, write_cover_upload, MAX_COVER_UPLOAD_BYTES,
+    },
     events::{EventBus, EventEnvelope},
     library::{
         discover_library_roots, scan_directory_with_cancellation, LibraryRoots, PathSecurityError,
@@ -176,7 +180,7 @@ struct ServerState {
     events: EventBus,
     operations: OperationCoordinator,
     lifecycle: ServerLifecycle,
-    _write_queue: WriteQueue,
+    write_queue: WriteQueue,
 }
 
 #[derive(Clone, Default)]
@@ -343,7 +347,7 @@ struct CoverDataCommandRequest {
     #[serde(rename = "albumPath")]
     album_path: String,
     #[serde(rename = "preferredTrackPath", default)]
-    _preferred_track_path: Option<String>,
+    preferred_track_path: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -676,12 +680,20 @@ async fn command(
             if !resolved.path.is_dir() {
                 return error_response(StatusCode::BAD_REQUEST, "album path not found");
             }
+            let preferred_track_path = request
+                .preferred_track_path
+                .as_deref()
+                .and_then(|path| roots.resolve_path(Path::new(path)).ok())
+                .filter(|path| path.root_id == resolved.root_id && path.path.is_file())
+                .map(|path| path.path);
             let cancellation = state.lifecycle.cancellation.clone();
             let cover = tokio::task::spawn_blocking(move || {
                 if cancellation.is_cancelled() {
                     return None;
                 }
-                cover_data_url(&resolved.path).ok().flatten()
+                cover_data_url(&resolved.path, preferred_track_path.as_deref())
+                    .ok()
+                    .flatten()
             });
             tokio::select! {
                 _ = state.lifecycle.cancellation.cancelled() => {
@@ -947,6 +959,62 @@ async fn logout(State(state): State<ServerState>, headers: HeaderMap) -> Respons
     response
 }
 
+#[derive(Deserialize)]
+struct CoverUploadQuery {
+    #[serde(rename = "albumPath")]
+    album_path: String,
+}
+
+async fn upload_cover(
+    State(state): State<ServerState>,
+    Query(query): Query<CoverUploadQuery>,
+    headers: HeaderMap,
+    body: Bytes,
+) -> Response {
+    let content_type = headers
+        .get(header::CONTENT_TYPE)
+        .and_then(|value| value.to_str().ok())
+        .and_then(|value| value.split(';').next())
+        .unwrap_or_default();
+    if !matches!(content_type, "image/jpeg" | "image/png" | "image/webp") {
+        return error_response(StatusCode::BAD_REQUEST, "unsupported cover image type");
+    }
+    if body.len() > MAX_COVER_UPLOAD_BYTES {
+        return error_response(StatusCode::PAYLOAD_TOO_LARGE, "cover image is too large");
+    }
+
+    let roots = match &state.libraries {
+        Ok(roots) => roots,
+        Err(_) => return error_response(StatusCode::INTERNAL_SERVER_ERROR, "library roots unavailable"),
+    };
+    let resolved = match roots.resolve_path(Path::new(&query.album_path)) {
+        Ok(path) => path,
+        Err(error) => return scan_path_error(error),
+    };
+    if !resolved.path.is_dir() {
+        return error_response(StatusCode::BAD_REQUEST, "album path not found");
+    }
+
+    let album_path = resolved.path;
+    let bytes = body.to_vec();
+    let result = state
+        .write_queue
+        .run(async move {
+            tokio::task::spawn_blocking(move || write_cover_upload(&album_path, &bytes))
+                .await
+                .map_err(|error| io::Error::other(error.to_string()))
+                .and_then(|result| result)
+        })
+        .await;
+    match result {
+        Ok(data_url) => Json(data_url).into_response(),
+        Err(error) if error.kind() == io::ErrorKind::InvalidInput => {
+            error_response(StatusCode::BAD_REQUEST, error.to_string())
+        }
+        Err(_) => error_response(StatusCode::INTERNAL_SERVER_ERROR, "cover upload failed"),
+    }
+}
+
 pub fn router(config: ServerConfig) -> Router {
     router_with_runtime(config, ServerLifecycle::default(), WriteQueue::default())
 }
@@ -972,11 +1040,14 @@ fn router_with_runtime_and_events(
         events: event_bus,
         operations: OperationCoordinator::default(),
         lifecycle,
-        _write_queue: write_queue,
+        write_queue,
     };
     let login_route = Router::new()
         .route("/api/v1/auth/login", post(login))
         .layer(DefaultBodyLimit::max(64 * 1024));
+    let cover_upload_route = Router::new()
+        .route("/api/v1/covers", post(upload_cover))
+        .layer(DefaultBodyLimit::max(MAX_COVER_UPLOAD_BYTES));
 
     Router::new()
         .route("/healthz", get(health))
@@ -986,6 +1057,7 @@ fn router_with_runtime_and_events(
         .route("/api/v1/commands/{command}", post(command))
         .route("/api/v1/auth/logout", post(logout))
         .merge(login_route)
+        .merge(cover_upload_route)
         .with_state(state.clone())
         .layer(middleware::from_fn_with_state(
             state.clone(),
@@ -1299,7 +1371,14 @@ mod tests {
         ));
         let album = base.join("Artist/Album");
         std::fs::create_dir_all(&album).unwrap();
-        std::fs::write(album.join("cover.jpg"), b"cover-bytes").unwrap();
+        let mut cover_bytes = Vec::new();
+        image::DynamicImage::new_rgb8(2, 2)
+            .write_to(
+                &mut std::io::Cursor::new(&mut cover_bytes),
+                image::ImageFormat::Jpeg,
+            )
+            .unwrap();
+        std::fs::write(album.join("cover.jpg"), cover_bytes).unwrap();
         let mut config = test_config();
         config.library_root_dir = base.clone();
         let app = router(config);
@@ -1328,10 +1407,58 @@ mod tests {
         let body = axum::body::to_bytes(response.into_body(), usize::MAX)
             .await
             .unwrap();
-        assert_eq!(
-            body.as_ref(),
-            br#""data:image/jpeg;base64,Y292ZXItYnl0ZXM=""#
-        );
+        let data_url: String = serde_json::from_slice(&body).unwrap();
+        assert!(data_url.starts_with("data:image/jpeg;base64,"));
+        std::fs::remove_dir_all(base).unwrap();
+    }
+
+    #[tokio::test]
+    async fn authenticated_cover_upload_normalizes_and_writes_inside_the_album() {
+        let base = std::env::temp_dir().join(format!(
+            "soundrobe-web-cover-upload-{}",
+            Uuid::new_v4().simple()
+        ));
+        let album = base.join("Artist/Album");
+        std::fs::create_dir_all(&album).unwrap();
+        let mut image_bytes = Vec::new();
+        image::DynamicImage::new_rgb8(2, 2)
+            .write_to(
+                &mut std::io::Cursor::new(&mut image_bytes),
+                image::ImageFormat::Png,
+            )
+            .unwrap();
+        let mut config = test_config();
+        config.library_root_dir = base.clone();
+        let app = router(config);
+        let login_response = login(app.clone(), "correct horse battery staple").await;
+        let cookie = login_response.headers()[header::SET_COOKIE].clone();
+        let album_path = album.canonicalize().unwrap().to_string_lossy().into_owned();
+        let query = url::form_urlencoded::Serializer::new(String::new())
+            .append_pair("albumPath", &album_path)
+            .finish();
+
+        let response = app
+            .oneshot(
+                origin_request(
+                    Request::builder()
+                        .method("POST")
+                        .uri(format!("/api/v1/covers?{query}"))
+                        .header(header::COOKIE, cookie)
+                        .header(header::CONTENT_TYPE, "image/png")
+                        .body(Body::from(image_bytes))
+                        .unwrap(),
+                ),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let data_url: String = serde_json::from_slice(&body).unwrap();
+        assert!(data_url.starts_with("data:image/jpeg;base64,"));
+        assert!(album.join("cover.jpg").is_file());
         std::fs::remove_dir_all(base).unwrap();
     }
 
@@ -1585,7 +1712,7 @@ mod tests {
             events: EventBus::default(),
             operations: OperationCoordinator::default(),
             lifecycle: ServerLifecycle::default(),
-            _write_queue: WriteQueue::default(),
+            write_queue: WriteQueue::default(),
         };
         let _active = state
             .operations
@@ -2111,7 +2238,7 @@ mod tests {
             events: EventBus::default(),
             operations: OperationCoordinator::default(),
             lifecycle: ServerLifecycle::default(),
-            _write_queue: WriteQueue::default(),
+            write_queue: WriteQueue::default(),
         };
         let app = Router::new()
             .route("/boom", get(|| async { StatusCode::INTERNAL_SERVER_ERROR }))
