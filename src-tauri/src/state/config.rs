@@ -497,11 +497,9 @@ impl ConfigState {
         }
     }
 
-    /// Write a renderer camelCase key to disk and refresh the live config
-    /// (matches the `config:set` handler: `saveConfig` + `refreshConfig`). Never
-    /// returns an error to the caller — Electron's handler catches and logs — so
-    /// the renderer's `setConfig` never rejects. A failed write is logged via
-    /// `tracing` and the live config is left untouched.
+    /// Write a renderer camelCase key to disk and refresh the live config.
+    /// Returns an error for the headless transport, which must not report a
+    /// failed persistence operation as a successful HTTP response.
     ///
     /// **Serialised**: holds `write_lock` across the read-modify-write **and**
     /// the subsequent `refresh` so that concurrent `Promise.all` calls from the
@@ -513,23 +511,28 @@ impl ConfigState {
     /// and produce a stale in-memory snapshot.  Since `refresh` acquires
     /// `inner.lock()` independently there is no deadlock risk (no code path
     /// acquires `write_lock` while holding `inner.lock()`).
-    pub fn set(&self, camel_key: &str, value: &Value) {
+    pub fn try_set(&self, camel_key: &str, value: &Value) -> Result<(), String> {
+        yaml_key_for(camel_key)
+            .ok_or_else(|| format!("unsupported config key: {camel_key}"))?;
         let _guard: MutexGuard<'_, ()> = match self.write_lock.lock() {
             Ok(g) => g,
-            Err(e) => {
-                tracing::warn!("config write-lock poisoned, skipping save for {camel_key}: {e}");
-                return;
-            }
+            Err(e) => return Err(format!("config write-lock poisoned: {e}")),
         };
-        if let Err(e) = save_config_in(&self.data_dir, camel_key, value) {
-            tracing::warn!("failed to save config key {camel_key}: {e}");
-            return;
-        }
+        save_config_in(&self.data_dir, camel_key, value)
+            .map_err(|error| format!("failed to save config key {camel_key}: {error}"))?;
         // `refresh` already handles a poisoned mutex without panicking.
         self.refresh();
         // _guard dropped here — write-lock released after the in-memory state
         // is updated, guaranteeing the live config reflects the write before
         // the next queued writer starts.
+        Ok(())
+    }
+
+    /// Desktop preserves Electron's best-effort, non-rejecting config command.
+    pub fn set(&self, camel_key: &str, value: &Value) {
+        if let Err(error) = self.try_set(camel_key, value) {
+            tracing::warn!(%error, "config update failed");
+        }
     }
 }
 
@@ -762,6 +765,19 @@ mod tests {
         let raw = state.raw();
         assert_eq!(raw.debug, Some(true));
         assert_eq!(raw.llm_api_key.as_deref(), Some("sk-or-v1-1234567890"));
+    }
+
+    #[test]
+    fn config_state_try_set_rejects_unknown_keys_before_writing() {
+        let home = cfg_home();
+        let state = ConfigState::init_with_env(home.clone(), Arc::new(EnvMap::new()));
+
+        let error = state
+            .try_set("assistantAutonomous", &json!(true))
+            .expect_err("unknown settings must fail explicitly");
+
+        assert_eq!(error, "unsupported config key: assistantAutonomous");
+        assert!(!config_file_path(&home).exists());
     }
 
     #[test]

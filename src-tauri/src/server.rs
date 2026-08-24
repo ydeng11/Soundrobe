@@ -361,6 +361,12 @@ struct ConfigSetCommandRequest {
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
+struct DebugSetModeCommandRequest {
+    enabled: bool,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 struct AlbumReadCommandRequest {
     #[serde(rename = "albumPath")]
     album_path: String,
@@ -563,6 +569,7 @@ fn supported_web_command(command: &str) -> bool {
             | "file:exists"
             | "config:get"
             | "config:set"
+            | "debug:set-mode"
     )
 }
 
@@ -698,8 +705,23 @@ async fn command(
                 Ok(request) => request,
                 Err(_) => return error_response(StatusCode::BAD_REQUEST, "invalid command request"),
             };
-            state.config.set(&request.key, &request.value);
-            Json(serde_json::Value::Null).into_response()
+            match state.config.try_set(&request.key, &request.value) {
+                Ok(()) => Json(serde_json::Value::Null).into_response(),
+                Err(error) if error.starts_with("unsupported config key:") => {
+                    error_response(StatusCode::BAD_REQUEST, error)
+                }
+                Err(error) => error_response(StatusCode::INTERNAL_SERVER_ERROR, error),
+            }
+        }
+        "debug:set-mode" => {
+            let request = match decode_command_payload::<DebugSetModeCommandRequest>(payload) {
+                Ok(request) => request,
+                Err(_) => return error_response(StatusCode::BAD_REQUEST, "invalid command request"),
+            };
+            match state.config.try_set("debug", &request.enabled.into()) {
+                Ok(()) => Json(serde_json::Value::Null).into_response(),
+                Err(error) => error_response(StatusCode::INTERNAL_SERVER_ERROR, error),
+            }
         }
         "album:read" => {
             let request = match decode_command_payload::<AlbumReadCommandRequest>(payload) {
@@ -1754,6 +1776,7 @@ mod tests {
         assert_eq!(settings["llmApiKeyConfigured"], false);
 
         let set_response = app
+            .clone()
             .oneshot(
                 origin_request(
                     Request::builder()
@@ -1771,6 +1794,44 @@ mod tests {
         assert!(std::fs::read_to_string(base.join("config.yaml"))
             .unwrap()
             .contains("debug: true"));
+
+        let debug_response = app
+            .clone()
+            .oneshot(
+                origin_request(
+                    Request::builder()
+                        .method("POST")
+                        .uri("/api/v1/commands/debug%3Aset-mode")
+                        .header(header::COOKIE, login_response.headers()[header::SET_COOKIE].clone())
+                        .header(header::CONTENT_TYPE, "application/json")
+                        .body(Body::from(r#"{"enabled":false}"#))
+                        .unwrap(),
+                ),
+            )
+            .await
+            .unwrap();
+        assert_eq!(debug_response.status(), StatusCode::OK);
+
+        let unknown_response = app
+            .oneshot(
+                origin_request(
+                    Request::builder()
+                        .method("POST")
+                        .uri("/api/v1/commands/config%3Aset")
+                        .header(header::COOKIE, login_response.headers()[header::SET_COOKIE].clone())
+                        .header(header::CONTENT_TYPE, "application/json")
+                        .body(Body::from(r#"{"key":"assistantAutonomous","value":true}"#))
+                        .unwrap(),
+                ),
+            )
+            .await
+            .unwrap();
+        assert_json_error(
+            unknown_response,
+            StatusCode::BAD_REQUEST,
+            r#"{"error":"unsupported config key: assistantAutonomous"}"#,
+        )
+        .await;
         std::fs::remove_dir_all(base).unwrap();
     }
 
