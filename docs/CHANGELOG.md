@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Web-service container profile** — a non-root multi-stage image, hardened
+  Compose deployment, password-file secret, persistent `/config` mount, and
+  direct per-library bind-mount guidance are available for self-hosting.
+
 - **Web-service runtime foundation** — browser deployments can now identify the
   web runtime, authenticate against the headless service, enumerate mounted
   music-library roots, and receive clear errors when a workflow is not yet

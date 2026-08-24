@@ -8,7 +8,7 @@ use axum::{
     http::{header, HeaderMap, HeaderValue, Method, Request, StatusCode},
     middleware::{self, Next},
     response::{sse::{Event, KeepAlive, Sse}, IntoResponse, Response},
-    routing::{get, post},
+    routing::{any, get, post},
     Router,
 };
 use serde::Deserialize;
@@ -17,6 +17,7 @@ use serde::Serialize;
 use std::{
     collections::{HashMap, VecDeque},
     convert::Infallible,
+    fs,
     io,
     net::SocketAddr,
     path::{Path, PathBuf},
@@ -500,6 +501,43 @@ async fn health() -> Json<HealthResponse> {
         status: "ok",
         version: env!("CARGO_PKG_VERSION"),
     })
+}
+
+async fn api_not_found() -> Response {
+    error_response(StatusCode::NOT_FOUND, "not found")
+}
+
+fn safe_web_root(path: &Path) -> PathBuf {
+    let invalid = PathBuf::from("/__soundrobe_invalid_web_root__");
+    let Ok(metadata) = fs::symlink_metadata(path) else {
+        return path.to_path_buf();
+    };
+    if metadata.file_type().is_symlink() {
+        tracing::error!(path = %path.display(), "web root symlink is not allowed");
+        return invalid;
+    }
+    let Ok(root) = path.canonicalize() else {
+        return path.to_path_buf();
+    };
+    let mut pending = vec![root.clone()];
+    while let Some(directory) = pending.pop() {
+        let Ok(entries) = fs::read_dir(&directory) else {
+            return invalid;
+        };
+        for entry in entries.flatten() {
+            let Ok(file_type) = entry.file_type() else {
+                return invalid;
+            };
+            if file_type.is_symlink() {
+                tracing::error!(path = %entry.path().display(), "web asset symlink is not allowed");
+                return invalid;
+            }
+            if file_type.is_dir() {
+                pending.push(entry.path());
+            }
+        }
+    }
+    root
 }
 
 async fn libraries(State(state): State<ServerState>) -> Response {
@@ -1536,7 +1574,7 @@ fn router_with_runtime_and_events(
     event_bus: EventBus,
 ) -> Router {
     let config_state = ConfigState::init_in(config.data_dir.clone());
-    let web_root = config.web_root.clone();
+    let web_root = safe_web_root(&config.web_root);
     let spa = ServeDir::new(&web_root).fallback(ServeFile::new(web_root.join("index.html")));
     let state = ServerState {
         auth: AuthService::new(&config),
@@ -1562,6 +1600,7 @@ fn router_with_runtime_and_events(
         .route("/api/v1/events", get(events))
         .route("/api/v1/commands/{command}", post(command))
         .route("/api/v1/auth/logout", post(logout))
+        .route("/api/{*path}", any(api_not_found))
         .merge(login_route)
         .merge(cover_upload_route)
         .fallback_service(spa)
@@ -1631,7 +1670,7 @@ mod tests {
     use serde_json::json;
     use std::time::Duration;
     use tokio::sync::{Barrier, Notify};
-use tower::ServiceExt;
+    use tower::ServiceExt;
 
     fn test_config() -> ServerConfig {
         ServerConfig::for_tests("correct horse battery staple", "https://soundrobe.test")
@@ -1761,6 +1800,49 @@ use tower::ServiceExt;
                 .as_ref(),
             b"<main>Soundrobe</main>"
         );
+
+        let browser_route = router({
+            let mut config = test_config();
+            config.web_root = web_root.clone();
+            config
+        })
+        .oneshot(
+            Request::builder()
+                .uri("/library/example")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+        assert_eq!(browser_route.status(), StatusCode::OK);
+        assert_eq!(
+            axum::body::to_bytes(browser_route.into_body(), usize::MAX)
+                .await
+                .unwrap()
+                .as_ref(),
+            b"<main>Soundrobe</main>"
+        );
+
+        let api_app = router({
+            let mut config = test_config();
+            config.web_root = web_root.clone();
+            config
+        });
+        let login_response = login(api_app.clone(), "correct horse battery staple").await;
+        let api_response = api_app
+            .oneshot(
+                origin_request(
+                    Request::builder()
+                        .uri("/api/v1/not-known")
+                        .header(header::COOKIE, login_response.headers()[header::SET_COOKIE].clone())
+                        .body(Body::empty())
+                        .unwrap(),
+                ),
+            )
+            .await
+            .unwrap();
+        assert_json_error(api_response, StatusCode::NOT_FOUND, r#"{"error":"not found"}"#)
+            .await;
         std::fs::remove_dir_all(web_root).unwrap();
     }
 

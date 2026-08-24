@@ -11,6 +11,7 @@
 # Project specific
 .env
 .env.local
+.env.web
 *.log
 .cache/
 cache.db

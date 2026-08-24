@@ -142,6 +142,7 @@ describe("package scripts", () => {
     ).toEqual([
       "dep:axum",
       "dep:tower",
+      "dep:tower-http",
       "dep:subtle",
       "dep:tokio-util",
       "dep:futures-util",
