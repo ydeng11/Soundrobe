@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Legacy MP3 duration display** — playable MP3 files with non-standard ID3
+  year values now retain their audio duration and metadata instead of appearing
+  unreadable with a zero duration.
+
 ## [0.1.1] - 2026-08-21
 
 ### Added

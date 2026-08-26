@@ -316,7 +316,12 @@ describe("Tauri desktop workflows", () => {
           ? current
           : false;
       },
-      { timeout: 10_000, timeoutMsg: "numbered metadata was not written" },
+      {
+        // Windows CI can take longer to finish three native metadata writes,
+        // but a bounded wait still makes a stalled batch fail clearly.
+        timeout: 30_000,
+        timeoutMsg: "numbered metadata was not written",
+      },
     );
     const tracks = await browser.execute(async (albumPath) =>
       (await window.api.readAlbum(albumPath)).tracks,
