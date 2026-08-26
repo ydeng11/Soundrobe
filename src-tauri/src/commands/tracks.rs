@@ -8,7 +8,7 @@ use crate::commands::covers::{cover_cache_source, cover_cache_warm};
 use crate::commands::library::is_audio_file;
 use crate::commands::lyrics::{id3_lyrics_document, read_embedded_lyrics, LyricsDocument};
 use crate::error::ApiError;
-use lofty::config::ParseOptions;
+use lofty::config::{ParseOptions, ParsingMode};
 use lofty::file::{AudioFile, TaggedFileExt};
 use lofty::flac::FlacFile;
 use lofty::id3::v2::{Frame, Id3v2Tag};
@@ -689,9 +689,8 @@ pub(crate) fn read_track_metadata_without_lyrics(path: &Path) -> Result<TrackDat
                 TrackData::unreadable(path, size_bytes)
             }))
         }
-        Err(error) if extension == "mp3" => {
-            read_mpeg_header_fallback(path, size_bytes)?.ok_or(error)
-        }
+        Err(error) if extension == "mp3" => read_mpeg_relaxed(path, size_bytes)
+            .or_else(|_| read_mpeg_header_fallback(path, size_bytes)?.ok_or(error)),
         Err(error) if extension == "ogg" => {
             read_ogg_vorbis_fallback(path, size_bytes)?.ok_or(error)
         }
@@ -1255,6 +1254,16 @@ fn read_mpeg_header_fallback(path: &Path, size_bytes: u64) -> Result<Option<Trac
         track.compilation = None;
     }
     Ok(Some(track))
+}
+
+/// Retry legacy MP3 tags in Lofty's relaxed mode when its default parser
+/// rejects a non-standard frame such as a dotted ID3v2.3 year. The audio
+/// properties still come from Lofty's MPEG parser; only tag strictness changes.
+fn read_mpeg_relaxed(path: &Path, size_bytes: u64) -> Result<TrackData, ApiError> {
+    let mut file = File::open(path)?;
+    let options = ParseOptions::new().parsing_mode(ParsingMode::Relaxed);
+    let tagged = MpegFile::read_from(&mut file, options)?.into();
+    Ok(from_lofty(path, size_bytes, "mp3", &tagged))
 }
 
 pub(crate) fn id3_user_text_values(path: &Path, wanted: &str) -> Vec<String> {
@@ -2583,6 +2592,28 @@ mod tests {
         assert_eq!(actual, expected);
     }
 
+    /// Intent: a malformed legacy year tag must not hide valid MPEG audio
+    /// properties and make a playable track appear to have zero duration.
+    #[test]
+    fn mp3_malformed_year_preserves_audio_duration() {
+        let root = album_test_root();
+        std::fs::create_dir_all(&root).unwrap();
+        let path = root.join("malformed-year.mp3");
+        std::fs::write(&path, mp3_with_malformed_year()).unwrap();
+
+        let track = read_track_metadata(&path).expect("playable MP3 should stay readable");
+
+        assert_eq!(track.title.as_deref(), Some("Playable track"));
+        assert!(
+            (track.duration - 7.83).abs() < 0.02,
+            "expected MPEG-derived duration, got {}",
+            track.duration
+        );
+        assert_eq!(track.bitrate, Some(320_000.0));
+        assert_eq!(track.sample_rate, Some(44_100));
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
     /// Container parsers are exposed to untrusted library files. Truncated
     /// atom/page/chunk structures must return None, never panic or over-read.
     #[test]
@@ -3267,6 +3298,24 @@ mod tests {
         tag.extend_from_slice(&syncsafe_bytes(frames.len() as u32));
         tag.extend_from_slice(&frames);
         tag
+    }
+
+    fn mp3_with_malformed_year() -> Vec<u8> {
+        let mut frames = Vec::new();
+        append_id3v23_frame(&mut frames, b"TIT2", b"\x03Playable track");
+        append_id3v23_frame(&mut frames, b"TYER", b"\x032016.12.26");
+        let mut mp3 = Vec::from(&b"ID3\x03\0\0"[..]);
+        mp3.extend_from_slice(&syncsafe_bytes(frames.len() as u32));
+        mp3.extend_from_slice(&frames);
+
+        // 320 kbps MPEG-1 Layer III at 44.1 kHz: 1,044 bytes per frame.
+        // Repeating complete frames gives Lofty enough evidence to derive the
+        // duration independently of the malformed ID3 field.
+        for _ in 0..300 {
+            mp3.extend_from_slice(&[0xff, 0xfb, 0xe0, 0x00]);
+            mp3.resize(mp3.len() + 1_040, 0);
+        }
+        mp3
     }
 
     fn metadata_rich_id3v23_with_lyrics() -> Vec<u8> {
