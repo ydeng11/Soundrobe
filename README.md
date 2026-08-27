@@ -130,7 +130,11 @@ rewrites metadata in the format shown below.
 | APE | APEv2 | APEv2 |
 | AIFF | ID3v2, RIFF `LIST INFO` | — (read-only) |
 
-- MP3 and WAV edits rewrite existing ID3v2.2/2.3 tags as ID3v2.4.
+- Loading or refreshing an album upgrades MP3 ID3v2.2/2.3 tags to ID3v2.4
+  through an atomic, audio-preserving rewrite. Tags with embedded lyrics stay
+  on ID3v2.3 for broad player compatibility; failed upgrades leave the file
+  untouched and load through the compatibility reader.
+- WAV edits rewrite existing ID3v2.2/2.3 tags as ID3v2.4.
 - ID3v1 values are read as a fallback when ID3v2 does not define a field. MP3
   edits preserve a trailing ID3v1 tag without refreshing it, while APE writes
   remove it.

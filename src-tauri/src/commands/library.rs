@@ -12,15 +12,16 @@
 //!     the artist- vs album-directory strategy, collect loose root audio files,
 //!     and the single-file-as-album branch.
 //!
-//! `album:refresh` is DEFERRED: Electron's handler calls `readAlbum` which
-//! reads per-track metadata via the `music-metadata` Node library; that depends
-//! on the Rust audio-tag strategy decided separately.
+//! `album:refresh` delegates to the repair-aware Rust album reader so refresh
+//! and initial loading share metadata, cover, status, and legacy-tag behavior.
 
-use crate::commands::tracks::{read_album, AlbumDetail};
+use crate::commands::tracks::{read_album_with_legacy_upgrades, AlbumDetail};
 use crate::error::ApiError;
+use crate::state::write_queue::WriteQueue;
 use serde::Serialize;
 use std::fs;
 use std::path::{Path, PathBuf};
+use tauri::State;
 
 /// Extensions Electron treats as audio (`SUPPORTED_EXTENSIONS`).
 const AUDIO_EXTENSIONS: &[&str] = &[
@@ -271,11 +272,14 @@ pub fn library_scan(dir_path: String) -> Result<Vec<AlbumInfo>, String> {
     Ok(scan_directory(&path))
 }
 
-/// `album:refresh` / `refreshAlbum()`: Electron delegates directly to
-/// `readAlbum`, so use the same read-only implementation and error behavior.
+/// `album:refresh` / `refreshAlbum()`: use the same repair-aware implementation
+/// as album:read so a refresh cannot diverge from initial library loading.
 #[tauri::command]
-pub fn album_refresh(album_path: String) -> Result<AlbumDetail, ApiError> {
-    read_album(Path::new(&album_path))
+pub async fn album_refresh(
+    album_path: String,
+    queue: State<'_, WriteQueue>,
+) -> Result<AlbumDetail, ApiError> {
+    read_album_with_legacy_upgrades(PathBuf::from(album_path), queue.inner().clone()).await
 }
 
 #[cfg(test)]
@@ -485,12 +489,13 @@ mod tests {
     /// Intent: album:refresh is not a separate metadata algorithm; Electron
     /// delegates it to readAlbum. Keep that single source of truth so refresh
     /// never drifts from album:read's hints, covers, statuses, or fallbacks.
-    #[test]
-    fn album_refresh_delegates_to_album_reader() {
+    #[tokio::test]
+    async fn album_refresh_delegates_to_repair_aware_album_reader() {
         let root = tmp();
         let album = root.join("Artist").join("Album");
         fs::create_dir_all(&album).unwrap();
-        let result = album_refresh(album.to_string_lossy().into_owned())
+        let result = read_album_with_legacy_upgrades(album, WriteQueue::default())
+            .await
             .expect("readable album refresh should resolve");
         assert_eq!(result.name, "Album");
         assert_eq!(result.artist_hint, "Artist");

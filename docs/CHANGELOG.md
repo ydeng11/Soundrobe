@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Legacy MP3 tag compatibility** — loading an album now upgrades ID3v2.2
+  and ID3v2.3 MP3 tags to the supported writable version, repairs recognized
+  non-standard dates, and keeps lyric-compatible ID3v2.3 tags unchanged.
+
 ## [0.1.2] - 2026-08-26
 
 ### Fixed

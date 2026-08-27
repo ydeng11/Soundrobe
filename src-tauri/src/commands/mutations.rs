@@ -3,17 +3,19 @@
 
 use crate::commands::lyrics::{is_lyrics_alias, LyricsDocument};
 use crate::commands::tracks::{
-    id3_user_text_values, read_track_metadata, strip_wav_padding, unreadable_track_data, TrackData,
+    canonical_legacy_recording_date, id3_user_text_values, legacy_mp3_v22_parser_bytes,
+    legacy_mp3_v22_year, read_track_metadata, strip_wav_padding, unreadable_track_data, TrackData,
 };
 use crate::error::ApiError;
 use crate::state::write_queue::WriteQueue;
 use lofty::ape::{ApeFile, ApeItem, ApeTag};
-use lofty::config::{ParseOptions, WriteOptions};
+use lofty::config::{ParseOptions, ParsingMode, WriteOptions};
+use lofty::error::ErrorKind;
 use lofty::file::{AudioFile, TaggedFileExt};
 use lofty::flac::FlacFile;
 use lofty::id3::v2::{
     BinaryFrame, Frame, FrameId, Id3v2Tag, SyncTextContentType, SynchronizedTextFrame,
-    TextInformationFrame, TimestampFormat, UnsynchronizedTextFrame,
+    TextInformationFrame, TimestampFormat, TimestampFrame, UnsynchronizedTextFrame,
 };
 use lofty::iff::wav::WavFile;
 use lofty::mp4::{Atom, AtomData, AtomIdent, Ilst, Mp4File};
@@ -2608,6 +2610,171 @@ pub fn write_mp3_atomic(path: &Path, patch: &TrackPatch) -> Result<TrackWriteOut
     result
 }
 
+/// Return the ID3 major version only for legacy MP3 tags Soundrobe can safely
+/// normalize. Untagged files, ID3v2.4, and unknown future/obsolete versions do
+/// not enter the automatic upgrade path.
+pub(crate) fn legacy_mp3_tag_version(path: &Path) -> Result<Option<u8>, ApiError> {
+    let mut file = File::open(path)?;
+    let mut header = [0_u8; 4];
+    match file.read_exact(&mut header) {
+        Ok(()) => {}
+        Err(error) if error.kind() == std::io::ErrorKind::UnexpectedEof => return Ok(None),
+        Err(error) => return Err(error.into()),
+    }
+    if &header[..3] != b"ID3" {
+        return Ok(None);
+    }
+    Ok(matches!(header[3], 2 | 3).then_some(header[3]))
+}
+
+/// Read just enough legacy metadata to avoid scheduling a permanent ID3v2.3
+/// lyrics compatibility exception as an exclusive repair on every album load.
+/// ID3v2.2 always needs at least a v2.3 rewrite; ID3v2.3 is already at its
+/// required target when it contains USLT/SYLT.
+pub(crate) fn legacy_mp3_upgrade_required(path: &Path) -> Result<bool, ApiError> {
+    let Some(version) = legacy_mp3_tag_version(path)? else {
+        return Ok(false);
+    };
+    if version == 2 {
+        return Ok(true);
+    }
+
+    let mut file = File::open(path)?;
+    let options = ParseOptions::new()
+        .read_properties(false)
+        .read_cover_art(false)
+        .parsing_mode(ParsingMode::Relaxed)
+        .implicit_conversions(false);
+    let parsed = MpegFile::read_from(&mut file, options)?;
+    Ok(!parsed.id3v2().is_some_and(tag_has_lyrics))
+}
+
+/// Upgrade an ID3v2.2/v2.3 MP3 through the same sibling-file validation used
+/// by normal metadata writes. Lyric-bearing tags retain ID3v2.3 for broad
+/// player compatibility; all other legacy tags become ID3v2.4.
+pub(crate) fn upgrade_legacy_mp3_tag_atomic(path: &Path) -> Result<TrackWriteOutcome, ApiError> {
+    let original_bytes = fs::read(path)?;
+    let Some(original_version) = legacy_mp3_version_from_bytes(&original_bytes) else {
+        return Ok(TrackWriteOutcome::Skipped);
+    };
+    let original_payload = mpeg_payload(&original_bytes)
+        .ok_or_else(|| ApiError::MediaSafety("invalid ID3v2 boundary".to_string()))?;
+    let before = read_track_metadata(path)?;
+    let mut tag = read_legacy_id3v2_for_upgrade(path)?;
+    let use_id3v23 = tag_has_lyrics(&tag);
+
+    if original_version == 3 && use_id3v23 {
+        return Ok(TrackWriteOutcome::Skipped);
+    }
+    if (&tag).into_iter().any(|frame| frame.id().is_outdated()) {
+        return Err(ApiError::MediaSafety(
+            "legacy MP3 contains an unmapped ID3v2.2 frame".to_string(),
+        ));
+    }
+
+    normalize_empty_id3_picture_descriptions(&mut tag, use_id3v23);
+    let expected_version = if use_id3v23 { 3 } else { 4 };
+    let temporary = sibling_temp_path(path);
+    let result = (|| {
+        write_loaded_file_data(&original_bytes, &temporary)?;
+        tag.save_to_path(&temporary, id3_write_options(use_id3v23))?;
+
+        let candidate_bytes = fs::read(&temporary)?;
+        if candidate_bytes.get(..4) != Some(&[b'I', b'D', b'3', expected_version]) {
+            let actual_version = candidate_bytes.get(3).copied();
+            return Err(ApiError::MediaSafety(format!(
+                "legacy MP3 tag upgrade expected ID3v2.{expected_version}, got {actual_version:?}"
+            )));
+        }
+        let candidate_payload = mpeg_payload(&candidate_bytes)
+            .ok_or_else(|| ApiError::MediaSafety("invalid upgraded ID3v2 boundary".to_string()))?;
+        if candidate_payload != original_payload {
+            return Err(ApiError::MediaSafety(
+                "MP3 audio payload changed during legacy tag upgrade".to_string(),
+            ));
+        }
+
+        let after = read_track_metadata(&temporary)?;
+        if !same_metadata(before, after) {
+            return Err(ApiError::MediaSafety(
+                "MP3 metadata changed unexpectedly during legacy tag upgrade".to_string(),
+            ));
+        }
+        replace_file_atomic(&temporary, path)?;
+        Ok(TrackWriteOutcome::Replaced)
+    })();
+
+    if temporary.exists() {
+        let _ = fs::remove_file(&temporary);
+    }
+    result
+}
+
+fn legacy_mp3_version_from_bytes(bytes: &[u8]) -> Option<u8> {
+    if bytes.get(..3) != Some(b"ID3") {
+        return None;
+    }
+    bytes
+        .get(3)
+        .copied()
+        .filter(|version| matches!(version, 2 | 3))
+}
+
+fn read_legacy_id3v2_for_upgrade(path: &Path) -> Result<Id3v2Tag, ApiError> {
+    let mut file = File::open(path)?;
+    let options = ParseOptions::new().read_properties(false);
+    match MpegFile::read_from(&mut file, options) {
+        Ok(parsed) => Ok(parsed.id3v2().cloned().unwrap_or_default()),
+        Err(error) if matches!(error.kind(), ErrorKind::BadTimestamp(_)) => {
+            let options = ParseOptions::new()
+                .read_properties(false)
+                .parsing_mode(ParsingMode::Relaxed)
+                .implicit_conversions(false);
+            let parsed = if let Some(bytes) = legacy_mp3_v22_parser_bytes(path)? {
+                let mut cursor = Cursor::new(bytes);
+                MpegFile::read_from(&mut cursor, options)?
+            } else {
+                let mut file = File::open(path)?;
+                MpegFile::read_from(&mut file, options)?
+            };
+            let mut tag = parsed.id3v2().cloned().unwrap_or_default();
+            normalize_legacy_timestamp_for_upgrade(path, &mut tag)?;
+            Ok(tag)
+        }
+        Err(error) => Err(error.into()),
+    }
+}
+
+fn normalize_legacy_timestamp_for_upgrade(path: &Path, tag: &mut Id3v2Tag) -> Result<(), ApiError> {
+    let raw = legacy_mp3_v22_year(path)
+        .or_else(|| tag.get_text(&frame_id("TYER")).map(ToOwned::to_owned))
+        .ok_or_else(|| {
+            ApiError::MediaSafety(
+                "legacy MP3 has an unsupported malformed timestamp frame".to_string(),
+            )
+        })?;
+    let canonical = canonical_legacy_recording_date(&raw).ok_or_else(|| {
+        ApiError::MediaSafety(format!(
+            "legacy MP3 year is not safely convertible: {raw:?}"
+        ))
+    })?;
+    let timestamp = canonical.parse().map_err(|_| {
+        ApiError::MediaSafety(format!(
+            "legacy MP3 year is not a valid recording date: {raw:?}"
+        ))
+    })?;
+
+    for id in ["TYER", "TDAT", "TIME", "TDRC"] {
+        drop(tag.remove(&frame_id(id)));
+    }
+    tag.insert(Frame::Timestamp(TimestampFrame::new(
+        frame_id("TDRC"),
+        TextEncoding::UTF8,
+        timestamp,
+    )));
+    Ok(())
+}
+
 fn read_flac(path: &Path) -> Result<FlacFile, ApiError> {
     let mut file = File::open(path)?;
     Ok(FlacFile::read_from(
@@ -4300,6 +4467,51 @@ mod tests {
         copy_to_temp(&fixture(), "track.mp3")
     }
 
+    fn syncsafe_test_size(value: usize) -> [u8; 4] {
+        [
+            ((value >> 21) & 0x7f) as u8,
+            ((value >> 14) & 0x7f) as u8,
+            ((value >> 7) & 0x7f) as u8,
+            (value & 0x7f) as u8,
+        ]
+    }
+
+    fn append_id3v22_frame(frames: &mut Vec<u8>, id: &[u8; 3], payload: &[u8]) {
+        frames.extend_from_slice(id);
+        frames.extend_from_slice(&[
+            ((payload.len() >> 16) & 0xff) as u8,
+            ((payload.len() >> 8) & 0xff) as u8,
+            (payload.len() & 0xff) as u8,
+        ]);
+        frames.extend_from_slice(payload);
+    }
+
+    fn install_id3v22(path: &Path, lyrics: bool) {
+        install_id3v22_with_year(path, lyrics, "2016", false);
+    }
+
+    fn install_id3v22_with_year(path: &Path, lyrics: bool, year: &str, unknown: bool) {
+        let source = fs::read(path).unwrap();
+        let payload = mpeg_payload(&source).unwrap();
+        let mut frames = Vec::new();
+        append_id3v22_frame(&mut frames, b"TT2", b"\0Legacy V2");
+        append_id3v22_frame(&mut frames, b"TP1", b"\0Legacy Artist");
+        append_id3v22_frame(&mut frames, b"TAL", b"\0Legacy Album");
+        append_id3v22_frame(&mut frames, b"TRK", b"\x001/1");
+        append_id3v22_frame(&mut frames, b"TYE", &[&[0][..], year.as_bytes()].concat());
+        if lyrics {
+            append_id3v22_frame(&mut frames, b"ULT", b"\0eng\0legacy lyrics");
+        }
+        if unknown {
+            append_id3v22_frame(&mut frames, b"ZZZ", b"preserve-me");
+        }
+        let mut bytes = Vec::from(&b"ID3\x02\0\0"[..]);
+        bytes.extend_from_slice(&syncsafe_test_size(frames.len()));
+        bytes.extend_from_slice(&frames);
+        bytes.extend_from_slice(payload);
+        fs::write(path, bytes).unwrap();
+    }
+
     fn writer_fixture(name: &str) -> PathBuf {
         PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("../test/fixtures/tauri/writer-corpus")
@@ -4614,6 +4826,150 @@ mod tests {
             TrackWriteOutcome::Skipped
         );
         assert_eq!(fs::read(&path).unwrap(), before);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn legacy_id3v23_upgrade_preserves_unknown_frames_artwork_and_payload() {
+        let (root, path) = copy_fixture();
+        let mut tag = read_id3v2(&path).unwrap();
+        drop(tag.remove(&frame_id("USLT")));
+        drop(tag.remove(&frame_id("SYLT")));
+        tag.insert(Frame::Binary(BinaryFrame::new(
+            frame_id("XZZZ"),
+            b"preserve-me".to_vec(),
+        )));
+        tag.save_to_path(&path, WriteOptions::new().use_id3v23(true))
+            .unwrap();
+        let before_tag = read_id3v2(&path).unwrap();
+        let before_pictures = (&before_tag)
+            .into_iter()
+            .filter_map(|frame| match frame {
+                Frame::Picture(picture) => Some(picture.picture.data().to_vec()),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        let before = fs::read(&path).unwrap();
+        let before_payload = mpeg_payload(&before).unwrap().to_vec();
+
+        assert_eq!(
+            upgrade_legacy_mp3_tag_atomic(&path).unwrap(),
+            TrackWriteOutcome::Replaced
+        );
+
+        let after = fs::read(&path).unwrap();
+        assert_eq!(&after[..4], b"ID3\x04");
+        assert_eq!(mpeg_payload(&after).unwrap(), before_payload);
+        let after_tag = read_id3v2(&path).unwrap();
+        let unknown = after_tag
+            .get(&frame_id("XZZZ"))
+            .and_then(|frame| match frame {
+                Frame::Binary(frame) => Some(frame.data.as_ref()),
+                _ => None,
+            });
+        assert_eq!(unknown, Some(b"preserve-me".as_slice()));
+        let after_pictures = (&after_tag)
+            .into_iter()
+            .filter_map(|frame| match frame {
+                Frame::Picture(picture) => Some(picture.picture.data().to_vec()),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(after_pictures, before_pictures);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn legacy_id3v22_upgrades_to_v4_or_v3_for_lyrics() {
+        for (lyrics, expected_version) in [(false, 4_u8), (true, 3_u8)] {
+            let (root, path) = copy_fixture();
+            install_id3v22(&path, lyrics);
+            let before = fs::read(&path).unwrap();
+            let before_payload = mpeg_payload(&before).unwrap().to_vec();
+
+            assert_eq!(
+                upgrade_legacy_mp3_tag_atomic(&path).unwrap(),
+                TrackWriteOutcome::Replaced
+            );
+
+            let after = fs::read(&path).unwrap();
+            assert_eq!(after[3], expected_version);
+            assert_eq!(mpeg_payload(&after).unwrap(), before_payload);
+            let track = read_track_metadata(&path).unwrap();
+            assert_eq!(track.title.as_deref(), Some("Legacy V2"));
+            assert_eq!(track.artist.as_deref(), Some("Legacy Artist"));
+            assert_eq!(track.year.as_deref(), Some("2016"));
+            fs::remove_dir_all(root).unwrap();
+        }
+    }
+
+    #[test]
+    fn legacy_id3v22_malformed_year_upgrades_and_preserves_display_year() {
+        for year in ["2016.12.26", "2016/12/26"] {
+            let (root, path) = copy_fixture();
+            install_id3v22_with_year(&path, false, year, false);
+            let before = fs::read(&path).unwrap();
+            let before_payload = mpeg_payload(&before).unwrap().to_vec();
+            assert_eq!(
+                read_track_metadata(&path).unwrap().year.as_deref(),
+                Some("2016")
+            );
+
+            assert_eq!(
+                upgrade_legacy_mp3_tag_atomic(&path).unwrap(),
+                TrackWriteOutcome::Replaced
+            );
+
+            let after = fs::read(&path).unwrap();
+            assert_eq!(&after[..4], b"ID3\x04");
+            assert_eq!(mpeg_payload(&after).unwrap(), before_payload);
+            assert_eq!(
+                read_track_metadata(&path).unwrap().year.as_deref(),
+                Some("2016")
+            );
+            fs::remove_dir_all(root).unwrap();
+        }
+    }
+
+    #[test]
+    fn legacy_id3v22_unknown_frame_aborts_without_mutation() {
+        let (root, path) = copy_fixture();
+        install_id3v22_with_year(&path, false, "2016", true);
+        let original = fs::read(&path).unwrap();
+
+        let result = upgrade_legacy_mp3_tag_atomic(&path);
+
+        assert!(matches!(result, Err(ApiError::MediaSafety(_))));
+        assert_eq!(fs::read(&path).unwrap(), original);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn current_or_untagged_mp3_is_not_rewritten_by_legacy_upgrade() {
+        let (root, path) = copy_fixture();
+        let before = fs::read(&path).unwrap();
+        assert_eq!(
+            upgrade_legacy_mp3_tag_atomic(&path).unwrap(),
+            TrackWriteOutcome::Skipped
+        );
+        assert_eq!(fs::read(&path).unwrap(), before);
+
+        let untagged = mpeg_payload(&before).unwrap().to_vec();
+        fs::write(&path, &untagged).unwrap();
+        assert_eq!(
+            upgrade_legacy_mp3_tag_atomic(&path).unwrap(),
+            TrackWriteOutcome::Skipped
+        );
+        assert_eq!(fs::read(&path).unwrap(), untagged);
+
+        let mut unknown_version = before;
+        unknown_version[3] = 5;
+        fs::write(&path, &unknown_version).unwrap();
+        assert_eq!(
+            upgrade_legacy_mp3_tag_atomic(&path).unwrap(),
+            TrackWriteOutcome::Skipped
+        );
+        assert_eq!(fs::read(&path).unwrap(), unknown_version);
         fs::remove_dir_all(root).unwrap();
     }
 
