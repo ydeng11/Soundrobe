@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Manual release search** — result filtering and sorting now cover the full
+  provider catalog, with title/artist, year, and MusicBrainz track-count
+  controls; multi-word MusicBrainz artist searches also recover from transient
+  provider overload responses.
+
 ## [0.1.3] - 2026-08-27
 
 ### Fixed

@@ -18,11 +18,20 @@ type Phase = "form" | "results" | "detail";
 interface SearchCache {
   key: string;
   catalog?: ReleaseSearchPage;
-  pages: Map<number, ReleaseSearchPage>;
 }
 
 const PROVIDER_PAGE_SIZE = 100;
 const RESULT_PAGE_SIZE = 10;
+type ResultSort =
+  | "relevance"
+  | "title-asc"
+  | "title-desc"
+  | "artist-asc"
+  | "artist-desc"
+  | "year-asc"
+  | "year-desc"
+  | "tracks-asc"
+  | "tracks-desc";
 
 function normalizedFilterText(value: string): string {
   return value.normalize("NFKC").toLowerCase();
@@ -53,9 +62,15 @@ export function SearchDialog({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchPage, setSearchPage] = useState<ReleaseSearchPage | null>(null);
-  const [localCatalog, setLocalCatalog] = useState(false);
   const [resultFilter, setResultFilter] = useState("");
+  const [resultYear, setResultYear] = useState("");
+  const [resultTrackCount, setResultTrackCount] = useState("");
+  const [resultSort, setResultSort] = useState<ResultSort>("relevance");
   const [resultPage, setResultPage] = useState(1);
+  const [loadingProgress, setLoadingProgress] = useState<{
+    loaded: number;
+    total?: number;
+  } | null>(null);
   const [detailAlbum, setDetailAlbum] = useState<ProviderAlbum | null>(null);
   const searchGeneration = useRef(0);
   const searchCache = useRef<SearchCache | null>(null);
@@ -69,15 +84,18 @@ export function SearchDialog({
       setLoading(false);
       setError(null);
       setSearchPage(null);
-      setLocalCatalog(false);
       setResultFilter("");
+      setResultYear("");
+      setResultTrackCount("");
+      setResultSort("relevance");
       setResultPage(1);
+      setLoadingProgress(null);
       setDetailAlbum(null);
       setPhase("form");
     }
   }, [open]);
 
-  const handleSearch = useCallback(async (pageNum = 1) => {
+  const handleSearch = useCallback(async () => {
     if (!canSearch) return;
     const trimmedFields = [
       artist.trim() || undefined,
@@ -97,37 +115,32 @@ export function SearchDialog({
       requestCatalogNumber,
       requestBarcode,
     ] = trimmedFields;
-    const shouldCacheCatalog = provider === "musicbrainz" && requestArtist !== undefined;
     const cacheKey = searchCacheKey(provider, trimmedFields);
     if (searchCache.current?.key !== cacheKey) {
-      searchCache.current = { key: cacheKey, pages: new Map() };
+      searchCache.current = { key: cacheKey };
     }
-    const pendingKey = JSON.stringify([
-      cacheKey,
-      shouldCacheCatalog ? "catalog" : pageNum,
-    ]);
+    const pendingKey = cacheKey;
     if (pendingSearch.current?.key === pendingKey) return;
-    const cachedPage = shouldCacheCatalog
-      ? searchCache.current.catalog
-      : searchCache.current.pages.get(pageNum);
+    const cachedCatalog = searchCache.current.catalog;
 
     setError(null);
-    if (pageNum === 1) {
-      setSearchPage(null);
-      setLocalCatalog(false);
-      setResultFilter("");
-      setResultPage(1);
-    }
-    if (cachedPage) {
+    setSearchPage(null);
+    setResultFilter("");
+    setResultYear("");
+    setResultTrackCount("");
+    setResultSort("relevance");
+    setResultPage(1);
+    if (cachedCatalog) {
       setLoading(false);
-      setSearchPage(cachedPage);
-      setLocalCatalog(shouldCacheCatalog);
+      setLoadingProgress(null);
+      setSearchPage(cachedCatalog);
       setPhase("results");
       return;
     }
     const generation = ++searchGeneration.current;
     pendingSearch.current = { key: pendingKey, generation };
     setLoading(true);
+    setLoadingProgress({ loaded: 0 });
 
     try {
       const request = {
@@ -139,26 +152,18 @@ export function SearchDialog({
         format: requestFormat,
         catalogNumber: requestCatalogNumber,
         barcode: requestBarcode,
-        pageSize: shouldCacheCatalog ? PROVIDER_PAGE_SIZE : RESULT_PAGE_SIZE,
+        pageSize: PROVIDER_PAGE_SIZE,
       };
-      if (!shouldCacheCatalog) {
-        const page = await window.api.searchReleases({ ...request, page: pageNum });
-        if (generation !== searchGeneration.current) return;
-        if (searchCache.current?.key === cacheKey) {
-          searchCache.current.pages.set(pageNum, page);
-        }
-        setSearchPage(page);
-        setLocalCatalog(false);
-        setPhase("results");
-        return;
-      }
       const results: ReleaseSearchResult[] = [];
       let providerPage = 1;
       let hasNext = true;
+      let providerTotal: number | undefined;
       while (hasNext) {
         const page = await window.api.searchReleases({ ...request, page: providerPage });
         if (generation !== searchGeneration.current) return;
         results.push(...page.results);
+        providerTotal ??= page.total;
+        setLoadingProgress({ loaded: results.length, total: providerTotal });
         hasNext = page.hasNext;
         if (hasNext && page.results.length === 0) {
           throw new Error("Provider returned an empty page before the end of the results");
@@ -183,7 +188,7 @@ export function SearchDialog({
         searchCache.current.catalog = completedCatalog;
       }
       setSearchPage(completedCatalog);
-      setLocalCatalog(true);
+      setLoadingProgress(null);
       setPhase("results");
     } catch (err) {
       if (generation === searchGeneration.current) {
@@ -193,34 +198,88 @@ export function SearchDialog({
       if (pendingSearch.current?.generation === generation) {
         pendingSearch.current = null;
       }
+      if (generation === searchGeneration.current) setLoadingProgress(null);
       if (generation === searchGeneration.current) setLoading(false);
     }
   }, [provider, artist, album, year, country, format, catalogNumber, barcode, canSearch]);
 
   const filteredResults = useMemo(() => {
     const query = normalizedFilterText(resultFilter.trim());
-    if (!searchPage || !query) return searchPage?.results ?? [];
-    return searchPage.results.filter((result) =>
-      normalizedFilterText(result.title).includes(query),
-    );
-  }, [searchPage, resultFilter]);
+    const filtered = (searchPage?.results ?? []).filter((result) => {
+      if (
+        query &&
+        !normalizedFilterText(result.title).includes(query) &&
+        !normalizedFilterText(result.artist ?? "").includes(query)
+      ) {
+        return false;
+      }
+      if (resultYear && result.year !== resultYear) return false;
+      if (resultTrackCount && String(result.trackCount) !== resultTrackCount) {
+        return false;
+      }
+      return true;
+    });
+    if (resultSort === "relevance") return filtered;
+    const [field, direction] = resultSort.split("-") as [
+      "title" | "artist" | "year" | "tracks",
+      "asc" | "desc",
+    ];
+    const descending = direction === "desc";
+    return filtered
+      .map((result, index) => ({ result, index }))
+      .sort(({ result: left, index: leftIndex }, { result: right, index: rightIndex }) => {
+        const leftValue =
+          field === "title"
+            ? left.title
+            : field === "artist"
+              ? left.artist
+              : field === "year"
+                ? left.year
+                : left.trackCount;
+        const rightValue =
+          field === "title"
+            ? right.title
+            : field === "artist"
+              ? right.artist
+              : field === "year"
+                ? right.year
+                : right.trackCount;
+        if (leftValue === undefined && rightValue === undefined) return leftIndex - rightIndex;
+        if (leftValue === undefined) return 1;
+        if (rightValue === undefined) return -1;
+        const comparison =
+          typeof leftValue === "number" && typeof rightValue === "number"
+            ? leftValue - rightValue
+            : normalizedFilterText(String(leftValue)).localeCompare(
+                normalizedFilterText(String(rightValue)),
+              );
+        if (comparison !== 0) return descending ? -comparison : comparison;
+        return leftIndex - rightIndex;
+      })
+      .map(({ result }) => result);
+  }, [searchPage, resultFilter, resultYear, resultTrackCount, resultSort]);
 
   const visibleResults = useMemo(() => {
-    if (!localCatalog) return filteredResults;
     const start = (resultPage - 1) * RESULT_PAGE_SIZE;
     return filteredResults.slice(start, start + RESULT_PAGE_SIZE);
-  }, [filteredResults, localCatalog, resultPage]);
+  }, [filteredResults, resultPage]);
 
-  const resultPageCount = localCatalog
-    ? Math.max(1, Math.ceil(filteredResults.length / RESULT_PAGE_SIZE))
-    : Math.max(
-        1,
-        Math.ceil((searchPage?.total ?? 0) / (searchPage?.pageSize ?? RESULT_PAGE_SIZE)),
-      );
-  const currentResultPage = localCatalog ? resultPage : (searchPage?.page ?? 1);
-  const showPagination = localCatalog
-    ? filteredResults.length > RESULT_PAGE_SIZE
-    : (searchPage?.total ?? 0) > (searchPage?.pageSize ?? RESULT_PAGE_SIZE);
+  const resultPageCount = Math.max(1, Math.ceil(filteredResults.length / RESULT_PAGE_SIZE));
+  const currentResultPage = resultPage;
+  const showPagination = filteredResults.length > RESULT_PAGE_SIZE;
+  const resultYears = useMemo(
+    () => [...new Set((searchPage?.results ?? []).flatMap((result) => result.year ? [result.year] : []))]
+      .sort((left, right) => right.localeCompare(left)),
+    [searchPage],
+  );
+  const resultTrackCounts = useMemo(
+    () => [...new Set((searchPage?.results ?? []).flatMap((result) => result.trackCount !== undefined ? [result.trackCount] : []))]
+      .sort((left, right) => left - right),
+    [searchPage],
+  );
+  const hasResultFilters = Boolean(
+    resultFilter.trim() || resultYear || resultTrackCount,
+  );
 
   const handleOpenDetail = useCallback(async (result: ReleaseSearchResult) => {
     setLoading(true);
@@ -257,30 +316,39 @@ export function SearchDialog({
     setLoading(false);
     setDetailAlbum(null);
     setSearchPage(null);
-    setLocalCatalog(false);
     setResultFilter("");
+    setResultYear("");
+    setResultTrackCount("");
+    setResultSort("relevance");
     setResultPage(1);
     setPhase("form");
   }, []);
 
   const handlePrevPage = useCallback(() => {
-    if (localCatalog) {
-      setResultPage((page) => Math.max(1, page - 1));
-    } else if (searchPage && searchPage.page > 1) {
-      handleSearch(searchPage.page - 1);
-    }
-  }, [localCatalog, searchPage, handleSearch]);
+    setResultPage((page) => Math.max(1, page - 1));
+  }, []);
 
   const handleNextPage = useCallback(() => {
-    if (localCatalog) {
-      setResultPage((page) => Math.min(resultPageCount, page + 1));
-    } else if (searchPage?.hasNext) {
-      handleSearch(searchPage.page + 1);
-    }
-  }, [localCatalog, resultPageCount, searchPage, handleSearch]);
+    setResultPage((page) => Math.min(resultPageCount, page + 1));
+  }, [resultPageCount]);
 
   const handleResultFilterChange = useCallback((value: string) => {
     setResultFilter(value);
+    setResultPage(1);
+  }, []);
+
+  const handleResultYearChange = useCallback((value: string) => {
+    setResultYear(value);
+    setResultPage(1);
+  }, []);
+
+  const handleResultTrackCountChange = useCallback((value: string) => {
+    setResultTrackCount(value);
+    setResultPage(1);
+  }, []);
+
+  const handleResultSortChange = useCallback((value: ResultSort) => {
+    setResultSort(value);
     setResultPage(1);
   }, []);
 
@@ -331,9 +399,9 @@ export function SearchDialog({
             <h2 className="text-sm font-semibold text-text-primary">
               {phase === "form" && "Search releases"}
               {phase === "results" && searchPage && (
-                localCatalog && resultFilter.trim()
+                hasResultFilters
                   ? `Results (${filteredResults.length} of ${searchPage.results.length})`
-                  : `Results (${localCatalog ? searchPage.results.length : (searchPage.total ?? "?")})`
+                  : `Results (${searchPage.results.length})`
               )}
               {phase === "detail" && (detailAlbum?.title ?? "Release detail")}
             </h2>
@@ -484,7 +552,11 @@ export function SearchDialog({
                       : "bg-accent text-white hover:bg-accent/90 active:scale-[0.98]"
                   }`}
                 >
-                  {loading ? "Searching…" : "Search"}
+                  {loading
+                    ? loadingProgress?.total
+                      ? `Loading ${loadingProgress.loaded} of ${loadingProgress.total}…`
+                      : "Searching…"
+                    : "Search"}
                 </button>
               </div>
             </div>
@@ -494,13 +566,62 @@ export function SearchDialog({
           {phase === "results" && searchPage && (
             <div className="space-y-2">
               {searchPage.results.length > 0 && (
-                <input
-                  type="search"
-                  value={resultFilter}
-                  onChange={(event) => handleResultFilterChange(event.target.value)}
-                  placeholder="Filter release titles"
-                  className="w-full h-8 px-2.5 mb-2 text-[12px] border border-border rounded-lg outline-none focus:border-accent/60 focus:shadow-[0_0_0_2px_rgba(0,122,255,0.12)] bg-white"
-                />
+                <div className="space-y-2 mb-3">
+                  <input
+                    type="search"
+                    value={resultFilter}
+                    onChange={(event) => handleResultFilterChange(event.target.value)}
+                    placeholder="Filter title or artist"
+                    aria-label="Filter title or artist"
+                    className="w-full h-8 px-2.5 text-[12px] border border-border rounded-lg outline-none focus:border-accent/60 focus:shadow-[0_0_0_2px_rgba(0,122,255,0.12)] bg-white"
+                  />
+                  <div className="grid grid-cols-3 gap-2">
+                    <select
+                      value={resultYear}
+                      onChange={(event) => handleResultYearChange(event.target.value)}
+                      aria-label="Filter year"
+                      className="h-8 px-2 text-[11px] border border-border rounded-lg outline-none focus:border-accent/60 bg-white text-text-secondary"
+                    >
+                      <option value="">All years</option>
+                      {resultYears.map((value) => <option key={value} value={value}>{value}</option>)}
+                    </select>
+                    <select
+                      value={resultTrackCount}
+                      onChange={(event) => handleResultTrackCountChange(event.target.value)}
+                      aria-label="Filter track count"
+                      disabled={provider !== "musicbrainz"}
+                      className="h-8 px-2 text-[11px] border border-border rounded-lg outline-none focus:border-accent/60 bg-white text-text-secondary disabled:bg-gray-50 disabled:text-text-muted/60"
+                    >
+                      <option value="">All track counts</option>
+                      {resultTrackCounts.map((value) => <option key={value} value={value}>{value} tracks</option>)}
+                    </select>
+                    <select
+                      value={resultSort}
+                      onChange={(event) => handleResultSortChange(event.target.value as ResultSort)}
+                      aria-label="Sort results"
+                      className="h-8 px-2 text-[11px] border border-border rounded-lg outline-none focus:border-accent/60 bg-white text-text-secondary"
+                    >
+                      <option value="relevance">Sort: relevance</option>
+                      <option value="title-asc">Title: A–Z</option>
+                      <option value="title-desc">Title: Z–A</option>
+                      <option value="artist-asc">Artist: A–Z</option>
+                      <option value="artist-desc">Artist: Z–A</option>
+                      <option value="year-desc">Year: newest</option>
+                      <option value="year-asc">Year: oldest</option>
+                      {provider === "musicbrainz" && (
+                        <>
+                          <option value="tracks-desc">Tracks: most</option>
+                          <option value="tracks-asc">Tracks: fewest</option>
+                        </>
+                      )}
+                    </select>
+                  </div>
+                  {provider !== "musicbrainz" && (
+                    <p className="text-[10.5px] text-text-muted/70">
+                      Discogs search summaries do not include track counts.
+                    </p>
+                  )}
+                </div>
               )}
               {searchPage.results.length === 0 ? (
                 <div className="text-center py-10 text-text-muted text-[13px]">
@@ -508,9 +629,7 @@ export function SearchDialog({
                 </div>
               ) : filteredResults.length === 0 ? (
                 <div className="text-center py-10 text-text-muted text-[13px]">
-                  {localCatalog
-                    ? "No cached releases match this title."
-                    : "No releases on this page match this title."}
+                  No cached releases match these filters.
                 </div>
               ) : (
                 <>
@@ -529,6 +648,8 @@ export function SearchDialog({
                             {result.artist && <span>{result.artist}</span>}
                             {result.artist && result.year && <span> · </span>}
                             {result.year && <span>{result.year}</span>}
+                            {(result.artist || result.year) && result.trackCount !== undefined && <span> · </span>}
+                            {result.trackCount !== undefined && <span>{result.trackCount} tracks</span>}
                           </div>
                           {result.formats.length > 0 && (
                             <div className="flex gap-1 mt-1 flex-wrap">
@@ -565,7 +686,7 @@ export function SearchDialog({
                   </span>
                   <button
                     onClick={handleNextPage}
-                    disabled={localCatalog ? resultPage >= resultPageCount : !searchPage.hasNext}
+                    disabled={resultPage >= resultPageCount}
                     className="px-3 py-1 text-[12px] rounded-lg border border-border text-text-secondary hover:bg-surface-hover disabled:opacity-30 disabled:cursor-not-allowed transition-all"
                   >
                     Next &gt;

@@ -222,6 +222,7 @@ export interface ReleaseSearchResult {
   title: string;
   artist?: string;
   year?: string;
+  trackCount?: number;
   country?: string;
   formats: string[];
   catalogNumber?: string;
