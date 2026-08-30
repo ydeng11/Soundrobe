@@ -187,6 +187,8 @@ export interface AppState {
 
   /** Error message */
   error: string | null;
+  /** Non-fatal warning or review summary */
+  notice: string | null;
 
   /** Undo manager instance */
   undoManager: UndoManager;
@@ -239,6 +241,7 @@ export const initialAppState: AppState = {
   scanningProgress: null,
   loaded: false,
   error: null,
+  notice: null,
   undoManager: new UndoManager(),
   reverting: false,
   saving: false,
@@ -267,6 +270,7 @@ export type AppAction =
   | { type: "SET_SCANNING_PROGRESS"; progress: { current: number; total: number } | null }
   | { type: "SET_LOADED"; loaded: boolean }
   | { type: "SET_ERROR"; error: string | null }
+  | { type: "SET_NOTICE"; notice: string | null }
   | { type: "UPDATE_TRACK"; path: string; track: TrackData }
   | { type: "UPDATE_TRACKS"; tracks: TrackData[] }
   | { type: "PATCH_TRACKS"; paths: string[]; fields: Record<string, string> }
@@ -412,6 +416,9 @@ export function appReducer(state: AppState, action: AppAction): AppState {
 
     case "SET_ERROR":
       return { ...state, error: action.error };
+
+    case "SET_NOTICE":
+      return { ...state, notice: action.notice };
 
     case "UPDATE_TRACK":
       return {

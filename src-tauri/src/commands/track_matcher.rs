@@ -731,7 +731,7 @@ fn usable_containment(value: &str) -> bool {
 
 fn clean_filename_title(filename: &str, known_artists: &[String]) -> Option<String> {
     static TRACK_PREFIX: OnceLock<Regex> = OnceLock::new();
-    let stem = Path::new(filename).file_stem()?.to_str()?.trim();
+    let stem = filename_without_audio_extension(filename)?.trim();
     let mut title = TRACK_PREFIX
         .get_or_init(|| Regex::new(r"^(\d+)[\s.‐‑‒–—―-]*").expect("valid track prefix regex"))
         .replace(stem, "")
@@ -753,12 +753,48 @@ fn clean_filename_title(filename: &str, known_artists: &[String]) -> Option<Stri
 
 fn filename_position_number(filename: &str) -> Option<u32> {
     static LEADING_NUMBER: OnceLock<Regex> = OnceLock::new();
-    let stem = Path::new(filename).file_stem()?.to_str()?;
+    let stem = filename_without_audio_extension(filename)?;
     LEADING_NUMBER
         .get_or_init(|| Regex::new(r"^(\d{1,3})(?:\D|$)").expect("valid track number regex"))
         .captures(stem)
         .and_then(|captures| captures.get(1))
         .and_then(|number| number.as_str().parse().ok())
+}
+
+fn filename_without_audio_extension(filename: &str) -> Option<&str> {
+    let basename = Path::new(filename).file_name()?.to_str()?.trim();
+    let extension = Path::new(basename)
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .map(str::to_ascii_lowercase);
+    if extension.as_deref().is_some_and(is_audio_extension) {
+        basename.rsplit_once('.').map(|(stem, _)| stem).or(Some(basename))
+    } else {
+        Some(basename)
+    }
+}
+
+fn is_audio_extension(extension: &str) -> bool {
+    matches!(
+        extension,
+        "aac"
+            | "aif"
+            | "aiff"
+            | "alac"
+            | "ape"
+            | "dff"
+            | "dsf"
+            | "flac"
+            | "m4a"
+            | "mp3"
+            | "mp4"
+            | "oga"
+            | "ogg"
+            | "opus"
+            | "wav"
+            | "wma"
+            | "wv"
+    )
 }
 
 fn split_spaced_artist_prefix(value: &str) -> Option<(&str, &str)> {
@@ -1172,6 +1208,34 @@ mod tests {
 
         assert_eq!(matched.evidence, vec![Some(MatchEvidence::FilenameTitle)]);
         assert_eq!(matched.tracks[0].title.as_deref(), Some("Song A"));
+    }
+
+    #[test]
+    fn filename_stem_with_track_number_keeps_title_when_tag_is_numeric() {
+        let local = vec![TrackCandidate {
+            title: Some("5".into()),
+            length: Some(278.106),
+            ..TrackCandidate::default()
+        }];
+        let remote = vec![TrackCandidate {
+            title: Some("If It's Over".into()),
+            track_number: Some(5),
+            length: Some(278_106.0),
+            ..TrackCandidate::default()
+        }];
+
+        let matched = match_remote_candidate_tracks(
+            &local,
+            &["05. If It's Over".into()],
+            &remote,
+            "musicbrainz",
+            &["Mariah Carey".into()],
+            &[],
+        );
+
+        assert_eq!(matched.stats.matched, 1);
+        assert_eq!(matched.evidence, vec![Some(MatchEvidence::FilenameTitle)]);
+        assert_eq!(matched.tracks[0].title.as_deref(), Some("If It's Over"));
     }
 
     #[test]

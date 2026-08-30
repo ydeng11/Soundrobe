@@ -8,10 +8,11 @@ use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "lowercase")]
+#[serde(rename_all = "snake_case")]
 pub enum TaskStatus {
     Running,
     Completed,
+    NeedsReview,
     Failed,
     Cancelled,
 }
@@ -111,7 +112,7 @@ impl TaskRegistry {
         entry.progress.status = status;
         entry.progress.message = message.into();
         entry.progress.result = result;
-        if status == TaskStatus::Completed {
+        if matches!(status, TaskStatus::Completed | TaskStatus::NeedsReview) {
             entry.progress.progress = entry.progress.total;
         }
         if status == TaskStatus::Cancelled {
@@ -173,6 +174,28 @@ mod tests {
         assert_eq!(done.progress, 9);
         assert_eq!(done.status, TaskStatus::Completed);
         assert!(!registry.update(&id, 4, "late"));
+    }
+
+    #[test]
+    fn needs_review_is_terminal_and_reports_full_progress() {
+        let registry = TaskRegistry::default();
+        let id = registry.create("auto-tag", 9, "Starting...");
+
+        assert!(registry.finish(
+            &id,
+            TaskStatus::NeedsReview,
+            "Needs review",
+            serde_json::json!({"reasonCode": "provider_unavailable"})
+        ));
+
+        let review = registry.get(&id).unwrap();
+        assert_eq!(review.status, TaskStatus::NeedsReview);
+        assert_eq!(review.progress, 9);
+        assert!(!registry.update(&id, 5, "late"));
+        assert_eq!(
+            serde_json::to_value(review.status).unwrap(),
+            serde_json::json!("needs_review")
+        );
     }
 
     #[test]

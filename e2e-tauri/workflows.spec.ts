@@ -229,7 +229,7 @@ describe("Tauri desktop workflows", () => {
     expect(result.track.trackNumber).toBe(1);
   });
 
-  it("auto-tags an album through the offline native task pipeline", async () => {
+  it("leaves an offline album unchanged when no authority is available", async () => {
     const taskId = await browser.execute(
       (albumPath) => window.api.autoTagAlbum(albumPath),
       manifest.autoTagAlbum,
@@ -255,7 +255,8 @@ describe("Tauri desktop workflows", () => {
     );
     const result = { progress, track };
 
-    expect(result.progress.status).toBe("completed");
+    expect(result.progress.status).toBe("needs_review");
+    expect((result.progress.result as { written: number }).written).toBe(0);
     expect(result.track.title).toBe("Offline Song");
     expect(result.track.album).toBe("Offline Album");
     expect(result.track.albumArtist).toBe("Offline Artist");
