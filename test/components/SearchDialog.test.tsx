@@ -19,6 +19,7 @@ function makeSearchPage(overrides?: Partial<ReleaseSearchPage>): ReleaseSearchPa
         title: "OK Computer",
         artist: "Radiohead",
         year: "1997",
+        trackCount: 12,
         country: "GB",
         formats: ["CD"],
         catalogNumber: undefined,
@@ -30,6 +31,7 @@ function makeSearchPage(overrides?: Partial<ReleaseSearchPage>): ReleaseSearchPa
         title: "Kid A",
         artist: "Radiohead",
         year: "2000",
+        trackCount: 10,
         country: "GB",
         formats: ["CD"],
         catalogNumber: undefined,
@@ -173,7 +175,7 @@ describe("SearchDialog", () => {
     expect(mockSearch).toHaveBeenCalledTimes(3);
   });
 
-  it("keeps server pagination for Discogs searches", async () => {
+  it("loads every Discogs page before filtering globally", async () => {
     const mockSearch = vi.fn().mockImplementation(({ page = 1 }) => Promise.resolve({
       results: [
         {
@@ -192,7 +194,7 @@ describe("SearchDialog", () => {
       page,
       pageSize: 10,
       total: 20,
-      hasNext: page === 1,
+      hasNext: page < 2,
     }));
     window.api.searchReleases = mockSearch;
     render(<SearchDialog {...defaultProps} />);
@@ -203,15 +205,87 @@ describe("SearchDialog", () => {
     fireEvent.click(screen.getByText("Search"));
 
     await waitFor(() => expect(screen.getByText("Discogs page 1 live")).toBeTruthy());
-    const filter = screen.getByPlaceholderText("Filter release titles");
+    await waitFor(() => expect(mockSearch).toHaveBeenCalledTimes(2));
+    const filter = screen.getByLabelText("Filter title or artist");
+    expect((screen.getByLabelText("Filter track count") as HTMLSelectElement).disabled).toBe(true);
     fireEvent.change(filter, { target: { value: "studio" } });
     expect(screen.getByText("Discogs page 1 studio")).toBeTruthy();
     expect(screen.queryByText("Discogs page 1 live")).toBeNull();
-    expect(mockSearch).toHaveBeenLastCalledWith(expect.objectContaining({ page: 1, pageSize: 10 }));
+    expect(screen.getByText("Discogs page 2 studio")).toBeTruthy();
+    expect(mockSearch).toHaveBeenLastCalledWith(expect.objectContaining({ page: 2, pageSize: 100 }));
+  });
 
-    fireEvent.click(screen.getByText("Next >"));
-    await waitFor(() => expect(screen.getByText("Discogs page 2 studio")).toBeTruthy());
-    expect(mockSearch).toHaveBeenLastCalledWith(expect.objectContaining({ page: 2, pageSize: 10 }));
+  it("does not offer track-count sorting for Discogs results", async () => {
+    window.api.searchReleases = vi.fn().mockResolvedValue({
+      results: [{
+        provider: "discogs" as const,
+        id: "dg-1",
+        title: "Album",
+        artist: "Artist",
+        formats: ["CD"],
+      }],
+      page: 1,
+      pageSize: 100,
+      total: 1,
+      hasNext: false,
+    });
+    render(<SearchDialog {...defaultProps} />);
+    fireEvent.click(screen.getByText("Discogs"));
+    fireEvent.change(screen.getByPlaceholderText("Artist name"), {
+      target: { value: "Artist" },
+    });
+    fireEvent.click(screen.getByText("Search"));
+
+    await waitFor(() => expect(screen.getByText("Album")).toBeTruthy());
+    expect((screen.getByLabelText("Filter track count") as HTMLSelectElement).disabled).toBe(true);
+    expect(screen.queryByRole("option", { name: "Tracks: most" })).toBeNull();
+    expect(screen.queryByRole("option", { name: "Tracks: fewest" })).toBeNull();
+  });
+
+  it("combines result filters and sorts the complete catalog locally", async () => {
+    window.api.searchReleases = vi.fn().mockResolvedValue({
+      results: [
+        { provider: "musicbrainz", id: "one", title: "Alpha", artist: "Artist A", year: "2000", trackCount: 10, formats: [] },
+        { provider: "musicbrainz", id: "two", title: "Beta", artist: "Artist B", year: "1999", trackCount: 8, formats: [] },
+        { provider: "musicbrainz", id: "three", title: "Gamma", artist: "Artist A", year: "2001", trackCount: 12, formats: [] },
+        { provider: "musicbrainz", id: "four", title: "Delta", artist: "Other", formats: [] },
+      ],
+      page: 1,
+      pageSize: 100,
+      total: 4,
+      hasNext: false,
+    });
+    render(<SearchDialog {...defaultProps} />);
+    fireEvent.change(screen.getByPlaceholderText("Artist name"), {
+      target: { value: "Artist" },
+    });
+    fireEvent.click(screen.getByText("Search"));
+    await waitFor(() => expect(screen.getByText("Alpha")).toBeTruthy());
+
+    fireEvent.change(screen.getByLabelText("Filter title or artist"), {
+      target: { value: "Artist A" },
+    });
+    fireEvent.change(screen.getByLabelText("Filter year"), {
+      target: { value: "2001" },
+    });
+    fireEvent.change(screen.getByLabelText("Filter track count"), {
+      target: { value: "12" },
+    });
+    expect(screen.getByText("Gamma")).toBeTruthy();
+    expect(screen.queryByText("Alpha")).toBeNull();
+    expect(screen.getByText("Results (1 of 4)")).toBeTruthy();
+
+    fireEvent.change(screen.getByLabelText("Filter year"), { target: { value: "" } });
+    fireEvent.change(screen.getByLabelText("Filter track count"), { target: { value: "" } });
+    fireEvent.change(screen.getByLabelText("Sort results"), {
+      target: { value: "year-desc" },
+    });
+    const cards = screen.getAllByRole("button").filter((button) =>
+      ["Gamma", "Alpha"].some((title) => button.textContent?.includes(title)),
+    );
+    expect(cards[0].textContent).toContain("Gamma");
+    expect(cards[1].textContent).toContain("Alpha");
+    expect(cards[0].textContent).toContain("12 tracks");
   });
 
   it("filters all cached release titles without making another provider request", async () => {
@@ -227,7 +301,7 @@ describe("SearchDialog", () => {
 
     await waitFor(() => expect(mockSearch).toHaveBeenCalledTimes(3));
     fireEvent.click(screen.getByText("Next >"));
-    fireEvent.change(screen.getByPlaceholderText("Filter release titles"), {
+    fireEvent.change(screen.getByLabelText("Filter title or artist"), {
       target: { value: "release 205" },
     });
 
@@ -236,10 +310,10 @@ describe("SearchDialog", () => {
     expect(screen.queryByText("Next >")).toBeNull();
     expect(mockSearch).toHaveBeenCalledTimes(3);
 
-    fireEvent.change(screen.getByPlaceholderText("Filter release titles"), {
+    fireEvent.change(screen.getByLabelText("Filter title or artist"), {
       target: { value: "does not exist" },
     });
-    expect(screen.getByText("No cached releases match this title.")).toBeTruthy();
+    expect(screen.getByText("No cached releases match these filters.")).toBeTruthy();
     expect(mockSearch).toHaveBeenCalledTimes(3);
   });
 
@@ -256,7 +330,7 @@ describe("SearchDialog", () => {
 
     await waitFor(() => expect(screen.getByText("Search releases")).toBeTruthy());
     expect(screen.queryByText("OK Computer")).toBeNull();
-    expect(screen.queryByPlaceholderText("Filter release titles")).toBeNull();
+    expect(screen.queryByLabelText("Filter title or artist")).toBeNull();
   });
 
   it("reuses a completed MusicBrainz catalog after Back and close/reopen", async () => {
@@ -302,7 +376,7 @@ describe("SearchDialog", () => {
     await waitFor(() => expect(screen.getByText("OK Computer")).toBeTruthy());
   });
 
-  it("caches successful server-paged results and fetches each uncached page once", async () => {
+  it("caches a completed multi-page catalog and reuses it", async () => {
     const mockSearch = vi.fn().mockImplementation(({ page = 1 }) => Promise.resolve({
       results: [{
         provider: "discogs" as const,
@@ -311,8 +385,8 @@ describe("SearchDialog", () => {
         formats: ["CD"],
       }],
       page,
-      pageSize: 10,
-      total: 30,
+      pageSize: 100,
+      total: 3,
       hasNext: page < 3,
     }));
     window.api.searchReleases = mockSearch;
@@ -323,97 +397,12 @@ describe("SearchDialog", () => {
     });
     fireEvent.click(screen.getByText("Search"));
     await waitFor(() => expect(screen.getByText("Discogs page 1")).toBeTruthy());
+    await waitFor(() => expect(mockSearch).toHaveBeenCalledTimes(3));
 
     fireEvent.click(document.querySelector("[title='Back to search']")!);
     fireEvent.click(screen.getByText("Search"));
     await waitFor(() => expect(screen.getByText("Discogs page 1")).toBeTruthy());
-    expect(mockSearch).toHaveBeenCalledTimes(1);
-
-    fireEvent.click(screen.getByText("Next >"));
-    await waitFor(() => expect(screen.getByText("Discogs page 2")).toBeTruthy());
-    expect(mockSearch).toHaveBeenCalledTimes(2);
-
-    fireEvent.click(document.querySelector("[title='Back to search']")!);
-    fireEvent.click(screen.getByText("Search"));
-    fireEvent.click(screen.getByText("Next >"));
-    await waitFor(() => expect(screen.getByText("Discogs page 2")).toBeTruthy());
-    expect(mockSearch).toHaveBeenCalledTimes(2);
-  });
-
-  it("retries an abandoned server page after returning to the cached query", async () => {
-    let resolveAbandonedPage!: (page: ReleaseSearchPage) => void;
-    const abandonedPage = new Promise<ReleaseSearchPage>((resolve) => {
-      resolveAbandonedPage = resolve;
-    });
-    let pageTwoAttempts = 0;
-    const discogsPage = (page: number): ReleaseSearchPage => ({
-      results: [{
-        provider: "discogs",
-        id: `dg-${page}`,
-        title: `Discogs page ${page}`,
-        formats: ["CD"],
-      }],
-      page,
-      pageSize: 10,
-      total: 20,
-      hasNext: page === 1,
-    });
-    const mockSearch = vi.fn().mockImplementation(({ page = 1 }) => {
-      if (page === 1) return Promise.resolve(discogsPage(1));
-      pageTwoAttempts += 1;
-      return pageTwoAttempts === 1
-        ? abandonedPage
-        : Promise.resolve(discogsPage(2));
-    });
-    window.api.searchReleases = mockSearch;
-    render(<SearchDialog {...defaultProps} />);
-    fireEvent.click(screen.getByText("Discogs"));
-    const artistInput = screen.getByPlaceholderText("Artist name");
-    fireEvent.change(artistInput, { target: { value: "Artist" } });
-    fireEvent.click(screen.getByText("Search"));
-    await waitFor(() => expect(screen.getByText("Discogs page 1")).toBeTruthy());
-
-    fireEvent.click(screen.getByText("Next >"));
-    await waitFor(() => expect(pageTwoAttempts).toBe(1));
-    fireEvent.click(document.querySelector("[title='Back to search']")!);
-    fireEvent.keyDown(screen.getByPlaceholderText("Artist name"), { key: "Enter" });
-    await waitFor(() => expect(screen.getByText("Discogs page 1")).toBeTruthy());
-    fireEvent.click(screen.getByText("Next >"));
-
-    await waitFor(() => expect(screen.getByText("Discogs page 2")).toBeTruthy());
-    expect(pageTwoAttempts).toBe(2);
-    resolveAbandonedPage(discogsPage(2));
-  });
-
-  it("stops loading when Back abandons a server page request", async () => {
-    const mockSearch = vi.fn()
-      .mockResolvedValueOnce({
-        results: [{
-          provider: "discogs" as const,
-          id: "dg-1",
-          title: "Discogs page 1",
-          formats: ["CD"],
-        }],
-        page: 1,
-        pageSize: 10,
-        total: 20,
-        hasNext: true,
-      })
-      .mockReturnValueOnce(new Promise<ReleaseSearchPage>(() => {}));
-    window.api.searchReleases = mockSearch;
-    render(<SearchDialog {...defaultProps} />);
-    fireEvent.click(screen.getByText("Discogs"));
-    fireEvent.change(screen.getByPlaceholderText("Artist name"), {
-      target: { value: "Artist" },
-    });
-    fireEvent.click(screen.getByText("Search"));
-    await waitFor(() => expect(screen.getByText("Discogs page 1")).toBeTruthy());
-
-    fireEvent.click(screen.getByText("Next >"));
-    await waitFor(() => expect(mockSearch).toHaveBeenCalledTimes(2));
-    fireEvent.click(document.querySelector("[title='Back to search']")!);
-
-    expect((screen.getByText("Search") as HTMLButtonElement).disabled).toBe(false);
+    expect(mockSearch).toHaveBeenCalledTimes(3);
   });
 
   it("uses all trimmed search fields and provider to invalidate the latest-query cache", async () => {

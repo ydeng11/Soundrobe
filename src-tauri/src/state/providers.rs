@@ -13,7 +13,11 @@ use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant};
 use unicode_normalization::{char::is_combining_mark, UnicodeNormalization};
 
-const USER_AGENT: &str = concat!("soundrobe/", env!("CARGO_PKG_VERSION"));
+const USER_AGENT: &str = concat!(
+    "soundrobe/",
+    env!("CARGO_PKG_VERSION"),
+    " (https://github.com/ydeng11/Soundrobe)"
+);
 const DISCOGS_BASE: &str = "https://api.discogs.com";
 static OPENCC: OnceLock<OpenCC> = OnceLock::new();
 static DISCOGS_LIMITER: OnceLock<Arc<DiscogsRateLimiter>> = OnceLock::new();
@@ -292,6 +296,8 @@ pub struct ReleaseSearchSummary {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub year: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub track_count: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub country: Option<String>,
     #[serde(default)]
     pub formats: Vec<String>,
@@ -477,24 +483,19 @@ impl MusicBrainzClient {
         if artist.trim().is_empty() {
             return Ok(None);
         }
-        wait_for_musicbrainz().await;
         let query = format!("artist:\"{}\"", escape_musicbrainz_query(artist));
-        let response = self
-            .http
-            .get(format!("{}/artist/", self.base_url))
-            .query(&[
-                ("query", query),
-                ("fmt", "json".into()),
-                ("limit", "5".into()),
-            ])
-            .send()
-            .await
-            .map_err(|error| format!("MusicBrainz artist request failed: {error}"))?
-            .error_for_status()
-            .map_err(|error| format!("MusicBrainz artist HTTP error: {error}"))?
-            .json::<serde_json::Value>()
-            .await
-            .map_err(|error| format!("MusicBrainz artist parse error: {error}"))?;
+        let query = vec![
+            ("query", query),
+            ("fmt", "json".to_string()),
+            ("limit", "5".to_string()),
+        ];
+        let response = request_musicbrainz_json(
+            &self.http,
+            format!("{}/artist/", self.base_url),
+            &query,
+            "artist",
+        )
+        .await?;
         let artists = response
             .get("artists")
             .and_then(serde_json::Value::as_array)
@@ -537,7 +538,6 @@ impl MusicBrainzClient {
         limit: u32,
         offset: u32,
     ) -> Result<(Vec<ReleaseSearchSummary>, u32), String> {
-        wait_for_musicbrainz().await;
         let query: String = query_parts
             .iter()
             .filter(|(_, v)| !v.is_empty())
@@ -553,23 +553,19 @@ impl MusicBrainzClient {
         if query.is_empty() {
             return Err("At least one search parameter is required".to_string());
         }
-        let response = self
-            .http
-            .get(format!("{}/release", self.base_url))
-            .query(&[
-                ("query", query.as_str()),
-                ("limit", &limit.to_string()),
-                ("offset", &offset.to_string()),
-                ("fmt", "json"),
-            ])
-            .send()
-            .await
-            .map_err(|e| format!("MusicBrainz request failed: {e}"))?
-            .error_for_status()
-            .map_err(|e| format!("MusicBrainz HTTP error: {e}"))?
-            .json::<serde_json::Value>()
-            .await
-            .map_err(|e| format!("MusicBrainz parse error: {e}"))?;
+        let query = vec![
+            ("query", query),
+            ("limit", limit.to_string()),
+            ("offset", offset.to_string()),
+            ("fmt", "json".to_string()),
+        ];
+        let response = request_musicbrainz_json(
+            &self.http,
+            format!("{}/release", self.base_url),
+            &query,
+            "",
+        )
+        .await?;
         let count = response
             .get("count")
             .ok_or_else(|| "MusicBrainz response is missing count".to_string())?
@@ -587,6 +583,97 @@ impl MusicBrainzClient {
             .unwrap_or_default();
         Ok((summaries, count))
     }
+
+    /// Browse all releases associated with one canonical artist. This uses
+    /// MusicBrainz's browse endpoint rather than the Lucene search index and
+    /// includes medium metadata needed for lightweight track counts.
+    pub async fn browse_release_summaries(
+        &self,
+        artist_id: &str,
+        page: u32,
+        limit: u32,
+    ) -> Result<(Vec<ReleaseSearchSummary>, u32), String> {
+        let offset = page.saturating_sub(1).saturating_mul(limit);
+        let query = vec![
+            ("artist", artist_id.to_string()),
+            ("limit", limit.to_string()),
+            ("offset", offset.to_string()),
+            ("fmt", "json".to_string()),
+            ("inc", "artist-credits+media".to_string()),
+        ];
+        let response = request_musicbrainz_json(
+            &self.http,
+            format!("{}/release", self.base_url),
+            &query,
+            "",
+        )
+        .await?;
+        let total = response
+            .get("release-count")
+            .ok_or_else(|| "MusicBrainz browse response is missing release-count".to_string())?
+            .as_u64()
+            .and_then(|count| u32::try_from(count).ok())
+            .ok_or_else(|| "MusicBrainz browse response has an invalid release-count".to_string())?;
+        let summaries = response
+            .get("releases")
+            .and_then(serde_json::Value::as_array)
+            .map(|releases| {
+                releases
+                    .iter()
+                    .filter_map(parse_musicbrainz_search_summary)
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default();
+        Ok((summaries, total))
+    }
+}
+
+async fn request_musicbrainz_json(
+    http: &Client,
+    url: String,
+    query: &[(&str, String)],
+    context: &str,
+) -> Result<serde_json::Value, String> {
+    let label = if context.is_empty() {
+        "MusicBrainz".to_string()
+    } else {
+        format!("MusicBrainz {context}")
+    };
+    for attempt in 0..2 {
+        wait_for_musicbrainz().await;
+        let response = http
+            .get(&url)
+            .query(query)
+            .send()
+            .await
+            .map_err(|error| format!("{label} request failed: {error}"))?;
+        let status = response.status();
+        if status == reqwest::StatusCode::SERVICE_UNAVAILABLE && attempt == 0 {
+            let retry_after = response
+                .headers()
+                .get(reqwest::header::RETRY_AFTER)
+                .and_then(|value| value.to_str().ok())
+                .and_then(|value| value.parse::<u64>().ok())
+                .unwrap_or(1)
+                .clamp(1, 5);
+            tokio::time::sleep(Duration::from_secs(retry_after)).await;
+            continue;
+        }
+        if !status.is_success() {
+            let retry_hint = response
+                .headers()
+                .get(reqwest::header::RETRY_AFTER)
+                .and_then(|value| value.to_str().ok())
+                .map(|value| format!(" (retry after {value}s)"))
+                .unwrap_or_default();
+            return Err(format!("{label} HTTP error: HTTP {status}{retry_hint}"));
+        }
+        return response
+            .json::<serde_json::Value>()
+            .await
+            .map_err(|error| format!("{label} parse error: {error}"));
+    }
+    unreachable!("MusicBrainz request retry loop always returns")
 }
 
 /// Escape value for a quoted MusicBrainz Lucene field term.
@@ -756,9 +843,31 @@ fn parse_musicbrainz_search_summary(value: &serde_json::Value) -> Option<Release
         year,
         country,
         formats,
+        track_count: musicbrainz_track_count(value),
         catalog_number,
         barcode,
     })
+}
+
+fn musicbrainz_track_count(value: &serde_json::Value) -> Option<u32> {
+    value
+        .get("track-count")
+        .and_then(serde_json::Value::as_u64)
+        .and_then(|count| u32::try_from(count).ok())
+        .or_else(|| {
+            let counts = value
+                .get("media")
+                .and_then(serde_json::Value::as_array)?
+                .iter()
+                .filter_map(|medium| {
+                    medium
+                        .get("track-count")
+                        .and_then(serde_json::Value::as_u64)
+                        .and_then(|count| u32::try_from(count).ok())
+                })
+                .collect::<Vec<_>>();
+            (!counts.is_empty()).then(|| counts.into_iter().sum())
+        })
 }
 
 fn parse_musicbrainz_release(
@@ -1695,6 +1804,7 @@ impl DiscogsClient {
                                 })
                             }),
                             year,
+                            track_count: None,
                             country,
                             formats,
                             catalog_number,
@@ -2749,6 +2859,37 @@ mod tests {
         )
     }
 
+    fn musicbrainz_artist_browse_summary_route(
+        path: &str,
+        _base: &str,
+    ) -> (&'static str, String, &'static str) {
+        if path.starts_with("/artist/?") {
+            return (
+                "200 OK",
+                r#"{"artists":[{"id":"artist-id","name":"Mariah Carey"}]}"#.to_string(),
+                "application/json",
+            );
+        }
+        assert!(path.starts_with(
+            "/release?artist=artist-id&limit=100&offset=0&fmt=json&inc=artist-credits%2Bmedia"
+        ));
+        (
+            "200 OK",
+            r#"{
+              "release-count":2,"release-offset":0,
+              "releases":[
+                {"id":"one","title":"First","date":"1990","country":"US",
+                 "barcode":"123","artist-credit":[{"name":"Mariah Carey"}],
+                 "media":[{"format":"CD","track-count":10}]},
+                {"id":"two","title":"Second","artist-credit":[],
+                 "media":[{"format":"CD","track-count":8},{"format":"DVD","track-count":2}]}
+              ]
+            }"#
+            .to_string(),
+            "application/json",
+        )
+    }
+
     fn discogs_artist_page_route(path: &str, _base: &str) -> (&'static str, String, &'static str) {
         assert_eq!(
             path,
@@ -2851,6 +2992,68 @@ mod tests {
             .contains("GET /release?query=artist%3A%22Artist%22+AND+release%3A%22Right+Album%22"));
         assert!(requests.recv().unwrap().contains("GET /release/wrong?"));
         assert!(requests.recv().unwrap().contains("GET /release/best?"));
+    }
+
+    #[tokio::test]
+    async fn musicbrainz_artist_browse_summaries_support_multiword_names_and_track_counts() {
+        let (base, requests) = server(2, musicbrainz_artist_browse_summary_route);
+        let client = MusicBrainzClient::at(ProviderState::new().http(), &base);
+
+        let artist = client
+            .search_artist_by_name_result("Mariah Carey")
+            .await
+            .unwrap()
+            .unwrap();
+        let (summaries, total) = client
+            .browse_release_summaries(&artist.id, 1, 100)
+            .await
+            .unwrap();
+
+        assert_eq!(total, 2);
+        assert_eq!(summaries[0].artist.as_deref(), Some("Mariah Carey"));
+        assert_eq!(summaries[0].track_count, Some(10));
+        assert_eq!(summaries[1].track_count, Some(10));
+        assert!(requests.recv().unwrap().contains("artist%3A%22Mariah+Carey%22"));
+        assert!(requests.recv().unwrap().contains("/release?artist=artist-id&"));
+    }
+
+    #[tokio::test]
+    async fn musicbrainz_search_retries_one_transient_503() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let base = format!("http://{}", listener.local_addr().unwrap());
+        let (send, receive) = mpsc::channel();
+        thread::spawn(move || {
+            for (status, body) in [
+                ("503 Service Unavailable", "{}"),
+                (
+                    "200 OK",
+                    r#"{"count":1,"releases":[{"id":"release-id","title":"Album"}]}"#,
+                ),
+            ] {
+                let (mut stream, _) = listener.accept().unwrap();
+                let mut request = [0_u8; 4096];
+                let count = stream.read(&mut request).unwrap();
+                send.send(String::from_utf8_lossy(&request[..count]).into_owned())
+                    .unwrap();
+                write!(
+                    stream,
+                    "HTTP/1.1 {status}\r\nContent-Length: {}\r\nContent-Type: application/json\r\nConnection: close\r\n\r\n{body}",
+                    body.len()
+                )
+                .unwrap();
+            }
+        });
+        let client = MusicBrainzClient::at(ProviderState::new().http(), &base);
+
+        let (summaries, total) = client
+            .search_release_summaries(&[("artist", "Artist")], 10, 0)
+            .await
+            .unwrap();
+
+        assert_eq!(total, 1);
+        assert_eq!(summaries[0].id, "release-id");
+        assert!(receive.recv().unwrap().contains("/release?query="));
+        assert!(receive.recv().unwrap().contains("/release?query="));
     }
 
     #[tokio::test]
@@ -3285,6 +3488,10 @@ mod tests {
         thread::spawn(move || {
             for (status, body) in [
                 ("503 Service Unavailable", "{}"),
+                (
+                    "503 Service Unavailable",
+                    "{}",
+                ),
                 (
                     "200 OK",
                     r#"{"artists":[{"id":"artist-id","name":"張學友","aliases":[{"name":"张学友"}]}]}"#,

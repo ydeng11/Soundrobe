@@ -177,6 +177,27 @@ async fn search_releases_inner(
             } else {
                 None
             };
+            if album.is_none()
+                && year.is_none()
+                && country.is_none()
+                && format.is_none()
+                && catno.is_none()
+                && bc.is_none()
+            {
+                if let Some(artist_id) = musicbrainz_artist_id.as_deref() {
+                    let (summaries, total) = client
+                        .browse_release_summaries(artist_id, page, page_size)
+                        .await?;
+                    let offset = (page - 1) * page_size;
+                    return Ok(SearchReleasesResponse {
+                        results: summaries,
+                        page,
+                        page_size,
+                        total: Some(total),
+                        has_next: offset + page_size < total,
+                    });
+                }
+            }
             let mut query_parts: Vec<(&str, &str)> = Vec::new();
             if let Some(ref id) = musicbrainz_artist_id {
                 query_parts.push(("arid", id.as_str()));
@@ -522,7 +543,7 @@ mod tests {
     use std::sync::Arc;
     use std::thread;
 
-    const MB_RESULT: &str = r#"{"id":"1","title":"OK Computer","artist-credit":[{"name":"Radiohead","artist":{"id":"art-1"}}],"date":"1997-05-21","country":"GB","media":[{"format":"CD"}],"barcode":"724384467020","label-info":[{"catalog-number":"CDP 7243 8 44670 2 0"}]}"#;
+    const MB_RESULT: &str = r#"{"id":"1","title":"OK Computer","artist-credit":[{"name":"Radiohead","artist":{"id":"art-1"}}],"date":"1997-05-21","country":"GB","track-count":10,"media":[{"format":"CD","track-count":10}],"barcode":"724384467020","label-info":[{"catalog-number":"CDP 7243 8 44670 2 0"}]}"#;
     const DG_RESULT: &str = r#"{"id":123,"title":"Radiohead - OK Computer","type":"release","year":1997,"format":["CD"],"country":"Europe","barcode":["724384467020"],"catno":"CDP 7243 8 44670 2 0","artist":"Radiohead"}"#;
 
     fn mock_server() -> (String, std::sync::mpsc::Receiver<String>) {
@@ -547,6 +568,14 @@ mod tests {
                     if request.contains("/ws/2/artist?") || request.contains("/ws/2/artist/?") {
                         (
                             r#"{"artists":[{"id":"art-1","name":"Radiohead"}]}"#.to_string(),
+                            true,
+                        )
+                    } else if request.contains("/release?artist=art-1") {
+                        (
+                            format!(
+                                "{{\"releases\":[{}],\"release-count\":341,\"release-offset\":0}}",
+                                MB_RESULT
+                            ),
                             true,
                         )
                     } else if request.contains("/ws/2/release?") || request.contains("/release?") {
@@ -727,10 +756,10 @@ mod tests {
         .await;
         assert_eq!(res.results.len(), 1);
         assert_eq!(res.results[0].title, "OK Computer");
+        assert_eq!(res.results[0].track_count, Some(10));
         assert_eq!(res.total, Some(341));
         assert!(res.has_next);
-        assert!(req.contains("query="));
-        assert!(req.contains("arid%3Aart-1"), "{req}");
+        assert!(req.contains("artist=art-1"), "{req}");
     }
 
     #[tokio::test]
@@ -855,16 +884,18 @@ mod tests {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
         let base = format!("http://{}", listener.local_addr().unwrap());
         thread::spawn(move || {
-            let (mut stream, _) = listener.accept().unwrap();
-            let mut request = [0_u8; 4096];
-            let _ = stream.read(&mut request).unwrap();
-            let body = "{}";
-            write!(
-                stream,
-                "HTTP/1.1 503 Service Unavailable\r\nContent-Length: {}\r\nContent-Type: application/json\r\nConnection: close\r\n\r\n{body}",
-                body.len()
-            )
-            .unwrap();
+            for _ in 0..2 {
+                let (mut stream, _) = listener.accept().unwrap();
+                let mut request = [0_u8; 4096];
+                let _ = stream.read(&mut request).unwrap();
+                let body = "{}";
+                write!(
+                    stream,
+                    "HTTP/1.1 503 Service Unavailable\r\nContent-Length: {}\r\nContent-Type: application/json\r\nConnection: close\r\n\r\n{body}",
+                    body.len()
+                )
+                .unwrap();
+            }
         });
         let providers = providers_at(&base);
 
