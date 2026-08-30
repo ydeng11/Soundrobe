@@ -13,6 +13,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   provider catalog, with title/artist, year, and MusicBrainz track-count
   controls; multi-word MusicBrainz artist searches also recover from transient
   provider overload responses.
+- **Safer automatic release matching** — auto-tag now keeps embedded album
+  tags separate from folder edition hints, rejects conflicting or weak
+  provider releases, and avoids copying IDs between unrelated editions.
+- **Validated AI fallback** — when every enabled metadata provider confirms
+  that no credible release exists, a complete high-confidence AI result can
+  update standard tags while clearing stale provider IDs.
+- **Fail-closed auto-tagging** — provider outages and invalid, unavailable, or
+  low-confidence AI results now leave files unchanged and report a dismissible
+  Needs Review warning instead of writing folder-derived metadata; provider
+  identity and release-detail failures remain unavailable, selected-disc
+  matching stays scoped, and unknown Discogs formats are not guessed.
 
 ## [0.1.3] - 2026-08-27
 

@@ -642,6 +642,43 @@ describe("App — modification history", () => {
     ]);
   });
 
+  it("shows needs-review as a warning without readback or undo creation", async () => {
+    (window.api.autoTagAlbum as ReturnType<typeof vi.fn>).mockResolvedValue(
+      "task-review",
+    );
+    (window.api.getTaskProgress as ReturnType<typeof vi.fn>).mockResolvedValue({
+      status: "needs_review",
+      taskId: "task-review",
+      progress: 9,
+      total: 9,
+      message: "Needs review — provider unavailable",
+      result: {
+        outcome: "needs_review",
+        written: 0,
+        reasonCode: "provider_unavailable",
+      },
+    } as TaskProgress);
+
+    render(<App />);
+    fireEvent.click(screen.getByText("Open Library"));
+    await waitFor(() => expect(screen.getAllByTestId(/^file-row-/)).toHaveLength(2));
+    const readsBeforeTag = (window.api.readAlbum as ReturnType<typeof vi.fn>).mock.calls.length;
+
+    fireEvent.click(screen.getByText("Auto-Tag"));
+
+    await screen.findByText(
+      "Needs review (1): Test Album: provider_unavailable",
+    );
+    // One pre-write snapshot read is required before authority is known; the
+    // needs-review album must not trigger the post-task readback used for undo.
+    expect(window.api.readAlbum).toHaveBeenCalledTimes(readsBeforeTag + 1);
+    expect(
+      (screen.getByRole("button", {
+        name: "Undo latest modification",
+      }) as HTMLButtonElement).disabled,
+    ).toBe(true);
+  });
+
   it("reverts an older history point newest-first after confirmation", async () => {
     const path = "/music/Test Album/01.mp3";
     const originalTitle = makeTrack(path).title;

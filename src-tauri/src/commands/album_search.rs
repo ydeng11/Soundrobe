@@ -1099,6 +1099,7 @@ mod tests {
                     recording_id: None,
                     length: None,
                 }],
+                ..ProviderAlbum::default()
             },
         };
         let result = album_preview_release_match(request).await;
@@ -1150,6 +1151,7 @@ mod tests {
                         length: None,
                     },
                 ],
+                ..ProviderAlbum::default()
             },
         };
 

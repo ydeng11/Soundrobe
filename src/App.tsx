@@ -776,9 +776,11 @@ export default function App() {
 
     dispatch({ type: "SET_AUTO_TAGGING", autoTagging: true });
     dispatch({ type: "SET_ERROR", error: null });
+    dispatch({ type: "SET_NOTICE", notice: null });
 
     let completed = 0;
     let totalErrors = 0;
+    const needsReview: string[] = [];
     let snapshots: TrackSnapshot[] = [];
     const attemptedAlbumPaths: string[] = [];
     let autoTagReadback: TrackData[] = [];
@@ -848,7 +850,6 @@ export default function App() {
         });
 
         const taskId = await window.api.autoTagAlbum(albumPath);
-        attemptedAlbumPaths.push(albumPath);
         const unsubscribe = window.api.onAutoTagEvent((event) => {
           if (event.taskId !== taskId) return;
           dispatch({
@@ -893,15 +894,26 @@ export default function App() {
 
             if (
               progress.status === "completed" ||
+              progress.status === "needs_review" ||
               progress.status === "failed" ||
               progress.status === "cancelled"
             ) {
               done = true;
               if (progress.status === "failed") {
+                attemptedAlbumPaths.push(albumPath);
                 totalErrors++;
                 console.debug(
                   `[auto-tag] Auto-tag failed for ${albumName}: ${progress.message}`,
                 );
+              } else if (progress.status === "completed") {
+                attemptedAlbumPaths.push(albumPath);
+              } else if (progress.status === "needs_review") {
+                const reason =
+                  progress.result && typeof progress.result === "object" &&
+                  "reasonCode" in progress.result
+                    ? String(progress.result.reasonCode)
+                    : progress.message;
+                needsReview.push(`${albumName}: ${reason}`);
               }
             } else {
               await new Promise((resolve) => setTimeout(resolve, 300));
@@ -954,6 +966,12 @@ export default function App() {
         dispatch({
           type: "SET_ERROR",
           error: `Auto-tag completed with ${totalErrors} album(s) with errors`,
+        });
+      }
+      if (needsReview.length > 0) {
+        dispatch({
+          type: "SET_NOTICE",
+          notice: `Needs review (${needsReview.length}): ${needsReview.slice(0, 3).join("; ")}`,
         });
       }
     } catch (err: unknown) {
@@ -1871,11 +1889,12 @@ export default function App() {
       };
       dispatch({ type: "SET_AUTO_TAGGING", autoTagging: true });
       dispatch({ type: "SET_ERROR", error: null });
+      dispatch({ type: "SET_NOTICE", notice: null });
 
       try {
         let completed = 0;
+        const needsReview: string[] = [];
         for (const albumPath of albumPaths) {
-          attemptedAlbumPaths.push(albumPath);
           const taskId = await window.api.autoTagAlbum(albumPath);
           let done = false;
           while (!done) {
@@ -1895,11 +1914,17 @@ export default function App() {
 
             if (
               progress.status === "completed" ||
+              progress.status === "needs_review" ||
               progress.status === "failed" ||
               progress.status === "cancelled"
             ) {
-              if (progress.status !== "completed") {
+              if (progress.status === "needs_review") {
+                needsReview.push(`${basename(albumPath) ?? albumPath}: ${progress.message}`);
+              } else if (progress.status !== "completed") {
+                attemptedAlbumPaths.push(albumPath);
                 throw new Error(progress.message || `Auto-tag ${progress.status}`);
+              } else {
+                attemptedAlbumPaths.push(albumPath);
               }
               done = true;
             } else {
@@ -1910,6 +1935,12 @@ export default function App() {
         }
         await recordAttemptedAutoTag();
         await handleAssistantRefresh();
+        if (needsReview.length > 0) {
+          dispatch({
+            type: "SET_NOTICE",
+            notice: `Needs review (${needsReview.length}): ${needsReview.slice(0, 3).join("; ")}`,
+          });
+        }
       } catch (err: unknown) {
         try {
           await recordAttemptedAutoTag();
@@ -2449,6 +2480,7 @@ export default function App() {
         lyricsGetting={state.lyricsGetting}
         auditing={state.auditing}
         error={state.error}
+        notice={state.notice}
         modificationHistory={state.undoManager.history}
         reverting={state.reverting}
         onOpenLibrary={handleOpenLibrary}
@@ -2466,6 +2498,7 @@ export default function App() {
         onOpenSettings={handleOpenSettings}
         onToggleAssistant={handleToggleAssistant}
         onErrorDismiss={() => dispatch({ type: "SET_ERROR", error: null })}
+        onNoticeDismiss={() => dispatch({ type: "SET_NOTICE", notice: null })}
         onUndoLatest={() => handleRevert()}
         onUndoThrough={handleRevert}
       />

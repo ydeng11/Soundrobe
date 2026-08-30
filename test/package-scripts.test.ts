@@ -39,6 +39,17 @@ function readPackageJson(): PackageJson {
 }
 
 describe("package scripts", () => {
+  it("declares needs_review auto-tag events in the shared desktop contract", () => {
+    const desktopApi = readFileSync(
+      resolve(__dirname, "../src/shared/desktop-api.ts"),
+      "utf8",
+    );
+
+    expect(desktopApi).toMatch(
+      /export interface AutoTagEvent[\s\S]*?\| "needs_review"/,
+    );
+  });
+
   it("keeps the Soundrobe identity synchronized across app manifests", () => {
     const packageJson = readPackageJson();
     const tauriConfig = JSON.parse(
@@ -337,7 +348,9 @@ describe("package scripts", () => {
     expect(workflowSpec).toContain("preserves absolute paths through the native library pipeline");
     expect(workflowSpec).toContain("previews and applies deterministic assistant organization");
     expect(workflowSpec).toContain("audits and applies deterministic metadata fixes");
-    expect(workflowSpec).toContain("auto-tags an album through the offline native task pipeline");
+    expect(workflowSpec).toContain(
+      "leaves an offline album unchanged when no authority is available",
+    );
     // Windows CI can take longer than five seconds to finish the native task;
     // keep the terminal-state wait bounded without making it an unbounded hang.
     expect(workflowSpec).toContain("timeout: 30_000");

@@ -220,6 +220,9 @@ export function prepareE2eWorkspace(): E2eWorkspace {
   const autoTagTrack = path.join(autoTagAlbum, "01. Offline Song.flac");
   createFlacWithComments(autoTagTrack, [
     "TITLE=Offline Song",
+    "ARTIST=Offline Artist",
+    "ALBUM=Offline Album",
+    "ALBUMARTIST=Offline Artist",
     "TRACKNUMBER=1",
   ]);
 

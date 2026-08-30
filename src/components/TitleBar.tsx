@@ -19,6 +19,7 @@ interface TitleBarProps {
   darkMode: boolean;
   assistantOpen: boolean;
   error: string | null;
+  notice: string | null;
   modificationHistory: UndoOperation[];
   reverting: boolean;
   onOpenLibrary: () => void;
@@ -34,6 +35,7 @@ interface TitleBarProps {
   onOpenSettings: () => void;
   onToggleAssistant: () => void;
   onErrorDismiss: () => void;
+  onNoticeDismiss: () => void;
   onUndoLatest: () => void;
   onUndoThrough: (operationId: number) => void;
 }
@@ -53,6 +55,7 @@ export function TitleBar({
   darkMode,
   assistantOpen,
   error,
+  notice,
   modificationHistory,
   reverting,
   onOpenLibrary,
@@ -68,6 +71,7 @@ export function TitleBar({
   onOpenSettings,
   onToggleAssistant,
   onErrorDismiss,
+  onNoticeDismiss,
   onUndoLatest,
   onUndoThrough,
 }: TitleBarProps) {
@@ -519,6 +523,17 @@ export function TitleBar({
             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="ml-1 opacity-50">
               <path d="M18 6 6 18" /><path d="m6 6 12 12" />
             </svg>
+          </button>
+        ) : notice ? (
+          <button
+            onClick={onNoticeDismiss}
+            className="text-[#ff9f0a] flex items-center gap-1 cursor-pointer hover:opacity-70 transition-opacity"
+            title="Click to dismiss"
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M10.3 2.9 1.8 17a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 2.9a2 2 0 0 0-3.4 0Z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" />
+            </svg>
+            {notice}
           </button>
         ) : (
           <>

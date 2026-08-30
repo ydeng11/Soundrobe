@@ -114,7 +114,7 @@ export interface AlbumDetail {
 
 export interface TaskProgress {
   taskId: string;
-  status: "running" | "completed" | "failed" | "cancelled";
+  status: "running" | "completed" | "needs_review" | "failed" | "cancelled";
   progress: number;
   total: number;
   message: string;
@@ -328,6 +328,7 @@ export interface AutoTagEvent {
     | "write"
     | "warning"
     | "completed"
+    | "needs_review"
     | "failed"
     | "cancelled";
   message: string;
