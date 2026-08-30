@@ -21,7 +21,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   update standard tags while clearing stale provider IDs.
 - **Fail-closed auto-tagging** — provider outages and invalid, unavailable, or
   low-confidence AI results now leave files unchanged and report a dismissible
-  Needs Review warning instead of writing folder-derived metadata.
+  Needs Review warning instead of writing folder-derived metadata; provider
+  identity and release-detail failures remain unavailable, selected-disc
+  matching stays scoped, and unknown Discogs formats are not guessed.
 
 ## [0.1.3] - 2026-08-27
 

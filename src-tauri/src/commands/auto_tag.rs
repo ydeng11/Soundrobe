@@ -1029,22 +1029,26 @@ pub fn protect_candidate_tracks(
     // the provider candidate tracks to that disc number. A bonus track on
     // the selected disc is still an allowed provider extra, so do not use
     // the full multi-disc release merely because the counts differ.
-    let candidate_tracks = request
-        .selected_disc_number
-        .and_then(|disc_number| {
-            let scoped: Vec<_> = candidate
+    let candidate_tracks = if let Some(disc_number) = request.selected_disc_number {
+        let scoped: Vec<_> = candidate
+            .tracks
+            .iter()
+            .filter(|track| track.disc_number == Some(disc_number))
+            .cloned()
+            .collect();
+        if !scoped.is_empty()
+            || candidate
                 .tracks
                 .iter()
-                .filter(|t| t.disc_number == Some(disc_number))
-                .cloned()
-                .collect();
-            if !scoped.is_empty() {
-                Some(scoped)
-            } else {
-                None
-            }
-        })
-        .unwrap_or_else(|| candidate.tracks.clone());
+                .any(|track| track.disc_number.is_some())
+        {
+            scoped
+        } else {
+            candidate.tracks.clone()
+        }
+    } else {
+        candidate.tracks.clone()
+    };
     let matched = match_remote_candidate_tracks(
         &request.tracks,
         &filenames,
@@ -1374,18 +1378,23 @@ fn candidate_tracks_for_request(
     request: &LookupRequest,
     candidate: &AlbumCandidate,
 ) -> Vec<TrackCandidate> {
-    request
-        .selected_disc_number
-        .map(|disc_number| {
-            candidate
+    if let Some(disc_number) = request.selected_disc_number {
+        let scoped = candidate
+            .tracks
+            .iter()
+            .filter(|track| track.disc_number == Some(disc_number))
+            .cloned()
+            .collect::<Vec<_>>();
+        if !scoped.is_empty()
+            || candidate
                 .tracks
                 .iter()
-                .filter(|track| track.disc_number == Some(disc_number))
-                .cloned()
-                .collect::<Vec<_>>()
-        })
-        .filter(|tracks| !tracks.is_empty())
-        .unwrap_or_else(|| candidate.tracks.clone())
+                .any(|track| track.disc_number.is_some())
+        {
+            return scoped;
+        }
+    }
+    candidate.tracks.clone()
 }
 
 pub fn provider_candidate_credibility(
@@ -1916,6 +1925,7 @@ pub fn validated_ai_candidate(
     let mut indices = HashSet::new();
     let mut positions = HashSet::new();
     let mut per_disc = HashMap::<u32, u32>::new();
+    let mut per_disc_numbers = HashMap::<u32, HashSet<u32>>::new();
     let mut common_disc_total = None;
     for track in raw_tracks {
         let index = track
@@ -1943,6 +1953,10 @@ pub fn validated_ai_candidate(
             ));
         }
         *per_disc.entry(disc_number).or_default() += 1;
+        per_disc_numbers
+            .entry(disc_number)
+            .or_default()
+            .insert(track_number);
         if common_disc_total.replace(disc_total).is_some_and(|total| total != disc_total) {
             return Err(ai_failure(
                 "ai_validation_failed",
@@ -1979,6 +1993,22 @@ pub fn validated_ai_candidate(
             return Err(ai_failure(
                 "ai_validation_failed",
                 "trackTotal must equal the number of tracks on its disc",
+            ));
+        }
+    }
+    for (disc_number, numbers) in &per_disc_numbers {
+        let Some(track_total) = per_disc.get(disc_number).copied() else {
+            return Err(ai_failure(
+                "ai_validation_failed",
+                "track numbering is missing a disc total",
+            ));
+        };
+        if numbers.len() != usize::try_from(track_total).unwrap_or_default()
+            || (1..=track_total).any(|number| !numbers.contains(&number))
+        {
+            return Err(ai_failure(
+                "ai_validation_failed",
+                "track numbering must be contiguous on each disc",
             ));
         }
     }
@@ -2303,22 +2333,30 @@ pub async fn resolve_and_apply_album(
             .is_some_and(|artist| !is_compilation_folder(artist))
     {
         let artist = request.artist_hint.as_deref().unwrap_or_default();
-        let identity = services
+        let resolution = services
             .providers
-            .resolve_artist_identity(
+            .resolve_artist_identity_result(
                 artist,
                 config.discogs_token.clone(),
                 needs_musicbrainz_identity,
                 needs_discogs_identity,
             )
             .await;
-        for alias in &identity.english_aliases {
+        musicbrainz_error = resolution
+            .musicbrainz_error
+            .as_deref()
+            .map(safe_provider_error);
+        discogs_error = resolution
+            .discogs_error
+            .as_deref()
+            .map(safe_provider_error);
+        for alias in &resolution.identity.english_aliases {
             if let Err(error) = save_alias(services.alias_file, artist, alias) {
                 tracing::warn!(%error, "failed to persist resolved artist alias");
             }
         }
-        fill_request_artist_identity(&mut request, &identity);
-        Some(identity)
+        fill_request_artist_identity(&mut request, &resolution.identity);
+        Some(resolution.identity)
     } else {
         None
     };
@@ -2418,7 +2456,7 @@ pub async fn resolve_and_apply_album(
                         album,
                         request.year_hint.as_deref(),
                         request.country_hint.as_deref().and_then(discogs_country_name),
-                        Some("CD"),
+                        None,
                         10,
                     )
                     .await
@@ -4110,6 +4148,30 @@ mod tests {
     }
 
     #[test]
+    fn provider_credibility_rejects_when_selected_disc_is_missing() {
+        let request = LookupRequest {
+            artist_hint: Some("Artist".into()),
+            album_hint: Some("Album".into()),
+            selected_disc_number: Some(1),
+            tracks: vec![track("Repeated Song", "Artist")],
+            ..LookupRequest::default()
+        };
+        let candidate = AlbumCandidate {
+            artist: Some("Artist".into()),
+            album: Some("Album".into()),
+            tracks: vec![TrackCandidate {
+                title: Some("Repeated Song".into()),
+                disc_number: Some(2),
+                ..TrackCandidate::default()
+            }],
+            source: LookupSource::Musicbrainz,
+            ..AlbumCandidate::default()
+        };
+
+        assert!(provider_candidate_credibility(&request, &candidate).is_err());
+    }
+
+    #[test]
     fn build_lookup_request_parses_selected_disc_number() {
         // "挑信 CD1" should produce selected_disc_number=1
         let root = temp_root();
@@ -5525,6 +5587,10 @@ mod tests {
         let mut invalid_count = valid.clone();
         invalid_count["tracks"][0]["trackTotal"] = serde_json::json!(1);
         assert!(validated_ai_candidate(&request, &invalid_count).is_err());
+
+        let mut invalid_number = valid.clone();
+        invalid_number["tracks"][1]["trackNumber"] = serde_json::json!(99);
+        assert!(validated_ai_candidate(&request, &invalid_number).is_err());
 
         let mut empty_artist = valid.clone();
         empty_artist["tracks"][0]["artist"] = serde_json::json!("");

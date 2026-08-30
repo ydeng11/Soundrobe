@@ -121,6 +121,23 @@ impl ProviderState {
         use_musicbrainz: bool,
         use_discogs: bool,
     ) -> ArtistIdentity {
+        self.resolve_artist_identity_result(
+            artist,
+            discogs_token,
+            use_musicbrainz,
+            use_discogs,
+        )
+        .await
+        .identity
+    }
+
+    pub async fn resolve_artist_identity_result(
+        &self,
+        artist: &str,
+        discogs_token: Option<String>,
+        use_musicbrainz: bool,
+        use_discogs: bool,
+    ) -> ArtistIdentityResolution {
         let key = format!(
             "{}|mb={use_musicbrainz}|discogs={use_discogs}",
             artist.trim().to_lowercase()
@@ -136,12 +153,15 @@ impl ProviderState {
             .filter(|entry| entry.stored.elapsed() < Duration::from_secs(24 * 60 * 60))
             .map(|entry| entry.identity.clone());
         if let Some(cached) = cached {
-            return cached;
+            return ArtistIdentityResolution {
+                identity: cached,
+                ..ArtistIdentityResolution::default()
+            };
         }
 
         let musicbrainz = MusicBrainzClient::at(self.http(), &self.musicbrainz_base);
         let discogs = DiscogsClient::at(self.http(), discogs_token, &self.discogs_base);
-        let identity = resolve_artist_identity_with_clients(
+        let resolution = resolve_artist_identity_with_clients_result(
             &musicbrainz,
             &discogs,
             artist,
@@ -149,7 +169,12 @@ impl ProviderState {
             use_discogs,
         )
         .await;
-        if identity.musicbrainz_artist_id.is_some() || identity.discogs_artist_id.is_some() {
+        let complete = resolution.musicbrainz_error.is_none()
+            && resolution.discogs_error.is_none()
+            && (!use_musicbrainz || resolution.identity.musicbrainz_artist_id.is_some())
+            && (!use_discogs || resolution.identity.discogs_artist_id.is_some())
+            && (use_musicbrainz || use_discogs);
+        if complete {
             self.artist_cache
                 .lock()
                 .unwrap_or_else(|poisoned| {
@@ -159,12 +184,12 @@ impl ProviderState {
                 .insert(
                     key,
                     CachedArtistIdentity {
-                        identity: identity.clone(),
+                        identity: resolution.identity.clone(),
                         stored: Instant::now(),
                     },
                 );
         }
-        identity
+        resolution
     }
 
     /// Resolve a MusicBrainz artist ID for interactive commands that must
@@ -230,6 +255,13 @@ pub struct ArtistIdentity {
     pub musicbrainz_artist_id: Option<String>,
     pub discogs_artist_id: Option<String>,
     pub english_aliases: Vec<String>,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct ArtistIdentityResolution {
+    pub identity: ArtistIdentity,
+    pub musicbrainz_error: Option<String>,
+    pub discogs_error: Option<String>,
 }
 
 struct CachedArtistIdentity {
@@ -455,10 +487,8 @@ impl MusicBrainzClient {
                 Err(error) => detail_error = Some(error),
             }
         }
-        if albums.is_empty() {
-            if let Some(error) = detail_error {
-                return Err(error);
-            }
+        if let Some(error) = detail_error {
+            return Err(error);
         }
         Ok(albums)
     }
@@ -800,43 +830,76 @@ pub async fn resolve_artist_identity_with_clients(
     use_musicbrainz: bool,
     use_discogs: bool,
 ) -> ArtistIdentity {
+    resolve_artist_identity_with_clients_result(
+        musicbrainz,
+        discogs,
+        artist,
+        use_musicbrainz,
+        use_discogs,
+    )
+    .await
+    .identity
+}
+
+pub async fn resolve_artist_identity_with_clients_result(
+    musicbrainz: &MusicBrainzClient,
+    discogs: &DiscogsClient,
+    artist: &str,
+    use_musicbrainz: bool,
+    use_discogs: bool,
+) -> ArtistIdentityResolution {
     if artist.trim().is_empty() {
-        return ArtistIdentity::default();
+        return ArtistIdentityResolution::default();
     }
-    let musicbrainz_artist = if use_musicbrainz {
-        musicbrainz.search_artist_by_name(artist).await
+    let musicbrainz_lookup = if use_musicbrainz {
+        musicbrainz.search_artist_by_name_result(artist).await
     } else {
-        None
+        Ok(None)
     };
-    let direct_discogs_artist_id = if use_discogs {
-        discogs.search_artist_exact_result(artist).await.ok().flatten()
+    let musicbrainz_error = musicbrainz_lookup.as_ref().err().cloned();
+    let musicbrainz_artist = musicbrainz_lookup.ok().flatten();
+    let direct_discogs_lookup = if use_discogs {
+        discogs.search_artist_exact_result(artist).await
     } else {
-        None
+        Ok(None)
     };
-    let discogs_artist_id = if direct_discogs_artist_id.is_some() {
-        direct_discogs_artist_id
-    } else if use_discogs {
+    let direct_discogs_succeeded = direct_discogs_lookup.is_ok();
+    let mut discogs_error = direct_discogs_lookup.as_ref().err().cloned();
+    let mut discogs_artist_id = direct_discogs_lookup.ok().flatten();
+    if discogs_artist_id.is_none() && use_discogs {
         let mut found = None;
         if let Some(musicbrainz_artist) = musicbrainz_artist.as_ref() {
             for alias in &musicbrainz_artist.aliases {
-                if let Some(id) = discogs.search_artist_exact_result(alias).await.ok().flatten() {
-                    found = Some(id);
-                    break;
+                match discogs.search_artist_exact_result(alias).await {
+                    Ok(Some(id)) => {
+                        found = Some(id);
+                        break;
+                    }
+                    Ok(None) => {}
+                    Err(error) if !direct_discogs_succeeded && discogs_error.is_none() => {
+                        discogs_error = Some(error);
+                    }
+                    Err(_) => {}
                 }
             }
         }
-        found
-    } else {
-        None
-    };
-    ArtistIdentity {
-        musicbrainz_artist_id: musicbrainz_artist
-            .as_ref()
-            .map(|artist| artist.id.clone()),
-        discogs_artist_id,
-        english_aliases: musicbrainz_artist
-            .map(|artist| artist.aliases)
-            .unwrap_or_default(),
+        if found.is_some() {
+            discogs_error = None;
+        }
+        discogs_artist_id = found;
+    }
+    ArtistIdentityResolution {
+        identity: ArtistIdentity {
+            musicbrainz_artist_id: musicbrainz_artist
+                .as_ref()
+                .map(|artist| artist.id.clone()),
+            discogs_artist_id,
+            english_aliases: musicbrainz_artist
+                .map(|artist| artist.aliases)
+                .unwrap_or_default(),
+        },
+        musicbrainz_error,
+        discogs_error,
     }
 }
 
@@ -3062,6 +3125,48 @@ mod tests {
         ("404 Not Found", "{}".to_string(), "application/json")
     }
 
+    fn unavailable_artist_identity_route(
+        path: &str,
+        _base: &str,
+    ) -> (&'static str, String, &'static str) {
+        assert!(
+            path.starts_with("/mb/artist/") || path.starts_with("/discogs/database/search?")
+        );
+        (
+            "500 Internal Server Error",
+            "{}".to_string(),
+            "application/json",
+        )
+    }
+
+    fn partial_artist_identity_server() -> String {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let base = format!("http://{}", listener.local_addr().unwrap());
+        thread::spawn(move || {
+            let responses = [
+                ("500 Internal Server Error", "{}"),
+                ("200 OK", r#"{"results":[{"id":33534,"title":"Artist"}]}"#),
+                (
+                    "200 OK",
+                    r#"{"artists":[{"id":"mb-recovered","name":"Artist","aliases":[]}] }"#,
+                ),
+                ("200 OK", r#"{"results":[{"id":33534,"title":"Artist"}]}"#),
+            ];
+            for (status, body) in responses {
+                let (mut stream, _) = listener.accept().unwrap();
+                let mut request = [0_u8; 4096];
+                let _ = stream.read(&mut request).unwrap();
+                write!(
+                    stream,
+                    "HTTP/1.1 {status}\r\nContent-Length: {}\r\nContent-Type: application/json\r\nConnection: close\r\n\r\n{body}",
+                    body.len()
+                )
+                .unwrap();
+            }
+        });
+        base
+    }
+
     fn discogs_structured_emotions_route(
         path: &str,
         _base: &str,
@@ -3119,6 +3224,26 @@ mod tests {
             );
         }
         ("404 Not Found", "{}".to_string(), "application/json")
+    }
+
+    fn discogs_unknown_format_route(
+        path: &str,
+        _base: &str,
+    ) -> (&'static str, String, &'static str) {
+        if path.starts_with("/database/search?") {
+            assert!(!path.contains("format="));
+            return (
+                "200 OK",
+                r#"{"results":[{"id":1,"title":"Artist - Album","type":"release"}],"pagination":{"items":1}}"#.to_string(),
+                "application/json",
+            );
+        }
+        assert!(path.starts_with("/releases/1"));
+        (
+            "200 OK",
+            r#"{"id":1,"title":"Album","artists":[{"name":"Artist"}],"tracklist":[]}"#.to_string(),
+            "application/json",
+        )
     }
 
     fn musicbrainz_missing_count_route(
@@ -3372,6 +3497,28 @@ mod tests {
         ("503 Unavailable", "{}".to_string(), "application/json")
     }
 
+    fn musicbrainz_mixed_detail_failure_route(
+        path: &str,
+        _base: &str,
+    ) -> (&'static str, String, &'static str) {
+        if path.starts_with("/release?query=") {
+            return (
+                "200 OK",
+                r#"{"releases":[{"id":"usable"},{"id":"failed"}]}"#.to_string(),
+                "application/json",
+            );
+        }
+        if path.starts_with("/release/usable?") {
+            return (
+                "200 OK",
+                r#"{"id":"usable","title":"Wrong Album","artist-credit":[{"name":"Artist"}],"date":"2000","media":[{"position":1,"format":"CD","tracks":[{"position":"1","title":"Only","recording":{"id":"recording","length":1000}}]}]}"#.to_string(),
+                "application/json",
+            );
+        }
+        assert!(path.starts_with("/release/failed?"));
+        ("503 Service Unavailable", "{}".to_string(), "application/json")
+    }
+
     fn musicbrainz_artist_page_route(
         path: &str,
         _base: &str,
@@ -3602,6 +3749,18 @@ mod tests {
             .unwrap_err();
 
         assert!(error.contains("MusicBrainz request failed"), "{error}");
+    }
+
+    #[tokio::test]
+    async fn musicbrainz_name_search_keeps_mixed_detail_failure_unavailable() {
+        let (base, _requests) = server(3, musicbrainz_mixed_detail_failure_route);
+        let client = MusicBrainzClient::at(ProviderState::new().http(), &base);
+
+        let result = client
+            .search_album_result("Artist", "Album", 2)
+            .await;
+
+        assert!(result.is_err());
     }
 
     #[tokio::test]
@@ -4112,6 +4271,46 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn artist_identity_resolution_preserves_enabled_provider_failures() {
+        let (base, _requests) = server(3, unavailable_artist_identity_route);
+        let http = ProviderState::new().http();
+        let musicbrainz = MusicBrainzClient::at(http.clone(), &format!("{base}/mb"));
+        let discogs = DiscogsClient::at(http, None, &format!("{base}/discogs"));
+
+        let resolution =
+            resolve_artist_identity_with_clients_result(&musicbrainz, &discogs, "Artist", true, true)
+                .await;
+
+        assert!(resolution.musicbrainz_error.is_some());
+        assert!(resolution.discogs_error.is_some());
+        assert_eq!(resolution.identity, ArtistIdentity::default());
+    }
+
+    #[tokio::test]
+    async fn provider_state_retries_the_missing_identity_after_partial_success() {
+        let base = partial_artist_identity_server();
+        let state = ProviderState::at(
+            ProviderState::new().http(),
+            &format!("{base}/mb"),
+            &format!("{base}/discogs"),
+        );
+
+        let first = state
+            .resolve_artist_identity_result("Artist", None, true, true)
+            .await;
+        assert_eq!(first.identity.discogs_artist_id.as_deref(), Some("33534"));
+        assert!(first.identity.musicbrainz_artist_id.is_none());
+        assert!(first.musicbrainz_error.is_some());
+
+        let second = state
+            .resolve_artist_identity_result("Artist", None, true, true)
+            .await;
+        assert_eq!(second.identity.musicbrainz_artist_id.as_deref(), Some("mb-recovered"));
+        assert_eq!(second.identity.discogs_artist_id.as_deref(), Some("33534"));
+        assert!(second.musicbrainz_error.is_none());
+    }
+
+    #[tokio::test]
     async fn discogs_structured_search_ranks_japanese_emotions_before_detail_limit() {
         let (base, requests) = server(11, discogs_structured_emotions_route);
         let client = DiscogsClient::at(ProviderState::new().http(), None, &base);
@@ -4134,6 +4333,19 @@ mod tests {
         assert!(search.contains("release_title=Emotions"));
         assert!(search.contains("country=Japan"));
         assert!(search.contains("format=CD"));
+    }
+
+    #[tokio::test]
+    async fn discogs_structured_search_omits_unknown_format_filter() {
+        let (base, _requests) = server(2, discogs_unknown_format_route);
+        let client = DiscogsClient::at(ProviderState::new().http(), None, &base);
+
+        let albums = client
+            .search_album_result_with_context("Artist", "Album", None, None, None, 1)
+            .await
+            .unwrap();
+
+        assert_eq!(albums.first().map(|album| album.id.as_str()), Some("1"));
     }
 
     #[tokio::test]
