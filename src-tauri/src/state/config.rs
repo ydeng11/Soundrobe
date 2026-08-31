@@ -513,6 +513,10 @@ impl ConfigState {
 mod tests {
     use super::*;
 
+    // `std::env` is process-global, so tests that override a value must not
+    // observe one another's temporary values when lib tests run in parallel.
+    static PROCESS_ENV_TEST_LOCK: Mutex<()> = Mutex::new(());
+
     /// Intent: defaults must enable remote + Discogs lookups (opt-in-by-default
     /// safety guard) even with an empty file.
     #[test]
@@ -974,23 +978,24 @@ mod tests {
     /// into the config so users who set it in `.env.local` / shell profile see
     /// their choice reflected in the Settings UI without opening the dialogue.
     /// Uses `std::env::set_var` because `ProcessEnv` has no other injection
-    /// point. Runs single-threaded within this function so no other test sees
-    /// the temporary var. Runs with `--test-threads=1` or in isolation.
+    /// point. The shared lock prevents this process-global override from
+    /// racing with the invalid-value test below.
     #[test]
     fn process_env_reads_auto_tag_chinese_script() {
+        let _env_guard = PROCESS_ENV_TEST_LOCK.lock().unwrap();
         let prior = std::env::var("AUTO_TAG_CHINESE_SCRIPT").ok();
         std::env::set_var("AUTO_TAG_CHINESE_SCRIPT", "traditional");
         let c = load_from("", &ProcessEnv);
-        assert_eq!(
-            c.chinese_script.as_deref(),
-            Some("traditional"),
-            "ProcessEnv must pick up AUTO_TAG_CHINESE_SCRIPT from the process env"
-        );
         // Restore the prior state so parallel tests are not affected.
         match prior {
             Some(v) => std::env::set_var("AUTO_TAG_CHINESE_SCRIPT", v),
             None => std::env::remove_var("AUTO_TAG_CHINESE_SCRIPT"),
         }
+        assert_eq!(
+            c.chinese_script.as_deref(),
+            Some("traditional"),
+            "ProcessEnv must pick up AUTO_TAG_CHINESE_SCRIPT from the process env"
+        );
     }
 
     /// Intent: unrecognised env var values like `"sc"` must NOT set
@@ -998,17 +1003,18 @@ mod tests {
     /// the user made a typo. A warning is traced instead.
     #[test]
     fn process_env_rejects_invalid_chinese_script() {
+        let _env_guard = PROCESS_ENV_TEST_LOCK.lock().unwrap();
         let prior = std::env::var("AUTO_TAG_CHINESE_SCRIPT").ok();
         std::env::set_var("AUTO_TAG_CHINESE_SCRIPT", "sc");
         let c = load_from("", &ProcessEnv);
-        assert_eq!(
-            c.chinese_script, None,
-            "'sc' must be rejected, not set on the config"
-        );
         match prior {
             Some(v) => std::env::set_var("AUTO_TAG_CHINESE_SCRIPT", v),
             None => std::env::remove_var("AUTO_TAG_CHINESE_SCRIPT"),
         }
+        assert_eq!(
+            c.chinese_script, None,
+            "'sc' must be rejected, not set on the config"
+        );
     }
 
     /// Intent: a chinese_script value in the YAML that is neither

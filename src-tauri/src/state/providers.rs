@@ -8,7 +8,7 @@ use regex::Regex;
 use reqwest::Client;
 use serde::Deserialize;
 use std::collections::{BTreeSet, HashMap};
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant};
 use unicode_normalization::{char::is_combining_mark, UnicodeNormalization};
@@ -22,6 +22,77 @@ const DISCOGS_BASE: &str = "https://api.discogs.com";
 static OPENCC: OnceLock<OpenCC> = OnceLock::new();
 static DISCOGS_LIMITER: OnceLock<Arc<DiscogsRateLimiter>> = OnceLock::new();
 static MUSICBRAINZ_LAST_REQUEST: OnceLock<tokio::sync::Mutex<Option<Instant>>> = OnceLock::new();
+
+const AUTO_TAG_MAX_PROVIDER_ATTEMPTS: u8 = 3;
+const AUTO_TAG_MAX_RETRY_AFTER_SECONDS: u64 = 30;
+
+#[derive(Clone, Default)]
+pub(crate) struct ProviderRetryMetrics {
+    retry_count: Arc<AtomicU32>,
+    max_retry_after_seconds: Arc<AtomicU64>,
+}
+
+impl ProviderRetryMetrics {
+    pub(crate) fn retry_count(&self) -> u32 {
+        self.retry_count.load(Ordering::Acquire)
+    }
+
+    pub(crate) fn max_retry_after_seconds(&self) -> Option<u64> {
+        let value = self.max_retry_after_seconds.load(Ordering::Acquire);
+        (value > 0).then_some(value)
+    }
+
+    fn record_retry(&self, retry_after_seconds: Option<u64>) {
+        self.retry_count.fetch_add(1, Ordering::AcqRel);
+        if let Some(value) = retry_after_seconds {
+            self.max_retry_after_seconds.fetch_max(
+                value.min(AUTO_TAG_MAX_RETRY_AFTER_SECONDS),
+                Ordering::AcqRel,
+            );
+        }
+    }
+}
+
+#[derive(Clone)]
+pub(crate) struct ProviderRetryContext {
+    cancelled: Arc<AtomicBool>,
+    max_attempts: u8,
+    retry_delays: Arc<Vec<Duration>>,
+    metrics: ProviderRetryMetrics,
+}
+
+impl ProviderRetryContext {
+    pub(crate) fn new(cancelled: Arc<AtomicBool>, metrics: ProviderRetryMetrics) -> Self {
+        Self {
+            cancelled,
+            max_attempts: AUTO_TAG_MAX_PROVIDER_ATTEMPTS,
+            retry_delays: Arc::new(vec![Duration::from_secs(1), Duration::from_secs(3)]),
+            metrics,
+        }
+    }
+
+    #[cfg(test)]
+    fn with_retry_delays(mut self, delays: Vec<Duration>) -> Self {
+        self.retry_delays = Arc::new(delays);
+        self
+    }
+
+    fn retry_delay(&self, retry_index: usize, retry_after_seconds: Option<u64>) -> Duration {
+        retry_after_seconds
+            .map(|seconds| seconds.min(AUTO_TAG_MAX_RETRY_AFTER_SECONDS))
+            .map(Duration::from_secs)
+            .unwrap_or_else(|| {
+                self.retry_delays
+                    .get(retry_index)
+                    .copied()
+                    .unwrap_or_default()
+            })
+    }
+
+    pub(crate) fn metrics(&self) -> ProviderRetryMetrics {
+        self.metrics.clone()
+    }
+}
 
 pub fn convert_chinese_text(value: &str, target: &str) -> String {
     let converter = OPENCC.get_or_init(OpenCC::new);
@@ -51,8 +122,11 @@ impl DiscogsRateLimiter {
         limiter
     }
 
-    async fn wait(&self) {
+    async fn wait(&self, cancelled: Option<&AtomicBool>) -> bool {
         loop {
+            if cancelled.is_some_and(|value| value.load(Ordering::Acquire)) {
+                return false;
+            }
             let delay = {
                 let mut timestamps = self.timestamps.lock().await;
                 let now = Instant::now();
@@ -60,14 +134,44 @@ impl DiscogsRateLimiter {
                     .retain(|timestamp| now.duration_since(*timestamp) < Duration::from_secs(60));
                 if timestamps.len() < self.maximum.load(Ordering::Relaxed) {
                     timestamps.push(now);
-                    return;
+                    return true;
                 }
                 Duration::from_secs(60).saturating_sub(now.duration_since(timestamps[0]))
                     + Duration::from_millis(100)
             };
-            tokio::time::sleep(delay).await;
+            if !sleep_with_cancellation(delay, cancelled).await {
+                return false;
+            }
         }
     }
+}
+
+async fn sleep_with_cancellation(duration: Duration, cancelled: Option<&AtomicBool>) -> bool {
+    let Some(cancelled) = cancelled else {
+        tokio::time::sleep(duration).await;
+        return true;
+    };
+    let deadline = Instant::now() + duration;
+    while Instant::now() < deadline {
+        if cancelled.load(Ordering::Acquire) {
+            return false;
+        }
+        let remaining = deadline.saturating_duration_since(Instant::now());
+        tokio::time::sleep(remaining.min(Duration::from_millis(50))).await;
+    }
+    !cancelled.load(Ordering::Acquire)
+}
+
+fn retry_after_seconds(response: &reqwest::Response) -> Option<u64> {
+    response
+        .headers()
+        .get(reqwest::header::RETRY_AFTER)
+        .and_then(|value| value.to_str().ok())
+        .and_then(|value| value.parse::<u64>().ok())
+}
+
+fn retryable_status(status: reqwest::StatusCode) -> bool {
+    matches!(status.as_u16(), 408 | 425 | 429 | 500 | 502 | 503 | 504)
 }
 
 pub struct ProviderState {
@@ -138,6 +242,26 @@ impl ProviderState {
         use_musicbrainz: bool,
         use_discogs: bool,
     ) -> ArtistIdentityResolution {
+        self.resolve_artist_identity_result_with_context(
+            artist,
+            discogs_token,
+            use_musicbrainz,
+            use_discogs,
+            None,
+            None,
+        )
+        .await
+    }
+
+    pub(crate) async fn resolve_artist_identity_result_with_context(
+        &self,
+        artist: &str,
+        discogs_token: Option<String>,
+        use_musicbrainz: bool,
+        use_discogs: bool,
+        musicbrainz_retry_context: Option<ProviderRetryContext>,
+        discogs_retry_context: Option<ProviderRetryContext>,
+    ) -> ArtistIdentityResolution {
         let key = format!(
             "{}|mb={use_musicbrainz}|discogs={use_discogs}",
             artist.trim().to_lowercase()
@@ -161,6 +285,16 @@ impl ProviderState {
 
         let musicbrainz = MusicBrainzClient::at(self.http(), &self.musicbrainz_base);
         let discogs = DiscogsClient::at(self.http(), discogs_token, &self.discogs_base);
+        let musicbrainz = if let Some(context) = musicbrainz_retry_context {
+            musicbrainz.with_retry_context(context)
+        } else {
+            musicbrainz
+        };
+        let discogs = if let Some(context) = discogs_retry_context {
+            discogs.with_retry_context(context)
+        } else {
+            discogs
+        };
         let resolution = resolve_artist_identity_with_clients_result(
             &musicbrainz,
             &discogs,
@@ -362,6 +496,7 @@ pub struct ReleaseSearchSummary {
 pub struct MusicBrainzClient {
     base_url: String,
     http: Client,
+    retry_context: Option<ProviderRetryContext>,
 }
 
 impl MusicBrainzClient {
@@ -373,7 +508,84 @@ impl MusicBrainzClient {
         Self {
             base_url: base_url.trim_end_matches('/').to_string(),
             http,
+            retry_context: None,
         }
+    }
+
+    pub(crate) fn with_retry_context(mut self, context: ProviderRetryContext) -> Self {
+        self.retry_context = Some(context);
+        self
+    }
+
+    async fn send_with_retry(
+        &self,
+        url: String,
+        query: &[(&str, String)],
+    ) -> Result<reqwest::Response, String> {
+        let attempts = self
+            .retry_context
+            .as_ref()
+            .map(|context| context.max_attempts)
+            .unwrap_or(1);
+        for attempt in 0..attempts {
+            if let Some(context) = &self.retry_context {
+                if context.cancelled.load(Ordering::Acquire) {
+                    return Err("MusicBrainz request cancelled".to_string());
+                }
+            }
+            if !wait_for_musicbrainz_with_cancellation(
+                self.retry_context
+                    .as_ref()
+                    .map(|context| context.cancelled.as_ref()),
+            )
+            .await
+            {
+                return Err("MusicBrainz request cancelled".to_string());
+            }
+            let response = match self.http.get(&url).query(query).send().await {
+                Ok(response) => response,
+                Err(error) => {
+                    let retryable =
+                        self.retry_context.is_some() && (error.is_timeout() || error.is_connect());
+                    if !retryable || attempt + 1 >= attempts {
+                        return Err(format!("MusicBrainz request failed: {error}"));
+                    }
+                    let context = self.retry_context.as_ref().expect("retry context exists");
+                    let retry_index = usize::from(attempt);
+                    let delay = context.retry_delay(retry_index, None);
+                    context.metrics.record_retry(None);
+                    tracing::warn!(
+                        attempt = attempt + 1,
+                        delay_ms = delay.as_millis(),
+                        "MusicBrainz transient request error; retrying"
+                    );
+                    if !sleep_with_cancellation(delay, Some(&context.cancelled)).await {
+                        return Err("MusicBrainz request cancelled".to_string());
+                    }
+                    continue;
+                }
+            };
+            let status = response.status();
+            let retry_after = retry_after_seconds(&response);
+            let retryable = self.retry_context.is_some() && retryable_status(status);
+            if retryable && attempt + 1 < attempts {
+                let context = self.retry_context.as_ref().expect("retry context exists");
+                let delay = context.retry_delay(usize::from(attempt), retry_after);
+                context.metrics.record_retry(retry_after);
+                tracing::warn!(
+                    attempt = attempt + 1,
+                    status = status.as_u16(),
+                    delay_ms = delay.as_millis(),
+                    "MusicBrainz transient HTTP response; retrying"
+                );
+                if !sleep_with_cancellation(delay, Some(&context.cancelled)).await {
+                    return Err("MusicBrainz request cancelled".to_string());
+                }
+                continue;
+            }
+            return Ok(response);
+        }
+        unreachable!("MusicBrainz retry loop always returns")
     }
 
     pub async fn release_by_id(&self, release_id: &str) -> Option<ProviderAlbum> {
@@ -385,29 +597,24 @@ impl MusicBrainzClient {
     /// the manual Search dialog so a rate limit or network error is not
     /// misreported as a missing release.
     pub async fn release_by_id_result(&self, release_id: &str) -> Result<ProviderAlbum, String> {
-        wait_for_musicbrainz().await;
         let response = self
-            .http
-            .get(format!("{}/release/{release_id}", self.base_url))
-            .query(&[(
-                "fmt",
-                "json",
-            ), (
-                "inc",
-                "recordings+artist-credits+labels+url-rels",
-            )])
-            .send()
-            .await
-            .map_err(|e| format!("MusicBrainz request failed: {e}"))?;
+            .send_with_retry(
+                format!("{}/release/{release_id}", self.base_url),
+                &[
+                    ("fmt", "json".to_string()),
+                    (
+                        "inc",
+                        "recordings+artist-credits+labels+url-rels".to_string(),
+                    ),
+                ],
+            )
+            .await?;
         let status = response.status();
         if status == reqwest::StatusCode::NOT_FOUND {
             return Err(format!("MusicBrainz release not found: {release_id}"));
         }
         if !status.is_success() {
-            let retry_hint = response
-                .headers()
-                .get(reqwest::header::RETRY_AFTER)
-                .and_then(|value| value.to_str().ok())
+            let retry_hint = retry_after_seconds(&response)
                 .map(|value| format!(" (retry after {value}s)"))
                 .unwrap_or_default();
             return Err(format!(
@@ -442,7 +649,6 @@ impl MusicBrainzClient {
         if artist.is_empty() || album.is_empty() || max_candidates == 0 {
             return Ok(Vec::new());
         }
-        wait_for_musicbrainz().await;
         let stripped = strip_album_subtitle(album);
         let query = format!(
             "artist:\"{}\" AND release:\"{}\"",
@@ -450,16 +656,15 @@ impl MusicBrainzClient {
             escape_musicbrainz_query(&stripped)
         );
         let response = self
-            .http
-            .get(format!("{}/release", self.base_url))
-            .query(&[
-                ("query", query),
-                ("fmt", "json".to_string()),
-                ("limit", max_candidates.min(25).to_string()),
-            ])
-            .send()
-            .await;
-        let response = response
+            .send_with_retry(
+                format!("{}/release", self.base_url),
+                &[
+                    ("query", query),
+                    ("fmt", "json".to_string()),
+                    ("limit", max_candidates.min(25).to_string()),
+                ],
+            )
+            .await
             .map_err(|error| format!("MusicBrainz search failed: {error}"))?
             .error_for_status()
             .map_err(|error| format!("MusicBrainz search failed: {error}"))?;
@@ -510,21 +715,19 @@ impl MusicBrainzClient {
         page: u32,
         limit: u32,
     ) -> Result<Vec<ProviderReleaseSummary>, String> {
-        wait_for_musicbrainz().await;
         let offset = page.saturating_sub(1).saturating_mul(limit);
         let response = self
-            .http
-            .get(format!("{}/release", self.base_url))
-            .query(&[
-                ("artist", artist_id.to_string()),
-                ("limit", limit.to_string()),
-                ("offset", offset.to_string()),
-                ("fmt", "json".to_string()),
-                ("inc", "artist-credits+labels+media".to_string()),
-            ])
-            .send()
-            .await;
-        let response = response
+            .send_with_retry(
+                format!("{}/release", self.base_url),
+                &[
+                    ("artist", artist_id.to_string()),
+                    ("limit", limit.to_string()),
+                    ("offset", offset.to_string()),
+                    ("fmt", "json".to_string()),
+                    ("inc", "artist-credits+labels+media".to_string()),
+                ],
+            )
+            .await
             .map_err(|error| format!("MusicBrainz artist releases failed: {error}"))?
             .error_for_status()
             .map_err(|error| format!("MusicBrainz artist releases failed: {error}"))?;
@@ -619,6 +822,7 @@ impl MusicBrainzClient {
             format!("{}/artist/", self.base_url),
             &query,
             "artist",
+            self.retry_context.as_ref(),
         )
         .await?;
         let artists = response
@@ -689,6 +893,7 @@ impl MusicBrainzClient {
             format!("{}/release", self.base_url),
             &query,
             "",
+            self.retry_context.as_ref(),
         )
         .await?;
         let count = response
@@ -731,6 +936,7 @@ impl MusicBrainzClient {
             format!("{}/release", self.base_url),
             &query,
             "",
+            self.retry_context.as_ref(),
         )
         .await?;
         let total = response
@@ -758,30 +964,77 @@ async fn request_musicbrainz_json(
     url: String,
     query: &[(&str, String)],
     context: &str,
+    retry_context: Option<&ProviderRetryContext>,
 ) -> Result<serde_json::Value, String> {
     let label = if context.is_empty() {
         "MusicBrainz".to_string()
     } else {
         format!("MusicBrainz {context}")
     };
-    for attempt in 0..2 {
-        wait_for_musicbrainz().await;
-        let response = http
-            .get(&url)
-            .query(query)
-            .send()
-            .await
-            .map_err(|error| format!("{label} request failed: {error}"))?;
+    let attempts = retry_context.map(|value| value.max_attempts).unwrap_or(2);
+    for attempt in 0..attempts {
+        if let Some(retry_context) = retry_context {
+            if retry_context.cancelled.load(Ordering::Acquire) {
+                return Err(format!("{label} request cancelled"));
+            }
+        }
+        if !wait_for_musicbrainz_with_cancellation(
+            retry_context.map(|value| value.cancelled.as_ref()),
+        )
+        .await
+        {
+            return Err(format!("{label} request cancelled"));
+        }
+        let response = match http.get(&url).query(query).send().await {
+            Ok(response) => response,
+            Err(error) => {
+                let retryable =
+                    retry_context.is_some() && (error.is_timeout() || error.is_connect());
+                if !retryable || attempt + 1 >= attempts {
+                    return Err(format!("{label} request failed: {error}"));
+                }
+                let retry_context = retry_context.expect("retry context exists");
+                let delay = retry_context.retry_delay(usize::from(attempt), None);
+                retry_context.metrics.record_retry(None);
+                tracing::warn!(
+                    provider = "musicbrainz",
+                    context = %context,
+                    attempt = attempt + 1,
+                    delay_ms = delay.as_millis(),
+                    "transient provider request error; retrying"
+                );
+                if !sleep_with_cancellation(delay, Some(&retry_context.cancelled)).await {
+                    return Err(format!("{label} request cancelled"));
+                }
+                continue;
+            }
+        };
         let status = response.status();
-        if status == reqwest::StatusCode::SERVICE_UNAVAILABLE && attempt == 0 {
-            let retry_after = response
-                .headers()
-                .get(reqwest::header::RETRY_AFTER)
-                .and_then(|value| value.to_str().ok())
-                .and_then(|value| value.parse::<u64>().ok())
-                .unwrap_or(1)
-                .clamp(1, 5);
-            tokio::time::sleep(Duration::from_secs(retry_after)).await;
+        let retry_after = retry_after_seconds(&response);
+        let should_retry = if retry_context.is_some() {
+            retryable_status(status)
+        } else {
+            status == reqwest::StatusCode::SERVICE_UNAVAILABLE
+        };
+        if should_retry && attempt + 1 < attempts {
+            if let Some(retry_context) = retry_context {
+                let delay = retry_context.retry_delay(usize::from(attempt), retry_after);
+                retry_context.metrics.record_retry(retry_after);
+                tracing::warn!(
+                    provider = "musicbrainz",
+                    context = %context,
+                    attempt = attempt + 1,
+                    status = status.as_u16(),
+                    delay_ms = delay.as_millis(),
+                    "transient provider HTTP response; retrying"
+                );
+                if !sleep_with_cancellation(delay, Some(&retry_context.cancelled)).await {
+                    return Err(format!("{label} request cancelled"));
+                }
+            } else {
+                let retry_after = retry_after.unwrap_or(1).clamp(1, 5);
+                tokio::time::sleep(Duration::from_secs(retry_after)).await;
+            }
             continue;
         }
         if !status.is_success() {
@@ -1590,6 +1843,7 @@ pub struct DiscogsClient {
     token: Option<String>,
     http: Client,
     limiter: Arc<DiscogsRateLimiter>,
+    retry_context: Option<ProviderRetryContext>,
 }
 
 impl DiscogsClient {
@@ -1605,7 +1859,13 @@ impl DiscogsClient {
             token,
             http,
             limiter,
+            retry_context: None,
         }
+    }
+
+    pub(crate) fn with_retry_context(mut self, context: ProviderRetryContext) -> Self {
+        self.retry_context = Some(context);
+        self
     }
 
     /// Exact Electron order: known release → known artist releases → validated search.
@@ -2048,23 +2308,10 @@ impl DiscogsClient {
         self.get_json_with_query_result(path, query).await.ok()
     }
 
-    async fn get_json_result<T: for<'de> Deserialize<'de>>(
-        &self,
-        path: &str,
-    ) -> Result<T, String> {
-        self.limiter.wait().await;
+    async fn get_json_result<T: for<'de> Deserialize<'de>>(&self, path: &str) -> Result<T, String> {
         let url = format!("{}/{}", self.base_url, path);
-        let request = self.authorized(self.http.get(url));
-        let response = request
-            .send()
+        self.request_json(|| self.authorized(self.http.get(&url)))
             .await
-            .map_err(|error| format!("Discogs request failed: {error}"))?
-            .error_for_status()
-            .map_err(|error| format!("Discogs request failed: {error}"))?;
-        response
-            .json()
-            .await
-            .map_err(|error| format!("Discogs response could not be parsed: {error}"))
     }
 
     async fn get_json_with_query_result<T: for<'de> Deserialize<'de>>(
@@ -2072,19 +2319,84 @@ impl DiscogsClient {
         path: &str,
         query: &[(&str, String)],
     ) -> Result<T, String> {
-        self.limiter.wait().await;
         let url = format!("{}/{}", self.base_url, path);
-        let request = self.authorized(self.http.get(url)).query(query);
-        let response = request
-            .send()
+        self.request_json(|| self.authorized(self.http.get(&url)).query(query))
             .await
-            .map_err(|error| format!("Discogs request failed: {error}"))?
-            .error_for_status()
-            .map_err(|error| format!("Discogs request failed: {error}"))?;
-        response
-            .json()
-            .await
-            .map_err(|error| format!("Discogs response could not be parsed: {error}"))
+    }
+
+    async fn request_json<T, F>(&self, build_request: F) -> Result<T, String>
+    where
+        T: for<'de> Deserialize<'de>,
+        F: Fn() -> reqwest::RequestBuilder,
+    {
+        let attempts = self
+            .retry_context
+            .as_ref()
+            .map(|context| context.max_attempts)
+            .unwrap_or(1);
+        for attempt in 0..attempts {
+            let cancelled = self
+                .retry_context
+                .as_ref()
+                .map(|context| context.cancelled.as_ref());
+            if !self.limiter.wait(cancelled).await {
+                return Err("Discogs request cancelled".to_string());
+            }
+            let request = build_request();
+            let response = match request.send().await {
+                Ok(response) => response,
+                Err(error) => {
+                    let retryable = self.retry_context.is_some()
+                        && (error.is_timeout() || error.is_connect());
+                    if !retryable || attempt + 1 >= attempts {
+                        return Err(format!("Discogs request failed: {error}"));
+                    }
+                    let context = self.retry_context.as_ref().expect("retry context exists");
+                    let delay = context.retry_delay(usize::from(attempt), None);
+                    context.metrics.record_retry(None);
+                    tracing::warn!(
+                        attempt = attempt + 1,
+                        delay_ms = delay.as_millis(),
+                        "Discogs transient request error; retrying"
+                    );
+                    if !sleep_with_cancellation(delay, Some(&context.cancelled)).await {
+                        return Err("Discogs request cancelled".to_string());
+                    }
+                    continue;
+                }
+            };
+            let status = response.status();
+            let retry_after = retry_after_seconds(&response);
+            let should_retry = self.retry_context.is_some()
+                && retryable_status(status)
+                && attempt + 1 < attempts;
+            if should_retry {
+                let context = match self.retry_context.as_ref() {
+                    Some(context) => context,
+                    None => unreachable!("retry context is required for a retry"),
+                };
+                let delay = context.retry_delay(usize::from(attempt), retry_after);
+                context.metrics.record_retry(retry_after);
+                tracing::warn!(
+                    attempt = attempt + 1,
+                    status = status.as_u16(),
+                    delay_ms = delay.as_millis(),
+                    "Discogs transient HTTP response; retrying"
+                );
+                if !sleep_with_cancellation(delay, Some(&context.cancelled)).await {
+                    return Err("Discogs request cancelled".to_string());
+                }
+                continue;
+            }
+            let response = response
+                .error_for_status()
+                .map_err(|error| format!("Discogs request failed: {error}"))?;
+            return response
+                .json()
+                .await
+                .map_err(|error| format!("Discogs response could not be parsed: {error}"));
+        }
+        unreachable!("Discogs retry loop always returns")
     }
 
     fn authorized(&self, request: reqwest::RequestBuilder) -> reqwest::RequestBuilder {
@@ -2894,6 +3206,10 @@ impl RemoteArtworkClient {
 }
 
 async fn wait_for_musicbrainz() {
+    let _ = wait_for_musicbrainz_with_cancellation(None).await;
+}
+
+async fn wait_for_musicbrainz_with_cancellation(cancelled: Option<&AtomicBool>) -> bool {
     let limiter = MUSICBRAINZ_LAST_REQUEST.get_or_init(|| tokio::sync::Mutex::new(None));
     let delay = {
         let mut last_request = limiter.lock().await;
@@ -2905,9 +3221,10 @@ async fn wait_for_musicbrainz() {
         *last_request = Some(scheduled);
         scheduled.saturating_duration_since(now)
     };
-    if !delay.is_zero() {
-        tokio::time::sleep(delay).await;
+    if !delay.is_zero() && !sleep_with_cancellation(delay, cancelled).await {
+        return false;
     }
+    true
 }
 
 fn valid_image(image: &RemoteImage) -> bool {
@@ -2919,7 +3236,9 @@ mod tests {
     use super::*;
     use std::io::{Read, Write};
     use std::net::TcpListener;
+    use std::sync::atomic::AtomicBool;
     use std::sync::mpsc;
+    use std::sync::Arc;
     use std::thread;
 
     type Route = fn(&str, &str) -> (&'static str, String, &'static str);
@@ -4657,5 +4976,138 @@ mod tests {
         let musicbrainz = MusicBrainzClient::new(ProviderState::new().http());
         let result = musicbrainz.search_release_summaries(&[], 10, 0).await;
         assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn auto_tag_musicbrainz_retries_transient_release_failure_and_records_retry() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let base = format!("http://{}", listener.local_addr().unwrap());
+        let (send, receive) = mpsc::channel();
+        thread::spawn(move || {
+            for (status, body) in [
+                ("503 Service Unavailable", "{}".to_string()),
+                (
+                    "200 OK",
+                    r#"{"id":"release-id","title":"Canonical Album","date":"2004-08-01","artist-credit":[{"name":"Album Artist","artist":{"id":"artist-id"}}],"media":[{"position":1,"track-count":1,"tracks":[{"position":1,"recording":{"id":"track-1","title":"Solo","length":181000}}]}]}"#.to_string(),
+                ),
+            ] {
+                let (mut stream, _) = listener.accept().unwrap();
+                let mut request = [0_u8; 4096];
+                let count = stream.read(&mut request).unwrap();
+                send.send(String::from_utf8_lossy(&request[..count]).into_owned())
+                    .unwrap();
+                write!(
+                    stream,
+                    "HTTP/1.1 {status}\r\nContent-Length: {}\r\nContent-Type: application/json\r\nConnection: close\r\n\r\n{body}",
+                    body.len()
+                )
+                .unwrap();
+            }
+        });
+
+        let metrics = ProviderRetryMetrics::default();
+        let context = ProviderRetryContext::new(Arc::new(AtomicBool::new(false)), metrics.clone())
+            .with_retry_delays(vec![Duration::ZERO, Duration::ZERO]);
+        let client =
+            MusicBrainzClient::at(ProviderState::new().http(), &base).with_retry_context(context);
+
+        let album = client.release_by_id_result("release-id").await.unwrap();
+
+        assert_eq!(album.id, "release-id");
+        assert_eq!(metrics.retry_count(), 1);
+        assert!(receive.recv().unwrap().contains("/release/release-id"));
+        assert!(receive.recv().unwrap().contains("/release/release-id"));
+    }
+
+    #[tokio::test]
+    async fn auto_tag_musicbrainz_stops_after_three_total_attempts() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let base = format!("http://{}", listener.local_addr().unwrap());
+        let (send, receive) = mpsc::channel();
+        thread::spawn(move || {
+            for _ in 0..3 {
+                let (mut stream, _) = listener.accept().unwrap();
+                let mut request = [0_u8; 4096];
+                let count = stream.read(&mut request).unwrap();
+                send.send(String::from_utf8_lossy(&request[..count]).into_owned())
+                    .unwrap();
+                write!(
+                    stream,
+                    "HTTP/1.1 503 Service Unavailable\r\nContent-Length: 2\r\nContent-Type: application/json\r\nConnection: close\r\n\r\n{{}}"
+                )
+                .unwrap();
+            }
+        });
+
+        let metrics = ProviderRetryMetrics::default();
+        let context = ProviderRetryContext::new(Arc::new(AtomicBool::new(false)), metrics.clone())
+            .with_retry_delays(vec![Duration::ZERO, Duration::ZERO]);
+        let client =
+            MusicBrainzClient::at(ProviderState::new().http(), &base).with_retry_context(context);
+
+        let error = client.release_by_id_result("release-id").await.unwrap_err();
+
+        assert!(error.contains("HTTP 503"));
+        assert_eq!(metrics.retry_count(), 2);
+        for _ in 0..3 {
+            assert!(receive.recv().unwrap().contains("/release/release-id"));
+        }
+    }
+
+    #[tokio::test]
+    async fn auto_tag_discogs_retries_transient_release_failure_and_records_retry_after() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let base = format!("http://{}", listener.local_addr().unwrap());
+        let (send, receive) = mpsc::channel();
+        thread::spawn(move || {
+            for (status, body) in [
+                ("429 Too Many Requests", "{}".to_string()),
+                (
+                    "200 OK",
+                    r#"{"id":42,"title":"Canonical Album","year":2004,"artists":[{"name":"Album Artist"}],"tracklist":[{"position":"1","title":"Solo","duration":"3:01"}]}"#.to_string(),
+                ),
+            ] {
+                let (mut stream, _) = listener.accept().unwrap();
+                let mut request = [0_u8; 4096];
+                let count = stream.read(&mut request).unwrap();
+                send.send(String::from_utf8_lossy(&request[..count]).into_owned())
+                    .unwrap();
+                let retry_after = if status.starts_with("429") {
+                    "Retry-After: 1\r\n"
+                } else {
+                    ""
+                };
+                write!(
+                    stream,
+                    "HTTP/1.1 {status}\r\n{retry_after}Content-Length: {}\r\nContent-Type: application/json\r\nConnection: close\r\n\r\n{body}",
+                    body.len()
+                )
+                .unwrap();
+            }
+        });
+
+        let metrics = ProviderRetryMetrics::default();
+        let context = ProviderRetryContext::new(Arc::new(AtomicBool::new(false)), metrics.clone())
+            .with_retry_delays(vec![Duration::ZERO, Duration::ZERO]);
+        let client =
+            DiscogsClient::at(ProviderState::new().http(), None, &base).with_retry_context(context);
+
+        let album = client.release_metadata_result("42").await.unwrap();
+
+        assert_eq!(album.id, "42");
+        assert_eq!(metrics.retry_count(), 1);
+        assert_eq!(metrics.max_retry_after_seconds(), Some(1));
+        assert!(receive.recv().unwrap().contains("/releases/42"));
+        assert!(receive.recv().unwrap().contains("/releases/42"));
+    }
+
+    #[test]
+    fn auto_tag_retry_after_is_capped_for_bounded_batch_retries() {
+        let metrics = ProviderRetryMetrics::default();
+        let context = ProviderRetryContext::new(Arc::new(AtomicBool::new(false)), metrics.clone());
+
+        assert_eq!(context.retry_delay(0, Some(60)), Duration::from_secs(30));
+        metrics.record_retry(Some(60));
+        assert_eq!(metrics.max_retry_after_seconds(), Some(30));
     }
 }

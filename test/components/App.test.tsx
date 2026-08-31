@@ -668,6 +668,8 @@ describe("App — modification history", () => {
 
     await screen.findByText(
       "Needs review (1): Test Album: provider_unavailable",
+      {},
+      { timeout: 3_000 },
     );
     // One pre-write snapshot read is required before authority is known; the
     // needs-review album must not trigger the post-task readback used for undo.
