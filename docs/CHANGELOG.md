@@ -5,6 +5,17 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.5] - 2026-08-31
+
+### Fixed
+
+- **Reliable library auto-tagging** — transient MusicBrainz and Discogs
+  failures now use bounded retries, and batch auto-tagging retries only
+  provider-unavailable albums once before showing a complete per-album result
+  summary.
+
+## [Unreleased]
+
 ## [0.1.4] - 2026-08-30
 
 ### Fixed
@@ -24,15 +35,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Needs Review warning instead of writing folder-derived metadata; provider
   identity and release-detail failures remain unavailable, selected-disc
   matching stays scoped, and unknown Discogs formats are not guessed.
-
-## [Unreleased]
-
-### Fixed
-
-- **Reliable library auto-tagging** — transient MusicBrainz and Discogs
-  failures now use bounded retries, and batch auto-tagging retries only
-  provider-unavailable albums once before showing a complete per-album result
-  summary.
 
 ## [0.1.3] - 2026-08-27
 
