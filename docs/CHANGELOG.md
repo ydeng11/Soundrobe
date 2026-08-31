@@ -27,6 +27,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Reliable library auto-tagging** — transient MusicBrainz and Discogs
+  failures now use bounded retries, and batch auto-tagging retries only
+  provider-unavailable albums once before showing a complete per-album result
+  summary.
+
 ## [0.1.3] - 2026-08-27
 
 ### Fixed

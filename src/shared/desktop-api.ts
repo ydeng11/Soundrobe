@@ -337,6 +337,14 @@ export interface AutoTagEvent {
   data?: unknown;
 }
 
+export interface AutoTagProviderAttempt {
+  provider: string;
+  status: "matched" | "no_match" | "unavailable";
+  diagnostic?: string;
+  retryCount?: number;
+  retryAfterSeconds?: number;
+}
+
 export interface DatasetStatus {
   available: boolean;
   musicbrainz: boolean;

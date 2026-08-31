@@ -6,6 +6,7 @@ use sha2::{Digest, Sha256};
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use tauri::{AppHandle, Emitter, Manager, State};
 
 use crate::{
@@ -25,8 +26,8 @@ use crate::{
         config::AutoTagConfig,
         providers::{
             album_names_match, convert_chinese_text, ArtistIdentity, DiscogsClient,
-            MusicBrainzClient, ProviderAlbum, ProviderReleaseSummary, ProviderState,
-            RemoteArtworkClient,
+            MusicBrainzClient, ProviderAlbum, ProviderReleaseSummary, ProviderRetryContext,
+            ProviderRetryMetrics, ProviderState, RemoteArtworkClient,
         },
         sqlite::CacheState,
         tasks::{TaskRegistry, TaskStatus},
@@ -1691,6 +1692,14 @@ pub struct ProviderAttempt {
     pub status: ProviderAttemptStatus,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub diagnostic: Option<String>,
+    #[serde(default, skip_serializing_if = "is_zero_u32")]
+    pub retry_count: u32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub retry_after_seconds: Option<u64>,
+}
+
+fn is_zero_u32(value: &u32) -> bool {
+    *value == 0
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize)]
@@ -1721,6 +1730,24 @@ pub struct AutoTagServices<'a> {
     pub cache: &'a CacheState,
     pub queue: &'a WriteQueue,
     pub alias_file: &'a Path,
+}
+
+#[derive(Clone)]
+pub(crate) struct AutoTagRetryContexts {
+    pub(crate) musicbrainz: ProviderRetryContext,
+    pub(crate) discogs: ProviderRetryContext,
+}
+
+impl AutoTagRetryContexts {
+    pub(crate) fn new(cancelled: Arc<AtomicBool>) -> Self {
+        Self {
+            musicbrainz: ProviderRetryContext::new(
+                Arc::clone(&cancelled),
+                ProviderRetryMetrics::default(),
+            ),
+            discogs: ProviderRetryContext::new(cancelled, ProviderRetryMetrics::default()),
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize)]
@@ -2266,6 +2293,21 @@ pub async fn resolve_and_apply_album(
     config: &AutoTagConfig,
     services: AutoTagServices<'_>,
     cancelled: &AtomicBool,
+    progress: impl FnMut(u64, &str),
+    report: impl FnMut(&'static str, String, Option<serde_json::Value>),
+) -> Result<AutoTagRunResult, ApiError> {
+    resolve_and_apply_album_with_retry_context(
+        album_path, config, services, cancelled, None, progress, report,
+    )
+    .await
+}
+
+pub(crate) async fn resolve_and_apply_album_with_retry_context(
+    album_path: &Path,
+    config: &AutoTagConfig,
+    services: AutoTagServices<'_>,
+    cancelled: &AtomicBool,
+    retry_contexts: Option<AutoTagRetryContexts>,
     mut progress: impl FnMut(u64, &str),
     mut report: impl FnMut(&'static str, String, Option<serde_json::Value>),
 ) -> Result<AutoTagRunResult, ApiError> {
@@ -2291,7 +2333,21 @@ pub async fn resolve_and_apply_album(
     let mut provider_attempts = Vec::new();
 
     progress(4, "Direct provider ID lookup...");
-    let musicbrainz = MusicBrainzClient::new(services.providers.http());
+    let musicbrainz_metrics = retry_contexts
+        .as_ref()
+        .map(|contexts| contexts.musicbrainz.metrics())
+        .unwrap_or_default();
+    let discogs_metrics = retry_contexts
+        .as_ref()
+        .map(|contexts| contexts.discogs.metrics())
+        .unwrap_or_default();
+    let musicbrainz = retry_contexts
+        .as_ref()
+        .map(|contexts| {
+            MusicBrainzClient::new(services.providers.http())
+                .with_retry_context(contexts.musicbrainz.clone())
+        })
+        .unwrap_or_else(|| MusicBrainzClient::new(services.providers.http()));
     let mut musicbrainz_direct_error = None;
     let mut musicbrainz_error = None;
     if config.remote_lookup_enabled != Some(false) {
@@ -2302,7 +2358,15 @@ pub async fn resolve_and_apply_album(
             }
         }
     }
-    let discogs = DiscogsClient::new(services.providers.http(), config.discogs_token.clone());
+    let discogs = retry_contexts
+        .as_ref()
+        .map(|contexts| {
+            DiscogsClient::new(services.providers.http(), config.discogs_token.clone())
+                .with_retry_context(contexts.discogs.clone())
+        })
+        .unwrap_or_else(|| {
+            DiscogsClient::new(services.providers.http(), config.discogs_token.clone())
+        });
     let mut discogs_direct_error = None;
     let mut discogs_error = None;
     if config.discogs_enabled != Some(false) {
@@ -2335,11 +2399,17 @@ pub async fn resolve_and_apply_album(
         let artist = request.artist_hint.as_deref().unwrap_or_default();
         let resolution = services
             .providers
-            .resolve_artist_identity_result(
+            .resolve_artist_identity_result_with_context(
                 artist,
                 config.discogs_token.clone(),
                 needs_musicbrainz_identity,
                 needs_discogs_identity,
+                retry_contexts
+                    .as_ref()
+                    .map(|contexts| contexts.musicbrainz.clone()),
+                retry_contexts
+                    .as_ref()
+                    .map(|contexts| contexts.discogs.clone()),
             )
             .await;
         musicbrainz_error = resolution
@@ -2416,6 +2486,8 @@ pub async fn resolve_and_apply_album(
             provider: "musicbrainz",
             status,
             diagnostic,
+            retry_count: musicbrainz_metrics.retry_count(),
+            retry_after_seconds: musicbrainz_metrics.max_retry_after_seconds(),
         });
         report(
             "source",
@@ -2487,6 +2559,8 @@ pub async fn resolve_and_apply_album(
             provider: "discogs",
             status,
             diagnostic,
+            retry_count: discogs_metrics.retry_count(),
+            retry_after_seconds: discogs_metrics.max_retry_after_seconds(),
         });
         report(
             "source",
@@ -2773,7 +2847,7 @@ pub fn album_auto_tag(
         let progress_task_id = spawned_task_id.clone();
         let report_app = app.clone();
         let report_task_id = spawned_task_id.clone();
-        let operation = resolve_and_apply_album(
+        let operation = resolve_and_apply_album_with_retry_context(
             &path,
             &config,
             AutoTagServices {
@@ -2783,6 +2857,7 @@ pub fn album_auto_tag(
                 alias_file: &alias_file,
             },
             &cancelled,
+            Some(AutoTagRetryContexts::new(Arc::clone(&cancelled))),
             move |step, message| {
                 let tasks = progress_app.state::<TaskRegistry>();
                 if tasks.update(&progress_task_id, step, message) {
@@ -5343,6 +5418,8 @@ mod tests {
                 provider: "discogs",
                 status: ProviderAttemptStatus::NoMatch,
                 diagnostic: None,
+                retry_count: 0,
+                retry_after_seconds: None,
             }],
         );
 
@@ -5432,6 +5509,8 @@ mod tests {
             provider: "discogs",
             status: ProviderAttemptStatus::Unavailable,
             diagnostic: Some("network failure".into()),
+            retry_count: 0,
+            retry_after_seconds: None,
         };
 
         assert!(matches!(
@@ -5454,6 +5533,8 @@ mod tests {
                     provider: "musicbrainz",
                     status: ProviderAttemptStatus::NoMatch,
                     diagnostic: None,
+                    retry_count: 0,
+                    retry_after_seconds: None,
                 }],
             ),
             ProviderAuthorityDecision::Providerless
@@ -5625,4 +5706,5 @@ mod tests {
         assert_eq!(malformed_failure.detail, "AI response was malformed JSON");
         assert!(!malformed_failure.detail.contains("model-private-output"));
     }
+
 }

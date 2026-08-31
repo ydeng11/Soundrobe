@@ -33,6 +33,7 @@ import {
 } from "./components/AuditPanel";
 import { SettingsModal } from "./components/SettingsModal";
 import { UpdateDialog } from "./components/UpdateDialog";
+import { AutoTagSummaryDialog } from "./components/AutoTagSummaryDialog";
 import { ConvertDialog } from "./components/ConvertDialog";
 import { SearchDialog } from "./components/SearchDialog";
 import { ConfirmWriteDialog } from "./components/ConfirmWriteDialog";
@@ -64,6 +65,10 @@ import {
   type OrderingRule,
 } from "./shared/track-numbering";
 import { useAppUpdater } from "./state/useAppUpdater";
+import {
+  runAutoTagBatch,
+  type AutoTagBatchSummary,
+} from "./state/auto-tag-batch";
 
 const EXTRA_TAG_UNDO_FIELD = "__assistantExtraTags";
 
@@ -116,9 +121,18 @@ export default function App() {
   const [assistantApplying, setAssistantApplying] = React.useState(false);
   const [assistantApiKeyConfigured, setAssistantApiKeyConfigured] = React.useState(false);
   const [assistantModel, setAssistantModel] = React.useState("");
+  const [autoTagSummary, setAutoTagSummary] =
+    React.useState<AutoTagBatchSummary | null>(null);
 
   // Cover URL cache: albumPath → dataUrl | null
   const coverUrlCacheRef = useRef<Map<string, string | null>>(new Map());
+  const autoTagAbortRef = useRef<AbortController | null>(null);
+  useEffect(
+    () => () => {
+      autoTagAbortRef.current?.abort();
+    },
+    [],
+  );
   // Abort controller for stale cover responses
   const coverAbortRef = useRef<AbortController | null>(null);
   // Debounce timer for rapid cover navigation
@@ -777,16 +791,15 @@ export default function App() {
     dispatch({ type: "SET_AUTO_TAGGING", autoTagging: true });
     dispatch({ type: "SET_ERROR", error: null });
     dispatch({ type: "SET_NOTICE", notice: null });
+    setAutoTagSummary(null);
+    const runController = new AbortController();
+    autoTagAbortRef.current = runController;
 
-    let completed = 0;
-    let totalErrors = 0;
-    const needsReview: string[] = [];
     let snapshots: TrackSnapshot[] = [];
-    const attemptedAlbumPaths: string[] = [];
     let autoTagReadback: TrackData[] = [];
     let historyRecorded = false;
 
-    const recordAttemptedAutoTag = async () => {
+    const recordAttemptedAutoTag = async (attemptedAlbumPaths: string[]) => {
       if (historyRecorded || attemptedAlbumPaths.length === 0) {
         return autoTagReadback;
       }
@@ -835,109 +848,39 @@ export default function App() {
         state.tracks,
         window.api.readAlbum,
       );
-
-      for (const albumPath of targetPaths) {
-        const albumName = basename(albumPath) ?? albumPath;
-        dispatch({
-          type: "SET_AUTO_TAG_PROGRESS",
-          progress: isBatch
-            ? {
-                current: completed,
-                total: targetPaths.length,
-                message: `${albumName}`,
-              }
-            : { current: 0, total: 9, message: `Auto-tagging: ${albumName}` },
-        });
-
-        const taskId = await window.api.autoTagAlbum(albumPath);
-        const unsubscribe = window.api.onAutoTagEvent((event) => {
-          if (event.taskId !== taskId) return;
-          dispatch({
-            type: "SET_AUTO_TAG_PROGRESS",
-            progress: isBatch
-              ? {
-                  current: completed,
-                  total: targetPaths.length,
-                  message: event.message,
-                }
-              : {
-                  current: event.progress,
-                  total: event.total,
-                  message: event.message,
-                },
-          });
-        });
-
-        try {
-          let done = false;
-          while (!done) {
-            const progress = await window.api.getTaskProgress(taskId);
-            if (!progress) {
-              done = true;
-              break;
-            }
-
-            dispatch({
-              type: "SET_AUTO_TAG_PROGRESS",
-              progress: isBatch
-                ? {
-                    current: completed,
-                    total: targetPaths.length,
-                    message: progress.message,
-                  }
-                : {
-                    current: progress.progress,
-                    total: progress.total,
-                    message: progress.message,
-                  },
-            });
-
-            if (
-              progress.status === "completed" ||
-              progress.status === "needs_review" ||
-              progress.status === "failed" ||
-              progress.status === "cancelled"
-            ) {
-              done = true;
-              if (progress.status === "failed") {
-                attemptedAlbumPaths.push(albumPath);
-                totalErrors++;
-                console.debug(
-                  `[auto-tag] Auto-tag failed for ${albumName}: ${progress.message}`,
-                );
-              } else if (progress.status === "completed") {
-                attemptedAlbumPaths.push(albumPath);
-              } else if (progress.status === "needs_review") {
-                const reason =
-                  progress.result && typeof progress.result === "object" &&
-                  "reasonCode" in progress.result
-                    ? String(progress.result.reasonCode)
-                    : progress.message;
-                needsReview.push(`${albumName}: ${reason}`);
-              }
-            } else {
-              await new Promise((resolve) => setTimeout(resolve, 300));
-            }
-          }
-        } finally {
-          unsubscribe();
-        }
-
-        completed++;
-      }
+      const summary = await runAutoTagBatch({
+        albumPaths: targetPaths,
+        api: window.api,
+        isCancelled: () => runController.signal.aborted,
+        onProgress: (progress) =>
+          dispatch({ type: "SET_AUTO_TAG_PROGRESS", progress }),
+      });
+      if (isBatch) setAutoTagSummary(summary);
+      const attemptedAlbumPaths = summary.items
+        .filter((item) => item.readbackRequired)
+        .map((item) => item.albumPath);
+      const totalErrors = summary.items.filter(
+        (item) => item.status === "failed" || item.status === "cancelled",
+      ).length;
+      const needsReview = summary.items
+        .filter((item) => item.status === "needs_review")
+        .map(
+          (item) =>
+            `${basename(item.albumPath) ?? item.albumPath}: ${
+              item.reasonCode ?? item.message
+            }`,
+        );
 
       // Scoped refresh: only re-read tracks for tagged albums
       dispatch({
         type: "SET_AUTO_TAG_PROGRESS",
-        progress: isBatch
-          ? {
-              current: completed,
-              total: targetPaths.length,
-              message: "Refreshing tracks...",
-            }
-          : { current: 9, total: 9, message: "Refreshing tracks..." },
+        progress: {
+          current: targetPaths.length,
+          total: targetPaths.length,
+          message: "Refreshing tracks...",
+        },
       });
-      const updatedTrackList = await recordAttemptedAutoTag();
+      const updatedTrackList = await recordAttemptedAutoTag(attemptedAlbumPaths);
       const scannedAlbums = await window.api.scanLibrary(state.libraryPath);
       dispatch({ type: "SET_ALBUMS", albums: scannedAlbums });
 
@@ -977,7 +920,7 @@ export default function App() {
     } catch (err: unknown) {
       let message = err instanceof Error ? err.message : "Auto-tag failed";
       try {
-        await recordAttemptedAutoTag();
+        await recordAttemptedAutoTag([]);
       } catch (readbackError) {
         const detail =
           readbackError instanceof Error
@@ -987,6 +930,9 @@ export default function App() {
       }
       dispatch({ type: "SET_ERROR", error: message });
     } finally {
+      if (autoTagAbortRef.current === runController) {
+        autoTagAbortRef.current = null;
+      }
       dispatch({ type: "SET_AUTO_TAGGING", autoTagging: false });
       dispatch({ type: "SET_AUTO_TAG_PROGRESS", progress: null });
     }
@@ -1890,51 +1836,42 @@ export default function App() {
       dispatch({ type: "SET_AUTO_TAGGING", autoTagging: true });
       dispatch({ type: "SET_ERROR", error: null });
       dispatch({ type: "SET_NOTICE", notice: null });
+      setAutoTagSummary(null);
+      const runController = new AbortController();
+      autoTagAbortRef.current = runController;
 
       try {
-        let completed = 0;
-        const needsReview: string[] = [];
-        for (const albumPath of albumPaths) {
-          const taskId = await window.api.autoTagAlbum(albumPath);
-          let done = false;
-          while (!done) {
-            const progress = await window.api.getTaskProgress(taskId);
-            if (!progress) {
-              throw new Error(`Auto-tag task progress disappeared: ${taskId}`);
-            }
-
-            dispatch({
-              type: "SET_AUTO_TAG_PROGRESS",
-              progress: {
-                current: completed,
-                total: albumPaths.length,
-                message: progress.message,
-              },
-            });
-
-            if (
-              progress.status === "completed" ||
-              progress.status === "needs_review" ||
-              progress.status === "failed" ||
-              progress.status === "cancelled"
-            ) {
-              if (progress.status === "needs_review") {
-                needsReview.push(`${basename(albumPath) ?? albumPath}: ${progress.message}`);
-              } else if (progress.status !== "completed") {
-                attemptedAlbumPaths.push(albumPath);
-                throw new Error(progress.message || `Auto-tag ${progress.status}`);
-              } else {
-                attemptedAlbumPaths.push(albumPath);
-              }
-              done = true;
-            } else {
-              await new Promise((resolve) => setTimeout(resolve, 300));
-            }
-          }
-          completed++;
-        }
+        const summary = await runAutoTagBatch({
+          albumPaths,
+          api: window.api,
+          isCancelled: () => runController.signal.aborted,
+          onProgress: (progress) =>
+            dispatch({ type: "SET_AUTO_TAG_PROGRESS", progress }),
+        });
+        if (albumPaths.length > 1) setAutoTagSummary(summary);
+        attemptedAlbumPaths.push(
+          ...summary.items
+            .filter((item) => item.readbackRequired)
+            .map((item) => item.albumPath),
+        );
+        const needsReview = summary.items
+          .filter((item) => item.status === "needs_review")
+          .map(
+            (item) =>
+              `${basename(item.albumPath) ?? item.albumPath}: ${
+                item.reasonCode ?? item.message
+              }`,
+          );
+        const failed = summary.items.filter(
+          (item) => item.status === "failed" || item.status === "cancelled",
+        );
         await recordAttemptedAutoTag();
         await handleAssistantRefresh();
+        if (failed.length > 0) {
+          throw new Error(
+            `Assistant auto-tag completed with ${failed.length} album(s) with errors`,
+          );
+        }
         if (needsReview.length > 0) {
           dispatch({
             type: "SET_NOTICE",
@@ -1959,6 +1896,9 @@ export default function App() {
         dispatch({ type: "SET_ERROR", error: message });
         throw err;
       } finally {
+        if (autoTagAbortRef.current === runController) {
+          autoTagAbortRef.current = null;
+        }
         dispatch({ type: "SET_AUTO_TAGGING", autoTagging: false });
         dispatch({ type: "SET_AUTO_TAG_PROGRESS", progress: null });
       }
@@ -2704,6 +2644,11 @@ export default function App() {
         error={updater.installError}
         onLater={updater.dismiss}
         onInstall={() => void updater.install()}
+      />
+
+      <AutoTagSummaryDialog
+        summary={autoTagSummary}
+        onClose={() => setAutoTagSummary(null)}
       />
 
       <ConvertDialog
