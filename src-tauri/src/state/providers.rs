@@ -79,6 +79,7 @@ impl ProviderRetryContext {
 
     fn retry_delay(&self, retry_index: usize, retry_after_seconds: Option<u64>) -> Duration {
         retry_after_seconds
+            .filter(|seconds| *seconds > 0)
             .map(|seconds| seconds.min(AUTO_TAG_MAX_RETRY_AFTER_SECONDS))
             .map(Duration::from_secs)
             .unwrap_or_else(|| {
@@ -5102,10 +5103,15 @@ mod tests {
     }
 
     #[test]
-    fn auto_tag_retry_after_is_capped_for_bounded_batch_retries() {
+    fn auto_tag_retry_delay_uses_backoff_for_zero_or_missing_hints() {
         let metrics = ProviderRetryMetrics::default();
         let context = ProviderRetryContext::new(Arc::new(AtomicBool::new(false)), metrics.clone());
 
+        assert_eq!(context.retry_delay(0, None), Duration::from_secs(1));
+        assert_eq!(context.retry_delay(1, None), Duration::from_secs(3));
+        assert_eq!(context.retry_delay(0, Some(0)), Duration::from_secs(1));
+        assert_eq!(context.retry_delay(1, Some(0)), Duration::from_secs(3));
+        assert_eq!(context.retry_delay(0, Some(7)), Duration::from_secs(7));
         assert_eq!(context.retry_delay(0, Some(60)), Duration::from_secs(30));
         metrics.record_retry(Some(60));
         assert_eq!(metrics.max_retry_after_seconds(), Some(30));
