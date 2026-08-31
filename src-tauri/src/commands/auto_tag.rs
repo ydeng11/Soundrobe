@@ -7,6 +7,7 @@ use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::time::Duration;
 use tauri::{AppHandle, Emitter, Manager, State};
 
 use crate::{
@@ -1789,6 +1790,12 @@ fn auto_tag_completion_message(candidate: &AlbumCandidate) -> &'static str {
 }
 
 const AI_TAG_CONFIDENCE_THRESHOLD: f64 = 0.85;
+const AUTO_TAG_LLM_TIMEOUT: Duration = Duration::from_secs(120);
+
+fn auto_tag_llm_max_tokens(track_count: usize) -> u32 {
+    let scaled = 1_024usize.saturating_add(track_count.saturating_mul(128));
+    u32::try_from(scaled.clamp(2_048, 8_192)).expect("auto-tag LLM budget fits in u32")
+}
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct AiValidationFailure {
@@ -2194,6 +2201,8 @@ async fn resolve_tags_via_llm(
     );
     let result = OpenRouterClient::at(api_key, model, &llm_endpoint.base_url)
         .with_provider(llm_endpoint.provider)
+        .with_generation(0.0, auto_tag_llm_max_tokens(request.tracks.len()))
+        .with_timeout(AUTO_TAG_LLM_TIMEOUT)
         .complete_json(messages, "TagCorrectionResponse", schema, cancelled)
         .await;
     let response = result.map_err(|error| {
@@ -5426,6 +5435,14 @@ mod tests {
         assert_eq!(diagnostics[0]["candidateCounts"]["discogs"], 1);
         assert_eq!(diagnostics[0]["credibleCounts"]["discogs"], 0);
         assert_eq!(diagnostics[0]["rejectionCodes"]["title_conflict"], 1);
+    }
+
+    #[test]
+    fn auto_tag_llm_output_budget_scales_with_album_track_count() {
+        assert_eq!(auto_tag_llm_max_tokens(0), 2_048);
+        assert_eq!(auto_tag_llm_max_tokens(8), 2_048);
+        assert_eq!(auto_tag_llm_max_tokens(34), 5_376);
+        assert_eq!(auto_tag_llm_max_tokens(100), 8_192);
     }
 
     #[test]

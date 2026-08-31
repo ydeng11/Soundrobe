@@ -387,6 +387,7 @@ impl OpenRouterClient {
         tracing::debug!(
             model = %self.model,
             timeout_ms = self.timeout.as_millis(),
+            max_tokens = request.max_tokens,
             schema = %request.schema_name,
             attempts,
             "OpenRouter request started"

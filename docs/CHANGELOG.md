@@ -16,6 +16,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Large-album AI fallback** — automatic tagging now scales structured-output
+  capacity with album size and allows longer responses, reducing timeouts and
+  truncated metadata for live sets and other high-track-count releases.
+
 ## [0.1.4] - 2026-08-30
 
 ### Fixed
