@@ -5,6 +5,23 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **DeepSeek auto-tag response time** — album corrections using DeepSeek V4
+  Flash 0731 on OpenRouter disable extended reasoning and prefer affordable
+  providers with faster generation, while retaining metadata validation and
+  provider fallback during outages.
+- **Auto-tag benchmark resilience** — malformed non-object AI responses are
+  recorded as validation failures without aborting remaining benchmark trials.
+- **Large-album AI fallback** — automatic tagging now scales structured-output
+  capacity with album size and allows longer responses, reducing timeouts and
+  truncated metadata for live sets and other high-track-count releases.
+- **Provider outage backoff** — MusicBrainz overload responses with a zero retry
+  hint now use bounded backoff, and failed batch albums wait before their one
+  automatic retry instead of immediately repeating the outage.
+
 ## [0.1.5] - 2026-08-31
 
 ### Fixed
@@ -13,8 +30,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   failures now use bounded retries, and batch auto-tagging retries only
   provider-unavailable albums once before showing a complete per-album result
   summary.
-
-## [Unreleased]
 
 ## [0.1.4] - 2026-08-30
 

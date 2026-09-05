@@ -45,7 +45,7 @@ interface AutoTagBatchOptions {
 }
 
 const POLL_INTERVAL_MS = 300;
-const PROVIDER_RETRY_DELAY_MS = 1_000;
+const PROVIDER_RETRY_DELAY_MS = 30_000;
 const MAX_PROVIDER_RETRY_DELAY_MS = 30_000;
 
 function sleepFor(milliseconds: number): Promise<void> {

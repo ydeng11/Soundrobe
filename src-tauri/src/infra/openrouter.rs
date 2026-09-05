@@ -45,6 +45,120 @@ pub struct OpenRouterResponse {
     pub data: Value,
     pub usage: TokenUsage,
     pub model: String,
+    pub diagnostics: CompletionDiagnostics,
+}
+
+/// Allowlisted telemetry only: never retain response text or arbitrary metadata.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize)]
+pub struct CompletionDiagnostics {
+    pub total_elapsed_ms: u128,
+    pub attempts: Vec<AttemptDiagnostics>,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize)]
+pub struct AttemptDiagnostics {
+    pub schema_repair: usize,
+    pub max_tokens: u32,
+    pub status: Option<u16>,
+    pub headers_elapsed_ms: Option<u128>,
+    pub body_read_ms: Option<u128>,
+    pub total_elapsed_ms: u128,
+    pub generation_id: Option<String>,
+    pub resolved_model: Option<String>,
+    pub selected_provider: Option<String>,
+    pub provider_attempts: Option<u64>,
+    pub provider_history: Vec<ProviderAttemptDiagnostics>,
+    pub finish_reason: Option<String>,
+    pub prompt_tokens: Option<u64>,
+    pub completion_tokens: Option<u64>,
+    pub reasoning_tokens: Option<u64>,
+    pub cache_status: Option<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+pub struct ProviderAttemptDiagnostics {
+    pub provider: Option<String>,
+    pub model: Option<String>,
+    pub status: Option<u64>,
+}
+
+// Identifiers and enum-like telemetry have bounded, single-line values.
+fn diagnostic_label(value: Option<&str>) -> Option<String> {
+    value
+        .filter(|s| {
+            !s.is_empty()
+                && s.len() <= 160
+                && s.chars()
+                    .all(|c| c.is_ascii_alphanumeric() || "-_/.: ~".contains(c))
+        })
+        .map(str::to_owned)
+}
+
+impl AttemptDiagnostics {
+    fn capture(&mut self, payload: &Value) {
+        self.generation_id = diagnostic_label(payload.get("id").and_then(Value::as_str))
+            .or(self.generation_id.take());
+        self.resolved_model = diagnostic_label(payload.get("model").and_then(Value::as_str));
+        self.finish_reason = diagnostic_label(finish_reason(Some(payload)).as_deref());
+        self.prompt_tokens = payload
+            .pointer("/usage/prompt_tokens")
+            .or_else(|| payload.pointer("/usage/input_tokens"))
+            .and_then(Value::as_u64);
+        self.completion_tokens = payload
+            .pointer("/usage/completion_tokens")
+            .or_else(|| payload.pointer("/usage/output_tokens"))
+            .and_then(Value::as_u64);
+        self.reasoning_tokens = payload
+            .pointer("/usage/completion_tokens_details/reasoning_tokens")
+            .and_then(Value::as_u64)
+            .or_else(|| {
+                payload
+                    .pointer("/usage/reasoning_tokens")
+                    .and_then(Value::as_u64)
+            });
+        self.provider_attempts = payload
+            .pointer("/openrouter_metadata/attempt")
+            .and_then(Value::as_u64);
+        self.provider_history = payload
+            .pointer("/openrouter_metadata/attempts")
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten()
+            .filter(|v| v.is_object())
+            .take(64)
+            .map(|v| ProviderAttemptDiagnostics {
+                provider: diagnostic_label(v.get("provider").and_then(Value::as_str)),
+                model: diagnostic_label(v.get("model").and_then(Value::as_str)),
+                status: v.get("status").and_then(Value::as_u64),
+            })
+            .collect();
+        self.selected_provider = payload
+            .pointer("/openrouter_metadata/endpoints/available")
+            .and_then(Value::as_array)
+            .and_then(|endpoints| {
+                endpoints.iter().find(|endpoint| {
+                    endpoint.get("selected").and_then(Value::as_bool) == Some(true)
+                })
+            })
+            .and_then(|endpoint| {
+                diagnostic_label(endpoint.get("provider").and_then(Value::as_str))
+            });
+    }
+}
+
+impl OpenRouterError {
+    pub fn diagnostic_code(&self) -> &'static str {
+        match self {
+            Self::Cancelled => "cancelled",
+            Self::Timeout(_) => "timeout",
+            Self::Http { .. } => "http_error",
+            Self::Network(_) => "network_error",
+            Self::MissingChoices(_) => "missing_choices",
+            Self::EmptyContent(_) => "empty_content",
+            Self::NonJson(_) => "non_json",
+            Self::MalformedJson { .. } => "malformed_json",
+        }
+    }
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -81,6 +195,15 @@ pub struct OpenRouterClient {
     timeout: Duration,
     retry_delays: Vec<Duration>,
     provider: ProviderKind,
+    #[cfg(test)]
+    pub(crate) test_policy: Option<TagCorrectionPolicy>,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(crate) struct TagCorrectionPolicy {
+    pub disable_reasoning: bool,
+    pub performance_routing: bool,
+    pub router_metadata: bool,
 }
 
 #[derive(Clone, Copy)]
@@ -90,6 +213,7 @@ struct CompletionRequest<'a> {
     schema: &'a Value,
     max_tokens: u32,
     disable_reasoning: bool,
+    schema_repair: usize,
 }
 
 /// Which API format this client uses.
@@ -216,6 +340,34 @@ impl OpenRouterClient {
             timeout: DEFAULT_TIMEOUT,
             retry_delays: vec![Duration::from_millis(250), Duration::from_millis(500)],
             provider,
+            #[cfg(test)]
+            test_policy: None,
+        }
+    }
+
+    fn tag_policy(&self, schema_name: &str) -> TagCorrectionPolicy {
+        #[cfg(test)]
+        if let Some(policy) = self.test_policy {
+            return policy;
+        }
+        let canonical = reqwest::Url::parse(&self.base_url).is_ok_and(|url| {
+            url.scheme() == "https"
+                && url.host_str() == Some("openrouter.ai")
+                && url.port_or_known_default() == Some(443)
+                && url.path() == "/api/v1"
+                && url.username().is_empty()
+                && url.password().is_none()
+                && url.query().is_none()
+                && url.fragment().is_none()
+        });
+        let targeted = canonical
+            && self.provider == ProviderKind::OpenAi
+            && self.model == "deepseek/deepseek-v4-flash-0731"
+            && schema_name == "TagCorrectionResponse";
+        TagCorrectionPolicy {
+            disable_reasoning: targeted,
+            performance_routing: targeted,
+            router_metadata: targeted,
         }
     }
 
@@ -269,10 +421,53 @@ impl OpenRouterClient {
 
     pub async fn complete_json(
         &self,
+        messages: Vec<ChatMessage>,
+        schema_name: &str,
+        schema: Value,
+        cancelled: &AtomicBool,
+    ) -> Result<OpenRouterResponse, OpenRouterError> {
+        self.complete_json_observed(
+            messages,
+            schema_name,
+            schema,
+            cancelled,
+            &mut CompletionDiagnostics::default(),
+        )
+        .await
+    }
+
+    pub(crate) async fn complete_json_observed(
+        &self,
+        messages: Vec<ChatMessage>,
+        schema_name: &str,
+        schema: Value,
+        cancelled: &AtomicBool,
+        diagnostics: &mut CompletionDiagnostics,
+    ) -> Result<OpenRouterResponse, OpenRouterError> {
+        *diagnostics = CompletionDiagnostics::default();
+        let started = Instant::now();
+        let mut result = self
+            .complete_json_inner(messages, schema_name, schema, cancelled, diagnostics)
+            .await;
+        diagnostics.total_elapsed_ms = started.elapsed().as_millis();
+        tracing::debug!(requested_model = ?diagnostic_label(Some(&self.model)), schema = schema_name,
+            total_elapsed_ms = diagnostics.total_elapsed_ms, http_attempts = diagnostics.attempts.len(),
+            schema_repairs = diagnostics.attempts.last().map_or(0, |a| a.schema_repair),
+            outcome = result.as_ref().err().map_or("success", OpenRouterError::diagnostic_code),
+            "OpenRouter completion finished");
+        if let Ok(response) = &mut result {
+            response.diagnostics = diagnostics.clone();
+        }
+        result
+    }
+
+    async fn complete_json_inner(
+        &self,
         mut messages: Vec<ChatMessage>,
         schema_name: &str,
         schema: Value,
         cancelled: &AtomicBool,
+        diagnostics: &mut CompletionDiagnostics,
     ) -> Result<OpenRouterResponse, OpenRouterError> {
         if cancelled.load(Ordering::Acquire) {
             return Err(OpenRouterError::Cancelled);
@@ -297,9 +492,11 @@ impl OpenRouterClient {
                         schema: &schema,
                         max_tokens,
                         disable_reasoning: repair_attempt > 0,
+                        schema_repair: repair_attempt,
                     },
                     cancelled,
                     deadline,
+                    diagnostics,
                 )
                 .await?;
             let content = extract_content(self.provider, &response);
@@ -382,11 +579,15 @@ impl OpenRouterClient {
         request: CompletionRequest<'_>,
         cancelled: &AtomicBool,
         deadline: Instant,
+        diagnostics: &mut CompletionDiagnostics,
     ) -> Result<Value, OpenRouterError> {
         let attempts = self.retry_delays.len() + 1;
         tracing::debug!(
-            model = %self.model,
+            model = ?diagnostic_label(Some(&self.model)),
             timeout_ms = self.timeout.as_millis(),
+            max_tokens = request.max_tokens,
+            reasoning_disabled = request.disable_reasoning || self.tag_policy(request.schema_name).disable_reasoning,
+            performance_routing = self.tag_policy(request.schema_name).performance_routing,
             schema = %request.schema_name,
             attempts,
             "OpenRouter request started"
@@ -406,36 +607,15 @@ impl OpenRouterClient {
                 remaining_ms = remaining.as_millis(),
                 "OpenRouter attempt"
             );
-            match tokio::time::timeout(
-                remaining,
-                self.post(
-                    request.messages,
-                    request.schema_name,
-                    request.schema,
-                    request.max_tokens,
-                    request.disable_reasoning,
-                    cancelled,
-                ),
-            )
-            .await
+            match self
+                .measured_attempt(request, cancelled, deadline, diagnostics)
+                .await
             {
-                Err(_) => {
-                    tracing::warn!(
-                        attempt,
-                        timeout_ms = self.timeout.as_millis(),
-                        "OpenRouter request timed out"
-                    );
-                    return Err(OpenRouterError::Timeout(self.timeout.as_millis()));
-                }
-                Ok(Ok(response)) => {
-                    let status = response.status();
-                    let body =
-                        read_response_text(response, cancelled, deadline, self.timeout.as_millis())
-                            .await?;
-                    if status.is_success() {
-                        return serde_json::from_str(&body)
-                            .map_err(|error| OpenRouterError::Network(error.to_string()));
-                    }
+                Ok(response) => return Ok(response),
+                Err(OpenRouterError::Timeout(ms)) => return Err(OpenRouterError::Timeout(ms)),
+                Err(OpenRouterError::Http { status, body }) => {
+                    let status =
+                        StatusCode::from_u16(status).expect("HTTP status came from reqwest");
                     let provider_error =
                         status == StatusCode::BAD_REQUEST && body.contains("provider_name");
                     let retryable = is_retryable(status) || provider_error;
@@ -451,8 +631,17 @@ impl OpenRouterClient {
                     }
                     last_error = Some(error);
                 }
-                Ok(Err(OpenRouterError::Cancelled)) => return Err(OpenRouterError::Cancelled),
-                Ok(Err(error)) => {
+                Err(OpenRouterError::Cancelled) => return Err(OpenRouterError::Cancelled),
+                Err(error) => {
+                    // Once headers arrived, body/JSON failures were terminal before
+                    // instrumentation and must not gain additional HTTP retries.
+                    if diagnostics
+                        .attempts
+                        .last()
+                        .is_some_and(|a| a.headers_elapsed_ms.is_some())
+                    {
+                        return Err(error);
+                    }
                     if attempt + 1 == attempts {
                         return Err(error);
                     }
@@ -471,6 +660,74 @@ impl OpenRouterClient {
             cancellable_sleep(retry_delay, cancelled).await?;
         }
         Err(last_error.unwrap_or_else(|| OpenRouterError::Network("no response".into())))
+    }
+
+    async fn measured_attempt(
+        &self,
+        request: CompletionRequest<'_>,
+        cancelled: &AtomicBool,
+        deadline: Instant,
+        diagnostics: &mut CompletionDiagnostics,
+    ) -> Result<Value, OpenRouterError> {
+        let started = Instant::now();
+        let mut attempt = AttemptDiagnostics {
+            schema_repair: request.schema_repair,
+            max_tokens: request.max_tokens,
+            ..Default::default()
+        };
+        let result = async {
+            let response = tokio::time::timeout(
+                deadline.saturating_duration_since(Instant::now()),
+                self.post(
+                    request.messages,
+                    request.schema_name,
+                    request.schema,
+                    request.max_tokens,
+                    request.disable_reasoning,
+                    cancelled,
+                ),
+            )
+            .await
+            .map_err(|_| OpenRouterError::Timeout(self.timeout.as_millis()))??;
+            attempt.headers_elapsed_ms = Some(started.elapsed().as_millis());
+            let status = response.status();
+            attempt.status = Some(status.as_u16());
+            attempt.generation_id = diagnostic_label(
+                response
+                    .headers()
+                    .get("x-generation-id")
+                    .and_then(|v| v.to_str().ok()),
+            );
+            attempt.cache_status = diagnostic_label(
+                response
+                    .headers()
+                    .get("x-openrouter-cache-status")
+                    .and_then(|v| v.to_str().ok()),
+            );
+            let body_started = Instant::now();
+            let body =
+                read_response_text(response, cancelled, deadline, self.timeout.as_millis()).await;
+            attempt.body_read_ms = Some(body_started.elapsed().as_millis());
+            let body = body?;
+            let parsed = serde_json::from_str::<Value>(&body);
+            if let Ok(payload) = &parsed {
+                attempt.capture(payload);
+            }
+            if !status.is_success() {
+                return Err(OpenRouterError::Http {
+                    status: status.as_u16(),
+                    body,
+                });
+            }
+            parsed.map_err(|error| OpenRouterError::Network(error.to_string()))
+        }
+        .await;
+        attempt.total_elapsed_ms = started.elapsed().as_millis();
+        tracing::debug!(http_attempt = diagnostics.attempts.len() + 1,
+            outcome = result.as_ref().err().map_or("success", OpenRouterError::diagnostic_code),
+            diagnostics = ?attempt, "OpenRouter attempt finished");
+        diagnostics.attempts.push(attempt);
+        result
     }
 
     async fn post(
@@ -526,15 +783,22 @@ impl OpenRouterClient {
                 "json_schema": { "name": schema_name, "schema": schema }
             }
         });
-        if disable_reasoning {
+        let policy = self.tag_policy(schema_name);
+        if disable_reasoning || policy.disable_reasoning {
             body["reasoning"] = json!({ "enabled": false });
         }
-        let request = self
+        if policy.performance_routing {
+            body["provider"] = json!({"sort": {"by": "price"}, "preferred_min_throughput": {"p90": 50}, "allow_fallbacks": true});
+        }
+        let mut request = self
             .http
             .post(format!("{}/chat/completions", self.base_url))
             .bearer_auth(&self.api_key)
-            .json(&body)
-            .send();
+            .json(&body);
+        if policy.router_metadata {
+            request = request.header("X-OpenRouter-Metadata", "enabled");
+        }
+        let request = request.send();
         tokio::pin!(request);
         loop {
             tokio::select! {
@@ -729,6 +993,7 @@ fn build_response(payload: &Value, data: Value, fallback_model: &str) -> OpenRou
             total_tokens,
         },
         model,
+        diagnostics: CompletionDiagnostics::default(),
     }
 }
 
@@ -741,6 +1006,213 @@ mod tests {
     use std::net::TcpListener;
     use std::sync::{Arc, Mutex};
     use std::thread;
+
+    #[test]
+    fn tag_policy_requires_exact_endpoint_model_and_schema() {
+        let target = OpenRouterClient::new("secret", "deepseek/deepseek-v4-flash-0731");
+        assert!(
+            target
+                .tag_policy("TagCorrectionResponse")
+                .performance_routing
+        );
+        for url in [
+            "https://openrouter.ai.evil.test/api/v1",
+            "https://evil.test/openrouter.ai/api/v1",
+            "http://openrouter.ai/api/v1",
+            "https://openrouter.ai/api/v2",
+            "https://user@openrouter.ai/api/v1",
+            "https://openrouter.ai/api/v1?key=secret",
+            "https://openrouter.ai:444/api/v1",
+        ] {
+            let client = OpenRouterClient::at("secret", "deepseek/deepseek-v4-flash-0731", url);
+            assert_eq!(
+                client.tag_policy("TagCorrectionResponse"),
+                TagCorrectionPolicy::default(),
+                "{url}"
+            );
+        }
+        for model in [
+            "deepseek/deepseek-chat",
+            "~deepseek/deepseek-v4-flash-latest",
+            "deepseek/deepseek-v4-flash-0731:nitro",
+            "other/model",
+        ] {
+            assert_eq!(
+                target
+                    .clone()
+                    .with_model(model)
+                    .tag_policy("TagCorrectionResponse"),
+                TagCorrectionPolicy::default()
+            );
+        }
+        for schema in ["GenreFillResponse", "AssistantResponse", "AuditResponse"] {
+            assert_eq!(target.tag_policy(schema), TagCorrectionPolicy::default());
+        }
+        assert_eq!(target.max_tokens, 1024);
+        assert_eq!(target.timeout, Duration::from_secs(30));
+    }
+
+    #[tokio::test]
+    async fn targeted_policy_survives_schema_repair_and_sends_metadata_header() {
+        let server = TestServer::start(vec![
+            TestResponse::json(
+                json!({"choices": [{"finish_reason": "length", "message": {"content": "{"}}]}),
+            ),
+            TestResponse::json(json!({"choices": [{"message": {"content": "{}"}}]})),
+        ]);
+        let mut client = OpenRouterClient::at("secret", "test/model", server.base_url())
+            .with_generation(0.0, 5376);
+        client.test_policy = Some(TagCorrectionPolicy {
+            disable_reasoning: true,
+            performance_routing: true,
+            router_metadata: true,
+        });
+        client
+            .complete_json(
+                vec![],
+                "TagCorrectionResponse",
+                json!({}),
+                &AtomicBool::new(false),
+            )
+            .await
+            .unwrap();
+        for i in 0..2 {
+            let sent = server.request(i);
+            assert_eq!(sent.body["reasoning"], json!({"enabled": false}));
+            assert_eq!(
+                sent.body["provider"],
+                json!({"sort": {"by": "price"}, "preferred_min_throughput": {"p90": 50}, "allow_fallbacks": true})
+            );
+            assert_eq!(
+                sent.headers
+                    .get("x-openrouter-metadata")
+                    .map(String::as_str),
+                Some("enabled")
+            );
+        }
+        assert_eq!(server.request(1).body["max_tokens"], 10752);
+    }
+
+    #[test]
+    fn diagnostics_preserve_unknown_usage_and_ignore_untrusted_metadata() {
+        let mut diagnostics = AttemptDiagnostics::default();
+        diagnostics.capture(&json!({
+            "id": "gen-test", "model": "test/model",
+            "usage": {"completion_tokens": 12, "reasoning_tokens": 9,
+                "completion_tokens_details": {"reasoning_tokens": 0}},
+            "openrouter_metadata": {"attempt": 2, "attempts": [
+                {"provider": "First", "status": 503},
+                {"provider": "Second", "status": 200}],
+                "endpoints": {"available": [{"provider": "Second", "selected": true}]},
+                "summary": "secret prompt", "pipeline": [{"data": "secret prompt"}]},
+            "choices": [{"finish_reason": "stop", "message": {"content": "secret prompt"}}]
+        }));
+        assert_eq!(diagnostics.reasoning_tokens, Some(0));
+        assert_eq!(diagnostics.provider_attempts, Some(2));
+        assert_eq!(diagnostics.selected_provider.as_deref(), Some("Second"));
+        assert!(!serde_json::to_string(&diagnostics)
+            .unwrap()
+            .contains("secret prompt"));
+        let mut missing = AttemptDiagnostics::default();
+        missing.capture(&json!({"openrouter_metadata": ["bad"], "usage": {"reasoning_tokens": 7}}));
+        assert_eq!(missing.reasoning_tokens, Some(7));
+        assert_eq!(missing.completion_tokens, None);
+        assert_eq!(missing.provider_attempts, None);
+    }
+
+    #[tokio::test]
+    async fn cancellation_during_headers_body_and_retry_wait_is_terminal() {
+        for phase in ["headers", "body", "retry"] {
+            let mut reply =
+                TestResponse::json(json!({"choices": [{"message": {"content": "{}"}}]}));
+            if phase == "headers" {
+                reply.headers_delay_ms = 100;
+            }
+            if phase == "body" {
+                reply.body_delay_ms = 100;
+            }
+            if phase == "retry" {
+                reply = TestResponse::status(503, "secret");
+            }
+            let server = TestServer::start(vec![reply]);
+            let cancelled = Arc::new(AtomicBool::new(false));
+            let flag = Arc::clone(&cancelled);
+            let cancel = tokio::spawn(async move {
+                tokio::time::sleep(Duration::from_millis(30)).await;
+                flag.store(true, Ordering::Release);
+            });
+            let mut diagnostics = CompletionDiagnostics::default();
+            let result = OpenRouterClient::at("secret", "test/model", server.base_url())
+                .with_retry_delays(vec![200, 200])
+                .complete_json_observed(vec![], "Test", json!({}), &cancelled, &mut diagnostics)
+                .await;
+            cancel.await.unwrap();
+            assert!(matches!(result, Err(OpenRouterError::Cancelled)), "{phase}");
+            assert_eq!(diagnostics.attempts.len(), 1, "{phase}");
+            assert_eq!(server.request_count(), 1, "{phase}");
+        }
+    }
+
+    #[tokio::test]
+    async fn schema_repair_and_body_read_share_the_original_deadline() {
+        let mut first =
+            TestResponse::json(json!({"choices": [{"message": {"content": "not JSON"}}]}));
+        first.body_delay_ms = 40;
+        let mut second = TestResponse::json(json!({"choices": [{"message": {"content": "{}"}}]}));
+        second.body_delay_ms = 100;
+        let server = TestServer::start(vec![first, second]);
+        let mut diagnostics = CompletionDiagnostics::default();
+        let result = OpenRouterClient::at("secret", "test/model", server.base_url())
+            .with_timeout(Duration::from_millis(90))
+            .complete_json_observed(
+                vec![],
+                "Test",
+                json!({}),
+                &AtomicBool::new(false),
+                &mut diagnostics,
+            )
+            .await;
+        assert!(matches!(result, Err(OpenRouterError::Timeout(90))));
+        assert_eq!(diagnostics.attempts.len(), 2);
+        assert_eq!(diagnostics.attempts[1].schema_repair, 1);
+        assert!(diagnostics.total_elapsed_ms < 140);
+    }
+
+    #[tokio::test]
+    async fn diagnostics_count_http_retries_separately_from_schema_repairs() {
+        let server = TestServer::start(vec![
+            TestResponse::status(503, "secret error"),
+            TestResponse::json(
+                json!({"choices": [{"finish_reason": "length", "message": {"content": "{\"tracks\":"}}]}),
+            ),
+            TestResponse::json(
+                json!({"choices": [{"finish_reason": "stop", "message": {"content": "{}"}}]}),
+            ),
+        ]);
+        let response = OpenRouterClient::at("secret", "test/model", server.base_url())
+            .with_generation(0.0, 5376)
+            .with_retry_delays(vec![0, 0])
+            .complete_json(
+                vec![ChatMessage::user("test")],
+                "TagCorrectionResponse",
+                json!({}),
+                &AtomicBool::new(false),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.diagnostics.attempts.len(), 3);
+        assert_eq!(
+            response
+                .diagnostics
+                .attempts
+                .iter()
+                .map(|a| a.schema_repair)
+                .collect::<Vec<_>>(),
+            vec![0, 0, 1]
+        );
+        assert_eq!(response.diagnostics.attempts[0].status, Some(503));
+        assert_eq!(server.request(2).body["max_tokens"], 10752);
+    }
 
     #[tokio::test]
     async fn anthropic_response_format_is_parsed_correctly() {
@@ -815,6 +1287,9 @@ mod tests {
             Some("Bearer secret")
         );
         assert_eq!(request.body["model"], "test/model");
+        assert!(request.body.get("provider").is_none());
+        assert!(request.body.get("reasoning").is_none());
+        assert!(!request.headers.contains_key("x-openrouter-metadata"));
         assert_eq!(
             request.body["response_format"]["json_schema"]["name"],
             "AuditResponse"
@@ -1000,6 +1475,8 @@ mod tests {
     struct TestResponse {
         status: u16,
         body: String,
+        headers_delay_ms: u64,
+        body_delay_ms: u64,
     }
 
     impl TestResponse {
@@ -1007,6 +1484,8 @@ mod tests {
             Self {
                 status: 200,
                 body: body.to_string(),
+                headers_delay_ms: 0,
+                body_delay_ms: 0,
             }
         }
 
@@ -1014,6 +1493,8 @@ mod tests {
             Self {
                 status,
                 body: body.to_string(),
+                headers_delay_ms: 0,
+                body_delay_ms: 0,
             }
         }
     }
@@ -1067,13 +1548,15 @@ mod tests {
                         "Error"
                     };
                     let reply = format!(
-                        "HTTP/1.1 {} {}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                        "HTTP/1.1 {} {}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
                         response.status,
                         reason,
                         response.body.len(),
-                        response.body
                     );
-                    stream.write_all(reply.as_bytes()).unwrap();
+                    thread::sleep(Duration::from_millis(response.headers_delay_ms));
+                    let _ = stream.write_all(reply.as_bytes());
+                    thread::sleep(Duration::from_millis(response.body_delay_ms));
+                    let _ = stream.write_all(response.body.as_bytes());
                 }
             });
             Self {

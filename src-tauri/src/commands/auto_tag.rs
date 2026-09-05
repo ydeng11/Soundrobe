@@ -7,6 +7,7 @@ use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::time::Duration;
 use tauri::{AppHandle, Emitter, Manager, State};
 
 use crate::{
@@ -1789,6 +1790,12 @@ fn auto_tag_completion_message(candidate: &AlbumCandidate) -> &'static str {
 }
 
 const AI_TAG_CONFIDENCE_THRESHOLD: f64 = 0.85;
+const AUTO_TAG_LLM_TIMEOUT: Duration = Duration::from_secs(120);
+
+fn auto_tag_llm_max_tokens(track_count: usize) -> u32 {
+    let scaled = 1_024usize.saturating_add(track_count.saturating_mul(128));
+    u32::try_from(scaled.clamp(2_048, 8_192)).expect("auto-tag LLM budget fits in u32")
+}
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct AiValidationFailure {
@@ -2110,28 +2117,7 @@ fn llm_string(value: Option<&serde_json::Value>) -> Option<String> {
     }
 }
 
-async fn resolve_tags_via_llm(
-    request: &LookupRequest,
-    config: &AutoTagConfig,
-    cancelled: &AtomicBool,
-) -> Result<AlbumCandidate, AiValidationFailure> {
-    let api_key = config.llm_api_key.as_deref().filter(|key| !key.is_empty());
-    if api_key.is_none() {
-        tracing::debug!(
-            hints_artist = ?request.artist_hint,
-            hints_album = ?request.album_hint,
-            "LLM resolution skipped: no API key configured",
-        );
-        return Err(ai_failure(
-            "ai_not_configured",
-            "no AI API key is configured",
-        ));
-    }
-    let model = config
-        .llm_model
-        .as_deref()
-        .filter(|model| !model.is_empty())
-        .unwrap_or("deepseek/deepseek-chat");
+fn tag_correction_request(request: &LookupRequest) -> (Vec<ChatMessage>, serde_json::Value) {
     let album_path = Path::new(&request.path);
     let payload = serde_json::json!({
         "folder_name": album_path.file_name().and_then(|name| name.to_str()),
@@ -2186,23 +2172,54 @@ async fn resolve_tags_via_llm(
         },
         "required": ["artist", "artists", "albumArtist", "albumArtists", "album", "year", "genre", "tracks", "confidence"]
     });
-    tracing::debug!(model, "calling auto-tag LLM");
-    let api_key = api_key.expect("API key checked above");
+    (messages, schema)
+}
+
+fn tag_correction_client(
+    config: &AutoTagConfig,
+    track_count: usize,
+) -> Result<OpenRouterClient, AiValidationFailure> {
+    let api_key = config
+        .llm_api_key
+        .as_deref()
+        .filter(|key| !key.is_empty())
+        .ok_or_else(|| ai_failure("ai_not_configured", "no AI API key is configured"))?;
+    let model = config
+        .llm_model
+        .as_deref()
+        .filter(|model| !model.is_empty())
+        .unwrap_or("deepseek/deepseek-chat");
     let llm_endpoint = crate::infra::openrouter::LlmEndpoint::from_config(
         config.llm_provider.as_deref(),
         config.llm_base_url.as_deref(),
     );
-    let result = OpenRouterClient::at(api_key, model, &llm_endpoint.base_url)
+    Ok(OpenRouterClient::at(api_key, model, &llm_endpoint.base_url)
         .with_provider(llm_endpoint.provider)
+        .with_generation(0.0, auto_tag_llm_max_tokens(track_count))
+        .with_timeout(AUTO_TAG_LLM_TIMEOUT))
+}
+
+async fn resolve_tags_via_llm(
+    request: &LookupRequest,
+    config: &AutoTagConfig,
+    cancelled: &AtomicBool,
+) -> Result<AlbumCandidate, AiValidationFailure> {
+    let client = tag_correction_client(config, request.tracks.len())?;
+    let (messages, schema) = tag_correction_request(request);
+    let result = client
         .complete_json(messages, "TagCorrectionResponse", schema, cancelled)
         .await;
     let response = result.map_err(|error| {
-        tracing::warn!(error = %error, "auto-tag LLM failed");
+        tracing::warn!(error_code = error.diagnostic_code(), "auto-tag LLM failed");
         ai_validation_failure_from_error(&error)
     })?;
     tracing::debug!("auto-tag LLM succeeded");
     validated_ai_candidate(request, &response.data)
 }
+
+#[cfg(test)]
+#[path = "auto_tag_benchmark.rs"]
+mod latency_benchmark;
 
 async fn fill_genre_if_missing(
     candidate: &AlbumCandidate,
@@ -5426,6 +5443,14 @@ mod tests {
         assert_eq!(diagnostics[0]["candidateCounts"]["discogs"], 1);
         assert_eq!(diagnostics[0]["credibleCounts"]["discogs"], 0);
         assert_eq!(diagnostics[0]["rejectionCodes"]["title_conflict"], 1);
+    }
+
+    #[test]
+    fn auto_tag_llm_output_budget_scales_with_album_track_count() {
+        assert_eq!(auto_tag_llm_max_tokens(0), 2_048);
+        assert_eq!(auto_tag_llm_max_tokens(8), 2_048);
+        assert_eq!(auto_tag_llm_max_tokens(34), 5_376);
+        assert_eq!(auto_tag_llm_max_tokens(100), 8_192);
     }
 
     #[test]
