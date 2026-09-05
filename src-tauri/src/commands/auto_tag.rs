@@ -2206,7 +2206,7 @@ async fn resolve_tags_via_llm(
         .complete_json(messages, "TagCorrectionResponse", schema, cancelled)
         .await;
     let response = result.map_err(|error| {
-        tracing::warn!(error = %error, "auto-tag LLM failed");
+        tracing::warn!(error_code = error.diagnostic_code(), "auto-tag LLM failed");
         ai_validation_failure_from_error(&error)
     })?;
     tracing::debug!("auto-tag LLM succeeded");
