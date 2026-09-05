@@ -9,6 +9,25 @@ use std::time::{Instant, SystemTime, UNIX_EPOCH};
 struct CopiedAlbum(PathBuf);
 
 #[test]
+fn benchmark_records_non_object_responses_without_aborting_remaining_trials() {
+    let request = LookupRequest::default();
+    for data in [
+        json!([]),
+        json!([{}]),
+        json!(null),
+        json!(true),
+        json!(1),
+        json!("invalid"),
+    ] {
+        assert_eq!(
+            structure_and_evidence(&request, &data),
+            json!({"structure_valid": false, "code": "ai_validation_failed"}),
+            "malformed responses must be recorded without interrupting the benchmark"
+        );
+    }
+}
+
+#[test]
 fn benchmark_checks_coverage_even_when_real_confidence_gate_rejects() {
     let request = LookupRequest {
         artist_hint: Some("Twins".into()),
@@ -174,7 +193,10 @@ fn structure_and_evidence(request: &LookupRequest, data: &Value) -> Value {
     // This cloned value is used only for structural inspection after the real
     // confidence gate. It can never authorize a write or alter the live result.
     let mut structural = data.clone();
-    structural["confidence"] = json!(1.0);
+    let Some(object) = structural.as_object_mut() else {
+        return json!({"structure_valid": false, "code": "ai_validation_failed"});
+    };
+    object.insert("confidence".into(), json!(1.0));
     let candidate = match validated_ai_candidate(request, &structural) {
         Ok(candidate) => candidate,
         Err(error) => return json!({"structure_valid": false, "code": error.code}),

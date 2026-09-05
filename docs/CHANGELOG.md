@@ -22,6 +22,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Flash 0731 on OpenRouter disable extended reasoning and prefer affordable
   providers with faster generation, while retaining metadata validation and
   provider fallback during outages.
+- **Auto-tag benchmark resilience** — malformed non-object AI responses are
+  recorded as validation failures without aborting remaining benchmark trials.
 - **Large-album AI fallback** — automatic tagging now scales structured-output
   capacity with album size and allows longer responses, reducing timeouts and
   truncated metadata for live sets and other high-track-count releases.
