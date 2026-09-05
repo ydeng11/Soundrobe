@@ -5,15 +5,6 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.1.5] - 2026-08-31
-
-### Fixed
-
-- **Reliable library auto-tagging** — transient MusicBrainz and Discogs
-  failures now use bounded retries, and batch auto-tagging retries only
-  provider-unavailable albums once before showing a complete per-album result
-  summary.
-
 ## [Unreleased]
 
 ### Fixed
@@ -30,6 +21,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Provider outage backoff** — MusicBrainz overload responses with a zero retry
   hint now use bounded backoff, and failed batch albums wait before their one
   automatic retry instead of immediately repeating the outage.
+
+## [0.1.5] - 2026-08-31
+
+### Fixed
+
+- **Reliable library auto-tagging** — transient MusicBrainz and Discogs
+  failures now use bounded retries, and batch auto-tagging retries only
+  provider-unavailable albums once before showing a complete per-album result
+  summary.
 
 ## [0.1.4] - 2026-08-30
 
