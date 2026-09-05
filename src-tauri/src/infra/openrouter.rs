@@ -195,6 +195,15 @@ pub struct OpenRouterClient {
     timeout: Duration,
     retry_delays: Vec<Duration>,
     provider: ProviderKind,
+    #[cfg(test)]
+    pub(crate) test_policy: Option<TagCorrectionPolicy>,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(crate) struct TagCorrectionPolicy {
+    pub disable_reasoning: bool,
+    pub performance_routing: bool,
+    pub router_metadata: bool,
 }
 
 #[derive(Clone, Copy)]
@@ -331,6 +340,34 @@ impl OpenRouterClient {
             timeout: DEFAULT_TIMEOUT,
             retry_delays: vec![Duration::from_millis(250), Duration::from_millis(500)],
             provider,
+            #[cfg(test)]
+            test_policy: None,
+        }
+    }
+
+    fn tag_policy(&self, schema_name: &str) -> TagCorrectionPolicy {
+        #[cfg(test)]
+        if let Some(policy) = self.test_policy {
+            return policy;
+        }
+        let canonical = reqwest::Url::parse(&self.base_url).is_ok_and(|url| {
+            url.scheme() == "https"
+                && url.host_str() == Some("openrouter.ai")
+                && url.port_or_known_default() == Some(443)
+                && url.path() == "/api/v1"
+                && url.username().is_empty()
+                && url.password().is_none()
+                && url.query().is_none()
+                && url.fragment().is_none()
+        });
+        let targeted = canonical
+            && self.provider == ProviderKind::OpenAi
+            && self.model == "deepseek/deepseek-v4-flash-0731"
+            && schema_name == "TagCorrectionResponse";
+        TagCorrectionPolicy {
+            disable_reasoning: targeted,
+            performance_routing: targeted,
+            router_metadata: targeted,
         }
     }
 
@@ -549,6 +586,8 @@ impl OpenRouterClient {
             model = ?diagnostic_label(Some(&self.model)),
             timeout_ms = self.timeout.as_millis(),
             max_tokens = request.max_tokens,
+            reasoning_disabled = request.disable_reasoning || self.tag_policy(request.schema_name).disable_reasoning,
+            performance_routing = self.tag_policy(request.schema_name).performance_routing,
             schema = %request.schema_name,
             attempts,
             "OpenRouter request started"
@@ -744,15 +783,22 @@ impl OpenRouterClient {
                 "json_schema": { "name": schema_name, "schema": schema }
             }
         });
-        if disable_reasoning {
+        let policy = self.tag_policy(schema_name);
+        if disable_reasoning || policy.disable_reasoning {
             body["reasoning"] = json!({ "enabled": false });
         }
-        let request = self
+        if policy.performance_routing {
+            body["provider"] = json!({"sort": {"by": "price"}, "preferred_min_throughput": {"p90": 50}, "allow_fallbacks": true});
+        }
+        let mut request = self
             .http
             .post(format!("{}/chat/completions", self.base_url))
             .bearer_auth(&self.api_key)
-            .json(&body)
-            .send();
+            .json(&body);
+        if policy.router_metadata {
+            request = request.header("X-OpenRouter-Metadata", "enabled");
+        }
+        let request = request.send();
         tokio::pin!(request);
         loop {
             tokio::select! {
@@ -962,6 +1008,92 @@ mod tests {
     use std::thread;
 
     #[test]
+    fn tag_policy_requires_exact_endpoint_model_and_schema() {
+        let target = OpenRouterClient::new("secret", "deepseek/deepseek-v4-flash-0731");
+        assert!(
+            target
+                .tag_policy("TagCorrectionResponse")
+                .performance_routing
+        );
+        for url in [
+            "https://openrouter.ai.evil.test/api/v1",
+            "https://evil.test/openrouter.ai/api/v1",
+            "http://openrouter.ai/api/v1",
+            "https://openrouter.ai/api/v2",
+            "https://user@openrouter.ai/api/v1",
+            "https://openrouter.ai/api/v1?key=secret",
+            "https://openrouter.ai:444/api/v1",
+        ] {
+            let client = OpenRouterClient::at("secret", "deepseek/deepseek-v4-flash-0731", url);
+            assert_eq!(
+                client.tag_policy("TagCorrectionResponse"),
+                TagCorrectionPolicy::default(),
+                "{url}"
+            );
+        }
+        for model in [
+            "deepseek/deepseek-chat",
+            "~deepseek/deepseek-v4-flash-latest",
+            "deepseek/deepseek-v4-flash-0731:nitro",
+            "other/model",
+        ] {
+            assert_eq!(
+                target
+                    .clone()
+                    .with_model(model)
+                    .tag_policy("TagCorrectionResponse"),
+                TagCorrectionPolicy::default()
+            );
+        }
+        for schema in ["GenreFillResponse", "AssistantResponse", "AuditResponse"] {
+            assert_eq!(target.tag_policy(schema), TagCorrectionPolicy::default());
+        }
+        assert_eq!(target.max_tokens, 1024);
+        assert_eq!(target.timeout, Duration::from_secs(30));
+    }
+
+    #[tokio::test]
+    async fn targeted_policy_survives_schema_repair_and_sends_metadata_header() {
+        let server = TestServer::start(vec![
+            TestResponse::json(
+                json!({"choices": [{"finish_reason": "length", "message": {"content": "{"}}]}),
+            ),
+            TestResponse::json(json!({"choices": [{"message": {"content": "{}"}}]})),
+        ]);
+        let mut client = OpenRouterClient::at("secret", "test/model", server.base_url())
+            .with_generation(0.0, 5376);
+        client.test_policy = Some(TagCorrectionPolicy {
+            disable_reasoning: true,
+            performance_routing: true,
+            router_metadata: true,
+        });
+        client
+            .complete_json(
+                vec![],
+                "TagCorrectionResponse",
+                json!({}),
+                &AtomicBool::new(false),
+            )
+            .await
+            .unwrap();
+        for i in 0..2 {
+            let sent = server.request(i);
+            assert_eq!(sent.body["reasoning"], json!({"enabled": false}));
+            assert_eq!(
+                sent.body["provider"],
+                json!({"sort": {"by": "price"}, "preferred_min_throughput": {"p90": 50}, "allow_fallbacks": true})
+            );
+            assert_eq!(
+                sent.headers
+                    .get("x-openrouter-metadata")
+                    .map(String::as_str),
+                Some("enabled")
+            );
+        }
+        assert_eq!(server.request(1).body["max_tokens"], 10752);
+    }
+
+    #[test]
     fn diagnostics_preserve_unknown_usage_and_ignore_untrusted_metadata() {
         let mut diagnostics = AttemptDiagnostics::default();
         diagnostics.capture(&json!({
@@ -1155,6 +1287,9 @@ mod tests {
             Some("Bearer secret")
         );
         assert_eq!(request.body["model"], "test/model");
+        assert!(request.body.get("provider").is_none());
+        assert!(request.body.get("reasoning").is_none());
+        assert!(!request.headers.contains_key("x-openrouter-metadata"));
         assert_eq!(
             request.body["response_format"]["json_schema"]["name"],
             "AuditResponse"

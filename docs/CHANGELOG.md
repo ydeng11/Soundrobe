@@ -18,6 +18,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **DeepSeek auto-tag response time** — album corrections using DeepSeek V4
+  Flash 0731 on OpenRouter disable extended reasoning and prefer affordable
+  providers with faster generation, while retaining metadata validation and
+  provider fallback during outages.
 - **Large-album AI fallback** — automatic tagging now scales structured-output
   capacity with album size and allows longer responses, reducing timeouts and
   truncated metadata for live sets and other high-track-count releases.
