@@ -1,9 +1,30 @@
 // @vitest-environment node
 import fs from "node:fs";
 import { describe, expect, it, vi } from "vitest";
-import { cleanupE2eWorkspace } from "../e2e-tauri/fixtures";
+import { cleanupE2eWorkspace, prepareE2eWorkspace } from "../e2e-tauri/fixtures";
 
 describe("E2E workspace cleanup", () => {
+  it("forces offline provider settings into the native E2E process", () => {
+    const originalManifest = process.env.SOUNDROBE_E2E_MANIFEST;
+    const originalRemoteLookup = process.env.AUTO_TAG_REMOTE_LOOKUP;
+    const originalDiscogsEnabled = process.env.AUTO_TAG_DISCOGS_ENABLED;
+    delete process.env.SOUNDROBE_E2E_MANIFEST;
+
+    const workspace = prepareE2eWorkspace();
+    try {
+      expect(process.env.AUTO_TAG_REMOTE_LOOKUP).toBe("false");
+      expect(process.env.AUTO_TAG_DISCOGS_ENABLED).toBe("false");
+    } finally {
+      cleanupE2eWorkspace(workspace.root);
+      if (originalManifest === undefined) delete process.env.SOUNDROBE_E2E_MANIFEST;
+      else process.env.SOUNDROBE_E2E_MANIFEST = originalManifest;
+      if (originalRemoteLookup === undefined) delete process.env.AUTO_TAG_REMOTE_LOOKUP;
+      else process.env.AUTO_TAG_REMOTE_LOOKUP = originalRemoteLookup;
+      if (originalDiscogsEnabled === undefined) delete process.env.AUTO_TAG_DISCOGS_ENABLED;
+      else process.env.AUTO_TAG_DISCOGS_ENABLED = originalDiscogsEnabled;
+    }
+  });
+
   it("retries transient Windows file locks", () => {
     const rmSync = vi.spyOn(fs, "rmSync").mockImplementation(() => undefined);
 
