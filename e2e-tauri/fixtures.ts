@@ -305,6 +305,11 @@ export function prepareE2eWorkspace(): E2eWorkspace {
     SOUNDROBE_E2E_LIBRARY_PATH: library,
     SOUNDROBE_E2E_TRACK_CONTEXT_ACTION: "extra-tags",
     SOUNDROBE_E2E_MANIFEST: JSON.stringify(manifest),
+    // dirs::home_dir() uses the Windows profile API instead of HOME there;
+    // keep the offline auto-tag deterministic even when the temp config is
+    // not visible through that platform-specific lookup.
+    AUTO_TAG_REMOTE_LOOKUP: "false",
+    AUTO_TAG_DISCOGS_ENABLED: "false",
   });
   return { root, manifest };
 }
