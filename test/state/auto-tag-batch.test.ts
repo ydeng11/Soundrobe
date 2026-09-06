@@ -81,7 +81,7 @@ describe("runAutoTagBatch", () => {
     expect(attempts.get("/music/Album 12")).toBe(2);
     expect(attempts.get("/music/Album 4")).toBe(1);
     expect(sleep).toHaveBeenCalledTimes(1);
-    expect(sleep).toHaveBeenCalledWith(1_000);
+    expect(sleep).toHaveBeenCalledWith(30_000);
     expect(summary.items.find((item) => item.albumPath.endsWith("Album 3"))?.status).toBe(
       "recovered",
     );

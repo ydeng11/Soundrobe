@@ -1,6 +1,6 @@
 [package]
 name = "soundrobe"
-version = "0.1.5"
+version = "0.1.6"
 description = "Desktop audio file tag editor — Tauri 2 shell (Electron migration)"
 authors = ["Soundrobe Contributors"]
 license = "MIT"

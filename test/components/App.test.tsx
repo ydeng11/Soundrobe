@@ -651,11 +651,11 @@ describe("App — modification history", () => {
       taskId: "task-review",
       progress: 9,
       total: 9,
-      message: "Needs review — provider unavailable",
+      message: "Needs review — AI validation failed",
       result: {
         outcome: "needs_review",
         written: 0,
-        reasonCode: "provider_unavailable",
+        reasonCode: "ai_validation_failed",
       },
     } as TaskProgress);
 
@@ -667,7 +667,7 @@ describe("App — modification history", () => {
     fireEvent.click(screen.getByText("Auto-Tag"));
 
     await screen.findByText(
-      "Needs review (1): Test Album: provider_unavailable",
+      "Needs review (1): Test Album: ai_validation_failed",
       {},
       { timeout: 3_000 },
     );

@@ -65,6 +65,10 @@ check: typecheck test
 smoke-openrouter:
     cd src-tauri && cargo test --all-features live_openrouter_returns_schema_constrained_json -- --ignored --nocapture
 
+# Explicitly selected real-data gate; the Rust test copies media before reading tags.
+smoke-auto-tag-latency source:
+    SOUNDROBE_LATENCY_SOURCE={{quote(source)}} cargo test --manifest-path src-tauri/Cargo.toml --all-features live_auto_tag_deepseek_latency -- --ignored --nocapture
+
 smoke-assistant-ai:
     cd src-tauri && cargo test --all-features -- --ignored --nocapture same_intent_read_only_produces_safe_outcome mutating_request_always_has_action_batch_or_tool_call live_missing_genre_value_reaches_conditional_patch_after_inspection live_navidrome_artists_intent_preserves_display_credit_and_collaborators live_group_by_base_title_reaches_schema_valid_mutation
 
