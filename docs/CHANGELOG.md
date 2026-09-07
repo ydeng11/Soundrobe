@@ -24,6 +24,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **SACD-R DSD extraction** — the media toolbox now decodes sector-packed DSD64
+  tracks to 96 kHz FLAC instead of interpreting them as PCM noise, extracts raw
+  SACD-R images through `sacd_extract`, and retries transient ISO listings on
+  network volumes.
+- Raw CD ISO conversion now requires `slice-iso --raw-cd`; failed SACD
+  extraction no longer falls back to interpreting the image as PCM audio.
+
 ## [0.1.5] - 2026-08-31
 
 ### Fixed
