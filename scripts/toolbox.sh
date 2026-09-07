@@ -16,8 +16,8 @@
 #                        per-track FLACs; copies album images alongside
 #                        (-r recursive, -a artist mode, --no-doctor)
 #   dsf-to-flac          Convert DSF (DSD/SACD) files to FLAC with metadata
-#   slice-iso            Slice audio ISO images (K2HD SACD UDF / raw CD)
-#                        into FLAC tracks
+#   slice-iso            Slice audio ISO images (K2HD SACD UDF / raw SACD-R /
+#                        raw CD) into FLAC tracks
 #   unrar                Extract RAR archives (Keka, unar, 7z fallback)
 #   doctor               Scan, diagnose, and fix FLAC metadata corruption
 #                        (delegates to fix-flac-metadata.js; renders the HTML
@@ -29,7 +29,8 @@
 #   aggregate-checkpoint Aggregate checkpoint batches into one report JSON
 #                        (delegates to aggregate-checkpoint.js)
 #
-# Requirements (per command): python3, ffmpeg, ffprobe, node, hdiutil, unar/7z.
+# Requirements (per command): python3, ffmpeg, ffprobe, node, hdiutil, unar/7z;
+# raw SACD-R ISO extraction additionally requires sacd_extract.
 # ============================================================================
 
 set -euo pipefail
@@ -43,7 +44,7 @@ Usage: $(basename "$0") <command> [options] [args]
 Audio / library tools:
   cue-split <path>...        Split FLAC/WAV album images per CUE sheet into per-track FLACs
   dsf-to-flac <dir> [artist] Convert DSF (DSD/SACD) files to FLAC with metadata
-  slice-iso [dir]            Slice audio ISO images (K2HD SACD UDF / raw CD) into FLAC tracks
+  slice-iso [dir]            Slice audio ISO images (K2HD SACD UDF / raw SACD-R / raw CD) into FLAC tracks
   unrar <dir|--file F>       Extract RAR archives (unar, 7z fallback)
 
 FLAC health / QA tools (node):
@@ -680,26 +681,32 @@ EOF
 #   toolbox.sh slice-iso [source_dir] [--artist NAME] [--output DIR]
 # Defaults (env-overridable): SOURCE_DIR=/Volumes/downloads/邓丽君,
 # ARTIST=Teresa Teng, OUTPUT_BASE=~/Music/<artist>
-# Supported: K2HD SACD (mountable UDF ISO with 2C_AUDIO/TRACK*.2CH, 24-bit
-# 96kHz sector-packed PCM) and raw CD audio (16-bit 44100Hz PCM, equal splits).
+# Supported: K2HD/SACD-R (mountable UDF ISO with 2C_AUDIO/TRACK*.2CH,
+# sector-packed stereo DSD64), raw SACD-R ISOs via sacd_extract, and raw CD
+# audio (16-bit 44100Hz PCM, equal splits).
 cmd_slice_iso() {
   local SOURCE_DIR="${SOURCE_DIR:-/Volumes/downloads/邓丽君}"
   local ARTIST="${ARTIST:-Teresa Teng}"
   local OUTPUT_BASE="${OUTPUT_BASE:-}"
   local LOG_FILE="${SLICE_ISOS_LOG:-${SCRIPT_DIR}/slice-isos.log}"
+  local RAW_CD=false
 
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --artist)  ARTIST="$2"; shift 2 ;;
       --output)  OUTPUT_BASE="$2"; shift 2 ;;
+      --raw-cd)  RAW_CD=true; shift ;;
       -h|--help)
         cat <<EOF
-Usage: $(basename "$0") slice-iso [source_dir] [--artist NAME] [--output DIR]
+Usage: $(basename "$0") slice-iso [source_dir] [--artist NAME] [--output DIR] [--raw-cd]
 
-Slice audio ISO images into properly-named FLAC tracks. Supports K2HD SACD
-(mountable UDF ISO with 2C_AUDIO/TRACK*.2CH, 24-bit 96kHz sector-packed PCM)
-and raw CD audio (16-bit 44100Hz PCM, equal splits). Reads track titles from
+Slice audio ISO images into properly-named FLAC tracks. Supports K2HD/SACD-R
+(mountable UDF ISO with 2C_AUDIO/TRACK*.2CH, sector-packed stereo DSD64), raw
+SACD-R ISOs through sacd_extract, and raw CD audio (16-bit 44100Hz PCM, equal
+splits). Raw SACD-R support requires sacd_extract on PATH. Reads track titles from
 专辑曲目.txt when present; copies album images to the output.
+Raw CD PCM decoding requires --raw-cd and 专辑曲目.txt; it is never an
+automatic fallback after SACD extraction fails.
 
 Defaults (env-overridable): SOURCE_DIR=/Volumes/downloads/邓丽君,
 ARTIST=Teresa Teng, OUTPUT_BASE=~/Music/<artist>
@@ -712,6 +719,7 @@ EOF
 
   # Default output base must reflect --artist; compute after parsing.
   OUTPUT_BASE="${OUTPUT_BASE:-${HOME}/Music/${ARTIST}}"
+  SOURCE_DIR=$(cd "${SOURCE_DIR}" && pwd)
 
   mkdir -p "${OUTPUT_BASE}"
 
@@ -757,10 +765,10 @@ EOF
 
   extract_k2hd() {
     # Track path passed via argv (never interpolated into source).
+    # Each 2048-byte sector has a 32-byte header followed by DSD64 payload.
     python3 - "$1" <<'PYEOF'
 import sys
 with open(sys.argv[1], 'rb') as f:
-    f.read(2048)
     while True:
         s = f.read(2048)
         if len(s) < 2048: break
@@ -787,7 +795,7 @@ PYEOF
     for f in "${audio_dir}"/TRACK*.2CH; do
         [ -f "$f" ] && track_count=$((track_count + 1))
     done
-    log "  Tracks: ${track_count}"
+    log "  Tracks: ${track_count} (DSD64 → 96kHz FLAC)"
 
     local tn=0
     for track_file in "${audio_dir}"/TRACK*.2CH; do
@@ -799,8 +807,9 @@ PYEOF
         out_file="${output}/$(printf '%02d' ${tn}) ${safe_title}.flac"
 
         log "  Track ${tn}: ${title}..."
-        extract_k2hd "${track_file}" | ffmpeg -y -f s24le -ar 96000 -ac 2 \
-            -i pipe:0 -compression_level 8 \
+        extract_k2hd "${track_file}" | ffmpeg -y -f u8 -ar 352800 -ac 2 -c:a dsd_msbf \
+            -i pipe:0 -af "lowpass=f=30000,aresample=96000" \
+            -c:a flac -compression_level 8 -sample_fmt s32 -bits_per_raw_sample 24 \
             -metadata "artist=${ARTIST}" \
             -metadata "album=${album_name}" \
             -metadata "track=${tn}/${track_count}" \
@@ -815,6 +824,96 @@ PYEOF
             inc_errors
         fi
     done
+  }
+
+  process_raw_sacd() {
+    local iso="$1" album_dir="$2" album_name="$3" output="$4"
+    local extract_dir dsf basename_dsf stem title tagged_title out_file
+    local tn_num track_count errors=0 index=0
+    local SACD_TARGET_RATE="${SACD_TARGET_RATE:-96000}"
+    local SACD_LOWPASS_FREQ="${SACD_LOWPASS_FREQ:-30000}"
+
+    extract_dir=$(mktemp -d "${TMPDIR:-/tmp}/toolbox-sacd-r.XXXXXX")
+    SACD_TMP_DIRS+=("${extract_dir}")
+    SACD_EXTRACTED=false
+    log "  Raw SACD-R: extracting stereo DSF tracks with sacd_extract..."
+    if ! (cd "${extract_dir}" && sacd_extract -2 -s -c "-i${iso}") >>"${LOG_FILE}" 2>&1; then
+        log "  ERROR: sacd_extract failed (see ${LOG_FILE})"
+        rm -rf "${extract_dir}"
+        return 1
+    fi
+
+    local -a DSF_FILES=()
+    while IFS= read -r -d '' dsf; do
+        DSF_FILES+=("${dsf}")
+    done < <(find "${extract_dir}" -type f -iname '*.dsf' -print0 | sort -zV)
+    track_count=${#DSF_FILES[@]}
+    if [ "${track_count}" -eq 0 ]; then
+        log "  ERROR: sacd_extract produced no DSF tracks"
+        rm -rf "${extract_dir}"
+        return 1
+    fi
+    SACD_EXTRACTED=true
+
+    log "  Tracks: ${track_count} (SACD-R stereo DSD64 → ${SACD_TARGET_RATE}Hz FLAC)"
+    for dsf in "${DSF_FILES[@]}"; do
+        index=$((index + 1))
+        basename_dsf="$(basename "${dsf}")"
+        stem="${basename_dsf%.*}"
+        tn_num=${index}
+        title="${stem}"
+        if [[ "${stem}" =~ ^([0-9]+)[[:space:]_.-]+(.+)$ ]]; then
+            tn_num=$((10#${BASH_REMATCH[1]}))
+            title="${BASH_REMATCH[2]}"
+        fi
+
+        tagged_title=$(ffprobe -v error -show_entries format_tags=title \
+            -of default=noprint_wrappers=1:nokey=1 "${dsf}" 2>/dev/null | head -1 || true)
+        [ -n "${tagged_title}" ] && title="${tagged_title}"
+        title=$(echo "${title}" | tr -d '\r' | sed 's/[\\/:<>"|?*]//g' | sed 's/  */ /g' | sed 's/^ //;s/ $//')
+        [ -z "${title}" ] && title="Track ${tn_num}"
+        out_file="${output}/$(printf '%02d' "${tn_num}") ${title}.flac"
+
+        if [ -s "${out_file}" ]; then
+            if ffprobe -v error -show_entries format=duration \
+                -of default=noprint_wrappers=1:nokey=1 "${out_file}" >/dev/null 2>&1; then
+                log "  Skipping existing: $(basename "${out_file}")"
+                continue
+            fi
+            log "  ERROR: output exists but is invalid: ${out_file}"
+            errors=$((errors + 1))
+            inc_errors
+            continue
+        fi
+        if [ -e "${out_file}" ]; then
+            log "  ERROR: output exists but is empty: ${out_file}"
+            errors=$((errors + 1))
+            inc_errors
+            continue
+        fi
+
+        log "  Track ${tn_num}/${track_count}: ${title}..."
+        if ffmpeg -n -i "${dsf}" \
+            -map 0:a:0 -vn -sn \
+            -af "lowpass=f=${SACD_LOWPASS_FREQ},aresample=osr=${SACD_TARGET_RATE}" \
+            -c:a flac -compression_level 8 \
+            -sample_fmt s32 -bits_per_raw_sample 24 \
+            -metadata "artist=${ARTIST}" \
+            -metadata "album=${album_name}" \
+            -metadata "track=${tn_num}/${track_count}" \
+            -metadata "title=${title}" \
+            "${out_file}" 2>>"${LOG_FILE}"; then
+            log "    OK"
+            inc_tracks
+        else
+            log "    ERROR (ffmpeg failed)"
+            errors=$((errors + 1))
+            inc_errors
+        fi
+    done
+
+    rm -rf "${extract_dir}"
+    [ "${errors}" -eq 0 ]
   }
 
   process_raw() {
@@ -871,15 +970,23 @@ PYEOF
 
   # ── main ──
   local iso_file album_dir album_name album_output mount_point audio_dir _7z_tmp extract_dir
-  local -a MOUNTED=()
-  # Guaranteed cleanup of any attached ISO mounts (covers early exits/errors).
+  local listing_found attempt
+  local SACD_EXTRACTED=false
+  local -a MOUNTED=() SACD_TMP_DIRS=()
+  # Guaranteed cleanup of any attached ISO mounts or temporary SACD extracts
+  # (covers early exits, errors, and interruptions).
   detach_mounts() {
-    local m
+    local m tmp
     for m in "${MOUNTED[@]:-}"; do
       hdiutil detach "${m}" 2>/dev/null || true
     done
+    for tmp in "${SACD_TMP_DIRS[@]:-}"; do
+      [ -n "${tmp}" ] && rm -rf "${tmp}"
+    done
+    return 0
   }
-  trap detach_mounts EXIT
+  trap 'status=$?; detach_mounts; exit "$status"' EXIT
+  trap 'detach_mounts; exit 130' HUP INT TERM
 
   while IFS= read -r -d '' iso_file; do
     album_dir="$(dirname "${iso_file}")"
@@ -889,6 +996,18 @@ PYEOF
     log ""
     log "--- ${album_name} ---"
     mkdir -p "${album_output}"
+
+    if [ "${RAW_CD}" = true ]; then
+        if [ -f "${album_dir}/专辑曲目.txt" ]; then
+            process_raw "${iso_file}" "${album_dir}" "${album_name}" "${album_output}" "${album_dir}/专辑曲目.txt"
+            copy_images "${album_dir}" "${album_output}"
+            inc_albums
+        else
+            inc_errors
+            log "  ERROR: --raw-cd requires 专辑曲目.txt"
+        fi
+        continue
+    fi
 
     # Single mount per ISO: the discovered audio dir is handed to process_k2hd,
     # which never re-mounts; detach here as soon as processing is done.
@@ -909,7 +1028,15 @@ PYEOF
 
     log "  Checking for 2C_AUDIO/TRACK in ISO..."
     _7z_tmp=$(mktemp)
-    if 7z l "${iso_file}" > "${_7z_tmp}" 2>&1 && grep -q '2C_AUDIO/TRACK' "${_7z_tmp}"; then
+    listing_found=false
+    for attempt in 1 2 3; do
+        if 7z l "${iso_file}" > "${_7z_tmp}" 2>&1 && grep -q '2C_AUDIO/TRACK' "${_7z_tmp}"; then
+            listing_found=true
+            break
+        fi
+        [ "${attempt}" -lt 3 ] && sleep 1
+    done
+    if [ "${listing_found}" = true ]; then
         rm -f "${_7z_tmp}"
         log "  Found 2C_AUDIO/TRACK - extracting with 7z"
         extract_dir=$(mktemp -d)
@@ -926,15 +1053,25 @@ PYEOF
         rm -rf "${extract_dir}"
     else
         rm -f "${_7z_tmp}"
-        log "  2C_AUDIO/TRACK not found - trying raw CD audio"
+        log "  2C_AUDIO/TRACK not found - trying raw SACD-R extraction"
     fi
 
-    if [ -f "${album_dir}/专辑曲目.txt" ]; then
-        process_raw "${iso_file}" "${album_dir}" "${album_name}" "${album_output}" "${album_dir}/专辑曲目.txt"
-        copy_images "${album_dir}" "${album_output}"
-        inc_albums
+    SACD_EXTRACTED=false
+    if command -v sacd_extract >/dev/null 2>&1; then
+        if process_raw_sacd "${iso_file}" "${album_dir}" "${album_name}" "${album_output}"; then
+            copy_images "${album_dir}" "${album_output}"
+            inc_albums
+            continue
+        fi
     else
-        log "  SKIP: no track list and not a standard K2HD ISO"
+        log "  sacd_extract not found - raw SACD-R extraction unavailable"
+    fi
+
+    if [ "${SACD_EXTRACTED}" = false ]; then
+        inc_errors
+        log "  ERROR: unsupported ISO or failed SACD extraction (raw CD PCM requires --raw-cd)"
+    else
+        log "  ERROR: raw SACD-R conversion did not complete"
     fi
   done < <(find "${SOURCE_DIR}" -maxdepth 2 -type f -iname "*.iso" -print0 | sort -zV)
 
@@ -944,6 +1081,7 @@ PYEOF
   log "Albums: ${TOTAL_ALBUMS}  Tracks: ${TOTAL_TRACKS}  Errors: ${TOTAL_ERRORS}"
   log "Output: ${OUTPUT_BASE}"
   log "============================================================"
+  [ "${TOTAL_ERRORS}" -eq 0 ]
 }
 
 # ── unrar ────────────────────────────────────────────────────────────────────

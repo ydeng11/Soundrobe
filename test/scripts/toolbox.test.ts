@@ -115,6 +115,25 @@ describe("toolbox.sh dispatcher", () => {
     }
   });
 
+  it("converts raw PCM only when --raw-cd is explicitly selected", () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "toolbox-raw-cd-"));
+    try {
+      const sourceDir = path.join(tmpDir, "Album");
+      fs.mkdirSync(sourceDir);
+      fs.writeFileSync(path.join(sourceDir, "album.iso"), Buffer.alloc(44100 * 4));
+      writeFile(path.join(sourceDir, "专辑曲目.txt"), "1. Silence\n");
+      const r = runTool(
+        ["slice-iso", sourceDir, "--raw-cd", "--output", path.join(tmpDir, "out")],
+        { SLICE_ISOS_LOG: path.join(tmpDir, "slice.log") },
+      );
+      expect(r.status).toBe(0);
+      expect(r.stdout).not.toContain("sacd_extract");
+      expect(fs.existsSync(path.join(tmpDir, "out", "Album", "01 Silence.flac"))).toBe(true);
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
   it("discovers uppercase ISO extensions", () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "toolbox-slice-iso-"));
     try {
@@ -122,7 +141,7 @@ describe("toolbox.sh dispatcher", () => {
       const binDir = path.join(tmpDir, "bin");
       fs.mkdirSync(binDir, { recursive: true });
       writeFile(path.join(sourceDir, "album.ISO"), "not-an-iso");
-      for (const command of ["hdiutil", "7z"]) {
+      for (const command of ["hdiutil", "7z", "sacd_extract"]) {
         const fake = path.join(binDir, command);
         writeFile(fake, "#!/bin/sh\nexit 1\n");
         fs.chmodSync(fake, 0o755);
@@ -135,9 +154,213 @@ describe("toolbox.sh dispatcher", () => {
           SLICE_ISOS_LOG: path.join(tmpDir, "slice-isos.log"),
         },
       );
-      expect(r.status).toBe(0);
+      expect(r.status).toBe(1);
       expect(r.stdout).toContain("--- Album ---");
-      expect(r.stdout).toContain("SKIP: no track list and not a standard K2HD ISO");
+      expect(r.stdout).toContain("ERROR: unsupported ISO");
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  it("extracts raw SACD-R ISOs through sacd_extract in stereo DSF mode", () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "toolbox-sacd-r-"));
+    try {
+      const sourceDir = path.join(tmpDir, "Album");
+      const binDir = path.join(tmpDir, "bin");
+      const outputDir = path.join(tmpDir, "out");
+      const fixtureFlac = path.join(tmpDir, "fixture.flac");
+      const argsFile = path.join(tmpDir, "sacd-args.txt");
+      fs.mkdirSync(binDir, { recursive: true });
+      writeFile(path.join(sourceDir, "album.ISO"), "raw-sacd-r");
+      makeSineFlac(fixtureFlac, 1);
+
+      for (const command of ["hdiutil", "7z"]) {
+        const fake = path.join(binDir, command);
+        writeFile(fake, "#!/bin/sh\nexit 1\n");
+        fs.chmodSync(fake, 0o755);
+      }
+      const fakeExtractor = path.join(binDir, "sacd_extract");
+      writeFile(
+        fakeExtractor,
+        `#!/bin/sh
+printf '%s\\n' "$@" > "${argsFile}"
+printf 'raw-dsf' > '01 Sample Track.dsf'
+`,
+      );
+      fs.chmodSync(fakeExtractor, 0o755);
+      const fakeFfmpeg = path.join(binDir, "ffmpeg");
+      writeFile(
+        fakeFfmpeg,
+        `#!/bin/sh
+out=""
+for arg in "$@"; do out="$arg"; done
+cp "${fixtureFlac}" "$out"
+`,
+      );
+      fs.chmodSync(fakeFfmpeg, 0o755);
+
+      const r = runTool(
+        ["slice-iso", sourceDir, "--artist", "The Beatles", "--output", outputDir],
+        {
+          PATH: `${binDir}:${process.env.PATH ?? ""}`,
+          SLICE_ISOS_LOG: path.join(tmpDir, "slice-isos.log"),
+        },
+      );
+      expect(r.status).toBe(0);
+      expect(r.stdout).toContain("raw SACD-R");
+      expect(r.stdout).toContain("Tracks: 1");
+      expect(r.stdout).toContain("Errors: 0");
+      expect(fs.readFileSync(argsFile, "utf8")).toContain("-2\n");
+      expect(fs.readFileSync(argsFile, "utf8")).toContain("-s\n");
+      expect(fs.readFileSync(argsFile, "utf8")).toContain("-c\n");
+      expect(fs.readFileSync(argsFile, "utf8")).toContain(`-i${path.join(sourceDir, "album.ISO")}\n`);
+      expect(fs.existsSync(path.join(outputDir, "Album", "01 Sample Track.flac"))).toBe(true);
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  it("fails and cleans up when sacd_extract produces no DSF tracks", () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "toolbox-sacd-r-fail-"));
+    try {
+      const sourceDir = path.join(tmpDir, "Album");
+      const binDir = path.join(tmpDir, "bin");
+      const outputDir = path.join(tmpDir, "out");
+      const extractDirFile = path.join(tmpDir, "extract-dir.txt");
+      fs.mkdirSync(binDir, { recursive: true });
+      writeFile(path.join(sourceDir, "album.ISO"), "raw-sacd-r");
+      writeFile(path.join(sourceDir, "专辑曲目.txt"), "1. Sample Track\n");
+
+      for (const command of ["hdiutil", "7z"]) {
+        const fake = path.join(binDir, command);
+        writeFile(fake, "#!/bin/sh\nexit 1\n");
+        fs.chmodSync(fake, 0o755);
+      }
+      const fakeExtractor = path.join(binDir, "sacd_extract");
+      writeFile(
+        fakeExtractor,
+        `#!/bin/sh
+printf '%s' "$PWD" > "${extractDirFile}"
+exit 0
+`,
+      );
+      fs.chmodSync(fakeExtractor, 0o755);
+
+      const r = runTool(
+        ["slice-iso", sourceDir, "--artist", "The Beatles", "--output", outputDir],
+        {
+          PATH: `${binDir}:${process.env.PATH ?? ""}`,
+          SLICE_ISOS_LOG: path.join(tmpDir, "slice-isos.log"),
+        },
+      );
+      expect(r.status).toBe(1);
+      expect(r.stdout).toContain("sacd_extract produced no DSF tracks");
+      expect(r.stdout).not.toContain("Converting ISO to WAV");
+      expect(r.stdout).toContain("Errors: 1");
+      expect(fs.existsSync(fs.readFileSync(extractDirFile, "utf8"))).toBe(false);
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  it("fails and cleans up when sacd_extract exits nonzero", () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "toolbox-sacd-r-error-"));
+    try {
+      const sourceDir = path.join(tmpDir, "Album");
+      const binDir = path.join(tmpDir, "bin");
+      const extractDirFile = path.join(tmpDir, "extract-dir.txt");
+      fs.mkdirSync(binDir, { recursive: true });
+      writeFile(path.join(sourceDir, "album.ISO"), "raw-sacd-r");
+
+      for (const command of ["hdiutil", "7z"]) {
+        const fake = path.join(binDir, command);
+        writeFile(fake, "#!/bin/sh\nexit 1\n");
+        fs.chmodSync(fake, 0o755);
+      }
+      const fakeExtractor = path.join(binDir, "sacd_extract");
+      writeFile(
+        fakeExtractor,
+        `#!/bin/sh
+printf '%s' "$PWD" > "${extractDirFile}"
+printf 'extractor failed' >&2
+exit 1
+`,
+      );
+      fs.chmodSync(fakeExtractor, 0o755);
+
+      const r = runTool(
+        ["slice-iso", sourceDir, "--artist", "The Beatles", "--output", path.join(tmpDir, "out")],
+        {
+          PATH: `${binDir}:${process.env.PATH ?? ""}`,
+          SLICE_ISOS_LOG: path.join(tmpDir, "slice-isos.log"),
+        },
+      );
+      expect(r.status).toBe(1);
+      expect(r.stdout).toContain("sacd_extract failed");
+      expect(fs.existsSync(fs.readFileSync(extractDirFile, "utf8"))).toBe(false);
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  it.each([0, 2])("decodes sector-packed DSD after %i transient listing failures", (failures) => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "toolbox-dsd-"));
+    try {
+      const sourceDir = path.join(tmpDir, "Album");
+      const binDir = path.join(tmpDir, "bin");
+      const outputDir = path.join(tmpDir, "out");
+      const sourceTrack = path.join(tmpDir, "TRACK001.2CH");
+      const attemptsFile = path.join(tmpDir, "attempts");
+      fs.mkdirSync(binDir, { recursive: true });
+      const sector = Buffer.concat([Buffer.alloc(32), Buffer.alloc(2016, 0xff)]);
+      fs.writeFileSync(sourceTrack, Buffer.concat(Array.from({ length: 100 }, () => sector)));
+      writeFile(path.join(sourceDir, "album.ISO"), "not-an-iso");
+
+      const fakeHdiutil = path.join(binDir, "hdiutil");
+      writeFile(fakeHdiutil, "#!/bin/sh\nexit 1\n");
+      fs.chmodSync(fakeHdiutil, 0o755);
+      const fake7z = path.join(binDir, "7z");
+      writeFile(
+        fake7z,
+        `#!/bin/sh
+if [ "$1" = l ]; then
+  count=0
+  [ ! -f "${attemptsFile}" ] || count=$(cat "${attemptsFile}")
+  count=$((count + 1))
+  printf '%s' "$count" > "${attemptsFile}"
+  [ "$count" -gt ${failures} ] || exit 1
+  printf '2C_AUDIO/TRACK001.2CH\\n'
+  exit 0
+fi
+out="\${2#-o}"
+mkdir -p "$out/2C_AUDIO"
+cp "${sourceTrack}" "$out/2C_AUDIO/TRACK001.2CH"
+`,
+      );
+      fs.chmodSync(fake7z, 0o755);
+
+      const r = runTool(
+        ["slice-iso", sourceDir, "--artist", "The Beatles", "--output", outputDir],
+        {
+          PATH: `${binDir}:${process.env.PATH ?? ""}`,
+          SLICE_ISOS_LOG: path.join(tmpDir, "slice-isos.log"),
+        },
+      );
+      expect(r.status).toBe(0);
+      expect(r.stdout).toContain("Tracks: 1");
+      expect(r.stdout).toContain("DSD64");
+      expect(fs.readFileSync(attemptsFile, "utf8")).toBe(String(failures + 1));
+      expect(r.stdout).toContain("Errors: 0");
+
+      const output = path.join(outputDir, "Album", "01 Track 1.flac");
+      const probe = spawnSync("ffprobe", [
+        "-v", "error", "-show_entries", "stream=sample_rate:format=duration", "-of", "default=nw=1", output,
+      ], { encoding: "utf8" });
+      expect(probe.status).toBe(0);
+      expect(probe.stdout).toContain("sample_rate=96000");
+      const duration = Number(probe.stdout.match(/duration=([0-9.]+)/)?.[1]);
+      expect(duration).toBeGreaterThan(0.25);
+      expect(duration).toBeLessThan(0.3);
     } finally {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }
