@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.7] - 2026-09-09
+
 ### Added
 
 - Auto-tag Results now opens an album review with complete metadata comparisons, lyrics, artwork previews, matching evidence, and retry/manual-search actions. Reviews remain available during the current session.
