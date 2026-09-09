@@ -2506,6 +2506,7 @@ pub(crate) async fn resolve_and_apply_album_with_retry_context(
             retry_count: musicbrainz_metrics.retry_count(),
             retry_after_seconds: musicbrainz_metrics.max_retry_after_seconds(),
         });
+        if let Some(review) = super::auto_tag_review::active_review() { review.evidence("providerAttempts", serde_json::json!(provider_attempts)); }
         report(
             "source",
             format!("MusicBrainz: {count} candidate(s)"),
@@ -2579,6 +2580,7 @@ pub(crate) async fn resolve_and_apply_album_with_retry_context(
             retry_count: discogs_metrics.retry_count(),
             retry_after_seconds: discogs_metrics.max_retry_after_seconds(),
         });
+        if let Some(review) = super::auto_tag_review::active_review() { review.evidence("providerAttempts", serde_json::json!(provider_attempts)); }
         report(
             "source",
             format!("Discogs releases: {count} candidate(s)"),
@@ -2741,6 +2743,12 @@ pub(crate) async fn resolve_and_apply_album_with_retry_context(
     progress(9, "Applying tags...");
     let candidate = convert_candidate_chinese(&candidate, config.chinese_script.as_deref());
 
+    if let Some(review) = super::auto_tag_review::active_review() {
+        review.evidence("candidate", serde_json::json!(candidate));
+        review.evidence("providerAttempts", serde_json::json!(provider_attempts));
+        review.evidence("diagnostics", serde_json::json!(provider_diagnostics));
+    }
+
     // Fetch lyrics before writing tags so both can be written in one pass,
     // eliminating a separate file rewrite on the lyrics pass.
     let lyrics_url = if config.lyrics_download_enabled == Some(true) {
@@ -2864,7 +2872,15 @@ pub fn album_auto_tag(
         let progress_task_id = spawned_task_id.clone();
         let report_app = app.clone();
         let report_task_id = spawned_task_id.clone();
-        let operation = resolve_and_apply_album_with_retry_context(
+        let reviews = app.state::<super::auto_tag_review::ReviewStore>();
+        let review = match queue.run_exclusive(async { reviews.begin(&spawned_task_id, &path) }).await {
+            Ok(review) => review,
+            Err(error) => {
+                tasks.finish(&spawned_task_id, TaskStatus::Failed, error.to_string(), serde_json::json!({"error": error.to_string()}));
+                return;
+            }
+        };
+        let operation = super::auto_tag_review::ACTIVE_REVIEW.scope(review, resolve_and_apply_album_with_retry_context(
             &path,
             &config,
             AutoTagServices {
@@ -2885,6 +2901,7 @@ pub fn album_auto_tag(
                 }
             },
             move |kind, message, data| {
+                if let Some(review) = super::auto_tag_review::active_review() { review.event(kind, &message, data.as_ref()); }
                 let progress = report_app
                     .state::<TaskRegistry>()
                     .get(&report_task_id)
@@ -2895,12 +2912,20 @@ pub fn album_auto_tag(
                     auto_tag_event(&report_task_id, kind, message, progress, data),
                 );
             },
-        )
-        .await;
+        )).await;
+
+        let (review_outcome, review_result) = match &operation {
+            Ok(result) => (if result.outcome == AutoTagOutcome::Applied { "applied" } else { "needs_review" }, serde_json::to_value(result).unwrap_or_default()),
+            Err(error) => (if cancelled.load(Ordering::Acquire) { "cancelled" } else { "failed" }, serde_json::json!({"error": error.to_string()})),
+        };
+        if let Err(error) = queue.run_exclusive(async { reviews.finish(&spawned_task_id, review_outcome, review_result) }).await {
+            tracing::error!(%error, "auto-tag review readback failed");
+        }
 
         match operation {
             Ok(result) => {
-                let data = serde_json::to_value(&result).unwrap_or_default();
+                let mut data = serde_json::to_value(&result).unwrap_or_default();
+                data["reviewId"] = serde_json::json!(spawned_task_id);
                 match result.outcome {
                     AutoTagOutcome::Applied => {
                         let candidate = result
@@ -2952,7 +2977,7 @@ pub fn album_auto_tag(
                     &spawned_task_id,
                     TaskStatus::Cancelled,
                     "Cancelled",
-                    serde_json::Value::Null,
+                    serde_json::json!({"reviewId": spawned_task_id}),
                 );
                 let _ = app.emit(
                     "auto-tag:event",
@@ -2962,7 +2987,7 @@ pub fn album_auto_tag(
             }
             Err(error) => {
                 let message = error.to_string();
-                let data = serde_json::json!({"error": message});
+                let data = serde_json::json!({"error": message, "reviewId": spawned_task_id});
                 tasks.finish(&spawned_task_id, TaskStatus::Failed, &message, data.clone());
                 let _ = app.emit(
                     "auto-tag:event",

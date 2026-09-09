@@ -642,6 +642,35 @@ describe("App — modification history", () => {
     ]);
   });
 
+  it.each(["global undo", "album review"])("uses the native full-recovery record from %s", async (action) => {
+    const review = { id: "native-review", albumPath: "/music/Test Album", outcome: "applied" as const, decision: "pending" as const, result: {}, before: { tracks: [], artworks: [], errors: [] }, after: { tracks: [], artworks: [], errors: [] }, canRevert: true, errors: [] };
+    window.api.getAutoTagReview = vi.fn().mockResolvedValue(review);
+    window.api.revertAutoTagReview = vi.fn().mockResolvedValue({ ...review, decision: "reverted", canRevert: false });
+    window.api.listAutoTagReviews = vi.fn().mockResolvedValue([review]);
+    vi.mocked(window.api.autoTagAlbum).mockResolvedValue("native-task");
+    vi.mocked(window.api.getTaskProgress).mockResolvedValue({ taskId: "native-task", status: "completed", progress: 9, total: 9, message: "Applied", result: { reviewId: "native-review" } });
+    render(<App />);
+    fireEvent.click(screen.getByText("Open Library"));
+    await waitFor(() => expect(screen.getAllByTestId(/^file-row-/)).toHaveLength(2));
+    fireEvent.click(screen.getByText("Auto-Tag"));
+    await screen.findByRole("button", { name: "Review album" });
+    await waitFor(() => expect(vi.mocked(window.api.getAutoTagReview)).toHaveBeenCalledWith("native-review"));
+    const undo = screen.getByRole("button", { name: "Undo latest modification" });
+    await waitFor(() => expect((undo as HTMLButtonElement).disabled).toBe(false));
+    if (action === "global undo") {
+      fireEvent.click(screen.getByRole("button", { name: "Done" }));
+      fireEvent.click(undo);
+    } else {
+      vi.spyOn(window, "confirm").mockReturnValue(true);
+      fireEvent.click(screen.getByRole("button", { name: "Review album" }));
+      fireEvent.click(await screen.findByRole("button", { name: "Revert album" }));
+    }
+    await waitFor(() => expect(window.api.revertAutoTagReview).toHaveBeenCalledWith("native-review"));
+    expect(window.api.writeTrack).not.toHaveBeenCalled();
+    await waitFor(() => expect((undo as HTMLButtonElement).disabled).toBe(true));
+    vi.restoreAllMocks();
+  });
+
   it("shows needs-review as a warning without readback or undo creation", async () => {
     (window.api.autoTagAlbum as ReturnType<typeof vi.fn>).mockResolvedValue(
       "task-review",

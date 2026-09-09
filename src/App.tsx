@@ -56,6 +56,7 @@ import type {
   AlbumDetail,
   AuditRunSummary,
   AuditTrackResult,
+  AutoTagReviewDetail,
   PreviewMatchResult,
   AlbumCandidate,
   ProviderAlbum,
@@ -67,6 +68,7 @@ import {
 import { useAppUpdater } from "./state/useAppUpdater";
 import {
   runAutoTagBatch,
+  summaryFromReviews,
   type AutoTagBatchSummary,
 } from "./state/auto-tag-batch";
 
@@ -682,6 +684,14 @@ export default function App() {
                 : null;
 
             try {
+              if (typeof remainingFields.autoTagReviewId === "string") {
+                const review = await window.api.revertAutoTagReview(remainingFields.autoTagReviewId);
+                const album = await window.api.readAlbum(review.albumPath);
+                dispatch({ type: "UPDATE_TRACKS", tracks: album.tracks });
+                coverUrlCacheRef.current.delete(review.albumPath);
+                fetchCover(review.albumPath);
+                return null;
+              }
               if (oldPath && snapshot.path !== oldPath) {
                 const track = await window.api.renameTrack(
                   snapshot.path,
@@ -768,16 +778,41 @@ export default function App() {
         dispatch({ type: "SET_REVERTING", reverting: false });
       }
     },
-    [state.reverting, state.saving, state.undoManager],
+    [state.reverting, state.saving, state.undoManager, fetchCover],
+  );
+
+  const recordAutoTagReviewHistory = useCallback(
+    async (summary: AutoTagBatchSummary) => {
+      const journaled = new Set<string>();
+      for (const item of summary.items) {
+        if (!item.reviewId) continue;
+        journaled.add(item.albumPath);
+        const review = await window.api.getAutoTagReview(item.reviewId);
+        if (review.canRevert) {
+          dispatch({
+            type: "PUSH_UNDO",
+            description: `Auto-tag: ${basename(item.albumPath)}`,
+            snapshots: [
+              {
+                path: item.albumPath,
+                fields: { autoTagReviewId: item.reviewId },
+              },
+            ],
+          });
+        }
+      }
+      return journaled;
+    },
+    [],
   );
 
   // --- Auto-Tag ---
 
-  const handleAutoTag = useCallback(async () => {
+  const handleAutoTag = useCallback(async (reviewAlbumPath?: string) => {
     if (!state.libraryPath || state.autoTagging) return;
 
     // Determine which album paths to tag
-    const targetPaths = state.activeAlbumPath
+    const targetPaths = reviewAlbumPath ? [reviewAlbumPath] : state.activeAlbumPath
       ? [state.activeAlbumPath]
       : state.albums.map((a) => a.path);
 
@@ -785,8 +820,6 @@ export default function App() {
       dispatch({ type: "SET_ERROR", error: "No albums found to tag" });
       return;
     }
-
-    const isBatch = targetPaths.length > 1;
 
     dispatch({ type: "SET_AUTO_TAGGING", autoTagging: true });
     dispatch({ type: "SET_ERROR", error: null });
@@ -798,6 +831,7 @@ export default function App() {
     let snapshots: TrackSnapshot[] = [];
     let autoTagReadback: TrackData[] = [];
     let historyRecorded = false;
+    let journaledAlbums = new Set<string>();
 
     const recordAttemptedAutoTag = async (attemptedAlbumPaths: string[]) => {
       if (historyRecorded || attemptedAlbumPaths.length === 0) {
@@ -821,7 +855,7 @@ export default function App() {
       }
       const attempted = new Set(attemptedAlbumPaths);
       const changedSnapshots = filterChangedSnapshots(
-        snapshots.filter((snapshot) => attempted.has(dirPath(snapshot.path))),
+        snapshots.filter((snapshot) => attempted.has(dirPath(snapshot.path)) && !journaledAlbums.has(dirPath(snapshot.path))),
         autoTagReadback,
       );
       if (changedSnapshots.length > 0) {
@@ -855,7 +889,8 @@ export default function App() {
         onProgress: (progress) =>
           dispatch({ type: "SET_AUTO_TAG_PROGRESS", progress }),
       });
-      if (isBatch) setAutoTagSummary(summary);
+      setAutoTagSummary(summary);
+      journaledAlbums = await recordAutoTagReviewHistory(summary);
       const attemptedAlbumPaths = summary.items
         .filter((item) => item.readbackRequired)
         .map((item) => item.albumPath);
@@ -945,6 +980,7 @@ export default function App() {
     state.autoTagging,
     fetchCover,
     loadAlbumTracks,
+    recordAutoTagReviewHistory,
   ]);
 
   // --- Audit: LLM-based metadata verification against file paths ---
@@ -1793,6 +1829,7 @@ export default function App() {
       );
       const attemptedAlbumPaths: string[] = [];
       let historyRecorded = false;
+      let journaledAlbums = new Set<string>();
       const recordAttemptedAutoTag = async () => {
         if (historyRecorded || attemptedAlbumPaths.length === 0) return;
         const attempted = new Set(attemptedAlbumPaths);
@@ -1814,7 +1851,7 @@ export default function App() {
           dispatch({ type: "UPDATE_TRACKS", tracks: readbacks });
         }
         const changedSnapshots = filterChangedSnapshots(
-          snapshots.filter((snapshot) => attempted.has(dirPath(snapshot.path))),
+          snapshots.filter((snapshot) => attempted.has(dirPath(snapshot.path)) && !journaledAlbums.has(dirPath(snapshot.path))),
           readbacks,
         );
         if (changedSnapshots.length > 0) {
@@ -1848,7 +1885,8 @@ export default function App() {
           onProgress: (progress) =>
             dispatch({ type: "SET_AUTO_TAG_PROGRESS", progress }),
         });
-        if (albumPaths.length > 1) setAutoTagSummary(summary);
+        setAutoTagSummary(summary);
+        journaledAlbums = await recordAutoTagReviewHistory(summary);
         attemptedAlbumPaths.push(
           ...summary.items
             .filter((item) => item.readbackRequired)
@@ -1905,6 +1943,7 @@ export default function App() {
     },
     [
       handleAssistantRefresh,
+      recordAutoTagReviewHistory,
       state.auditing,
       state.autoTagging,
       state.libraryPath,
@@ -1948,6 +1987,7 @@ export default function App() {
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      if (document.querySelector('[role="dialog"]')) return;
       if ((e.metaKey || e.ctrlKey) && e.key === "o") {
         e.preventDefault();
         handleOpenLibrary();
@@ -2405,6 +2445,37 @@ export default function App() {
     [],
   );
 
+  const openAutoTagResults = async () => {
+    try {
+      const reviews = await window.api.listAutoTagReviews();
+      setAutoTagSummary(summaryFromReviews(reviews));
+    } catch (error) {
+      dispatch({ type: "SET_ERROR", error: String(error) });
+    }
+  };
+  const handleReviewChanged = async (review: AutoTagReviewDetail) => {
+    if (review.decision !== "reverted") return;
+    const history = state.undoManager.history;
+    const remaining = history
+      .map((operation) => ({
+        ...operation,
+        snapshots: operation.snapshots.filter(
+          (snapshot) => snapshot.fields.autoTagReviewId !== review.id,
+        ),
+      }))
+      .filter((operation) => operation.snapshots.length > 0);
+    dispatch({
+      type: "APPLY_UNDO_RESULT",
+      undoManager: state.undoManager.replaceHistory(remaining),
+      baseOperationIds: history.map((operation) => operation.id),
+    });
+    const album = await window.api.readAlbum(review.albumPath);
+    dispatch({ type: "UPDATE_TRACKS", tracks: album.tracks });
+    coverUrlCacheRef.current.delete(review.albumPath);
+    if (state.activeAlbumPath === review.albumPath)
+      fetchCover(review.albumPath);
+  };
+
   const mutationBusy = state.saving || state.reverting || assistantApplying;
 
   return (
@@ -2426,7 +2497,8 @@ export default function App() {
         onOpenLibrary={handleOpenLibrary}
         onRefresh={handleRefresh}
         onConvert={handleConvert}
-        onAutoTag={handleAutoTag}
+        onAutoTag={() => void handleAutoTag()}
+        onAutoTagResults={() => void openAutoTagResults()}
         onSearch={handleSearch}
         onGetLyrics={handleGetLyrics}
         onAudit={handleAudit}
@@ -2648,6 +2720,10 @@ export default function App() {
 
       <AutoTagSummaryDialog
         summary={autoTagSummary}
+        busy={mutationBusy || state.autoTagging || state.auditing}
+        onRetry={(albumPath) => void handleAutoTag(albumPath)}
+        onSearch={(albumPath) => { handleSelectAlbum(albumPath); setAutoTagSummary(null); setShowSearchDialog(true); }}
+        onChanged={handleReviewChanged}
         onClose={() => setAutoTagSummary(null)}
       />
 

@@ -112,6 +112,31 @@ export interface AlbumDetail {
   }>;
 }
 
+export interface AutoTagReviewArtwork {
+  id: string;
+  label: string;
+  source: string;
+  width: number | null;
+  height: number | null;
+  error: string | null;
+}
+export interface AutoTagReviewView {
+  tracks: Array<Record<string, unknown> & { path: string }>;
+  artworks: AutoTagReviewArtwork[];
+  errors: string[];
+}
+export interface AutoTagReviewDetail {
+  id: string;
+  albumPath: string;
+  outcome: "running" | "applied" | "needs_review" | "failed" | "cancelled";
+  decision: "pending" | "kept" | "reverted";
+  result: Record<string, unknown> | null;
+  before: AutoTagReviewView;
+  after: AutoTagReviewView;
+  canRevert: boolean;
+  errors: string[];
+}
+
 export interface TaskProgress {
   taskId: string;
   status: "running" | "completed" | "needs_review" | "failed" | "cancelled";
@@ -586,6 +611,11 @@ export interface DesktopAPI {
 
   // Auto-tag
   autoTagAlbum: (albumPath: string) => Promise<string>;
+  listAutoTagReviews: () => Promise<AutoTagReviewDetail[]>;
+  getAutoTagReview: (reviewId: string) => Promise<AutoTagReviewDetail>;
+  markAutoTagReviewed: (reviewId: string) => Promise<AutoTagReviewDetail>;
+  revertAutoTagReview: (reviewId: string) => Promise<AutoTagReviewDetail>;
+  getAutoTagReviewArtwork: (reviewId: string, artworkId: string) => Promise<string>;
   downloadAlbumLyrics: (albumPath: string) => Promise<LyricsBatchReport>;
   onAutoTagEvent: (callback: (event: AutoTagEvent) => void) => () => void;
   onTrackWriteEvent: (callback: (event: TrackWriteEvent) => void) => () => void;

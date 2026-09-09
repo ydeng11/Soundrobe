@@ -154,6 +154,11 @@ export function createTauriDesktopApi(): DesktopAPI {
     setConfig: (key, value) => invokeCommand("config:set", { key, value }),
 
     // Auto-tag
+    listAutoTagReviews: () => invokeCommand("auto-tag:reviews:list"),
+    getAutoTagReview: (reviewId) => invokeCommand("auto-tag:review:get", { reviewId }),
+    markAutoTagReviewed: (reviewId) => invokeCommand("auto-tag:review:keep", { reviewId }),
+    revertAutoTagReview: (reviewId) => invokeCommand("auto-tag:review:revert", { reviewId }),
+    getAutoTagReviewArtwork: (reviewId, artworkId) => invokeCommand("auto-tag:review:artwork", { reviewId, artworkId }),
     autoTagAlbum: (albumPath) => invokeCommand("album:auto-tag", { albumPath }),
     downloadAlbumLyrics: (albumPath) =>
       invokeCommand("album:download-lyrics", { albumPath }),

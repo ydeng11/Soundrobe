@@ -66,7 +66,7 @@ fn cover_cache_set(album_path: &str, data_url: Option<String>) {
     cover_disk_cache_set(album_path, &data_url);
 }
 
-fn cover_cache_invalidate(album_path: &str) {
+pub(crate) fn cover_cache_invalidate(album_path: &str) {
     if let Ok(mut cache) = COVER_SOURCE_CACHE.lock() {
         cache.remove(album_path);
     }
@@ -319,14 +319,30 @@ async fn download_artwork_at(
     let destination_for_write = destination.clone();
     let bytes_for_write = bytes.clone();
     let album_for_suppression = album_path.to_path_buf();
+    let review = super::auto_tag_review::active_review();
     let written = queue
-        .run(async move {
+        .run_exclusive(async move {
             tokio::task::spawn_blocking(move || {
-                fs::write(&destination_for_write, bytes_for_write)?;
-                if kind == ArtworkKind::Album {
-                    clear_cover_suppression(&album_for_suppression)?;
+                let journaled = review.is_some();
+                let write = || -> Result<(), ApiError> {
+                    if journaled && kind == ArtworkKind::Album && is_cover_suppressed(&album_for_suppression) {
+                        return Err(ApiError::Message("Cover remains removed: suppression changed during lookup".into()));
+                    }
+                    fs::write(&destination_for_write, bytes_for_write)?;
+                    if kind == ArtworkKind::Album && !journaled {
+                        clear_cover_suppression(&album_for_suppression)?;
+                    }
+                    Ok(())
+                };
+                if let Some(review) = review {
+                    let result = review.mutate(&destination_for_write, write);
+                    if let Err(error) = &result {
+                        review.report_error(format!("Artwork write failed: {}: {error}", destination_for_write.display()));
+                    }
+                    result
+                } else {
+                    write()
                 }
-                Ok::<_, std::io::Error>(())
             })
             .await
             .ok()

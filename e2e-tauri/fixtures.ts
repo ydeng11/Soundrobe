@@ -272,6 +272,7 @@ export function prepareE2eWorkspace(): E2eWorkspace {
 
   // Write a cover image so the Remove button appears in the right panel
   createCoverPng(path.join(workflowAlbum, "cover.png"));
+  createCoverPng(path.join(autoTagAlbum, "cover.png"));
 
   const manifest: E2eManifest = {
     root,

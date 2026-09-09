@@ -26,6 +26,7 @@ interface TitleBarProps {
   onRefresh: () => void;
   onConvert: () => void;
   onAutoTag: () => void;
+  onAutoTagResults?: () => void;
   onSearch: () => void;
   onGetLyrics: () => void;
   onAudit: () => void;
@@ -62,6 +63,7 @@ export function TitleBar({
   onRefresh,
   onConvert,
   onAutoTag,
+  onAutoTagResults,
   onSearch,
   onGetLyrics,
   onAudit,
@@ -298,6 +300,8 @@ export function TitleBar({
           </div>
         )}
       </div>
+
+      {onAutoTagResults && <button type="button" onClick={onAutoTagResults} disabled={autoTagging || saving || reverting} className="px-2 py-1 text-xs rounded hover:bg-surface-hover disabled:opacity-50" title="Reopen this session’s auto-tag results">Results</button>}
 
       {/* Auto-Tag button */}
       <button

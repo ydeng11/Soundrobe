@@ -49,6 +49,7 @@ describe("runAutoTagBatch", () => {
             status,
             status === "needs_review"
               ? {
+                  reviewId: taskId,
                   reasonCode: permanentNoMatch
                     ? "ai_validation_failed"
                     : "provider_unavailable",
@@ -61,7 +62,7 @@ describe("runAutoTagBatch", () => {
                     },
                   ],
                 }
-              : { outcome: "applied", written: 1 },
+              : { outcome: "applied", written: 1, reviewId: taskId },
           ),
         );
         return taskId;
@@ -76,6 +77,7 @@ describe("runAutoTagBatch", () => {
       sleep,
     });
 
+    expect(summary.items.find((item) => item.albumPath === "/music/Album 3")?.reviewId).toBe("/music/Album 3-2");
     expect(attempts.get("/music/Album 3")).toBe(2);
     expect(attempts.get("/music/Album 9")).toBe(2);
     expect(attempts.get("/music/Album 12")).toBe(2);

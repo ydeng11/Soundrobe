@@ -1,5 +1,6 @@
 import type {
   AutoTagProviderAttempt,
+  AutoTagReviewDetail,
   DesktopAPI,
   TaskProgress,
 } from "../shared/desktop-api";
@@ -13,6 +14,7 @@ export type AutoTagBatchItemStatus =
 
 export interface AutoTagBatchItem {
   albumPath: string;
+  reviewId?: string;
   status: AutoTagBatchItemStatus;
   attempts: number;
   message: string;
@@ -236,7 +238,11 @@ async function runAlbumAttempt(
 
       report(progress.message);
       if (progress.status !== "running") {
-        return itemFromProgress(albumPath, attempts, progress);
+        return {
+          ...itemFromProgress(albumPath, attempts, progress),
+          ...(isRecord(progress.result) && typeof progress.result.reviewId === "string"
+            ? { reviewId: progress.result.reviewId } : {}),
+        };
       }
       await sleep(POLL_INTERVAL_MS);
     }
@@ -364,4 +370,18 @@ export async function runAutoTagBatch({
   }
 
   return { items };
+}
+
+/** Reopening retains every session run and its original evidence. */
+export function summaryFromReviews(reviews: AutoTagReviewDetail[]): AutoTagBatchSummary {
+  return { items: reviews.filter((review) => review.outcome !== "running").map((review) => ({
+    albumPath: review.albumPath,
+    reviewId: review.id,
+    status: review.outcome === "running" ? "cancelled" : review.outcome,
+    attempts: Array.isArray(review.result?.earlierAttempts) ? review.result.earlierAttempts.length + 1 : 1,
+    message: review.decision === "pending" ? "Awaiting review" : review.decision === "kept" ? "Reviewed — kept" : "Reverted",
+    reasonCode: resultReasonCode(review.result),
+    providerAttempts: providerAttemptsFromResult(review.result),
+    readbackRequired: false,
+  })) };
 }
