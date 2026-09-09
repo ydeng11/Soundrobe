@@ -100,7 +100,12 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - name: Install Linux build dependencies
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf xvfb
+        run: |
+          # The preinstalled Chrome source is not needed for Soundrobe builds
+          # and can publish stale package indexes during apt-get update.
+          sudo rm -f /etc/apt/sources.list.d/google-chrome.list
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf xvfb
       - name: Install app dependencies
         run: npm ci
       - name: Require updater signing key
