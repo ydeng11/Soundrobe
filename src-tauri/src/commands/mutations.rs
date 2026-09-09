@@ -752,11 +752,16 @@ pub(crate) async fn write_track_queued(
 ) -> Result<(), ApiError> {
     validated_track_extension(&path)?;
     let display_path = path.to_string_lossy().to_string();
+    let review = super::auto_tag_review::active_review();
     queue
-        .run(async move {
+        .run_exclusive(async move {
             tokio::task::spawn_blocking(move || {
                 let write_start = std::time::Instant::now();
-                let result = write_track_dispatch(&path, &patch);
+                let result = if let Some(review) = review {
+                    review.mutate(&path, || write_track_dispatch(&path, &patch))
+                } else {
+                    write_track_dispatch(&path, &patch)
+                };
                 let elapsed = write_start.elapsed();
                 match &result {
                     Ok(_) => tracing::debug!(
@@ -4278,7 +4283,7 @@ fn mpeg_payload(bytes: &[u8]) -> Option<&[u8]> {
 }
 
 #[cfg(not(windows))]
-fn replace_file_atomic(source: &Path, destination: &Path) -> std::io::Result<()> {
+pub(crate) fn replace_file_atomic(source: &Path, destination: &Path) -> std::io::Result<()> {
     // Fast path: same-filesystem rename (atomic on Unix).
     match fs::rename(source, destination) {
         Ok(()) => return Ok(()),
@@ -4325,7 +4330,7 @@ fn replace_file_atomic(source: &Path, destination: &Path) -> std::io::Result<()>
 }
 
 #[cfg(windows)]
-fn replace_file_atomic(source: &Path, destination: &Path) -> std::io::Result<()> {
+pub(crate) fn replace_file_atomic(source: &Path, destination: &Path) -> std::io::Result<()> {
     use std::os::windows::ffi::OsStrExt;
     use windows_sys::Win32::Storage::FileSystem::{
         MoveFileExW, MOVEFILE_REPLACE_EXISTING, MOVEFILE_WRITE_THROUGH,

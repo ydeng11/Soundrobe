@@ -1,3 +1,6 @@
+import React from "react";
+import { AutoTagReview } from "./AutoTagReview";
+import type { AutoTagReviewDetail } from "../shared/desktop-api";
 import type {
   AutoTagBatchItem,
   AutoTagBatchItemStatus,
@@ -7,6 +10,10 @@ import type {
 interface AutoTagSummaryDialogProps {
   summary: AutoTagBatchSummary | null;
   onClose: () => void;
+  onRetry?: (albumPath: string) => void;
+  onSearch?: (albumPath: string) => void;
+  onChanged?: (review: AutoTagReviewDetail) => void | Promise<void>;
+  busy?: boolean;
 }
 
 const statusLabel: Record<AutoTagBatchItemStatus, string> = {
@@ -25,7 +32,10 @@ const statusClass: Record<AutoTagBatchItemStatus, string> = {
   cancelled: "text-text-muted bg-surface-hover border-border/60",
 };
 
-function countStatus(summary: AutoTagBatchSummary, status: AutoTagBatchItemStatus) {
+function countStatus(
+  summary: AutoTagBatchSummary,
+  status: AutoTagBatchItemStatus,
+) {
   return summary.items.filter((item) => item.status === status).length;
 }
 
@@ -38,41 +48,76 @@ function itemDetail(item: AutoTagBatchItem): string {
     0,
   );
   const retryAfterSeconds = item.providerAttempts.reduce(
-    (maximum, attempt) =>
-      Math.max(maximum, attempt.retryAfterSeconds ?? 0),
+    (maximum, attempt) => Math.max(maximum, attempt.retryAfterSeconds ?? 0),
     0,
   );
   const details = [providerDiagnostic ?? item.message];
   if (retryCount > 0) {
-    details.push(`${retryCount} provider retr${retryCount === 1 ? "y" : "ies"}`);
+    details.push(
+      `${retryCount} provider retr${retryCount === 1 ? "y" : "ies"}`,
+    );
   }
   if (retryAfterSeconds > 0) {
     details.push(`max Retry-After ${retryAfterSeconds}s`);
   }
-  if (item.attempts > 1) details.push(`${item.attempts} batch attempts`);
+  if (item.attempts > 1) details.push(`${item.attempts} attempts`);
   return details.join(" · ");
 }
 
 export function AutoTagSummaryDialog({
   summary,
   onClose,
+  onRetry,
+  onSearch,
+  onChanged,
+  busy = false,
 }: AutoTagSummaryDialogProps) {
+  const dialogRef = React.useRef<HTMLDivElement>(null);
+  const closeRef = React.useRef<HTMLButtonElement>(null);
+  React.useEffect(() => {
+    if (!summary) return;
+    const previousFocus = document.activeElement;
+    closeRef.current?.focus();
+    return () => { if (previousFocus instanceof HTMLElement) previousFocus.focus(); };
+  }, [summary]);
+  const [selectedReview, setSelectedReview] = React.useState<string | null>(
+    null,
+  );
+  const [reviewActing, setReviewActing] = React.useState(false);
+  const [tab, setTab] = React.useState<"results" | "review">("results");
+  React.useEffect(() => {
+    setSelectedReview(null);
+    setTab("results");
+  }, [summary]);
   if (!summary) return null;
 
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm"
-      onClick={onClose}
+      onClick={() => {
+        if (!reviewActing) onClose();
+      }}
       onKeyDown={(event) => {
-        if (event.key === "Escape") onClose();
+        if (event.key === "Escape" && !reviewActing) onClose();
       }}
     >
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="auto-tag-summary-title"
-        className="bg-white rounded-xl shadow-xl border border-border/60 w-[min(680px,calc(100vw-2rem))] max-h-[80vh] overflow-hidden"
+        className="bg-white rounded-xl shadow-xl border border-border/60 w-[min(1100px,calc(100vw-2rem))] max-h-[90vh] overflow-hidden"
         onClick={(event) => event.stopPropagation()}
+        onKeyDown={(event) => {
+          if (event.key !== "Tab") return;
+          const controls = Array.from(dialogRef.current?.querySelectorAll<HTMLElement>(
+            'button:not(:disabled), summary, [tabindex="0"]',
+          ) ?? []).filter((element) => !element.closest('details:not([open])') || element.tagName === "SUMMARY");
+          const first = controls[0];
+          const last = controls[controls.length - 1];
+          if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+          else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+        }}
       >
         <div className="flex items-center justify-between px-4 py-3 border-b border-border/50">
           <div>
@@ -83,12 +128,15 @@ export function AutoTagSummaryDialog({
               Auto-tag summary
             </h2>
             <p className="mt-0.5 text-[11px] text-text-muted">
-              {summary.items.length} album{summary.items.length === 1 ? "" : "s"} processed
+              {summary.items.length} album
+              {summary.items.length === 1 ? "" : "s"} processed
             </p>
           </div>
           <button
             type="button"
+            ref={closeRef}
             aria-label="Close"
+            disabled={reviewActing}
             onClick={onClose}
             className="w-6 h-6 flex items-center justify-center rounded-md text-text-muted hover:text-text-primary hover:bg-surface-hover transition-colors"
           >
@@ -96,43 +144,98 @@ export function AutoTagSummaryDialog({
           </button>
         </div>
 
-        <div className="flex flex-wrap gap-1.5 px-4 py-3 border-b border-border/50 text-[10px]">
-          {(Object.keys(statusLabel) as AutoTagBatchItemStatus[]).map((status) => (
-            <span
-              key={status}
-              className={`px-1.5 py-0.5 rounded-md border ${statusClass[status]}`}
-            >
-              {statusLabel[status]}: {countStatus(summary, status)}
-            </span>
-          ))}
+        <div
+          role="tablist"
+          aria-label="Auto-tag views"
+          className="flex gap-3 px-4 py-2 border-b border-border"
+        >
+          <button
+            type="button"
+            role="tab"
+            disabled={reviewActing}
+            aria-selected={tab === "results"}
+            onClick={() => setTab("results")}
+          >
+            Results
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={tab === "review"}
+            disabled={!selectedReview}
+            onClick={() => setTab("review")}
+          >
+            Review
+          </button>
         </div>
-
-        <div className="overflow-y-auto max-h-[55vh] p-3 space-y-1.5">
-          {summary.items.map((item) => (
-            <div
-              key={item.albumPath}
-              className="flex items-start gap-3 rounded-lg border border-border/50 px-3 py-2"
-            >
-              <div className="min-w-0 flex-1">
-                <div className="truncate text-[12px] font-medium text-text-primary">
-                  {item.albumPath}
-                </div>
-                <div className="mt-0.5 text-[11px] text-text-muted">
-                  {itemDetail(item)}
-                </div>
-              </div>
-              <span
-                className={`shrink-0 px-1.5 py-0.5 rounded-md border text-[10px] ${statusClass[item.status]}`}
-              >
-                {statusLabel[item.status]}
-              </span>
+        {tab === "review" && selectedReview ? (
+          <div role="tabpanel" className="overflow-y-auto max-h-[68vh]">
+            <AutoTagReview
+              key={selectedReview}
+              reviewId={selectedReview}
+              busy={busy}
+              onActing={setReviewActing}
+              onRetry={onRetry ?? (() => {})}
+              onSearch={onSearch ?? (() => {})}
+              onChanged={onChanged ?? (() => {})}
+            />
+          </div>
+        ) : (
+          <div role="tabpanel">
+            <div className="flex flex-wrap gap-1.5 px-4 py-3 border-b border-border/50 text-[10px]">
+              {(Object.keys(statusLabel) as AutoTagBatchItemStatus[]).map(
+                (status) => (
+                  <span
+                    key={status}
+                    className={`px-1.5 py-0.5 rounded-md border ${statusClass[status]}`}
+                  >
+                    {statusLabel[status]}: {countStatus(summary, status)}
+                  </span>
+                ),
+              )}
             </div>
-          ))}
-        </div>
+
+            <div className="overflow-y-auto max-h-[55vh] p-3 space-y-1.5">
+              {summary.items.map((item) => (
+                <div
+                  key={item.reviewId ?? item.albumPath}
+                  className="flex items-start gap-3 rounded-lg border border-border/50 px-3 py-2"
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-[12px] font-medium text-text-primary">
+                      {item.albumPath}
+                    </div>
+                    <div className="mt-0.5 text-[11px] text-text-muted">
+                      {itemDetail(item)}
+                    </div>
+                  </div>
+                  {item.reviewId && (
+                    <button
+                      type="button"
+                      className="shrink-0 rounded border border-border px-2 py-1 text-xs hover:bg-surface-hover"
+                      onClick={() => {
+                        setSelectedReview(item.reviewId!);
+                        setTab("review");
+                      }}
+                    >
+                      Review album
+                    </button>
+                  )}
+                  <span
+                    className={`shrink-0 px-1.5 py-0.5 rounded-md border text-[10px] ${statusClass[item.status]}`}
+                  >
+                    {statusLabel[item.status]}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="flex justify-end px-4 py-3 border-t border-border/50">
           <button
             type="button"
+            disabled={reviewActing}
             onClick={onClose}
             className="px-3 py-1.5 rounded-md bg-accent text-white text-[11px] font-medium hover:bg-accent/90"
           >

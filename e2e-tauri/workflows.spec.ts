@@ -262,6 +262,39 @@ describe("Tauri desktop workflows", () => {
     expect(result.track.albumArtist).toBe("Offline Artist");
   });
 
+  it("opens native auto-tag evidence from Results and marks an unchanged album reviewed", async () => {
+    await clickButton("Results");
+    await browser.waitUntil(() => browser.execute(() => document.body.innerText.includes("Awaiting review")));
+    await clickButton("Review album");
+    await browser.waitUntil(() => browser.execute(() => document.body.innerText.includes("No changes written")));
+    await clickButton("All metadata");
+    expect(await browser.execute(() => document.body.innerText.includes("Offline Song"))).toBe(true);
+    expect(await browser.execute(() => Array.from(document.querySelectorAll("button")).some(button => button.textContent === "Revert album"))).toBe(false);
+    await browser.execute(() => {
+      const gallery = Array.from(document.querySelectorAll("summary")).find(element => element.textContent?.startsWith("Artwork — before and after"));
+      gallery?.click();
+      gallery?.scrollIntoView();
+    });
+    await browser.waitUntil(() => browser.execute(() => Array.from(document.querySelectorAll<HTMLImageElement>('[aria-label="Album review"] img')).some(image => image.complete && image.naturalWidth > 0)));
+    await browser.execute(() => Array.from(document.querySelectorAll("summary")).find(element => element.textContent?.startsWith("Artwork — before and after"))?.scrollIntoView({ block: "center" }));
+    if (process.env.SOUNDROBE_REVIEW_SCREENSHOT) await browser.saveScreenshot(`${process.env.SOUNDROBE_REVIEW_SCREENSHOT}.gallery.png`);
+    await browser.execute(() => document.querySelector<HTMLButtonElement>('button[aria-label^="Enlarge "]')?.click());
+    await browser.waitUntil(() => browser.execute(() => Boolean(document.querySelector('[aria-label="Artwork preview"]'))));
+    if (process.env.SOUNDROBE_REVIEW_SCREENSHOT) await browser.saveScreenshot(process.env.SOUNDROBE_REVIEW_SCREENSHOT);
+    await browser.keys("Tab");
+    expect(await browser.execute(() => document.activeElement?.textContent?.trim())).toBe("Close artwork");
+    await browser.keys(["Shift", "Tab"]);
+    expect(await browser.execute(() => document.activeElement?.textContent?.trim())).toBe("Close artwork");
+    await browser.keys("Escape");
+    expect(await browser.execute(() => document.activeElement?.getAttribute("aria-label")?.startsWith("Enlarge "))).toBe(true);
+    await clickButton("Keep current metadata");
+    await browser.waitUntil(() => browser.execute(() => document.body.innerText.includes("Kept")));
+    const reviews = await browser.execute(() => window.api.listAutoTagReviews());
+    expect(reviews[0].decision).toBe("kept");
+    expect(reviews[0].canRevert).toBe(false);
+    await clickButton("Done");
+  });
+
   it("converts a title into artist and title tags through the renderer", async () => {
     await clickButton("Convert Album", false);
     await browser.waitUntil(() =>

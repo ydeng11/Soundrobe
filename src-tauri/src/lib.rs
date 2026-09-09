@@ -265,6 +265,8 @@ pub fn run() {
             app.manage(ContextMenuState::default());
             app.manage(ProviderState::default());
             app.manage(WriteQueue::default());
+            commands::auto_tag_review::cleanup_abandoned_sessions();
+            app.manage(commands::auto_tag_review::ReviewStore::default());
             app.manage(QuitGuard::default());
             app.manage(TaskRegistry::default());
             app.manage(UpdaterState::default());
@@ -284,6 +286,11 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            commands::auto_tag_review::auto_tag_reviews_list,
+            commands::auto_tag_review::auto_tag_review_get,
+            commands::auto_tag_review::auto_tag_review_keep,
+            commands::auto_tag_review::auto_tag_review_revert,
+            commands::auto_tag_review::auto_tag_review_artwork,
             commands::meta::app_info,
             commands::configuration::config_get,
             commands::configuration::config_set,
@@ -351,6 +358,10 @@ pub fn run() {
         .expect("error while building the Soundrobe Tauri shell");
 
     app.run(|app, event| {
+        if matches!(event, RunEvent::Exit) {
+            app.state::<commands::auto_tag_review::ReviewStore>().cleanup();
+            return;
+        }
         let RunEvent::ExitRequested { api, .. } = event else {
             return;
         };

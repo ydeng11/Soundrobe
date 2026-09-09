@@ -5,6 +5,22 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- Auto-tag Results now opens an album review with complete metadata comparisons, lyrics, artwork previews, matching evidence, and retry/manual-search actions. Reviews remain available during the current session.
+- Keep or fully revert an album’s auto-tag changes, including artwork and lyrics, from Review or Undo. Recovery checks for later edits before restoring files; keeping changes retains session undo.
+
+### Changed
+
+- **SACD-R DSD extraction** — the media toolbox now decodes sector-packed DSD64
+  tracks to 96 kHz FLAC instead of interpreting them as PCM noise, extracts raw
+  SACD-R images through `sacd_extract`, and retries transient ISO listings on
+  network volumes.
+- Raw CD ISO conversion now requires `slice-iso --raw-cd`; failed SACD
+  extraction no longer falls back to interpreting the image as PCM audio.
+
 ## [0.1.6] - 2026-09-06
 
 ### Fixed
@@ -21,17 +37,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Provider outage backoff** — MusicBrainz overload responses with a zero retry
   hint now use bounded backoff, and failed batch albums wait before their one
   automatic retry instead of immediately repeating the outage.
-
-## [Unreleased]
-
-### Changed
-
-- **SACD-R DSD extraction** — the media toolbox now decodes sector-packed DSD64
-  tracks to 96 kHz FLAC instead of interpreting them as PCM noise, extracts raw
-  SACD-R images through `sacd_extract`, and retries transient ISO listings on
-  network volumes.
-- Raw CD ISO conversion now requires `slice-iso --raw-cd`; failed SACD
-  extraction no longer falls back to interpreting the image as PCM audio.
 
 ## [0.1.5] - 2026-08-31
 
