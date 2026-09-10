@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.8] - 2026-09-10
+
 ### Fixed
 
 - Auto-tag searches additional Discogs editions when initial releases do not match. Complete, ordered tracklists can match a reissue or tolerate one timing discrepancy of up to ten seconds; incomplete or conflicting matches still require review.
