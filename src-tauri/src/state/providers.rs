@@ -1558,7 +1558,29 @@ fn parse_discogs_release(value: &serde_json::Value, fallback_id: &str) -> Option
             .unwrap_or_default();
         let (disc_number, parsed_track_number) = parse_discogs_position(position);
         let track_total = disc_track_counts.get(&disc_number).copied();
-        let track_artists = discogs_artists(track.get("artists"), artist.as_deref());
+        let mut track_artists = discogs_artists(track.get("artists"), artist.as_deref());
+        if let Some(credits) = track
+            .get("extraartists")
+            .and_then(serde_json::Value::as_array)
+        {
+            for credit in credits {
+                let featuring = credit
+                    .get("role")
+                    .and_then(serde_json::Value::as_str)
+                    .is_some_and(|role| {
+                        role.split(',')
+                            .any(|role| role.trim().eq_ignore_ascii_case("Featuring"))
+                    });
+                if featuring {
+                    if let Some(name) = credit.get("name").and_then(serde_json::Value::as_str) {
+                        let name = clean_discogs_artist(name);
+                        if !name.is_empty() && !track_artists.contains(&name) {
+                            track_artists.push(name);
+                        }
+                    }
+                }
+            }
+        }
         tracks.push(ProviderTrack {
             title: track
                 .get("title")
@@ -1662,7 +1684,7 @@ fn discogs_artists(value: Option<&serde_json::Value>, fallback: Option<&str>) ->
     split_artist_names(&names)
 }
 
-fn clean_discogs_artist(name: &str) -> String {
+pub(crate) fn clean_discogs_artist(name: &str) -> String {
     Regex::new(r"\s+\(\d+\)$")
         .expect("valid Discogs artist suffix regex")
         .replace(name, "")
@@ -1911,6 +1933,60 @@ impl DiscogsClient {
             .ok_or_else(|| format!("Discogs release could not be parsed: {release_id}"))
     }
 
+    /// Concrete release IDs under a master; master IDs are never tag candidates.
+    pub async fn master_versions_page_result(
+        &self,
+        master_id: &str,
+        page: u32,
+    ) -> Result<(Vec<ProviderReleaseSummary>, u32), String> {
+        let body: serde_json::Value = self
+            .get_json_result(&format!(
+                "masters/{master_id}/versions?per_page=100&page={page}"
+            ))
+            .await?;
+        let pages = body["pagination"]["pages"]
+            .as_u64()
+            .and_then(|n| u32::try_from(n).ok())
+            .ok_or_else(|| "Discogs versions missing page count".to_string())?;
+        let versions = body["versions"]
+            .as_array()
+            .ok_or_else(|| "Discogs versions missing versions array".to_string())?;
+        let releases = versions
+            .iter()
+            .map(|version| {
+                Ok(ProviderReleaseSummary {
+                    id: version["id"]
+                        .as_u64()
+                        .filter(|id| *id > 0)
+                        .ok_or_else(|| "Discogs version missing release ID".to_string())?
+                        .to_string(),
+                    title: version["title"]
+                        .as_str()
+                        .ok_or_else(|| "Discogs version missing title".to_string())?
+                        .to_string(),
+                    year: version["released"]
+                        .as_str()
+                        .and_then(|s| s.get(..4))
+                        .and_then(|s| s.parse().ok()),
+                    kind: Some("release".into()),
+                    country: version["country"].as_str().map(str::to_string),
+                    formats: version["major_formats"]
+                        .as_array()
+                        .into_iter()
+                        .flatten()
+                        .filter_map(|v| v.as_str().map(str::to_string))
+                        .collect(),
+                    catalog_number: version["catno"].as_str().map(str::to_string),
+                    ..Default::default()
+                })
+            })
+            .collect::<Result<Vec<_>, String>>()?;
+        if pages < page || (releases.is_empty() && pages > page) {
+            return Err("Discogs versions returned incomplete pagination".into());
+        }
+        Ok((releases, pages))
+    }
+
     /// Resolve a Discogs master release. The master JSON has the same
     /// structure as a release for our purposes (title, artists, tracklist).
     pub async fn master_metadata(&self, master_id: &str) -> Option<ProviderAlbum> {
@@ -1965,7 +2041,11 @@ impl DiscogsClient {
         if (artist.is_empty() && album.is_empty()) || max_candidates == 0 {
             return Ok(Vec::new());
         }
-        let mut params = vec![("artist", artist), ("release_title", album)];
+        let mut params = vec![
+            ("artist", artist),
+            ("release_title", album),
+            ("type", "release"),
+        ];
         if let Some(year) = year.filter(|value| !value.is_empty()) {
             params.push(("year", year));
         }
@@ -2042,6 +2122,13 @@ impl DiscogsClient {
                 let path = format!("{search_type}s/{release_id}");
                 match self.get_json_result::<serde_json::Value>(&path).await {
                     Ok(detail) => {
+                        if search_type == "master" {
+                            let main_id = detail["main_release"]
+                                .as_u64()
+                                .ok_or_else(|| "Discogs master missing main release".to_string())?;
+                            albums.push(self.release_metadata_result(&main_id.to_string()).await?);
+                            continue;
+                        }
                         if let Some(detail) = parse_discogs_release(&detail, &release_id.to_string()) {
                             albums.push(detail);
                             continue;
@@ -2462,88 +2549,84 @@ impl DiscogsClient {
                     .collect::<Vec<_>>()
                     .as_slice(),
             )
-            .await
-            ?;
+            .await?;
         let total = body
             .get("pagination")
             .and_then(|p| p.get("items"))
             .and_then(|i| i.as_u64())
             .unwrap_or(0) as u32;
-        let summaries = body
+        let results = body
             .get("results")
-            .and_then(|r| r.as_array())
-            .map(|arr| {
-                arr.iter()
-                    .filter_map(|r| {
-                        let id = r.get("id")?.as_u64()?.to_string();
-                        let title = r.get("title")?.as_str()?;
-                        let (result_artist, result_album) = title
-                            .split_once(" - ")
-                            .map(|(a, al)| {
-                                (Some(a.trim().to_string()), Some(al.trim().to_string()))
-                            })
-                            .unwrap_or((None, Some(title.to_string())));
-                        let kind = r
-                            .get("type")
-                            .and_then(|t| t.as_str())
-                            .map(|t| t.to_string());
-                        let year = r
-                            .get("year")
-                            .and_then(|y| y.as_u64())
-                            .or_else(|| {
-                                r.get("year")
-                                    .and_then(|y| y.as_str())
-                                    .and_then(|s| s.parse().ok())
-                            })
-                            .map(|y| y.to_string());
-                        let formats = r
-                            .get("format")
-                            .and_then(|f| f.as_array())
-                            .map(|arr| {
-                                arr.iter()
-                                    .filter_map(|f| f.as_str().map(|s| s.to_string()))
-                                    .collect::<Vec<_>>()
-                            })
-                            .unwrap_or_default();
-                        let barcode = r
-                            .get("barcode")
-                            .and_then(|b| b.as_array())
-                            .and_then(|arr| arr.first())
-                            .and_then(|b| b.as_str())
-                            .filter(|s| !s.is_empty())
-                            .map(|s| s.to_string());
-                        let catalog_number = r
-                            .get("catno")
-                            .and_then(|c| c.as_str())
-                            .filter(|s| !s.is_empty())
-                            .map(|s| s.to_string());
-                        let country = r
-                            .get("country")
-                            .and_then(|c| c.as_str())
-                            .map(|s| s.to_string());
-                        Some(ReleaseSearchSummary {
-                            provider: "discogs".to_string(),
-                            id,
-                            kind,
-                            title: result_album.unwrap_or_default(),
-                            artist: result_artist.or_else(|| {
-                                r.get("title").and_then(|t| {
-                                    t.as_str()
-                                        .and_then(|s| s.split(" - ").next())
-                                        .map(|a| a.to_string())
-                                })
-                            }),
-                            year,
-                            track_count: None,
-                            country,
-                            formats,
-                            catalog_number,
-                            barcode,
-                        })
+            .and_then(serde_json::Value::as_array)
+            .ok_or_else(|| "Discogs search response missing results array".to_string())?;
+        let summaries = results
+            .iter()
+            .filter_map(|r| {
+                let id = r.get("id")?.as_u64()?.to_string();
+                let title = r.get("title")?.as_str()?;
+                let (result_artist, result_album) = title
+                    .split_once(" - ")
+                    .map(|(a, al)| (Some(a.trim().to_string()), Some(al.trim().to_string())))
+                    .unwrap_or((None, Some(title.to_string())));
+                let kind = r
+                    .get("type")
+                    .and_then(|t| t.as_str())
+                    .map(|t| t.to_string());
+                let year = r
+                    .get("year")
+                    .and_then(|y| y.as_u64())
+                    .or_else(|| {
+                        r.get("year")
+                            .and_then(|y| y.as_str())
+                            .and_then(|s| s.parse().ok())
                     })
-                    .collect::<Vec<_>>()
+                    .map(|y| y.to_string());
+                let formats = r
+                    .get("format")
+                    .and_then(|f| f.as_array())
+                    .map(|arr| {
+                        arr.iter()
+                            .filter_map(|f| f.as_str().map(|s| s.to_string()))
+                            .collect::<Vec<_>>()
+                    })
+                    .unwrap_or_default();
+                let barcode = r
+                    .get("barcode")
+                    .and_then(|b| b.as_array())
+                    .and_then(|arr| arr.first())
+                    .and_then(|b| b.as_str())
+                    .filter(|s| !s.is_empty())
+                    .map(|s| s.to_string());
+                let catalog_number = r
+                    .get("catno")
+                    .and_then(|c| c.as_str())
+                    .filter(|s| !s.is_empty())
+                    .map(|s| s.to_string());
+                let country = r
+                    .get("country")
+                    .and_then(|c| c.as_str())
+                    .map(|s| s.to_string());
+                Some(ReleaseSearchSummary {
+                    provider: "discogs".to_string(),
+                    id,
+                    kind,
+                    title: result_album.unwrap_or_default(),
+                    artist: result_artist.or_else(|| {
+                        r.get("title").and_then(|t| {
+                            t.as_str()
+                                .and_then(|s| s.split(" - ").next())
+                                .map(|a| a.to_string())
+                        })
+                    }),
+                    year,
+                    track_count: None,
+                    country,
+                    formats,
+                    catalog_number,
+                    barcode,
+                })
             })
-            .unwrap_or_default();
+            .collect::<Vec<_>>();
         Ok((summaries, total))
     }
 }
@@ -4215,6 +4298,43 @@ mod tests {
         assert_eq!(album.tracks.len(), 3);
         assert_eq!(album.tracks[0].track_total, Some(3));
         assert_eq!(album.tracks[2].track_total, Some(3));
+    }
+
+    #[test]
+    fn discogs_edition_includes_featured_performers_but_not_writers() {
+        let value = serde_json::from_str(include_str!(
+            "../../../test/fixtures/tauri/discogs-editions/release-16211782.json"
+        ))
+        .unwrap();
+        let album = parse_discogs_release(&value, "16211782").unwrap();
+        assert!(album.tracks[1].artists.contains(&"Iggy Azalea".to_string()));
+        assert!(album.tracks[17]
+            .artists
+            .contains(&"Taro Hakase".to_string()));
+        assert_eq!(album.tracks[15].artists, vec!["Ariana Grande"]);
+    }
+
+    #[tokio::test]
+    async fn discogs_summaries_reject_malformed_success_instead_of_no_match() {
+        for body in ["{}", r#"{"results":null}"#, r#"{"results":{}}"#] {
+            let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+            let base = format!("http://{}", listener.local_addr().unwrap());
+            let server = thread::spawn(move || {
+                let (mut stream, _) = listener.accept().unwrap();
+                let mut request = [0; 4096];
+                assert!(stream.read(&mut request).unwrap() > 0);
+                write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len()).unwrap();
+            });
+            let client = DiscogsClient::at(reqwest::Client::new(), None, &base);
+            let result = client
+                .search_release_summaries(&[("type", "master")], 1, 100)
+                .await;
+            server.join().unwrap();
+            assert!(
+                result.is_err(),
+                "malformed provider response must not authorize AI: {body}"
+            );
+        }
     }
 
     #[tokio::test]
