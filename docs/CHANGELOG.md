@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Auto-tag searches additional Discogs editions when initial releases do not match. Complete, ordered tracklists can match a reissue or tolerate one timing discrepancy of up to ten seconds; incomplete or conflicting matches still require review.
+- Discogs tagging includes featured performers and preserves existing track credits when provider credits only partly overlap.
+- Malformed Discogs search responses no longer trigger AI tagging by being mistaken for an empty catalog.
+
 ## [0.1.7] - 2026-09-09
 
 ### Added

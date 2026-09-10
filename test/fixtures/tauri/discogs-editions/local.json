@@ -1,0 +1,198 @@
+{
+  "path": "",
+  "artist_hint": "Ariana Grande",
+  "album_hint": "My Everything",
+  "year_hint": "2014",
+  "tracks": [
+    {
+      "title": "Cadillac Song",
+      "artist": "Ariana Grande",
+      "artists": [
+        "Ariana Grande"
+      ],
+      "track_number": 16,
+      "length": 172.453333,
+      "filename": "Ariana Grande - Cadillac Song"
+    },
+    {
+      "title": "Intro",
+      "artist": "Ariana Grande",
+      "artists": [
+        "Ariana Grande"
+      ],
+      "track_number": 1,
+      "length": 79.786667,
+      "filename": "Ariana Grande - Intro"
+    },
+    {
+      "title": "Just A Little Bit Of Your Heart",
+      "artist": "Ariana Grande",
+      "artists": [
+        "Ariana Grande"
+      ],
+      "track_number": 10,
+      "length": 232.666667,
+      "filename": "Ariana Grande - Just A Little Bit Of Your Heart"
+    },
+    {
+      "title": "My Everything",
+      "artist": "Ariana Grande",
+      "artists": [
+        "Ariana Grande"
+      ],
+      "track_number": 12,
+      "length": 168.48,
+      "filename": "Ariana Grande - My Everything"
+    },
+    {
+      "title": "One Last Time",
+      "artist": "Ariana Grande",
+      "artists": [
+        "Ariana Grande"
+      ],
+      "track_number": 3,
+      "length": 197.28,
+      "filename": "Ariana Grande - One Last Time"
+    },
+    {
+      "title": "Only 1",
+      "artist": "Ariana Grande",
+      "artists": [
+        "Ariana Grande"
+      ],
+      "track_number": 14,
+      "length": 193.986667,
+      "filename": "Ariana Grande - Only 1"
+    },
+    {
+      "title": "Too Close",
+      "artist": "Ariana Grande",
+      "artists": [
+        "Ariana Grande"
+      ],
+      "track_number": 17,
+      "length": 216.36,
+      "filename": "Ariana Grande - Too Close"
+    },
+    {
+      "title": "Why Try",
+      "artist": "Ariana Grande",
+      "artists": [
+        "Ariana Grande"
+      ],
+      "track_number": 4,
+      "length": 211.88,
+      "filename": "Ariana Grande - Why Try"
+    },
+    {
+      "title": "You Don't Know Me",
+      "artist": "Ariana Grande",
+      "artists": [
+        "Ariana Grande"
+      ],
+      "track_number": 15,
+      "length": 233.706667,
+      "filename": "Ariana Grande - You Don't Know Me"
+    },
+    {
+      "title": "Hands On Me",
+      "artist": "Ariana Grande/A$AP Ferg",
+      "artists": [
+        "Ariana Grande",
+        "A$AP Ferg"
+      ],
+      "track_number": 11,
+      "length": 192.226667,
+      "filename": "Ariana Grande,A$AP Ferg - Hands On Me"
+    },
+    {
+      "title": "Best Mistake",
+      "artist": "Ariana Grande/Big Sean",
+      "artists": [
+        "Ariana Grande",
+        "Big Sean"
+      ],
+      "track_number": 6,
+      "length": 233.733333,
+      "filename": "Ariana Grande,Big Sean - Best Mistake"
+    },
+    {
+      "title": "Be My Baby",
+      "artist": "Ariana Grande/Cashmere Cat",
+      "artists": [
+        "Ariana Grande",
+        "Cashmere Cat"
+      ],
+      "track_number": 7,
+      "length": 217.053333,
+      "filename": "Ariana Grande,Cashmere Cat - Be My Baby"
+    },
+    {
+      "title": "Break Your Heart Right Back",
+      "artist": "Ariana Grande/Childish Gambino",
+      "artists": [
+        "Ariana Grande",
+        "Childish Gambino"
+      ],
+      "track_number": 8,
+      "length": 253.386667,
+      "filename": "Ariana Grande,Childish Gambino - Break Your Heart Right Back"
+    },
+    {
+      "title": "Problem",
+      "artist": "Ariana Grande/Iggy Azalea",
+      "artists": [
+        "Ariana Grande",
+        "Iggy Azalea"
+      ],
+      "track_number": 2,
+      "length": 193.96,
+      "filename": "Ariana Grande,Iggy Azalea - Problem"
+    },
+    {
+      "title": "Love Me Harder",
+      "artist": "Ariana Grande/The Weeknd",
+      "artists": [
+        "Ariana Grande",
+        "The Weeknd"
+      ],
+      "track_number": 9,
+      "length": 236.053333,
+      "filename": "Ariana Grande,The Weeknd - Love Me Harder"
+    },
+    {
+      "title": "Break Free",
+      "artist": "Ariana Grande/Zedd",
+      "artists": [
+        "Ariana Grande",
+        "Zedd"
+      ],
+      "track_number": 5,
+      "length": 214.84,
+      "filename": "Ariana Grande,Zedd - Break Free"
+    },
+    {
+      "title": "Baby I (Japan Bonus Track)",
+      "artist": "Ariana Grande/葉加瀬太郎",
+      "artists": [
+        "Ariana Grande",
+        "葉加瀬太郎"
+      ],
+      "track_number": 18,
+      "length": 197.36,
+      "filename": "Ariana Grande,葉加瀬太郎 - Baby I (Japan Bonus Track)"
+    },
+    {
+      "title": "Bang Bang",
+      "artist": "Jessie J/Ariana Grande/Nicki Minaj",
+      "artists": [
+        "Jessie J",
+        "Ariana Grande",
+        "Nicki Minaj"
+      ],
+      "track_number": 13,
+      "length": 199.36,
+      "filename": "Jessie J,Ariana Grande,Nicki Minaj - Bang Bang"
+    }
+  ]
+}

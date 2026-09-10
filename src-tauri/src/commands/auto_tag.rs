@@ -38,6 +38,9 @@ use crate::{
 
 use super::track_matcher::{match_remote_candidate_tracks, MatchEvidence};
 
+#[path = "auto_tag_editions.rs"]
+mod editions;
+
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum LookupSource {
@@ -75,6 +78,9 @@ pub struct TrackCandidate {
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub struct AlbumCandidate {
+    /// Validated in this run only; never trust a mapping read from a cache.
+    #[serde(skip)]
+    pub accepted_match: Option<editions::AcceptedMatch>,
     pub artist: Option<String>,
     #[serde(default)]
     pub artists: Vec<String>,
@@ -849,7 +855,7 @@ struct HashQuery<'a> {
 
 pub fn query_hash(request: &LookupRequest) -> String {
     let query = HashQuery {
-        cache_version: 5,
+        cache_version: 6,
         artist_hint: &request.artist_hint,
         artist_aliases: &request.artist_aliases,
         tagged_artist_hint: &request.tagged_artist_hint,
@@ -1001,6 +1007,11 @@ pub fn protect_candidate_tracks(
     request: &LookupRequest,
     candidate: &AlbumCandidate,
 ) -> AlbumCandidate {
+    if let Some(accepted) = &candidate.accepted_match {
+        let mut protected = candidate.clone();
+        protected.tracks = accepted.tracks.clone();
+        return protected;
+    }
     if !matches!(
         candidate.source,
         LookupSource::Musicbrainz | LookupSource::Discogs
@@ -1061,6 +1072,9 @@ pub fn protect_candidate_tracks(
     );
     let mut protected = candidate.clone();
     protected.tracks = matched.tracks;
+    if candidate.source == LookupSource::Discogs {
+        editions::preserve_collaborators(&request.tracks, &mut protected.tracks);
+    }
     protected
 }
 
@@ -1228,6 +1242,7 @@ fn rank_candidate_details(
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CredibilityScore {
+    pub strict_match: bool,
     pub explicit_id: bool,
     pub edition_matches: usize,
     pub exact_track_count: bool,
@@ -1251,6 +1266,7 @@ fn select_credible_provider_candidate(
         right_score
             .explicit_id
             .cmp(&left_score.explicit_id)
+            .then_with(|| right_score.strict_match.cmp(&left_score.strict_match))
             .then_with(|| right_score.edition_matches.cmp(&left_score.edition_matches))
             .then_with(|| right_score.exact_track_count.cmp(&left_score.exact_track_count))
             .then_with(|| left_score.provider_extras.cmp(&right_score.provider_extras))
@@ -1266,6 +1282,10 @@ fn select_credible_provider_candidate(
             .then_with(|| provider_stable_id(left).cmp(provider_stable_id(right)))
     });
     let mut selected = credible.into_iter().next()?.1;
+    selected.accepted_match = None;
+    if strict_provider_candidate_credibility(request, &selected).is_err() {
+        selected.accepted_match = editions::accept_edition(request, &selected).ok();
+    }
     if selected.source == LookupSource::Musicbrainz && selected.discogs_release_id.is_none() {
         selected.discogs_release_id = selected.linked_discogs_release_id.clone();
     }
@@ -1403,6 +1423,23 @@ pub fn provider_candidate_credibility(
     request: &LookupRequest,
     candidate: &AlbumCandidate,
 ) -> Result<CredibilityScore, String> {
+    strict_provider_candidate_credibility(request, candidate).or_else(|strict_error| {
+        let accepted = editions::accept_edition(request, candidate)
+            .map_err(|error| format!("{strict_error}; {error}"))?;
+        let mut normalized = candidate.clone();
+        normalized.year = request.year_hint.clone();
+        normalized.tracks = accepted.tracks;
+        let mut score = strict_provider_candidate_credibility(request, &normalized)?;
+        score.strict_match = false;
+        score.exact_year = request.year_hint.is_some() && request.year_hint == candidate.year;
+        Ok(score)
+    })
+}
+
+fn strict_provider_candidate_credibility(
+    request: &LookupRequest,
+    candidate: &AlbumCandidate,
+) -> Result<CredibilityScore, String> {
     if !matches!(candidate.source, LookupSource::Musicbrainz | LookupSource::Discogs) {
         return Err("candidate is not provider-backed".to_string());
     }
@@ -1478,6 +1515,7 @@ pub fn provider_candidate_credibility(
     }
 
     Ok(CredibilityScore {
+        strict_match: true,
         explicit_id: match candidate.source {
             LookupSource::Musicbrainz => request.musicbrainz_album_id.as_ref().is_some_and(|_| {
                 request.musicbrainz_album_id == candidate.musicbrainz_album_id
@@ -1602,6 +1640,7 @@ async fn discogs_artist_candidates(
     client: &DiscogsClient,
     cache: &CacheState,
     request: &LookupRequest,
+    discovery: &mut editions::DiscogsDiscovery<'_>,
 ) -> Result<Vec<AlbumCandidate>, String> {
     let Some(artist_id) = request.discogs_artist_id.as_deref() else {
         return Ok(Vec::new());
@@ -1626,20 +1665,7 @@ async fn discogs_artist_candidates(
     .into_iter()
     .take(3)
     {
-        let album = cached_release_detail(cache, "discogs-v3", &release.id);
-        let album = match album {
-            Some(album) => Some(album),
-            None => {
-                let fetched = client.release_metadata_result(&release.id).await?;
-                if let Ok(value) = serde_json::to_value(&fetched) {
-                    let _ = cache.set_release_detail("discogs-v3", &release.id, &value);
-                }
-                Some(fetched)
-            }
-        };
-        if let Some(album) = album {
-            candidates.push(discogs_candidate(album));
-        }
+        candidates.push(discovery.detail(&release.id).await?);
     }
     Ok(rank_candidate_details(candidates, request, "discogs"))
 }
@@ -2384,12 +2410,20 @@ pub(crate) async fn resolve_and_apply_album_with_retry_context(
         .unwrap_or_else(|| {
             DiscogsClient::new(services.providers.http(), config.discogs_token.clone())
         });
+    let mut discogs_discovery =
+        editions::DiscogsDiscovery::new(&discogs, services.cache, cancelled);
+    for candidate in cached
+        .iter()
+        .filter(|candidate| candidate.source == LookupSource::Discogs)
+    {
+        discogs_discovery.remember(candidate);
+    }
     let mut discogs_direct_error = None;
     let mut discogs_error = None;
     if config.discogs_enabled != Some(false) {
         if let Some(release_id) = request.discogs_release_id.as_deref() {
-            match discogs.release_metadata_result(release_id).await {
-                Ok(album) => fresh.push(discogs_candidate(album)),
+            match discogs_discovery.detail(release_id).await {
+                Ok(candidate) => fresh.push(candidate),
                 Err(error) => discogs_direct_error = Some(safe_provider_error(&error)),
             }
         }
@@ -2517,48 +2551,31 @@ pub(crate) async fn resolve_and_apply_album_with_retry_context(
 
     if config.discogs_enabled != Some(false) {
         progress(6, "Searching Discogs releases...");
-        let mut provider_candidates = cached
-            .iter()
-            .filter(|candidate| candidate.source == LookupSource::Discogs)
-            .cloned()
-            .chain(
-                fresh
-                    .iter()
-                    .filter(|candidate| candidate.source == LookupSource::Discogs)
-                    .cloned(),
-            )
-            .collect::<Vec<_>>();
-        match discogs_artist_candidates(&discogs, services.cache, &request).await {
-            Ok(scoped) => provider_candidates.extend(scoped),
-            Err(error) => discogs_error = Some(safe_provider_error(&error)),
+        if let Err(error) =
+            discogs_artist_candidates(&discogs, services.cache, &request, &mut discogs_discovery)
+                .await
+        {
+            discogs_error = Some(safe_provider_error(&error));
         }
-        let mut credible = select_credible_provider_candidate(&request, provider_candidates.clone());
-        let mut generic_search_attempted = false;
-        if credible.is_none() {
-            if let (Some(artist), Some(album)) = (
-                request.artist_hint.as_deref(),
-                request.album_hint.as_deref(),
-            ) {
-                generic_search_attempted = true;
-                match discogs
-                    .search_album_result_with_context(
-                        artist,
-                        album,
-                        request.year_hint.as_deref(),
-                        request.country_hint.as_deref().and_then(discogs_country_name),
-                        None,
-                        10,
-                    )
-                    .await
-                {
-                    Ok(albums) => {
-                        provider_candidates.extend(albums.into_iter().map(discogs_candidate));
-                    }
-                    Err(error) => discogs_error = Some(safe_provider_error(&error)),
-                }
+        let mut credible =
+            select_credible_provider_candidate(&request, discogs_discovery.candidates());
+        let generic_search_attempted = credible.is_none();
+        if generic_search_attempted {
+            if let Err(error) = discogs_discovery.initial_search(&request).await {
+                discogs_error = Some(safe_provider_error(&error));
             }
-            credible = select_credible_provider_candidate(&request, provider_candidates.clone());
+            credible = select_credible_provider_candidate(&request, discogs_discovery.candidates());
         }
+        if credible.is_none() {
+            progress(6, "Searching Discogs album versions...");
+            if let Err(error) = discogs_discovery.expand(&request).await {
+                discogs_error = Some(safe_provider_error(&error));
+            }
+        }
+        check_cancelled(cancelled)?;
+        // Keep successful detail responses even when a later request failed.
+        let provider_candidates = discogs_discovery.candidates();
+        credible = select_credible_provider_candidate(&request, provider_candidates.clone());
         let count = provider_candidates.len();
         fresh.extend(provider_candidates);
         let diagnostic = if generic_search_attempted {
@@ -2592,8 +2609,9 @@ pub(crate) async fn resolve_and_apply_album_with_retry_context(
     progress(7, "Selecting authoritative metadata...");
     let provider_decision =
         provider_authority_decision(&request, fresh.clone(), &provider_attempts);
-    let provider_diagnostics =
+    let mut provider_diagnostics =
         provider_selection_diagnostics(&request, &fresh, &provider_attempts);
+    provider_diagnostics.extend(discogs_discovery.diagnostics);
     let providers_confirmed_no_match =
         provider_decision == ProviderAuthorityDecision::Providerless;
     let mut candidate = match provider_decision {
@@ -2680,6 +2698,10 @@ pub(crate) async fn resolve_and_apply_album_with_retry_context(
             );
         }
     }
+    provider_diagnostics.push(serde_json::json!({
+        "stage": "accepted_match", "releaseId": provider_stable_id(&candidate),
+        "coverage": request.tracks.len(), "editionEvidence": candidate.accepted_match,
+    }));
     candidate = protect_candidate_tracks(&request, &candidate);
     report(
         "source",
@@ -3212,6 +3234,10 @@ fn insert_number(
         fields.insert(name.to_string(), value.into());
     }
 }
+
+#[cfg(test)]
+#[path = "auto_tag_editions_tests.rs"]
+mod edition_tests;
 
 #[cfg(test)]
 mod tests {
@@ -5634,9 +5660,14 @@ mod tests {
         let base = scoped_detail_failure_server("discogs");
         let client = DiscogsClient::at(ProviderState::new().http(), None, &base);
 
-        assert!(discogs_artist_candidates(&client, &cache, &request)
-            .await
-            .is_err());
+        assert!(discogs_artist_candidates(
+            &client,
+            &cache,
+            &request,
+            &mut editions::DiscogsDiscovery::new(&client, &cache, &AtomicBool::new(false))
+        )
+        .await
+        .is_err());
         fs::remove_dir_all(root).unwrap();
     }
 
