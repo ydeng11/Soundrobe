@@ -305,6 +305,35 @@ pub async fn album_search_releases(
     .await
 }
 
+/// Read only the provider track count; never run genre or candidate enrichment.
+#[tauri::command]
+pub async fn album_release_track_count(
+    request: ResolveReleaseRequest,
+    providers: State<'_, ProviderState>,
+    config: State<'_, ConfigState>,
+) -> Result<Option<u32>, String> {
+    use crate::state::providers::{ProviderRetryContext, ProviderRetryMetrics};
+    let retry = ProviderRetryContext::new(
+        std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
+        ProviderRetryMetrics::default(),
+    );
+    match request.provider.as_str() {
+        "musicbrainz" => MusicBrainzClient::at(providers.http(), providers.musicbrainz_base())
+            .with_retry_context(retry)
+            .search_track_count(&request.release_id)
+            .await,
+        "discogs" => DiscogsClient::at(
+            providers.http(),
+            discogs_token(&config),
+            providers.discogs_base(),
+        )
+        .with_retry_context(retry)
+        .search_track_count(&request.release_id, request.kind.as_deref())
+        .await,
+        other => Err(format!("Unknown provider: {other}")),
+    }
+}
+
 /// Resolve a single release by provider + ID, returning full `ProviderAlbum` with tracks.
 #[tauri::command]
 pub async fn album_resolve_release(

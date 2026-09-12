@@ -328,6 +328,7 @@ pub fn run() {
             commands::tasks::task_cancel,
             commands::album_search::album_search_releases,
             commands::album_search::album_resolve_release,
+            commands::album_search::album_release_track_count,
             commands::album_search::album_preview_release_match,
             commands::album_search::album_search_apply_candidate,
             commands::auto_tag::album_auto_tag,

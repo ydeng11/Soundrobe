@@ -718,6 +718,12 @@ export interface DesktopAPI {
     pageSize?: number;
   }) => Promise<ReleaseSearchPage>;
 
+  releaseTrackCount: (
+    provider: "musicbrainz" | "discogs",
+    releaseId: string,
+    kind?: string
+  ) => Promise<number | null>;
+
   resolveRelease: (
     provider: "musicbrainz" | "discogs",
     releaseId: string,

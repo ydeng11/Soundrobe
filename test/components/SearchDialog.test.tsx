@@ -88,6 +88,8 @@ function makeProviderAlbum(overrides?: Partial<ProviderAlbum>): ProviderAlbum {
 
 beforeEach(() => {
   window.api = {
+    readAlbum: vi.fn().mockResolvedValue({ tracks: Array.from({ length: 12 }, () => ({})) }),
+    releaseTrackCount: vi.fn().mockResolvedValue(12),
     searchReleases: vi.fn().mockResolvedValue(makeSearchPage()),
     resolveRelease: vi.fn().mockResolvedValue(makeProviderAlbum()),
   } as unknown as Window["api"];
@@ -100,6 +102,167 @@ describe("SearchDialog", () => {
     onClose: vi.fn(),
     onSelectRelease: vi.fn(),
   };
+
+  it("compares the complete local album and keeps unknown counts out of exact matches", async () => {
+    vi.mocked(window.api.searchReleases).mockResolvedValue(makeSearchPage({
+      results: [...makeSearchPage().results, { provider: "musicbrainz", id: "unknown", title: "Unknown edition", formats: [] }],
+    }));
+    render(<SearchDialog {...defaultProps} />);
+    fireEvent.change(screen.getByPlaceholderText("Artist name"), { target: { value: "Radiohead" } });
+    fireEvent.click(screen.getByText("Search"));
+    await screen.findByText("Track count unknown");
+    fireEvent.click(screen.getByLabelText("Same track count (12)"));
+    expect(screen.getByText("OK Computer")).toBeTruthy();
+    expect(screen.queryByText("Kid A")).toBeNull();
+    expect(screen.queryByText("Unknown edition")).toBeNull();
+    fireEvent.change(screen.getByLabelText("Filter track count"), { target: { value: "10" } });
+    expect((screen.getByLabelText("Same track count (12)") as HTMLInputElement).checked).toBe(false);
+    expect(screen.getByText("Kid A")).toBeTruthy();
+  });
+
+  it("narrows editions by country, format and catalog number without another search", async () => {
+    vi.mocked(window.api.searchReleases).mockResolvedValue(makeSearchPage({
+      results: [
+        { provider: "musicbrainz", id: "1", title: "Album", country: "GB", formats: ["CD"], catalogNumber: "ABC-123", trackCount: 12 },
+        { provider: "musicbrainz", id: "2", title: "Other", country: "US", formats: ["Vinyl"], barcode: "999", trackCount: 10 },
+      ],
+    }));
+    render(<SearchDialog {...defaultProps} />);
+    fireEvent.change(screen.getByPlaceholderText("Artist name"), { target: { value: "Artist" } });
+    fireEvent.click(screen.getByText("Search"));
+    await screen.findByText("ABC-123");
+    expect(screen.getByLabelText("Filter title, artist, catalog number or barcode")).toBeTruthy();
+    fireEvent.change(screen.getByLabelText("Filter country"), { target: { value: "GB" } });
+    fireEvent.change(screen.getByLabelText("Filter format"), { target: { value: "CD" } });
+    fireEvent.change(screen.getByLabelText("Filter title, artist, catalog number or barcode"), { target: { value: "abc-123" } });
+    expect(screen.getByText("Album")).toBeTruthy();
+    expect(screen.queryByText("Other")).toBeNull();
+    fireEvent.click(screen.getByText("Clear filters"));
+    expect(screen.getByText("Other")).toBeTruthy();
+    expect(window.api.searchReleases).toHaveBeenCalledTimes(1);
+  });
+
+  it("loads missing Discogs counts before count filtering and keeps successful counts on retry", async () => {
+    vi.mocked(window.api.searchReleases).mockResolvedValue(makeSearchPage({
+      results: [
+        { provider: "discogs", id: "1", kind: "master", title: "Master edition", formats: ["CD"] },
+        { provider: "discogs", id: "1", kind: "release", title: "Release edition", formats: ["CD"] },
+      ],
+    }));
+    vi.mocked(window.api.releaseTrackCount).mockResolvedValueOnce(12).mockRejectedValueOnce(new Error("Unavailable")).mockResolvedValueOnce(10);
+    render(<SearchDialog {...defaultProps} />);
+    fireEvent.click(screen.getByText("Discogs"));
+    fireEvent.change(screen.getByPlaceholderText("Artist name"), { target: { value: "Artist" } });
+    fireEvent.click(screen.getByText("Search"));
+    await screen.findByText("Load track counts for 2 releases");
+    fireEvent.click(screen.getByLabelText("Same track count (12)"));
+    fireEvent.click(screen.getByText("Load track counts for 2 releases"));
+    await screen.findByText(/1 count lookup failed/);
+    expect(window.api.releaseTrackCount).toHaveBeenNthCalledWith(1, "discogs", "1", "master");
+    expect(window.api.releaseTrackCount).toHaveBeenNthCalledWith(2, "discogs", "1", "release");
+    expect(screen.getByText("Master edition")).toBeTruthy();
+    fireEvent.click(screen.getByText("Load track counts for 1 release"));
+    await waitFor(() => expect(window.api.releaseTrackCount).toHaveBeenCalledTimes(3));
+    await waitFor(() => expect(screen.queryByText("Load track counts for 1 release")).toBeNull());
+    expect(screen.queryByText("Release edition")).toBeNull();
+    expect(window.api.resolveRelease).not.toHaveBeenCalled();
+  });
+
+  it("sorts nearest counts first with stable ties and unknown counts last", async () => {
+    vi.mocked(window.api.searchReleases).mockResolvedValue(makeSearchPage({ results: [
+      { provider: "musicbrainz", id: "u", title: "Unknown", formats: [] },
+      { provider: "musicbrainz", id: "a", title: "Eleven", trackCount: 11, formats: [] },
+      { provider: "musicbrainz", id: "b", title: "Thirteen", trackCount: 13, formats: [] },
+      { provider: "musicbrainz", id: "c", title: "Twelve", trackCount: 12, formats: [] },
+    ] }));
+    render(<SearchDialog {...defaultProps} />);
+    fireEvent.change(screen.getByPlaceholderText("Artist name"), { target: { value: "Artist" } });
+    fireEvent.click(screen.getByText("Search"));
+    await screen.findByText("Twelve");
+    fireEvent.change(screen.getByLabelText("Sort results"), { target: { value: "closest" } });
+    const cards = screen.getAllByRole("button").filter((button) => /Unknown|Eleven|Thirteen|Twelve/.test(button.textContent ?? ""));
+    expect(cards.map((card) => card.textContent?.split("tracks")[0])).toEqual(["Twelve12 ", "Eleven11 ", "Thirteen13 ", "UnknownTrack count unknownMB"]);
+  });
+
+  it("cancels scheduling and ignores an in-flight count after cancellation", async () => {
+    let finish!: (count: number) => void;
+    vi.mocked(window.api.searchReleases).mockResolvedValue(makePagedSearchPage(1, 100, 12));
+    vi.mocked(window.api.releaseTrackCount).mockImplementationOnce(() => new Promise((resolve) => { finish = resolve; }));
+    render(<SearchDialog {...defaultProps} />);
+    fireEvent.change(screen.getByPlaceholderText("Artist name"), { target: { value: "Artist" } });
+    fireEvent.click(screen.getByText("Search"));
+    await screen.findByText("Load track counts for 12 releases");
+    fireEvent.click(screen.getByText("Load track counts for 12 releases"));
+    fireEvent.click(screen.getByText("Cancel count loading"));
+    finish(12);
+    await waitFor(() => expect(screen.getByText("Load track counts for 12 releases")).toBeTruthy());
+    expect(window.api.releaseTrackCount).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText("12 tracks")).toBeNull();
+  });
+
+  it("loads counts beyond the visible page and reuses them after returning to search", async () => {
+    vi.mocked(window.api.searchReleases).mockResolvedValue(makePagedSearchPage(1, 100, 12));
+    render(<SearchDialog {...defaultProps} />);
+    fireEvent.change(screen.getByPlaceholderText("Artist name"), { target: { value: "Artist" } });
+    fireEvent.click(screen.getByText("Search"));
+    await screen.findByText("Load track counts for 12 releases");
+    fireEvent.click(screen.getByText("Load track counts for 12 releases"));
+    await waitFor(() => expect(screen.queryByText(/Loading track counts/)).toBeNull());
+    expect(window.api.releaseTrackCount).toHaveBeenCalledTimes(12);
+    fireEvent.click(screen.getByTitle("Back to search"));
+    fireEvent.click(screen.getByText("Search"));
+    await screen.findByText("Results (12)");
+    expect(screen.queryByText(/Load track counts for/)).toBeNull();
+    expect(window.api.searchReleases).toHaveBeenCalledTimes(1);
+  });
+
+  it("ignores an old album read and count result when the selected album changes", async () => {
+    let oldAlbum!: (album: never) => void;
+    let oldCount!: (count: number) => void;
+    vi.mocked(window.api.readAlbum).mockImplementationOnce(() => new Promise((resolve) => { oldAlbum = resolve; }))
+      .mockResolvedValueOnce({ tracks: [{}, {}] } as never);
+    vi.mocked(window.api.searchReleases).mockResolvedValue(makePagedSearchPage(1, 100, 1));
+    vi.mocked(window.api.releaseTrackCount).mockImplementationOnce(() => new Promise((resolve) => { oldCount = resolve; }));
+    const view = render(<SearchDialog {...defaultProps} />);
+    fireEvent.change(screen.getByPlaceholderText("Artist name"), { target: { value: "Artist" } });
+    fireEvent.click(screen.getByText("Search"));
+    await screen.findByText("Load track counts for 1 release");
+    fireEvent.click(screen.getByText("Load track counts for 1 release"));
+    view.rerender(<SearchDialog {...defaultProps} albumPath="/music/New" />);
+    await screen.findByText("Local album: 2 tracks");
+    oldAlbum({ tracks: Array(99).fill({}) } as never);
+    oldCount(99);
+    await waitFor(() => expect(screen.queryByText(/99 tracks/)).toBeNull());
+    expect(screen.getByText("Load track counts for 1 release")).toBeTruthy();
+  });
+
+  it("keeps edition filters when returning from release details", async () => {
+    render(<SearchDialog {...defaultProps} />);
+    fireEvent.change(screen.getByPlaceholderText("Artist name"), { target: { value: "Artist" } });
+    fireEvent.click(screen.getByText("Search"));
+    await screen.findByText("OK Computer");
+    fireEvent.click(screen.getByLabelText("Same track count (12)"));
+    fireEvent.change(screen.getByLabelText("Filter country"), { target: { value: "GB" } });
+    fireEvent.change(screen.getByLabelText("Sort results"), { target: { value: "closest" } });
+    fireEvent.click(screen.getByText("OK Computer"));
+    await screen.findByText("Tracks (12)");
+    fireEvent.click(screen.getByText("Back"));
+    expect((screen.getByLabelText("Same track count (12)") as HTMLInputElement).checked).toBe(true);
+    expect((screen.getByLabelText("Filter country") as HTMLSelectElement).value).toBe("GB");
+    expect((screen.getByLabelText("Sort results") as HTMLSelectElement).value).toBe("closest");
+    expect(screen.queryByText("Kid A")).toBeNull();
+  });
+
+  it("explains local read failures while keeping manual provider search usable", async () => {
+    vi.mocked(window.api.readAlbum).mockRejectedValue(new Error("Album unavailable"));
+    render(<SearchDialog {...defaultProps} />);
+    await screen.findByText("Local track count unavailable: Album unavailable");
+    fireEvent.change(screen.getByPlaceholderText("Artist name"), { target: { value: "Artist" } });
+    fireEvent.click(screen.getByText("Search"));
+    await screen.findByText("OK Computer");
+    expect((screen.getByLabelText("Same track count (unknown)") as HTMLInputElement).disabled).toBe(true);
+    expect((screen.getByLabelText("Filter track count") as HTMLSelectElement).disabled).toBe(false);
+  });
 
   it("renders the search form with provider selector", () => {
     render(<SearchDialog {...defaultProps} />);
@@ -206,7 +369,7 @@ describe("SearchDialog", () => {
 
     await waitFor(() => expect(screen.getByText("Discogs page 1 live")).toBeTruthy());
     await waitFor(() => expect(mockSearch).toHaveBeenCalledTimes(2));
-    const filter = screen.getByLabelText("Filter title or artist");
+    const filter = screen.getByLabelText("Filter title, artist, catalog number or barcode");
     expect((screen.getByLabelText("Filter track count") as HTMLSelectElement).disabled).toBe(true);
     fireEvent.change(filter, { target: { value: "studio" } });
     expect(screen.getByText("Discogs page 1 studio")).toBeTruthy();
@@ -262,7 +425,7 @@ describe("SearchDialog", () => {
     fireEvent.click(screen.getByText("Search"));
     await waitFor(() => expect(screen.getByText("Alpha")).toBeTruthy());
 
-    fireEvent.change(screen.getByLabelText("Filter title or artist"), {
+    fireEvent.change(screen.getByLabelText("Filter title, artist, catalog number or barcode"), {
       target: { value: "Artist A" },
     });
     fireEvent.change(screen.getByLabelText("Filter year"), {
@@ -301,7 +464,7 @@ describe("SearchDialog", () => {
 
     await waitFor(() => expect(mockSearch).toHaveBeenCalledTimes(3));
     fireEvent.click(screen.getByText("Next >"));
-    fireEvent.change(screen.getByLabelText("Filter title or artist"), {
+    fireEvent.change(screen.getByLabelText("Filter title, artist, catalog number or barcode"), {
       target: { value: "release 205" },
     });
 
@@ -310,7 +473,7 @@ describe("SearchDialog", () => {
     expect(screen.queryByText("Next >")).toBeNull();
     expect(mockSearch).toHaveBeenCalledTimes(3);
 
-    fireEvent.change(screen.getByLabelText("Filter title or artist"), {
+    fireEvent.change(screen.getByLabelText("Filter title, artist, catalog number or barcode"), {
       target: { value: "does not exist" },
     });
     expect(screen.getByText("No cached releases match these filters.")).toBeTruthy();
@@ -330,7 +493,7 @@ describe("SearchDialog", () => {
 
     await waitFor(() => expect(screen.getByText("Search releases")).toBeTruthy());
     expect(screen.queryByText("OK Computer")).toBeNull();
-    expect(screen.queryByLabelText("Filter title or artist")).toBeNull();
+    expect(screen.queryByLabelText("Filter title, artist, catalog number or barcode")).toBeNull();
   });
 
   it("reuses a completed MusicBrainz catalog after Back and close/reopen", async () => {
@@ -536,6 +699,27 @@ describe("SearchDialog", () => {
       expect(window.api.resolveRelease).toHaveBeenCalledWith("musicbrainz", "mb-1", undefined);
       expect(screen.getByText("Airbag")).toBeTruthy();
     });
+  });
+
+  it("ignores a stale detail failure after the dialog closes", async () => {
+    let rejectDetail!: (reason?: unknown) => void;
+    vi.mocked(window.api.resolveRelease).mockImplementationOnce(() => new Promise((_, reject) => {
+      rejectDetail = reject;
+    }));
+    const view = render(<SearchDialog {...defaultProps} />);
+    fireEvent.change(screen.getByPlaceholderText("Artist name"), {
+      target: { value: "Radiohead" },
+    });
+    fireEvent.click(screen.getByText("Search"));
+    await waitFor(() => expect(screen.getByText("OK Computer")).toBeTruthy());
+    fireEvent.click(screen.getByText("OK Computer"));
+    await waitFor(() => expect(window.api.resolveRelease).toHaveBeenCalled());
+
+    view.rerender(<SearchDialog {...defaultProps} open={false} />);
+    rejectDetail(new Error("Stale detail"));
+    view.rerender(<SearchDialog {...defaultProps} open />);
+    await waitFor(() => expect(screen.getByText("Search releases")).toBeTruthy());
+    expect(screen.queryByText("Stale detail")).toBeNull();
   });
 
   it("back from detail returns to results", async () => {
