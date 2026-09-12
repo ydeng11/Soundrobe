@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Opening a different artist library now clears the previous auto-tag results.
+
 ## [0.1.8] - 2026-09-10
 
 ### Fixed

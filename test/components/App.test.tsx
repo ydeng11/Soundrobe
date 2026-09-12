@@ -710,6 +710,37 @@ describe("App — modification history", () => {
     ).toBe(true);
   });
 
+  it("clears previous auto-tag results when opening another library", async () => {
+    const openFolderDialog = window.api.openFolderDialog as ReturnType<typeof vi.fn>;
+    openFolderDialog
+      .mockResolvedValueOnce("/music")
+      .mockResolvedValueOnce("/other-artist");
+    vi.mocked(window.api.autoTagAlbum).mockResolvedValue("auto-tag-task");
+    vi.mocked(window.api.getTaskProgress).mockResolvedValue({
+      status: "completed",
+      taskId: "auto-tag-task",
+      progress: 1,
+      total: 1,
+      message: "Applied",
+      result: null,
+    });
+
+    render(<App />);
+    fireEvent.click(screen.getByText("Open Library"));
+    await waitFor(() => expect(screen.getAllByTestId(/^file-row-/)).toHaveLength(2));
+
+    fireEvent.click(screen.getByText("Auto-Tag"));
+    await screen.findByRole("dialog", { name: "Auto-tag summary" });
+    expect(screen.getByText("/music/Test Album")).toBeTruthy();
+
+    fireEvent.click(screen.getByText("Open Library"));
+
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog", { name: "Auto-tag summary" })).toBeNull();
+    });
+    expect(openFolderDialog).toHaveBeenCalledTimes(2);
+  });
+
   it("reverts an older history point newest-first after confirmation", async () => {
     const path = "/music/Test Album/01.mp3";
     const originalTitle = makeTrack(path).title;
