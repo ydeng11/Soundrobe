@@ -23,6 +23,7 @@ interface SearchCache {
 const PROVIDER_PAGE_SIZE = 100;
 const RESULT_PAGE_SIZE = 10;
 type ResultSort =
+  | "closest"
   | "relevance"
   | "title-asc"
   | "title-desc"
@@ -46,6 +47,7 @@ function searchCacheKey(
 
 export function SearchDialog({
   open,
+  albumPath,
   onClose,
   onSelectRelease,
 }: SearchDialogProps) {
@@ -65,6 +67,14 @@ export function SearchDialog({
   const [resultFilter, setResultFilter] = useState("");
   const [resultYear, setResultYear] = useState("");
   const [resultTrackCount, setResultTrackCount] = useState("");
+  const [resultCountry, setResultCountry] = useState("");
+  const [resultFormat, setResultFormat] = useState("");
+  const [sameTrackCount, setSameTrackCount] = useState(false);
+  const [localTrackCount, setLocalTrackCount] = useState<number | null>(null);
+  const [localCountError, setLocalCountError] = useState<string | null>(null);
+  const [countProgress, setCountProgress] = useState<{ loaded: number; total: number } | null>(null);
+  const [countError, setCountError] = useState<string | null>(null);
+  const countGeneration = useRef(0);
   const [resultSort, setResultSort] = useState<ResultSort>("relevance");
   const [resultPage, setResultPage] = useState(1);
   const [loadingProgress, setLoadingProgress] = useState<{
@@ -72,10 +82,34 @@ export function SearchDialog({
     total?: number;
   } | null>(null);
   const [detailAlbum, setDetailAlbum] = useState<ProviderAlbum | null>(null);
+  const [detailTrackCount, setDetailTrackCount] = useState<number | undefined>(undefined);
   const searchGeneration = useRef(0);
   const searchCache = useRef<SearchCache | null>(null);
   const pendingSearch = useRef<{ key: string; generation: number } | null>(null);
   const canSearch = artist.trim().length > 0 || album.trim().length > 0;
+
+  useEffect(() => {
+    let active = true;
+    countGeneration.current += 1;
+    setCountProgress(null);
+    setCountError(null);
+    setLocalTrackCount(null);
+    setLocalCountError(null);
+    setSameTrackCount(false);
+    setResultTrackCount("");
+    setResultPage(1);
+    if (open && albumPath) {
+      window.api.readAlbum(albumPath).then((detail) => {
+        if (active) setLocalTrackCount(detail.tracks.length);
+      }).catch((err) => {
+        if (active) setLocalCountError(err instanceof Error ? err.message : String(err));
+      });
+    }
+    return () => {
+      active = false;
+      countGeneration.current += 1;
+    };
+  }, [open, albumPath]);
 
   useEffect(() => {
     if (!open) {
@@ -87,10 +121,14 @@ export function SearchDialog({
       setResultFilter("");
       setResultYear("");
       setResultTrackCount("");
+      setResultCountry("");
+      setResultFormat("");
+      setSameTrackCount(false);
       setResultSort("relevance");
       setResultPage(1);
       setLoadingProgress(null);
       setDetailAlbum(null);
+      setDetailTrackCount(undefined);
       setPhase("form");
     }
   }, [open]);
@@ -123,11 +161,17 @@ export function SearchDialog({
     if (pendingSearch.current?.key === pendingKey) return;
     const cachedCatalog = searchCache.current.catalog;
 
+    countGeneration.current += 1;
+    setCountProgress(null);
+    setCountError(null);
     setError(null);
     setSearchPage(null);
     setResultFilter("");
     setResultYear("");
     setResultTrackCount("");
+    setResultCountry("");
+    setResultFormat("");
+    setSameTrackCount(false);
     setResultSort("relevance");
     setResultPage(1);
     if (cachedCatalog) {
@@ -203,22 +247,29 @@ export function SearchDialog({
     }
   }, [provider, artist, album, year, country, format, catalogNumber, barcode, canSearch]);
 
-  const filteredResults = useMemo(() => {
+  const editionResults = useMemo(() => {
     const query = normalizedFilterText(resultFilter.trim());
-    const filtered = (searchPage?.results ?? []).filter((result) => {
-      if (
-        query &&
-        !normalizedFilterText(result.title).includes(query) &&
-        !normalizedFilterText(result.artist ?? "").includes(query)
-      ) {
-        return false;
-      }
+    return (searchPage?.results ?? []).filter((result) => {
+      if (query && ![result.title, result.artist, result.catalogNumber, result.barcode]
+        .some((value) => normalizedFilterText(value ?? "").includes(query))) return false;
       if (resultYear && result.year !== resultYear) return false;
-      if (resultTrackCount && String(result.trackCount) !== resultTrackCount) {
-        return false;
-      }
+      if (resultCountry && result.country !== resultCountry) return false;
+      if (resultFormat && !result.formats.includes(resultFormat)) return false;
       return true;
     });
+  }, [searchPage, resultFilter, resultYear, resultCountry, resultFormat]);
+
+  const filteredResults = useMemo(() => {
+    const filtered = editionResults.filter((result) =>
+      !resultTrackCount || String(result.trackCount) === resultTrackCount);
+    if (resultSort === "closest") {
+      if (localTrackCount === null) return filtered;
+      return filtered.sort((left, right) => {
+        if (left.trackCount === undefined) return right.trackCount === undefined ? 0 : 1;
+        if (right.trackCount === undefined) return -1;
+        return Math.abs(left.trackCount - localTrackCount) - Math.abs(right.trackCount - localTrackCount);
+      });
+    }
     if (resultSort === "relevance") return filtered;
     const [field, direction] = resultSort.split("-") as [
       "title" | "artist" | "year" | "tracks",
@@ -257,7 +308,7 @@ export function SearchDialog({
         return leftIndex - rightIndex;
       })
       .map(({ result }) => result);
-  }, [searchPage, resultFilter, resultYear, resultTrackCount, resultSort]);
+  }, [editionResults, resultTrackCount, resultSort, localTrackCount]);
 
   const visibleResults = useMemo(() => {
     const start = (resultPage - 1) * RESULT_PAGE_SIZE;
@@ -278,24 +329,78 @@ export function SearchDialog({
     [searchPage],
   );
   const hasResultFilters = Boolean(
-    resultFilter.trim() || resultYear || resultTrackCount,
+    resultFilter.trim() || resultYear || resultTrackCount || resultCountry || resultFormat,
   );
 
+  const resultCountries = [...new Set((searchPage?.results ?? []).flatMap((result) => result.country ? [result.country] : []))].sort();
+  const resultFormats = [...new Set((searchPage?.results ?? []).flatMap((result) => result.formats))].sort();
+  const missingCountResults = editionResults.filter((result) => result.trackCount === undefined);
+
+  const handleLoadCounts = async () => {
+    const generation = ++countGeneration.current;
+    const targets = missingCountResults;
+    let failures = 0;
+    setCountError(null);
+    setCountProgress({ loaded: 0, total: targets.length });
+    for (let index = 0; index < targets.length; index += 1) {
+      if (generation !== countGeneration.current) return;
+      const target = targets[index];
+      try {
+        const count = await window.api.releaseTrackCount(target.provider, target.id, target.kind);
+        if (generation !== countGeneration.current) return;
+        if (count === null || !Number.isInteger(count) || count < 0) {
+          failures += 1;
+        } else {
+          const update = (catalog: ReleaseSearchPage): ReleaseSearchPage => ({
+            ...catalog,
+            results: catalog.results.map((result) =>
+              result.provider === target.provider && result.kind === target.kind && result.id === target.id
+                ? { ...result, trackCount: count } : result),
+          });
+          if (searchCache.current?.catalog) searchCache.current.catalog = update(searchCache.current.catalog);
+          setSearchPage((catalog) => catalog ? update(catalog) : catalog);
+        }
+      } catch {
+        if (generation !== countGeneration.current) return;
+        failures += 1;
+      }
+      setCountProgress({ loaded: index + 1, total: targets.length });
+      if (failures) setCountError(`${failures} count lookup${failures === 1 ? "" : "s"} failed or returned no count. Retry to try again.`);
+    }
+    setCountProgress(null);
+  };
+
+  const clearFilters = () => {
+    setResultFilter("");
+    setResultYear("");
+    setResultCountry("");
+    setResultFormat("");
+    setResultTrackCount("");
+    setSameTrackCount(false);
+    setResultPage(1);
+  };
+
   const handleOpenDetail = useCallback(async (result: ReleaseSearchResult) => {
+    const generation = searchGeneration.current;
     setLoading(true);
     setError(null);
+    setDetailTrackCount(undefined);
     try {
       const detail = await window.api.resolveRelease(
         result.provider,
         result.id,
         result.kind,
       );
+      if (generation !== searchGeneration.current) return;
       setDetailAlbum(detail);
+      setDetailTrackCount(result.trackCount);
       setPhase("detail");
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      if (generation === searchGeneration.current) {
+        setError(err instanceof Error ? err.message : String(err));
+      }
     } finally {
-      setLoading(false);
+      if (generation === searchGeneration.current) setLoading(false);
     }
   }, []);
 
@@ -307,18 +412,26 @@ export function SearchDialog({
 
   const handleBackToResults = useCallback(() => {
     setDetailAlbum(null);
+    setDetailTrackCount(undefined);
     setPhase("results");
   }, []);
 
   const handleBackToForm = useCallback(() => {
+    countGeneration.current += 1;
+    setCountProgress(null);
+    setCountError(null);
     searchGeneration.current += 1;
     pendingSearch.current = null;
     setLoading(false);
     setDetailAlbum(null);
+    setDetailTrackCount(undefined);
     setSearchPage(null);
     setResultFilter("");
     setResultYear("");
     setResultTrackCount("");
+    setResultCountry("");
+    setResultFormat("");
+    setSameTrackCount(false);
     setResultSort("relevance");
     setResultPage(1);
     setPhase("form");
@@ -343,6 +456,7 @@ export function SearchDialog({
   }, []);
 
   const handleResultTrackCountChange = useCallback((value: string) => {
+    setSameTrackCount(false);
     setResultTrackCount(value);
     setResultPage(1);
   }, []);
@@ -353,6 +467,7 @@ export function SearchDialog({
   }, []);
 
   const handleClose = useCallback(() => {
+    countGeneration.current += 1;
     searchGeneration.current += 1;
     pendingSearch.current = null;
     onClose();
@@ -416,6 +531,10 @@ export function SearchDialog({
           </button>
         </div>
 
+        {localTrackCount !== null && (
+          <p className="px-5 pt-3 text-[12px] text-text-secondary">Local album: {localTrackCount} tracks</p>
+        )}
+        {localCountError && <p role="status" className="px-5 pt-3 text-[12px] text-red-700">Local track count unavailable: {localCountError}</p>}
         {/* Body */}
         <div className="flex-1 overflow-y-auto p-5">
           {error && (
@@ -571,8 +690,8 @@ export function SearchDialog({
                     type="search"
                     value={resultFilter}
                     onChange={(event) => handleResultFilterChange(event.target.value)}
-                    placeholder="Filter title or artist"
-                    aria-label="Filter title or artist"
+                    placeholder="Filter title, artist, catalog number or barcode"
+                    aria-label="Filter title, artist, catalog number or barcode"
                     className="w-full h-8 px-2.5 text-[12px] border border-border rounded-lg outline-none focus:border-accent/60 focus:shadow-[0_0_0_2px_rgba(0,122,255,0.12)] bg-white"
                   />
                   <div className="grid grid-cols-3 gap-2">
@@ -589,10 +708,13 @@ export function SearchDialog({
                       value={resultTrackCount}
                       onChange={(event) => handleResultTrackCountChange(event.target.value)}
                       aria-label="Filter track count"
-                      disabled={provider !== "musicbrainz"}
+                      disabled={resultTrackCounts.length === 0 && !resultTrackCount}
                       className="h-8 px-2 text-[11px] border border-border rounded-lg outline-none focus:border-accent/60 bg-white text-text-secondary disabled:bg-gray-50 disabled:text-text-muted/60"
                     >
                       <option value="">All track counts</option>
+                      {resultTrackCount && !resultTrackCounts.includes(Number(resultTrackCount)) && (
+                        <option value={resultTrackCount}>{resultTrackCount} tracks</option>
+                      )}
                       {resultTrackCounts.map((value) => <option key={value} value={value}>{value} tracks</option>)}
                     </select>
                     <select
@@ -602,13 +724,14 @@ export function SearchDialog({
                       className="h-8 px-2 text-[11px] border border-border rounded-lg outline-none focus:border-accent/60 bg-white text-text-secondary"
                     >
                       <option value="relevance">Sort: relevance</option>
+                      {localTrackCount !== null && <option value="closest">Tracks: closest to local album</option>}
                       <option value="title-asc">Title: A–Z</option>
                       <option value="title-desc">Title: Z–A</option>
                       <option value="artist-asc">Artist: A–Z</option>
                       <option value="artist-desc">Artist: Z–A</option>
                       <option value="year-desc">Year: newest</option>
                       <option value="year-asc">Year: oldest</option>
-                      {provider === "musicbrainz" && (
+                      {resultTrackCounts.length > 0 && (
                         <>
                           <option value="tracks-desc">Tracks: most</option>
                           <option value="tracks-asc">Tracks: fewest</option>
@@ -616,11 +739,46 @@ export function SearchDialog({
                       )}
                     </select>
                   </div>
-                  {provider !== "musicbrainz" && (
-                    <p className="text-[10.5px] text-text-muted/70">
-                      Discogs search summaries do not include track counts.
-                    </p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <select aria-label="Filter country" value={resultCountry} onChange={(event) => { setResultCountry(event.target.value); setResultPage(1); }} className="h-8 px-2 text-[11px] border border-border rounded-lg bg-white">
+                      <option value="">All countries</option>
+                      {resultCountries.map((value) => <option key={value} value={value}>{value}</option>)}
+                    </select>
+                    <select aria-label="Filter format" value={resultFormat} onChange={(event) => { setResultFormat(event.target.value); setResultPage(1); }} className="h-8 px-2 text-[11px] border border-border rounded-lg bg-white">
+                      <option value="">All formats</option>
+                      {resultFormats.map((value) => <option key={value} value={value}>{value}</option>)}
+                    </select>
+                  </div>
+                  <div className="flex items-center justify-between gap-2 text-[12px]">
+                    <label className="flex items-center gap-2">
+                      <input type="checkbox" checked={sameTrackCount} disabled={localTrackCount === null || localTrackCount === 0}
+                        onChange={(event) => {
+                          setSameTrackCount(event.target.checked);
+                          setResultTrackCount(event.target.checked ? String(localTrackCount) : "");
+                          setResultPage(1);
+                        }} />
+                      Same track count ({localTrackCount ?? "unknown"})
+                    </label>
+                    {hasResultFilters && <button onClick={clearFilters} className="text-accent">Clear filters</button>}
+                  </div>
+                  <p role="status" className="text-[11px] text-text-muted">
+                    Track counts loaded: {editionResults.length - missingCountResults.length} of {editionResults.length}.
+                    {missingCountResults.length > 0 && " Unknown counts are excluded from track-count matches."}
+                  </p>
+                  {resultTrackCounts.length === 0 && (
+                    <p className="text-[11px] text-text-muted">No track counts available yet. Narrow the editions, then load their counts.</p>
                   )}
+                  {countProgress ? (
+                    <div className="flex items-center gap-3 text-[12px]">
+                      <span>Loading track counts {countProgress.loaded} of {countProgress.total}…</span>
+                      <button className="text-accent" onClick={() => { countGeneration.current += 1; setCountProgress(null); }}>Cancel count loading</button>
+                    </div>
+                  ) : missingCountResults.length > 0 && (
+                    <button className="text-[12px] text-accent" onClick={handleLoadCounts}>
+                      Load track counts for {missingCountResults.length} {missingCountResults.length === 1 ? "release" : "releases"}
+                    </button>
+                  )}
+                  {countError && <p role="status" className="text-[11px] text-red-700">{countError}</p>}
                 </div>
               )}
               {searchPage.results.length === 0 ? (
@@ -648,8 +806,10 @@ export function SearchDialog({
                             {result.artist && <span>{result.artist}</span>}
                             {result.artist && result.year && <span> · </span>}
                             {result.year && <span>{result.year}</span>}
-                            {(result.artist || result.year) && result.trackCount !== undefined && <span> · </span>}
-                            {result.trackCount !== undefined && <span>{result.trackCount} tracks</span>}
+                            {(result.artist || result.year) && <span> · </span>}
+                            <span>{result.trackCount !== undefined ? `${result.trackCount} tracks` : "Track count unknown"}</span>
+                            {result.country && <span> · {result.country}</span>}
+                            {result.catalogNumber && <span> · <span>{result.catalogNumber}</span></span>}
                           </div>
                           {result.formats.length > 0 && (
                             <div className="flex gap-1 mt-1 flex-wrap">
@@ -714,7 +874,7 @@ export function SearchDialog({
               </div>
 
               <div className="border-t border-border pt-3">
-                <h4 className="text-[11px] font-semibold text-text-muted uppercase tracking-wide mb-2">Tracks</h4>
+                <h4 className="text-[11px] font-semibold text-text-muted uppercase tracking-wide mb-2">Tracks ({detailTrackCount ?? detailAlbum.tracks.length})</h4>
                 <div className="space-y-1">
                   {detailAlbum.tracks.map((track, i) => (
                     <div key={i} className="flex items-center gap-3 text-[12px] text-text-secondary py-1 px-2 rounded hover:bg-surface-hover">

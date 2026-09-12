@@ -7,9 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Search shows local and release track totals, offers a same-track-count toggle and closest-count sorting, and can load missing counts on demand with progress, cancellation, and retry.
+- Search results show country and catalog number, with country/format filters, catalog-number and barcode text matching, and a clear-filters action.
+
 ### Fixed
 
 - Opening a different artist library now clears the previous auto-tag results.
+- Search track-count controls become available when counts are loaded, including for Discogs; unavailable counts are explained instead of silently disabling comparison.
 
 ## [0.1.8] - 2026-09-10
 

@@ -593,6 +593,27 @@ impl MusicBrainzClient {
         self.release_by_id_result(release_id).await.ok()
     }
 
+    /// Fetch the complete media count without parsing or enriching an album.
+    pub async fn search_track_count(&self, release_id: &str) -> Result<Option<u32>, String> {
+        let response = self
+            .send_with_retry(
+                format!("{}/release/{release_id}", self.base_url),
+                &[("fmt", "json".to_string()), ("inc", "recordings".to_string())],
+            )
+            .await?;
+        if !response.status().is_success() {
+            return Err(format!(
+                "MusicBrainz count request failed with HTTP {}",
+                response.status()
+            ));
+        }
+        let value = response
+            .json::<serde_json::Value>()
+            .await
+            .map_err(|error| format!("MusicBrainz count response could not be parsed: {error}"))?;
+        Ok(musicbrainz_track_count(&value))
+    }
+
     /// Like [`Self::release_by_id`], but returns the failure reason instead of
     /// collapsing every transport/HTTP/parse error into "not found". Used by
     /// the manual Search dialog so a rate limit or network error is not
@@ -1266,24 +1287,84 @@ fn parse_musicbrainz_search_summary(value: &serde_json::Value) -> Option<Release
 }
 
 fn musicbrainz_track_count(value: &serde_json::Value) -> Option<u32> {
+    if let Some(media) = value.get("media").and_then(serde_json::Value::as_array) {
+        if media
+            .iter()
+            .any(|medium| medium.get("tracks").and_then(serde_json::Value::as_array).is_some())
+        {
+            // Resolver parsing deduplicates identical media (for example SACD
+            // and CD copies), so count the same playable tracks here.
+            return musicbrainz_media_track_count(media);
+        }
+        if !media.is_empty() {
+            return media.iter().try_fold(0_u32, |total, medium| {
+                let count = u32::try_from(medium.get("track-count")?.as_u64()?).ok()?;
+                total.checked_add(count)
+            });
+        }
+    }
     value
         .get("track-count")
         .and_then(serde_json::Value::as_u64)
         .and_then(|count| u32::try_from(count).ok())
-        .or_else(|| {
-            let counts = value
-                .get("media")
-                .and_then(serde_json::Value::as_array)?
-                .iter()
-                .filter_map(|medium| {
-                    medium
-                        .get("track-count")
-                        .and_then(serde_json::Value::as_u64)
-                        .and_then(|count| u32::try_from(count).ok())
-                })
-                .collect::<Vec<_>>();
-            (!counts.is_empty()).then(|| counts.into_iter().sum())
-        })
+}
+
+fn musicbrainz_medium_signature(medium: &serde_json::Value) -> Option<Vec<String>> {
+    let tracks = medium.get("tracks")?.as_array()?;
+    Some(
+        tracks
+            .iter()
+            .map(|track| {
+                let number = track
+                    .get("number")
+                    .and_then(serde_json::Value::as_str)
+                    .map(str::to_string)
+                    .or_else(|| {
+                        track
+                            .get("position")
+                            .and_then(serde_json::Value::as_i64)
+                            .map(|position| position.to_string())
+                    })
+                    .unwrap_or_default();
+                let recording = track.get("recording");
+                let title = track
+                    .get("title")
+                    .and_then(serde_json::Value::as_str)
+                    .or_else(|| {
+                        recording
+                            .and_then(|value| value.get("title"))
+                            .and_then(serde_json::Value::as_str)
+                    })
+                    .unwrap_or_default();
+                format!("{number}:{title}")
+            })
+            .collect(),
+    )
+}
+
+fn musicbrainz_media_track_count(media: &[serde_json::Value]) -> Option<u32> {
+    if media.is_empty()
+        || !media
+            .iter()
+            .all(|medium| medium.get("tracks").and_then(serde_json::Value::as_array).is_some())
+    {
+        return None;
+    }
+    let mut seen_signatures: Vec<Vec<String>> = Vec::new();
+    let mut total = 0_u32;
+    for medium in media {
+        let tracks = medium.get("tracks")?.as_array()?;
+        if tracks.is_empty() {
+            continue;
+        }
+        let signature = musicbrainz_medium_signature(medium)?;
+        if seen_signatures.contains(&signature) {
+            continue;
+        }
+        seen_signatures.push(signature);
+        total = total.checked_add(u32::try_from(tracks.len()).ok()?)?;
+    }
+    (total > 0).then_some(total)
 }
 
 fn parse_musicbrainz_release(
@@ -1336,32 +1417,7 @@ fn parse_musicbrainz_release(
         // release).  Recording IDs are intentionally excluded from the
         // signature because different formats often use different recordings
         // for the same track.
-        let signature: Vec<String> = medium_tracks
-            .iter()
-            .map(|track| {
-                let number = track
-                    .get("number")
-                    .and_then(serde_json::Value::as_str)
-                    .map(str::to_string)
-                    .or_else(|| {
-                        track
-                            .get("position")
-                            .and_then(serde_json::Value::as_i64)
-                            .map(|p| p.to_string())
-                    })
-                    .unwrap_or_default();
-                let rec = track.get("recording");
-                let title = track
-                    .get("title")
-                    .and_then(serde_json::Value::as_str)
-                    .or_else(|| {
-                        rec.and_then(|r| r.get("title"))
-                            .and_then(serde_json::Value::as_str)
-                    })
-                    .unwrap_or_default();
-                format!("{}:{}", number, title)
-            })
-            .collect();
+        let signature = musicbrainz_medium_signature(medium).unwrap_or_default();
         if seen_signatures.contains(&signature) {
             continue;
         }
@@ -1518,6 +1574,26 @@ fn positive_integer(value: Option<&serde_json::Value>) -> Option<u32> {
     }
 }
 
+fn discogs_position_bearing(track: &serde_json::Value) -> bool {
+    track
+        .get("position")
+        .and_then(serde_json::Value::as_str)
+        .is_some_and(|position| !position.trim().is_empty())
+}
+
+/// Count the same position-bearing entries that the release resolver exposes.
+fn discogs_track_count(value: &serde_json::Value) -> Option<u32> {
+    let tracklist = value.get("tracklist")?.as_array()?;
+    let count = u32::try_from(
+        tracklist
+            .iter()
+            .filter(|track| discogs_position_bearing(track))
+            .count(),
+    )
+    .ok()?;
+    (count > 0).then_some(count)
+}
+
 fn parse_discogs_release(value: &serde_json::Value, fallback_id: &str) -> Option<ProviderAlbum> {
     let title = value.get("title")?.as_str()?.to_string();
     let artists = discogs_artists(value.get("artists"), None);
@@ -1527,17 +1603,14 @@ fn parse_discogs_release(value: &serde_json::Value, fallback_id: &str) -> Option
         .and_then(serde_json::Value::as_array)
         .map(Vec::as_slice)
         .unwrap_or_default();
-    let position_bearing = |track: &&serde_json::Value| {
-        track
-            .get("position")
-            .and_then(serde_json::Value::as_str)
-            .is_some_and(|position| !position.trim().is_empty())
-    };
     // Track totals are per disc: count position-bearing tracks grouped by the
     // parsed disc number. Tracks without a disc prefix form one group (the
     // whole tracklist), preserving the previous single-disc behavior.
     let mut disc_track_counts: HashMap<Option<u32>, u32> = HashMap::new();
-    for track in raw_tracks.iter().filter(position_bearing) {
+    for track in raw_tracks
+        .iter()
+        .filter(|track| discogs_position_bearing(track))
+    {
         let (disc_number, _) = parse_discogs_position(
             track
                 .get("position")
@@ -1549,7 +1622,7 @@ fn parse_discogs_release(value: &serde_json::Value, fallback_id: &str) -> Option
     let mut tracks = Vec::new();
     for (index, track) in raw_tracks
         .iter()
-        .filter(position_bearing)
+        .filter(|track| discogs_position_bearing(track))
         .enumerate()
     {
         let position = track
@@ -1916,6 +1989,22 @@ impl DiscogsClient {
         let artist: ArtistDetail = self.get_json(&format!("artists/{artist_id}")).await?;
         let image_url = preferred_image_url(&artist.images)?;
         self.fetch_image("discogs", &image_url).await
+    }
+
+    pub async fn search_track_count(
+        &self,
+        release_id: &str,
+        kind: Option<&str>,
+    ) -> Result<Option<u32>, String> {
+        let route = match kind {
+            None | Some("release") => "releases",
+            Some("master") => "masters",
+            Some(other) => return Err(format!("Unsupported Discogs result kind: {other}")),
+        };
+        let value: serde_json::Value = self
+            .get_json_result(&format!("{route}/{release_id}"))
+            .await?;
+        Ok(discogs_track_count(&value))
     }
 
     pub async fn release_metadata(&self, release_id: &str) -> Option<ProviderAlbum> {
@@ -4228,6 +4317,63 @@ mod tests {
             .unwrap_err();
 
         assert!(error.contains("releases"), "{error}");
+    }
+
+    #[tokio::test]
+    async fn search_track_count_musicbrainz_fetches_media_and_preserves_unknown_counts() {
+        fn route(_path: &str, _body: &str) -> (&'static str, String, &'static str) {
+            ("200 OK", r#"{"media":[{"track-count":2},{"track-count":3}]}"#.into(), "application/json")
+        }
+        let (base, requests) = server(1, route);
+        let client = MusicBrainzClient::at(ProviderState::new().http(), &base);
+        assert_eq!(client.search_track_count("42").await.unwrap(), Some(5));
+        let request = requests.recv().unwrap();
+        assert!(request.contains("/release/42"));
+        assert!(request.contains("inc=recordings"));
+    }
+
+    #[tokio::test]
+    async fn search_track_count_discogs_http_failure_is_not_zero() {
+        fn route(_path: &str, _body: &str) -> (&'static str, String, &'static str) {
+            ("503 Service Unavailable", "{}".into(), "application/json")
+        }
+        let (base, _requests) = server(1, route);
+        let client = DiscogsClient::at(ProviderState::new().http(), None, &base);
+        assert!(client.search_track_count("42", None).await.unwrap_err().contains("503"));
+    }
+
+    #[test]
+    fn search_track_counts_require_complete_media_and_count_discogs_tracks_not_headings() {
+        use serde_json::json;
+        assert_eq!(musicbrainz_track_count(&json!({"media":[{"track-count":2},{"track-count":3}]})), Some(5));
+        assert_eq!(musicbrainz_track_count(&json!({"media":[{"track-count":2},{}]})), None);
+        assert_eq!(musicbrainz_track_count(&json!({"media":[
+            {"tracks":[{"number":"1","title":"Song A"},{"number":"2","title":"Song B"}]},
+            {"tracks":[{"number":"1","title":"Song A"},{"number":"2","title":"Song B"}]}
+        ]})), Some(2));
+        let discogs = json!({"title":"Album","artists":[{"name":"Artist"}],"tracklist":[
+            {"type_":"heading","title":"Disc one"},
+            {"type_":"track","position":"1-1"},
+            {"type_":"index","position":"2","sub_tracks":[{"type_":"track","position":"2-1"},{"type_":"track","position":"2-2"}]}
+        ]});
+        assert_eq!(discogs_track_count(&discogs), Some(2));
+        assert_eq!(parse_discogs_release(&discogs, "fallback").unwrap().tracks.len(), 2);
+        assert_eq!(discogs_track_count(&json!({})), None);
+        assert_eq!(discogs_track_count(&json!({"tracklist":[]})), None);
+    }
+
+    #[tokio::test]
+    async fn search_track_count_uses_release_and_master_routes_without_enrichment() {
+        fn route(request: &str, _body: &str) -> (&'static str, String, &'static str) {
+            assert!(request.contains("/releases/42") || request.contains("/masters/42"));
+            ("200 OK", r#"{"tracklist":[{"type_":"track","position":"1-1"},{"type_":"track","position":"2-1"}]}"#.into(), "application/json")
+        }
+        let (base, requests) = server(2, route);
+        let client = DiscogsClient::at(ProviderState::new().http(), None, &base);
+        assert_eq!(client.search_track_count("42", None).await.unwrap(), Some(2));
+        assert_eq!(client.search_track_count("42", Some("master")).await.unwrap(), Some(2));
+        assert!(requests.recv().unwrap().contains("/releases/42"));
+        assert!(requests.recv().unwrap().contains("/masters/42"));
     }
 
     #[tokio::test]
