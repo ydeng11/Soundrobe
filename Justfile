@@ -26,6 +26,7 @@ default:
     @echo "  just eval-auto-tag-repro  audit frozen pools, equivalence, and cold/warm identity"
     @echo "  just eval-auto-tag-profiles  report deterministic metrics for all three input profiles"
     @echo "  just eval-auto-tag-subset  review the frozen representative corpus subset"
+    @echo "  just collect-auto-tag-evidence  plan or run one bounded resumable evidence batch"
     @echo "  just eval-auto-tag-score  score reviewed native evaluation results offline"
     @echo "  just eval-auto-tag-live   run the explicit credentialed native evaluation"
     @echo ""
@@ -158,6 +159,27 @@ eval-auto-tag-subset:
         --manifest "${SOUNDROBE_AUTO_TAG_SUBSET_MANIFEST:-$PWD/test/fixtures/tauri/auto-tag-eval/reviewed-subset.json}" \
         --fixture-root "${SOUNDROBE_AUTO_TAG_SUBSET_FIXTURE_ROOT:-$PWD/test/fixtures/tauri/auto-tag-eval}" \
         --output-dir "$output_dir"
+
+# Bounded, resumable live evidence collection; planning is offline by default.
+collect-auto-tag-evidence:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    output_dir="${SOUNDROBE_AUTO_TAG_EVIDENCE_DIR:-$PWD/.planning/debug/auto-tag-evidence}"
+    if [[ "$output_dir" != /* ]]; then
+        output_dir="$PWD/$output_dir"
+    fi
+    common_args=(
+        --corpus "${SOUNDROBE_AUTO_TAG_EVAL_CORPUS:-$PWD/test/fixtures/tauri/auto-tag-eval/corpus.json}"
+        --expectations "${SOUNDROBE_AUTO_TAG_EVAL_EXPECTATIONS:-$PWD/test/fixtures/tauri/auto-tag-eval/expectations.json}"
+        --output-dir "$output_dir"
+        --profile "${SOUNDROBE_AUTO_TAG_EVIDENCE_PROFILE:-folder_filename}"
+        --batch-size "${SOUNDROBE_AUTO_TAG_EVIDENCE_BATCH_SIZE:-4}"
+        --max-batches "${SOUNDROBE_AUTO_TAG_EVIDENCE_MAX_BATCHES:-1}"
+    )
+    if [[ "${SOUNDROBE_AUTO_TAG_EVIDENCE_RUN:-0}" == "1" ]]; then
+        exec python3 scripts/collect_auto_tag_evidence.py "${common_args[@]}" --run
+    fi
+    exec python3 scripts/collect_auto_tag_evidence.py "${common_args[@]}"
 
 # Offline scoring for retained native results and reviewed expectation ledgers.
 eval-auto-tag-score:

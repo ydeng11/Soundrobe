@@ -84,6 +84,26 @@ just eval-auto-tag-profiles
 
 Native outcomes distinguish confirmed success, wrong match, safe abstention, unresolved, incomplete provider work, and failed verification. Provider recovery and a different-release selection are reported separately from matcher attribution. Ordinary CI runs only the deterministic contracts; live evaluation remains manual and credentialed.
 
+When additional provider evidence is needed, use the resumable collector in
+small batches:
+
+```sh
+SOUNDROBE_AUTO_TAG_EVIDENCE_DIR=.planning/debug/auto-tag-evidence \
+SOUNDROBE_AUTO_TAG_EVIDENCE_BATCH_SIZE=4 \
+just collect-auto-tag-evidence
+```
+
+Planning is offline. Set `SOUNDROBE_AUTO_TAG_EVIDENCE_RUN=1` to execute one
+bounded batch through the existing ignored native test, or increase
+`SOUNDROBE_AUTO_TAG_EVIDENCE_MAX_BATCHES` deliberately. The collector locks the
+corpus and expectation digests, retains each batch artifact, and queues cases
+without complete cold and warm provider records, including unavailable or
+timed-out work. Re-running the same output directory skips provider-complete
+cases and retries only the remaining queue.
+The native runner still owns its cache, retry, rate-limit, ten-minute folder,
+and eight-hour run budgets; clean discovery profiles continue to strip provider
+IDs, and no release ID is placed into their lookup input.
+
 Score retained native results offline with:
 
 ```sh
