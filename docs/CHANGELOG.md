@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- A provider-backed representative auto-tag evaluation ledger and offline replay command make edition mappings, hard negatives, and unresolved cases reproducible across the corpus.
+
 ### Fixed
 
 - Auto-tag recognizes skit labels and Latin accent differences when unique track titles and matching durations confirm the same recording, allowing complete bonus-track editions to match without manual selection.

@@ -16,6 +16,8 @@ The three profiles are intentionally separate:
 
 The first five artists are provisional gold and require an independent provider tracklist/content/mapping review before they enter scored metrics. The reviewed Relapse With Bonus case is the one scored Eminem exception; the remaining Eminem and Enya cases remain diagnostic until reviewed. A complete compatible edition is acceptable when its content and mapping are proven; equal track counts or title matches alone never bless an edition. Unseen promising releases stay `oracle_review_required`.
 
+The representative review ledger at `test/fixtures/tauri/auto-tag-eval/reviewed-subset.json` covers 30 cases across ordinary albums, deluxe/bonus editions, singles, box sets, title variants, and provider failures. Seventeen cases have frozen provider payloads and complete one-to-one mappings; thirteen are explicit unresolved holdouts with reasons and remain outside scored metrics. Run `just eval-auto-tag-subset` to replay this review without contacting providers. The raw Enya and Ariana payloads are also included in the frozen candidate pool and checked by `just eval-auto-tag-repro`.
+
 The exact Relapse Deluxe regression has a separate reviewed ledger at
 `test/fixtures/tauri/relapse-deluxe/reviewed-truth.json`. It is the only reviewed
 positive in this worktree and records release `36441795`, the alternate-bonus hard
@@ -61,9 +63,10 @@ response, validates the saved production-reader equivalence cases, and lists
 cold/warm identity drift. A drift is reported as failed verification and keeps
 the replay separate from deterministic matcher results.
 
-The frozen pool manifest now covers seven edition and failure fixtures with
-nine locked responses: Relapse Deluxe, Enya maxi/box/disc and title negatives,
-the Enya CD/DVD group case, and a separate Discogs edition fixture. The
+The frozen pool manifest now covers eight edition and failure fixtures with
+31 locked responses: Relapse Deluxe, the representative Enya and Ariana
+payloads, Enya maxi/box/disc and title negatives, the Enya CD/DVD group case,
+and a separate Discogs edition fixture. The
 targeted Shepherd Moons replay on 2026-09-14 used a fresh isolated cache and
 selected the same MusicBrainz identity in both phases. The earlier broad
 synthetic replay still retains one cross-provider drift as a historical
@@ -112,3 +115,10 @@ track-group scoping, and canonical FLAC Vorbis read precedence. The Relapse
 regression moves from 16/22 strong title matches to 22/22 with six GuardedTitle
 matches; hard negatives remain rejected and no unsafe positional fallback is
 accepted.
+
+The reviewed-subset replay provides the current deterministic measurement for
+the provider-backed sample: exact-title matching alone maps 153/197 tracks and
+completes 3/17 cases, while the guarded normalized-title comparison maps all
+197/197 tracks and completes 17/17 cases. The 13 unresolved rows remain
+explicit holdouts, so this improvement claim does not change the broad native
+profile denominator or grant credit to provider-recovery runs.

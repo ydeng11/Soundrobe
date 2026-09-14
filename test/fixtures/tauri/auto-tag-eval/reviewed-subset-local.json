@@ -1,0 +1,2135 @@
+{
+  "schemaVersion": 1,
+  "cases": [
+    {
+      "caseId": "024f610c2a7b",
+      "artist": "Eminem",
+      "sourceRelativeFolder": "Eminem/1998 Eminem - Just Don't Give A Fuck (CDM) (INTDM-95037)",
+      "tracks": [
+        {
+          "title": "Just Don't Give A Fuck (Album Version)",
+          "duration": 247.76,
+          "trackNumber": 1,
+          "discNumber": 1
+        },
+        {
+          "title": "Just Don't Give A Fuck (Clean Version)",
+          "duration": 230.067,
+          "trackNumber": 2,
+          "discNumber": 1
+        },
+        {
+          "title": "Just Don't Give A Fuck (Instrumental)",
+          "duration": 249.933,
+          "trackNumber": 3,
+          "discNumber": 1
+        },
+        {
+          "title": "Just Don't Give A Fuck (A Cappella)",
+          "duration": 216.333,
+          "trackNumber": 4,
+          "discNumber": 1
+        },
+        {
+          "title": "Brain Damage (Album Version)",
+          "duration": 223.933,
+          "trackNumber": 5,
+          "discNumber": 1
+        }
+      ]
+    },
+    {
+      "caseId": "0c9e8b505ea7",
+      "artist": "Doja Cat",
+      "sourceRelativeFolder": "Doja Cat/Doja Cat - Amala - 2018 [TR24][OF]",
+      "tracks": [
+        {
+          "title": "Go To Town",
+          "duration": 217.807,
+          "trackNumber": 1,
+          "discNumber": 1
+        },
+        {
+          "title": "Cookie Jar",
+          "duration": 199.439,
+          "trackNumber": 2,
+          "discNumber": 1
+        },
+        {
+          "title": "Roll With Us",
+          "duration": 180.91,
+          "trackNumber": 3,
+          "discNumber": 1
+        },
+        {
+          "title": "Wine Pon You",
+          "duration": 219.017,
+          "trackNumber": 4,
+          "discNumber": 1
+        },
+        {
+          "title": "Fancy",
+          "duration": 179.517,
+          "trackNumber": 5,
+          "discNumber": 1
+        },
+        {
+          "title": "Wild Beach",
+          "duration": 204.018,
+          "trackNumber": 6,
+          "discNumber": 1
+        },
+        {
+          "title": "Morning Light",
+          "duration": 239.492,
+          "trackNumber": 7,
+          "discNumber": 1
+        },
+        {
+          "title": "Candy",
+          "duration": 190.927,
+          "trackNumber": 8,
+          "discNumber": 1
+        },
+        {
+          "title": "Game",
+          "duration": 195.74,
+          "trackNumber": 9,
+          "discNumber": 1
+        },
+        {
+          "title": "Casual",
+          "duration": 240.381,
+          "trackNumber": 10,
+          "discNumber": 1
+        },
+        {
+          "title": "Down Low",
+          "duration": 211.106,
+          "trackNumber": 11,
+          "discNumber": 1
+        },
+        {
+          "title": "Body Language",
+          "duration": 245.242,
+          "trackNumber": 12,
+          "discNumber": 1
+        },
+        {
+          "title": "All Nighter",
+          "duration": 193.667,
+          "trackNumber": 13,
+          "discNumber": 1
+        }
+      ]
+    },
+    {
+      "caseId": "0f0af4dbe0f2",
+      "artist": "Ariana Grande",
+      "sourceRelativeFolder": "Ariana Grande/2011.12-Put Your Hearts Up[flac]",
+      "tracks": [
+        {
+          "title": "Put Your Hearts Up",
+          "duration": 210.2,
+          "trackNumber": 1,
+          "discNumber": 1
+        }
+      ]
+    },
+    {
+      "caseId": "222668c9d053",
+      "artist": "Enya",
+      "sourceRelativeFolder": "Enya/1997 - A Box of Dreams (EU, WEA - 3984 21333 2) 3xCD Box Set, Compilation/CD2 - Clouds",
+      "tracks": [
+        {
+          "title": "Watermark",
+          "duration": 146.093,
+          "trackNumber": 1,
+          "discNumber": null
+        },
+        {
+          "title": "Portrait (Out Of The Blue)",
+          "duration": 191.733,
+          "trackNumber": 2,
+          "discNumber": null
+        },
+        {
+          "title": "Miss Clare Remembers",
+          "duration": 119.6,
+          "trackNumber": 3,
+          "discNumber": null
+        },
+        {
+          "title": "Shepherd Moons",
+          "duration": 220.2,
+          "trackNumber": 4,
+          "discNumber": null
+        },
+        {
+          "title": "March of the Celts",
+          "duration": 195.573,
+          "trackNumber": 5,
+          "discNumber": null
+        },
+        {
+          "title": "Lothlorien",
+          "duration": 128.093,
+          "trackNumber": 6,
+          "discNumber": null
+        },
+        {
+          "title": "From Where I Am",
+          "duration": 141.8,
+          "trackNumber": 7,
+          "discNumber": null
+        },
+        {
+          "title": "Afer Ventus",
+          "duration": 246.133,
+          "trackNumber": 8,
+          "discNumber": null
+        },
+        {
+          "title": "Oriel Window",
+          "duration": 142.467,
+          "trackNumber": 9,
+          "discNumber": null
+        },
+        {
+          "title": "River",
+          "duration": 191.373,
+          "trackNumber": 10,
+          "discNumber": null
+        },
+        {
+          "title": "Tea-House Moon",
+          "duration": 161.827,
+          "trackNumber": 11,
+          "discNumber": null
+        },
+        {
+          "title": "Willows On The Water",
+          "duration": 182.533,
+          "trackNumber": 12,
+          "discNumber": null
+        },
+        {
+          "title": "Morning Glory",
+          "duration": 148.307,
+          "trackNumber": 13,
+          "discNumber": null
+        },
+        {
+          "title": "No Holly For Miss Quinn",
+          "duration": 161.827,
+          "trackNumber": 14,
+          "discNumber": null
+        },
+        {
+          "title": "The Memory Of Trees",
+          "duration": 256.733,
+          "trackNumber": 15,
+          "discNumber": null
+        }
+      ]
+    },
+    {
+      "caseId": "4147560c89fd",
+      "artist": "Enya",
+      "sourceRelativeFolder": "Enya/1997 - A Box of Dreams (EU, WEA - 3984 21333 2) 3xCD Box Set, Compilation/CD1 - Oceans",
+      "tracks": [
+        {
+          "title": "Orinoco Flow",
+          "duration": 267.96,
+          "trackNumber": 1,
+          "discNumber": null
+        },
+        {
+          "title": "Caribbean Blue",
+          "duration": 238.84,
+          "trackNumber": 2,
+          "discNumber": null
+        },
+        {
+          "title": "Book of Days",
+          "duration": 175.76,
+          "trackNumber": 3,
+          "discNumber": null
+        },
+        {
+          "title": "Anywhere Is",
+          "duration": 227.04,
+          "trackNumber": 4,
+          "discNumber": null
+        },
+        {
+          "title": "Only If ...",
+          "duration": 199.827,
+          "trackNumber": 5,
+          "discNumber": null
+        },
+        {
+          "title": "The Celts",
+          "duration": 177.6,
+          "trackNumber": 6,
+          "discNumber": null
+        },
+        {
+          "title": "Cursum Perficio",
+          "duration": 247.8,
+          "trackNumber": 7,
+          "discNumber": null
+        },
+        {
+          "title": "I Want Tomorrow",
+          "duration": 242.0,
+          "trackNumber": 8,
+          "discNumber": null
+        },
+        {
+          "title": "China Roses",
+          "duration": 287.173,
+          "trackNumber": 9,
+          "discNumber": null
+        },
+        {
+          "title": "Storms in Africa",
+          "duration": 241.2,
+          "trackNumber": 10,
+          "discNumber": null
+        },
+        {
+          "title": "Pax Deorum",
+          "duration": 294.36,
+          "trackNumber": 11,
+          "discNumber": null
+        },
+        {
+          "title": "The Longships",
+          "duration": 218.84,
+          "trackNumber": 12,
+          "discNumber": null
+        },
+        {
+          "title": "Ebudae",
+          "duration": 116.16,
+          "trackNumber": 13,
+          "discNumber": null
+        },
+        {
+          "title": "On My Way Home",
+          "duration": 216.4,
+          "trackNumber": 14,
+          "discNumber": null
+        },
+        {
+          "title": "Boadicea",
+          "duration": 207.707,
+          "trackNumber": 15,
+          "discNumber": null
+        }
+      ]
+    },
+    {
+      "caseId": "4318e563edde",
+      "artist": "Enya",
+      "sourceRelativeFolder": "Enya/2008 - And Winter Came (EU, Warner Bros. Records - 256469330-6 V01 IXT)",
+      "tracks": [
+        {
+          "title": "And Winter Came...",
+          "duration": 195.84,
+          "trackNumber": 1,
+          "discNumber": 1
+        },
+        {
+          "title": "Journey Of The Angels",
+          "duration": 287.267,
+          "trackNumber": 2,
+          "discNumber": 1
+        },
+        {
+          "title": "White Is In The Winter Night",
+          "duration": 180.173,
+          "trackNumber": 3,
+          "discNumber": 1
+        },
+        {
+          "title": "O Come, O Come, Emmanuel",
+          "duration": 220.187,
+          "trackNumber": 4,
+          "discNumber": 1
+        },
+        {
+          "title": "Trains And Winter Rains",
+          "duration": 224.747,
+          "trackNumber": 5,
+          "discNumber": 1
+        },
+        {
+          "title": "Dreams Are More Precious",
+          "duration": 265.707,
+          "trackNumber": 6,
+          "discNumber": 1
+        },
+        {
+          "title": "Last Time By Moonlight",
+          "duration": 237.707,
+          "trackNumber": 7,
+          "discNumber": 1
+        },
+        {
+          "title": "One Toy Soldier",
+          "duration": 234.293,
+          "trackNumber": 8,
+          "discNumber": 1
+        },
+        {
+          "title": "Stars And Midnight Blue",
+          "duration": 188.733,
+          "trackNumber": 9,
+          "discNumber": 1
+        },
+        {
+          "title": "The Spirit Of Christmas Past",
+          "duration": 258.067,
+          "trackNumber": 10,
+          "discNumber": 1
+        },
+        {
+          "title": "My! My! Time Flies!",
+          "duration": 182.92,
+          "trackNumber": 11,
+          "discNumber": 1
+        },
+        {
+          "title": "Oíche Chiúin (Chorale)",
+          "duration": 229.56,
+          "trackNumber": 12,
+          "discNumber": 1
+        }
+      ]
+    },
+    {
+      "caseId": "464a1b98d5f1",
+      "artist": "Doja Cat",
+      "sourceRelativeFolder": "Doja Cat/Doja Cat  (6 Releases) 2020, FLAC/Boss Bitch (Single)",
+      "tracks": [
+        {
+          "title": "Boss Bitch",
+          "duration": 134.24,
+          "trackNumber": 1,
+          "discNumber": 1
+        }
+      ]
+    },
+    {
+      "caseId": "4f1aa0ac7b9e",
+      "artist": "Enya",
+      "sourceRelativeFolder": "Enya/1997 - Only If... (US, Reprise Records - 9 17266-2) Single",
+      "tracks": [
+        {
+          "title": "Only If...",
+          "duration": 197.867,
+          "trackNumber": 1,
+          "discNumber": 1
+        },
+        {
+          "title": "Willows On The Water",
+          "duration": 181.867,
+          "trackNumber": 2,
+          "discNumber": 1
+        },
+        {
+          "title": "Oíche Chiún",
+          "duration": 225.907,
+          "trackNumber": 3,
+          "discNumber": 1
+        }
+      ]
+    },
+    {
+      "caseId": "4f4aa10553ce",
+      "artist": "Enya",
+      "sourceRelativeFolder": "Enya/1997 - Paint The Sky With Stars - The Best Of Enya (Russia, Никитин - 4607173153845)",
+      "tracks": [
+        {
+          "title": "Orinoco Flow",
+          "duration": 266.933,
+          "trackNumber": 1,
+          "discNumber": null
+        },
+        {
+          "title": "Caribbean Blue",
+          "duration": 238.96,
+          "trackNumber": 2,
+          "discNumber": null
+        },
+        {
+          "title": "Book Of Days",
+          "duration": 176.2,
+          "trackNumber": 3,
+          "discNumber": null
+        },
+        {
+          "title": "Anywhere Is",
+          "duration": 226.907,
+          "trackNumber": 4,
+          "discNumber": null
+        },
+        {
+          "title": "Only If...",
+          "duration": 199.733,
+          "trackNumber": 5,
+          "discNumber": null
+        },
+        {
+          "title": "The Celts",
+          "duration": 177.76,
+          "trackNumber": 6,
+          "discNumber": null
+        },
+        {
+          "title": "China Roses",
+          "duration": 280.0,
+          "trackNumber": 7,
+          "discNumber": null
+        },
+        {
+          "title": "Shepherd Moons",
+          "duration": 220.373,
+          "trackNumber": 8,
+          "discNumber": null
+        },
+        {
+          "title": "Ebudae",
+          "duration": 112.96,
+          "trackNumber": 9,
+          "discNumber": null
+        },
+        {
+          "title": "Storms In Africa",
+          "duration": 251.733,
+          "trackNumber": 10,
+          "discNumber": null
+        },
+        {
+          "title": "Watermark",
+          "duration": 146.64,
+          "trackNumber": 11,
+          "discNumber": null
+        },
+        {
+          "title": "Paint The Sky With Stars",
+          "duration": 255.733,
+          "trackNumber": 12,
+          "discNumber": null
+        },
+        {
+          "title": "Marble Halls",
+          "duration": 235.133,
+          "trackNumber": 13,
+          "discNumber": null
+        },
+        {
+          "title": "On My Way Home",
+          "duration": 218.893,
+          "trackNumber": 14,
+          "discNumber": null
+        },
+        {
+          "title": "The Memory Of Trees",
+          "duration": 259.907,
+          "trackNumber": 15,
+          "discNumber": null
+        },
+        {
+          "title": "Boadicea",
+          "duration": 208.72,
+          "trackNumber": 16,
+          "discNumber": null
+        }
+      ]
+    },
+    {
+      "caseId": "581c5230c339",
+      "artist": "Enya",
+      "sourceRelativeFolder": "Enya/1995 - The Memory Of Trees (Russia, WEA - 0630-12879-2)",
+      "tracks": [
+        {
+          "title": "The Memory Of Trees",
+          "duration": 259.933,
+          "trackNumber": 1,
+          "discNumber": null
+        },
+        {
+          "title": "Anywhere Is",
+          "duration": 239.467,
+          "trackNumber": 2,
+          "discNumber": null
+        },
+        {
+          "title": "Pax Deorum",
+          "duration": 299.667,
+          "trackNumber": 3,
+          "discNumber": null
+        },
+        {
+          "title": "Athair Ar Neamh",
+          "duration": 222.093,
+          "trackNumber": 4,
+          "discNumber": null
+        },
+        {
+          "title": "From Where I Am",
+          "duration": 142.867,
+          "trackNumber": 5,
+          "discNumber": null
+        },
+        {
+          "title": "China Roses",
+          "duration": 289.8,
+          "trackNumber": 6,
+          "discNumber": null
+        },
+        {
+          "title": "Hope Has A Place",
+          "duration": 288.64,
+          "trackNumber": 7,
+          "discNumber": null
+        },
+        {
+          "title": "Tea-House Moon",
+          "duration": 163.427,
+          "trackNumber": 8,
+          "discNumber": null
+        },
+        {
+          "title": "Once You Had Gold",
+          "duration": 198.333,
+          "trackNumber": 9,
+          "discNumber": null
+        },
+        {
+          "title": "La Sonadora",
+          "duration": 218.24,
+          "trackNumber": 10,
+          "discNumber": null
+        },
+        {
+          "title": "On My Way Home",
+          "duration": 309.133,
+          "trackNumber": 11,
+          "discNumber": null
+        }
+      ]
+    },
+    {
+      "caseId": "5e6f5e98cbc4",
+      "artist": "Enya",
+      "sourceRelativeFolder": "Enya/1986 - The Celts (Russia, WEA - 4509-91167-2)",
+      "tracks": [
+        {
+          "title": "The Celts",
+          "duration": 177.56,
+          "trackNumber": 1,
+          "discNumber": 1
+        },
+        {
+          "title": "Aldebaran",
+          "duration": 185.773,
+          "trackNumber": 2,
+          "discNumber": 1
+        },
+        {
+          "title": "I Want Tomorrow",
+          "duration": 242.227,
+          "trackNumber": 3,
+          "discNumber": 1
+        },
+        {
+          "title": "March of the Celts",
+          "duration": 197.667,
+          "trackNumber": 4,
+          "discNumber": 1
+        },
+        {
+          "title": "Deireadh an Tuath",
+          "duration": 104.573,
+          "trackNumber": 5,
+          "discNumber": 1
+        },
+        {
+          "title": "The Sun in the Stream",
+          "duration": 175.867,
+          "trackNumber": 6,
+          "discNumber": 1
+        },
+        {
+          "title": "To Go Beyond (I)",
+          "duration": 81.6,
+          "trackNumber": 7,
+          "discNumber": 1
+        },
+        {
+          "title": "Fairytale",
+          "duration": 184.627,
+          "trackNumber": 8,
+          "discNumber": 1
+        },
+        {
+          "title": "Epona",
+          "duration": 97.307,
+          "trackNumber": 9,
+          "discNumber": 1
+        },
+        {
+          "title": "Triad: St. Patrick / Cu Chulainn / Oisin",
+          "duration": 265.267,
+          "trackNumber": 10,
+          "discNumber": 1
+        },
+        {
+          "title": "Portrait (Out of the Blue)",
+          "duration": 192.667,
+          "trackNumber": 11,
+          "discNumber": 1
+        },
+        {
+          "title": "Boadicea",
+          "duration": 212.36,
+          "trackNumber": 12,
+          "discNumber": 1
+        },
+        {
+          "title": "Bard Dance",
+          "duration": 84.907,
+          "trackNumber": 13,
+          "discNumber": 1
+        },
+        {
+          "title": "Dan y Dwr",
+          "duration": 102.827,
+          "trackNumber": 14,
+          "discNumber": 1
+        },
+        {
+          "title": "To Go Beyond (II)",
+          "duration": 179.907,
+          "trackNumber": 15,
+          "discNumber": 1
+        }
+      ]
+    },
+    {
+      "caseId": "64cf81550ff5",
+      "artist": "Enya",
+      "sourceRelativeFolder": "Enya/2016 - Greatest Hits (Russia, Warner Bros. Records - 35820•1-2) 2xCD/CD2",
+      "tracks": [
+        {
+          "title": "The Sun In The Stream",
+          "duration": 175.933,
+          "trackNumber": 1,
+          "discNumber": null
+        },
+        {
+          "title": "Aniron (from The Lord of the Rings OST)",
+          "duration": 229.107,
+          "trackNumber": 2,
+          "discNumber": null
+        },
+        {
+          "title": "Song Of The Sandman (Lullaby)",
+          "duration": 221.413,
+          "trackNumber": 3,
+          "discNumber": null
+        },
+        {
+          "title": "Exile",
+          "duration": 261.893,
+          "trackNumber": 4,
+          "discNumber": null
+        },
+        {
+          "title": "Triad- St. Patrick-Cu Chulainn-Oisin",
+          "duration": 265.32,
+          "trackNumber": 5,
+          "discNumber": null
+        },
+        {
+          "title": "Wild Child",
+          "duration": 227.987,
+          "trackNumber": 6,
+          "discNumber": null
+        },
+        {
+          "title": "Even In The Shadows",
+          "duration": 254.293,
+          "trackNumber": 7,
+          "discNumber": null
+        },
+        {
+          "title": "Water Shows The Hidden Heart",
+          "duration": 279.16,
+          "trackNumber": 8,
+          "discNumber": null
+        },
+        {
+          "title": "O Come, O Come, Emmanuel ",
+          "duration": 220.253,
+          "trackNumber": 9,
+          "discNumber": null
+        },
+        {
+          "title": "How Can I Keep From Singing",
+          "duration": 265.627,
+          "trackNumber": 10,
+          "discNumber": null
+        },
+        {
+          "title": "Lazy Days",
+          "duration": 222.667,
+          "trackNumber": 11,
+          "discNumber": null
+        },
+        {
+          "title": "So I Could Find My Way",
+          "duration": 266.027,
+          "trackNumber": 12,
+          "discNumber": null
+        },
+        {
+          "title": "Long Long Journey",
+          "duration": 197.373,
+          "trackNumber": 13,
+          "discNumber": null
+        },
+        {
+          "title": "The Loxian Gate",
+          "duration": 214.933,
+          "trackNumber": 14,
+          "discNumber": null
+        },
+        {
+          "title": "Lothlorien",
+          "duration": 127.52,
+          "trackNumber": 15,
+          "discNumber": null
+        },
+        {
+          "title": "Isobella",
+          "duration": 267.307,
+          "trackNumber": 16,
+          "discNumber": null
+        },
+        {
+          "title": "Flora's Secret",
+          "duration": 247.56,
+          "trackNumber": 17,
+          "discNumber": null
+        },
+        {
+          "title": "Sumiregusa",
+          "duration": 282.12,
+          "trackNumber": 18,
+          "discNumber": null
+        },
+        {
+          "title": "Fallen Embers",
+          "duration": 151.08,
+          "trackNumber": 19,
+          "discNumber": null
+        },
+        {
+          "title": "Angeles",
+          "duration": 241.28,
+          "trackNumber": 20,
+          "discNumber": null
+        },
+        {
+          "title": "Tempus Vernum",
+          "duration": 144.32,
+          "trackNumber": 21,
+          "discNumber": null
+        }
+      ]
+    },
+    {
+      "caseId": "7aca3617ff1a",
+      "artist": "Enya",
+      "sourceRelativeFolder": "Enya/1991 - Shepherd Moons(1)-tracks",
+      "tracks": [
+        {
+          "title": "Shepherd Moons",
+          "duration": 225.893,
+          "trackNumber": 1,
+          "discNumber": null
+        },
+        {
+          "title": "Caribbean Blue",
+          "duration": 239.44,
+          "trackNumber": 2,
+          "discNumber": null
+        },
+        {
+          "title": "How Can I Keep From Singing?",
+          "duration": 265.533,
+          "trackNumber": 3,
+          "discNumber": null
+        },
+        {
+          "title": "Ebudae",
+          "duration": 115.8,
+          "trackNumber": 4,
+          "discNumber": null
+        },
+        {
+          "title": "Angeles",
+          "duration": 241.16,
+          "trackNumber": 5,
+          "discNumber": null
+        },
+        {
+          "title": "No Holly For Miss Quinn",
+          "duration": 163.4,
+          "trackNumber": 6,
+          "discNumber": null
+        },
+        {
+          "title": "Book Of Days",
+          "duration": 175.84,
+          "trackNumber": 7,
+          "discNumber": null
+        },
+        {
+          "title": "Evacuee",
+          "duration": 230.493,
+          "trackNumber": 8,
+          "discNumber": null
+        },
+        {
+          "title": "Lothlorien",
+          "duration": 127.533,
+          "trackNumber": 9,
+          "discNumber": null
+        },
+        {
+          "title": "Marble Halls",
+          "duration": 234.907,
+          "trackNumber": 10,
+          "discNumber": null
+        },
+        {
+          "title": "Afer Ventus",
+          "duration": 246.6,
+          "trackNumber": 11,
+          "discNumber": null
+        },
+        {
+          "title": "Smaointe",
+          "duration": 368.067,
+          "trackNumber": 12,
+          "discNumber": null
+        }
+      ]
+    },
+    {
+      "caseId": "7be9932f0bb4",
+      "artist": "Ariana Grande",
+      "sourceRelativeFolder": "Ariana Grande/2013.09-Yours Truly[flac]",
+      "tracks": [
+        {
+          "title": "Honeymoon Avenue",
+          "duration": 339.733,
+          "trackNumber": 1,
+          "discNumber": 1
+        },
+        {
+          "title": "Baby I",
+          "duration": 197.6,
+          "trackNumber": 2,
+          "discNumber": 1
+        },
+        {
+          "title": "Right There (Feat. Big Sean)",
+          "duration": 247.08,
+          "trackNumber": 3,
+          "discNumber": 1
+        },
+        {
+          "title": "Tattooed Heart",
+          "duration": 194.707,
+          "trackNumber": 4,
+          "discNumber": 1
+        },
+        {
+          "title": "Lovin' It",
+          "duration": 180.693,
+          "trackNumber": 5,
+          "discNumber": 1
+        },
+        {
+          "title": "Piano",
+          "duration": 234.427,
+          "trackNumber": 6,
+          "discNumber": 1
+        },
+        {
+          "title": "Daydreamin'",
+          "duration": 211.293,
+          "trackNumber": 7,
+          "discNumber": 1
+        },
+        {
+          "title": "The Way (Feat. Mac Miller)",
+          "duration": 227.027,
+          "trackNumber": 8,
+          "discNumber": 1
+        },
+        {
+          "title": "You'll Never Know",
+          "duration": 214.28,
+          "trackNumber": 9,
+          "discNumber": 1
+        },
+        {
+          "title": "Almost Is Never Enough (With Nathan Sykes From The Wanted)",
+          "duration": 327.773,
+          "trackNumber": 10,
+          "discNumber": 1
+        },
+        {
+          "title": "Popular Song (With Mika)",
+          "duration": 200.213,
+          "trackNumber": 11,
+          "discNumber": 1
+        },
+        {
+          "title": "Better Left Unsaid",
+          "duration": 212.24,
+          "trackNumber": 12,
+          "discNumber": 1
+        },
+        {
+          "title": "The Way (Feat. Mac Miller) (JdB Radio Edit)",
+          "duration": 265.227,
+          "trackNumber": 13,
+          "discNumber": 1
+        },
+        {
+          "title": "Baby I (Cosmic Dawn Radio Edit)",
+          "duration": 240.267,
+          "trackNumber": 14,
+          "discNumber": 1
+        },
+        {
+          "title": "Right There (Feat. Big Sean) (7th Heaven Radio Edit)",
+          "duration": 243.651,
+          "trackNumber": 15,
+          "discNumber": 1
+        }
+      ]
+    },
+    {
+      "caseId": "7f3eb9349ac2",
+      "artist": "Ellie Goulding",
+      "sourceRelativeFolder": "Ellie Goulding/Ellie Goulding - Delirium [Deluxe] (2015) [FLAC]-tracks",
+      "tracks": [
+        {
+          "title": "Intro (Delirium)",
+          "duration": 113.467,
+          "trackNumber": 1,
+          "discNumber": 1
+        },
+        {
+          "title": "Aftertaste",
+          "duration": 226.107,
+          "trackNumber": 2,
+          "discNumber": 1
+        },
+        {
+          "title": "Something In The Way You Move",
+          "duration": 227.48,
+          "trackNumber": 3,
+          "discNumber": 1
+        },
+        {
+          "title": "Keep On Dancin'",
+          "duration": 226.547,
+          "trackNumber": 4,
+          "discNumber": 1
+        },
+        {
+          "title": "On My Mind",
+          "duration": 213.507,
+          "trackNumber": 5,
+          "discNumber": 1
+        },
+        {
+          "title": "Around U",
+          "duration": 197.893,
+          "trackNumber": 6,
+          "discNumber": 1
+        },
+        {
+          "title": "Codes",
+          "duration": 196.267,
+          "trackNumber": 7,
+          "discNumber": 1
+        },
+        {
+          "title": "Holding On For Life",
+          "duration": 255.28,
+          "trackNumber": 8,
+          "discNumber": 1
+        },
+        {
+          "title": "Love Me Like You Do",
+          "duration": 252.587,
+          "trackNumber": 9,
+          "discNumber": 1
+        },
+        {
+          "title": "Don't Need Nobody",
+          "duration": 214.053,
+          "trackNumber": 10,
+          "discNumber": 1
+        },
+        {
+          "title": "Don't Panic",
+          "duration": 196.44,
+          "trackNumber": 11,
+          "discNumber": 1
+        },
+        {
+          "title": "We Can't Move To This",
+          "duration": 208.373,
+          "trackNumber": 12,
+          "discNumber": 1
+        },
+        {
+          "title": "Army",
+          "duration": 237.467,
+          "trackNumber": 13,
+          "discNumber": 1
+        },
+        {
+          "title": "Lost And Found",
+          "duration": 216.933,
+          "trackNumber": 14,
+          "discNumber": 1
+        },
+        {
+          "title": "Devotion",
+          "duration": 226.6,
+          "trackNumber": 15,
+          "discNumber": 1
+        },
+        {
+          "title": "Scream It Out",
+          "duration": 189.747,
+          "trackNumber": 16,
+          "discNumber": 1
+        },
+        {
+          "title": "The Greatest",
+          "duration": 211.16,
+          "trackNumber": 17,
+          "discNumber": 1
+        },
+        {
+          "title": "I Do What I Love",
+          "duration": 171.747,
+          "trackNumber": 18,
+          "discNumber": 1
+        },
+        {
+          "title": "Paradise",
+          "duration": 224.827,
+          "trackNumber": 19,
+          "discNumber": 1
+        },
+        {
+          "title": "Winner",
+          "duration": 200.293,
+          "trackNumber": 20,
+          "discNumber": 1
+        },
+        {
+          "title": "Heal",
+          "duration": 292.587,
+          "trackNumber": 21,
+          "discNumber": 1
+        },
+        {
+          "title": "Outside",
+          "duration": 227.32,
+          "trackNumber": 22,
+          "discNumber": 1
+        }
+      ]
+    },
+    {
+      "caseId": "8452b6f2b3ea",
+      "artist": "Eminem",
+      "sourceRelativeFolder": "Eminem/2009 Eminem - Relapse (With Bonus)",
+      "tracks": [
+        {
+          "title": "Dr. West (Skit)",
+          "duration": 89.547,
+          "trackNumber": 1,
+          "discNumber": 1
+        },
+        {
+          "title": "3 A.M.",
+          "duration": 319.853,
+          "trackNumber": 2,
+          "discNumber": 1
+        },
+        {
+          "title": "My Mom",
+          "duration": 319.867,
+          "trackNumber": 3,
+          "discNumber": 1
+        },
+        {
+          "title": "Insane",
+          "duration": 181.36,
+          "trackNumber": 4,
+          "discNumber": 1
+        },
+        {
+          "title": "Bagpipes From Baghdad",
+          "duration": 283.067,
+          "trackNumber": 5,
+          "discNumber": 1
+        },
+        {
+          "title": "Hello",
+          "duration": 248.2,
+          "trackNumber": 6,
+          "discNumber": 1
+        },
+        {
+          "title": "Tonya (Skit)",
+          "duration": 42.213,
+          "trackNumber": 7,
+          "discNumber": 1
+        },
+        {
+          "title": "Same Song & Dance",
+          "duration": 246.653,
+          "trackNumber": 8,
+          "discNumber": 1
+        },
+        {
+          "title": "We Made You",
+          "duration": 269.613,
+          "trackNumber": 9,
+          "discNumber": 1
+        },
+        {
+          "title": "Medicine Ball",
+          "duration": 237.333,
+          "trackNumber": 10,
+          "discNumber": 1
+        },
+        {
+          "title": "Paul (Skit)",
+          "duration": 19.413,
+          "trackNumber": 11,
+          "discNumber": 1
+        },
+        {
+          "title": "Stay Wide Awake",
+          "duration": 319.973,
+          "trackNumber": 12,
+          "discNumber": 1
+        },
+        {
+          "title": "Old Time's Sake",
+          "duration": 278.16,
+          "trackNumber": 13,
+          "discNumber": 1
+        },
+        {
+          "title": "Must Be The Ganja",
+          "duration": 242.907,
+          "trackNumber": 14,
+          "discNumber": 1
+        },
+        {
+          "title": "Mr. Mathers (Skit)",
+          "duration": 42.387,
+          "trackNumber": 15,
+          "discNumber": 1
+        },
+        {
+          "title": "Déjà Vu",
+          "duration": 283.52,
+          "trackNumber": 16,
+          "discNumber": 1
+        },
+        {
+          "title": "Beautiful",
+          "duration": 392.827,
+          "trackNumber": 17,
+          "discNumber": 1
+        },
+        {
+          "title": "Crack A Bottle",
+          "duration": 297.52,
+          "trackNumber": 18,
+          "discNumber": 1
+        },
+        {
+          "title": "Steve Berman (Skit)",
+          "duration": 89.187,
+          "trackNumber": 19,
+          "discNumber": 1
+        },
+        {
+          "title": "Underground",
+          "duration": 371.28,
+          "trackNumber": 20,
+          "discNumber": 1
+        },
+        {
+          "title": "My Darling",
+          "duration": 320.427,
+          "trackNumber": 22,
+          "discNumber": 1
+        },
+        {
+          "title": "Careful What You Wish For",
+          "duration": 227.173,
+          "trackNumber": 21,
+          "discNumber": 1
+        }
+      ]
+    },
+    {
+      "caseId": "92ba1d296656",
+      "artist": "Eminem",
+      "sourceRelativeFolder": "Eminem/2003 Eminem - The Singles 11 CD Box Set Limited Edition(0602498616017)/Disc 11 - Wanksta (Unreleased Promo Single)",
+      "tracks": [
+        {
+          "title": "Wanksta [Eminem's Version][*]",
+          "duration": 171.48,
+          "trackNumber": 1,
+          "discNumber": null
+        }
+      ]
+    },
+    {
+      "caseId": "9373204e076a",
+      "artist": "Eagles",
+      "sourceRelativeFolder": "Eagles/1973.04.17 - Desperado (2013 Remaster) [24bit 192kHz] [flac]",
+      "tracks": [
+        {
+          "title": "Doolin-Dalton",
+          "duration": 207.059,
+          "trackNumber": 1,
+          "discNumber": 1
+        },
+        {
+          "title": "Twenty-One",
+          "duration": 129.978,
+          "trackNumber": 2,
+          "discNumber": 1
+        },
+        {
+          "title": "Out of Control",
+          "duration": 184.548,
+          "trackNumber": 3,
+          "discNumber": 1
+        },
+        {
+          "title": "Tequila Sunrise",
+          "duration": 173.057,
+          "trackNumber": 4,
+          "discNumber": 1
+        },
+        {
+          "title": "Desperado",
+          "duration": 213.713,
+          "trackNumber": 5,
+          "discNumber": 1
+        },
+        {
+          "title": "Certain Kind of Fool",
+          "duration": 181.794,
+          "trackNumber": 6,
+          "discNumber": 1
+        },
+        {
+          "title": "Doolin-Dalton (instrumental)",
+          "duration": 47.827,
+          "trackNumber": 7,
+          "discNumber": 1
+        },
+        {
+          "title": "Outlaw Man",
+          "duration": 213.432,
+          "trackNumber": 8,
+          "discNumber": 1
+        },
+        {
+          "title": "Saturday Night",
+          "duration": 200.596,
+          "trackNumber": 9,
+          "discNumber": 1
+        },
+        {
+          "title": "Bitter Creek",
+          "duration": 301.049,
+          "trackNumber": 10,
+          "discNumber": 1
+        },
+        {
+          "title": "Doolin-Dalton / Desperado (reprise)",
+          "duration": 291.033,
+          "trackNumber": 11,
+          "discNumber": 1
+        }
+      ]
+    },
+    {
+      "caseId": "94f52f5366d9",
+      "artist": "Billie Eilish",
+      "sourceRelativeFolder": "Billie Eilish/2015.08-sHE's brOKen[flac]",
+      "tracks": [
+        {
+          "title": "sHE's brOKen",
+          "duration": 161.741,
+          "trackNumber": 1,
+          "discNumber": 1
+        }
+      ]
+    },
+    {
+      "caseId": "9d9d52e703c3",
+      "artist": "Enya",
+      "sourceRelativeFolder": "Enya/2000 - A Day Without Rain (Germany, WEA - 8573-85986-2)",
+      "tracks": [
+        {
+          "title": "A Day Without Rain",
+          "duration": 158.227,
+          "trackNumber": 1,
+          "discNumber": 1
+        },
+        {
+          "title": "Wild Child",
+          "duration": 227.933,
+          "trackNumber": 2,
+          "discNumber": 1
+        },
+        {
+          "title": "Only Time",
+          "duration": 218.04,
+          "trackNumber": 3,
+          "discNumber": 1
+        },
+        {
+          "title": "Tempus Vernum",
+          "duration": 144.267,
+          "trackNumber": 4,
+          "discNumber": 1
+        },
+        {
+          "title": "Deora Ar Mo Chroí",
+          "duration": 168.96,
+          "trackNumber": 5,
+          "discNumber": 1
+        },
+        {
+          "title": "Flora's Secret",
+          "duration": 247.507,
+          "trackNumber": 6,
+          "discNumber": 1
+        },
+        {
+          "title": "Fallen Embers",
+          "duration": 151.027,
+          "trackNumber": 7,
+          "discNumber": 1
+        },
+        {
+          "title": "Silver Inches",
+          "duration": 97.907,
+          "trackNumber": 8,
+          "discNumber": 1
+        },
+        {
+          "title": "Pilgrim",
+          "duration": 192.693,
+          "trackNumber": 9,
+          "discNumber": 1
+        },
+        {
+          "title": "One By One",
+          "duration": 234.64,
+          "trackNumber": 10,
+          "discNumber": 1
+        },
+        {
+          "title": "The First Of Autumn",
+          "duration": 190.067,
+          "trackNumber": 11,
+          "discNumber": 1
+        },
+        {
+          "title": "Lazy Days",
+          "duration": 222.6,
+          "trackNumber": 12,
+          "discNumber": 1
+        }
+      ]
+    },
+    {
+      "caseId": "a54c51887061",
+      "artist": "Enya",
+      "sourceRelativeFolder": "Enya/2001 - Wild Child (Germany, WEA - wea324cd • 8573873782) Maxi-Single",
+      "tracks": [
+        {
+          "title": "Wild Child (Radio Edit)",
+          "duration": 216.827,
+          "trackNumber": 1,
+          "discNumber": null
+        },
+        {
+          "title": "Midnight Blue",
+          "duration": 126.667,
+          "trackNumber": 2,
+          "discNumber": null
+        },
+        {
+          "title": "Song of the Sandman (Lullaby)",
+          "duration": 220.573,
+          "trackNumber": 3,
+          "discNumber": null
+        }
+      ]
+    },
+    {
+      "caseId": "b7fbe4f8ccd1",
+      "artist": "Ariana Grande",
+      "sourceRelativeFolder": "Ariana Grande/2014.08-My Everything[flac]",
+      "tracks": [
+        {
+          "title": "Cadillac Song",
+          "duration": 172.453,
+          "trackNumber": 16,
+          "discNumber": null
+        },
+        {
+          "title": "Intro",
+          "duration": 79.787,
+          "trackNumber": 1,
+          "discNumber": null
+        },
+        {
+          "title": "Just A Little Bit Of Your Heart",
+          "duration": 232.667,
+          "trackNumber": 10,
+          "discNumber": null
+        },
+        {
+          "title": "My Everything",
+          "duration": 168.48,
+          "trackNumber": 12,
+          "discNumber": null
+        },
+        {
+          "title": "One Last Time",
+          "duration": 197.28,
+          "trackNumber": 3,
+          "discNumber": null
+        },
+        {
+          "title": "Only 1",
+          "duration": 193.987,
+          "trackNumber": 14,
+          "discNumber": null
+        },
+        {
+          "title": "Too Close",
+          "duration": 216.36,
+          "trackNumber": 17,
+          "discNumber": null
+        },
+        {
+          "title": "Why Try",
+          "duration": 211.88,
+          "trackNumber": 4,
+          "discNumber": null
+        },
+        {
+          "title": "You Don't Know Me",
+          "duration": 233.707,
+          "trackNumber": 15,
+          "discNumber": null
+        },
+        {
+          "title": "Hands On Me",
+          "duration": 192.227,
+          "trackNumber": 11,
+          "discNumber": null
+        },
+        {
+          "title": "Best Mistake",
+          "duration": 233.733,
+          "trackNumber": 6,
+          "discNumber": null
+        },
+        {
+          "title": "Be My Baby",
+          "duration": 217.053,
+          "trackNumber": 7,
+          "discNumber": null
+        },
+        {
+          "title": "Break Your Heart Right Back",
+          "duration": 253.387,
+          "trackNumber": 8,
+          "discNumber": null
+        },
+        {
+          "title": "Problem",
+          "duration": 193.96,
+          "trackNumber": 2,
+          "discNumber": null
+        },
+        {
+          "title": "Love Me Harder",
+          "duration": 236.053,
+          "trackNumber": 9,
+          "discNumber": null
+        },
+        {
+          "title": "Break Free",
+          "duration": 214.84,
+          "trackNumber": 5,
+          "discNumber": null
+        },
+        {
+          "title": "Baby I",
+          "duration": 197.36,
+          "trackNumber": 18,
+          "discNumber": null
+        },
+        {
+          "title": "Bang Bang",
+          "duration": 199.36,
+          "trackNumber": 13,
+          "discNumber": null
+        }
+      ]
+    },
+    {
+      "caseId": "bbc3d1d0b2aa",
+      "artist": "Enya",
+      "sourceRelativeFolder": "Enya/1996 - The Enya Collection (Japan, WPCR-891-3) 3xCD Box Set/1988 - Watermark (WPCR-892)",
+      "tracks": [
+        {
+          "title": "Watermark",
+          "duration": 146.133,
+          "trackNumber": 1,
+          "discNumber": 1
+        },
+        {
+          "title": "Cursum Perficio",
+          "duration": 249.333,
+          "trackNumber": 2,
+          "discNumber": 1
+        },
+        {
+          "title": "On Your Shore",
+          "duration": 240.16,
+          "trackNumber": 3,
+          "discNumber": 1
+        },
+        {
+          "title": "Storms In Africa",
+          "duration": 244.773,
+          "trackNumber": 4,
+          "discNumber": 1
+        },
+        {
+          "title": "Exile",
+          "duration": 261.827,
+          "trackNumber": 5,
+          "discNumber": 1
+        },
+        {
+          "title": "Miss Clare Remembers",
+          "duration": 119.6,
+          "trackNumber": 6,
+          "discNumber": 1
+        },
+        {
+          "title": "Orinoco Flow",
+          "duration": 266.373,
+          "trackNumber": 7,
+          "discNumber": 1
+        },
+        {
+          "title": "Evening Falls...",
+          "duration": 229.227,
+          "trackNumber": 8,
+          "discNumber": 1
+        },
+        {
+          "title": "River",
+          "duration": 191.8,
+          "trackNumber": 9,
+          "discNumber": 1
+        },
+        {
+          "title": "The Longships",
+          "duration": 218.907,
+          "trackNumber": 10,
+          "discNumber": 1
+        },
+        {
+          "title": "Na Laetha Geal M'óige",
+          "duration": 238.067,
+          "trackNumber": 11,
+          "discNumber": 1
+        }
+      ]
+    },
+    {
+      "caseId": "bf36268a1dc9",
+      "artist": "Enya",
+      "sourceRelativeFolder": "Enya/1989 - Oiche Chiun (1992, US, Reprise Records - 9 40660-2) Maxi-Single",
+      "tracks": [
+        {
+          "title": "Oiche Chiun (Silent Night)",
+          "duration": 227.133,
+          "trackNumber": 1,
+          "discNumber": null
+        },
+        {
+          "title": "Oriel Window",
+          "duration": 143.373,
+          "trackNumber": 2,
+          "discNumber": null
+        },
+        {
+          "title": "'S fagaim mo bhaile",
+          "duration": 237.427,
+          "trackNumber": 3,
+          "discNumber": null
+        }
+      ]
+    },
+    {
+      "caseId": "c0e96540c785",
+      "artist": "Enya",
+      "sourceRelativeFolder": "Enya/2008 - And Winter Came (Japan, Warner Bros. Records - WPCR 13203)",
+      "tracks": [
+        {
+          "title": "And Winter Came...",
+          "duration": 195.84,
+          "trackNumber": 1,
+          "discNumber": 1
+        },
+        {
+          "title": "Journey of the Angels",
+          "duration": 287.267,
+          "trackNumber": 2,
+          "discNumber": 1
+        },
+        {
+          "title": "White Is in the Winter Night",
+          "duration": 180.173,
+          "trackNumber": 3,
+          "discNumber": 1
+        },
+        {
+          "title": "O Come, O Come, Emmanuel",
+          "duration": 220.187,
+          "trackNumber": 4,
+          "discNumber": 1
+        },
+        {
+          "title": "Trains and Winter Rains",
+          "duration": 224.747,
+          "trackNumber": 5,
+          "discNumber": 1
+        },
+        {
+          "title": "Dreams Are More Precious",
+          "duration": 265.707,
+          "trackNumber": 6,
+          "discNumber": 1
+        },
+        {
+          "title": "Last Time by Moonlight",
+          "duration": 237.707,
+          "trackNumber": 7,
+          "discNumber": 1
+        },
+        {
+          "title": "One Toy Soldier",
+          "duration": 234.293,
+          "trackNumber": 8,
+          "discNumber": 1
+        },
+        {
+          "title": "Stars and Midnight Blue",
+          "duration": 188.733,
+          "trackNumber": 9,
+          "discNumber": 1
+        },
+        {
+          "title": "The Spirit of Christmas Past",
+          "duration": 258.067,
+          "trackNumber": 10,
+          "discNumber": 1
+        },
+        {
+          "title": "My! My! Time Flies!",
+          "duration": 182.92,
+          "trackNumber": 11,
+          "discNumber": 1
+        },
+        {
+          "title": "Oíche Chiúin (chorale)",
+          "duration": 229.56,
+          "trackNumber": 12,
+          "discNumber": 1
+        }
+      ]
+    },
+    {
+      "caseId": "cf35f4addb90",
+      "artist": "Enya",
+      "sourceRelativeFolder": "Enya/1985 - The Frog Prince (The Original Soundtrack Collection)(1999, Spectrum 551 099-2)",
+      "tracks": [
+        {
+          "title": "The Train To Paris",
+          "duration": 134.16,
+          "trackNumber": 1,
+          "discNumber": null
+        },
+        {
+          "title": "The First Day",
+          "duration": 92.133,
+          "trackNumber": 2,
+          "discNumber": null
+        },
+        {
+          "title": "Jazz Club - Mack The Knife",
+          "duration": 136.133,
+          "trackNumber": 3,
+          "discNumber": null
+        },
+        {
+          "title": "Jazz Club - Let It Be Me",
+          "duration": 195.107,
+          "trackNumber": 4,
+          "discNumber": null
+        },
+        {
+          "title": "With Jean-Phillipe",
+          "duration": 135.827,
+          "trackNumber": 5,
+          "discNumber": null
+        },
+        {
+          "title": "Jenny",
+          "duration": 66.707,
+          "trackNumber": 6,
+          "discNumber": null
+        },
+        {
+          "title": "Reflections",
+          "duration": 67.733,
+          "trackNumber": 7,
+          "discNumber": null
+        },
+        {
+          "title": "The Frog Prince",
+          "duration": 195.333,
+          "trackNumber": 8,
+          "discNumber": null
+        },
+        {
+          "title": "Dreams",
+          "duration": 218.0,
+          "trackNumber": 9,
+          "discNumber": null
+        },
+        {
+          "title": "The Kiss",
+          "duration": 115.827,
+          "trackNumber": 10,
+          "discNumber": null
+        },
+        {
+          "title": "Jazz Club - Sweet Georgia Brown",
+          "duration": 131.2,
+          "trackNumber": 11,
+          "discNumber": null
+        },
+        {
+          "title": "Jazz Club - Georgia On My Mind",
+          "duration": 235.667,
+          "trackNumber": 12,
+          "discNumber": null
+        },
+        {
+          "title": "A Kiss By The Fountain",
+          "duration": 112.04,
+          "trackNumber": 13,
+          "discNumber": null
+        },
+        {
+          "title": "Jenny & Roz",
+          "duration": 82.093,
+          "trackNumber": 14,
+          "discNumber": null
+        },
+        {
+          "title": "Les Flon-Flons Du Bal (Edith Piaf)",
+          "duration": 139.84,
+          "trackNumber": 15,
+          "discNumber": null
+        },
+        {
+          "title": "Epilogue",
+          "duration": 58.0,
+          "trackNumber": 16,
+          "discNumber": null
+        }
+      ]
+    },
+    {
+      "caseId": "dce52c0bc7d4",
+      "artist": "Billie Eilish",
+      "sourceRelativeFolder": "Billie Eilish/Billie Eilish - Happier Than Ever (Explicit)",
+      "tracks": [
+        {
+          "title": "Getting Older",
+          "duration": 244.221,
+          "trackNumber": 1,
+          "discNumber": 1
+        },
+        {
+          "title": "I Didn't Change My Number",
+          "duration": 158.463,
+          "trackNumber": 2,
+          "discNumber": 1
+        },
+        {
+          "title": "Billie Bossa Nova",
+          "duration": 196.731,
+          "trackNumber": 3,
+          "discNumber": 1
+        },
+        {
+          "title": "my future",
+          "duration": 210.005,
+          "trackNumber": 4,
+          "discNumber": 1
+        },
+        {
+          "title": "Oxytocin",
+          "duration": 210.233,
+          "trackNumber": 5,
+          "discNumber": 1
+        },
+        {
+          "title": "GOLDWING",
+          "duration": 151.537,
+          "trackNumber": 6,
+          "discNumber": 1
+        },
+        {
+          "title": "Lost Cause",
+          "duration": 212.496,
+          "trackNumber": 7,
+          "discNumber": 1
+        },
+        {
+          "title": "Halley's Comet",
+          "duration": 234.761,
+          "trackNumber": 8,
+          "discNumber": 1
+        },
+        {
+          "title": "Not My Responsibility",
+          "duration": 227.68,
+          "trackNumber": 9,
+          "discNumber": 1
+        },
+        {
+          "title": "OverHeated",
+          "duration": 214.059,
+          "trackNumber": 10,
+          "discNumber": 1
+        },
+        {
+          "title": "Everybody Dies",
+          "duration": 206.623,
+          "trackNumber": 11,
+          "discNumber": 1
+        },
+        {
+          "title": "Your Power",
+          "duration": 245.897,
+          "trackNumber": 12,
+          "discNumber": 1
+        },
+        {
+          "title": "NDA",
+          "duration": 195.777,
+          "trackNumber": 13,
+          "discNumber": 1
+        },
+        {
+          "title": "Therefore I Am",
+          "duration": 173.539,
+          "trackNumber": 14,
+          "discNumber": 1
+        },
+        {
+          "title": "Happier Than Ever",
+          "duration": 298.899,
+          "trackNumber": 15,
+          "discNumber": 1
+        },
+        {
+          "title": "Male Fantasy",
+          "duration": 194.887,
+          "trackNumber": 16,
+          "discNumber": 1
+        }
+      ]
+    },
+    {
+      "caseId": "df03a24b3f99",
+      "artist": "Enya",
+      "sourceRelativeFolder": "Enya/2015 - Dark Sky Island (Russia, Warner Bros. Records - 0825646001859(RU))",
+      "tracks": [
+        {
+          "title": "The Humming...",
+          "duration": 225.12,
+          "trackNumber": 1,
+          "discNumber": 1
+        },
+        {
+          "title": "So I Could Find My Way",
+          "duration": 265.96,
+          "trackNumber": 2,
+          "discNumber": 1
+        },
+        {
+          "title": "Even In The Shadows",
+          "duration": 254.24,
+          "trackNumber": 3,
+          "discNumber": 1
+        },
+        {
+          "title": "The Forge Of The Angels",
+          "duration": 314.2,
+          "trackNumber": 4,
+          "discNumber": 1
+        },
+        {
+          "title": "Echoes In Rain",
+          "duration": 215.453,
+          "trackNumber": 5,
+          "discNumber": 1
+        },
+        {
+          "title": "I Could Never Say Goodbye",
+          "duration": 209.947,
+          "trackNumber": 6,
+          "discNumber": 1
+        },
+        {
+          "title": "Dark Sky Island",
+          "duration": 297.44,
+          "trackNumber": 7,
+          "discNumber": 1
+        },
+        {
+          "title": "Sancta Maria",
+          "duration": 231.64,
+          "trackNumber": 8,
+          "discNumber": 1
+        },
+        {
+          "title": "Astra Et Luna",
+          "duration": 201.093,
+          "trackNumber": 9,
+          "discNumber": 1
+        },
+        {
+          "title": "The Loxian Gate",
+          "duration": 214.88,
+          "trackNumber": 10,
+          "discNumber": 1
+        },
+        {
+          "title": "Diamonds On The Water",
+          "duration": 212.947,
+          "trackNumber": 11,
+          "discNumber": 1
+        }
+      ]
+    },
+    {
+      "caseId": "e8a8a8d6b27d",
+      "artist": "Enya",
+      "sourceRelativeFolder": "Enya/1991 - Exile (Japan, WEA - WMC5-387) Five Inch CD Single",
+      "tracks": [
+        {
+          "title": "Exile",
+          "duration": 262.933,
+          "trackNumber": 1,
+          "discNumber": 1
+        },
+        {
+          "title": "On Your Shore",
+          "duration": 239.533,
+          "trackNumber": 2,
+          "discNumber": 1
+        },
+        {
+          "title": "Watermark",
+          "duration": 146.267,
+          "trackNumber": 3,
+          "discNumber": 1
+        },
+        {
+          "title": "River",
+          "duration": 191.8,
+          "trackNumber": 4,
+          "discNumber": 1
+        }
+      ]
+    },
+    {
+      "caseId": "f8d9f037f888",
+      "artist": "Enya",
+      "sourceRelativeFolder": "Enya/1989 - Storms In Africa (US, Geffen Records - PRO-CD-3499) Single, Promo",
+      "tracks": [
+        {
+          "title": "Storms in Africa (Remix)",
+          "duration": 183.16,
+          "trackNumber": 1,
+          "discNumber": 1
+        },
+        {
+          "title": "Storms in Africa (LP Version)",
+          "duration": 243.64,
+          "trackNumber": 2,
+          "discNumber": 1
+        }
+      ]
+    }
+  ]
+}

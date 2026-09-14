@@ -1,0 +1,215 @@
+{
+  "schemaVersion": 1,
+  "manifestVersion": 1,
+  "corpusVersion": "2026-09-12.inventory-1",
+  "reviewPolicy": "Provider payloads are frozen before promotion; unresolved rows remain unscored.",
+  "cases": [
+    {
+      "caseId": "5e6f5e98cbc4",
+      "status": "verified_match",
+      "provider": "musicbrainz",
+      "releaseId": "627377a9-be56-4c45-a56d-9ae941546ef0",
+      "snapshot": "provider-snapshots/enya/musicbrainz-release-627377a9-be56-4c45-a56d-9ae941546ef0.json",
+      "hardNegativeIds": []
+    },
+    {
+      "caseId": "f8d9f037f888",
+      "status": "verified_match",
+      "provider": "discogs",
+      "releaseId": "1459867",
+      "snapshot": "provider-snapshots/enya/discogs-release-1459867.json",
+      "hardNegativeIds": []
+    },
+    {
+      "caseId": "e8a8a8d6b27d",
+      "status": "verified_match",
+      "provider": "discogs",
+      "releaseId": "544082",
+      "snapshot": "provider-snapshots/enya/discogs-release-544082.json",
+      "hardNegativeIds": []
+    },
+    {
+      "caseId": "7aca3617ff1a",
+      "status": "verified_match",
+      "provider": "musicbrainz",
+      "releaseId": "4bf28c39-1b7e-4827-81ed-a306fa4a6b3b",
+      "snapshot": "provider-snapshots/enya/musicbrainz-release-4bf28c39-1b7e-4827-81ed-a306fa4a6b3b.json",
+      "hardNegativeIds": []
+    },
+    {
+      "caseId": "581c5230c339",
+      "status": "verified_match",
+      "provider": "discogs",
+      "releaseId": "779106",
+      "snapshot": "provider-snapshots/enya/discogs-release-779106.json",
+      "hardNegativeIds": []
+    },
+    {
+      "caseId": "bbc3d1d0b2aa",
+      "status": "verified_match",
+      "provider": "discogs",
+      "releaseId": "779039",
+      "snapshot": "provider-snapshots/enya/discogs-release-779039.json",
+      "hardNegativeIds": []
+    },
+    {
+      "caseId": "4147560c89fd",
+      "status": "verified_match",
+      "provider": "discogs",
+      "releaseId": "7832914",
+      "snapshot": "provider-snapshots/enya/discogs-release-7832914.json",
+      "hardNegativeIds": []
+    },
+    {
+      "caseId": "222668c9d053",
+      "status": "verified_match",
+      "provider": "discogs",
+      "releaseId": "7832914",
+      "snapshot": "provider-snapshots/enya/discogs-release-7832914.json",
+      "hardNegativeIds": []
+    },
+    {
+      "caseId": "4f1aa0ac7b9e",
+      "status": "verified_match",
+      "provider": "musicbrainz",
+      "releaseId": "e3ef3be0-fc27-37b3-99c7-b0d99d56ce12",
+      "snapshot": "provider-snapshots/enya/musicbrainz-release-e3ef3be0-fc27-37b3-99c7-b0d99d56ce12.json",
+      "hardNegativeIds": []
+    },
+    {
+      "caseId": "4f4aa10553ce",
+      "status": "verified_match",
+      "provider": "discogs",
+      "releaseId": "1198219",
+      "snapshot": "provider-snapshots/enya/discogs-release-1198219.json",
+      "hardNegativeIds": []
+    },
+    {
+      "caseId": "9d9d52e703c3",
+      "status": "verified_match",
+      "provider": "discogs",
+      "releaseId": "2064430",
+      "snapshot": "provider-snapshots/enya/discogs-release-2064430.json",
+      "hardNegativeIds": []
+    },
+    {
+      "caseId": "a54c51887061",
+      "status": "verified_match",
+      "provider": "discogs",
+      "releaseId": "544115",
+      "snapshot": "provider-snapshots/enya/discogs-release-544115.json",
+      "hardNegativeIds": []
+    },
+    {
+      "caseId": "4318e563edde",
+      "status": "verified_match",
+      "provider": "musicbrainz",
+      "releaseId": "16d139e2-e940-36e4-b865-99f4dd667573",
+      "snapshot": "provider-snapshots/enya/musicbrainz-release-16d139e2-e940-36e4-b865-99f4dd667573.json",
+      "hardNegativeIds": []
+    },
+    {
+      "caseId": "c0e96540c785",
+      "status": "verified_match",
+      "provider": "discogs",
+      "releaseId": "2994652",
+      "snapshot": "provider-snapshots/enya/discogs-release-2994652.json",
+      "hardNegativeIds": []
+    },
+    {
+      "caseId": "df03a24b3f99",
+      "status": "verified_match",
+      "provider": "musicbrainz",
+      "releaseId": "1e6da3bd-a86b-4b7c-8578-db9b381f7e37",
+      "snapshot": "provider-snapshots/enya/musicbrainz-release-1e6da3bd-a86b-4b7c-8578-db9b381f7e37.json",
+      "hardNegativeIds": []
+    },
+    {
+      "caseId": "64cf81550ff5",
+      "status": "verified_match",
+      "provider": "discogs",
+      "releaseId": "8174021",
+      "snapshot": "provider-snapshots/enya/discogs-release-8174021.json",
+      "hardNegativeIds": []
+    },
+    {
+      "caseId": "8452b6f2b3ea",
+      "status": "verified_match",
+      "provider": "discogs",
+      "releaseId": "36441795",
+      "snapshot": "provider-snapshots/relapse/discogs-release-36441795.json",
+      "hardNegativeIds": [
+        "16649340",
+        "standard-20-track"
+      ]
+    },
+    {
+      "caseId": "0f0af4dbe0f2",
+      "status": "unresolved",
+      "reason": "Representative case retained until a complete provider edition payload and independent mapping review are frozen; inventory tags alone are insufficient."
+    },
+    {
+      "caseId": "7be9932f0bb4",
+      "status": "unresolved",
+      "reason": "Representative case retained until a complete provider edition payload and independent mapping review are frozen; inventory tags alone are insufficient."
+    },
+    {
+      "caseId": "94f52f5366d9",
+      "status": "unresolved",
+      "reason": "Representative case retained until a complete provider edition payload and independent mapping review are frozen; inventory tags alone are insufficient."
+    },
+    {
+      "caseId": "dce52c0bc7d4",
+      "status": "unresolved",
+      "reason": "Representative case retained until a complete provider edition payload and independent mapping review are frozen; inventory tags alone are insufficient."
+    },
+    {
+      "caseId": "0c9e8b505ea7",
+      "status": "unresolved",
+      "reason": "Representative case retained until a complete provider edition payload and independent mapping review are frozen; inventory tags alone are insufficient."
+    },
+    {
+      "caseId": "9373204e076a",
+      "status": "unresolved",
+      "reason": "Representative case retained until a complete provider edition payload and independent mapping review are frozen; inventory tags alone are insufficient."
+    },
+    {
+      "caseId": "7f3eb9349ac2",
+      "status": "unresolved",
+      "reason": "Representative case retained until a complete provider edition payload and independent mapping review are frozen; inventory tags alone are insufficient."
+    },
+    {
+      "caseId": "024f610c2a7b",
+      "status": "unresolved",
+      "reason": "Representative case retained until a complete provider edition payload and independent mapping review are frozen; inventory tags alone are insufficient."
+    },
+    {
+      "caseId": "92ba1d296656",
+      "status": "unresolved",
+      "reason": "Representative case retained until a complete provider edition payload and independent mapping review are frozen; inventory tags alone are insufficient."
+    },
+    {
+      "caseId": "cf35f4addb90",
+      "status": "unresolved",
+      "reason": "Representative case retained until a complete provider edition payload and independent mapping review are frozen; inventory tags alone are insufficient."
+    },
+    {
+      "caseId": "bf36268a1dc9",
+      "status": "unresolved",
+      "reason": "Representative case retained until a complete provider edition payload and independent mapping review are frozen; inventory tags alone are insufficient."
+    },
+    {
+      "caseId": "464a1b98d5f1",
+      "status": "unresolved",
+      "reason": "Representative case retained until a complete provider edition payload and independent mapping review are frozen; inventory tags alone are insufficient."
+    },
+    {
+      "caseId": "b7fbe4f8ccd1",
+      "status": "unresolved",
+      "reason": "Discogs Japanese payload exposes the expected bonus track but several local durations conflict with that edition; keep as an edition-review holdout until the source mastering is independently identified.",
+      "hardNegativeIds": [
+        "6020781"
+      ]
+    }
+  ]
+}

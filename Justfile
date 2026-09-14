@@ -25,6 +25,7 @@ default:
     @echo "  just eval-auto-tag-ground-truth audit the complete reviewed expectation ledger"
     @echo "  just eval-auto-tag-repro  audit frozen pools, equivalence, and cold/warm identity"
     @echo "  just eval-auto-tag-profiles  report deterministic metrics for all three input profiles"
+    @echo "  just eval-auto-tag-subset  review the frozen representative corpus subset"
     @echo "  just eval-auto-tag-score  score reviewed native evaluation results offline"
     @echo "  just eval-auto-tag-live   run the explicit credentialed native evaluation"
     @echo ""
@@ -142,6 +143,21 @@ eval-auto-tag-profiles:
         --native "folder_filename=${SOUNDROBE_AUTO_TAG_PROFILE_DISCOVERY_RESULTS:-$PWD/.planning/debug/enya-2026-09-13-followup/synthetic-corpus/results.json}" \
         --native "assisted_without_ids=${SOUNDROBE_AUTO_TAG_PROFILE_ASSISTED_RESULTS:-$PWD/.planning/debug/auto-tag-eval/baseline-assisted-2026-09-14/cold.jsonl}" \
         --native "tagged_recovery=${SOUNDROBE_AUTO_TAG_PROFILE_RECOVERY_RESULTS:-$PWD/.planning/debug/auto-tag-eval/baseline-recovery-2026-09-14/results.json}"
+
+# Offline provider-backed review of the representative subset; unresolved rows remain unscored.
+eval-auto-tag-subset:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    run_id="${SOUNDROBE_AUTO_TAG_SUBSET_RUN_ID:-reviewed-subset-$(date -u +%Y%m%dT%H%M%SZ)}"
+    output_dir="${SOUNDROBE_AUTO_TAG_SUBSET_DIR:-$PWD/.planning/debug/auto-tag-eval/$run_id}"
+    if [[ "$output_dir" != /* ]]; then
+        output_dir="$PWD/$output_dir"
+    fi
+    exec python3 scripts/review_auto_tag_subset.py \
+        --corpus "${SOUNDROBE_AUTO_TAG_EVAL_CORPUS:-$PWD/test/fixtures/tauri/auto-tag-eval/corpus.json}" \
+        --manifest "${SOUNDROBE_AUTO_TAG_SUBSET_MANIFEST:-$PWD/test/fixtures/tauri/auto-tag-eval/reviewed-subset.json}" \
+        --fixture-root "${SOUNDROBE_AUTO_TAG_SUBSET_FIXTURE_ROOT:-$PWD/test/fixtures/tauri/auto-tag-eval}" \
+        --output-dir "$output_dir"
 
 # Offline scoring for retained native results and reviewed expectation ledgers.
 eval-auto-tag-score:
