@@ -1,0 +1,236 @@
+{
+  "title": "The Very Best Of Enya",
+  "year": 2009,
+  "country": "UK & Europe",
+  "artists": [
+    "Enya"
+  ],
+  "formats": [
+    {
+      "name": "CD",
+      "qty": "1",
+      "descriptions": [
+        "Compilation"
+      ]
+    },
+    {
+      "name": "DVD",
+      "qty": "1",
+      "descriptions": [
+        "DVD-Video",
+        "Multichannel",
+        "NTSC",
+        "Compilation"
+      ]
+    }
+  ],
+  "labels": [
+    {
+      "name": "Warner Bros. Records",
+      "catno": "825646852260",
+      "entity_type": "1",
+      "entity_type_name": "Label",
+      "id": 1000,
+      "resource_url": "https://api.discogs.com/labels/1000",
+      "thumbnail_url": "https://i.discogs.com/GO-baqlieZvkZypxRJOHC9sgGPzAinoiWBc7_LwuZ10/rs:fit/g:sm/q:90/h:358/w:380/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9MLTEwMDAt/MTY0NDg3NDIwMS01/ODI0LmpwZWc.jpeg"
+    }
+  ],
+  "tracklist": [
+    {
+      "position": "CD-1",
+      "title": "Trains And Winter Rains",
+      "duration": "3:44"
+    },
+    {
+      "position": "CD-2",
+      "title": "My! My! Time Flies",
+      "duration": "3:00"
+    },
+    {
+      "position": "CD-3",
+      "title": "Stars And Midnight Blue",
+      "duration": "3:07"
+    },
+    {
+      "position": "CD-4",
+      "title": "Amarantine",
+      "duration": "3:12"
+    },
+    {
+      "position": "CD-5",
+      "title": "Sumiregusa",
+      "duration": "4:40"
+    },
+    {
+      "position": "CD-6",
+      "title": "The River Sings",
+      "duration": "2:48"
+    },
+    {
+      "position": "CD-7",
+      "title": "If I Could Be Where You Are",
+      "duration": "4:00"
+    },
+    {
+      "position": "CD-8",
+      "title": "Wild Child",
+      "duration": "3:47"
+    },
+    {
+      "position": "CD-9",
+      "title": "Only Time",
+      "duration": "3:38"
+    },
+    {
+      "position": "CD-10",
+      "title": "Drifting",
+      "duration": "4:10"
+    },
+    {
+      "position": "CD-11",
+      "title": "Flora's Secret",
+      "duration": "4:06"
+    },
+    {
+      "position": "CD-12",
+      "title": "Fallen Embers",
+      "duration": "2:30"
+    },
+    {
+      "position": "CD-13",
+      "title": "One By One",
+      "duration": "3:43"
+    },
+    {
+      "position": "CD-14",
+      "title": "Pax Deorum",
+      "duration": "4:58"
+    },
+    {
+      "position": "CD-15",
+      "title": "Athair Ar Neamh",
+      "duration": "3:41"
+    },
+    {
+      "position": "CD-16",
+      "title": "Anywhere Is",
+      "duration": "3:58"
+    },
+    {
+      "position": "CD-17",
+      "title": "Orinoco Flow",
+      "duration": "4:26"
+    },
+    {
+      "position": "CD-18",
+      "title": "Watermark",
+      "duration": "2:26"
+    },
+    {
+      "position": "CD-19",
+      "title": "Boadicea",
+      "duration": "3:31"
+    },
+    {
+      "position": "CD-20",
+      "title": "May It Be",
+      "duration": "3:33"
+    },
+    {
+      "position": "CD-21",
+      "title": "Caribbean Blue",
+      "duration": "3:59"
+    },
+    {
+      "position": "CD-22",
+      "title": "Aníron (I Desire) (Theme For Aragorn & Arwen)",
+      "duration": "2:43"
+    },
+    {
+      "position": "DVD-1",
+      "title": "Orinoco Flow",
+      "duration": ""
+    },
+    {
+      "position": "DVD-2",
+      "title": "Caribbean Blue",
+      "duration": ""
+    },
+    {
+      "position": "DVD-3",
+      "title": "Only Time",
+      "duration": ""
+    },
+    {
+      "position": "DVD-4",
+      "title": "The Celts",
+      "duration": ""
+    },
+    {
+      "position": "DVD-5",
+      "title": "Amarantine",
+      "duration": ""
+    },
+    {
+      "position": "DVD-6",
+      "title": "Trains And Winter Rains",
+      "duration": ""
+    },
+    {
+      "position": "DVD-7",
+      "title": "Evening Falls",
+      "duration": ""
+    },
+    {
+      "position": "DVD-8",
+      "title": "Anywhere Is",
+      "duration": ""
+    },
+    {
+      "position": "DVD-9",
+      "title": "It's In The Rain",
+      "duration": ""
+    },
+    {
+      "position": "DVD-10",
+      "title": "Wild Child",
+      "duration": ""
+    },
+    {
+      "position": "DVD-11",
+      "title": "Only If",
+      "duration": ""
+    },
+    {
+      "position": "DVD-12",
+      "title": "Storms In Africa",
+      "duration": ""
+    },
+    {
+      "position": "DVD-13",
+      "title": "On My Way Home",
+      "duration": ""
+    },
+    {
+      "position": "",
+      "title": "Additional DVD Content:",
+      "duration": ""
+    },
+    {
+      "position": "DVD-14",
+      "title": "Documentary",
+      "duration": ""
+    },
+    {
+      "position": "DVD-15",
+      "title": "Making Of Caribbean Blue",
+      "duration": ""
+    },
+    {
+      "position": "DVD-16",
+      "title": "Making Of Only Time",
+      "duration": ""
+    }
+  ],
+  "id": 2029801
+}

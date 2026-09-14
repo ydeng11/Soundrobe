@@ -1,0 +1,289 @@
+{
+  "path": "",
+  "artist_hint": "Enya",
+  "tagged_artist_hint": "Enya",
+  "album_hint": "Greatest Hits CD2",
+  "tagged_album_hint": "Greatest Hits CD2",
+  "year_hint": "2016",
+  "country_hint": null,
+  "musicbrainz_album_id": null,
+  "musicbrainz_artist_id": null,
+  "discogs_release_id": null,
+  "discogs_artist_id": null,
+  "selected_disc_number": 2,
+  "tracks": [
+    {
+      "title": "The Sun In The Stream",
+      "filename": "01. Enya - The Sun In The Stream",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 1,
+      "track_total": 21,
+      "length": 175.933333,
+      "disc_number": null,
+      "disc_total": null
+    },
+    {
+      "title": "Aniron (from The Lord of the Rings OST)",
+      "filename": "02. Enya - Aniron (from The Lord of the Rings OST)",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 2,
+      "track_total": 21,
+      "length": 229.106667,
+      "disc_number": null,
+      "disc_total": null
+    },
+    {
+      "title": "Song Of The Sandman (Lullaby)",
+      "filename": "03. Enya - Song Of The Sandman (Lullaby)",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 3,
+      "track_total": 21,
+      "length": 221.413333,
+      "disc_number": null,
+      "disc_total": null
+    },
+    {
+      "title": "Exile",
+      "filename": "04. Enya - Exile",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 4,
+      "track_total": 21,
+      "length": 261.893333,
+      "disc_number": null,
+      "disc_total": null
+    },
+    {
+      "title": "Triad- St. Patrick-Cu Chulainn-Oisin",
+      "filename": "05. Enya - Triad- St. Patrick-Cu Chulainn-Oisin",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 5,
+      "track_total": 21,
+      "length": 265.32,
+      "disc_number": null,
+      "disc_total": null
+    },
+    {
+      "title": "Wild Child",
+      "filename": "06. Enya - Wild Child",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 6,
+      "track_total": 21,
+      "length": 227.986667,
+      "disc_number": null,
+      "disc_total": null
+    },
+    {
+      "title": "Even In The Shadows",
+      "filename": "07. Enya - Even In The Shadows",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 7,
+      "track_total": 21,
+      "length": 254.293333,
+      "disc_number": null,
+      "disc_total": null
+    },
+    {
+      "title": "Water Shows The Hidden Heart",
+      "filename": "08. Enya - Water Shows The Hidden Heart",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 8,
+      "track_total": 21,
+      "length": 279.16,
+      "disc_number": null,
+      "disc_total": null
+    },
+    {
+      "title": "O Come, O Come, Emmanuel ",
+      "filename": "09. Enya - O Come, O Come, Emmanuel",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 9,
+      "track_total": 21,
+      "length": 220.253333,
+      "disc_number": null,
+      "disc_total": null
+    },
+    {
+      "title": "How Can I Keep From Singing",
+      "filename": "10. Enya - How Can I Keep From Singing",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 10,
+      "track_total": 21,
+      "length": 265.626667,
+      "disc_number": null,
+      "disc_total": null
+    },
+    {
+      "title": "Lazy Days",
+      "filename": "11. Enya - Lazy Days",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 11,
+      "track_total": 21,
+      "length": 222.666667,
+      "disc_number": null,
+      "disc_total": null
+    },
+    {
+      "title": "So I Could Find My Way",
+      "filename": "12. Enya - So I Could Find My Way",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 12,
+      "track_total": 21,
+      "length": 266.026667,
+      "disc_number": null,
+      "disc_total": null
+    },
+    {
+      "title": "Long Long Journey",
+      "filename": "13. Enya - Long Long Journey",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 13,
+      "track_total": 21,
+      "length": 197.373333,
+      "disc_number": null,
+      "disc_total": null
+    },
+    {
+      "title": "The Loxian Gate",
+      "filename": "14. Enya - The Loxian Gate",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 14,
+      "track_total": 21,
+      "length": 214.933333,
+      "disc_number": null,
+      "disc_total": null
+    },
+    {
+      "title": "Lothlorien",
+      "filename": "15. Enya - Lothlorien",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 15,
+      "track_total": 21,
+      "length": 127.52,
+      "disc_number": null,
+      "disc_total": null
+    },
+    {
+      "title": "Isobella",
+      "filename": "16. Enya - Isobella",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 16,
+      "track_total": 21,
+      "length": 267.306667,
+      "disc_number": null,
+      "disc_total": null
+    },
+    {
+      "title": "Flora's Secret",
+      "filename": "17. Enya - Flora's Secret",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 17,
+      "track_total": 21,
+      "length": 247.56,
+      "disc_number": null,
+      "disc_total": null
+    },
+    {
+      "title": "Sumiregusa",
+      "filename": "18. Enya - Sumiregusa",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 18,
+      "track_total": 21,
+      "length": 282.12,
+      "disc_number": null,
+      "disc_total": null
+    },
+    {
+      "title": "Fallen Embers",
+      "filename": "19. Enya - Fallen Embers",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 19,
+      "track_total": 21,
+      "length": 151.08,
+      "disc_number": null,
+      "disc_total": null
+    },
+    {
+      "title": "Angeles",
+      "filename": "20. Enya - Angeles",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 20,
+      "track_total": 21,
+      "length": 241.28,
+      "disc_number": null,
+      "disc_total": null
+    },
+    {
+      "title": "Tempus Vernum",
+      "filename": "21. Enya - Tempus Vernum",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 21,
+      "track_total": 21,
+      "length": 144.32,
+      "disc_number": null,
+      "disc_total": null
+    }
+  ]
+}

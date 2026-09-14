@@ -1,0 +1,64 @@
+{
+  "album": "Wild Child",
+  "album_artist": "Enya",
+  "album_artists": [
+    "Enya"
+  ],
+  "artist": "Enya",
+  "artists": [
+    "Enya"
+  ],
+  "barcode": null,
+  "catalog_number": null,
+  "confidence": null,
+  "country": "Europe",
+  "discogs_artist_id": "304",
+  "discogs_release_id": "544115",
+  "distance": null,
+  "formats": [
+    "CD"
+  ],
+  "genre": null,
+  "linked_discogs_release_id": null,
+  "musicbrainz_albumid": null,
+  "musicbrainz_artistid": null,
+  "source": "discogs",
+  "tracks": [
+    {
+      "title": "Wild Child (Radio Edit)",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 1,
+      "track_total": 3,
+      "disc_number": null,
+      "disc_total": null,
+      "length": 213
+    },
+    {
+      "title": "Midnight Blue",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 2,
+      "track_total": 3,
+      "disc_number": null,
+      "disc_total": null,
+      "length": 124
+    },
+    {
+      "title": "Song Of The Sandman (Lullaby)",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 3,
+      "track_total": 3,
+      "disc_number": null,
+      "disc_total": null,
+      "length": 220
+    }
+  ]
+}

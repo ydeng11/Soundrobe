@@ -4453,6 +4453,7 @@ fn on_different_filesystem(path: &Path) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::commands::tracks::read_extra_tags;
     use lofty::id3::v2::BinaryFrame;
     use lofty::picture::{MimeType, Picture, PictureInformation, PictureType};
 
@@ -4567,6 +4568,33 @@ mod tests {
         payload.extend_from_slice(&[0, 0, 3]);
         payload.extend_from_slice(title.as_bytes());
         payload
+    }
+
+    fn append_id3v23_text_frame(frames: &mut Vec<u8>, id: &[u8; 4], value: &str) {
+        let mut payload = vec![3];
+        payload.extend_from_slice(value.as_bytes());
+        frames.extend_from_slice(id);
+        frames.extend_from_slice(&(payload.len() as u32).to_be_bytes());
+        frames.extend_from_slice(&[0, 0]);
+        frames.extend_from_slice(&payload);
+    }
+
+    fn install_conflicting_id3_prefix(path: &Path) {
+        let source = fs::read(path).unwrap();
+        let marker = source
+            .windows(4)
+            .position(|window| window == b"fLaC")
+            .unwrap();
+        let mut frames = Vec::new();
+        append_id3v23_text_frame(&mut frames, b"TIT2", "Legacy title");
+        append_id3v23_text_frame(&mut frames, b"TALB", "Legacy album");
+        append_id3v23_text_frame(&mut frames, b"TPE1", "Legacy artist");
+        append_id3v23_text_frame(&mut frames, b"TRCK", "9/9");
+        let mut id3 = b"ID3\x03\0\0".to_vec();
+        id3.extend_from_slice(&syncsafe_test_size(frames.len()));
+        id3.extend_from_slice(&frames);
+        id3.extend_from_slice(&source[marker..]);
+        fs::write(path, id3).unwrap();
     }
 
     fn make_wav_8bit_mono(bytes: &mut [u8]) {
@@ -6331,6 +6359,46 @@ mod tests {
             read_track_metadata(&path).unwrap().album.as_deref(),
             Some("Bounded Prefix Album")
         );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn flac_dual_tag_readback_prefers_canonical_vorbis_and_preserves_audio() {
+        let (root, path) = copy_to_temp(&writer_fixture("padded.flac"), "dual-tag.flac");
+        install_conflicting_id3_prefix(&path);
+        // This is the Wild Child failure shape: a stale legacy ID3 album is
+        // present ahead of the canonical Vorbis comments in the container.
+        // The reader must already prefer Vorbis before any write takes place.
+        let before_read = read_track_metadata(&path).unwrap();
+        assert_eq!(before_read.album.as_deref(), Some("Corpus Album"));
+        let before = fs::read(&path).unwrap();
+        let before_audio = flac_audio_payload(&before).unwrap().to_vec();
+        let patch: TrackPatch = serde_json::from_value(serde_json::json!({
+            "title": "Canonical title",
+            "artist": "Canonical artist",
+            "album": "Canonical album",
+            "year": "2024",
+            "trackNumber": 2,
+            "trackTotal": 3,
+            "discNumber": 1,
+            "discTotal": 1,
+            "musicbrainzAlbumId": "mb-album",
+            "discogsReleaseId": "544115"
+        }))
+        .unwrap();
+        write_flac_atomic(&path, &patch).unwrap();
+        let read = read_track_metadata(&path).unwrap();
+        assert_eq!(read.title.as_deref(), Some("Canonical title"));
+        assert_eq!(read.artist.as_deref(), Some("Canonical artist"));
+        assert_eq!(read.album.as_deref(), Some("Canonical album"));
+        assert_eq!(read.year.as_deref(), Some("2024"));
+        assert_eq!(read.track_number, Some(2));
+        assert_eq!(read.discogs_release_id.as_deref(), Some("544115"));
+        assert_eq!(read.genre.as_deref(), Some("Electronic"));
+        assert!(read_extra_tags(&path)
+            .into_iter()
+            .any(|tag| tag.key.eq_ignore_ascii_case("encoder") && tag.value == "Lavf62.12.101"));
+        assert_eq!(flac_audio_payload(&fs::read(&path).unwrap()).unwrap(), before_audio);
         fs::remove_dir_all(root).unwrap();
     }
 

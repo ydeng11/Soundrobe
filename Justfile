@@ -21,6 +21,11 @@ default:
     @echo "  just smoke-openrouter     run credentialed OpenRouter release gate"
     @echo "  just smoke-assistant      run live native assistant loopback"
     @echo "  just smoke-cover-picker   run macOS native picker cancel gate"
+    @echo "  just eval-auto-tag        run deterministic metadata-only auto-tag evaluation"
+    @echo "  just eval-auto-tag-ground-truth audit the complete reviewed expectation ledger"
+    @echo "  just eval-auto-tag-repro  audit frozen pools, equivalence, and cold/warm identity"
+    @echo "  just eval-auto-tag-score  score reviewed native evaluation results offline"
+    @echo "  just eval-auto-tag-live   run the explicit credentialed native evaluation"
     @echo ""
     @echo "Ship:"
     @echo "  just dist <target>        build distributable (mac|win|linux)"
@@ -80,6 +85,82 @@ smoke-assistant: _deps-check
 
 smoke-cover-picker: _deps-check
     npm run build:e2e && npx wdio run wdio.conf.ts --spec e2e-tauri/live-cover-picker.spec.ts
+
+# Deterministic corpus/profile/selection contracts; no credentials or media writes.
+eval-auto-tag:
+    cd src-tauri && cargo test --lib commands::auto_tag::eval_tests
+
+# Offline reconciliation of every corpus case against its reviewed expectation ledger.
+eval-auto-tag-ground-truth:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    run_id="${SOUNDROBE_AUTO_TAG_GROUND_TRUTH_RUN_ID:-ground-truth-$(date -u +%Y%m%dT%H%M%SZ)}"
+    output_dir="${SOUNDROBE_AUTO_TAG_GROUND_TRUTH_DIR:-$PWD/.planning/debug/auto-tag-eval/$run_id}"
+    if [[ "$output_dir" != /* ]]; then
+        output_dir="$PWD/$output_dir"
+    fi
+    exec python3 scripts/audit_auto_tag_ground_truth.py \
+        --corpus "${SOUNDROBE_AUTO_TAG_EVAL_CORPUS:-$PWD/test/fixtures/tauri/auto-tag-eval/corpus.json}" \
+        --expectations "${SOUNDROBE_AUTO_TAG_EVAL_EXPECTATIONS:-$PWD/test/fixtures/tauri/auto-tag-eval/expectations.json}" \
+        --output-dir "$output_dir" \
+        --expected-case-count 321 \
+        --expected-track-count 2841 \
+        --run-id "$run_id"
+
+# Offline reproducibility gate for frozen provider snapshots and retained native replay.
+eval-auto-tag-repro:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    run_id="${SOUNDROBE_AUTO_TAG_REPRO_RUN_ID:-reproducibility-$(date -u +%Y%m%dT%H%M%SZ)}"
+    output_dir="${SOUNDROBE_AUTO_TAG_REPRO_DIR:-$PWD/.planning/debug/auto-tag-eval/$run_id}"
+    if [[ "$output_dir" != /* ]]; then
+        output_dir="$PWD/$output_dir"
+    fi
+    native_results="${SOUNDROBE_AUTO_TAG_REPRO_NATIVE_RESULTS:-$PWD/.planning/debug/enya-2026-09-13-followup/synthetic-corpus/results.json}"
+    exec python3 scripts/audit_auto_tag_reproducibility.py \
+        --candidate-pools "${SOUNDROBE_AUTO_TAG_EVAL_CANDIDATE_POOLS:-$PWD/test/fixtures/tauri/auto-tag-eval/candidate-pools.json}" \
+        --equivalence "${SOUNDROBE_AUTO_TAG_REPRO_EQUIVALENCE:-$PWD/.planning/debug/enya-2026-09-13-followup/synthetic-corpus/equivalence.json}" \
+        --native-results "$native_results" \
+        --output-dir "$output_dir" \
+        --run-id "$run_id"
+
+# Offline scoring for retained native results and reviewed expectation ledgers.
+eval-auto-tag-score:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    run_id="${SOUNDROBE_AUTO_TAG_SCORE_RUN_ID:-scored-$(date -u +%Y%m%dT%H%M%SZ)}"
+    output_dir="${SOUNDROBE_AUTO_TAG_SCORE_DIR:-$PWD/.planning/debug/auto-tag-eval/$run_id}"
+    if [[ "$output_dir" != /* ]]; then
+        output_dir="$PWD/$output_dir"
+    fi
+    exec python3 scripts/score_auto_tag_eval.py \
+        --corpus "${SOUNDROBE_AUTO_TAG_EVAL_CORPUS:-$PWD/test/fixtures/tauri/auto-tag-eval/corpus.json}" \
+        --expectations "${SOUNDROBE_AUTO_TAG_EVAL_EXPECTATIONS:-$PWD/test/fixtures/tauri/auto-tag-eval/expectations.json}" \
+        --results "${SOUNDROBE_AUTO_TAG_EVAL_RESULTS:-$PWD/.planning/debug/enya-2026-09-13-followup/synthetic-corpus/results.json}" \
+        --reviewed-truth "${SOUNDROBE_AUTO_TAG_EVAL_REVIEWED_TRUTH:-$PWD/test/fixtures/tauri/relapse-deluxe/reviewed-truth.json}" \
+        --output-dir "$output_dir" \
+        --run-id "$run_id"
+
+# Explicit live gate. Filters are comma-separated artist/case IDs and default to clean discovery.
+# Native evaluation uses disposable synthetic FLAC inputs generated from the corpus metadata.
+eval-auto-tag-live:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    run_id="${SOUNDROBE_AUTO_TAG_EVAL_RUN_ID:-native-$(date -u +%Y%m%dT%H%M%SZ)}"
+    artifact_dir="${SOUNDROBE_AUTO_TAG_EVAL_ARTIFACT_DIR:-$PWD/.planning/debug/auto-tag-eval/$run_id}"
+    if [[ "$artifact_dir" != /* ]]; then
+        artifact_dir="$PWD/$artifact_dir"
+    fi
+    mkdir -p "$artifact_dir"
+    env \
+        SOUNDROBE_AUTO_TAG_EVAL_CORPUS="${SOUNDROBE_AUTO_TAG_EVAL_CORPUS:-$PWD/test/fixtures/tauri/auto-tag-eval/corpus.json}" \
+        SOUNDROBE_AUTO_TAG_EVAL_EXPECTATIONS="${SOUNDROBE_AUTO_TAG_EVAL_EXPECTATIONS:-$PWD/test/fixtures/tauri/auto-tag-eval/expectations.json}" \
+        SOUNDROBE_AUTO_TAG_EVAL_ARTIFACT_DIR="$artifact_dir" \
+        SOUNDROBE_AUTO_TAG_EVAL_RUN_ID="$run_id" \
+        SOUNDROBE_AUTO_TAG_EVAL_PROFILE="${SOUNDROBE_AUTO_TAG_EVAL_PROFILE:-folder_filename}" \
+        SOUNDROBE_AUTO_TAG_EVAL_ARTISTS="${SOUNDROBE_AUTO_TAG_EVAL_ARTISTS:-}" \
+        SOUNDROBE_AUTO_TAG_EVAL_CASES="${SOUNDROBE_AUTO_TAG_EVAL_CASES:-}" \
+        cargo test --manifest-path src-tauri/Cargo.toml --lib live_auto_tag_eval -- --ignored --nocapture
 
 model model_name="":
     #!/usr/bin/env bash

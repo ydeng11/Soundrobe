@@ -1,0 +1,9 @@
+# Auto-tag evaluation corpus
+
+`corpus.json` is a metadata-only, frozen inventory of the seven-artist input set. It contains no audio, artwork, lyrics bodies, secrets, or run logs. The source-relative folder names, filenames, captured tags, durations, numbering, provider IDs, and full-file SHA-256 values are retained for auditability.
+
+All 321 inventoried physical folders are represented as individual cases (2,841 tracks). The three input profiles are materialized per case: `folder_filename` is clean discovery, `assisted_without_ids` preserves observed tags while removing provider IDs, and `tagged_recovery` preserves captured IDs for direct lookup/idempotence checks. Expectations remain `unverified` until a provider-backed reviewer records acceptable editions, hard negatives, and complete mappings; the reviewed Relapse case is the first exception.
+
+Refreshes require a reviewed diff. Generate with `python3 scripts/generate_auto_tag_eval_corpus.py` from the repository root; the script reads the curated source and writes metadata only. Run `just eval-auto-tag-ground-truth` to reconcile all cases against the expectation ledger, and `just eval-auto-tag-repro` to verify frozen response digests and saved synthetic-input equivalence.
+
+The five non-diagnostic artists are marked `provisional_gold_unverified` in the corpus until an independent provider content and mapping review records complete acceptable-edition mappings. The Relapse With Bonus case is the reviewed Eminem exception; the remaining Eminem and all Enya cases remain diagnostic and are outside scored metrics. `expectations.json` is the separate reviewed-answer ledger; `candidate-pools.json` and its small response snapshots provide the first deterministic edition replay (Relapse deluxe plus hard negatives). Candidate-pool entries carry SHA-256 locks so a changed local fixture or provider response fails the reproducibility audit.

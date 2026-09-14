@@ -1,0 +1,211 @@
+{
+  "path": "",
+  "artist_hint": "Enya",
+  "tagged_artist_hint": "Enya",
+  "album_hint": "A Box Of Dreams (CD2 - Clouds)",
+  "tagged_album_hint": "A Box Of Dreams (CD2 - Clouds)",
+  "year_hint": "1997",
+  "country_hint": "XE",
+  "musicbrainz_album_id": null,
+  "musicbrainz_artist_id": null,
+  "discogs_release_id": null,
+  "discogs_artist_id": null,
+  "selected_disc_number": 2,
+  "tracks": [
+    {
+      "title": "Watermark",
+      "filename": "01. Enya - Watermark",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 1,
+      "track_total": 15,
+      "length": 146.093333,
+      "disc_number": null,
+      "disc_total": null
+    },
+    {
+      "title": "Portrait (Out Of The Blue)",
+      "filename": "02. Enya - Portrait (Out Of The Blue)",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 2,
+      "track_total": 15,
+      "length": 191.733333,
+      "disc_number": null,
+      "disc_total": null
+    },
+    {
+      "title": "Miss Clare Remembers",
+      "filename": "03. Enya - Miss Clare Remembers",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 3,
+      "track_total": 15,
+      "length": 119.6,
+      "disc_number": null,
+      "disc_total": null
+    },
+    {
+      "title": "Shepherd Moons",
+      "filename": "04. Enya - Shepherd Moons",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 4,
+      "track_total": 15,
+      "length": 220.2,
+      "disc_number": null,
+      "disc_total": null
+    },
+    {
+      "title": "March of the Celts",
+      "filename": "05. Enya - March of the Celts",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 5,
+      "track_total": 15,
+      "length": 195.573333,
+      "disc_number": null,
+      "disc_total": null
+    },
+    {
+      "title": "Lothlorien",
+      "filename": "06. Enya - Lothlorien",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 6,
+      "track_total": 15,
+      "length": 128.093333,
+      "disc_number": null,
+      "disc_total": null
+    },
+    {
+      "title": "From Where I Am",
+      "filename": "07. Enya - From Where I Am",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 7,
+      "track_total": 15,
+      "length": 141.8,
+      "disc_number": null,
+      "disc_total": null
+    },
+    {
+      "title": "Afer Ventus",
+      "filename": "08. Enya - Afer Ventus",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 8,
+      "track_total": 15,
+      "length": 246.133333,
+      "disc_number": null,
+      "disc_total": null
+    },
+    {
+      "title": "Oriel Window",
+      "filename": "09. Enya - Oriel Window",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 9,
+      "track_total": 15,
+      "length": 142.466667,
+      "disc_number": null,
+      "disc_total": null
+    },
+    {
+      "title": "River",
+      "filename": "10. Enya - River",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 10,
+      "track_total": 15,
+      "length": 191.373333,
+      "disc_number": null,
+      "disc_total": null
+    },
+    {
+      "title": "Tea-House Moon",
+      "filename": "11. Enya - Tea-House Moon",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 11,
+      "track_total": 15,
+      "length": 161.826667,
+      "disc_number": null,
+      "disc_total": null
+    },
+    {
+      "title": "Willows On The Water",
+      "filename": "12. Enya - Willows On The Water",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 12,
+      "track_total": 15,
+      "length": 182.533333,
+      "disc_number": null,
+      "disc_total": null
+    },
+    {
+      "title": "Morning Glory",
+      "filename": "13. Enya - Morning Glory",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 13,
+      "track_total": 15,
+      "length": 148.306667,
+      "disc_number": null,
+      "disc_total": null
+    },
+    {
+      "title": "No Holly For Miss Quinn",
+      "filename": "14. Enya - No Holly For Miss Quinn",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 14,
+      "track_total": 15,
+      "length": 161.826667,
+      "disc_number": null,
+      "disc_total": null
+    },
+    {
+      "title": "The Memory Of Trees",
+      "filename": "15. Enya - The Memory Of Trees",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 15,
+      "track_total": 15,
+      "length": 256.733333,
+      "disc_number": null,
+      "disc_total": null
+    }
+  ]
+}
