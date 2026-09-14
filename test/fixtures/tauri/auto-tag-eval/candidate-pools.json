@@ -68,10 +68,10 @@
       "replay": {"permuteCandidateOrder": true, "requireCompleteMapping": true, "requireUniqueEvidence": true}
     },
     {
-    "poolId": "reviewed-representative",
-    "localFixture": "reviewed-subset-local.json",
-    "localFixtureSha256": "405139020b7be553216f65f4e2da80af1c600ec4f1dd08674857638fce8cbe45",
-    "candidates": [
+      "poolId": "reviewed-representative",
+      "localFixture": "reviewed-subset-local.json",
+      "localFixtureSha256": "405139020b7be553216f65f4e2da80af1c600ec4f1dd08674857638fce8cbe45",
+      "candidates": [
       {
         "provider": "musicbrainz",
         "releaseId": "627377a9-be56-4c45-a56d-9ae941546ef0",
@@ -189,6 +189,27 @@
         "releaseId": "36441795",
         "response": "provider-snapshots/relapse/discogs-release-36441795.json",
         "responseSha256": "c8ad11806c623231c430787599d051df2cd545d3f6a4ca7a067f4e8183e3e7c4",
+        "expectation": "acceptable"
+      },
+      {
+        "provider": "musicbrainz",
+        "releaseId": "bf39b43f-2bf1-48ad-bdfe-d7608004df52",
+        "response": "provider-snapshots/extra/bf39b43f-2bf1-48ad-bdfe-d7608004df52.json",
+        "responseSha256": "b4c82b6069b5ddccef01e4a8cb34804f270fe34d132b4048777f0bda680432be",
+        "expectation": "acceptable"
+      },
+      {
+        "provider": "musicbrainz",
+        "releaseId": "e95722b4-c235-41f5-94db-941bcd24fc09",
+        "response": "provider-snapshots/extra/e95722b4-c235-41f5-94db-941bcd24fc09.json",
+        "responseSha256": "ac170110b1e79ca79ad2a5ab4488f45c488d1db4b1420b118bcd24e74e9c5295",
+        "expectation": "acceptable"
+      },
+      {
+        "provider": "musicbrainz",
+        "releaseId": "3750077a-0574-45e0-85f4-5d5b4066c077",
+        "response": "provider-snapshots/extra/3750077a-0574-45e0-85f4-5d5b4066c077.json",
+        "responseSha256": "a103915f914170ad97ee26d332f71f9cbdb5fd93378f289303a0fb625e1f5035",
         "expectation": "acceptable"
       },
       {

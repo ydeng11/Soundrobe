@@ -165,18 +165,27 @@
     },
     {
       "caseId": "0c9e8b505ea7",
-      "status": "unresolved",
-      "reason": "Representative case retained until a complete provider edition payload and independent mapping review are frozen; inventory tags alone are insufficient."
+      "status": "verified_match",
+      "provider": "musicbrainz",
+      "releaseId": "bf39b43f-2bf1-48ad-bdfe-d7608004df52",
+      "snapshot": "provider-snapshots/extra/bf39b43f-2bf1-48ad-bdfe-d7608004df52.json",
+      "hardNegativeIds": []
     },
     {
       "caseId": "9373204e076a",
-      "status": "unresolved",
-      "reason": "Representative case retained until a complete provider edition payload and independent mapping review are frozen; inventory tags alone are insufficient."
+      "status": "verified_match",
+      "provider": "musicbrainz",
+      "releaseId": "e95722b4-c235-41f5-94db-941bcd24fc09",
+      "snapshot": "provider-snapshots/extra/e95722b4-c235-41f5-94db-941bcd24fc09.json",
+      "hardNegativeIds": []
     },
     {
       "caseId": "7f3eb9349ac2",
-      "status": "unresolved",
-      "reason": "Representative case retained until a complete provider edition payload and independent mapping review are frozen; inventory tags alone are insufficient."
+      "status": "verified_match",
+      "provider": "musicbrainz",
+      "releaseId": "3750077a-0574-45e0-85f4-5d5b4066c077",
+      "snapshot": "provider-snapshots/extra/3750077a-0574-45e0-85f4-5d5b4066c077.json",
+      "hardNegativeIds": []
     },
     {
       "caseId": "024f610c2a7b",

@@ -31,10 +31,10 @@ describe("review_auto_tag_subset.py", () => {
     expect(result).toMatchObject({
       caseCount: 30,
       trackCount: 320,
-      providerSnapshotCount: 17,
-      statusCounts: { verified_match: 17, unresolved: 13 },
-      baseline: { exactTitleMatches: 153, trackCount: 197, completeCases: 3 },
-      final: { strongMatches: 197, completeCases: 17 },
+      providerSnapshotCount: 20,
+      statusCounts: { verified_match: 20, unresolved: 10 },
+      baseline: { exactTitleMatches: 190, trackCount: 243, completeCases: 3 },
+      final: { strongMatches: 243, completeCases: 20 },
     });
     expect(result.cases.find((item: { caseId: string }) => item.caseId === "e8a8a8d6b27d")).toMatchObject({
       status: "verified_match",
@@ -44,7 +44,7 @@ describe("review_auto_tag_subset.py", () => {
       status: "unresolved",
       flags: ["unresolved"],
     });
-    expect(fs.readFileSync(path.join(output, "review.md"), "utf8")).toContain("Explicitly unresolved: 13");
+    expect(fs.readFileSync(path.join(output, "review.md"), "utf8")).toContain("Explicitly unresolved: 10");
   });
 
   it("fails closed on a duration conflict instead of promoting a title-only match", () => {
