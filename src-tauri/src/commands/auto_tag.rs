@@ -2524,10 +2524,18 @@ pub(crate) async fn resolve_and_apply_album_with_retry_context(
     let musicbrainz = retry_contexts
         .as_ref()
         .map(|contexts| {
-            MusicBrainzClient::new(services.providers.http())
-                .with_retry_context(contexts.musicbrainz.clone())
+            MusicBrainzClient::at(
+                services.providers.http(),
+                services.providers.musicbrainz_base(),
+            )
+            .with_retry_context(contexts.musicbrainz.clone())
         })
-        .unwrap_or_else(|| MusicBrainzClient::new(services.providers.http()));
+        .unwrap_or_else(|| {
+            MusicBrainzClient::at(
+                services.providers.http(),
+                services.providers.musicbrainz_base(),
+            )
+        });
     let mut musicbrainz_direct_error = None;
     let mut musicbrainz_error = None;
     if config.remote_lookup_enabled != Some(false) {
@@ -2541,11 +2549,19 @@ pub(crate) async fn resolve_and_apply_album_with_retry_context(
     let discogs = retry_contexts
         .as_ref()
         .map(|contexts| {
-            DiscogsClient::new(services.providers.http(), config.discogs_token.clone())
-                .with_retry_context(contexts.discogs.clone())
+            DiscogsClient::at(
+                services.providers.http(),
+                config.discogs_token.clone(),
+                services.providers.discogs_base(),
+            )
+            .with_retry_context(contexts.discogs.clone())
         })
         .unwrap_or_else(|| {
-            DiscogsClient::new(services.providers.http(), config.discogs_token.clone())
+            DiscogsClient::at(
+                services.providers.http(),
+                config.discogs_token.clone(),
+                services.providers.discogs_base(),
+            )
         });
     let mut discogs_discovery =
         editions::DiscogsDiscovery::new(&discogs, services.cache, cancelled);

@@ -1,0 +1,3404 @@
+{
+  "schemaVersion": 1,
+  "description": "Sanitized discovery and edition-detail evidence for the offline native replay.",
+  "records": [
+    {
+      "provider": "musicbrainz",
+      "path": "/artist/",
+      "query": [
+        [
+          "fmt",
+          "json"
+        ],
+        [
+          "limit",
+          "5"
+        ],
+        [
+          "query",
+          "artist:\"Doja Cat\""
+        ]
+      ],
+      "bodyFile": "provider-snapshots/discovery/reviewed/musicbrainz-captured_artist_search-doja-cat.json",
+      "sha256": "1e3a4dc874f1fd40304769291592c1ac07ce26f645b47b2f869c4fd285d65a2f",
+      "source": {
+        "provider": "musicbrainz",
+        "kind": "captured_artist_search",
+        "artist": "Doja Cat",
+        "slug": "doja-cat"
+      }
+    },
+    {
+      "provider": "discogs",
+      "path": "/database/search",
+      "query": [
+        [
+          "artist",
+          "Doja Cat"
+        ],
+        [
+          "per_page",
+          "5"
+        ],
+        [
+          "type",
+          "artist"
+        ]
+      ],
+      "bodyFile": "provider-snapshots/discovery/reviewed/discogs-captured_artist_search-doja-cat-artist.json",
+      "sha256": "ec295de4edf6d0bc078748ab350c7e2deec6e00991b5b602c3588c1499fbd24a",
+      "source": {
+        "provider": "discogs",
+        "kind": "captured_artist_search",
+        "artist": "Doja Cat",
+        "slug": "doja-cat-artist"
+      }
+    },
+    {
+      "provider": "discogs",
+      "path": "/database/search",
+      "query": [
+        [
+          "per_page",
+          "5"
+        ],
+        [
+          "q",
+          "Doja Cat"
+        ],
+        [
+          "type",
+          "artist"
+        ]
+      ],
+      "bodyFile": "provider-snapshots/discovery/reviewed/discogs-captured_artist_search-doja-cat-q.json",
+      "sha256": "ec295de4edf6d0bc078748ab350c7e2deec6e00991b5b602c3588c1499fbd24a",
+      "source": {
+        "provider": "discogs",
+        "kind": "captured_artist_search",
+        "artist": "Doja Cat",
+        "slug": "doja-cat-q"
+      }
+    },
+    {
+      "provider": "musicbrainz",
+      "path": "/release",
+      "query": [
+        [
+          "fmt",
+          "json"
+        ],
+        [
+          "limit",
+          "10"
+        ],
+        [
+          "query",
+          "artist:\"Doja Cat\" AND release:\"Amala\""
+        ]
+      ],
+      "bodyFile": "provider-snapshots/discovery/reviewed/musicbrainz-captured_release_search-doja-cat-amala.json",
+      "sha256": "1cdfaa35a40b6ec6a1fa9e2c07206db45b4befe4111279e587191196d1c90883",
+      "source": {
+        "provider": "musicbrainz",
+        "kind": "captured_release_search",
+        "artist": "Doja Cat",
+        "title": "Amala",
+        "slug": "doja-cat-amala"
+      }
+    },
+    {
+      "provider": "discogs",
+      "path": "/database/search",
+      "query": [
+        [
+          "artist",
+          "Doja Cat"
+        ],
+        [
+          "page",
+          "1"
+        ],
+        [
+          "per_page",
+          "10"
+        ],
+        [
+          "release_title",
+          "Amala"
+        ],
+        [
+          "type",
+          "release"
+        ],
+        [
+          "year",
+          "2018"
+        ]
+      ],
+      "bodyFile": "provider-snapshots/discovery/reviewed/discogs-captured_release_search-doja-cat-amala-release.json",
+      "sha256": "bb7594683df6dfc1343318768e81acdadeea3b0211cd9ce1e1141920ca43fefc",
+      "source": {
+        "provider": "discogs",
+        "kind": "captured_release_search",
+        "artist": "Doja Cat",
+        "title": "Amala",
+        "slug": "doja-cat-amala-release"
+      }
+    },
+    {
+      "provider": "discogs",
+      "path": "/database/search",
+      "query": [
+        [
+          "artist",
+          "Doja Cat"
+        ],
+        [
+          "page",
+          "1"
+        ],
+        [
+          "per_page",
+          "100"
+        ],
+        [
+          "release_title",
+          "Amala"
+        ],
+        [
+          "type",
+          "master"
+        ]
+      ],
+      "bodyFile": "provider-snapshots/discovery/reviewed/discogs-captured_master_search-doja-cat-amala-master.json",
+      "sha256": "9a3f4f42b80c8f09542ce157d8b1c7fd0a652ea1bc0a6c886a548ef0a998b569",
+      "source": {
+        "provider": "discogs",
+        "kind": "captured_master_search",
+        "artist": "Doja Cat",
+        "title": "Amala",
+        "slug": "doja-cat-amala-master"
+      }
+    },
+    {
+      "provider": "musicbrainz",
+      "path": "/release",
+      "query": [
+        [
+          "fmt",
+          "json"
+        ],
+        [
+          "limit",
+          "10"
+        ],
+        [
+          "query",
+          "artist:\"Enya\" AND release:\"A Box Of Dreams (CD2 - Clouds)\""
+        ]
+      ],
+      "bodyFile": "provider-snapshots/discovery/reviewed/musicbrainz-captured_release_search-enya-a-box-of-dreams-cd2-clouds-.json",
+      "sha256": "4dca5a7f43b56e3887e6617bd161c1788b90f6f7602384b18d494693f7200a64",
+      "source": {
+        "provider": "musicbrainz",
+        "kind": "captured_release_search",
+        "artist": "Enya",
+        "title": "A Box Of Dreams (CD2 - Clouds)",
+        "slug": "enya-a-box-of-dreams-cd2-clouds-"
+      }
+    },
+    {
+      "provider": "discogs",
+      "path": "/database/search",
+      "query": [
+        [
+          "artist",
+          "Enya"
+        ],
+        [
+          "page",
+          "1"
+        ],
+        [
+          "per_page",
+          "10"
+        ],
+        [
+          "release_title",
+          "A Box Of Dreams (CD2 - Clouds)"
+        ],
+        [
+          "type",
+          "release"
+        ],
+        [
+          "year",
+          "1997"
+        ]
+      ],
+      "bodyFile": "provider-snapshots/discovery/reviewed/discogs-captured_release_search-enya-a-box-of-dreams-cd2-clouds-release.json",
+      "sha256": "eb55586c0cc32886516db59688ddfd9fc2e12f453e4482ba3d2799630fef98a0",
+      "source": {
+        "provider": "discogs",
+        "kind": "captured_release_search",
+        "artist": "Enya",
+        "title": "A Box Of Dreams (CD2 - Clouds)",
+        "slug": "enya-a-box-of-dreams-cd2-clouds-release"
+      }
+    },
+    {
+      "provider": "discogs",
+      "path": "/database/search",
+      "query": [
+        [
+          "artist",
+          "Enya"
+        ],
+        [
+          "page",
+          "1"
+        ],
+        [
+          "per_page",
+          "100"
+        ],
+        [
+          "release_title",
+          "A Box Of Dreams (CD2 - Clouds)"
+        ],
+        [
+          "type",
+          "master"
+        ]
+      ],
+      "bodyFile": "provider-snapshots/discovery/reviewed/discogs-captured_master_search-enya-a-box-of-dreams-cd2-clouds-master.json",
+      "sha256": "9a3f4f42b80c8f09542ce157d8b1c7fd0a652ea1bc0a6c886a548ef0a998b569",
+      "source": {
+        "provider": "discogs",
+        "kind": "captured_master_search",
+        "artist": "Enya",
+        "title": "A Box Of Dreams (CD2 - Clouds)",
+        "slug": "enya-a-box-of-dreams-cd2-clouds-master"
+      }
+    },
+    {
+      "provider": "musicbrainz",
+      "path": "/release",
+      "query": [
+        [
+          "fmt",
+          "json"
+        ],
+        [
+          "limit",
+          "10"
+        ],
+        [
+          "query",
+          "artist:\"Enya\" AND release:\"A Box of Dreams (CD1 - Oceans)\""
+        ]
+      ],
+      "bodyFile": "provider-snapshots/discovery/reviewed/musicbrainz-captured_release_search-enya-a-box-of-dreams-cd1-oceans-.json",
+      "sha256": "4dca5a7f43b56e3887e6617bd161c1788b90f6f7602384b18d494693f7200a64",
+      "source": {
+        "provider": "musicbrainz",
+        "kind": "captured_release_search",
+        "artist": "Enya",
+        "title": "A Box of Dreams (CD1 - Oceans)",
+        "slug": "enya-a-box-of-dreams-cd1-oceans-"
+      }
+    },
+    {
+      "provider": "discogs",
+      "path": "/database/search",
+      "query": [
+        [
+          "artist",
+          "Enya"
+        ],
+        [
+          "page",
+          "1"
+        ],
+        [
+          "per_page",
+          "10"
+        ],
+        [
+          "release_title",
+          "A Box of Dreams (CD1 - Oceans)"
+        ],
+        [
+          "type",
+          "release"
+        ],
+        [
+          "year",
+          "1997"
+        ]
+      ],
+      "bodyFile": "provider-snapshots/discovery/reviewed/discogs-captured_release_search-enya-a-box-of-dreams-cd1-oceans-release.json",
+      "sha256": "eb55586c0cc32886516db59688ddfd9fc2e12f453e4482ba3d2799630fef98a0",
+      "source": {
+        "provider": "discogs",
+        "kind": "captured_release_search",
+        "artist": "Enya",
+        "title": "A Box of Dreams (CD1 - Oceans)",
+        "slug": "enya-a-box-of-dreams-cd1-oceans-release"
+      }
+    },
+    {
+      "provider": "discogs",
+      "path": "/database/search",
+      "query": [
+        [
+          "artist",
+          "Enya"
+        ],
+        [
+          "page",
+          "1"
+        ],
+        [
+          "per_page",
+          "100"
+        ],
+        [
+          "release_title",
+          "A Box of Dreams (CD1 - Oceans)"
+        ],
+        [
+          "type",
+          "master"
+        ]
+      ],
+      "bodyFile": "provider-snapshots/discovery/reviewed/discogs-captured_master_search-enya-a-box-of-dreams-cd1-oceans-master.json",
+      "sha256": "9a3f4f42b80c8f09542ce157d8b1c7fd0a652ea1bc0a6c886a548ef0a998b569",
+      "source": {
+        "provider": "discogs",
+        "kind": "captured_master_search",
+        "artist": "Enya",
+        "title": "A Box of Dreams (CD1 - Oceans)",
+        "slug": "enya-a-box-of-dreams-cd1-oceans-master"
+      }
+    },
+    {
+      "provider": "musicbrainz",
+      "path": "/release",
+      "query": [
+        [
+          "fmt",
+          "json"
+        ],
+        [
+          "limit",
+          "10"
+        ],
+        [
+          "query",
+          "artist:\"Enya\" AND release:\"And Winter Came…\""
+        ]
+      ],
+      "bodyFile": "provider-snapshots/discovery/reviewed/musicbrainz-captured_release_search-enya-and-winter-came-.json",
+      "sha256": "a02aad94de8cb40d2ef4af592d5af4e2368bedae007bd6d4ebfcf5c5e3a1cd23",
+      "source": {
+        "provider": "musicbrainz",
+        "kind": "captured_release_search",
+        "artist": "Enya",
+        "title": "And Winter Came…",
+        "slug": "enya-and-winter-came-"
+      }
+    },
+    {
+      "provider": "discogs",
+      "path": "/database/search",
+      "query": [
+        [
+          "artist",
+          "Enya"
+        ],
+        [
+          "page",
+          "1"
+        ],
+        [
+          "per_page",
+          "10"
+        ],
+        [
+          "release_title",
+          "And Winter Came…"
+        ],
+        [
+          "type",
+          "release"
+        ],
+        [
+          "year",
+          "2008"
+        ]
+      ],
+      "bodyFile": "provider-snapshots/discovery/reviewed/discogs-captured_release_search-enya-and-winter-came-release.json",
+      "sha256": "bb7594683df6dfc1343318768e81acdadeea3b0211cd9ce1e1141920ca43fefc",
+      "source": {
+        "provider": "discogs",
+        "kind": "captured_release_search",
+        "artist": "Enya",
+        "title": "And Winter Came…",
+        "slug": "enya-and-winter-came-release"
+      }
+    },
+    {
+      "provider": "discogs",
+      "path": "/database/search",
+      "query": [
+        [
+          "artist",
+          "Enya"
+        ],
+        [
+          "page",
+          "1"
+        ],
+        [
+          "per_page",
+          "100"
+        ],
+        [
+          "release_title",
+          "And Winter Came…"
+        ],
+        [
+          "type",
+          "master"
+        ]
+      ],
+      "bodyFile": "provider-snapshots/discovery/reviewed/discogs-captured_master_search-enya-and-winter-came-master.json",
+      "sha256": "9a3f4f42b80c8f09542ce157d8b1c7fd0a652ea1bc0a6c886a548ef0a998b569",
+      "source": {
+        "provider": "discogs",
+        "kind": "captured_master_search",
+        "artist": "Enya",
+        "title": "And Winter Came…",
+        "slug": "enya-and-winter-came-master"
+      }
+    },
+    {
+      "provider": "musicbrainz",
+      "path": "/release",
+      "query": [
+        [
+          "fmt",
+          "json"
+        ],
+        [
+          "limit",
+          "10"
+        ],
+        [
+          "query",
+          "artist:\"Enya\" AND release:\"Only If...\""
+        ]
+      ],
+      "bodyFile": "provider-snapshots/discovery/reviewed/musicbrainz-captured_release_search-enya-only-if-.json",
+      "sha256": "dae24c08d32e96ad6576ddb4aad1a7be7149375b72ad086be55952e0a7a0f91d",
+      "source": {
+        "provider": "musicbrainz",
+        "kind": "captured_release_search",
+        "artist": "Enya",
+        "title": "Only If...",
+        "slug": "enya-only-if-"
+      }
+    },
+    {
+      "provider": "discogs",
+      "path": "/database/search",
+      "query": [
+        [
+          "artist",
+          "Enya"
+        ],
+        [
+          "country",
+          "United States"
+        ],
+        [
+          "page",
+          "1"
+        ],
+        [
+          "per_page",
+          "10"
+        ],
+        [
+          "release_title",
+          "Only If..."
+        ],
+        [
+          "type",
+          "release"
+        ],
+        [
+          "year",
+          "1997"
+        ]
+      ],
+      "bodyFile": "provider-snapshots/discovery/reviewed/discogs-captured_release_search-enya-only-if-release.json",
+      "sha256": "bb7594683df6dfc1343318768e81acdadeea3b0211cd9ce1e1141920ca43fefc",
+      "source": {
+        "provider": "discogs",
+        "kind": "captured_release_search",
+        "artist": "Enya",
+        "title": "Only If...",
+        "slug": "enya-only-if-release"
+      }
+    },
+    {
+      "provider": "discogs",
+      "path": "/database/search",
+      "query": [
+        [
+          "artist",
+          "Enya"
+        ],
+        [
+          "page",
+          "1"
+        ],
+        [
+          "per_page",
+          "100"
+        ],
+        [
+          "release_title",
+          "Only If..."
+        ],
+        [
+          "type",
+          "master"
+        ]
+      ],
+      "bodyFile": "provider-snapshots/discovery/reviewed/discogs-captured_master_search-enya-only-if-master.json",
+      "sha256": "9a3f4f42b80c8f09542ce157d8b1c7fd0a652ea1bc0a6c886a548ef0a998b569",
+      "source": {
+        "provider": "discogs",
+        "kind": "captured_master_search",
+        "artist": "Enya",
+        "title": "Only If...",
+        "slug": "enya-only-if-master"
+      }
+    },
+    {
+      "provider": "musicbrainz",
+      "path": "/release",
+      "query": [
+        [
+          "fmt",
+          "json"
+        ],
+        [
+          "limit",
+          "10"
+        ],
+        [
+          "query",
+          "artist:\"Enya\" AND release:\"Paint The Sky With Stars (The Best Of Enya)\""
+        ]
+      ],
+      "bodyFile": "provider-snapshots/discovery/reviewed/musicbrainz-captured_release_search-enya-paint-the-sky-with-stars-the-best-of-enya-.json",
+      "sha256": "4dca5a7f43b56e3887e6617bd161c1788b90f6f7602384b18d494693f7200a64",
+      "source": {
+        "provider": "musicbrainz",
+        "kind": "captured_release_search",
+        "artist": "Enya",
+        "title": "Paint The Sky With Stars (The Best Of Enya)",
+        "slug": "enya-paint-the-sky-with-stars-the-best-of-enya-"
+      }
+    },
+    {
+      "provider": "discogs",
+      "path": "/database/search",
+      "query": [
+        [
+          "artist",
+          "Enya"
+        ],
+        [
+          "page",
+          "1"
+        ],
+        [
+          "per_page",
+          "10"
+        ],
+        [
+          "release_title",
+          "Paint The Sky With Stars (The Best Of Enya)"
+        ],
+        [
+          "type",
+          "release"
+        ],
+        [
+          "year",
+          "1997"
+        ]
+      ],
+      "bodyFile": "provider-snapshots/discovery/reviewed/discogs-captured_release_search-enya-paint-the-sky-with-stars-the-best-of-enya-release.json",
+      "sha256": "eb092a775ed3d03fcad1e337f2685d3161dde5d9c5e9242e704d70ff8e4ad426",
+      "source": {
+        "provider": "discogs",
+        "kind": "captured_release_search",
+        "artist": "Enya",
+        "title": "Paint The Sky With Stars (The Best Of Enya)",
+        "slug": "enya-paint-the-sky-with-stars-the-best-of-enya-release"
+      }
+    },
+    {
+      "provider": "discogs",
+      "path": "/database/search",
+      "query": [
+        [
+          "artist",
+          "Enya"
+        ],
+        [
+          "page",
+          "1"
+        ],
+        [
+          "per_page",
+          "100"
+        ],
+        [
+          "release_title",
+          "Paint The Sky With Stars (The Best Of Enya)"
+        ],
+        [
+          "type",
+          "master"
+        ]
+      ],
+      "bodyFile": "provider-snapshots/discovery/reviewed/discogs-captured_master_search-enya-paint-the-sky-with-stars-the-best-of-enya-master.json",
+      "sha256": "9a3f4f42b80c8f09542ce157d8b1c7fd0a652ea1bc0a6c886a548ef0a998b569",
+      "source": {
+        "provider": "discogs",
+        "kind": "captured_master_search",
+        "artist": "Enya",
+        "title": "Paint The Sky With Stars (The Best Of Enya)",
+        "slug": "enya-paint-the-sky-with-stars-the-best-of-enya-master"
+      }
+    },
+    {
+      "provider": "musicbrainz",
+      "path": "/release",
+      "query": [
+        [
+          "fmt",
+          "json"
+        ],
+        [
+          "limit",
+          "10"
+        ],
+        [
+          "query",
+          "artist:\"Enya\" AND release:\"The Memory Of Trees\""
+        ]
+      ],
+      "bodyFile": "provider-snapshots/discovery/reviewed/musicbrainz-captured_release_search-enya-the-memory-of-trees.json",
+      "sha256": "4dca5a7f43b56e3887e6617bd161c1788b90f6f7602384b18d494693f7200a64",
+      "source": {
+        "provider": "musicbrainz",
+        "kind": "captured_release_search",
+        "artist": "Enya",
+        "title": "The Memory Of Trees",
+        "slug": "enya-the-memory-of-trees"
+      }
+    },
+    {
+      "provider": "discogs",
+      "path": "/database/search",
+      "query": [
+        [
+          "artist",
+          "Enya"
+        ],
+        [
+          "page",
+          "1"
+        ],
+        [
+          "per_page",
+          "10"
+        ],
+        [
+          "release_title",
+          "The Memory Of Trees"
+        ],
+        [
+          "type",
+          "release"
+        ],
+        [
+          "year",
+          "1995"
+        ]
+      ],
+      "bodyFile": "provider-snapshots/discovery/reviewed/discogs-captured_release_search-enya-the-memory-of-trees-release.json",
+      "sha256": "866164942b7e8cfb3f6c30dea66d6307545aed9c56d6581ba33c17f2c7d00f81",
+      "source": {
+        "provider": "discogs",
+        "kind": "captured_release_search",
+        "artist": "Enya",
+        "title": "The Memory Of Trees",
+        "slug": "enya-the-memory-of-trees-release"
+      }
+    },
+    {
+      "provider": "discogs",
+      "path": "/database/search",
+      "query": [
+        [
+          "artist",
+          "Enya"
+        ],
+        [
+          "page",
+          "1"
+        ],
+        [
+          "per_page",
+          "100"
+        ],
+        [
+          "release_title",
+          "The Memory Of Trees"
+        ],
+        [
+          "type",
+          "master"
+        ]
+      ],
+      "bodyFile": "provider-snapshots/discovery/reviewed/discogs-captured_master_search-enya-the-memory-of-trees-master.json",
+      "sha256": "9a3f4f42b80c8f09542ce157d8b1c7fd0a652ea1bc0a6c886a548ef0a998b569",
+      "source": {
+        "provider": "discogs",
+        "kind": "captured_master_search",
+        "artist": "Enya",
+        "title": "The Memory Of Trees",
+        "slug": "enya-the-memory-of-trees-master"
+      }
+    },
+    {
+      "provider": "musicbrainz",
+      "path": "/release",
+      "query": [
+        [
+          "fmt",
+          "json"
+        ],
+        [
+          "limit",
+          "10"
+        ],
+        [
+          "query",
+          "artist:\"Enya\" AND release:\"The Celts\""
+        ]
+      ],
+      "bodyFile": "provider-snapshots/discovery/reviewed/musicbrainz-captured_release_search-enya-the-celts.json",
+      "sha256": "66e489d0ee73b2f1233875acfb99062a11791a8b838975c9b4da85cb222a02c5",
+      "source": {
+        "provider": "musicbrainz",
+        "kind": "captured_release_search",
+        "artist": "Enya",
+        "title": "The Celts",
+        "slug": "enya-the-celts"
+      }
+    },
+    {
+      "provider": "discogs",
+      "path": "/database/search",
+      "query": [
+        [
+          "artist",
+          "Enya"
+        ],
+        [
+          "page",
+          "1"
+        ],
+        [
+          "per_page",
+          "10"
+        ],
+        [
+          "release_title",
+          "The Celts"
+        ],
+        [
+          "type",
+          "release"
+        ],
+        [
+          "year",
+          "1986"
+        ]
+      ],
+      "bodyFile": "provider-snapshots/discovery/reviewed/discogs-captured_release_search-enya-the-celts-release.json",
+      "sha256": "bb7594683df6dfc1343318768e81acdadeea3b0211cd9ce1e1141920ca43fefc",
+      "source": {
+        "provider": "discogs",
+        "kind": "captured_release_search",
+        "artist": "Enya",
+        "title": "The Celts",
+        "slug": "enya-the-celts-release"
+      }
+    },
+    {
+      "provider": "discogs",
+      "path": "/database/search",
+      "query": [
+        [
+          "artist",
+          "Enya"
+        ],
+        [
+          "page",
+          "1"
+        ],
+        [
+          "per_page",
+          "100"
+        ],
+        [
+          "release_title",
+          "The Celts"
+        ],
+        [
+          "type",
+          "master"
+        ]
+      ],
+      "bodyFile": "provider-snapshots/discovery/reviewed/discogs-captured_master_search-enya-the-celts-master.json",
+      "sha256": "9a3f4f42b80c8f09542ce157d8b1c7fd0a652ea1bc0a6c886a548ef0a998b569",
+      "source": {
+        "provider": "discogs",
+        "kind": "captured_master_search",
+        "artist": "Enya",
+        "title": "The Celts",
+        "slug": "enya-the-celts-master"
+      }
+    },
+    {
+      "provider": "musicbrainz",
+      "path": "/release",
+      "query": [
+        [
+          "fmt",
+          "json"
+        ],
+        [
+          "limit",
+          "10"
+        ],
+        [
+          "query",
+          "artist:\"Enya\" AND release:\"Greatest Hits CD2\""
+        ]
+      ],
+      "bodyFile": "provider-snapshots/discovery/reviewed/musicbrainz-captured_release_search-enya-greatest-hits-cd2.json",
+      "sha256": "4dca5a7f43b56e3887e6617bd161c1788b90f6f7602384b18d494693f7200a64",
+      "source": {
+        "provider": "musicbrainz",
+        "kind": "captured_release_search",
+        "artist": "Enya",
+        "title": "Greatest Hits CD2",
+        "slug": "enya-greatest-hits-cd2"
+      }
+    },
+    {
+      "provider": "discogs",
+      "path": "/database/search",
+      "query": [
+        [
+          "artist",
+          "Enya"
+        ],
+        [
+          "page",
+          "1"
+        ],
+        [
+          "per_page",
+          "10"
+        ],
+        [
+          "release_title",
+          "Greatest Hits CD2"
+        ],
+        [
+          "type",
+          "release"
+        ],
+        [
+          "year",
+          "2016"
+        ]
+      ],
+      "bodyFile": "provider-snapshots/discovery/reviewed/discogs-captured_release_search-enya-greatest-hits-cd2-release.json",
+      "sha256": "22bf062ba9ce0a9131ebd2d33dedcf4e1c8e719c151202fa646c47ef8aa69a64",
+      "source": {
+        "provider": "discogs",
+        "kind": "captured_release_search",
+        "artist": "Enya",
+        "title": "Greatest Hits CD2",
+        "slug": "enya-greatest-hits-cd2-release"
+      }
+    },
+    {
+      "provider": "discogs",
+      "path": "/database/search",
+      "query": [
+        [
+          "artist",
+          "Enya"
+        ],
+        [
+          "page",
+          "1"
+        ],
+        [
+          "per_page",
+          "100"
+        ],
+        [
+          "release_title",
+          "Greatest Hits CD2"
+        ],
+        [
+          "type",
+          "master"
+        ]
+      ],
+      "bodyFile": "provider-snapshots/discovery/reviewed/discogs-captured_master_search-enya-greatest-hits-cd2-master.json",
+      "sha256": "9a3f4f42b80c8f09542ce157d8b1c7fd0a652ea1bc0a6c886a548ef0a998b569",
+      "source": {
+        "provider": "discogs",
+        "kind": "captured_master_search",
+        "artist": "Enya",
+        "title": "Greatest Hits CD2",
+        "slug": "enya-greatest-hits-cd2-master"
+      }
+    },
+    {
+      "provider": "musicbrainz",
+      "path": "/release",
+      "query": [
+        [
+          "fmt",
+          "json"
+        ],
+        [
+          "limit",
+          "10"
+        ],
+        [
+          "query",
+          "artist:\"Enya\" AND release:\"Shepherd Moons\""
+        ]
+      ],
+      "bodyFile": "provider-snapshots/discovery/reviewed/musicbrainz-captured_release_search-enya-shepherd-moons.json",
+      "sha256": "dac19bb2791b2468194f0b2f1dd13ed3401b88a3ff868f5b5f556fd3d8546230",
+      "source": {
+        "provider": "musicbrainz",
+        "kind": "captured_release_search",
+        "artist": "Enya",
+        "title": "Shepherd Moons",
+        "slug": "enya-shepherd-moons"
+      }
+    },
+    {
+      "provider": "discogs",
+      "path": "/database/search",
+      "query": [
+        [
+          "artist",
+          "Enya"
+        ],
+        [
+          "page",
+          "1"
+        ],
+        [
+          "per_page",
+          "10"
+        ],
+        [
+          "release_title",
+          "Shepherd Moons"
+        ],
+        [
+          "type",
+          "release"
+        ],
+        [
+          "year",
+          "1991"
+        ]
+      ],
+      "bodyFile": "provider-snapshots/discovery/reviewed/discogs-captured_release_search-enya-shepherd-moons-release.json",
+      "sha256": "bb7594683df6dfc1343318768e81acdadeea3b0211cd9ce1e1141920ca43fefc",
+      "source": {
+        "provider": "discogs",
+        "kind": "captured_release_search",
+        "artist": "Enya",
+        "title": "Shepherd Moons",
+        "slug": "enya-shepherd-moons-release"
+      }
+    },
+    {
+      "provider": "discogs",
+      "path": "/database/search",
+      "query": [
+        [
+          "artist",
+          "Enya"
+        ],
+        [
+          "page",
+          "1"
+        ],
+        [
+          "per_page",
+          "100"
+        ],
+        [
+          "release_title",
+          "Shepherd Moons"
+        ],
+        [
+          "type",
+          "master"
+        ]
+      ],
+      "bodyFile": "provider-snapshots/discovery/reviewed/discogs-captured_master_search-enya-shepherd-moons-master.json",
+      "sha256": "9a3f4f42b80c8f09542ce157d8b1c7fd0a652ea1bc0a6c886a548ef0a998b569",
+      "source": {
+        "provider": "discogs",
+        "kind": "captured_master_search",
+        "artist": "Enya",
+        "title": "Shepherd Moons",
+        "slug": "enya-shepherd-moons-master"
+      }
+    },
+    {
+      "provider": "musicbrainz",
+      "path": "/artist/",
+      "query": [
+        [
+          "fmt",
+          "json"
+        ],
+        [
+          "limit",
+          "5"
+        ],
+        [
+          "query",
+          "artist:\"Ellie Goulding\""
+        ]
+      ],
+      "bodyFile": "provider-snapshots/discovery/reviewed/musicbrainz-captured_artist_search-ellie-goulding.json",
+      "sha256": "a3f5acdf1abdd189da777140b4c0408c6a9756ff7fc0c53e46a2fe89f3972d37",
+      "source": {
+        "provider": "musicbrainz",
+        "kind": "captured_artist_search",
+        "artist": "Ellie Goulding",
+        "slug": "ellie-goulding"
+      }
+    },
+    {
+      "provider": "discogs",
+      "path": "/database/search",
+      "query": [
+        [
+          "artist",
+          "Ellie Goulding"
+        ],
+        [
+          "per_page",
+          "5"
+        ],
+        [
+          "type",
+          "artist"
+        ]
+      ],
+      "bodyFile": "provider-snapshots/discovery/reviewed/discogs-captured_artist_search-ellie-goulding-artist.json",
+      "sha256": "48dbda62df23d761bb1095885a1868deda3395a0b00633c688416fd7b44b3e1c",
+      "source": {
+        "provider": "discogs",
+        "kind": "captured_artist_search",
+        "artist": "Ellie Goulding",
+        "slug": "ellie-goulding-artist"
+      }
+    },
+    {
+      "provider": "discogs",
+      "path": "/database/search",
+      "query": [
+        [
+          "per_page",
+          "5"
+        ],
+        [
+          "q",
+          "Ellie Goulding"
+        ],
+        [
+          "type",
+          "artist"
+        ]
+      ],
+      "bodyFile": "provider-snapshots/discovery/reviewed/discogs-captured_artist_search-ellie-goulding-q.json",
+      "sha256": "48dbda62df23d761bb1095885a1868deda3395a0b00633c688416fd7b44b3e1c",
+      "source": {
+        "provider": "discogs",
+        "kind": "captured_artist_search",
+        "artist": "Ellie Goulding",
+        "slug": "ellie-goulding-q"
+      }
+    },
+    {
+      "provider": "musicbrainz",
+      "path": "/release",
+      "query": [
+        [
+          "fmt",
+          "json"
+        ],
+        [
+          "limit",
+          "10"
+        ],
+        [
+          "query",
+          "artist:\"Ellie Goulding\" AND release:\"Delirium\""
+        ]
+      ],
+      "bodyFile": "provider-snapshots/discovery/reviewed/musicbrainz-captured_release_search-ellie-goulding-delirium.json",
+      "sha256": "2ca501f854f27e4be347278ec1094775199cc65664687c3ef5d01696a67707fa",
+      "source": {
+        "provider": "musicbrainz",
+        "kind": "captured_release_search",
+        "artist": "Ellie Goulding",
+        "title": "Delirium",
+        "slug": "ellie-goulding-delirium"
+      }
+    },
+    {
+      "provider": "discogs",
+      "path": "/database/search",
+      "query": [
+        [
+          "artist",
+          "Ellie Goulding"
+        ],
+        [
+          "page",
+          "1"
+        ],
+        [
+          "per_page",
+          "10"
+        ],
+        [
+          "release_title",
+          "Delirium"
+        ],
+        [
+          "type",
+          "release"
+        ],
+        [
+          "year",
+          "2015"
+        ]
+      ],
+      "bodyFile": "provider-snapshots/discovery/reviewed/discogs-captured_release_search-ellie-goulding-delirium-release.json",
+      "sha256": "bb7594683df6dfc1343318768e81acdadeea3b0211cd9ce1e1141920ca43fefc",
+      "source": {
+        "provider": "discogs",
+        "kind": "captured_release_search",
+        "artist": "Ellie Goulding",
+        "title": "Delirium",
+        "slug": "ellie-goulding-delirium-release"
+      }
+    },
+    {
+      "provider": "discogs",
+      "path": "/database/search",
+      "query": [
+        [
+          "artist",
+          "Ellie Goulding"
+        ],
+        [
+          "page",
+          "1"
+        ],
+        [
+          "per_page",
+          "100"
+        ],
+        [
+          "release_title",
+          "Delirium"
+        ],
+        [
+          "type",
+          "master"
+        ]
+      ],
+      "bodyFile": "provider-snapshots/discovery/reviewed/discogs-captured_master_search-ellie-goulding-delirium-master.json",
+      "sha256": "9a3f4f42b80c8f09542ce157d8b1c7fd0a652ea1bc0a6c886a548ef0a998b569",
+      "source": {
+        "provider": "discogs",
+        "kind": "captured_master_search",
+        "artist": "Ellie Goulding",
+        "title": "Delirium",
+        "slug": "ellie-goulding-delirium-master"
+      }
+    },
+    {
+      "provider": "musicbrainz",
+      "path": "/artist/",
+      "query": [
+        [
+          "fmt",
+          "json"
+        ],
+        [
+          "limit",
+          "5"
+        ],
+        [
+          "query",
+          "artist:\"Eminem\""
+        ]
+      ],
+      "bodyFile": "provider-snapshots/discovery/reviewed/musicbrainz-captured_artist_search-eminem.json",
+      "sha256": "c14125a2ba6ed94e7b78b5fec70debe86b085e8b74cbd339e6e702efb741be9c",
+      "source": {
+        "provider": "musicbrainz",
+        "kind": "captured_artist_search",
+        "artist": "Eminem",
+        "slug": "eminem"
+      }
+    },
+    {
+      "provider": "discogs",
+      "path": "/database/search",
+      "query": [
+        [
+          "artist",
+          "Eminem"
+        ],
+        [
+          "per_page",
+          "5"
+        ],
+        [
+          "type",
+          "artist"
+        ]
+      ],
+      "bodyFile": "provider-snapshots/discovery/reviewed/discogs-captured_artist_search-eminem-artist.json",
+      "sha256": "a8b0e9f9a072acbc09472c5599818899cc5bb3427ff7d441605a49a999c79a9c",
+      "source": {
+        "provider": "discogs",
+        "kind": "captured_artist_search",
+        "artist": "Eminem",
+        "slug": "eminem-artist"
+      }
+    },
+    {
+      "provider": "discogs",
+      "path": "/database/search",
+      "query": [
+        [
+          "per_page",
+          "5"
+        ],
+        [
+          "q",
+          "Eminem"
+        ],
+        [
+          "type",
+          "artist"
+        ]
+      ],
+      "bodyFile": "provider-snapshots/discovery/reviewed/discogs-captured_artist_search-eminem-q.json",
+      "sha256": "a8b0e9f9a072acbc09472c5599818899cc5bb3427ff7d441605a49a999c79a9c",
+      "source": {
+        "provider": "discogs",
+        "kind": "captured_artist_search",
+        "artist": "Eminem",
+        "slug": "eminem-q"
+      }
+    },
+    {
+      "provider": "musicbrainz",
+      "path": "/release",
+      "query": [
+        [
+          "fmt",
+          "json"
+        ],
+        [
+          "limit",
+          "10"
+        ],
+        [
+          "query",
+          "artist:\"Eminem\" AND release:\"Relapse (Deluxe)\""
+        ]
+      ],
+      "bodyFile": "provider-snapshots/discovery/reviewed/musicbrainz-captured_release_search-eminem-relapse-deluxe-.json",
+      "sha256": "4dca5a7f43b56e3887e6617bd161c1788b90f6f7602384b18d494693f7200a64",
+      "source": {
+        "provider": "musicbrainz",
+        "kind": "captured_release_search",
+        "artist": "Eminem",
+        "title": "Relapse (Deluxe)",
+        "slug": "eminem-relapse-deluxe-"
+      }
+    },
+    {
+      "provider": "discogs",
+      "path": "/database/search",
+      "query": [
+        [
+          "artist",
+          "Eminem"
+        ],
+        [
+          "page",
+          "1"
+        ],
+        [
+          "per_page",
+          "10"
+        ],
+        [
+          "release_title",
+          "Relapse (Deluxe)"
+        ],
+        [
+          "type",
+          "release"
+        ],
+        [
+          "year",
+          "2009"
+        ]
+      ],
+      "bodyFile": "provider-snapshots/discovery/reviewed/discogs-captured_release_search-eminem-relapse-deluxe-release.json",
+      "sha256": "219198e5d5620a03df04b906c36e89e43328b2174ddefe8223339c4da81a8b87",
+      "source": {
+        "provider": "discogs",
+        "kind": "captured_release_search",
+        "artist": "Eminem",
+        "title": "Relapse (Deluxe)",
+        "slug": "eminem-relapse-deluxe-release"
+      }
+    },
+    {
+      "provider": "discogs",
+      "path": "/database/search",
+      "query": [
+        [
+          "artist",
+          "Eminem"
+        ],
+        [
+          "page",
+          "1"
+        ],
+        [
+          "per_page",
+          "100"
+        ],
+        [
+          "release_title",
+          "Relapse (Deluxe)"
+        ],
+        [
+          "type",
+          "master"
+        ]
+      ],
+      "bodyFile": "provider-snapshots/discovery/reviewed/discogs-captured_master_search-eminem-relapse-deluxe-master.json",
+      "sha256": "9a3f4f42b80c8f09542ce157d8b1c7fd0a652ea1bc0a6c886a548ef0a998b569",
+      "source": {
+        "provider": "discogs",
+        "kind": "captured_master_search",
+        "artist": "Eminem",
+        "title": "Relapse (Deluxe)",
+        "slug": "eminem-relapse-deluxe-master"
+      }
+    },
+    {
+      "provider": "musicbrainz",
+      "path": "/artist/",
+      "query": [
+        [
+          "fmt",
+          "json"
+        ],
+        [
+          "limit",
+          "5"
+        ],
+        [
+          "query",
+          "artist:\"Eagles\""
+        ]
+      ],
+      "bodyFile": "provider-snapshots/discovery/reviewed/musicbrainz-captured_artist_search-eagles.json",
+      "sha256": "a1c998ee7585a210d064ae3dad01b2b4b308c0189ae30a0c2ca725b319b9f9c3",
+      "source": {
+        "provider": "musicbrainz",
+        "kind": "captured_artist_search",
+        "artist": "Eagles",
+        "slug": "eagles"
+      }
+    },
+    {
+      "provider": "discogs",
+      "path": "/database/search",
+      "query": [
+        [
+          "artist",
+          "Eagles"
+        ],
+        [
+          "per_page",
+          "5"
+        ],
+        [
+          "type",
+          "artist"
+        ]
+      ],
+      "bodyFile": "provider-snapshots/discovery/reviewed/discogs-captured_artist_search-eagles-artist.json",
+      "sha256": "bdc32d601bf9ae283a6a45f5d22310cf5f069ee00ba0750ea9f5c5c9bff42d6f",
+      "source": {
+        "provider": "discogs",
+        "kind": "captured_artist_search",
+        "artist": "Eagles",
+        "slug": "eagles-artist"
+      }
+    },
+    {
+      "provider": "discogs",
+      "path": "/database/search",
+      "query": [
+        [
+          "per_page",
+          "5"
+        ],
+        [
+          "q",
+          "Eagles"
+        ],
+        [
+          "type",
+          "artist"
+        ]
+      ],
+      "bodyFile": "provider-snapshots/discovery/reviewed/discogs-captured_artist_search-eagles-q.json",
+      "sha256": "bdc32d601bf9ae283a6a45f5d22310cf5f069ee00ba0750ea9f5c5c9bff42d6f",
+      "source": {
+        "provider": "discogs",
+        "kind": "captured_artist_search",
+        "artist": "Eagles",
+        "slug": "eagles-q"
+      }
+    },
+    {
+      "provider": "musicbrainz",
+      "path": "/release",
+      "query": [
+        [
+          "fmt",
+          "json"
+        ],
+        [
+          "limit",
+          "10"
+        ],
+        [
+          "query",
+          "artist:\"Eagles\" AND release:\"Desperado\""
+        ]
+      ],
+      "bodyFile": "provider-snapshots/discovery/reviewed/musicbrainz-captured_release_search-eagles-desperado.json",
+      "sha256": "6aea437cd63f686bb4d7b48e4981918c374d55824215b7eadee8856675f4dfdf",
+      "source": {
+        "provider": "musicbrainz",
+        "kind": "captured_release_search",
+        "artist": "Eagles",
+        "title": "Desperado",
+        "slug": "eagles-desperado"
+      }
+    },
+    {
+      "provider": "discogs",
+      "path": "/database/search",
+      "query": [
+        [
+          "artist",
+          "Eagles"
+        ],
+        [
+          "page",
+          "1"
+        ],
+        [
+          "per_page",
+          "10"
+        ],
+        [
+          "release_title",
+          "Desperado"
+        ],
+        [
+          "type",
+          "release"
+        ],
+        [
+          "year",
+          "1973"
+        ]
+      ],
+      "bodyFile": "provider-snapshots/discovery/reviewed/discogs-captured_release_search-eagles-desperado-release.json",
+      "sha256": "bb7594683df6dfc1343318768e81acdadeea3b0211cd9ce1e1141920ca43fefc",
+      "source": {
+        "provider": "discogs",
+        "kind": "captured_release_search",
+        "artist": "Eagles",
+        "title": "Desperado",
+        "slug": "eagles-desperado-release"
+      }
+    },
+    {
+      "provider": "discogs",
+      "path": "/database/search",
+      "query": [
+        [
+          "artist",
+          "Eagles"
+        ],
+        [
+          "page",
+          "1"
+        ],
+        [
+          "per_page",
+          "100"
+        ],
+        [
+          "release_title",
+          "Desperado"
+        ],
+        [
+          "type",
+          "master"
+        ]
+      ],
+      "bodyFile": "provider-snapshots/discovery/reviewed/discogs-captured_master_search-eagles-desperado-master.json",
+      "sha256": "9a3f4f42b80c8f09542ce157d8b1c7fd0a652ea1bc0a6c886a548ef0a998b569",
+      "source": {
+        "provider": "discogs",
+        "kind": "captured_master_search",
+        "artist": "Eagles",
+        "title": "Desperado",
+        "slug": "eagles-desperado-master"
+      }
+    },
+    {
+      "provider": "musicbrainz",
+      "path": "/release",
+      "query": [
+        [
+          "fmt",
+          "json"
+        ],
+        [
+          "limit",
+          "10"
+        ],
+        [
+          "query",
+          "artist:\"Enya\" AND release:\"A Day Without Rain\""
+        ]
+      ],
+      "bodyFile": "provider-snapshots/discovery/reviewed/musicbrainz-captured_release_search-enya-a-day-without-rain.json",
+      "sha256": "4dca5a7f43b56e3887e6617bd161c1788b90f6f7602384b18d494693f7200a64",
+      "source": {
+        "provider": "musicbrainz",
+        "kind": "captured_release_search",
+        "artist": "Enya",
+        "title": "A Day Without Rain",
+        "slug": "enya-a-day-without-rain"
+      }
+    },
+    {
+      "provider": "discogs",
+      "path": "/database/search",
+      "query": [
+        [
+          "artist",
+          "Enya"
+        ],
+        [
+          "page",
+          "1"
+        ],
+        [
+          "per_page",
+          "10"
+        ],
+        [
+          "release_title",
+          "A Day Without Rain"
+        ],
+        [
+          "type",
+          "release"
+        ],
+        [
+          "year",
+          "2000"
+        ]
+      ],
+      "bodyFile": "provider-snapshots/discovery/reviewed/discogs-captured_release_search-enya-a-day-without-rain-release.json",
+      "sha256": "10362097dd5a0f1be78616a08bd33236a0b45cf712946beff5efb4ce80407b62",
+      "source": {
+        "provider": "discogs",
+        "kind": "captured_release_search",
+        "artist": "Enya",
+        "title": "A Day Without Rain",
+        "slug": "enya-a-day-without-rain-release"
+      }
+    },
+    {
+      "provider": "discogs",
+      "path": "/database/search",
+      "query": [
+        [
+          "artist",
+          "Enya"
+        ],
+        [
+          "page",
+          "1"
+        ],
+        [
+          "per_page",
+          "100"
+        ],
+        [
+          "release_title",
+          "A Day Without Rain"
+        ],
+        [
+          "type",
+          "master"
+        ]
+      ],
+      "bodyFile": "provider-snapshots/discovery/reviewed/discogs-captured_master_search-enya-a-day-without-rain-master.json",
+      "sha256": "9a3f4f42b80c8f09542ce157d8b1c7fd0a652ea1bc0a6c886a548ef0a998b569",
+      "source": {
+        "provider": "discogs",
+        "kind": "captured_master_search",
+        "artist": "Enya",
+        "title": "A Day Without Rain",
+        "slug": "enya-a-day-without-rain-master"
+      }
+    },
+    {
+      "provider": "musicbrainz",
+      "path": "/release",
+      "query": [
+        [
+          "fmt",
+          "json"
+        ],
+        [
+          "limit",
+          "10"
+        ],
+        [
+          "query",
+          "artist:\"Enya\" AND release:\"Wild Child (Maxi-Single)\""
+        ]
+      ],
+      "bodyFile": "provider-snapshots/discovery/reviewed/musicbrainz-captured_release_search-enya-wild-child-maxi-single-.json",
+      "sha256": "4dca5a7f43b56e3887e6617bd161c1788b90f6f7602384b18d494693f7200a64",
+      "source": {
+        "provider": "musicbrainz",
+        "kind": "captured_release_search",
+        "artist": "Enya",
+        "title": "Wild Child (Maxi-Single)",
+        "slug": "enya-wild-child-maxi-single-"
+      }
+    },
+    {
+      "provider": "discogs",
+      "path": "/database/search",
+      "query": [
+        [
+          "artist",
+          "Enya"
+        ],
+        [
+          "page",
+          "1"
+        ],
+        [
+          "per_page",
+          "10"
+        ],
+        [
+          "release_title",
+          "Wild Child (Maxi-Single)"
+        ],
+        [
+          "type",
+          "release"
+        ],
+        [
+          "year",
+          "2001"
+        ]
+      ],
+      "bodyFile": "provider-snapshots/discovery/reviewed/discogs-captured_release_search-enya-wild-child-maxi-single-release.json",
+      "sha256": "9fb8f0ab4a1648eeb451af762b1af32e9e90f69709f3b063788c0e1a73d50c7f",
+      "source": {
+        "provider": "discogs",
+        "kind": "captured_release_search",
+        "artist": "Enya",
+        "title": "Wild Child (Maxi-Single)",
+        "slug": "enya-wild-child-maxi-single-release"
+      }
+    },
+    {
+      "provider": "discogs",
+      "path": "/database/search",
+      "query": [
+        [
+          "artist",
+          "Enya"
+        ],
+        [
+          "page",
+          "1"
+        ],
+        [
+          "per_page",
+          "100"
+        ],
+        [
+          "release_title",
+          "Wild Child (Maxi-Single)"
+        ],
+        [
+          "type",
+          "master"
+        ]
+      ],
+      "bodyFile": "provider-snapshots/discovery/reviewed/discogs-captured_master_search-enya-wild-child-maxi-single-master.json",
+      "sha256": "9a3f4f42b80c8f09542ce157d8b1c7fd0a652ea1bc0a6c886a548ef0a998b569",
+      "source": {
+        "provider": "discogs",
+        "kind": "captured_master_search",
+        "artist": "Enya",
+        "title": "Wild Child (Maxi-Single)",
+        "slug": "enya-wild-child-maxi-single-master"
+      }
+    },
+    {
+      "provider": "musicbrainz",
+      "path": "/release",
+      "query": [
+        [
+          "fmt",
+          "json"
+        ],
+        [
+          "limit",
+          "10"
+        ],
+        [
+          "query",
+          "artist:\"Enya\" AND release:\"Watermark\""
+        ]
+      ],
+      "bodyFile": "provider-snapshots/discovery/reviewed/musicbrainz-captured_release_search-enya-watermark.json",
+      "sha256": "4dca5a7f43b56e3887e6617bd161c1788b90f6f7602384b18d494693f7200a64",
+      "source": {
+        "provider": "musicbrainz",
+        "kind": "captured_release_search",
+        "artist": "Enya",
+        "title": "Watermark",
+        "slug": "enya-watermark"
+      }
+    },
+    {
+      "provider": "discogs",
+      "path": "/database/search",
+      "query": [
+        [
+          "artist",
+          "Enya"
+        ],
+        [
+          "page",
+          "1"
+        ],
+        [
+          "per_page",
+          "10"
+        ],
+        [
+          "release_title",
+          "Watermark"
+        ],
+        [
+          "type",
+          "release"
+        ],
+        [
+          "year",
+          "1988"
+        ]
+      ],
+      "bodyFile": "provider-snapshots/discovery/reviewed/discogs-captured_release_search-enya-watermark-release.json",
+      "sha256": "dabb0f4e549697e4309056129a7f1189997fe2b3f77d70b26a26010df219854e",
+      "source": {
+        "provider": "discogs",
+        "kind": "captured_release_search",
+        "artist": "Enya",
+        "title": "Watermark",
+        "slug": "enya-watermark-release"
+      }
+    },
+    {
+      "provider": "discogs",
+      "path": "/database/search",
+      "query": [
+        [
+          "artist",
+          "Enya"
+        ],
+        [
+          "page",
+          "1"
+        ],
+        [
+          "per_page",
+          "100"
+        ],
+        [
+          "release_title",
+          "Watermark"
+        ],
+        [
+          "type",
+          "master"
+        ]
+      ],
+      "bodyFile": "provider-snapshots/discovery/reviewed/discogs-captured_master_search-enya-watermark-master.json",
+      "sha256": "9a3f4f42b80c8f09542ce157d8b1c7fd0a652ea1bc0a6c886a548ef0a998b569",
+      "source": {
+        "provider": "discogs",
+        "kind": "captured_master_search",
+        "artist": "Enya",
+        "title": "Watermark",
+        "slug": "enya-watermark-master"
+      }
+    },
+    {
+      "provider": "discogs",
+      "path": "/database/search",
+      "query": [
+        [
+          "artist",
+          "Enya"
+        ],
+        [
+          "country",
+          "Japan"
+        ],
+        [
+          "page",
+          "1"
+        ],
+        [
+          "per_page",
+          "10"
+        ],
+        [
+          "release_title",
+          "And Winter Came…"
+        ],
+        [
+          "type",
+          "release"
+        ],
+        [
+          "year",
+          "2008"
+        ]
+      ],
+      "bodyFile": "provider-snapshots/discovery/reviewed/discogs-captured_release_search-enya-and-winter-came-release.json",
+      "sha256": "bb7594683df6dfc1343318768e81acdadeea3b0211cd9ce1e1141920ca43fefc",
+      "source": {
+        "provider": "discogs",
+        "kind": "captured_release_search",
+        "artist": "Enya",
+        "title": "And Winter Came…",
+        "slug": "enya-and-winter-came-release"
+      }
+    },
+    {
+      "provider": "musicbrainz",
+      "path": "/release",
+      "query": [
+        [
+          "fmt",
+          "json"
+        ],
+        [
+          "limit",
+          "10"
+        ],
+        [
+          "query",
+          "artist:\"Enya\" AND release:\"Dark Sky Island\""
+        ]
+      ],
+      "bodyFile": "provider-snapshots/discovery/reviewed/musicbrainz-captured_release_search-enya-dark-sky-island.json",
+      "sha256": "541ad60ae49f2dc41e9d6fee9f9d94378edbb9deede3f65bdada3c0c76c91de2",
+      "source": {
+        "provider": "musicbrainz",
+        "kind": "captured_release_search",
+        "artist": "Enya",
+        "title": "Dark Sky Island",
+        "slug": "enya-dark-sky-island"
+      }
+    },
+    {
+      "provider": "discogs",
+      "path": "/database/search",
+      "query": [
+        [
+          "artist",
+          "Enya"
+        ],
+        [
+          "page",
+          "1"
+        ],
+        [
+          "per_page",
+          "10"
+        ],
+        [
+          "release_title",
+          "Dark Sky Island"
+        ],
+        [
+          "type",
+          "release"
+        ],
+        [
+          "year",
+          "2015"
+        ]
+      ],
+      "bodyFile": "provider-snapshots/discovery/reviewed/discogs-captured_release_search-enya-dark-sky-island-release.json",
+      "sha256": "bb7594683df6dfc1343318768e81acdadeea3b0211cd9ce1e1141920ca43fefc",
+      "source": {
+        "provider": "discogs",
+        "kind": "captured_release_search",
+        "artist": "Enya",
+        "title": "Dark Sky Island",
+        "slug": "enya-dark-sky-island-release"
+      }
+    },
+    {
+      "provider": "discogs",
+      "path": "/database/search",
+      "query": [
+        [
+          "artist",
+          "Enya"
+        ],
+        [
+          "page",
+          "1"
+        ],
+        [
+          "per_page",
+          "100"
+        ],
+        [
+          "release_title",
+          "Dark Sky Island"
+        ],
+        [
+          "type",
+          "master"
+        ]
+      ],
+      "bodyFile": "provider-snapshots/discovery/reviewed/discogs-captured_master_search-enya-dark-sky-island-master.json",
+      "sha256": "9a3f4f42b80c8f09542ce157d8b1c7fd0a652ea1bc0a6c886a548ef0a998b569",
+      "source": {
+        "provider": "discogs",
+        "kind": "captured_master_search",
+        "artist": "Enya",
+        "title": "Dark Sky Island",
+        "slug": "enya-dark-sky-island-master"
+      }
+    },
+    {
+      "provider": "musicbrainz",
+      "path": "/release",
+      "query": [
+        [
+          "fmt",
+          "json"
+        ],
+        [
+          "limit",
+          "10"
+        ],
+        [
+          "query",
+          "artist:\"Enya\" AND release:\"Exile\""
+        ]
+      ],
+      "bodyFile": "provider-snapshots/discovery/reviewed/musicbrainz-captured_release_search-enya-exile.json",
+      "sha256": "4dca5a7f43b56e3887e6617bd161c1788b90f6f7602384b18d494693f7200a64",
+      "source": {
+        "provider": "musicbrainz",
+        "kind": "captured_release_search",
+        "artist": "Enya",
+        "title": "Exile",
+        "slug": "enya-exile"
+      }
+    },
+    {
+      "provider": "discogs",
+      "path": "/database/search",
+      "query": [
+        [
+          "artist",
+          "Enya"
+        ],
+        [
+          "country",
+          "Japan"
+        ],
+        [
+          "page",
+          "1"
+        ],
+        [
+          "per_page",
+          "10"
+        ],
+        [
+          "release_title",
+          "Exile"
+        ],
+        [
+          "type",
+          "release"
+        ],
+        [
+          "year",
+          "1991"
+        ]
+      ],
+      "bodyFile": "provider-snapshots/discovery/reviewed/discogs-captured_release_search-enya-exile-release.json",
+      "sha256": "85c6cddc01d9ee9f1d681663a6260640499ef04d23a13a1565350d0454b82cc9",
+      "source": {
+        "provider": "discogs",
+        "kind": "captured_release_search",
+        "artist": "Enya",
+        "title": "Exile",
+        "slug": "enya-exile-release"
+      }
+    },
+    {
+      "provider": "discogs",
+      "path": "/database/search",
+      "query": [
+        [
+          "artist",
+          "Enya"
+        ],
+        [
+          "page",
+          "1"
+        ],
+        [
+          "per_page",
+          "100"
+        ],
+        [
+          "release_title",
+          "Exile"
+        ],
+        [
+          "type",
+          "master"
+        ]
+      ],
+      "bodyFile": "provider-snapshots/discovery/reviewed/discogs-captured_master_search-enya-exile-master.json",
+      "sha256": "9a3f4f42b80c8f09542ce157d8b1c7fd0a652ea1bc0a6c886a548ef0a998b569",
+      "source": {
+        "provider": "discogs",
+        "kind": "captured_master_search",
+        "artist": "Enya",
+        "title": "Exile",
+        "slug": "enya-exile-master"
+      }
+    },
+    {
+      "provider": "musicbrainz",
+      "path": "/release",
+      "query": {
+        "query": "artist:\"Enya\" AND release:\"Storms In Africa\"",
+        "fmt": "json",
+        "limit": "10"
+      },
+      "bodyFile": "provider-snapshots/discovery/reviewed/musicbrainz-captured_release_search-enya-storms-in-africa.json",
+      "sha256": "4dca5a7f43b56e3887e6617bd161c1788b90f6f7602384b18d494693f7200a64",
+      "source": {
+        "provider": "musicbrainz",
+        "kind": "captured_release_search",
+        "artist": "Enya",
+        "title": "Storms In Africa",
+        "slug": "enya-storms-in-africa"
+      }
+    },
+    {
+      "provider": "musicbrainz",
+      "path": "/release",
+      "query": {
+        "artist": "4967c0a1-b9f3-465e-8440-4598fd9fc33c",
+        "limit": "100",
+        "offset": "0",
+        "fmt": "json",
+        "inc": "artist-credits+labels+media"
+      },
+      "bodyFile": "provider-snapshots/discovery/reviewed/musicbrainz-captured_artist_release_page-enya.json",
+      "sha256": "04f432a9365515dc2c84f238c49326bdf439eeee0cef819b75b24d4953e297f7",
+      "source": {
+        "provider": "musicbrainz",
+        "kind": "captured_artist_release_page",
+        "artist": "Enya",
+        "artistId": "4967c0a1-b9f3-465e-8440-4598fd9fc33c",
+        "slug": "enya"
+      }
+    },
+    {
+      "provider": "discogs",
+      "path": "/artists/900397/releases",
+      "query": {
+        "page": "1",
+        "per_page": "100",
+        "sort": "year",
+        "sort_order": "desc"
+      },
+      "bodyFile": "provider-snapshots/discovery/reviewed/discogs-captured_artist_release_page-enya.json",
+      "sha256": "33e2c871141a17b8df7c00ce7554f360dd8572c3568591eadd6f46dab4ba3a5f",
+      "source": {
+        "provider": "discogs",
+        "kind": "captured_artist_release_page",
+        "artist": "Enya",
+        "artistId": "900397",
+        "slug": "enya"
+      }
+    },
+    {
+      "provider": "musicbrainz",
+      "path": "/artist/",
+      "query": {
+        "query": "artist:\"Enya\"",
+        "fmt": "json",
+        "limit": "5"
+      },
+      "bodyFile": "provider-snapshots/discovery/reviewed/musicbrainz-captured_artist_search-enya-search.json",
+      "sha256": "3b61a11311bec8e3d17307741f0211659483331bbf9485ffade2277ae513dacb",
+      "source": {
+        "provider": "musicbrainz",
+        "kind": "captured_artist_search",
+        "artist": "Enya",
+        "slug": "enya-search"
+      }
+    },
+    {
+      "provider": "discogs",
+      "path": "/database/search",
+      "query": {
+        "artist": "Enya",
+        "per_page": "5",
+        "type": "artist"
+      },
+      "bodyFile": "provider-snapshots/discovery/reviewed/discogs-captured_artist_search-enya-artist-search.json",
+      "sha256": "c0af8f0f2ca1ddcfa5a5e16804de1db4958c5cd7003d16775e68312b4028f926",
+      "source": {
+        "provider": "discogs",
+        "kind": "captured_artist_search",
+        "artist": "Enya",
+        "slug": "enya-artist-search"
+      }
+    },
+    {
+      "provider": "discogs",
+      "path": "/database/search",
+      "query": {
+        "q": "Enya",
+        "per_page": "5",
+        "type": "artist"
+      },
+      "bodyFile": "provider-snapshots/discovery/reviewed/discogs-captured_artist_search-enya-q-search.json",
+      "sha256": "c0af8f0f2ca1ddcfa5a5e16804de1db4958c5cd7003d16775e68312b4028f926",
+      "source": {
+        "provider": "discogs",
+        "kind": "captured_artist_search",
+        "artist": "Enya",
+        "slug": "enya-q-search"
+      }
+    },
+    {
+      "provider": "musicbrainz",
+      "path": "/release",
+      "query": {
+        "artist": "fixture-eminem",
+        "limit": "100",
+        "offset": "0",
+        "fmt": "json",
+        "inc": "artist-credits+labels+media"
+      },
+      "bodyFile": "provider-snapshots/discovery/reviewed/musicbrainz-captured_artist_release_page-eminem.json",
+      "sha256": "7e0ec0787bd2b23716c534c3a4972762c0cd3494a8a3eb2851bfc7fadbf2693a",
+      "source": {
+        "provider": "musicbrainz",
+        "kind": "captured_artist_release_page",
+        "artist": "Eminem",
+        "artistId": "fixture-eminem",
+        "slug": "eminem"
+      }
+    },
+    {
+      "provider": "discogs",
+      "path": "/artists/38661/releases",
+      "query": {
+        "page": "1",
+        "per_page": "100",
+        "sort": "year",
+        "sort_order": "desc"
+      },
+      "bodyFile": "provider-snapshots/discovery/reviewed/discogs-captured_artist_release_page-eminem.json",
+      "sha256": "a31bad2f20ef51530c51e7e22f106d02ff0845c1fb40af879047a9f245d58850",
+      "source": {
+        "provider": "discogs",
+        "kind": "captured_artist_release_page",
+        "artist": "Eminem",
+        "artistId": "38661",
+        "slug": "eminem"
+      }
+    },
+    {
+      "provider": "musicbrainz",
+      "path": "/artist/",
+      "query": {
+        "query": "artist:\"Eminem\"",
+        "fmt": "json",
+        "limit": "5"
+      },
+      "bodyFile": "provider-snapshots/discovery/reviewed/musicbrainz-captured_artist_search-eminem-search.json",
+      "sha256": "c14125a2ba6ed94e7b78b5fec70debe86b085e8b74cbd339e6e702efb741be9c",
+      "source": {
+        "provider": "musicbrainz",
+        "kind": "captured_artist_search",
+        "artist": "Eminem",
+        "slug": "eminem-search"
+      }
+    },
+    {
+      "provider": "discogs",
+      "path": "/database/search",
+      "query": {
+        "artist": "Eminem",
+        "per_page": "5",
+        "type": "artist"
+      },
+      "bodyFile": "provider-snapshots/discovery/reviewed/discogs-captured_artist_search-eminem-artist-search.json",
+      "sha256": "a8b0e9f9a072acbc09472c5599818899cc5bb3427ff7d441605a49a999c79a9c",
+      "source": {
+        "provider": "discogs",
+        "kind": "captured_artist_search",
+        "artist": "Eminem",
+        "slug": "eminem-artist-search"
+      }
+    },
+    {
+      "provider": "discogs",
+      "path": "/database/search",
+      "query": {
+        "q": "Eminem",
+        "per_page": "5",
+        "type": "artist"
+      },
+      "bodyFile": "provider-snapshots/discovery/reviewed/discogs-captured_artist_search-eminem-q-search.json",
+      "sha256": "a8b0e9f9a072acbc09472c5599818899cc5bb3427ff7d441605a49a999c79a9c",
+      "source": {
+        "provider": "discogs",
+        "kind": "captured_artist_search",
+        "artist": "Eminem",
+        "slug": "eminem-q-search"
+      }
+    },
+    {
+      "provider": "musicbrainz",
+      "path": "/release",
+      "query": {
+        "artist": "5df62a88-cac9-490a-b62c-c7c88f4020f4",
+        "limit": "100",
+        "offset": "0",
+        "fmt": "json",
+        "inc": "artist-credits+labels+media"
+      },
+      "bodyFile": "provider-snapshots/discovery/reviewed/musicbrainz-captured_artist_release_page-doja-cat.json",
+      "sha256": "507f5e97fbb376727825e8bc3174eae30be7dbf4e498f6799220eef45f436341",
+      "source": {
+        "provider": "musicbrainz",
+        "kind": "captured_artist_release_page",
+        "artist": "Doja Cat",
+        "artistId": "5df62a88-cac9-490a-b62c-c7c88f4020f4",
+        "slug": "doja-cat"
+      }
+    },
+    {
+      "provider": "discogs",
+      "path": "/artists/3970719/releases",
+      "query": {
+        "page": "1",
+        "per_page": "100",
+        "sort": "year",
+        "sort_order": "desc"
+      },
+      "bodyFile": "provider-snapshots/discovery/reviewed/discogs-captured_artist_release_page-doja-cat.json",
+      "sha256": "f7d40ecde94e87c605319cf5b713f64e077369e7ea0c87ffcd7b7bcb33d2a45c",
+      "source": {
+        "provider": "discogs",
+        "kind": "captured_artist_release_page",
+        "artist": "Doja Cat",
+        "artistId": "3970719",
+        "slug": "doja-cat"
+      }
+    },
+    {
+      "provider": "musicbrainz",
+      "path": "/artist/",
+      "query": {
+        "query": "artist:\"Doja Cat\"",
+        "fmt": "json",
+        "limit": "5"
+      },
+      "bodyFile": "provider-snapshots/discovery/reviewed/musicbrainz-captured_artist_search-doja-cat-search.json",
+      "sha256": "1e3a4dc874f1fd40304769291592c1ac07ce26f645b47b2f869c4fd285d65a2f",
+      "source": {
+        "provider": "musicbrainz",
+        "kind": "captured_artist_search",
+        "artist": "Doja Cat",
+        "slug": "doja-cat-search"
+      }
+    },
+    {
+      "provider": "discogs",
+      "path": "/database/search",
+      "query": {
+        "artist": "Doja Cat",
+        "per_page": "5",
+        "type": "artist"
+      },
+      "bodyFile": "provider-snapshots/discovery/reviewed/discogs-captured_artist_search-doja-cat-artist-search.json",
+      "sha256": "ec295de4edf6d0bc078748ab350c7e2deec6e00991b5b602c3588c1499fbd24a",
+      "source": {
+        "provider": "discogs",
+        "kind": "captured_artist_search",
+        "artist": "Doja Cat",
+        "slug": "doja-cat-artist-search"
+      }
+    },
+    {
+      "provider": "discogs",
+      "path": "/database/search",
+      "query": {
+        "q": "Doja Cat",
+        "per_page": "5",
+        "type": "artist"
+      },
+      "bodyFile": "provider-snapshots/discovery/reviewed/discogs-captured_artist_search-doja-cat-q-search.json",
+      "sha256": "ec295de4edf6d0bc078748ab350c7e2deec6e00991b5b602c3588c1499fbd24a",
+      "source": {
+        "provider": "discogs",
+        "kind": "captured_artist_search",
+        "artist": "Doja Cat",
+        "slug": "doja-cat-q-search"
+      }
+    },
+    {
+      "provider": "musicbrainz",
+      "path": "/release",
+      "query": {
+        "artist": "f46bd570-5768-462e-b84c-c7c993bbf47e",
+        "limit": "100",
+        "offset": "0",
+        "fmt": "json",
+        "inc": "artist-credits+labels+media"
+      },
+      "bodyFile": "provider-snapshots/discovery/reviewed/musicbrainz-captured_artist_release_page-eagles.json",
+      "sha256": "c580637002470dde51ceff2ccb7c498b07ea3ad046e396376dbb15f2c85e4039",
+      "source": {
+        "provider": "musicbrainz",
+        "kind": "captured_artist_release_page",
+        "artist": "Eagles",
+        "artistId": "f46bd570-5768-462e-b84c-c7c993bbf47e",
+        "slug": "eagles"
+      }
+    },
+    {
+      "provider": "discogs",
+      "path": "/artists/255680/releases",
+      "query": {
+        "page": "1",
+        "per_page": "100",
+        "sort": "year",
+        "sort_order": "desc"
+      },
+      "bodyFile": "provider-snapshots/discovery/reviewed/discogs-captured_artist_release_page-eagles.json",
+      "sha256": "f7d40ecde94e87c605319cf5b713f64e077369e7ea0c87ffcd7b7bcb33d2a45c",
+      "source": {
+        "provider": "discogs",
+        "kind": "captured_artist_release_page",
+        "artist": "Eagles",
+        "artistId": "255680",
+        "slug": "eagles"
+      }
+    },
+    {
+      "provider": "musicbrainz",
+      "path": "/artist/",
+      "query": {
+        "query": "artist:\"Eagles\"",
+        "fmt": "json",
+        "limit": "5"
+      },
+      "bodyFile": "provider-snapshots/discovery/reviewed/musicbrainz-captured_artist_search-eagles-search.json",
+      "sha256": "a1c998ee7585a210d064ae3dad01b2b4b308c0189ae30a0c2ca725b319b9f9c3",
+      "source": {
+        "provider": "musicbrainz",
+        "kind": "captured_artist_search",
+        "artist": "Eagles",
+        "slug": "eagles-search"
+      }
+    },
+    {
+      "provider": "discogs",
+      "path": "/database/search",
+      "query": {
+        "artist": "Eagles",
+        "per_page": "5",
+        "type": "artist"
+      },
+      "bodyFile": "provider-snapshots/discovery/reviewed/discogs-captured_artist_search-eagles-artist-search.json",
+      "sha256": "bdc32d601bf9ae283a6a45f5d22310cf5f069ee00ba0750ea9f5c5c9bff42d6f",
+      "source": {
+        "provider": "discogs",
+        "kind": "captured_artist_search",
+        "artist": "Eagles",
+        "slug": "eagles-artist-search"
+      }
+    },
+    {
+      "provider": "discogs",
+      "path": "/database/search",
+      "query": {
+        "q": "Eagles",
+        "per_page": "5",
+        "type": "artist"
+      },
+      "bodyFile": "provider-snapshots/discovery/reviewed/discogs-captured_artist_search-eagles-q-search.json",
+      "sha256": "bdc32d601bf9ae283a6a45f5d22310cf5f069ee00ba0750ea9f5c5c9bff42d6f",
+      "source": {
+        "provider": "discogs",
+        "kind": "captured_artist_search",
+        "artist": "Eagles",
+        "slug": "eagles-q-search"
+      }
+    },
+    {
+      "provider": "musicbrainz",
+      "path": "/release",
+      "query": {
+        "artist": "33ca19f4-18c8-4411-98df-ac23890ce9f5",
+        "limit": "100",
+        "offset": "0",
+        "fmt": "json",
+        "inc": "artist-credits+labels+media"
+      },
+      "bodyFile": "provider-snapshots/discovery/reviewed/musicbrainz-captured_artist_release_page-ellie-goulding.json",
+      "sha256": "201635f3509c05a731319818525bbf0556da040581c0af1e1f5277080ed8aa19",
+      "source": {
+        "provider": "musicbrainz",
+        "kind": "captured_artist_release_page",
+        "artist": "Ellie Goulding",
+        "artistId": "33ca19f4-18c8-4411-98df-ac23890ce9f5",
+        "slug": "ellie-goulding"
+      }
+    },
+    {
+      "provider": "discogs",
+      "path": "/artists/1626845/releases",
+      "query": {
+        "page": "1",
+        "per_page": "100",
+        "sort": "year",
+        "sort_order": "desc"
+      },
+      "bodyFile": "provider-snapshots/discovery/reviewed/discogs-captured_artist_release_page-ellie-goulding.json",
+      "sha256": "f7d40ecde94e87c605319cf5b713f64e077369e7ea0c87ffcd7b7bcb33d2a45c",
+      "source": {
+        "provider": "discogs",
+        "kind": "captured_artist_release_page",
+        "artist": "Ellie Goulding",
+        "artistId": "1626845",
+        "slug": "ellie-goulding"
+      }
+    },
+    {
+      "provider": "musicbrainz",
+      "path": "/artist/",
+      "query": {
+        "query": "artist:\"Ellie Goulding\"",
+        "fmt": "json",
+        "limit": "5"
+      },
+      "bodyFile": "provider-snapshots/discovery/reviewed/musicbrainz-captured_artist_search-ellie-goulding-search.json",
+      "sha256": "a3f5acdf1abdd189da777140b4c0408c6a9756ff7fc0c53e46a2fe89f3972d37",
+      "source": {
+        "provider": "musicbrainz",
+        "kind": "captured_artist_search",
+        "artist": "Ellie Goulding",
+        "slug": "ellie-goulding-search"
+      }
+    },
+    {
+      "provider": "discogs",
+      "path": "/database/search",
+      "query": {
+        "artist": "Ellie Goulding",
+        "per_page": "5",
+        "type": "artist"
+      },
+      "bodyFile": "provider-snapshots/discovery/reviewed/discogs-captured_artist_search-ellie-goulding-artist-search.json",
+      "sha256": "48dbda62df23d761bb1095885a1868deda3395a0b00633c688416fd7b44b3e1c",
+      "source": {
+        "provider": "discogs",
+        "kind": "captured_artist_search",
+        "artist": "Ellie Goulding",
+        "slug": "ellie-goulding-artist-search"
+      }
+    },
+    {
+      "provider": "discogs",
+      "path": "/database/search",
+      "query": {
+        "q": "Ellie Goulding",
+        "per_page": "5",
+        "type": "artist"
+      },
+      "bodyFile": "provider-snapshots/discovery/reviewed/discogs-captured_artist_search-ellie-goulding-q-search.json",
+      "sha256": "48dbda62df23d761bb1095885a1868deda3395a0b00633c688416fd7b44b3e1c",
+      "source": {
+        "provider": "discogs",
+        "kind": "captured_artist_search",
+        "artist": "Ellie Goulding",
+        "slug": "ellie-goulding-q-search"
+      }
+    },
+    {
+      "provider": "musicbrainz",
+      "path": "/release/4f45e662-f5fa-44af-ba11-f202ee324df8",
+      "matchQuery": false,
+      "bodyFile": "provider-snapshots/enya/musicbrainz-release-4f45e662-f5fa-44af-ba11-f202ee324df8.json",
+      "sha256": "7133c8568929e4f41b88db72cb2ec56c4553c03bf0145687a1d00b9e28fb93f0",
+      "source": {
+        "provider": "musicbrainz",
+        "kind": "captured_release_detail",
+        "releaseId": "4f45e662-f5fa-44af-ba11-f202ee324df8",
+        "slug": "storms-in-africa-detail"
+      }
+    },
+    {
+      "provider": "musicbrainz",
+      "path": "/release",
+      "query": [
+        [
+          "fmt",
+          "json"
+        ],
+        [
+          "limit",
+          "10"
+        ],
+        [
+          "query",
+          "artist:\"Doja Cat\" AND release:\"Doja Cat - Amala - 2018\""
+        ]
+      ],
+      "bodyFile": "provider-snapshots/discovery/unavailable/musicbrainz-39c1f82de1907dc8.json",
+      "sha256": "4dca5a7f43b56e3887e6617bd161c1788b90f6f7602384b18d494693f7200a64",
+      "source": {
+        "provider": "musicbrainz",
+        "kind": "explicit_unavailable_evidence",
+        "reason": "provider_evidence_not_captured",
+        "requestPath": "/release"
+      }
+    },
+    {
+      "provider": "discogs",
+      "path": "/database/search",
+      "query": [
+        [
+          "artist",
+          "Doja Cat"
+        ],
+        [
+          "page",
+          "1"
+        ],
+        [
+          "per_page",
+          "10"
+        ],
+        [
+          "release_title",
+          "Doja Cat - Amala - 2018"
+        ],
+        [
+          "type",
+          "release"
+        ]
+      ],
+      "bodyFile": "provider-snapshots/discovery/unavailable/discogs-c8eda40b7cd881d4.json",
+      "sha256": "bb7594683df6dfc1343318768e81acdadeea3b0211cd9ce1e1141920ca43fefc",
+      "source": {
+        "provider": "discogs",
+        "kind": "explicit_unavailable_evidence",
+        "reason": "provider_evidence_not_captured",
+        "requestPath": "/database/search"
+      }
+    },
+    {
+      "provider": "discogs",
+      "path": "/database/search",
+      "query": [
+        [
+          "artist",
+          "Doja Cat"
+        ],
+        [
+          "page",
+          "1"
+        ],
+        [
+          "per_page",
+          "100"
+        ],
+        [
+          "release_title",
+          "Doja Cat - Amala - 2018"
+        ],
+        [
+          "type",
+          "master"
+        ]
+      ],
+      "bodyFile": "provider-snapshots/discovery/unavailable/discogs-94865db0c665a507.json",
+      "sha256": "9a3f4f42b80c8f09542ce157d8b1c7fd0a652ea1bc0a6c886a548ef0a998b569",
+      "source": {
+        "provider": "discogs",
+        "kind": "explicit_unavailable_evidence",
+        "reason": "provider_evidence_not_captured",
+        "requestPath": "/database/search"
+      }
+    },
+    {
+      "provider": "discogs",
+      "path": "/database/search",
+      "query": [
+        [
+          "page",
+          "1"
+        ],
+        [
+          "per_page",
+          "10"
+        ],
+        [
+          "q",
+          "Enya The Celts"
+        ],
+        [
+          "type",
+          "release"
+        ]
+      ],
+      "bodyFile": "provider-snapshots/discovery/unavailable/discogs-2dd73cf04703e457.json",
+      "sha256": "bb7594683df6dfc1343318768e81acdadeea3b0211cd9ce1e1141920ca43fefc",
+      "source": {
+        "provider": "discogs",
+        "kind": "explicit_unavailable_evidence",
+        "reason": "provider_evidence_not_captured",
+        "requestPath": "/database/search"
+      }
+    },
+    {
+      "provider": "musicbrainz",
+      "path": "/release",
+      "query": [
+        [
+          "fmt",
+          "json"
+        ],
+        [
+          "limit",
+          "10"
+        ],
+        [
+          "query",
+          "artist:\"Ellie Goulding\" AND release:\"Ellie Goulding - Delirium\""
+        ]
+      ],
+      "bodyFile": "provider-snapshots/discovery/unavailable/musicbrainz-36821fae03de4f01.json",
+      "sha256": "4dca5a7f43b56e3887e6617bd161c1788b90f6f7602384b18d494693f7200a64",
+      "source": {
+        "provider": "musicbrainz",
+        "kind": "explicit_unavailable_evidence",
+        "reason": "provider_evidence_not_captured",
+        "requestPath": "/release"
+      }
+    },
+    {
+      "provider": "discogs",
+      "path": "/database/search",
+      "query": [
+        [
+          "artist",
+          "Ellie Goulding"
+        ],
+        [
+          "page",
+          "1"
+        ],
+        [
+          "per_page",
+          "10"
+        ],
+        [
+          "release_title",
+          "Ellie Goulding - Delirium"
+        ],
+        [
+          "type",
+          "release"
+        ]
+      ],
+      "bodyFile": "provider-snapshots/discovery/unavailable/discogs-0c61542f94e416fb.json",
+      "sha256": "bb7594683df6dfc1343318768e81acdadeea3b0211cd9ce1e1141920ca43fefc",
+      "source": {
+        "provider": "discogs",
+        "kind": "explicit_unavailable_evidence",
+        "reason": "provider_evidence_not_captured",
+        "requestPath": "/database/search"
+      }
+    },
+    {
+      "provider": "discogs",
+      "path": "/database/search",
+      "query": [
+        [
+          "artist",
+          "Ellie Goulding"
+        ],
+        [
+          "page",
+          "1"
+        ],
+        [
+          "per_page",
+          "100"
+        ],
+        [
+          "release_title",
+          "Ellie Goulding - Delirium"
+        ],
+        [
+          "type",
+          "master"
+        ]
+      ],
+      "bodyFile": "provider-snapshots/discovery/unavailable/discogs-fe86c86b47c8aa41.json",
+      "sha256": "9a3f4f42b80c8f09542ce157d8b1c7fd0a652ea1bc0a6c886a548ef0a998b569",
+      "source": {
+        "provider": "discogs",
+        "kind": "explicit_unavailable_evidence",
+        "reason": "provider_evidence_not_captured",
+        "requestPath": "/database/search"
+      }
+    },
+    {
+      "provider": "musicbrainz",
+      "path": "/release",
+      "query": [
+        [
+          "fmt",
+          "json"
+        ],
+        [
+          "limit",
+          "10"
+        ],
+        [
+          "query",
+          "artist:\"Eminem\" AND release:\"2009 Eminem - Relapse\""
+        ]
+      ],
+      "bodyFile": "provider-snapshots/discovery/unavailable/musicbrainz-a40a5c6c21ddd76d.json",
+      "sha256": "4dca5a7f43b56e3887e6617bd161c1788b90f6f7602384b18d494693f7200a64",
+      "source": {
+        "provider": "musicbrainz",
+        "kind": "explicit_unavailable_evidence",
+        "reason": "provider_evidence_not_captured",
+        "requestPath": "/release"
+      }
+    },
+    {
+      "provider": "discogs",
+      "path": "/database/search",
+      "query": [
+        [
+          "artist",
+          "Eminem"
+        ],
+        [
+          "page",
+          "1"
+        ],
+        [
+          "per_page",
+          "10"
+        ],
+        [
+          "release_title",
+          "2009 Eminem - Relapse"
+        ],
+        [
+          "type",
+          "release"
+        ],
+        [
+          "year",
+          "2009"
+        ]
+      ],
+      "bodyFile": "provider-snapshots/discovery/unavailable/discogs-81255f3ab6643f58.json",
+      "sha256": "bb7594683df6dfc1343318768e81acdadeea3b0211cd9ce1e1141920ca43fefc",
+      "source": {
+        "provider": "discogs",
+        "kind": "explicit_unavailable_evidence",
+        "reason": "provider_evidence_not_captured",
+        "requestPath": "/database/search"
+      }
+    },
+    {
+      "provider": "discogs",
+      "path": "/database/search",
+      "query": [
+        [
+          "artist",
+          "Eminem"
+        ],
+        [
+          "page",
+          "1"
+        ],
+        [
+          "per_page",
+          "100"
+        ],
+        [
+          "release_title",
+          "2009 Eminem - Relapse"
+        ],
+        [
+          "type",
+          "master"
+        ]
+      ],
+      "bodyFile": "provider-snapshots/discovery/unavailable/discogs-93bc23135fd42863.json",
+      "sha256": "9a3f4f42b80c8f09542ce157d8b1c7fd0a652ea1bc0a6c886a548ef0a998b569",
+      "source": {
+        "provider": "discogs",
+        "kind": "explicit_unavailable_evidence",
+        "reason": "provider_evidence_not_captured",
+        "requestPath": "/database/search"
+      }
+    },
+    {
+      "provider": "musicbrainz",
+      "path": "/release",
+      "query": [
+        [
+          "fmt",
+          "json"
+        ],
+        [
+          "limit",
+          "10"
+        ],
+        [
+          "query",
+          "artist:\"Enya\" AND release:\"Storms In Africa   Single, Promo\""
+        ]
+      ],
+      "bodyFile": "provider-snapshots/discovery/unavailable/musicbrainz-f0418bc8a05ea4c7.json",
+      "sha256": "4dca5a7f43b56e3887e6617bd161c1788b90f6f7602384b18d494693f7200a64",
+      "source": {
+        "provider": "musicbrainz",
+        "kind": "explicit_unavailable_evidence",
+        "reason": "provider_evidence_not_captured",
+        "requestPath": "/release"
+      }
+    },
+    {
+      "provider": "discogs",
+      "path": "/database/search",
+      "query": [
+        [
+          "artist",
+          "Enya"
+        ],
+        [
+          "country",
+          "United States"
+        ],
+        [
+          "page",
+          "1"
+        ],
+        [
+          "per_page",
+          "10"
+        ],
+        [
+          "release_title",
+          "Storms In Africa   Single, Promo"
+        ],
+        [
+          "type",
+          "release"
+        ],
+        [
+          "year",
+          "1989"
+        ]
+      ],
+      "bodyFile": "provider-snapshots/discovery/unavailable/discogs-00f833e6fdef5572.json",
+      "sha256": "bb7594683df6dfc1343318768e81acdadeea3b0211cd9ce1e1141920ca43fefc",
+      "source": {
+        "provider": "discogs",
+        "kind": "explicit_unavailable_evidence",
+        "reason": "provider_evidence_not_captured",
+        "requestPath": "/database/search"
+      }
+    },
+    {
+      "provider": "discogs",
+      "path": "/database/search",
+      "query": [
+        [
+          "artist",
+          "Enya"
+        ],
+        [
+          "page",
+          "1"
+        ],
+        [
+          "per_page",
+          "100"
+        ],
+        [
+          "release_title",
+          "Storms In Africa   Single, Promo"
+        ],
+        [
+          "type",
+          "master"
+        ]
+      ],
+      "bodyFile": "provider-snapshots/discovery/unavailable/discogs-7cde5253ae4fa40a.json",
+      "sha256": "9a3f4f42b80c8f09542ce157d8b1c7fd0a652ea1bc0a6c886a548ef0a998b569",
+      "source": {
+        "provider": "discogs",
+        "kind": "explicit_unavailable_evidence",
+        "reason": "provider_evidence_not_captured",
+        "requestPath": "/database/search"
+      }
+    },
+    {
+      "provider": "discogs",
+      "path": "/database/search",
+      "query": [
+        [
+          "page",
+          "1"
+        ],
+        [
+          "per_page",
+          "10"
+        ],
+        [
+          "q",
+          "Doja Cat Amala"
+        ],
+        [
+          "type",
+          "release"
+        ]
+      ],
+      "bodyFile": "provider-snapshots/discovery/unavailable/discogs-c6413d66deb87ce6.json",
+      "sha256": "bb7594683df6dfc1343318768e81acdadeea3b0211cd9ce1e1141920ca43fefc",
+      "source": {
+        "provider": "discogs",
+        "kind": "explicit_unavailable_evidence",
+        "reason": "provider_evidence_not_captured",
+        "requestPath": "/database/search"
+      }
+    },
+    {
+      "provider": "discogs",
+      "path": "/database/search",
+      "query": [
+        [
+          "page",
+          "1"
+        ],
+        [
+          "per_page",
+          "10"
+        ],
+        [
+          "q",
+          "Ellie Goulding Delirium"
+        ],
+        [
+          "type",
+          "release"
+        ]
+      ],
+      "bodyFile": "provider-snapshots/discovery/unavailable/discogs-707c0cfdc1c1d15d.json",
+      "sha256": "bb7594683df6dfc1343318768e81acdadeea3b0211cd9ce1e1141920ca43fefc",
+      "source": {
+        "provider": "discogs",
+        "kind": "explicit_unavailable_evidence",
+        "reason": "provider_evidence_not_captured",
+        "requestPath": "/database/search"
+      }
+    },
+    {
+      "provider": "discogs",
+      "path": "/database/search",
+      "query": [
+        [
+          "page",
+          "1"
+        ],
+        [
+          "per_page",
+          "10"
+        ],
+        [
+          "q",
+          "Eminem Relapse (Deluxe)"
+        ],
+        [
+          "type",
+          "release"
+        ]
+      ],
+      "bodyFile": "provider-snapshots/discovery/unavailable/discogs-6092381e1390f73c.json",
+      "sha256": "bb7594683df6dfc1343318768e81acdadeea3b0211cd9ce1e1141920ca43fefc",
+      "source": {
+        "provider": "discogs",
+        "kind": "explicit_unavailable_evidence",
+        "reason": "provider_evidence_not_captured",
+        "requestPath": "/database/search"
+      }
+    },
+    {
+      "provider": "musicbrainz",
+      "path": "/release/0ca50ac4-48f1-4903-a70e-a9b8676d85d3",
+      "query": [
+        [
+          "fmt",
+          "json"
+        ],
+        [
+          "inc",
+          "recordings+artist-credits+labels+url-rels"
+        ]
+      ],
+      "status": 404,
+      "bodyFile": "provider-snapshots/discovery/unavailable/musicbrainz-7a054b23acdba03b.json",
+      "sha256": "7e66c077ee4d7cdd471a470b8c8d2d396442c521acb815ba7efed9654038d838",
+      "source": {
+        "provider": "musicbrainz",
+        "kind": "explicit_unavailable_evidence",
+        "reason": "provider_evidence_not_captured",
+        "requestPath": "/release/0ca50ac4-48f1-4903-a70e-a9b8676d85d3"
+      }
+    },
+    {
+      "provider": "musicbrainz",
+      "path": "/release/37da7984-13e5-4fa3-a18f-5937f6086078",
+      "query": [
+        [
+          "fmt",
+          "json"
+        ],
+        [
+          "inc",
+          "recordings+artist-credits+labels+url-rels"
+        ]
+      ],
+      "status": 404,
+      "bodyFile": "provider-snapshots/discovery/unavailable/musicbrainz-9df18a89d11b4d5a.json",
+      "sha256": "7e66c077ee4d7cdd471a470b8c8d2d396442c521acb815ba7efed9654038d838",
+      "source": {
+        "provider": "musicbrainz",
+        "kind": "explicit_unavailable_evidence",
+        "reason": "provider_evidence_not_captured",
+        "requestPath": "/release/37da7984-13e5-4fa3-a18f-5937f6086078"
+      }
+    },
+    {
+      "provider": "discogs",
+      "path": "/releases/7764639",
+      "query": [],
+      "status": 404,
+      "bodyFile": "provider-snapshots/discovery/unavailable/discogs-2b862a426b0a5553.json",
+      "sha256": "7e66c077ee4d7cdd471a470b8c8d2d396442c521acb815ba7efed9654038d838",
+      "source": {
+        "provider": "discogs",
+        "kind": "explicit_unavailable_evidence",
+        "reason": "provider_evidence_not_captured",
+        "requestPath": "/releases/7764639"
+      }
+    },
+    {
+      "provider": "discogs",
+      "path": "/releases/36441795",
+      "query": [],
+      "status": 404,
+      "bodyFile": "provider-snapshots/discovery/unavailable/discogs-9a68fb5603aa2161.json",
+      "sha256": "7e66c077ee4d7cdd471a470b8c8d2d396442c521acb815ba7efed9654038d838",
+      "source": {
+        "provider": "discogs",
+        "kind": "explicit_unavailable_evidence",
+        "reason": "provider_evidence_not_captured",
+        "requestPath": "/releases/36441795"
+      }
+    },
+    {
+      "provider": "discogs",
+      "path": "/artists/9807/releases",
+      "query": [
+        [
+          "page",
+          "1"
+        ],
+        [
+          "per_page",
+          "100"
+        ],
+        [
+          "sort",
+          "year"
+        ],
+        [
+          "sort_order",
+          "desc"
+        ]
+      ],
+      "bodyFile": "provider-snapshots/discovery/unavailable/discogs-1c7ab760503ba781.json",
+      "sha256": "f7d40ecde94e87c605319cf5b713f64e077369e7ea0c87ffcd7b7bcb33d2a45c",
+      "source": {
+        "provider": "discogs",
+        "kind": "explicit_unavailable_evidence",
+        "reason": "provider_evidence_not_captured",
+        "requestPath": "/artists/9807/releases"
+      }
+    },
+    {
+      "provider": "discogs",
+      "path": "/database/search",
+      "query": [
+        [
+          "page",
+          "1"
+        ],
+        [
+          "per_page",
+          "10"
+        ],
+        [
+          "q",
+          "Doja Cat Doja Cat - Amala - 2018"
+        ],
+        [
+          "type",
+          "release"
+        ]
+      ],
+      "bodyFile": "provider-snapshots/discovery/unavailable/discogs-df3de029b9933983.json",
+      "sha256": "bb7594683df6dfc1343318768e81acdadeea3b0211cd9ce1e1141920ca43fefc",
+      "source": {
+        "provider": "discogs",
+        "kind": "explicit_unavailable_evidence",
+        "reason": "provider_evidence_not_captured",
+        "requestPath": "/database/search"
+      }
+    },
+    {
+      "provider": "discogs",
+      "path": "/database/search",
+      "query": [
+        [
+          "page",
+          "1"
+        ],
+        [
+          "per_page",
+          "10"
+        ],
+        [
+          "q",
+          "Ellie Goulding Ellie Goulding - Delirium"
+        ],
+        [
+          "type",
+          "release"
+        ]
+      ],
+      "bodyFile": "provider-snapshots/discovery/unavailable/discogs-aa832f00e1ae870d.json",
+      "sha256": "bb7594683df6dfc1343318768e81acdadeea3b0211cd9ce1e1141920ca43fefc",
+      "source": {
+        "provider": "discogs",
+        "kind": "explicit_unavailable_evidence",
+        "reason": "provider_evidence_not_captured",
+        "requestPath": "/database/search"
+      }
+    },
+    {
+      "provider": "discogs",
+      "path": "/database/search",
+      "query": [
+        [
+          "page",
+          "1"
+        ],
+        [
+          "per_page",
+          "10"
+        ],
+        [
+          "q",
+          "Eminem 2009 Eminem - Relapse"
+        ],
+        [
+          "type",
+          "release"
+        ]
+      ],
+      "bodyFile": "provider-snapshots/discovery/unavailable/discogs-da526002458396e3.json",
+      "sha256": "bb7594683df6dfc1343318768e81acdadeea3b0211cd9ce1e1141920ca43fefc",
+      "source": {
+        "provider": "discogs",
+        "kind": "explicit_unavailable_evidence",
+        "reason": "provider_evidence_not_captured",
+        "requestPath": "/database/search"
+      }
+    },
+    {
+      "provider": "discogs",
+      "path": "/database/search",
+      "query": [
+        [
+          "country",
+          "United States"
+        ],
+        [
+          "page",
+          "1"
+        ],
+        [
+          "per_page",
+          "10"
+        ],
+        [
+          "q",
+          "Enya Storms In Africa   Single, Promo"
+        ],
+        [
+          "type",
+          "release"
+        ]
+      ],
+      "bodyFile": "provider-snapshots/discovery/unavailable/discogs-58c11dbb9b7fb2ec.json",
+      "sha256": "bb7594683df6dfc1343318768e81acdadeea3b0211cd9ce1e1141920ca43fefc",
+      "source": {
+        "provider": "discogs",
+        "kind": "explicit_unavailable_evidence",
+        "reason": "provider_evidence_not_captured",
+        "requestPath": "/database/search"
+      }
+    }
+  ]
+}

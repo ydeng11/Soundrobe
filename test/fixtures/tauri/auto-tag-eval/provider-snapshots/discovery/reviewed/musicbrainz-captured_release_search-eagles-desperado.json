@@ -1,0 +1,28 @@
+{
+  "count": 1,
+  "releases": [
+    {
+      "id": "e95722b4-c235-41f5-94db-941bcd24fc09",
+      "title": "Desperado",
+      "date": "2013",
+      "country": "US",
+      "artist-credit": [
+        {
+          "name": "Eagles",
+          "artist": {
+            "id": "f46bd570-5768-462e-b84c-c7c993bbf47e",
+            "name": "Eagles"
+          }
+        }
+      ],
+      "media": [
+        {
+          "format": "Digital Media",
+          "track-count": 11
+        }
+      ],
+      "label-info": [],
+      "barcode": ""
+    }
+  ]
+}

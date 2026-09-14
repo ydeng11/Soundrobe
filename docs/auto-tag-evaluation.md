@@ -1,5 +1,9 @@
 # Auto-tag evaluation
 
+For HTTP replay through the production provider clients, use the
+[offline MusicBrainz and Discogs fixture service](offline-provider-mock.md).
+It serves locked raw snapshots and exports missing requests for evidence collection.
+
 Soundrobe has a metadata-only evaluation corpus under `test/fixtures/tauri/auto-tag-eval/`. It freezes source-relative folders, filenames, observed tags, durations, numbering, provider IDs, and source hashes for Ariana Grande, Billie Eilish, Eagles, Doja Cat, Ellie Goulding, Eminem, and Enya. The corpus contains no audio or artwork.
 
 Run the deterministic contracts with:

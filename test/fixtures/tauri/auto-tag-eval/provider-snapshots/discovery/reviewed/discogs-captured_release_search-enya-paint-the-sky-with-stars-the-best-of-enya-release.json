@@ -1,0 +1,24 @@
+{
+  "pagination": {
+    "items": 1,
+    "pages": 1,
+    "page": 1,
+    "per_page": 10
+  },
+  "results": [
+    {
+      "id": 1198219,
+      "type": "release",
+      "title": "Enya - Paint The Sky With Stars - The Best Of Enya",
+      "year": 1997,
+      "country": "Japan",
+      "format": [
+        "CD"
+      ],
+      "catno": "WPCR-1900",
+      "barcode": [
+        "3984-20895-2"
+      ]
+    }
+  ]
+}

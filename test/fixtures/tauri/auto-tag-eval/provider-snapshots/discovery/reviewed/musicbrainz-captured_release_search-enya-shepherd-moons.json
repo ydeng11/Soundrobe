@@ -1,0 +1,28 @@
+{
+  "count": 1,
+  "releases": [
+    {
+      "id": "4bf28c39-1b7e-4827-81ed-a306fa4a6b3b",
+      "title": "Shepherd Moons",
+      "date": "1991",
+      "country": "US",
+      "artist-credit": [
+        {
+          "name": "Enya",
+          "artist": {
+            "id": "4967c0a1-b9f3-465e-8440-4598fd9fc33c",
+            "name": "Enya"
+          }
+        }
+      ],
+      "media": [
+        {
+          "format": "CD",
+          "track-count": 12
+        }
+      ],
+      "label-info": [],
+      "barcode": "0208314317218"
+    }
+  ]
+}
