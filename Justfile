@@ -171,6 +171,7 @@ collect-auto-tag-evidence:
     common_args=(
         --corpus "${SOUNDROBE_AUTO_TAG_EVAL_CORPUS:-$PWD/test/fixtures/tauri/auto-tag-eval/corpus.json}"
         --expectations "${SOUNDROBE_AUTO_TAG_EVAL_EXPECTATIONS:-$PWD/test/fixtures/tauri/auto-tag-eval/expectations.json}"
+        --reviewed-manifest "${SOUNDROBE_AUTO_TAG_EVIDENCE_REVIEWED_MANIFEST:-$PWD/test/fixtures/tauri/auto-tag-eval/reviewed-subset.json}"
         --output-dir "$output_dir"
         --profile "${SOUNDROBE_AUTO_TAG_EVIDENCE_PROFILE:-folder_filename}"
         --batch-size "${SOUNDROBE_AUTO_TAG_EVIDENCE_BATCH_SIZE:-4}"

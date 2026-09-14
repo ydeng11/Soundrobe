@@ -7,7 +7,8 @@ time.  It never edits the corpus or injects provider IDs into discovery input;
 the native runner applies the selected profile and its existing retry, cache,
 rate-limit, and per-folder budgets.  Completed, provider-backed batches stay
 in the output directory while cases with unavailable providers remain queued
-for a later invocation.
+for a later invocation.  A reviewed manifest can exclude cases whose frozen
+provider evidence is already complete.
 """
 
 from __future__ import annotations
@@ -103,7 +104,10 @@ def complete_case(case_id: str, records: dict[tuple[str, str], dict[str, Any]]) 
 
 
 def validate_case_ids(
-    corpus: dict[str, Any], expectations: dict[str, Any], requested: list[str] | None
+    corpus: dict[str, Any],
+    expectations: dict[str, Any],
+    requested: list[str] | None,
+    reviewed_ids: set[str],
 ) -> list[str]:
     cases = corpus.get("cases")
     if not isinstance(cases, list):
@@ -122,7 +126,7 @@ def validate_case_ids(
         return sorted(
             case_id
             for case_id, expectation in expectation_by_id.items()
-            if expectation.get("status") not in SCORED_STATUSES
+            if expectation.get("status") not in SCORED_STATUSES and case_id not in reviewed_ids
         )
     values = sorted({value.strip() for value in requested if value.strip()})
     unknown = sorted(set(values) - set(by_id))
@@ -135,6 +139,7 @@ def load_or_validate_state(
     path: Path,
     corpus_hash: str,
     expectations_hash: str,
+    reviewed_hash: str | None,
     profile: str,
     case_ids: list[str],
 ) -> dict[str, Any]:
@@ -143,6 +148,7 @@ def load_or_validate_state(
             "schemaVersion": 1,
             "corpusSha256": corpus_hash,
             "expectationsSha256": expectations_hash,
+            "reviewedManifestSha256": reviewed_hash,
             "profile": profile,
             "caseIds": case_ids,
             "createdAt": datetime.now(timezone.utc).isoformat(),
@@ -154,6 +160,7 @@ def load_or_validate_state(
     for key, expected in (
         ("corpusSha256", corpus_hash),
         ("expectationsSha256", expectations_hash),
+        ("reviewedManifestSha256", reviewed_hash),
         ("profile", profile),
     ):
         if state.get(key) != expected:
@@ -163,6 +170,22 @@ def load_or_validate_state(
     if not isinstance(state.get("batches", []), list):
         raise ValueError("collector state batches must be an array")
     return state
+
+
+def reviewed_case_ids(path: Path | None) -> set[str]:
+    if path is None:
+        return set()
+    value = read_json(path)
+    cases = value.get("cases") if isinstance(value, dict) else None
+    if not isinstance(cases, list):
+        raise ValueError("reviewed manifest has no cases array")
+    return {
+        case["caseId"]
+        for case in cases
+        if isinstance(case, dict)
+        and isinstance(case.get("caseId"), str)
+        and case.get("status") in SCORED_STATUSES
+    }
 
 
 def batch_number(output_dir: Path) -> int:
@@ -239,6 +262,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--corpus", type=Path, required=True)
     parser.add_argument("--expectations", type=Path, required=True)
+    parser.add_argument("--reviewed-manifest", type=Path)
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--profile", choices=sorted(PROFILES), default="folder_filename")
     parser.add_argument("--case-ids", help="comma-separated case IDs; defaults to unscored cases")
@@ -258,13 +282,18 @@ def main() -> int:
     if corpus.get("corpusVersion") != expectations.get("corpusVersion"):
         raise ValueError("corpus and expectations versions differ")
     requested = args.case_ids.split(",") if args.case_ids else None
-    case_ids = validate_case_ids(corpus, expectations, requested)
+    reviewed_manifest = args.reviewed_manifest
+    if reviewed_manifest is not None and not reviewed_manifest.is_file():
+        raise ValueError(f"reviewed manifest does not exist: {reviewed_manifest}")
+    reviewed_ids = reviewed_case_ids(reviewed_manifest)
+    case_ids = validate_case_ids(corpus, expectations, requested, reviewed_ids)
     args.output_dir.mkdir(parents=True, exist_ok=True)
     state_path = args.output_dir / "state.json"
     state = load_or_validate_state(
         state_path,
         sha256_file(args.corpus),
         sha256_file(args.expectations),
+        sha256_file(reviewed_manifest) if reviewed_manifest is not None else None,
         args.profile,
         case_ids,
     )

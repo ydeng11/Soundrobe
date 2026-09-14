@@ -41,25 +41,30 @@ describe("collect_auto_tag_evidence.py", () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "soundrobe-evidence-plan-"));
     temporaryRoots.push(root);
     const { corpus, expectations } = inputs(root);
+    const reviewedManifest = path.join(root, "reviewed.json");
+    fs.writeFileSync(reviewedManifest, JSON.stringify({
+      cases: [{ caseId: "two", status: "verified_match" }],
+    }), "utf8");
     const output = path.join(root, "out");
     expect(run([
       "--corpus", corpus,
       "--expectations", expectations,
+      "--reviewed-manifest", reviewedManifest,
       "--output-dir", output,
       "--batch-size", "1",
     ])).toMatchObject({
-      caseCount: 2,
+      caseCount: 1,
       completeCaseCount: 0,
-      pendingCaseCount: 2,
-      plannedBatchCount: 2,
+      pendingCaseCount: 1,
+      plannedBatchCount: 1,
       runBatchCount: 0,
     });
     const queue = JSON.parse(fs.readFileSync(path.join(output, "queue.json"), "utf8"));
-    expect(queue.batches.map((batch: { caseIds: string[] }) => batch.caseIds)).toEqual([["three"], ["two"]]);
+    expect(queue.batches.map((batch: { caseIds: string[] }) => batch.caseIds)).toEqual([["three"]]);
     expect(JSON.parse(fs.readFileSync(path.join(output, "state.json"), "utf8"))).toMatchObject({
       profile: "folder_filename",
-      caseIds: ["three", "two"],
-      pendingCaseIds: ["three", "two"],
+      caseIds: ["three"],
+      pendingCaseIds: ["three"],
     });
   });
 

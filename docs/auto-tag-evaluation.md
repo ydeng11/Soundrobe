@@ -98,8 +98,9 @@ bounded batch through the existing ignored native test, or increase
 `SOUNDROBE_AUTO_TAG_EVIDENCE_MAX_BATCHES` deliberately. The collector locks the
 corpus and expectation digests, retains each batch artifact, and queues cases
 without complete cold and warm provider records, including unavailable or
-timed-out work. Re-running the same output directory skips provider-complete
-cases and retries only the remaining queue.
+timed-out work. The checked-in reviewed subset is skipped by default; pass an
+explicit case ID to revisit one of those rows. Re-running the same output
+directory skips provider-complete cases and retries only the remaining queue.
 The native runner still owns its cache, retry, rate-limit, ten-minute folder,
 and eight-hour run budgets; clean discovery profiles continue to strip provider
 IDs, and no release ID is placed into their lookup input.
