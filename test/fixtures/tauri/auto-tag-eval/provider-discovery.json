@@ -2654,7 +2654,10 @@
     {
       "provider": "musicbrainz",
       "path": "/release/4f45e662-f5fa-44af-ba11-f202ee324df8",
-      "matchQuery": false,
+      "query": {
+        "fmt": "json",
+        "inc": "recordings+artist-credits+labels+url-rels"
+      },
       "bodyFile": "provider-snapshots/enya/musicbrainz-release-4f45e662-f5fa-44af-ba11-f202ee324df8.json",
       "sha256": "7133c8568929e4f41b88db72cb2ec56c4553c03bf0145687a1d00b9e28fb93f0",
       "source": {

@@ -48,14 +48,13 @@ function loadRecords(manifestPath) {
       if (/[\r\n]/.test(String(value))) throw new Error('Invalid response header');
       headers[key] = String(value);
     }
-    return { provider: record.provider, path: record.path, query, matchQuery: record.matchQuery !== false,
+    return { provider: record.provider, path: record.path, query,
       status, headers, bytes, sha256: sha256(bytes), source: record.source ?? null };
   });
   for (let i = 0; i < records.length; i++) {
     for (const other of records.slice(i + 1)) {
       const record = records[i];
-      if (record.provider === other.provider && record.path === other.path
-          && (!record.matchQuery || !other.matchQuery || record.query === other.query)) {
+      if (record.provider === other.provider && record.path === other.path && record.query === other.query) {
         throw new Error(`Fixture routes overlap: ${record.provider}${record.path}`);
       }
     }
@@ -84,7 +83,7 @@ function createService(manifestPath) {
     const fixturePath = provider ? url.pathname.slice(prefixes[provider].length) : url.pathname;
     const query = queryKey(url.searchParams);
     const record = records.find((item) => item.provider === provider && item.path === fixturePath
-      && (!item.matchQuery || item.query === query));
+      && item.query === query);
     const entry = { provider: provider ?? 'unknown', path: fixturePath, query: JSON.parse(query), status: record?.status ?? 501 };
     requests.push(entry);
     if (!record) {
@@ -112,7 +111,10 @@ function importPools(poolPath, outputPath) {
       if (!raw) { skipped.push({ provider: candidate.provider, releaseId: candidate.releaseId, reason: 'not_raw_provider_response' }); continue; }
       if (String(body.id) !== String(candidate.releaseId)) throw new Error('Snapshot provider ID mismatch');
       const route = candidate.provider === 'musicbrainz' ? `/release/${candidate.releaseId}` : `/releases/${candidate.releaseId}`;
-      const record = { provider: candidate.provider, path: route, matchQuery: false,
+      const query = candidate.provider === 'musicbrainz'
+        ? { fmt: 'json', inc: 'recordings+artist-credits+labels+url-rels' }
+        : {};
+      const record = { provider: candidate.provider, path: route, query,
         bodyFile: path.relative(path.dirname(path.resolve(outputPath)), file), sha256: sha256(bytes),
         source: { kind: 'captured_release_detail', releaseId: String(candidate.releaseId) } };
       addImportedRecord(records, record, 'provider pool');
@@ -144,7 +146,7 @@ function importPools(poolPath, outputPath) {
 }
 
 function addImportedRecord(records, record, sourceLabel) {
-  const key = `${record.provider}${record.path}|${record.matchQuery === false ? '*' : queryKey(record.query ?? {})}`;
+  const key = `${record.provider}${record.path}|${queryKey(record.query ?? {})}`;
   if (records.has(key) && records.get(key).sha256 !== record.sha256) {
     throw new Error(`Conflicting ${sourceLabel} snapshot for ${record.provider}${record.path}`);
   }

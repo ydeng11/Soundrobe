@@ -64,9 +64,12 @@ it("imports locked raw detail snapshots from existing pools for offline review",
   const unavailable = await fetch(`${base}/discogs/releases/36441795`);
   expect(unavailable.status).toBe(404);
   expect((await unavailable.json()).reason).toBe("provider_evidence_not_captured");
-  expect((await (await fetch(`${base}/musicbrainz/ws/2/release/627377a9-be56-4c45-a56d-9ae941546ef0?inc=recordings&fmt=json`)).json()).id).toBe("627377a9-be56-4c45-a56d-9ae941546ef0");
-  expect((await (await fetch(`${base}/musicbrainz/ws/2/release/4f45e662-f5fa-44af-ba11-f202ee324df8?inc=recordings&fmt=json`)).json()).id).toBe("4f45e662-f5fa-44af-ba11-f202ee324df8");
+  expect((await (await fetch(`${base}/musicbrainz/ws/2/release/627377a9-be56-4c45-a56d-9ae941546ef0?inc=recordings%2Bartist-credits%2Blabels%2Burl-rels&fmt=json`)).json()).id).toBe("627377a9-be56-4c45-a56d-9ae941546ef0");
+  const exactMusicBrainz = await fetch(`${base}/musicbrainz/ws/2/release/4f45e662-f5fa-44af-ba11-f202ee324df8?inc=recordings%2Bartist-credits%2Blabels%2Burl-rels&fmt=json`);
+  expect((await exactMusicBrainz.json()).id).toBe("4f45e662-f5fa-44af-ba11-f202ee324df8");
+  expect((await fetch(`${base}/musicbrainz/ws/2/release/4f45e662-f5fa-44af-ba11-f202ee324df8?inc=recordings&fmt=json`)).status).toBe(501);
   expect((await (await fetch(`${base}/musicbrainz/ws/2/artist/?query=artist%3A%22Enya%22&fmt=json&limit=5`)).json()).artists[0].id).toBe("4967c0a1-b9f3-465e-8440-4598fd9fc33c");
+  expect((await fetch(`${base}/discogs/releases/1459867?unexpected=query`)).status).toBe(501);
   const artistReleases = await fetch(`${base}/discogs/artists/9807/releases?page=1&per_page=100&sort=year&sort_order=desc`);
   expect(artistReleases.status).toBe(200);
   expect((await artistReleases.json()).releases).toEqual([]);

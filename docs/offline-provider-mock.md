@@ -18,7 +18,7 @@ node scripts/mock-provider-service.cjs serve \
   .planning/debug/provider-mock/manifest.json 18081
 ```
 
-The importer verifies every source hash and writes 22 raw release-detail
+The importer verifies every source hash and writes 23 raw release-detail
 records plus the locked discovery/search, artist-release, and representative
 edition-detail records. Normalized candidate fixtures are rejected and are
 never served as upstream responses.
@@ -62,8 +62,9 @@ JSON is supported for small synthetic fixtures. Optional `status` and
 `headers` model errors and Retry-After/rate-limit headers. Missing routes return
 501 `offline_fixture_missing`; they never fall through to the internet or
 manufacture an empty successful result. Overlapping routes and hash mismatches
-fail startup. Imported release details use `matchQuery: false` because their
-captured expansions are fixed; they do not simulate arbitrary inclusion queries.
+fail startup. Imported release details use the exact production query tuple
+(`fmt` and `inc` for MusicBrainz, no query for Discogs); they do not simulate
+arbitrary inclusion queries.
 
 ## Native evaluation
 
