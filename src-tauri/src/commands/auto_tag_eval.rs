@@ -1509,7 +1509,7 @@ fn evaluation_copy_path_preserves_source_hierarchy() {
 fn reviewed_expectation_overlay_authorizes_only_reviewed_cases() {
     let mut corpus = load_corpus();
     let case_id = corpus.cases[0].case_id.clone();
-    let path = PathBuf::from("/private/tmp").join(format!(
+    let path = std::env::temp_dir().join(format!(
         "soundrobe-auto-tag-expectations-{}.json",
         uuid::Uuid::new_v4()
     ));
@@ -1542,7 +1542,7 @@ fn reviewed_expectation_overlay_authorizes_only_reviewed_cases() {
 #[test]
 fn report_separates_provider_unavailability_from_no_match() {
     let corpus = load_corpus();
-    let path = PathBuf::from("/private/tmp").join(format!(
+    let path = std::env::temp_dir().join(format!(
         "soundrobe-auto-tag-eval-report-{}.md",
         uuid::Uuid::new_v4()
     ));

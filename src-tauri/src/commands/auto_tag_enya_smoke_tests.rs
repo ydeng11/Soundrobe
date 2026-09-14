@@ -647,14 +647,55 @@ fn report_markdown(
 
 #[test]
 fn enya_manifest_reconciles_expected_counts_and_duplicates() {
-    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../.planning/debug/enya-native-smoke-2026-09-12/manifest.json");
+    // Keep the unit contract independent of retained, local-only debug
+    // artifacts. The native smoke still loads the real manifest through its
+    // explicit environment variable.
+    let path = std::env::temp_dir().join(format!(
+        "soundrobe-enya-manifest-{}.json",
+        uuid::Uuid::new_v4()
+    ));
+    let logical_results = (1..=37)
+        .map(|id| {
+            let folder = if id <= 34 {
+                format!("Enya/Review {id}")
+            } else {
+                format!("Enya/Review {}", id - 3)
+            };
+            json!({
+                "id": id,
+                "outcome": "NeedsReview",
+                "path": folder,
+                "detail": "fixture",
+                "retryCount": 0,
+                "attempts": if id == 1 { Some(2) } else { None::<u32> },
+            })
+        })
+        .collect::<Vec<_>>();
+    fs::write(
+        &path,
+        serde_json::to_vec(&json!({
+            "sourceRoot": "/tmp/Enya",
+            "summary": {
+                "processed": 69,
+                "applied": 32,
+                "needsReview": 37,
+                "failed": 0,
+                "cancelled": 0,
+                "uniqueFolders": 59,
+                "uniqueNeedsReviewFolders": 34,
+            },
+            "logicalResults": logical_results,
+        }))
+        .unwrap(),
+    )
+    .unwrap();
     let manifest = load_manifest(&path);
     assert_eq!(manifest.logical_results[0].id, 1);
     assert!(manifest
         .logical_results
         .iter()
         .any(|row| row.attempts == Some(2)));
+    fs::remove_file(path).unwrap();
 }
 
 #[test]
