@@ -61,6 +61,23 @@ response, validates the saved production-reader equivalence cases, and lists
 cold/warm identity drift. A drift is reported as failed verification and keeps
 the replay separate from deterministic matcher results.
 
+The frozen pool manifest now covers seven edition and failure fixtures with
+nine locked responses: Relapse Deluxe, Enya maxi/box/disc and title negatives,
+the Enya CD/DVD group case, and a separate Discogs edition fixture. The
+targeted Shepherd Moons replay on 2026-09-14 used a fresh isolated cache and
+selected the same MusicBrainz identity in both phases. The earlier broad
+synthetic replay still retains one cross-provider drift as a historical
+provider-ordering diagnostic; it remains failed verification in that artifact.
+
+Report deterministic input coverage and retained native denominators for all
+three profiles with:
+
+```sh
+SOUNDROBE_AUTO_TAG_PROFILE_RUN_ID=profile-baseline-2026-09-14 \
+SOUNDROBE_AUTO_TAG_PROFILE_DIR=.planning/debug/auto-tag-eval/profile-baseline-2026-09-14 \
+just eval-auto-tag-profiles
+```
+
 Native outcomes distinguish confirmed success, wrong match, safe abstention, unresolved, incomplete provider work, and failed verification. Provider recovery and a different-release selection are reported separately from matcher attribution. Ordinary CI runs only the deterministic contracts; live evaluation remains manual and credentialed.
 
 Score retained native results offline with:
@@ -73,7 +90,7 @@ just eval-auto-tag-score
 
 The scorer records SHA-256 fingerprints for the corpus, expectations, native results, and reviewed ledger beside `score.json`, `score.md`, and `command.log`. Only `verified_match` and `verified_abstain` expectations contribute to precision and coverage; the current broad corpus is therefore diagnostic until its cases are independently reviewed. Provider-unavailable phases, warm recovery, cold/warm identity drift, and GuardedTitle attribution remain separate counts so a recovered provider or a different release cannot be reported as a matcher improvement.
 
-The report also keeps all replay observations outside the scored denominator. For the retained 321-folder run, 293 folders encountered provider unavailability and one Enya folder selected Discogs release `2500754` cold but MusicBrainz release `4bf28c39-1b7e-4827-81ed-a306fa4a6b3b` warm; that cross-provider identity drift remains a failed-verification diagnostic rather than matcher credit.
+The report also keeps all replay observations outside the scored denominator. For the retained 321-folder run, 293 folders encountered provider unavailability and one Enya folder selected Discogs release `2500754` cold but MusicBrainz release `4bf28c39-1b7e-4827-81ed-a306fa4a6b3b` warm; that historical cross-provider identity drift remains a failed-verification diagnostic rather than matcher credit. The profile baseline records 642/642 discovery invocations, 32/642 assisted invocations before provider latency stopped the run, and 0/642 broad recovery invocations; the assisted and recovery Relapse probes remain separately retained and successful.
 
 The 2026-09-14 baseline measurements are profile-separated. The complete
 `folder_filename` replay covered 321 cases and 642 invocations: 292 Incomplete,

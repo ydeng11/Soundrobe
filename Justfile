@@ -24,6 +24,7 @@ default:
     @echo "  just eval-auto-tag        run deterministic metadata-only auto-tag evaluation"
     @echo "  just eval-auto-tag-ground-truth audit the complete reviewed expectation ledger"
     @echo "  just eval-auto-tag-repro  audit frozen pools, equivalence, and cold/warm identity"
+    @echo "  just eval-auto-tag-profiles  report deterministic metrics for all three input profiles"
     @echo "  just eval-auto-tag-score  score reviewed native evaluation results offline"
     @echo "  just eval-auto-tag-live   run the explicit credentialed native evaluation"
     @echo ""
@@ -123,6 +124,24 @@ eval-auto-tag-repro:
         --native-results "$native_results" \
         --output-dir "$output_dir" \
         --run-id "$run_id"
+
+# Offline denominator and profile-shape report; native records remain separate.
+eval-auto-tag-profiles:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    run_id="${SOUNDROBE_AUTO_TAG_PROFILE_RUN_ID:-profile-baseline-$(date -u +%Y%m%dT%H%M%SZ)}"
+    output_dir="${SOUNDROBE_AUTO_TAG_PROFILE_DIR:-$PWD/.planning/debug/auto-tag-eval/$run_id}"
+    if [[ "$output_dir" != /* ]]; then
+        output_dir="$PWD/$output_dir"
+    fi
+    exec python3 scripts/audit_auto_tag_profiles.py \
+        --corpus "${SOUNDROBE_AUTO_TAG_EVAL_CORPUS:-$PWD/test/fixtures/tauri/auto-tag-eval/corpus.json}" \
+        --expectations "${SOUNDROBE_AUTO_TAG_EVAL_EXPECTATIONS:-$PWD/test/fixtures/tauri/auto-tag-eval/expectations.json}" \
+        --output-dir "$output_dir" \
+        --run-id "$run_id" \
+        --native "folder_filename=${SOUNDROBE_AUTO_TAG_PROFILE_DISCOVERY_RESULTS:-$PWD/.planning/debug/enya-2026-09-13-followup/synthetic-corpus/results.json}" \
+        --native "assisted_without_ids=${SOUNDROBE_AUTO_TAG_PROFILE_ASSISTED_RESULTS:-$PWD/.planning/debug/auto-tag-eval/baseline-assisted-2026-09-14/cold.jsonl}" \
+        --native "tagged_recovery=${SOUNDROBE_AUTO_TAG_PROFILE_RECOVERY_RESULTS:-$PWD/.planning/debug/auto-tag-eval/baseline-recovery-2026-09-14/results.json}"
 
 # Offline scoring for retained native results and reviewed expectation ledgers.
 eval-auto-tag-score:

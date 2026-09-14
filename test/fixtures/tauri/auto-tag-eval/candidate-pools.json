@@ -11,6 +11,61 @@
         {"provider": "discogs", "releaseId": "16649340", "response": "provider-snapshots/relapse/discogs-release-16649340.json", "responseSha256": "2fdd6bfe4eccc333a7e4c3decf628ed75bb47e3dbdaacf65e168c570a934f6a9", "expectation": "hard_negative"}
       ],
       "replay": {"permuteCandidateOrder": true, "requireCompleteMapping": true, "requireUniqueEvidence": true}
+    },
+    {
+      "poolId": "enya-wild-child-maxi",
+      "localFixture": "../enya-greatest-hits/local-wild-child.json",
+      "localFixtureSha256": "d2a894c90fc2f71f38e9ab214273aae5e2241a53d2645f93e6ec7f7eace8c709",
+      "candidates": [
+        {"provider": "discogs", "releaseId": "544115", "response": "../enya-greatest-hits/candidate-544115.json", "responseSha256": "b2fd5b3e02261037bba330c58cf64e65ce36d7317b200a0425a49ee5f112d4f0", "expectation": "acceptable"}
+      ],
+      "replay": {"permuteCandidateOrder": true, "requireCompleteMapping": true, "requireUniqueEvidence": true}
+    },
+    {
+      "poolId": "enya-box-of-dreams-clouds",
+      "localFixture": "../enya-greatest-hits/local-box-clouds.json",
+      "localFixtureSha256": "23971900672f4a8e9bbd18af254fde2fa0074b34afd1d913d85f26a0c6a2d3ed",
+      "candidates": [
+        {"provider": "discogs", "releaseId": "7832914", "response": "../enya-greatest-hits/candidate-7832914.json", "responseSha256": "5b922a9bafc7ea29be3a518dd25636e106726820d5dc0fa996df397d155d13be", "expectation": "acceptable"}
+      ],
+      "replay": {"permuteCandidateOrder": true, "requireCompleteMapping": true, "requireUniqueEvidence": true}
+    },
+    {
+      "poolId": "enya-greatest-hits-disc-two",
+      "localFixture": "../enya-greatest-hits/local-cd2.json",
+      "localFixtureSha256": "43363c2ef65d5c6fbbab0c1a8312589f1a86333c6b175ea8e84e106d10f81c59",
+      "candidates": [
+        {"provider": "discogs", "releaseId": "8174021", "response": "../enya-greatest-hits/candidate-8174021.json", "responseSha256": "3e03847ba056a8f5329375347459b0d71a15881a24439ff40df96f040ff9b117", "expectation": "acceptable"},
+        {"provider": "discogs", "releaseId": "15876868", "response": "../enya-greatest-hits/candidate-15876868.json", "responseSha256": "210f85b1f7883672acb1ec5e22911f9b57fc0b916df18cc3e61e1532d874df2a", "expectation": "hard_negative"}
+      ],
+      "replay": {"permuteCandidateOrder": true, "requireCompleteMapping": true, "requireUniqueEvidence": true}
+    },
+    {
+      "poolId": "enya-greatest-hits-title-negative",
+      "localFixture": "../enya-greatest-hits/local-2009-cd2.json",
+      "localFixtureSha256": "2779653ad2d2c48f8cf918436cb92ed179371a6d46aa0d0745de787e9374ff9a",
+      "candidates": [
+        {"provider": "discogs", "releaseId": "1969042", "response": "../enya-greatest-hits/candidate-1969042.json", "responseSha256": "41e8538d215293c62bc4dfa8ef7f35b2fdf80edf70098da92531a024ccf83dcd", "expectation": "hard_negative"}
+      ],
+      "replay": {"permuteCandidateOrder": true, "requireCompleteMapping": true, "requireUniqueEvidence": true}
+    },
+    {
+      "poolId": "enya-cd-dvd-group-negative",
+      "localFixture": "../enya-greatest-hits/local-cd1.json",
+      "localFixtureSha256": "20424fefa35110ead2af1e9bbc1956167b7c44d68ca385c26387b231b14c2692",
+      "candidates": [
+        {"provider": "discogs", "releaseId": "2029801", "response": "../enya-discogs/release-2029801.json", "responseSha256": "9c9d80a91789846fb95c97028fc4a5403db6b285cc1d13e0d43b53edab096fb5", "expectation": "hard_negative"}
+      ],
+      "replay": {"permuteCandidateOrder": true, "requireCompleteMapping": true, "requireUniqueEvidence": true}
+    },
+    {
+      "poolId": "discogs-edition-title-and-duration-negative",
+      "localFixture": "../discogs-editions/local.json",
+      "localFixtureSha256": "6eddad017edc496755e272df73503bc515427f89c31608782213dce86bdc1192",
+      "candidates": [
+        {"provider": "discogs", "releaseId": "16211782", "response": "../discogs-editions/release-16211782.json", "responseSha256": "bafee7a96c4cc7e1122c00b56e05ffdc995fd26d4023f98ab3129cec0d5350e0", "expectation": "hard_negative"}
+      ],
+      "replay": {"permuteCandidateOrder": true, "requireCompleteMapping": true, "requireUniqueEvidence": true}
     }
   ]
 }
