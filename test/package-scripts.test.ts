@@ -142,12 +142,12 @@ describe("package scripts", () => {
     expect(scripts.postinstall).toBeUndefined();
   });
 
-  it("runs renderer, script, and Rust tests without native Node rebuilds", () => {
+  it("runs renderer, mock-provider, and Rust tests without native Node rebuilds", () => {
     const { scripts } = readPackageJson();
 
-    expect(scripts.test).toBe("npm run test:web && npm run test:rust && npm run test:scripts");
+    expect(scripts.test).toBe("npm run test:web && npm run test:rust && npm run test:mock-provider");
     expect(scripts["test:rust"]).toBe("cargo test --manifest-path src-tauri/Cargo.toml");
-    expect(scripts["test:scripts"]).toBe("vitest run test/scripts");
+    expect(scripts["test:mock-provider"]).toBe("vitest run test/scripts/mock-provider-service.test.ts");
     expect(scripts["test:native-node"]).toBeUndefined();
   });
 
