@@ -84,6 +84,10 @@ pub struct AlbumCandidate {
     /// Validated in this run only; never trust a mapping read from a cache.
     #[serde(skip)]
     pub accepted_match: Option<editions::AcceptedMatch>,
+    /// Full provider track evidence retained for offline evaluation after the
+    /// accepted match projects the candidate onto local tracks.
+    #[serde(skip)]
+    pub provider_tracks_for_evaluation: Option<Vec<TrackCandidate>>,
     pub artist: Option<String>,
     #[serde(default)]
     pub artists: Vec<String>,
@@ -219,6 +223,12 @@ pub fn build_lookup_request(album_path: &Path) -> Result<LookupRequest, ApiError
     } else {
         tagged_artist.clone().or_else(|| folder_artist_hint.clone())
     };
+    let year_hint = album_evidence.year.clone().or(tagged_year);
+    let folder_album_hint = clean_folder_album_hint(
+        album_evidence.folder_album.or_else(|| non_empty(folder_album)),
+        artist_hint.as_deref(),
+        year_hint.as_deref(),
+    );
     let total = u32::try_from(detail.tracks.len()).ok();
     let tracks = detail
         .tracks
@@ -260,10 +270,13 @@ pub fn build_lookup_request(album_path: &Path) -> Result<LookupRequest, ApiError
         artist_aliases: Vec::new(),
         tagged_artist_hint: tagged_artist,
         folder_artist_hint,
-        album_hint: album_evidence.search_album,
+        album_hint: album_evidence
+            .tagged_album
+            .clone()
+            .or_else(|| folder_album_hint.clone()),
         tagged_album_hint: album_evidence.tagged_album,
-        folder_album_hint: album_evidence.folder_album.or_else(|| non_empty(folder_album)),
-        year_hint: album_evidence.year.or(tagged_year),
+        folder_album_hint,
+        year_hint,
         country_hint: album_evidence.country,
         musicbrainz_album_id,
         musicbrainz_artist_id,
@@ -281,6 +294,10 @@ fn non_empty(value: String) -> Option<String> {
 fn extract_folder_year(name: &str) -> Option<String> {
     let year_prefix =
         Regex::new(r"^\s*((?:19|20)\d{2})(?:\s*[-.]|[^\d]|$)").expect("valid folder year regex");
+    let year_marker = Regex::new(
+        r"(?i)(?:^|[-–—(])\s*((?:19|20)\d{2})(?:\s*(?:\)|\]|\[|,|$))",
+    )
+    .expect("valid folder year marker regex");
     let extract_prefix = |value: &str| {
         year_prefix
             .captures(value)
@@ -301,7 +318,41 @@ fn extract_folder_year(name: &str) -> Option<String> {
             }
         }
     }
-    None
+    year_marker
+        .captures_iter(name)
+        .last()
+        .and_then(|captures| captures.get(1))
+        .map(|year| year.as_str().to_string())
+}
+
+fn clean_folder_album_hint(
+    value: Option<String>,
+    artist: Option<&str>,
+    year: Option<&str>,
+) -> Option<String> {
+    let mut value = value?;
+    if let Some(artist) = artist {
+        for separator in [" - ", " – ", " — "] {
+            let Some((prefix, title)) = value.split_once(separator) else {
+                continue;
+            };
+            if exact_artist_identity(prefix.trim(), artist) && !title.trim().is_empty() {
+                value = title.trim().to_string();
+                break;
+            }
+        }
+    }
+    if let Some(year) = year {
+        for separator in [" - ", " – ", " — "] {
+            let suffix = format!("{separator}{year}");
+            if value.ends_with(&suffix) {
+                value.truncate(value.len() - suffix.len());
+                value = value.trim_end().to_string();
+                break;
+            }
+        }
+    }
+    non_empty(value)
 }
 
 fn clean_folder_name(name: &str) -> String {
@@ -317,7 +368,7 @@ fn clean_folder_name(name: &str) -> String {
     .expect("valid edition regex")
     .replace_all(&cleaned, " ")
     .to_string();
-    cleaned = Regex::new(r"(?i)\s*(?:flac|mp3|wav|aac|ogg|m4a|wma|ape)(?:\s*分轨)?\s*$")
+    cleaned = Regex::new(r"(?i)\s*[,\-]?\s*(?:flac|mp3|wav|aac|ogg|m4a|wma|ape)(?:\s*分轨)?\s*$")
         .expect("valid format suffix regex")
         .replace(&cleaned, "")
         .trim()
@@ -367,6 +418,13 @@ pub fn parse_folder_album_evidence(
         r"(?i)\s+(?:japanese|japan|european|europe|american|usa?)\s+(?:edition|version|pressing)\s*$",
     )
     .expect("valid trailing edition regex")
+    .replace(&folder_album, "")
+    .trim()
+    .to_string();
+    folder_album = Regex::new(
+        r"(?i)\s*[,\-]?\s*(?:flac|mp3|wav|aac|ogg|m4a|wma|ape)(?:\s*分轨)?\s*$",
+    )
+    .expect("valid format suffix regex")
     .replace(&folder_album, "")
     .trim()
     .to_string();
@@ -1013,6 +1071,12 @@ pub fn protect_candidate_tracks(
 ) -> AlbumCandidate {
     if let Some(accepted) = &candidate.accepted_match {
         let mut protected = candidate.clone();
+        protected.provider_tracks_for_evaluation = Some(
+            candidate
+                .provider_tracks_for_evaluation
+                .clone()
+                .unwrap_or_else(|| candidate.tracks.clone()),
+        );
         protected.tracks = accepted.tracks.clone();
         return protected;
     }
@@ -1075,6 +1139,12 @@ pub fn protect_candidate_tracks(
         &[],
     );
     let mut protected = candidate.clone();
+    protected.provider_tracks_for_evaluation = Some(
+        candidate
+            .provider_tracks_for_evaluation
+            .clone()
+            .unwrap_or_else(|| candidate.tracks.clone()),
+    );
     protected.tracks = matched.tracks;
     if candidate.source == LookupSource::Discogs {
         editions::preserve_collaborators(&request.tracks, &mut protected.tracks);
@@ -3929,6 +3999,46 @@ mod tests {
     }
 
     #[test]
+    fn decorated_folder_album_hint_strips_known_artist_and_matching_year() {
+        let folder = "Doja Cat - Amala - 2018 [TR24][OF]";
+        assert_eq!(extract_folder_year(folder).as_deref(), Some("2018"));
+        assert_eq!(extract_folder_year("Album - 1984 - Live"), None);
+        assert_eq!(
+            clean_folder_album_hint(
+                Some("Doja Cat - Amala - 2018".into()),
+                Some("Doja Cat"),
+                Some("2018"),
+            )
+            .as_deref(),
+            Some("Amala")
+        );
+        assert_eq!(
+            clean_folder_album_hint(
+                Some("Folder Artist - The Album - 2018".into()),
+                Some("Other Artist"),
+                Some("2018"),
+            )
+            .as_deref(),
+            Some("Folder Artist - The Album")
+        );
+    }
+
+    #[test]
+    fn build_lookup_request_cleans_decorated_folder_album_hint() {
+        let root = temp_root();
+        let album = root.join("Ellie Goulding").join("Ellie Goulding - Lights - 2010, FLAC");
+        fs::create_dir_all(&album).unwrap();
+        fs::copy(corpus_wav(), album.join("01.wav")).unwrap();
+
+        let request = build_lookup_request(&album).unwrap();
+
+        assert_eq!(request.year_hint.as_deref(), Some("2010"));
+        assert_eq!(request.folder_album_hint.as_deref(), Some("Lights"));
+        assert_eq!(request.album_hint.as_deref(), Some("Lights"));
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
     fn ambiguity_ignores_format_suffix_but_detects_naming_annotations() {
         assert!(!hints_are_ambiguous(
             Some("Album"),
@@ -4287,6 +4397,13 @@ mod tests {
 
         let protected = protect_candidate_tracks(&request, &candidate);
         assert_eq!(protected.tracks.len(), 14, "should produce 14 CD1 tracks");
+        assert_eq!(
+            protected
+                .provider_tracks_for_evaluation
+                .as_ref()
+                .map(Vec::len),
+            Some(28)
+        );
         for (i, track) in protected.tracks.iter().enumerate() {
             assert_eq!(
                 track.title,
@@ -4344,6 +4461,13 @@ mod tests {
 
         let protected = protect_candidate_tracks(&request, &candidate);
         assert_eq!(protected.tracks.len(), 14);
+        assert_eq!(
+            protected
+                .provider_tracks_for_evaluation
+                .as_ref()
+                .map(Vec::len),
+            Some(28)
+        );
         for (i, track) in protected.tracks.iter().enumerate() {
             assert_eq!(
                 track.musicbrainz_track_id,

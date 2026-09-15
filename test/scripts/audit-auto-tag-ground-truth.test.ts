@@ -77,13 +77,13 @@ describe("audit_auto_tag_ground_truth.py", () => {
       ],
     });
     const output = path.join(root, "out");
-    execFileSync("python3", [
+    expect(() => execFileSync("python3", [
       scriptPath,
       "--corpus", corpus,
       "--expectations", expectations,
       "--output-dir", output,
       "--run-id", "ground-truth-test",
-    ], { encoding: "utf8" });
+    ], { encoding: "utf8", stdio: "pipe" })).toThrow();
 
     const result = JSON.parse(fs.readFileSync(path.join(output, "ground-truth.json"), "utf8"));
     expect(result).toMatchObject({
@@ -108,6 +108,7 @@ describe("audit_auto_tag_ground_truth.py", () => {
     expect(fs.readFileSync(path.join(output, "ground-truth.md"), "utf8")).toContain(
       "Every corpus case is represented exactly once",
     );
+    expect(fs.readFileSync(path.join(output, "command.log"), "utf8")).toContain("status=incomplete");
   });
 
   it("rejects path escapes and incomplete reviewed mappings", () => {

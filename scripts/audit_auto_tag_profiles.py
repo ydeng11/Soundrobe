@@ -32,27 +32,89 @@ def sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
-def read_native(path: Path | None) -> list[dict[str, Any]]:
+def read_native(path: Path | None) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     if path is None or not path.exists():
-        return []
+        return [], []
     if path.suffix == ".jsonl":
-        return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+        return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()], []
     value = read_json(path)
     if isinstance(value, dict) and isinstance(value.get("invocations"), list):
-        return [item for item in value["invocations"] if isinstance(item, dict)]
-    return []
+        return (
+            [item for item in value["invocations"] if isinstance(item, dict)],
+            [item for item in value.get("folderResults", []) if isinstance(item, dict)],
+        )
+    return [], []
+
+
+def identity(value: Any) -> str | None:
+    if isinstance(value, str) and value:
+        return value
+    if isinstance(value, dict):
+        for key in ("discogsReleaseId", "discogs_release_id", "musicbrainzAlbumId", "musicbrainz_album_id"):
+            if value.get(key):
+                return str(value[key])
+    return None
+
+
+def classify_case(
+    expectation: dict[str, Any],
+    folder: dict[str, Any] | None,
+    records: list[dict[str, Any]],
+) -> str:
+    if folder is not None:
+        final = folder.get("classification")
+        selected = identity(folder.get("selectedIdentity"))
+    else:
+        phases = {record.get("phase"): record for record in records if record.get("phase") in {"cold", "warm"}}
+        if set(phases) != {"cold", "warm"}:
+            return "incomplete"
+        cold, warm = phases["cold"], phases["warm"]
+        cold_id, warm_id = identity(cold.get("selectedIdentity")), identity(warm.get("selectedIdentity"))
+        if cold.get("classification") == "failed_verification" or warm.get("classification") == "failed_verification":
+            return "failed_verification"
+        if cold_id and warm_id and cold_id != warm_id:
+            return "failed_verification"
+        final = warm.get("classification") or cold.get("classification")
+        selected = warm_id or cold_id
+    acceptable = {str(value) for value in expectation.get("acceptableEditionIds", [])}
+    hard_negative = {str(value) for value in expectation.get("rejectedHardNegativeIds", [])}
+    if selected in hard_negative or final == "wrong_match":
+        return "wrong_match"
+    if expectation.get("status") == "verified_match" and selected in acceptable and final == "confirmed_success":
+        return "correct"
+    if expectation.get("status") == "verified_abstain" and final == "safe_abstention":
+        return "correct"
+    if final in {"failed_verification", "incomplete", "safe_abstention", "unresolved"}:
+        return str(final)
+    return "unresolved"
 
 
 def profile_metrics(
-    corpus: dict[str, Any], expectations: dict[str, Any], records: list[dict[str, Any]], profile_name: str
+    corpus: dict[str, Any],
+    expectations: dict[str, Any],
+    records: list[dict[str, Any]],
+    folders: list[dict[str, Any]],
+    profile_name: str,
 ) -> dict[str, Any]:
     cases = corpus["cases"]
-    reviewed = {
-        item["caseId"]
-        for item in expectations["cases"]
-        if item.get("status") in ("verified_match", "verified_abstain")
-    }
+    expectation_by_id = {item["caseId"]: item for item in expectations["cases"]}
+    records_by_case: dict[str, list[dict[str, Any]]] = {}
+    for record in records:
+        if isinstance(record.get("caseId"), str):
+            records_by_case.setdefault(record["caseId"], []).append(record)
+    folder_by_case = {folder["caseId"]: folder for folder in folders if isinstance(folder.get("caseId"), str)}
     counts = Counter(record.get("classification", "unknown") for record in records)
+    case_ids = {case["caseId"] for case in cases}
+    phase_counts = Counter(
+        (record.get("caseId"), record.get("phase"))
+        for record in records
+        if isinstance(record.get("caseId"), str) and record.get("phase") in {"cold", "warm"}
+    )
+    native_complete = (
+        len(records) == len(cases) * 2
+        and {case_id for case_id, _ in phase_counts} == case_ids
+        and all(phase_counts[(case_id, phase)] == 1 for case_id in case_ids for phase in ("cold", "warm"))
+    )
     unavailable = sum(
         1
         for record in records
@@ -61,15 +123,63 @@ def profile_metrics(
             for attempt in (record.get("native", {}) or {}).get("providerAttempts", [])
         )
     )
+    outcomes = Counter(
+        classify_case(
+            expectation_by_id.get(case["caseId"], {}),
+            folder_by_case.get(case["caseId"]),
+            records_by_case.get(case["caseId"], []),
+        )
+        for case in cases
+    )
+    eligible = sum(
+        expectation_by_id.get(case["caseId"], {}).get("status") in ("verified_match", "verified_abstain")
+        for case in cases
+    )
+    correct = outcomes["correct"]
+    decisive = correct + outcomes["wrong_match"]
+    safe_abstentions = sum(
+        1
+        for case in cases
+        if (
+            folder_by_case.get(case["caseId"], {}).get("classification") == "safe_abstention"
+            or any(
+                record.get("classification") == "safe_abstention"
+                for record in records_by_case.get(case["caseId"], [])
+            )
+        )
+    )
+    readback_failures = sum(
+        any(record.get("readback") is False for record in records_by_case.get(case["caseId"], []))
+        for case in cases
+    )
+    payload_failures = sum(
+        any(record.get("payloadUnchanged") is False for record in records_by_case.get(case["caseId"], []))
+        for case in cases
+    )
+    mapping_failures = sum(
+        any(record.get("classification") == "failed_verification" for record in records_by_case.get(case["caseId"], []))
+        for case in cases
+    )
     return {
         "caseCount": len(cases),
         "trackCount": sum(len(case["tracks"]) for case in cases),
-        "reviewedEligibleCases": len(reviewed),
+        "reviewedEligibleCases": eligible,
         "nativeInvocations": len(records),
         "expectedNativeInvocations": len(cases) * 2,
-        "nativeComplete": len(records) == len(cases) * 2,
+        "nativeComplete": native_complete,
         "nativeClassifications": dict(sorted(counts.items())),
         "providerUnavailableInvocations": unavailable,
+        "correctMatches": correct,
+        "wrongMatches": outcomes["wrong_match"],
+        "safeAbstentions": safe_abstentions,
+        "coverage": correct / eligible if eligible else None,
+        "precision": correct / decisive if decisive else None,
+        "incompleteCases": outcomes["incomplete"],
+        "unresolvedCases": outcomes["unresolved"],
+        "failedVerificationCases": outcomes["failed_verification"],
+        "readbackFailures": readback_failures,
+        "payloadFailures": payload_failures,
+        "mappingFailures": mapping_failures,
         "deterministicInput": {
             "providerIds": corpus["profiles"][profile_name]["strips"],
         },
@@ -116,9 +226,10 @@ def main() -> int:
             "Unreviewed expectations remain outside matcher precision and coverage.",
         ],
     }
+    native_incomplete = False
     for profile_name in PROFILES:
-        records = read_native(native_paths.get(profile_name))
-        metrics = profile_metrics(corpus, expectations, records, profile_name)
+        records, folders = read_native(native_paths.get(profile_name))
+        metrics = profile_metrics(corpus, expectations, records, folders, profile_name)
         metrics["deterministicInput"] = {
             "strips": corpus["profiles"][profile_name]["strips"],
             "purpose": corpus["profiles"][profile_name]["purpose"],
@@ -129,6 +240,7 @@ def main() -> int:
                 metrics["nativeSourceSha256"] = sha256_file(native_paths[profile_name])
             else:
                 metrics["nativeSourceMissing"] = True
+            native_incomplete = native_incomplete or not metrics["nativeComplete"]
         output["profiles"][profile_name] = metrics
 
     args.output_dir.mkdir(parents=True, exist_ok=True)
@@ -138,28 +250,32 @@ def main() -> int:
         "",
         f"Run `{args.run_id}` over {output['caseCount']} cases and {output['trackCount']} tracks.",
         "",
-        "| Profile | Cases | Tracks | Native invocations | Expected | Complete | Provider-unavailable invocations |",
-        "| --- | ---: | ---: | ---: | ---: | --- | ---: |",
+        "| Profile | Cases | Tracks | Native invocations | Expected | Complete | Correct | Wrong | Safe abstentions | Coverage | Incomplete | Provider-unavailable | Mapping failures | Readback failures | Payload failures |",
+        "| --- | ---: | ---: | ---: | ---: | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
     ]
     for name, metrics in output["profiles"].items():
         lines.append(
             f"| {name} | {metrics['caseCount']} | {metrics['trackCount']} | "
             f"{metrics['nativeInvocations']} | {metrics['expectedNativeInvocations']} | "
-            f"{str(metrics['nativeComplete']).lower()} | {metrics['providerUnavailableInvocations']} |"
+            f"{str(metrics['nativeComplete']).lower()} | {metrics['correctMatches']} | "
+            f"{metrics['wrongMatches']} | {metrics['safeAbstentions']} | "
+            f"{metrics['coverage'] if metrics['coverage'] is not None else 'n/a'} | "
+            f"{metrics['incompleteCases']} | {metrics['providerUnavailableInvocations']} | "
+            f"{metrics['mappingFailures']} | {metrics['readbackFailures']} | {metrics['payloadFailures']} |"
         )
     lines.extend(
         [
             "",
-            "Deterministic profile coverage is complete for all three input shapes. Native provider results are incomplete where the retained invocation count is below 642; those rows remain provider diagnostics rather than matcher scores.",
+            "Deterministic input coverage is complete for all three shapes. Native outcome metrics are scored only for reviewed expectations; incomplete provider work remains diagnostic.",
         ]
     )
     (args.output_dir / "profiles.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
     (args.output_dir / "command.log").write_text(
-        f"status=passed\nrun_id={args.run_id}\ncase_count={output['caseCount']}\ntrack_count={output['trackCount']}\n",
+        f"status={'incomplete' if native_incomplete else 'passed'}\nrun_id={args.run_id}\ncase_count={output['caseCount']}\ntrack_count={output['trackCount']}\n",
         encoding="utf-8",
     )
     print(json.dumps({name: value["nativeInvocations"] for name, value in output["profiles"].items()}))
-    return 0
+    return 0 if not native_incomplete else 1
 
 
 if __name__ == "__main__":

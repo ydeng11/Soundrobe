@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "corpusVersion": "2026-09-12.inventory-1",
   "capturedDate": "2026-09-12",
-  "sourceRoot": "/Users/ihelio/Downloads/Music/Curated",
+  "sourceRoot": ".",
   "artists": [
     "Ariana Grande",
     "Billie Eilish",

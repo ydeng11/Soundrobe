@@ -92,6 +92,7 @@ smoke-cover-picker: _deps-check
 # Deterministic corpus/profile/selection contracts; no credentials or media writes.
 eval-auto-tag:
     cd src-tauri && cargo test --lib commands::auto_tag::eval_tests
+    cd src-tauri && cargo test --lib commands::track_matcher::guarded_tests
 
 # Offline reconciliation of every corpus case against its reviewed expectation ledger.
 eval-auto-tag-ground-truth:

@@ -1,7 +1,7 @@
 # Relapse Deluxe regression fixtures
 
-Captured 2026-09-11. `local.json` contains metadata read with ffprobe from
-`/Users/ihelio/Downloads/Music/Eminem/2009 Eminem - Relapse (With Bonus)/`.
+Captured 2026-09-11. `local.json` contains metadata read with ffprobe from the
+relative source folder `Eminem/2009 Eminem - Relapse (With Bonus)/`.
 The 22 FLAC files have no title or track-number tags; those fields come from filenames.
 No audio, artwork, credentials, or user configuration is included.
 

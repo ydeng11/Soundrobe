@@ -55,6 +55,31 @@ describe("review_auto_tag_subset.py", () => {
       flags: ["unresolved"],
     });
     expect(fs.readFileSync(path.join(output, "review.md"), "utf8")).toContain("Explicitly unresolved: 10");
+    const expectations = JSON.parse(fs.readFileSync(path.join(output, "expectations.json"), "utf8"));
+    expect(expectations).toMatchObject({
+      schemaVersion: 1,
+      corpusVersion: "2026-09-12.inventory-1",
+      cases: expect.arrayContaining([
+        expect.objectContaining({
+          caseId: "0c9e8b505ea7",
+          status: "verified_match",
+          acceptableEditionIds: ["bf39b43f-2bf1-48ad-bdfe-d7608004df52"],
+          matcherAttribution: true,
+        }),
+        expect.objectContaining({
+          caseId: "7f3eb9349ac2",
+          providerTrackCount: 23,
+          providerTrackPolicy: { kind: "allowed_extras", providerTracks: ["2-7"] },
+          unmatchedProviderTracks: ["2-7"],
+        }),
+        expect.objectContaining({
+          caseId: "b7fbe4f8ccd1",
+          status: "unresolved",
+          acceptableEditionIds: [],
+          rejectedHardNegativeIds: ["6020781"],
+        }),
+      ]),
+    });
   });
 
   it("fails closed on a duration conflict instead of promoting a title-only match", () => {
@@ -81,5 +106,31 @@ describe("review_auto_tag_subset.py", () => {
       "--fixture-root", fixture,
       "--output-dir", path.join(root, "out"),
     ], { encoding: "utf8", stdio: "pipe" })).toThrow(/duration-conflict/);
+  });
+
+  it("fails closed on malformed provider positions", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "soundrobe-subset-invalid-position-"));
+    temporaryRoots.push(root);
+    const fixture = path.join(root, "fixtures");
+    fs.mkdirSync(fixture, { recursive: true });
+    fs.writeFileSync(path.join(fixture, "release.json"), JSON.stringify({
+      artists: [{ name: "Artist" }],
+      tracklist: [{ type_: "track", position: "malformed-1", title: "Song", duration: "0:10" }],
+    }), "utf8");
+    fs.writeFileSync(path.join(fixture, "corpus.json"), JSON.stringify({
+      corpusVersion: "test",
+      cases: [{ caseId: "case", artist: "Artist", tracks: [{ title: "Song", duration: 10 }] }],
+    }), "utf8");
+    fs.writeFileSync(path.join(fixture, "manifest.json"), JSON.stringify({
+      schemaVersion: 1,
+      cases: [{ caseId: "case", status: "verified_match", provider: "discogs", releaseId: "release", snapshot: "release.json" }],
+    }), "utf8");
+    expect(() => execFileSync("python3", [
+      scriptPath,
+      "--corpus", path.join(fixture, "corpus.json"),
+      "--manifest", path.join(fixture, "manifest.json"),
+      "--fixture-root", fixture,
+      "--output-dir", path.join(root, "out"),
+    ], { encoding: "utf8", stdio: "pipe" })).toThrow(/invalid provider positions/);
   });
 });
