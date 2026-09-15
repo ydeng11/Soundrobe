@@ -153,7 +153,7 @@ def audit_equivalence(path: Path) -> dict[str, Any]:
     }
 
 
-def audit_native_results(path: Path | None, expected_case_ids: set[str] | None = None) -> dict[str, Any]:
+def audit_native_results(path: Path | None) -> dict[str, Any]:
     if path is None:
         return {
             "available": False,
@@ -162,7 +162,6 @@ def audit_native_results(path: Path | None, expected_case_ids: set[str] | None =
             "folderCount": 0,
             "missingPhases": [],
             "duplicatePhases": [],
-            "unexpectedCases": [],
             "identityInconsistencies": [],
             "providerUnavailableCases": 0,
         }
@@ -210,16 +209,14 @@ def audit_native_results(path: Path | None, expected_case_ids: set[str] | None =
         for folder in results.get("folderResults", [])
         if isinstance(folder, dict) and isinstance(folder.get("caseId"), str)
     }
-    required_case_ids = expected_case_ids if expected_case_ids is not None else observed_case_ids
-    case_ids = sorted(required_case_ids)
-    unexpected_cases = sorted(observed_case_ids - required_case_ids)
+    case_ids = sorted(observed_case_ids)
     missing_phases = [
         f"{case_id}:{phase}"
         for case_id in case_ids
         for phase in ("cold", "warm")
         if (case_id, phase) not in phases
     ]
-    complete = bool(case_ids) and not missing_phases and not duplicate_phases and not unexpected_cases
+    complete = bool(case_ids) and not missing_phases and not duplicate_phases
     return {
         "available": True,
         "complete": complete,
@@ -227,7 +224,6 @@ def audit_native_results(path: Path | None, expected_case_ids: set[str] | None =
         "folderCount": len(results.get("folderResults", [])),
         "missingPhases": missing_phases,
         "duplicatePhases": sorted(duplicate_phases),
-        "unexpectedCases": unexpected_cases,
         "identityInconsistencies": drift,
         "providerUnavailableCases": len(provider_unavailable),
         "reconciledAsFailedVerification": len(drift),
@@ -260,7 +256,6 @@ def render_report(result: dict[str, Any], run_id: str) -> str:
         f"- Cold/warm phases complete: {native['complete']}",
         f"- Missing phases: {', '.join(native['missingPhases']) if native['missingPhases'] else 'none'}",
         f"- Duplicate phases: {', '.join(native['duplicatePhases']) if native['duplicatePhases'] else 'none'}",
-        f"- Unexpected cases: {', '.join(native['unexpectedCases']) if native['unexpectedCases'] else 'none'}",
         f"- Provider-unavailable cases: {native['providerUnavailableCases']}",
         f"- Cold/warm identity inconsistencies: {len(native['identityInconsistencies'])}",
         "",
@@ -288,7 +283,7 @@ def main() -> int:
     args = parser.parse_args()
     frozen = audit_candidate_pools(args.candidate_pools)
     equivalence = audit_equivalence(args.equivalence)
-    native = audit_native_results(args.native_results, set(equivalence["caseIds"]))
+    native = audit_native_results(args.native_results)
     result = {
         "schemaVersion": 1,
         "runId": args.run_id,

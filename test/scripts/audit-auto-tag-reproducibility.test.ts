@@ -59,6 +59,8 @@ describe("audit_auto_tag_reproducibility.py", () => {
       invocations: [
         { caseId: "case", phase: "cold", native: { providerAttempts: [{ status: "unavailable" }] } },
         { caseId: "case", phase: "warm", native: { providerAttempts: [] } },
+        { caseId: "extra", phase: "cold", native: { providerAttempts: [] } },
+        { caseId: "extra", phase: "warm", native: { providerAttempts: [] } },
       ],
       folderResults: [{
         caseId: "case",
@@ -84,7 +86,8 @@ describe("audit_auto_tag_reproducibility.py", () => {
       reproducible: false,
       syntheticEquivalence: { caseCount: 1, allLookupRequestsEquivalent: true },
       nativeReplay: {
-        invocationCount: 2,
+        invocationCount: 4,
+        complete: true,
         providerUnavailableCases: 1,
         reconciledAsFailedVerification: 1,
       },

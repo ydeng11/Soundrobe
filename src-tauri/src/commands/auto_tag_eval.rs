@@ -2552,6 +2552,8 @@ async fn native_synthetic_flac_duration_and_write_contract() {
 #[ignore = "requires the curated source and ffmpeg; compares disposable synthetic FLAC inputs"]
 async fn native_synthetic_flac_lookup_equivalence_uses_production_reader() {
     let corpus = load_corpus();
+    let source_root = fs::canonicalize(evaluation_source_root(&corpus.source_root))
+        .expect("evaluation source root exists");
     let wanted = [
         "Relapse (With Bonus)",
         "Only Time-The Collection",
@@ -2578,7 +2580,7 @@ async fn native_synthetic_flac_lookup_equivalence_uses_production_reader() {
     let queue = WriteQueue::default();
     let mut equivalence = Vec::new();
     for case in cases {
-        let source = source_path(&corpus.source_root, &case.source_relative_folder);
+        let source = source_path(&source_root, &case.source_relative_folder);
         let real = build_lookup_request(&source).unwrap();
         let destination = root.join(&case.case_id).join(&case.source_relative_folder);
         materialize_synthetic_case(&source, &destination, &queue)

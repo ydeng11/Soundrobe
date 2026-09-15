@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Auto-tag evaluation corpus refreshes accept an explicit source root through `--source-root` or `SOUNDROBE_AUTO_TAG_EVAL_SOURCE_ROOT`, while committed fixture manifests retain only relative paths.
+- Reproducibility audits evaluate cold/warm completeness from the retained native replay case set, allowing that set to differ from the selected equivalence sample.
 
 ### Fixed
 

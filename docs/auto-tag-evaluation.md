@@ -39,6 +39,7 @@ In another shell, set `SOUNDROBE_AUTO_TAG_EVAL_EXPECTATIONS` to the generated `e
 
 ```sh
 SOUNDROBE_AUTO_TAG_EVAL_MOCK_URL=http://127.0.0.1:18081 \
+SOUNDROBE_AUTO_TAG_EVAL_SOURCE_ROOT=/path/to/curated-library \
 SOUNDROBE_AUTO_TAG_EVAL_PROFILE=folder_filename \
 SOUNDROBE_AUTO_TAG_EVAL_EXPECTATIONS=.planning/debug/auto-tag-eval/<run-id>/expectations.json \
 SOUNDROBE_AUTO_TAG_EVAL_CASES='<verified case IDs>' \
@@ -113,6 +114,9 @@ cold/warm identity drift. A drift is reported as failed verification and keeps
 the replay separate from deterministic matcher results. The gate also requires
 nonempty equivalence evidence and exactly one cold and one warm invocation for
 each retained replay case; missing or duplicate phases fail the command.
+The equivalence sample and native replay may have different case sets; native
+phase completeness is evaluated from the cases present in the retained native
+artifact, while identity drift still fails the replay gate.
 
 The frozen pool manifest now covers eight edition and failure fixtures with
 34 locked responses: Relapse Deluxe, the representative Enya, Ariana, Doja Cat,
