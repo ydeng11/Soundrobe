@@ -16,6 +16,13 @@ function queryKey(query) {
     .sort(([a, av], [b, bv]) => a.localeCompare(b) || av.localeCompare(bv)));
 }
 
+function validateUnavailableEvidence(record) {
+  if (record.source?.kind === 'explicit_unavailable_evidence'
+      && (!Number.isInteger(record.status) || record.status < 400 || record.status > 599)) {
+    throw new Error('Explicit unavailable evidence requires a non-success HTTP status');
+  }
+}
+
 function loadRecords(manifestPath) {
   const manifest = readJson(manifestPath);
   if (manifest.schemaVersion !== 1 || !Array.isArray(manifest.records)) {
@@ -27,6 +34,7 @@ function loadRecords(manifestPath) {
     }
     const status = record.status ?? 200;
     if (!Number.isInteger(status) || status < 200 || status > 599) throw new Error('Invalid status');
+    validateUnavailableEvidence({ ...record, status });
     let bytes;
     if (record.bodyFile) {
       bytes = fs.readFileSync(path.resolve(path.dirname(manifestPath), record.bodyFile));
@@ -137,6 +145,7 @@ function importPools(poolPath, outputPath) {
       const record = { ...sourceRecord,
         bodyFile: path.relative(path.dirname(path.resolve(outputPath)), file),
         sha256: sha256(bytes) };
+      validateUnavailableEvidence(record);
       addImportedRecord(records, record, 'discovery');
     }
   }

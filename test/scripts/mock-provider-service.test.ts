@@ -70,7 +70,7 @@ it("imports locked raw detail snapshots from existing pools for offline review",
   expect((await (await fetch(`${base}/musicbrainz/ws/2/artist/?query=artist%3A%22Enya%22&fmt=json&limit=5`)).json()).artists[0].id).toBe("4967c0a1-b9f3-465e-8440-4598fd9fc33c");
   expect((await fetch(`${base}/discogs/releases/1459867?unexpected=query`)).status).toBe(501);
   const artistReleases = await fetch(`${base}/discogs/artists/9807/releases?page=1&per_page=100&sort=year&sort_order=desc`);
-  expect(artistReleases.status).toBe(200);
+  expect(artistReleases.status).toBe(404);
   expect((await artistReleases.json()).releases).toEqual([]);
   expect((await fetch(`${base}/musicbrainz/ws/2/release?query=anything`)).status).toBe(501);
 });
@@ -87,6 +87,38 @@ it("fails on overlapping routes and tampered snapshot evidence", () => {
   expect(() => createService(manifest)).toThrow(/hash/);
   fs.writeFileSync(manifest, JSON.stringify({ schemaVersion: 1, records: [{ ...record, query: [["token", "secret"]] }] }));
   expect(() => createService(manifest)).toThrow(/Credential/);
+});
+
+it("requires an explicit non-success status for unavailable evidence", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "soundrobe-invalid-unavailable-"));
+  roots.push(root);
+  const manifest = path.join(root, "manifest.json");
+  fs.writeFileSync(manifest, JSON.stringify({ schemaVersion: 1, records: [{
+    provider: "musicbrainz",
+    path: "/release",
+    body: { releases: [] },
+    source: { kind: "explicit_unavailable_evidence" },
+  }] }));
+  expect(() => createService(manifest)).toThrow(/non-success HTTP status/);
+
+  const body = JSON.stringify({ releases: [] });
+  const bodyPath = path.join(root, "body.json");
+  fs.writeFileSync(bodyPath, body);
+  const sha256 = crypto.createHash("sha256").update(body).digest("hex");
+  const poolsPath = path.join(root, "candidate-pools.json");
+  fs.writeFileSync(poolsPath, JSON.stringify({ pools: [] }));
+  fs.writeFileSync(path.join(root, "provider-discovery.json"), JSON.stringify({
+    schemaVersion: 1,
+    records: [{
+      provider: "musicbrainz",
+      path: "/release",
+      bodyFile: "body.json",
+      sha256,
+      source: { kind: "explicit_unavailable_evidence" },
+    }],
+  }));
+  expect(() => importPools(poolsPath, path.join(root, "imported.json")))
+    .toThrow(/non-success HTTP status/);
 });
 
 it("rejects imported response metadata conflicts even when bodies match", () => {

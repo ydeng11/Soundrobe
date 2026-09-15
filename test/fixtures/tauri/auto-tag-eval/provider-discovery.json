@@ -2684,6 +2684,7 @@
           "artist:\"Doja Cat\" AND release:\"Doja Cat - Amala - 2018\""
         ]
       ],
+      "status": 404,
       "bodyFile": "provider-snapshots/discovery/unavailable/musicbrainz-39c1f82de1907dc8.json",
       "sha256": "4dca5a7f43b56e3887e6617bd161c1788b90f6f7602384b18d494693f7200a64",
       "source": {
@@ -2718,6 +2719,7 @@
           "release"
         ]
       ],
+      "status": 404,
       "bodyFile": "provider-snapshots/discovery/unavailable/discogs-c8eda40b7cd881d4.json",
       "sha256": "bb7594683df6dfc1343318768e81acdadeea3b0211cd9ce1e1141920ca43fefc",
       "source": {
@@ -2752,6 +2754,7 @@
           "master"
         ]
       ],
+      "status": 404,
       "bodyFile": "provider-snapshots/discovery/unavailable/discogs-94865db0c665a507.json",
       "sha256": "9a3f4f42b80c8f09542ce157d8b1c7fd0a652ea1bc0a6c886a548ef0a998b569",
       "source": {
@@ -2782,6 +2785,7 @@
           "release"
         ]
       ],
+      "status": 404,
       "bodyFile": "provider-snapshots/discovery/unavailable/discogs-2dd73cf04703e457.json",
       "sha256": "bb7594683df6dfc1343318768e81acdadeea3b0211cd9ce1e1141920ca43fefc",
       "source": {
@@ -2808,6 +2812,7 @@
           "artist:\"Ellie Goulding\" AND release:\"Ellie Goulding - Delirium\""
         ]
       ],
+      "status": 404,
       "bodyFile": "provider-snapshots/discovery/unavailable/musicbrainz-36821fae03de4f01.json",
       "sha256": "4dca5a7f43b56e3887e6617bd161c1788b90f6f7602384b18d494693f7200a64",
       "source": {
@@ -2842,6 +2847,7 @@
           "release"
         ]
       ],
+      "status": 404,
       "bodyFile": "provider-snapshots/discovery/unavailable/discogs-0c61542f94e416fb.json",
       "sha256": "bb7594683df6dfc1343318768e81acdadeea3b0211cd9ce1e1141920ca43fefc",
       "source": {
@@ -2876,6 +2882,7 @@
           "master"
         ]
       ],
+      "status": 404,
       "bodyFile": "provider-snapshots/discovery/unavailable/discogs-fe86c86b47c8aa41.json",
       "sha256": "9a3f4f42b80c8f09542ce157d8b1c7fd0a652ea1bc0a6c886a548ef0a998b569",
       "source": {
@@ -2902,6 +2909,7 @@
           "artist:\"Eminem\" AND release:\"2009 Eminem - Relapse\""
         ]
       ],
+      "status": 404,
       "bodyFile": "provider-snapshots/discovery/unavailable/musicbrainz-a40a5c6c21ddd76d.json",
       "sha256": "4dca5a7f43b56e3887e6617bd161c1788b90f6f7602384b18d494693f7200a64",
       "source": {
@@ -2940,6 +2948,7 @@
           "2009"
         ]
       ],
+      "status": 404,
       "bodyFile": "provider-snapshots/discovery/unavailable/discogs-81255f3ab6643f58.json",
       "sha256": "bb7594683df6dfc1343318768e81acdadeea3b0211cd9ce1e1141920ca43fefc",
       "source": {
@@ -2974,6 +2983,7 @@
           "master"
         ]
       ],
+      "status": 404,
       "bodyFile": "provider-snapshots/discovery/unavailable/discogs-93bc23135fd42863.json",
       "sha256": "9a3f4f42b80c8f09542ce157d8b1c7fd0a652ea1bc0a6c886a548ef0a998b569",
       "source": {
@@ -3000,6 +3010,7 @@
           "artist:\"Enya\" AND release:\"Storms In Africa   Single, Promo\""
         ]
       ],
+      "status": 404,
       "bodyFile": "provider-snapshots/discovery/unavailable/musicbrainz-f0418bc8a05ea4c7.json",
       "sha256": "4dca5a7f43b56e3887e6617bd161c1788b90f6f7602384b18d494693f7200a64",
       "source": {
@@ -3042,6 +3053,7 @@
           "1989"
         ]
       ],
+      "status": 404,
       "bodyFile": "provider-snapshots/discovery/unavailable/discogs-00f833e6fdef5572.json",
       "sha256": "bb7594683df6dfc1343318768e81acdadeea3b0211cd9ce1e1141920ca43fefc",
       "source": {
@@ -3076,6 +3088,7 @@
           "master"
         ]
       ],
+      "status": 404,
       "bodyFile": "provider-snapshots/discovery/unavailable/discogs-7cde5253ae4fa40a.json",
       "sha256": "9a3f4f42b80c8f09542ce157d8b1c7fd0a652ea1bc0a6c886a548ef0a998b569",
       "source": {
@@ -3106,6 +3119,7 @@
           "release"
         ]
       ],
+      "status": 404,
       "bodyFile": "provider-snapshots/discovery/unavailable/discogs-c6413d66deb87ce6.json",
       "sha256": "bb7594683df6dfc1343318768e81acdadeea3b0211cd9ce1e1141920ca43fefc",
       "source": {
@@ -3136,6 +3150,7 @@
           "release"
         ]
       ],
+      "status": 404,
       "bodyFile": "provider-snapshots/discovery/unavailable/discogs-707c0cfdc1c1d15d.json",
       "sha256": "bb7594683df6dfc1343318768e81acdadeea3b0211cd9ce1e1141920ca43fefc",
       "source": {
@@ -3166,6 +3181,7 @@
           "release"
         ]
       ],
+      "status": 404,
       "bodyFile": "provider-snapshots/discovery/unavailable/discogs-6092381e1390f73c.json",
       "sha256": "bb7594683df6dfc1343318768e81acdadeea3b0211cd9ce1e1141920ca43fefc",
       "source": {
@@ -3270,6 +3286,7 @@
           "desc"
         ]
       ],
+      "status": 404,
       "bodyFile": "provider-snapshots/discovery/unavailable/discogs-1c7ab760503ba781.json",
       "sha256": "f7d40ecde94e87c605319cf5b713f64e077369e7ea0c87ffcd7b7bcb33d2a45c",
       "source": {
@@ -3300,6 +3317,7 @@
           "release"
         ]
       ],
+      "status": 404,
       "bodyFile": "provider-snapshots/discovery/unavailable/discogs-df3de029b9933983.json",
       "sha256": "bb7594683df6dfc1343318768e81acdadeea3b0211cd9ce1e1141920ca43fefc",
       "source": {
@@ -3330,6 +3348,7 @@
           "release"
         ]
       ],
+      "status": 404,
       "bodyFile": "provider-snapshots/discovery/unavailable/discogs-aa832f00e1ae870d.json",
       "sha256": "bb7594683df6dfc1343318768e81acdadeea3b0211cd9ce1e1141920ca43fefc",
       "source": {
@@ -3360,6 +3379,7 @@
           "release"
         ]
       ],
+      "status": 404,
       "bodyFile": "provider-snapshots/discovery/unavailable/discogs-da526002458396e3.json",
       "sha256": "bb7594683df6dfc1343318768e81acdadeea3b0211cd9ce1e1141920ca43fefc",
       "source": {
@@ -3394,6 +3414,7 @@
           "release"
         ]
       ],
+      "status": 404,
       "bodyFile": "provider-snapshots/discovery/unavailable/discogs-58c11dbb9b7fb2ec.json",
       "sha256": "bb7594683df6dfc1343318768e81acdadeea3b0211cd9ce1e1141920ca43fefc",
       "source": {
