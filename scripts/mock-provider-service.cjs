@@ -150,7 +150,7 @@ function addImportedRecord(records, record, sourceLabel) {
   const existing = records.get(key);
   const isUnavailableEvidence = (value) => value?.status === 404
     && value.source?.kind === 'explicit_unavailable_evidence';
-  const isCapturedReleaseDetail = (value) => value?.status === 200
+  const isCapturedReleaseDetail = (value) => (value?.status ?? 200) === 200
     && value.source?.kind === 'captured_release_detail';
   if (existing && existing.sha256 !== record.sha256
       && isUnavailableEvidence(existing) && isCapturedReleaseDetail(record)) {
