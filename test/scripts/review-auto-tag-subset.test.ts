@@ -40,6 +40,16 @@ describe("review_auto_tag_subset.py", () => {
       status: "verified_match",
       flags: ["normalized-title"],
     });
+    expect(result.cases.find((item: { caseId: string }) => item.caseId === "4147560c89fd")).toMatchObject({
+      providerTrackCount: 46,
+      providerTrackPolicy: { kind: "selected_media", mediaPosition: "1" },
+      unmatchedProviderTracks: expect.arrayContaining(["2-1", "3-1"]),
+    });
+    expect(result.cases.find((item: { caseId: string }) => item.caseId === "7f3eb9349ac2")).toMatchObject({
+      providerTrackCount: 23,
+      providerTrackPolicy: { kind: "allowed_extras", providerTracks: ["2-7"] },
+      unmatchedProviderTracks: ["2-7"],
+    });
     expect(result.cases.find((item: { caseId: string }) => item.caseId === "b7fbe4f8ccd1")).toMatchObject({
       status: "unresolved",
       flags: ["unresolved"],

@@ -257,7 +257,7 @@ fn candidate_position_matches(track: &TrackCandidate, expected: &str) -> bool {
         return false;
     };
     if expected == track_number.to_string() {
-        return track.disc_number.is_none();
+        return track.disc_number.is_none() || track.disc_number == Some(1);
     }
     track.disc_number.is_some_and(|disc_number| {
         expected == format!("{disc_number}-{track_number}")
@@ -285,18 +285,28 @@ fn provider_position_component(value: &str) -> Option<u64> {
     value.rsplit('-').next()?.parse().ok()
 }
 
-fn is_flattened_disc_position_sequence(positions: &[String]) -> bool {
-    if positions.is_empty() || positions.iter().any(|value| value.contains('-')) {
+fn is_provider_position_sequence(positions: &[String]) -> bool {
+    if positions.is_empty() {
         return false;
     }
     let components = positions
         .iter()
-        .filter_map(|value| provider_position_component(value))
+        .filter_map(|value| {
+            value
+                .split_once('-')
+                .map(|(medium, track)| (medium.parse().ok()?, track.parse().ok()?))
+                .or_else(|| Some((1, provider_position_component(value)?)))
+        })
         .collect::<Vec<_>>();
     components.len() == positions.len()
-        && components.first() == Some(&1)
+        && components.first() == Some(&(1, 1))
         && components.windows(2).all(|window| {
-            window[1] == window[0] + 1 || (window[1] == 1 && window[0] > 1)
+            (window[1].0 == window[0].0 && window[1].1 == window[0].1 + 1)
+                || (window[1].0 == window[0].0 + 1 && window[1].1 == 1)
+                || (window[1].0 == 1
+                    && window[1].1 == 1
+                    && window[0].0 == 1
+                    && window[0].1 > 1)
         })
 }
 
@@ -313,8 +323,7 @@ fn reviewed_mapping_matches(candidate: &AlbumCandidate, mapping: &[Value]) -> bo
             .iter()
             .collect::<BTreeSet<_>>()
             .len();
-    let flattened_disc_positions = has_duplicate_provider_position
-        && is_flattened_disc_position_sequence(&provider_positions);
+    let provider_positions_are_ordered = is_provider_position_sequence(&provider_positions);
     let mut local_tracks = BTreeSet::new();
     mapping.iter().all(|row| {
         let Some(local_track) = row
@@ -338,7 +347,7 @@ fn reviewed_mapping_matches(candidate: &AlbumCandidate, mapping: &[Value]) -> bo
                 .is_some_and(|track| {
                     (!has_duplicate_provider_position
                         && candidate_position_matches(track, &provider_track))
-                        || (flattened_disc_positions
+                        || (provider_positions_are_ordered
                             && track.disc_number.is_none()
                             && mapping_provider_title_matches(track, row))
                 })

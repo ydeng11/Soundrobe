@@ -96,6 +96,8 @@ def provider_tracks(payload: dict[str, Any], provider: str) -> list[dict[str, An
         return tracks
     if provider == "discogs":
         for item in payload.get("tracklist", []):
+            if item.get("type_") not in (None, "track"):
+                continue
             title = item.get("title")
             if not isinstance(title, str) or not title.strip():
                 continue
@@ -108,7 +110,10 @@ def provider_tracks(payload: dict[str, Any], provider: str) -> list[dict[str, An
                 }
             )
         return tracks
-    for medium in payload.get("media", []):
+    media = payload.get("media", [])
+    qualify_medium = len(media) > 1
+    for medium in media:
+        medium_position = str(medium.get("position") or "")
         for item in medium.get("tracks", []):
             title = item.get("title")
             if not isinstance(title, str) or not title.strip():
@@ -121,7 +126,11 @@ def provider_tracks(payload: dict[str, Any], provider: str) -> list[dict[str, An
                         artists.append(str(name))
             tracks.append(
                 {
-                    "position": str(item.get("position") or ""),
+                    "position": (
+                        f"{medium_position}-{item.get('position')}"
+                        if qualify_medium and medium_position and item.get("position")
+                        else str(item.get("position") or "")
+                    ),
                     "title": title,
                     "duration": item.get("length"),
                     "artists": artists,
@@ -244,6 +253,39 @@ def compare_case(case: dict[str, Any], row: dict[str, Any], fixture_root: Path) 
             f"verified case {case['caseId']} is not complete: "
             + json.dumps({"failures": failures, "mapped": len(mapping)}, ensure_ascii=False)
         )
+    unmatched = [remote for index, remote in enumerate(tracks) if index not in used]
+    policy = row.get("providerTrackPolicy")
+    if unmatched:
+        if not isinstance(policy, dict):
+            raise ValueError(
+                f"verified case {case['caseId']} leaves provider tracks unmatched: "
+                + json.dumps([remote["position"] for remote in unmatched])
+            )
+        kind = policy.get("kind")
+        extra_positions = {str(remote["position"]) for remote in unmatched}
+        if kind == "selected_media":
+            media_position = str(policy.get("mediaPosition") or "")
+            if not media_position or any(
+                str(item["providerTrack"]).split("-", 1)[0] != media_position
+                for item in mapping
+            ) or any(
+                str(remote["position"]).split("-", 1)[0] == media_position
+                for remote in unmatched
+            ):
+                raise ValueError(
+                    f"verified case {case['caseId']} has an invalid selected-media policy"
+                )
+        elif kind == "allowed_extras":
+            allowed = {str(value) for value in policy.get("providerTracks", [])}
+            if extra_positions != allowed:
+                raise ValueError(
+                    f"verified case {case['caseId']} has unexpected provider extras: "
+                    + json.dumps(sorted(extra_positions))
+                )
+        else:
+            raise ValueError(f"verified case {case['caseId']} has an invalid provider track policy")
+    elif policy:
+        raise ValueError(f"verified case {case['caseId']} has an unnecessary provider track policy")
     local_artist = str(case.get("artist") or "")
     provider_artist = artist_name(payload, provider)
     if provider_artist and title_keys(provider_artist).isdisjoint(title_keys(local_artist)):
@@ -260,6 +302,8 @@ def compare_case(case: dict[str, Any], row: dict[str, Any], fixture_root: Path) 
         "acceptableEditionIds": [release_id],
         "hardNegativeIds": [str(value) for value in row.get("hardNegativeIds", [])],
         "mapping": mapping,
+        "providerTrackPolicy": policy,
+        "unmatchedProviderTracks": [remote["position"] for remote in unmatched],
         "flags": sorted(flags),
         "trackCount": len(mapping),
         "providerTrackCount": len(tracks),
