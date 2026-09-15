@@ -257,7 +257,7 @@ fn candidate_position_matches(track: &TrackCandidate, expected: &str) -> bool {
         return false;
     };
     if expected == track_number.to_string() {
-        return true;
+        return track.disc_number.is_none();
     }
     track.disc_number.is_some_and(|disc_number| {
         expected == format!("{disc_number}-{track_number}")
@@ -285,6 +285,21 @@ fn provider_position_component(value: &str) -> Option<u64> {
     value.rsplit('-').next()?.parse().ok()
 }
 
+fn is_flattened_disc_position_sequence(positions: &[String]) -> bool {
+    if positions.is_empty() || positions.iter().any(|value| value.contains('-')) {
+        return false;
+    }
+    let components = positions
+        .iter()
+        .filter_map(|value| provider_position_component(value))
+        .collect::<Vec<_>>();
+    components.len() == positions.len()
+        && components.first() == Some(&1)
+        && components.windows(2).all(|window| {
+            window[1] == window[0] + 1 || (window[1] == 1 && window[0] > 1)
+        })
+}
+
 fn reviewed_mapping_matches(candidate: &AlbumCandidate, mapping: &[Value]) -> bool {
     if mapping.len() != candidate.tracks.len() {
         return false;
@@ -299,14 +314,7 @@ fn reviewed_mapping_matches(candidate: &AlbumCandidate, mapping: &[Value]) -> bo
             .collect::<BTreeSet<_>>()
             .len();
     let flattened_disc_positions = has_duplicate_provider_position
-        && provider_positions
-            .iter()
-            .filter_map(|value| provider_position_component(value))
-            .zip(provider_positions.iter().skip(1))
-            .all(|(previous, current)| {
-                provider_position_component(current) == Some(previous + 1)
-                    || provider_position_component(current) == Some(1)
-            });
+        && is_flattened_disc_position_sequence(&provider_positions);
     let mut local_tracks = BTreeSet::new();
     mapping.iter().all(|row| {
         let Some(local_track) = row
@@ -328,7 +336,8 @@ fn reviewed_mapping_matches(candidate: &AlbumCandidate, mapping: &[Value]) -> bo
                 .tracks
                 .get(local_track - 1)
                 .is_some_and(|track| {
-                    candidate_position_matches(track, &provider_track)
+                    (!has_duplicate_provider_position
+                        && candidate_position_matches(track, &provider_track))
                         || (flattened_disc_positions
                             && track.disc_number.is_none()
                             && mapping_provider_title_matches(track, row))
@@ -2002,6 +2011,30 @@ fn reviewed_mapping_must_match_the_selected_candidate_positions() {
         &flattened,
         flattened_wrong_title.as_array().unwrap()
     ));
+
+    let ambiguous = AlbumCandidate {
+        tracks: vec![
+            TrackCandidate {
+                track_number: Some(1),
+                disc_number: Some(1),
+                ..TrackCandidate::default()
+            },
+            TrackCandidate {
+                track_number: Some(1),
+                disc_number: Some(2),
+                ..TrackCandidate::default()
+            },
+        ],
+        ..AlbumCandidate::default()
+    };
+    let ambiguous_mapping = json!([
+        {"localTrack": 1, "providerTrack": "1"},
+        {"localTrack": 2, "providerTrack": "1"}
+    ]);
+    assert!(!reviewed_mapping_matches(
+        &ambiguous,
+        ambiguous_mapping.as_array().unwrap()
+    ));
 }
 
 #[test]
@@ -2694,6 +2727,31 @@ async fn live_auto_tag_eval() {
             fs::remove_dir_all(&destination).expect("remove synthetic evaluation media");
         }
     }
+    let provider_miss_count = if let Some(base) = mock_url.as_deref() {
+        let inventory = providers
+            .http()
+            .get(format!("{}/__fixtures", base.trim_end_matches('/')))
+            .send()
+            .await
+            .expect("read offline provider inventory")
+            .error_for_status()
+            .expect("offline provider inventory returned an error")
+            .json::<Value>()
+            .await
+            .expect("parse offline provider inventory");
+        let miss_count = inventory
+            .get("misses")
+            .and_then(Value::as_array)
+            .map_or(0, Vec::len);
+        fs::write(
+            artifact_dir.join("provider-inventory.json"),
+            serde_json::to_vec_pretty(&inventory).unwrap(),
+        )
+        .unwrap();
+        miss_count
+    } else {
+        0
+    };
     fs::write(
         artifact_dir.join("results.json"),
         serde_json::to_vec_pretty(&reconcile_results(&records, &corpus, &run_id)).unwrap(),
@@ -2718,10 +2776,15 @@ async fn live_auto_tag_eval() {
     )
     .unwrap();
     write_report(&artifact_dir.join("report.md"), &records, &corpus, &run_id);
+    let run_status = if provider_miss_count == 0 {
+        "passed"
+    } else {
+        "incomplete"
+    };
     fs::write(
         artifact_dir.join("command.log"),
         format!(
-            "status=passed\nrun_id={run_id}\nprofile={profile}\nmedia_mode=synthetic_flac\nselected_cases={}\nphases=2\nper_folder_timeout_seconds={}\nnative_test_passed=1\nnative_test_failed=0\nnative_test_ignored=0\ncommand=cargo test --manifest-path src-tauri/Cargo.toml --lib live_auto_tag_eval -- --ignored --nocapture\n",
+            "status={run_status}\nrun_id={run_id}\nprofile={profile}\nmedia_mode=synthetic_flac\nselected_cases={}\nphases=2\nper_folder_timeout_seconds={}\nprovider_misses={provider_miss_count}\nnative_test_passed=1\nnative_test_failed=0\nnative_test_ignored=0\ncommand=cargo test --manifest-path src-tauri/Cargo.toml --lib live_auto_tag_eval -- --ignored --nocapture\n",
             selected.len(),
             PER_FOLDER_TIMEOUT.as_secs()
         ),

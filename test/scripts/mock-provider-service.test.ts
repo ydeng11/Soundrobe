@@ -1,5 +1,6 @@
 // @vitest-environment node
 import { createRequire } from "node:module";
+import crypto from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -86,4 +87,37 @@ it("fails on overlapping routes and tampered snapshot evidence", () => {
   expect(() => createService(manifest)).toThrow(/hash/);
   fs.writeFileSync(manifest, JSON.stringify({ schemaVersion: 1, records: [{ ...record, query: [["token", "secret"]] }] }));
   expect(() => createService(manifest)).toThrow(/Credential/);
+});
+
+it("rejects imported response metadata conflicts even when bodies match", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "soundrobe-conflicting-mock-"));
+  roots.push(root);
+  const body = JSON.stringify({ id: "1", tracklist: [] });
+  const bodyPath = path.join(root, "body.json");
+  fs.writeFileSync(bodyPath, body);
+  const sha256 = crypto.createHash("sha256").update(body).digest("hex");
+  const poolsPath = path.join(root, "candidate-pools.json");
+  fs.writeFileSync(poolsPath, JSON.stringify({
+    pools: [{ candidates: [{
+      provider: "discogs",
+      releaseId: "1",
+      response: "body.json",
+      responseSha256: sha256,
+      expectation: "acceptable",
+    }] }],
+  }));
+  fs.writeFileSync(path.join(root, "provider-discovery.json"), JSON.stringify({
+    schemaVersion: 1,
+    records: [{
+      provider: "discogs",
+      path: "/releases/1",
+      status: 429,
+      bodyFile: "body.json",
+      sha256,
+      source: { kind: "rate_limit" },
+    }],
+  }));
+
+  expect(() => importPools(poolsPath, path.join(root, "manifest.json")))
+    .toThrow(/Conflicting discovery snapshot/);
 });

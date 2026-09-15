@@ -83,7 +83,11 @@ redirects, and records `providerMode: offline_fixtures` per invocation. A forced
 loopback proxy also rejects ancillary external HTTP/HTTPS artwork attempts rather
 than allowing them onto the network. The URL
 must be an HTTP origin on `127.0.0.1`. Synthetic media generation still requires
-the runner's existing prerequisites and source hash/equivalence checks.
+the runner's existing prerequisites and source hash/equivalence checks. The
+native runner saves the final `GET /__fixtures` inventory as
+`provider-inventory.json` and marks `command.log` as `incomplete` when the
+service recorded any missing route; a passing test process does not hide
+incomplete fixture coverage.
 
 ## Building reviewed evaluation cases
 

@@ -148,20 +148,29 @@ function importPools(poolPath, outputPath) {
 function addImportedRecord(records, record, sourceLabel) {
   const key = `${record.provider}${record.path}|${queryKey(record.query ?? {})}`;
   const existing = records.get(key);
+  const responseMetadataKey = (value) => JSON.stringify({
+    status: value?.status ?? 200,
+    headers: Object.entries(value?.headers ?? {})
+      .map(([name, header]) => [name.toLowerCase(), String(header)])
+      .sort(([a], [b]) => a.localeCompare(b)),
+  });
   const isUnavailableEvidence = (value) => value?.status === 404
     && value.source?.kind === 'explicit_unavailable_evidence';
   const isCapturedReleaseDetail = (value) => (value?.status ?? 200) === 200
     && value.source?.kind === 'captured_release_detail';
-  if (existing && existing.sha256 !== record.sha256
+  const responseConflicts = existing
+    && (existing.sha256 !== record.sha256
+      || responseMetadataKey(existing) !== responseMetadataKey(record));
+  if (responseConflicts
       && isUnavailableEvidence(existing) && isCapturedReleaseDetail(record)) {
     records.set(key, record);
     return;
   }
-  if (existing && existing.sha256 !== record.sha256
+  if (responseConflicts
       && isCapturedReleaseDetail(existing) && isUnavailableEvidence(record)) {
     return;
   }
-  if (existing && existing.sha256 !== record.sha256) {
+  if (responseConflicts) {
     throw new Error(`Conflicting ${sourceLabel} snapshot for ${record.provider}${record.path}`);
   }
   records.set(key, record);
