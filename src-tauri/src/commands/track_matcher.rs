@@ -121,7 +121,10 @@ pub fn match_remote_candidate_tracks(
                 .title
                 .as_deref()
                 .filter(|title| !title.trim().is_empty())
-                .map(str::to_string)
+                .map(|title| {
+                    strip_known_artist_prefix(title, &artists)
+                        .unwrap_or_else(|| title.to_string())
+                })
                 .or_else(|| clean_filename_identity(&filename, &artists))
                 .map(|title| guarded_title(&title))
                 .unwrap_or_default();

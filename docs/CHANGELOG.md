@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Auto-tag's guarded filename comparison now removes a known artist prefix from the comparison key, so punctuation and Latin-diacritic variants can match a provider track without changing the displayed local title or weakening duration and uniqueness checks.
 - Auto-tag recognizes skit labels and Latin accent differences when unique track titles and matching durations confirm the same recording, allowing complete bonus-track editions to match without manual selection.
 - Auto-tag ignores known disc and edition suffixes in album names when selecting a complete provider release, so boxed and maxi-single folders can match their corresponding edition without positional-only guesses.
 - Auto-tag keeps Discogs CD audio separate from DVD extras when a release detail contains both media groups, so audiovisual bonus content cannot displace the selected audio tracklist.

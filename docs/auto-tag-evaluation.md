@@ -20,7 +20,40 @@ The three profiles are intentionally separate:
 
 The first five artists are provisional gold and require an independent provider tracklist/content/mapping review before they enter scored metrics. The reviewed Relapse With Bonus case is the one scored Eminem exception; the remaining Eminem and Enya cases remain diagnostic until reviewed. A complete compatible edition is acceptable when its content and mapping are proven; equal track counts or title matches alone never bless an edition. Selected-disc or explicitly allowed provider extras must be declared in the reviewed policy and are checked against exact provider positions. Unseen promising releases stay `oracle_review_required`.
 
-The representative review ledger at `test/fixtures/tauri/auto-tag-eval/reviewed-subset.json` covers 30 cases across ordinary albums, deluxe/bonus editions, singles, box sets, title variants, and provider failures. Twenty cases have frozen provider payloads and complete local-to-provider mappings; selected-disc and explicitly allowed-extra cases declare their exact provider-track policy, while ten cases remain explicit unresolved holdouts outside scored metrics. Run `just eval-auto-tag-subset` to replay this review without contacting providers. The raw Enya, Ariana, Doja Cat, Eagles, and Ellie Goulding payloads are also included in the frozen candidate pool and checked by `just eval-auto-tag-repro`.
+The representative review ledger at `test/fixtures/tauri/auto-tag-eval/reviewed-subset.json` covers 30 cases across ordinary albums, deluxe/bonus editions, singles, box sets, title variants, and provider failures. Twenty cases have frozen provider payloads and complete local-to-provider mappings; selected-disc and explicitly allowed-extra cases declare their exact provider-track policy, while ten cases remain explicit unresolved holdouts outside scored metrics. Run `just eval-auto-tag-subset` to replay this review without contacting providers. It writes both `review.json` (the human-readable review result) and `expectations.json` (a schema-compatible ledger for the native evaluator). The raw Enya, Ariana, Doja Cat, Eagles, and Ellie Goulding payloads are also included in the frozen candidate pool and checked by `just eval-auto-tag-repro`.
+
+## Matcher feedback loop
+
+Use the generated reviewed ledger to measure the production resolver against the same locked cases through the offline provider service:
+
+```sh
+just eval-auto-tag-subset
+node scripts/mock-provider-service.cjs import-pools \
+  test/fixtures/tauri/auto-tag-eval/candidate-pools.json \
+  .planning/debug/provider-mock/manifest.json
+node scripts/mock-provider-service.cjs serve \
+  .planning/debug/provider-mock/manifest.json 18081
+```
+
+In another shell, set `SOUNDROBE_AUTO_TAG_EVAL_EXPECTATIONS` to the generated `expectations.json` and `SOUNDROBE_AUTO_TAG_EVAL_CASES` to the 20 `verified_match` case IDs from `review.json`, then run:
+
+```sh
+SOUNDROBE_AUTO_TAG_EVAL_MOCK_URL=http://127.0.0.1:18081 \
+SOUNDROBE_AUTO_TAG_EVAL_PROFILE=folder_filename \
+SOUNDROBE_AUTO_TAG_EVAL_EXPECTATIONS=.planning/debug/auto-tag-eval/<run-id>/expectations.json \
+SOUNDROBE_AUTO_TAG_EVAL_CASES='<verified case IDs>' \
+just eval-auto-tag-live
+```
+
+Score the resulting `results.json` with the same generated expectations file:
+
+```sh
+SOUNDROBE_AUTO_TAG_EVAL_EXPECTATIONS=.planning/debug/auto-tag-eval/<run-id>/expectations.json \
+SOUNDROBE_AUTO_TAG_EVAL_RESULTS=.planning/debug/auto-tag-eval/<native-run>/results.json \
+just eval-auto-tag-score
+```
+
+Only reviewed acceptable editions enter precision and coverage. Provider-unavailable rows, unresolved cases, cold/warm identity changes, and write/readback or payload failures remain separate diagnostics. A matcher change is attributable only when the same locked case changes from a safe failure to the reviewed acceptable edition without a new wrong match. The native replay uses synthetic silent FLAC copies, never writes source media, and requires the loopback mock URL; it does not contact MusicBrainz, Discogs, artwork hosts, or AI services.
 
 The exact Relapse Deluxe regression has a separate reviewed ledger at
 `test/fixtures/tauri/relapse-deluxe/reviewed-truth.json`. It is the only reviewed

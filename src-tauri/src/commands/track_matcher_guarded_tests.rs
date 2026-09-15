@@ -113,6 +113,25 @@ fn guarded_titles_preserve_non_latin_marks_and_accept_decomposed_latin() {
 }
 
 #[test]
+fn guarded_titles_accept_provider_punctuation_and_latin_mark_variants() {
+    let result = match_remote_candidate_tracks(
+        &[track("Enya - Triad- St. Patrick , Cu Chulainn , Oisin")],
+        &[],
+        &[track("Triad: St. Patrick / Cú Chulainn / Oisin")],
+        "musicbrainz",
+        &["Enya".into()],
+        &[],
+    );
+
+    assert_eq!(result.stats.matched, 1);
+    assert_eq!(result.evidence, vec![Some(MatchEvidence::GuardedTitle)]);
+    assert_eq!(
+        result.tracks[0].title.as_deref(),
+        Some("Enya - Triad- St. Patrick , Cu Chulainn , Oisin")
+    );
+}
+
+#[test]
 fn guarded_ligature_equivalence_requires_unique_duration_backing() {
     let result = match_remote_candidate_tracks(
         &[track("Ebudae")],
