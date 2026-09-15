@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "source": "/Users/ihelio/Downloads/Music/Eminem/2009 Eminem - Relapse (With Bonus)/",
+  "status": "verified_match",
+  "reviewedDate": "2026-09-13",
+  "provenance": "User manual match corroborated by the captured Discogs response and copied-media native replay.",
+  "baseline": {
+    "strongTitleMatches": 16,
+    "positionOnlyMatches": 6,
+    "provenance": "Temporary pre-fix matcher probe captured in .planning/plans/2026-09-11-relapse-deluxe-matching.md."
+  },
+  "postFix": {
+    "strongMatches": 22,
+    "positionOnlyMatches": 0,
+    "guardedTitleMatches": 6
+  },
+  "acceptableEditionIds": ["36441795"],
+  "rejectedHardNegativeIds": ["16649340", "standard-20-track"],
+  "mapping": [
+    {"localTrack": 1, "providerTrack": 1},
+    {"localTrack": 2, "providerTrack": 2},
+    {"localTrack": 3, "providerTrack": 3},
+    {"localTrack": 4, "providerTrack": 4},
+    {"localTrack": 5, "providerTrack": 5},
+    {"localTrack": 6, "providerTrack": 6},
+    {"localTrack": 7, "providerTrack": 7},
+    {"localTrack": 8, "providerTrack": 8},
+    {"localTrack": 9, "providerTrack": 9},
+    {"localTrack": 10, "providerTrack": 10},
+    {"localTrack": 11, "providerTrack": 11},
+    {"localTrack": 12, "providerTrack": 12},
+    {"localTrack": 13, "providerTrack": 13},
+    {"localTrack": 14, "providerTrack": 14},
+    {"localTrack": 15, "providerTrack": 15},
+    {"localTrack": 16, "providerTrack": 16},
+    {"localTrack": 17, "providerTrack": 17},
+    {"localTrack": 18, "providerTrack": 18},
+    {"localTrack": 19, "providerTrack": 19},
+    {"localTrack": 20, "providerTrack": 20},
+    {"localTrack": 21, "providerTrack": 22},
+    {"localTrack": 22, "providerTrack": 21}
+  ]
+}

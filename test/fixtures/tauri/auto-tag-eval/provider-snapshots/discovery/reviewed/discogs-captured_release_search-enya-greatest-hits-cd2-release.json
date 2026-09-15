@@ -1,0 +1,24 @@
+{
+  "pagination": {
+    "items": 1,
+    "pages": 1,
+    "page": 1,
+    "per_page": 10
+  },
+  "results": [
+    {
+      "id": 8174021,
+      "type": "release",
+      "title": "Enya - Greatest Hits",
+      "year": 2016,
+      "country": "Russia",
+      "format": [
+        "CD"
+      ],
+      "catno": "35820•1/2",
+      "barcode": [
+        "4 607147 919101 >"
+      ]
+    }
+  ]
+}

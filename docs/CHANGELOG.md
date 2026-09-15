@@ -7,13 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.9] - 2026-09-15
+
 ### Added
 
+- A provider-backed representative auto-tag evaluation ledger and offline replay command make edition mappings, hard negatives, and unresolved cases reproducible across the corpus.
 - Search shows local and release track totals, offers a same-track-count toggle and closest-count sorting, and can load missing counts on demand with progress, cancellation, and retry.
 - Search results show country and catalog number, with country/format filters, catalog-number and barcode text matching, and a clear-filters action.
 
 ### Fixed
 
+- Auto-tag recognizes skit labels and Latin accent differences when unique track titles and matching durations confirm the same recording, allowing complete bonus-track editions to match without manual selection.
+- Auto-tag ignores known disc and edition suffixes in album names when selecting a complete provider release, so boxed and maxi-single folders can match their corresponding edition without positional-only guesses.
+- Auto-tag keeps Discogs CD audio separate from DVD extras when a release detail contains both media groups, so audiovisual bonus content cannot displace the selected audio tracklist.
+- FLAC album reads prefer canonical Vorbis comments when a legacy ID3 prefix contains stale metadata, keeping successful writes and readback aligned while preserving unrelated tags.
 - Opening a different artist library now clears the previous auto-tag results.
 - Search track-count controls become available when counts are loaded, including for Discogs; unavailable counts are explained instead of silently disabling comparison.
 

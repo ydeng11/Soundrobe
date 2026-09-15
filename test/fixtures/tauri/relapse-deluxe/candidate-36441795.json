@@ -1,0 +1,384 @@
+{
+  "album": "Relapse (Deluxe)",
+  "album_artist": "Eminem",
+  "album_artists": [
+    "Eminem"
+  ],
+  "artist": "Eminem",
+  "artists": [
+    "Eminem"
+  ],
+  "barcode": null,
+  "catalog_number": "none",
+  "confidence": null,
+  "country": "US",
+  "discogs_artist_id": "38661",
+  "discogs_release_id": "36441795",
+  "distance": null,
+  "formats": [
+    "File"
+  ],
+  "genre": "Hip Hop, Thug Rap, Pop Rap",
+  "linked_discogs_release_id": null,
+  "musicbrainz_albumid": null,
+  "musicbrainz_artistid": null,
+  "source": "discogs",
+  "tracks": [
+    {
+      "artist": "Eminem",
+      "artists": [
+        "Eminem"
+      ],
+      "disc_number": null,
+      "disc_total": null,
+      "filename": null,
+      "genre": null,
+      "length": 90.0,
+      "match_titles": [],
+      "musicbrainz_trackid": null,
+      "title": "Dr. West (Skit)",
+      "track_number": 1,
+      "track_total": 22
+    },
+    {
+      "artist": "Eminem",
+      "artists": [
+        "Eminem"
+      ],
+      "disc_number": null,
+      "disc_total": null,
+      "filename": null,
+      "genre": null,
+      "length": 320.0,
+      "match_titles": [],
+      "musicbrainz_trackid": null,
+      "title": "3 A.M.",
+      "track_number": 2,
+      "track_total": 22
+    },
+    {
+      "artist": "Eminem",
+      "artists": [
+        "Eminem"
+      ],
+      "disc_number": null,
+      "disc_total": null,
+      "filename": null,
+      "genre": null,
+      "length": 320.0,
+      "match_titles": [],
+      "musicbrainz_trackid": null,
+      "title": "My Mom",
+      "track_number": 3,
+      "track_total": 22
+    },
+    {
+      "artist": "Eminem",
+      "artists": [
+        "Eminem"
+      ],
+      "disc_number": null,
+      "disc_total": null,
+      "filename": null,
+      "genre": null,
+      "length": 181.0,
+      "match_titles": [],
+      "musicbrainz_trackid": null,
+      "title": "Insane",
+      "track_number": 4,
+      "track_total": 22
+    },
+    {
+      "artist": "Eminem",
+      "artists": [
+        "Eminem"
+      ],
+      "disc_number": null,
+      "disc_total": null,
+      "filename": null,
+      "genre": null,
+      "length": 283.0,
+      "match_titles": [],
+      "musicbrainz_trackid": null,
+      "title": "Bagpipes From Baghdad",
+      "track_number": 5,
+      "track_total": 22
+    },
+    {
+      "artist": "Eminem",
+      "artists": [
+        "Eminem"
+      ],
+      "disc_number": null,
+      "disc_total": null,
+      "filename": null,
+      "genre": null,
+      "length": 248.0,
+      "match_titles": [],
+      "musicbrainz_trackid": null,
+      "title": "Hello",
+      "track_number": 6,
+      "track_total": 22
+    },
+    {
+      "artist": "Eminem",
+      "artists": [
+        "Eminem"
+      ],
+      "disc_number": null,
+      "disc_total": null,
+      "filename": null,
+      "genre": null,
+      "length": 42.0,
+      "match_titles": [],
+      "musicbrainz_trackid": null,
+      "title": "Tonya (Skit)",
+      "track_number": 7,
+      "track_total": 22
+    },
+    {
+      "artist": "Eminem",
+      "artists": [
+        "Eminem"
+      ],
+      "disc_number": null,
+      "disc_total": null,
+      "filename": null,
+      "genre": null,
+      "length": 247.0,
+      "match_titles": [],
+      "musicbrainz_trackid": null,
+      "title": "Same Song & Dance",
+      "track_number": 8,
+      "track_total": 22
+    },
+    {
+      "artist": "Eminem",
+      "artists": [
+        "Eminem"
+      ],
+      "disc_number": null,
+      "disc_total": null,
+      "filename": null,
+      "genre": null,
+      "length": 270.0,
+      "match_titles": [],
+      "musicbrainz_trackid": null,
+      "title": "We Made You",
+      "track_number": 9,
+      "track_total": 22
+    },
+    {
+      "artist": "Eminem",
+      "artists": [
+        "Eminem"
+      ],
+      "disc_number": null,
+      "disc_total": null,
+      "filename": null,
+      "genre": null,
+      "length": 237.0,
+      "match_titles": [],
+      "musicbrainz_trackid": null,
+      "title": "Medicine Ball",
+      "track_number": 10,
+      "track_total": 22
+    },
+    {
+      "artist": "Eminem",
+      "artists": [
+        "Eminem"
+      ],
+      "disc_number": null,
+      "disc_total": null,
+      "filename": null,
+      "genre": null,
+      "length": 19.0,
+      "match_titles": [],
+      "musicbrainz_trackid": null,
+      "title": "Paul (Skit)",
+      "track_number": 11,
+      "track_total": 22
+    },
+    {
+      "artist": "Eminem",
+      "artists": [
+        "Eminem"
+      ],
+      "disc_number": null,
+      "disc_total": null,
+      "filename": null,
+      "genre": null,
+      "length": 320.0,
+      "match_titles": [],
+      "musicbrainz_trackid": null,
+      "title": "Stay Wide Awake",
+      "track_number": 12,
+      "track_total": 22
+    },
+    {
+      "artist": "Eminem",
+      "artists": [
+        "Eminem"
+      ],
+      "disc_number": null,
+      "disc_total": null,
+      "filename": null,
+      "genre": null,
+      "length": 278.0,
+      "match_titles": [],
+      "musicbrainz_trackid": null,
+      "title": "Old Time's Sake",
+      "track_number": 13,
+      "track_total": 22
+    },
+    {
+      "artist": "Eminem",
+      "artists": [
+        "Eminem"
+      ],
+      "disc_number": null,
+      "disc_total": null,
+      "filename": null,
+      "genre": null,
+      "length": 243.0,
+      "match_titles": [],
+      "musicbrainz_trackid": null,
+      "title": "Must Be The Ganja",
+      "track_number": 14,
+      "track_total": 22
+    },
+    {
+      "artist": "Eminem",
+      "artists": [
+        "Eminem"
+      ],
+      "disc_number": null,
+      "disc_total": null,
+      "filename": null,
+      "genre": null,
+      "length": 42.0,
+      "match_titles": [],
+      "musicbrainz_trackid": null,
+      "title": "Mr. Mathers (Skit)",
+      "track_number": 15,
+      "track_total": 22
+    },
+    {
+      "artist": "Eminem",
+      "artists": [
+        "Eminem"
+      ],
+      "disc_number": null,
+      "disc_total": null,
+      "filename": null,
+      "genre": null,
+      "length": 284.0,
+      "match_titles": [],
+      "musicbrainz_trackid": null,
+      "title": "D\u00e9j\u00e0 Vu",
+      "track_number": 16,
+      "track_total": 22
+    },
+    {
+      "artist": "Eminem",
+      "artists": [
+        "Eminem"
+      ],
+      "disc_number": null,
+      "disc_total": null,
+      "filename": null,
+      "genre": null,
+      "length": 393.0,
+      "match_titles": [],
+      "musicbrainz_trackid": null,
+      "title": "Beautiful",
+      "track_number": 17,
+      "track_total": 22
+    },
+    {
+      "artist": "Eminem & 50 Cent & Dr. Dre",
+      "artists": [
+        "Eminem",
+        "50 Cent",
+        "Dr. Dre"
+      ],
+      "disc_number": null,
+      "disc_total": null,
+      "filename": null,
+      "genre": null,
+      "length": 298.0,
+      "match_titles": [],
+      "musicbrainz_trackid": null,
+      "title": "Crack A Bottle",
+      "track_number": 18,
+      "track_total": 22
+    },
+    {
+      "artist": "Eminem",
+      "artists": [
+        "Eminem"
+      ],
+      "disc_number": null,
+      "disc_total": null,
+      "filename": null,
+      "genre": null,
+      "length": 89.0,
+      "match_titles": [],
+      "musicbrainz_trackid": null,
+      "title": "Steve Berman (Skit)",
+      "track_number": 19,
+      "track_total": 22
+    },
+    {
+      "artist": "Eminem",
+      "artists": [
+        "Eminem"
+      ],
+      "disc_number": null,
+      "disc_total": null,
+      "filename": null,
+      "genre": null,
+      "length": 371.0,
+      "match_titles": [],
+      "musicbrainz_trackid": null,
+      "title": "Underground",
+      "track_number": 20,
+      "track_total": 22
+    },
+    {
+      "artist": "Eminem",
+      "artists": [
+        "Eminem"
+      ],
+      "disc_number": null,
+      "disc_total": null,
+      "filename": null,
+      "genre": null,
+      "length": null,
+      "match_titles": [],
+      "musicbrainz_trackid": null,
+      "title": "Careful What You Wish For",
+      "track_number": 21,
+      "track_total": 22
+    },
+    {
+      "artist": "Eminem",
+      "artists": [
+        "Eminem"
+      ],
+      "disc_number": null,
+      "disc_total": null,
+      "filename": null,
+      "genre": null,
+      "length": null,
+      "match_titles": [],
+      "musicbrainz_trackid": null,
+      "title": "My Darling",
+      "track_number": 22,
+      "track_total": 22
+    }
+  ],
+  "verification": null,
+  "year": "2009"
+}

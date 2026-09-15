@@ -24,6 +24,7 @@ pub enum MatchEvidence {
     MusicbrainzTrackId,
     TagTitle,
     FilenameTitle,
+    GuardedTitle,
     FallbackTitle,
     ContainedTitle,
     Position,
@@ -35,11 +36,14 @@ pub enum SkipKind {
     DurationMismatch,
     DuplicateAmbiguous,
     NoLocalEvidence,
+    ComparisonAmbiguous,
+    DurationMissing,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SkipReason {
     pub local_index: usize,
+    pub remote_index: Option<usize>,
     pub kind: SkipKind,
 }
 
@@ -60,6 +64,8 @@ pub struct MatchedCandidate {
     /// Remote track index for each local track (in local order).
     /// `None` means the local track was unmatched.
     pub remote_indices: Vec<Option<usize>>,
+    /// Title failures remain visible even when positional fallback aligns a row.
+    pub title_rejections: Vec<SkipReason>,
 }
 
 #[derive(Default)]
@@ -68,6 +74,7 @@ struct LocalForms {
     filename: Vec<String>,
     fallback: Vec<String>,
     filename_raw: String,
+    guarded: String,
 }
 
 struct RemoteMeta {
@@ -98,6 +105,7 @@ pub fn match_remote_candidate_tracks(
             stats,
             is_full_ordered_match: false,
             remote_indices: vec![None; local_tracks.len()],
+            title_rejections: Vec::new(),
         };
     }
 
@@ -109,6 +117,14 @@ pub fn match_remote_candidate_tracks(
             artists.extend(track.artist.iter().cloned());
             artists.extend(track.artists.iter().cloned());
             let filename = filenames.get(index).cloned().unwrap_or_default();
+            let guarded = track
+                .title
+                .as_deref()
+                .filter(|title| !title.trim().is_empty())
+                .map(str::to_string)
+                .or_else(|| clean_filename_identity(&filename, &artists))
+                .map(|title| guarded_title(&title))
+                .unwrap_or_default();
             let (tag, filename_forms) = title_forms(track.title.as_deref(), &filename, &artists);
             let fallback = alternate_titles
                 .get(index)
@@ -120,9 +136,26 @@ pub fn match_remote_candidate_tracks(
                 filename: filename_forms,
                 fallback,
                 filename_raw: filename,
+                guarded,
             }
         })
         .collect::<Vec<_>>();
+
+    // Count the complete lists, not just unmatched rows: consuming an exact
+    // match must never make a colliding fallback appear unique.
+    let mut local_guarded_counts = HashMap::new();
+    for forms in &local_forms {
+        *local_guarded_counts
+            .entry(forms.guarded.clone())
+            .or_insert(0usize) += 1;
+    }
+    let mut remote_guarded_index: HashMap<String, Vec<usize>> = HashMap::new();
+    for (index, track) in remote_tracks.iter().enumerate() {
+        let title = guarded_title(track.title.as_deref().unwrap_or_default());
+        if !title.is_empty() {
+            remote_guarded_index.entry(title).or_default().push(index);
+        }
+    }
     let remote_meta = remote_tracks
         .iter()
         .map(|track| {
@@ -196,6 +229,7 @@ pub fn match_remote_candidate_tracks(
                 if available.len() > 1 {
                     stats.skipped.push(SkipReason {
                         local_index,
+                        remote_index: None,
                         kind: SkipKind::DuplicateAmbiguous,
                     });
                     continue;
@@ -225,6 +259,8 @@ pub fn match_remote_candidate_tracks(
         let mut matched = false;
         let mut saw_duration_mismatch = false;
         let mut saw_ambiguity = false;
+        let mut guarded_rejection = None;
+        let mut proposed_remote = None;
 
         for (form, form_evidence) in &ordered_forms {
             let available = remote_title_index
@@ -261,7 +297,44 @@ pub fn match_remote_candidate_tracks(
             break;
         }
 
-        if !matched && is_api_title_source(source) {
+        if !matched && is_api_title_source(source) && !forms.guarded.is_empty() {
+            if let Some(candidates) = remote_guarded_index.get(&forms.guarded) {
+                if candidates.len() != 1 || local_guarded_counts[&forms.guarded] != 1 {
+                    guarded_rejection = Some(SkipKind::ComparisonAmbiguous);
+                } else {
+                    let remote_index = candidates[0];
+                    proposed_remote = Some(remote_index);
+                    if matched_remote.contains(&remote_index) {
+                        guarded_rejection = Some(SkipKind::ComparisonAmbiguous);
+                    } else {
+                        match (
+                            local_duration.filter(|n| n.is_finite()),
+                            remote_meta[remote_index].duration.filter(|n| n.is_finite()),
+                        ) {
+                            (Some(local), Some(remote)) if durations_match(local, remote) => {
+                                accept_match(
+                                    local_index,
+                                    remote_index,
+                                    MatchEvidence::GuardedTitle,
+                                    &mut matched_local,
+                                    &mut matched_remote,
+                                    &mut evidence,
+                                    &mut stats,
+                                );
+                                matched = true;
+                            }
+                            (Some(_), Some(_)) => {
+                                guarded_rejection = Some(SkipKind::DurationMismatch)
+                            }
+                            _ => guarded_rejection = Some(SkipKind::DurationMissing),
+                        }
+                    }
+                }
+            }
+        }
+
+        // Do not bypass a failed guarded comparison via weaker containment.
+        if !matched && guarded_rejection.is_none() && is_api_title_source(source) {
             // When the local tag has no title, try the cleaned filename as a
             // fallback so "WOW！ feat.羅志祥" (from filename) can still be
             // matched to "Wow!" (from MusicBrainz) via the pollution check.
@@ -312,7 +385,10 @@ pub fn match_remote_candidate_tracks(
         if !matched {
             stats.skipped.push(SkipReason {
                 local_index,
-                kind: if saw_ambiguity {
+                remote_index: proposed_remote,
+                kind: if let Some(reason) = guarded_rejection {
+                    reason
+                } else if saw_ambiguity {
                     SkipKind::DuplicateAmbiguous
                 } else if saw_duration_mismatch {
                     SkipKind::DurationMismatch
@@ -324,6 +400,8 @@ pub fn match_remote_candidate_tracks(
             });
         }
     }
+
+    let title_rejections = stats.skipped.clone();
 
     // After main matching, positional identity requires unique explicit track
     // numbers. A single-disc album may omit disc tags; once either side proves
@@ -445,6 +523,7 @@ pub fn match_remote_candidate_tracks(
         evidence,
         is_full_ordered_match: full_match,
         remote_indices: matched_local.to_vec(),
+        title_rejections,
     }
 }
 
@@ -520,7 +599,12 @@ fn aligned_track(
         .iter()
         .any(|form| remote_meta.primary_forms.contains(form));
 
-    result.title = if api_source && matched_alternate_title {
+    result.title = if evidence == Some(MatchEvidence::GuardedTitle) {
+        local
+            .title
+            .clone()
+            .or_else(|| clean_filename_identity(&forms.filename_raw, artist_hints))
+    } else if api_source && matched_alternate_title {
         remote.title.clone().or_else(|| local.title.clone())
     } else if title_replacement.is_some() {
         title_replacement
@@ -555,6 +639,7 @@ fn aligned_track(
             MatchEvidence::MusicbrainzTrackId
                 | MatchEvidence::TagTitle
                 | MatchEvidence::FilenameTitle
+                | MatchEvidence::GuardedTitle
                 | MatchEvidence::FallbackTitle
                 | MatchEvidence::ContainedTitle
         )
@@ -665,6 +750,37 @@ fn normalize_title(value: &str) -> String {
         .join(" ")
 }
 
+/// Comparison only: retain performance qualifiers and non-Latin diacritics.
+fn guarded_title(value: &str) -> String {
+    static SKIT: OnceLock<Regex> = OnceLock::new();
+    static LATIN_MARKS: OnceLock<Regex> = OnceLock::new();
+    let value = value.nfkc().collect::<String>();
+    let value = SKIT
+        .get_or_init(|| {
+            Regex::new(r"(?i)\s*(?:\(skit\)|\[skit\])\s*$").expect("valid skit descriptor regex")
+        })
+        .replace(&value, "");
+    // Unicode normalization does not decompose the Latin ligature characters
+    // used in titles such as "Ebudæ". Fold only these explicit Latin
+    // ligatures before removing combining marks; other performance and
+    // non-Latin characters remain part of the guarded identity.
+    let ligatures = value
+        .chars()
+        .flat_map(|character| match character {
+            'æ' => "ae".chars().collect::<Vec<_>>(),
+            'Æ' => "AE".chars().collect::<Vec<_>>(),
+            _ => vec![character],
+        })
+        .collect::<String>();
+    let decomposed = ligatures.nfd().collect::<String>();
+    let folded = LATIN_MARKS
+        .get_or_init(|| {
+            Regex::new(r"(\p{Latin})\p{M}+").expect("valid Latin combining marks regex")
+        })
+        .replace_all(&decomposed, "$1");
+    normalize_title(&folded)
+}
+
 fn strip_annotations(value: &str) -> String {
     static PAREN: OnceLock<Regex> = OnceLock::new();
     static BRACKET: OnceLock<Regex> = OnceLock::new();
@@ -730,6 +846,12 @@ fn usable_containment(value: &str) -> bool {
 }
 
 fn clean_filename_title(filename: &str, known_artists: &[String]) -> Option<String> {
+    clean_filename_identity(filename, known_artists)
+        .map(|title| strip_annotations(&title))
+        .filter(|title| !title.is_empty())
+}
+
+fn clean_filename_identity(filename: &str, known_artists: &[String]) -> Option<String> {
     static TRACK_PREFIX: OnceLock<Regex> = OnceLock::new();
     let stem = filename_without_audio_extension(filename)?.trim();
     let mut title = TRACK_PREFIX
@@ -747,7 +869,6 @@ fn clean_filename_title(filename: &str, known_artists: &[String]) -> Option<Stri
     } else if let Some(remainder) = strip_known_artist_prefix(&title, known_artists) {
         title = remainder;
     }
-    let title = strip_annotations(&title);
     (!title.is_empty()).then_some(title)
 }
 
@@ -949,6 +1070,10 @@ fn deduplicate(values: Vec<String>) -> Vec<String> {
         .filter(|value| !value.is_empty() && seen.insert(value.clone()))
         .collect()
 }
+
+#[cfg(test)]
+#[path = "track_matcher_guarded_tests.rs"]
+mod guarded_tests;
 
 #[cfg(test)]
 mod tests {

@@ -1,0 +1,28 @@
+{
+  "count": 1,
+  "releases": [
+    {
+      "id": "1e6da3bd-a86b-4b7c-8578-db9b381f7e37",
+      "title": "Dark Sky Island",
+      "date": "2015",
+      "country": "BR",
+      "artist-credit": [
+        {
+          "name": "Enya",
+          "artist": {
+            "id": "4967c0a1-b9f3-465e-8440-4598fd9fc33c",
+            "name": "Enya"
+          }
+        }
+      ],
+      "media": [
+        {
+          "format": "CD",
+          "track-count": 11
+        }
+      ],
+      "label-info": [],
+      "barcode": "0825646001859"
+    }
+  ]
+}

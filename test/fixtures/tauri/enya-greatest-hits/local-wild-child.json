@@ -1,0 +1,55 @@
+{
+  "path": "",
+  "artist_hint": "Enya",
+  "tagged_artist_hint": "Enya",
+  "album_hint": "Wild Child (Maxi-Single)",
+  "tagged_album_hint": "Wild Child (Maxi-Single)",
+  "year_hint": "2001",
+  "country_hint": null,
+  "musicbrainz_album_id": null,
+  "musicbrainz_artist_id": null,
+  "discogs_release_id": null,
+  "discogs_artist_id": null,
+  "selected_disc_number": null,
+  "tracks": [
+    {
+      "title": "Wild Child (Radio Edit)",
+      "filename": "01. Enya - Wild Child (Radio Edit)",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 1,
+      "track_total": 3,
+      "length": 216.826667,
+      "disc_number": null,
+      "disc_total": null
+    },
+    {
+      "title": "Midnight Blue",
+      "filename": "02. Enya - Midnight Blue",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 2,
+      "track_total": 3,
+      "length": 126.666667,
+      "disc_number": null,
+      "disc_total": null
+    },
+    {
+      "title": "Song of the Sandman (Lullaby)",
+      "filename": "03. Enya - Song of the Sandman (Lullaby)",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 3,
+      "track_total": 3,
+      "length": 220.573333,
+      "disc_number": null,
+      "disc_total": null
+    }
+  ]
+}

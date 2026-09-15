@@ -36,7 +36,7 @@ use crate::{
     },
 };
 
-use super::track_matcher::{match_remote_candidate_tracks, MatchEvidence};
+use super::track_matcher::{match_remote_candidate_tracks, MatchEvidence, SkipKind};
 
 #[path = "auto_tag_editions.rs"]
 mod editions;
@@ -66,6 +66,9 @@ pub struct TrackCandidate {
     pub track_total: Option<u32>,
     pub disc_number: Option<u32>,
     pub disc_total: Option<u32>,
+    /// Provider media label used to keep CD audio separate from DVD extras.
+    #[serde(default)]
+    pub media_type: Option<String>,
     #[serde(rename = "musicbrainz_trackid")]
     pub musicbrainz_track_id: Option<String>,
     pub length: Option<f64>,
@@ -952,6 +955,7 @@ pub fn discogs_candidate(album: ProviderAlbum) -> AlbumCandidate {
                 track_number: track.track_number,
                 track_total: track.track_total,
                 disc_number: track.disc_number,
+                media_type: track.media_type,
                 length: track.length,
                 ..TrackCandidate::default()
             })
@@ -1336,11 +1340,13 @@ fn provider_authority_decision(
 
 fn normalized_release_identity(value: &str) -> String {
     let without_annotations = Regex::new(
-        r"(?i)[\[【(（][^\]】)）]*(?:edition|version|pressing|remaster|deluxe|日本|japan|精選|精选)[^\]】)）]*[\]】)）]",
+        r"(?i)[\[【(（][^\]】)）]*(?:edition|version|pressing|remaster|deluxe|digibook|shm(?:[- ]?cd)?|maxi[- ]?single|cd\s*\d+|disc\s*\d+|disk\s*\d+|日本|japan|精選|精选)[^\]】)）]*[\]】)）]",
     )
     .expect("valid release annotation regex")
     .replace_all(value, " ");
-    without_annotations
+    Regex::new(r"(?i)\s+(?:cd|disc|disk)\s*\d+\s*$")
+        .expect("valid trailing disc suffix regex")
+        .replace_all(&without_annotations, " ")
         .chars()
         .flat_map(char::to_lowercase)
         .map(|character| {
@@ -1416,7 +1422,73 @@ fn candidate_tracks_for_request(
             return scoped;
         }
     }
+
+    // Discogs can return audio and audiovisual media in one release detail
+    // response (for example a 22-track CD plus a 16-item DVD). When the local
+    // folder has no explicit disc suffix, keep a uniquely sized media group
+    // intact so DVD extras cannot be flattened into the audio tracklist. The
+    // subsequent strict matcher still has to establish title, artist, and
+    // duration evidence for every selected track.
+    let mut media_groups = HashMap::<&str, Vec<TrackCandidate>>::new();
+    for track in &candidate.tracks {
+        if let Some(media) = track.media_type.as_deref() {
+            media_groups.entry(media).or_default().push(track.clone());
+        }
+    }
+    if !media_groups.is_empty() {
+        let matching = media_groups
+            .values()
+            .filter(|tracks| tracks.len() == request.tracks.len())
+            .collect::<Vec<_>>();
+        if matching.len() == 1 {
+            return matching[0].clone();
+        }
+        if let Some(audio) = media_groups.get("CD") {
+            if audio.len() == request.tracks.len() && matching.is_empty() {
+                return audio.clone();
+            }
+        }
+    }
     candidate.tracks.clone()
+}
+
+fn selected_track_match_diagnostic(
+    request: &LookupRequest,
+    candidate: &AlbumCandidate,
+) -> serde_json::Value {
+    let filenames = collect_audio_files(Path::new(&request.path))
+        .into_iter()
+        .filter_map(|path| Path::new(&path).file_name()?.to_str().map(str::to_string))
+        .collect::<Vec<_>>();
+    let artist_hints = request
+        .artist_hint
+        .iter()
+        .chain(candidate.artist.iter())
+        .chain(candidate.album_artist.iter())
+        .chain(candidate.artists.iter())
+        .chain(candidate.album_artists.iter())
+        .filter(|artist| !artist.trim().is_empty())
+        .cloned()
+        .collect::<Vec<_>>();
+    let matched = match_remote_candidate_tracks(
+        &request.tracks,
+        &filenames,
+        &candidate_tracks_for_request(request, candidate),
+        lookup_source_name(candidate.source),
+        &artist_hints,
+        &[],
+    );
+    serde_json::json!({
+        "stage": "selected_track_evidence",
+        "evidence": matched.evidence.iter().map(|evidence| evidence.map(|value| format!("{value:?}"))).collect::<Vec<_>>(),
+        "remoteIndices": matched.remote_indices,
+        "titleRejections": matched.title_rejections.iter().map(|reason| serde_json::json!({
+            "localIndex": reason.local_index,
+            "remoteIndex": reason.remote_index,
+            "kind": format!("{:?}", reason.kind),
+        })).collect::<Vec<_>>(),
+        "isFullOrderedMatch": matched.is_full_ordered_match,
+    })
 }
 
 pub fn provider_candidate_credibility(
@@ -1511,7 +1583,49 @@ fn strict_provider_candidate_credibility(
             .iter()
             .any(|evidence| evidence.is_none() || *evidence == Some(MatchEvidence::Position))
     {
-        return Err("provider tracks do not strongly cover every local file".to_string());
+        let details = matched
+            .evidence
+            .iter()
+            .enumerate()
+            .filter_map(|(index, evidence)| {
+                if evidence.is_some() && *evidence != Some(MatchEvidence::Position) {
+                    return None;
+                }
+                let rejected = matched
+                    .title_rejections
+                    .iter()
+                    .find(|reason| reason.local_index == index);
+                let reason = match rejected.map(|reason| reason.kind) {
+                    Some(SkipKind::ComparisonAmbiguous) => "ambiguous_comparison",
+                    Some(SkipKind::DuplicateAmbiguous) => "ambiguous_title",
+                    Some(SkipKind::DurationMismatch) => "duration_conflict",
+                    Some(SkipKind::DurationMissing) => "duration_missing",
+                    Some(SkipKind::NoLocalEvidence) => "no_local_evidence",
+                    _ if *evidence == Some(MatchEvidence::Position) => "positional_only",
+                    _ => "no_title_match",
+                };
+                let remote = rejected
+                    .and_then(|reason| reason.remote_index)
+                    .or(matched.remote_indices[index])
+                    .and_then(|index| provider_tracks.get(index))
+                    .and_then(|track| track.title.as_deref())
+                    .unwrap_or("unresolved");
+                Some(format!(
+                    "track {} {:?} -> {:?}: {reason}",
+                    index + 1,
+                    request.tracks[index]
+                        .title
+                        .as_deref()
+                        .or(request.tracks[index].filename.as_deref())
+                        .unwrap_or("untitled"),
+                    remote
+                ))
+            })
+            .collect::<Vec<_>>();
+        return Err(format!(
+            "provider tracks do not strongly cover every local file: {}",
+            details.join("; ")
+        ));
     }
 
     Ok(CredibilityScore {
@@ -1565,6 +1679,7 @@ fn provider_selection_diagnostics(
     let mut candidate_counts = HashMap::<&str, usize>::new();
     let mut credible_counts = HashMap::<&str, usize>::new();
     let mut rejection_counts = HashMap::<&str, usize>::new();
+    let mut rejections = Vec::new();
     for attempt in attempts {
         candidate_counts.entry(attempt.provider).or_default();
         credible_counts.entry(attempt.provider).or_default();
@@ -1578,7 +1693,11 @@ fn provider_selection_diagnostics(
         match provider_candidate_credibility(request, candidate) {
             Ok(_) => *credible_counts.entry(provider).or_default() += 1,
             Err(reason) => {
-                *rejection_counts.entry(provider_rejection_code(&reason)).or_default() += 1
+                *rejection_counts
+                    .entry(provider_rejection_code(&reason))
+                    .or_default() += 1;
+                rejections.push(serde_json::json!({"provider":provider,
+                    "releaseId":provider_stable_id(candidate), "reason":reason}));
             }
         }
     }
@@ -1587,6 +1706,7 @@ fn provider_selection_diagnostics(
         "candidateCounts": candidate_counts,
         "credibleCounts": credible_counts,
         "rejectionCodes": rejection_counts,
+        "rejections": rejections,
     })]
 }
 
@@ -1750,6 +1870,23 @@ pub struct AutoTagRunResult {
     pub ai_confidence: Option<f64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ai_threshold: Option<f64>,
+}
+
+impl Default for AutoTagRunResult {
+    fn default() -> Self {
+        Self {
+            outcome: AutoTagOutcome::NeedsReview,
+            authority: None,
+            candidate: None,
+            written: 0,
+            reason_code: None,
+            diagnostics: Vec::new(),
+            provider_attempts: Vec::new(),
+            ai_status: None,
+            ai_confidence: None,
+            ai_threshold: None,
+        }
+    }
 }
 
 pub struct AutoTagServices<'a> {
@@ -2387,10 +2524,18 @@ pub(crate) async fn resolve_and_apply_album_with_retry_context(
     let musicbrainz = retry_contexts
         .as_ref()
         .map(|contexts| {
-            MusicBrainzClient::new(services.providers.http())
-                .with_retry_context(contexts.musicbrainz.clone())
+            MusicBrainzClient::at(
+                services.providers.http(),
+                services.providers.musicbrainz_base(),
+            )
+            .with_retry_context(contexts.musicbrainz.clone())
         })
-        .unwrap_or_else(|| MusicBrainzClient::new(services.providers.http()));
+        .unwrap_or_else(|| {
+            MusicBrainzClient::at(
+                services.providers.http(),
+                services.providers.musicbrainz_base(),
+            )
+        });
     let mut musicbrainz_direct_error = None;
     let mut musicbrainz_error = None;
     if config.remote_lookup_enabled != Some(false) {
@@ -2404,11 +2549,19 @@ pub(crate) async fn resolve_and_apply_album_with_retry_context(
     let discogs = retry_contexts
         .as_ref()
         .map(|contexts| {
-            DiscogsClient::new(services.providers.http(), config.discogs_token.clone())
-                .with_retry_context(contexts.discogs.clone())
+            DiscogsClient::at(
+                services.providers.http(),
+                config.discogs_token.clone(),
+                services.providers.discogs_base(),
+            )
+            .with_retry_context(contexts.discogs.clone())
         })
         .unwrap_or_else(|| {
-            DiscogsClient::new(services.providers.http(), config.discogs_token.clone())
+            DiscogsClient::at(
+                services.providers.http(),
+                config.discogs_token.clone(),
+                services.providers.discogs_base(),
+            )
         });
     let mut discogs_discovery =
         editions::DiscogsDiscovery::new(&discogs, services.cache, cancelled);
@@ -2698,6 +2851,7 @@ pub(crate) async fn resolve_and_apply_album_with_retry_context(
             );
         }
     }
+    provider_diagnostics.push(selected_track_match_diagnostic(&request, &candidate));
     provider_diagnostics.push(serde_json::json!({
         "stage": "accepted_match", "releaseId": provider_stable_id(&candidate),
         "coverage": request.tracks.len(), "editionEvidence": candidate.accepted_match,
@@ -3236,8 +3390,20 @@ fn insert_number(
 }
 
 #[cfg(test)]
+#[path = "auto_tag_relapse_tests.rs"]
+mod relapse_tests;
+
+#[cfg(test)]
 #[path = "auto_tag_editions_tests.rs"]
 mod edition_tests;
+
+#[cfg(test)]
+#[path = "auto_tag_enya_smoke_tests.rs"]
+mod enya_smoke_tests;
+
+#[cfg(test)]
+#[path = "auto_tag_eval.rs"]
+mod eval_tests;
 
 #[cfg(test)]
 mod tests {
@@ -3830,6 +3996,7 @@ mod tests {
                 track_number: Some(1),
                 track_total: None,
                 disc_number: Some(2),
+                media_type: None,
                 recording_id: Some("recording-id".into()),
                 length: Some(123000.0),
             }],
@@ -3874,6 +4041,7 @@ mod tests {
                 track_number: Some(1),
                 track_total: Some(1),
                 disc_number: None,
+                media_type: None,
                 recording_id: None,
                 length: Some(202.0),
             }],
@@ -4341,6 +4509,23 @@ mod tests {
         assert_eq!(request3.selected_disc_number, None);
 
         fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn album_identity_ignores_known_disc_and_edition_suffixes() {
+        for (local, provider) in [
+            ("The Celts (SHM-CD)", "The Celts"),
+            ("A Box Of Dreams (CD2 - Clouds)", "A Box Of Dreams"),
+            ("Only Time - The Collection CD2", "Only Time - The Collection"),
+            ("The Very Best Of Enya (Deluxe Edition) [Digibook]", "The Very Best Of Enya"),
+            ("Wild Child (Maxi-Single)", "Wild Child"),
+        ] {
+            assert!(exact_album_identity(local, provider), "{local:?} vs {provider:?}");
+        }
+        assert!(!exact_album_identity(
+            "The Frog Prince (Original Soundtrack Collection)",
+            "The Frog Prince"
+        ));
     }
 
     #[test]

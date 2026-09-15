@@ -1,0 +1,28 @@
+{
+  "count": 1,
+  "releases": [
+    {
+      "id": "e3ef3be0-fc27-37b3-99c7-b0d99d56ce12",
+      "title": "Only If...",
+      "date": "1997",
+      "country": "US",
+      "artist-credit": [
+        {
+          "name": "Enya",
+          "artist": {
+            "id": "4967c0a1-b9f3-465e-8440-4598fd9fc33c",
+            "name": "Enya"
+          }
+        }
+      ],
+      "media": [
+        {
+          "format": "",
+          "track-count": 3
+        }
+      ],
+      "label-info": [],
+      "barcode": ""
+    }
+  ]
+}

@@ -1,0 +1,32 @@
+{
+  "release-count": 1,
+  "releases": [
+    {
+      "id": "3750077a-0574-45e0-85f4-5d5b4066c077",
+      "title": "Delirium",
+      "date": "2015-11-06",
+      "country": "US",
+      "artist-credit": [
+        {
+          "name": "Ellie Goulding",
+          "artist": {
+            "id": "33ca19f4-18c8-4411-98df-ac23890ce9f5",
+            "name": "Ellie Goulding"
+          }
+        }
+      ],
+      "media": [
+        {
+          "format": "CD",
+          "track-count": 16
+        },
+        {
+          "format": "CD",
+          "track-count": 7
+        }
+      ],
+      "label-info": [],
+      "barcode": "602547613363"
+    }
+  ]
+}
