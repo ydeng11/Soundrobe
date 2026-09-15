@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.9] - 2026-09-15
+
 ### Added
 
 - A provider-backed representative auto-tag evaluation ledger and offline replay command make edition mappings, hard negatives, and unresolved cases reproducible across the corpus.
