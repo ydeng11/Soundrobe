@@ -84,6 +84,10 @@ pub struct AlbumCandidate {
     /// Validated in this run only; never trust a mapping read from a cache.
     #[serde(skip)]
     pub accepted_match: Option<editions::AcceptedMatch>,
+    /// Full provider track evidence retained for offline evaluation after the
+    /// accepted match projects the candidate onto local tracks.
+    #[serde(skip)]
+    pub provider_tracks_for_evaluation: Option<Vec<TrackCandidate>>,
     pub artist: Option<String>,
     #[serde(default)]
     pub artists: Vec<String>,
@@ -1067,6 +1071,12 @@ pub fn protect_candidate_tracks(
 ) -> AlbumCandidate {
     if let Some(accepted) = &candidate.accepted_match {
         let mut protected = candidate.clone();
+        protected.provider_tracks_for_evaluation = Some(
+            candidate
+                .provider_tracks_for_evaluation
+                .clone()
+                .unwrap_or_else(|| candidate.tracks.clone()),
+        );
         protected.tracks = accepted.tracks.clone();
         return protected;
     }
@@ -1129,6 +1139,12 @@ pub fn protect_candidate_tracks(
         &[],
     );
     let mut protected = candidate.clone();
+    protected.provider_tracks_for_evaluation = Some(
+        candidate
+            .provider_tracks_for_evaluation
+            .clone()
+            .unwrap_or_else(|| candidate.tracks.clone()),
+    );
     protected.tracks = matched.tracks;
     if candidate.source == LookupSource::Discogs {
         editions::preserve_collaborators(&request.tracks, &mut protected.tracks);
@@ -4381,6 +4397,13 @@ mod tests {
 
         let protected = protect_candidate_tracks(&request, &candidate);
         assert_eq!(protected.tracks.len(), 14, "should produce 14 CD1 tracks");
+        assert_eq!(
+            protected
+                .provider_tracks_for_evaluation
+                .as_ref()
+                .map(Vec::len),
+            Some(28)
+        );
         for (i, track) in protected.tracks.iter().enumerate() {
             assert_eq!(
                 track.title,
@@ -4438,6 +4461,13 @@ mod tests {
 
         let protected = protect_candidate_tracks(&request, &candidate);
         assert_eq!(protected.tracks.len(), 14);
+        assert_eq!(
+            protected
+                .provider_tracks_for_evaluation
+                .as_ref()
+                .map(Vec::len),
+            Some(28)
+        );
         for (i, track) in protected.tracks.iter().enumerate() {
             assert_eq!(
                 track.musicbrainz_track_id,

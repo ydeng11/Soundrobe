@@ -397,17 +397,13 @@ fn reviewed_provider_policy_matches(candidate: &AlbumCandidate, expectation: &Ex
     let Some(provider_track_count) = expectation.provider_track_count else {
         return expectation.provider_track_policy.is_none() && unmatched.is_empty();
     };
-    if provider_track_count != candidate.tracks.len() + unmatched.len()
-        || unmatched
-            .iter()
-            .any(|position| provider_position_components(position).is_none())
+    if unmatched
+        .iter()
+        .any(|position| provider_position_components(position).is_none())
         || unmatched.iter().collect::<BTreeSet<_>>().len() != unmatched.len()
     {
         return false;
     }
-    let Some(policy) = expectation.provider_track_policy.as_ref() else {
-        return unmatched.is_empty();
-    };
     let Some(mapping_positions) = expectation
         .mapping
         .iter()
@@ -422,6 +418,42 @@ fn reviewed_provider_policy_matches(candidate: &AlbumCandidate, expectation: &Ex
     {
         return false;
     }
+    let Some(mut expected_positions) = mapping_positions
+        .iter()
+        .chain(unmatched.iter())
+        .map(|position| provider_position_components(position))
+        .collect::<Option<Vec<_>>>()
+    else {
+        return false;
+    };
+    let provider_tracks = candidate
+        .provider_tracks_for_evaluation
+        .as_deref()
+        .unwrap_or(&candidate.tracks);
+    let Some(mut actual_positions) = provider_tracks
+        .iter()
+        .map(|track| {
+            let track_number = u64::from(track.track_number?);
+            let medium = u64::from(track.disc_number.unwrap_or(1));
+            (medium > 0 && track_number > 0).then_some((medium, track_number))
+        })
+        .collect::<Option<Vec<_>>>()
+    else {
+        return false;
+    };
+    if provider_track_count != actual_positions.len()
+        || expected_positions.len() != actual_positions.len()
+    {
+        return false;
+    }
+    expected_positions.sort_unstable();
+    actual_positions.sort_unstable();
+    if expected_positions != actual_positions {
+        return false;
+    }
+    let Some(policy) = expectation.provider_track_policy.as_ref() else {
+        return unmatched.is_empty();
+    };
     match policy.kind.as_str() {
         "selected_media" => {
             let Some(media_position) = policy
@@ -2183,13 +2215,27 @@ fn reviewed_mapping_must_match_the_selected_candidate_positions() {
     });
     policy_case.expectation.unmatched_provider_tracks = Some(vec!["2-1".into()]);
     policy_case.expectation.mapping = mapping.as_array().unwrap().clone();
+    let mut allowed_policy_candidate = accepted.clone();
+    allowed_policy_candidate.provider_tracks_for_evaluation = Some(vec![
+        accepted.tracks[0].clone(),
+        accepted.tracks[1].clone(),
+        TrackCandidate {
+            track_number: Some(1),
+            disc_number: Some(2),
+            ..TrackCandidate::default()
+        },
+    ]);
     assert_eq!(
-        candidate_is_expected(&policy_case, &accepted),
+        candidate_is_expected(&policy_case, &allowed_policy_candidate),
         EvalOutcome::ConfirmedSuccess
     );
-    policy_case.expectation.unmatched_provider_tracks = Some(vec!["2-2".into()]);
+    allowed_policy_candidate
+        .provider_tracks_for_evaluation
+        .as_mut()
+        .unwrap()[2]
+        .track_number = Some(2);
     assert_eq!(
-        candidate_is_expected(&policy_case, &accepted),
+        candidate_is_expected(&policy_case, &allowed_policy_candidate),
         EvalOutcome::Unresolved
     );
 
@@ -2203,8 +2249,23 @@ fn reviewed_mapping_must_match_the_selected_candidate_positions() {
     selected_media_case.expectation.unmatched_provider_tracks =
         Some(vec!["2-1".into(), "2-2".into()]);
     selected_media_case.expectation.mapping = mapping.as_array().unwrap().clone();
+    let mut selected_media_candidate = accepted.clone();
+    selected_media_candidate.provider_tracks_for_evaluation = Some(vec![
+        accepted.tracks[0].clone(),
+        accepted.tracks[1].clone(),
+        TrackCandidate {
+            track_number: Some(1),
+            disc_number: Some(2),
+            ..TrackCandidate::default()
+        },
+        TrackCandidate {
+            track_number: Some(2),
+            disc_number: Some(2),
+            ..TrackCandidate::default()
+        },
+    ]);
     assert_eq!(
-        candidate_is_expected(&selected_media_case, &accepted),
+        candidate_is_expected(&selected_media_case, &selected_media_candidate),
         EvalOutcome::ConfirmedSuccess
     );
 }
