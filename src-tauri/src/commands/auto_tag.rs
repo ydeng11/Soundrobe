@@ -291,7 +291,7 @@ fn extract_folder_year(name: &str) -> Option<String> {
     let year_prefix =
         Regex::new(r"^\s*((?:19|20)\d{2})(?:\s*[-.]|[^\d]|$)").expect("valid folder year regex");
     let year_marker = Regex::new(
-        r"(?i)(?:^|[-–—(])\s*((?:19|20)\d{2})(?:\s*(?:\)|\]|\[|$))",
+        r"(?i)(?:^|[-–—(])\s*((?:19|20)\d{2})(?:\s*(?:\)|\]|\[|,|$))",
     )
     .expect("valid folder year marker regex");
     let extract_prefix = |value: &str| {
@@ -364,7 +364,7 @@ fn clean_folder_name(name: &str) -> String {
     .expect("valid edition regex")
     .replace_all(&cleaned, " ")
     .to_string();
-    cleaned = Regex::new(r"(?i)\s*(?:flac|mp3|wav|aac|ogg|m4a|wma|ape)(?:\s*分轨)?\s*$")
+    cleaned = Regex::new(r"(?i)\s*[,\-]?\s*(?:flac|mp3|wav|aac|ogg|m4a|wma|ape)(?:\s*分轨)?\s*$")
         .expect("valid format suffix regex")
         .replace(&cleaned, "")
         .trim()
@@ -414,6 +414,13 @@ pub fn parse_folder_album_evidence(
         r"(?i)\s+(?:japanese|japan|european|europe|american|usa?)\s+(?:edition|version|pressing)\s*$",
     )
     .expect("valid trailing edition regex")
+    .replace(&folder_album, "")
+    .trim()
+    .to_string();
+    folder_album = Regex::new(
+        r"(?i)\s*[,\-]?\s*(?:flac|mp3|wav|aac|ogg|m4a|wma|ape)(?:\s*分轨)?\s*$",
+    )
+    .expect("valid format suffix regex")
     .replace(&folder_album, "")
     .trim()
     .to_string();
@@ -3998,6 +4005,21 @@ mod tests {
             .as_deref(),
             Some("Folder Artist - The Album")
         );
+    }
+
+    #[test]
+    fn build_lookup_request_cleans_decorated_folder_album_hint() {
+        let root = temp_root();
+        let album = root.join("Ellie Goulding").join("Ellie Goulding - Lights - 2010, FLAC");
+        fs::create_dir_all(&album).unwrap();
+        fs::copy(corpus_wav(), album.join("01.wav")).unwrap();
+
+        let request = build_lookup_request(&album).unwrap();
+
+        assert_eq!(request.year_hint.as_deref(), Some("2010"));
+        assert_eq!(request.folder_album_hint.as_deref(), Some("Lights"));
+        assert_eq!(request.album_hint.as_deref(), Some("Lights"));
+        fs::remove_dir_all(root).unwrap();
     }
 
     #[test]
