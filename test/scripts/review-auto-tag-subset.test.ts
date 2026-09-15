@@ -67,6 +67,12 @@ describe("review_auto_tag_subset.py", () => {
           matcherAttribution: true,
         }),
         expect.objectContaining({
+          caseId: "7f3eb9349ac2",
+          providerTrackCount: 23,
+          providerTrackPolicy: { kind: "allowed_extras", providerTracks: ["2-7"] },
+          unmatchedProviderTracks: ["2-7"],
+        }),
+        expect.objectContaining({
           caseId: "b7fbe4f8ccd1",
           status: "unresolved",
           acceptableEditionIds: [],
