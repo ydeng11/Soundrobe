@@ -1,0 +1,158 @@
+{
+  "releases": [
+    {
+      "id": 1459867,
+      "type": "release",
+      "title": "Enya - Storms In Africa",
+      "year": 1989,
+      "country": "US",
+      "format": [
+        "CD"
+      ],
+      "catno": "Pro-CD-3499",
+      "barcode": []
+    },
+    {
+      "id": 544082,
+      "type": "release",
+      "title": "Enya - Exile (Featuring Music From The Motion Pictures 'L.A. Story' & 'Green Card.') = エクサイル（４トラック ス）",
+      "year": 1991,
+      "country": "Japan",
+      "format": [
+        "CD"
+      ],
+      "catno": "WMC5-387",
+      "barcode": [
+        "4 988053 603873"
+      ]
+    },
+    {
+      "id": 779106,
+      "type": "release",
+      "title": "Enya - The Memory Of Trees",
+      "year": 1995,
+      "country": "Australia",
+      "format": [
+        "CD"
+      ],
+      "catno": "0630-12879-2",
+      "barcode": [
+        "7 0630-12879-2 7"
+      ]
+    },
+    {
+      "id": 779039,
+      "type": "release",
+      "title": "Enya - Watermark",
+      "year": 1988,
+      "country": "Europe",
+      "format": [
+        "CD"
+      ],
+      "catno": "243875-2",
+      "barcode": [
+        "0 22924 38752 4"
+      ]
+    },
+    {
+      "id": 7832914,
+      "type": "release",
+      "title": "Enya - A Box Of Dreams",
+      "year": 1997,
+      "country": "Europe",
+      "format": [
+        "CD",
+        "Box Set"
+      ],
+      "catno": "3984 21333 2",
+      "barcode": [
+        "none"
+      ]
+    },
+    {
+      "id": 7832914,
+      "type": "release",
+      "title": "Enya - A Box Of Dreams",
+      "year": 1997,
+      "country": "Europe",
+      "format": [
+        "CD",
+        "Box Set"
+      ],
+      "catno": "3984 21333 2",
+      "barcode": [
+        "none"
+      ]
+    },
+    {
+      "id": 1198219,
+      "type": "release",
+      "title": "Enya - Paint The Sky With Stars - The Best Of Enya",
+      "year": 1997,
+      "country": "Japan",
+      "format": [
+        "CD"
+      ],
+      "catno": "WPCR-1900",
+      "barcode": [
+        "3984-20895-2"
+      ]
+    },
+    {
+      "id": 2064430,
+      "type": "release",
+      "title": "Enya - A Day Without Rain",
+      "year": 2000,
+      "country": "Canada",
+      "format": [
+        "CD"
+      ],
+      "catno": "2 85986",
+      "barcode": [
+        "6 85738 59862 5"
+      ]
+    },
+    {
+      "id": 544115,
+      "type": "release",
+      "title": "Enya - Wild Child",
+      "year": 2001,
+      "country": "Europe",
+      "format": [
+        "CD"
+      ],
+      "catno": "wea324cd",
+      "barcode": [
+        "6 85738 73782 6"
+      ]
+    },
+    {
+      "id": 2994652,
+      "type": "release",
+      "title": "Enya - And Winter Came... = 雪と氷の旋律",
+      "year": 2008,
+      "country": "Japan",
+      "format": [
+        "CD"
+      ],
+      "catno": "WPCR-13203",
+      "barcode": [
+        "4 943674 084555"
+      ]
+    },
+    {
+      "id": 8174021,
+      "type": "release",
+      "title": "Enya - Greatest Hits",
+      "year": 2016,
+      "country": "Russia",
+      "format": [
+        "CD"
+      ],
+      "catno": "35820•1/2",
+      "barcode": [
+        "4 607147 919101 >"
+      ]
+    }
+  ]
+}

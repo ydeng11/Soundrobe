@@ -245,6 +245,149 @@ fn provider_candidate_id(candidate: &AlbumCandidate) -> String {
         .to_string()
 }
 
+fn provider_position_value(value: &Value) -> Option<String> {
+    value
+        .as_str()
+        .map(str::to_string)
+        .or_else(|| value.as_u64().map(|value| value.to_string()))
+}
+
+fn candidate_position_matches(track: &TrackCandidate, expected: &str) -> bool {
+    let Some(track_number) = track.track_number else {
+        return false;
+    };
+    if expected == track_number.to_string() {
+        return track.disc_number.is_none() || track.disc_number == Some(1);
+    }
+    track.disc_number.is_some_and(|disc_number| {
+        expected == format!("{disc_number}-{track_number}")
+    })
+}
+
+fn normalized_mapping_title(value: &str) -> String {
+    value
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+        .to_lowercase()
+}
+
+fn mapping_provider_title_matches(track: &TrackCandidate, row: &Value) -> bool {
+    let Some(expected) = row.get("providerTitle").and_then(Value::as_str) else {
+        return false;
+    };
+    track.title.as_deref().is_some_and(|actual| {
+        normalized_mapping_title(actual) == normalized_mapping_title(expected)
+    })
+}
+
+fn provider_position_components(value: &str) -> Option<(u64, u64)> {
+    let mut components = value.split('-');
+    let first = components.next()?.parse().ok()?;
+    let second = components.next();
+    if components.next().is_some() {
+        return None;
+    }
+    let (medium, track) = match second {
+        Some(track) => (first, track.parse().ok()?),
+        None => (1, first),
+    };
+    (medium > 0 && track > 0).then_some((medium, track))
+}
+
+fn is_provider_position_sequence(positions: &[String]) -> bool {
+    if positions.is_empty() {
+        return false;
+    }
+    let components = positions
+        .iter()
+        .filter_map(|value| provider_position_components(value))
+        .collect::<Vec<_>>();
+    components.len() == positions.len()
+        && components.first() == Some(&(1, 1))
+        && components.windows(2).all(|window| {
+            (window[1].0 == window[0].0 && window[1].1 == window[0].1 + 1)
+                || (window[1].0 == window[0].0 + 1 && window[1].1 == 1)
+                || (window[1].0 == 1
+                    && window[1].1 == 1
+                    && window[0].0 == 1
+                    && window[0].1 > 1)
+        })
+}
+
+fn reviewed_mapping_matches(candidate: &AlbumCandidate, mapping: &[Value]) -> bool {
+    if mapping.len() != candidate.tracks.len() {
+        return false;
+    }
+    let Some(provider_positions) = mapping
+        .iter()
+        .map(|row| row.get("providerTrack").and_then(provider_position_value))
+        .collect::<Option<Vec<_>>>()
+    else {
+        return false;
+    };
+    if provider_positions
+        .iter()
+        .any(|position| provider_position_components(position).is_none())
+    {
+        return false;
+    }
+    let has_duplicate_provider_position = provider_positions.len()
+        != provider_positions
+            .iter()
+            .collect::<BTreeSet<_>>()
+            .len();
+    let provider_positions_are_ordered = is_provider_position_sequence(&provider_positions);
+    let mut local_tracks = BTreeSet::new();
+    let mut previous_local_track = 0;
+    mapping.iter().all(|row| {
+        let Some(local_track) = row
+            .get("localTrack")
+            .and_then(Value::as_u64)
+            .and_then(|value| usize::try_from(value).ok())
+        else {
+            return false;
+        };
+        let Some(provider_track) = row
+            .get("providerTrack")
+            .and_then(provider_position_value)
+        else {
+            return false;
+        };
+        if local_track <= previous_local_track {
+            return false;
+        }
+        previous_local_track = local_track;
+        local_track > 0
+            && local_tracks.insert(local_track)
+            && candidate
+                .tracks
+                .get(local_track - 1)
+                .is_some_and(|track| {
+                    (!has_duplicate_provider_position
+                        && candidate_position_matches(track, &provider_track))
+                        || (provider_positions_are_ordered
+                            && track.disc_number.is_none()
+                            && mapping_provider_title_matches(track, row))
+                })
+    }) && local_tracks.len() == candidate.tracks.len()
+}
+
+fn provider_ids_cleared(request: &LookupRequest) -> bool {
+    request.musicbrainz_album_id.is_none()
+        && request.musicbrainz_artist_id.is_none()
+        && request.discogs_release_id.is_none()
+        && request.discogs_artist_id.is_none()
+        && request
+            .tracks
+            .iter()
+            .all(|track| track.musicbrainz_track_id.is_none())
+}
+
+fn candidate_track_count_matches(candidate: &AlbumCandidate, detail_count: usize) -> bool {
+    candidate.tracks.len() == detail_count
+}
+
 fn select_deterministically(
     request: &LookupRequest,
     mut candidates: Vec<AlbumCandidate>,
@@ -267,6 +410,7 @@ fn candidate_is_expected(case: &EvalCase, candidate: &AlbumCandidate) -> EvalOut
             .acceptable_edition_ids
             .iter()
             .any(|value| value == &id)
+        && reviewed_mapping_matches(candidate, &case.expectation.mapping)
     {
         EvalOutcome::ConfirmedSuccess
     } else if case
@@ -474,7 +618,11 @@ fn safe_relative_folder(relative: &str) -> PathBuf {
     path
 }
 
-fn readback_matches(album: &Path, result: Option<&AutoTagRunResult>) -> bool {
+fn readback_matches(
+    album: &Path,
+    result: Option<&AutoTagRunResult>,
+    expectation: &Expectation,
+) -> bool {
     let Some(result) = result else {
         return false;
     };
@@ -484,7 +632,12 @@ fn readback_matches(album: &Path, result: Option<&AutoTagRunResult>) -> bool {
     let Ok(detail) = crate::commands::tracks::read_album(album) else {
         return false;
     };
-    if result.outcome != AutoTagOutcome::Applied || result.written != detail.tracks.len() {
+    if result.outcome != AutoTagOutcome::Applied
+        || result.written != detail.tracks.len()
+        || !candidate_track_count_matches(candidate, detail.tracks.len())
+        || (expectation.status == "verified_match"
+            && !reviewed_mapping_matches(candidate, &expectation.mapping))
+    {
         return false;
     }
     let fallback_artist = album
@@ -1157,6 +1310,12 @@ fn write_report(path: &Path, records: &[Value], corpus: &EvalCorpus, run_id: &st
         corpus.corpus_version
     ));
     report.push_str("The corpus is metadata-only; unverified cases are excluded from scored precision and coverage.\n\n");
+    if records
+        .iter()
+        .any(|record| record["providerMode"] == "offline_fixtures")
+    {
+        report.push_str("Provider mode: offline fixtures. These runs establish frozen-response pipeline behavior, not live provider discovery coverage.\n\n");
+    }
     report.push_str(&format!(
         "## Synthetic input media\n\n- Mode: `synthetic_flac` (minimal silent FLAC generated per track; original audio was never copied)\n- Generated tracks: {synthetic_tracks}\n- Generated bytes across invocations: {synthetic_bytes} ({} MiB)\n- Peak per-case synthetic bytes before profile setup: {synthetic_peak_bytes} ({} MiB)\n- Real-media malformed-layout and payload-preservation evidence is retained separately in the Enya audit.\n\n",
         synthetic_bytes / (1024 * 1024),
@@ -1791,6 +1950,175 @@ fn reviewed_expectations_are_required_for_scored_metrics() {
 }
 
 #[test]
+fn reviewed_mapping_must_match_the_selected_candidate_positions() {
+    let candidate = AlbumCandidate {
+        tracks: vec![
+            TrackCandidate {
+                track_number: Some(2),
+                disc_number: Some(1),
+                ..TrackCandidate::default()
+            },
+            TrackCandidate {
+                track_number: Some(1),
+                disc_number: Some(1),
+                ..TrackCandidate::default()
+            },
+        ],
+        ..AlbumCandidate::default()
+    };
+    let mapping = json!([
+        {"localTrack": 1, "providerTrack": "1-2"},
+        {"localTrack": 2, "providerTrack": "1-1"}
+    ]);
+    assert!(reviewed_mapping_matches(&candidate, mapping.as_array().unwrap()));
+
+    let mut case = load_corpus().cases[0].clone();
+    case.expectation.status = "verified_match".into();
+    case.expectation.acceptable_edition_ids = vec!["reviewed-release".into()];
+    case.expectation.mapping = mapping.as_array().unwrap().clone();
+    let mut accepted = candidate.clone();
+    accepted.discogs_release_id = Some("reviewed-release".into());
+    assert_eq!(
+        candidate_is_expected(&case, &accepted),
+        EvalOutcome::ConfirmedSuccess
+    );
+
+    let wrong = json!([
+        {"localTrack": 1, "providerTrack": "1-1"},
+        {"localTrack": 2, "providerTrack": "1-2"}
+    ]);
+    assert!(!reviewed_mapping_matches(&candidate, wrong.as_array().unwrap()));
+    case.expectation.mapping = wrong.as_array().unwrap().clone();
+    assert_eq!(
+        candidate_is_expected(&case, &accepted),
+        EvalOutcome::Unresolved
+    );
+
+    let flattened = AlbumCandidate {
+        tracks: vec![
+            TrackCandidate {
+                track_number: Some(1),
+                title: Some("First disc".into()),
+                ..TrackCandidate::default()
+            },
+            TrackCandidate {
+                track_number: Some(2),
+                title: Some("Second disc".into()),
+                ..TrackCandidate::default()
+            },
+            TrackCandidate {
+                track_number: Some(3),
+                title: Some("Third disc".into()),
+                ..TrackCandidate::default()
+            },
+            TrackCandidate {
+                track_number: Some(4),
+                title: Some("Fourth disc".into()),
+                ..TrackCandidate::default()
+            },
+        ],
+        ..AlbumCandidate::default()
+    };
+    let flattened_mapping = json!([
+        {"localTrack": 1, "providerTrack": "1", "providerTitle": "First disc"},
+        {"localTrack": 2, "providerTrack": "2", "providerTitle": "Second disc"},
+        {"localTrack": 3, "providerTrack": "1", "providerTitle": "Third disc"},
+        {"localTrack": 4, "providerTrack": "2", "providerTitle": "Fourth disc"}
+    ]);
+    assert!(reviewed_mapping_matches(
+        &flattened,
+        flattened_mapping.as_array().unwrap()
+    ));
+    let flattened_wrong_title = json!([
+        {"localTrack": 1, "providerTrack": "1", "providerTitle": "First disc"},
+        {"localTrack": 2, "providerTrack": "2", "providerTitle": "Second disc"},
+        {"localTrack": 3, "providerTrack": "1", "providerTitle": "Fourth disc"},
+        {"localTrack": 4, "providerTrack": "2", "providerTitle": "Third disc"}
+    ]);
+    assert!(!reviewed_mapping_matches(
+        &flattened,
+        flattened_wrong_title.as_array().unwrap()
+    ));
+
+    let ambiguous = AlbumCandidate {
+        tracks: vec![
+            TrackCandidate {
+                track_number: Some(1),
+                disc_number: Some(1),
+                ..TrackCandidate::default()
+            },
+            TrackCandidate {
+                track_number: Some(1),
+                disc_number: Some(2),
+                ..TrackCandidate::default()
+            },
+        ],
+        ..AlbumCandidate::default()
+    };
+    let ambiguous_mapping = json!([
+        {"localTrack": 1, "providerTrack": "1"},
+        {"localTrack": 2, "providerTrack": "1"}
+    ]);
+    assert!(!reviewed_mapping_matches(
+        &ambiguous,
+        ambiguous_mapping.as_array().unwrap()
+    ));
+
+    let malformed_mapping = json!([
+        {"localTrack": 1, "providerTrack": "malformed-1", "providerTitle": "First disc"},
+        {"localTrack": 2, "providerTrack": "malformed-2", "providerTitle": "Second disc"},
+        {"localTrack": 3, "providerTrack": "malformed-3", "providerTitle": "Third disc"},
+        {"localTrack": 4, "providerTrack": "malformed-4", "providerTitle": "Fourth disc"}
+    ]);
+    assert!(!reviewed_mapping_matches(
+        &flattened,
+        malformed_mapping.as_array().unwrap()
+    ));
+
+    let reordered_flattened_mapping = json!([
+        {"localTrack": 2, "providerTrack": "1", "providerTitle": "Second disc"},
+        {"localTrack": 1, "providerTrack": "2", "providerTitle": "First disc"},
+        {"localTrack": 4, "providerTrack": "3", "providerTitle": "Fourth disc"},
+        {"localTrack": 3, "providerTrack": "4", "providerTitle": "Third disc"}
+    ]);
+    assert!(!reviewed_mapping_matches(
+        &flattened,
+        reordered_flattened_mapping.as_array().unwrap()
+    ));
+}
+
+#[test]
+fn clean_discovery_requests_have_no_provider_ids() {
+    let clean = LookupRequest::default();
+    assert!(provider_ids_cleared(&clean));
+
+    let mut with_album_id = clean.clone();
+    with_album_id.musicbrainz_album_id = Some("album".into());
+    assert!(!provider_ids_cleared(&with_album_id));
+
+    let mut with_artist_id = clean.clone();
+    with_artist_id.discogs_artist_id = Some("artist".into());
+    assert!(!provider_ids_cleared(&with_artist_id));
+
+    let mut with_track_id = clean;
+    with_track_id.tracks = vec![TrackCandidate {
+        musicbrainz_track_id: Some("track".into()),
+        ..TrackCandidate::default()
+    }];
+    assert!(!provider_ids_cleared(&with_track_id));
+}
+
+#[test]
+fn readback_rejects_a_candidate_with_a_different_track_count() {
+    let candidate = AlbumCandidate {
+        tracks: vec![TrackCandidate::default()],
+        ..AlbumCandidate::default()
+    };
+    assert!(!candidate_track_count_matches(&candidate, 2));
+    assert!(candidate_track_count_matches(&candidate, 1));
+}
+
+#[test]
 fn verified_abstention_rejects_an_applied_candidate() {
     let mut case = load_corpus().cases[0].clone();
     case.expectation.status = "verified_abstain".to_string();
@@ -2220,18 +2548,24 @@ async fn live_auto_tag_eval() {
         })
         .collect::<Vec<_>>();
     assert!(!selected.is_empty(), "filters selected no evaluation cases");
+    let mock_url = std::env::var("SOUNDROBE_AUTO_TAG_EVAL_MOCK_URL").ok();
     let config_path = dirs::home_dir()
         .expect("home directory")
         .join(".soundrobe/config.yaml");
-    let mut config = load_from(
-        &fs::read_to_string(config_path).expect("read Soundrobe config"),
-        &ProcessEnv,
-    );
+    let mut config = if mock_url.is_some() {
+        load_from("", &crate::state::config::EnvMap::new())
+    } else {
+        load_from(
+            &fs::read_to_string(config_path).expect("read Soundrobe config"),
+            &ProcessEnv,
+        )
+    };
     assert!(
-        config
-            .discogs_token
-            .as_ref()
-            .is_some_and(|token| !token.trim().is_empty()),
+        mock_url.is_some()
+            || config
+                .discogs_token
+                .as_ref()
+                .is_some_and(|token| !token.trim().is_empty()),
         "Discogs token required for live evaluation"
     );
     config.llm_api_key = None;
@@ -2244,7 +2578,12 @@ async fn live_auto_tag_eval() {
     let cache_path = temp_root.join("cache.db");
     let cache = CacheState::new(temp_root.clone());
     assert!(cache.initialize(Some(cache_path.to_str().unwrap())));
-    let providers = ProviderState::new();
+    let providers = if let Some(base) = &mock_url {
+        config.discogs_token = None;
+        offline_eval_providers(base).expect("invalid offline provider service URL")
+    } else {
+        ProviderState::new()
+    };
     let queue = WriteQueue::default();
     let alias_file = temp_root.join("aliases.json");
     let mut records = Vec::new();
@@ -2319,9 +2658,8 @@ async fn live_auto_tag_eval() {
             }
             if profile != PROFILE_RECOVERY {
                 assert!(
-                    preflight.musicbrainz_album_id.is_none()
-                        && preflight.discogs_release_id.is_none(),
-                    "discovery profile retained a release ID"
+                    provider_ids_cleared(&preflight),
+                    "discovery profile retained provider IDs"
                 );
             }
             let baseline = hash_map(&destination);
@@ -2392,7 +2730,7 @@ async fn live_auto_tag_eval() {
                         .is_some_and(|(left, right)| left == right)
                 });
             let readback = if outcome == "applied" {
-                readback_matches(&destination, native.as_ref())
+                readback_matches(&destination, native.as_ref(), &case.expectation)
             } else {
                 native.as_ref().is_none_or(|value| value.written == 0) && after == baseline
             };
@@ -2407,6 +2745,12 @@ async fn live_auto_tag_eval() {
             let record = sanitise(
                 json!({"runId":run_id,"phase":phase,"caseId":case.case_id,"artist":case.artist,"releaseType":case.release_type,"difficulty":case.difficulty,"sourceRelativeFolder":case.source_relative_folder,"outcome":outcome,"classification":classification.as_str(),"error":error,"elapsedMs":elapsed_ms,"native":native,"selectedTrackEvidence":selected_evidence,"progressEvents":progress_events.into_inner(),"reportEvents":report_events.into_inner(),"cacheBefore":cache_before,"cacheAfter":cache_counts(&cache_path),"copiedBeforeProfile":copied_before,"profileBaseline":baseline,"after":after,"payloadUnchanged":payload_unchanged,"readback":readback,"profile":profile,"mediaMode":"synthetic_flac","syntheticTrackCount":synthetic.track_count,"syntheticBytes":synthetic.bytes,"syntheticPeakBytes":synthetic.peak_bytes,"oracleStatus":case.expectation.status}),
             );
+            let mut record = record;
+            record["providerMode"] = json!(if mock_url.is_some() {
+                "offline_fixtures"
+            } else {
+                "live"
+            });
             let line = serde_json::to_string(&record).unwrap();
             fs::OpenOptions::new()
                 .create(true)
@@ -2433,6 +2777,31 @@ async fn live_auto_tag_eval() {
             fs::remove_dir_all(&destination).expect("remove synthetic evaluation media");
         }
     }
+    let provider_miss_count = if let Some(base) = mock_url.as_deref() {
+        let inventory = providers
+            .http()
+            .get(format!("{}/__fixtures", base.trim_end_matches('/')))
+            .send()
+            .await
+            .expect("read offline provider inventory")
+            .error_for_status()
+            .expect("offline provider inventory returned an error")
+            .json::<Value>()
+            .await
+            .expect("parse offline provider inventory");
+        let miss_count = inventory
+            .get("misses")
+            .and_then(Value::as_array)
+            .map_or(0, Vec::len);
+        fs::write(
+            artifact_dir.join("provider-inventory.json"),
+            serde_json::to_vec_pretty(&inventory).unwrap(),
+        )
+        .unwrap();
+        miss_count
+    } else {
+        0
+    };
     fs::write(
         artifact_dir.join("results.json"),
         serde_json::to_vec_pretty(&reconcile_results(&records, &corpus, &run_id)).unwrap(),
@@ -2457,14 +2826,153 @@ async fn live_auto_tag_eval() {
     )
     .unwrap();
     write_report(&artifact_dir.join("report.md"), &records, &corpus, &run_id);
+    let run_status = if provider_miss_count == 0 {
+        "passed"
+    } else {
+        "incomplete"
+    };
     fs::write(
         artifact_dir.join("command.log"),
         format!(
-            "status=passed\nrun_id={run_id}\nprofile={profile}\nmedia_mode=synthetic_flac\nselected_cases={}\nphases=2\nper_folder_timeout_seconds={}\nnative_test_passed=1\nnative_test_failed=0\nnative_test_ignored=0\ncommand=cargo test --manifest-path src-tauri/Cargo.toml --lib live_auto_tag_eval -- --ignored --nocapture\n",
+            "status={run_status}\nrun_id={run_id}\nprofile={profile}\nmedia_mode=synthetic_flac\nselected_cases={}\nphases=2\nper_folder_timeout_seconds={}\nprovider_misses={provider_miss_count}\nnative_test_passed=1\nnative_test_failed=0\nnative_test_ignored=0\ncommand=cargo test --manifest-path src-tauri/Cargo.toml --lib live_auto_tag_eval -- --ignored --nocapture\n",
             selected.len(),
             PER_FOLDER_TIMEOUT.as_secs()
         ),
     )
     .unwrap();
     fs::remove_dir_all(&temp_root).expect("remove temporary evaluation media");
+}
+
+fn offline_eval_providers(base: &str) -> Result<ProviderState, String> {
+    let url = reqwest::Url::parse(base).map_err(|error| error.to_string())?;
+    if url.scheme() != "http"
+        || url.host_str() != Some("127.0.0.1")
+        || url.path() != "/"
+        || url.query().is_some()
+        || url.fragment().is_some()
+        || !url.username().is_empty()
+        || url.password().is_some()
+    {
+        return Err("offline service must be an HTTP 127.0.0.1 origin".into());
+    }
+    let http = reqwest::Client::builder()
+        .no_proxy()
+        // Force even ancillary artwork HTTP/CONNECT attempts through the
+        // fixture server, which never forwards traffic to another host.
+        .proxy(reqwest::Proxy::all(base).map_err(|error| error.to_string())?)
+        .redirect(reqwest::redirect::Policy::none())
+        .timeout(Duration::from_secs(5))
+        .build()
+        .map_err(|error| error.to_string())?;
+    let base = base.trim_end_matches('/');
+    Ok(ProviderState::at(
+        http,
+        &format!("{base}/musicbrainz/ws/2"),
+        &format!("{base}/discogs"),
+    ))
+}
+
+#[test]
+fn offline_eval_rejects_external_endpoints_and_credentials() {
+    for url in [
+        "https://musicbrainz.org",
+        "http://localhost:1234",
+        "http://127.0.0.1/path",
+        "http://key@127.0.0.1",
+        "http://127.0.0.1?token=secret",
+    ] {
+        assert!(offline_eval_providers(url).is_err(), "accepted {url}");
+    }
+    assert!(offline_eval_providers("http://127.0.0.1:1234").is_ok());
+}
+
+#[tokio::test]
+async fn offline_fixture_service_uses_both_production_provider_parsers() {
+    use std::io::BufRead;
+    use std::process::Stdio;
+    struct ServerProcess(std::process::Child, PathBuf);
+    impl Drop for ServerProcess {
+        fn drop(&mut self) {
+            let _ = self.0.kill();
+            let _ = self.0.wait();
+            let _ = fs::remove_dir_all(&self.1);
+        }
+    }
+    let root =
+        std::env::temp_dir().join(format!("soundrobe-provider-mock-{}", uuid::Uuid::new_v4()));
+    fs::create_dir_all(&root).unwrap();
+    let manifest = root.join("manifest.json");
+    let script = fixture_path("../scripts/mock-provider-service.cjs");
+    assert!(Command::new("node")
+        .arg(&script)
+        .arg("import-pools")
+        .arg(fixture_path(CANDIDATE_POOLS_RELATIVE))
+        .arg(&manifest)
+        .status()
+        .unwrap()
+        .success());
+    let mut server = ServerProcess(
+        Command::new("node")
+            .arg(&script)
+            .arg("serve")
+            .arg(&manifest)
+            .stdout(Stdio::piped())
+            .spawn()
+            .unwrap(),
+        root,
+    );
+    let mut line = String::new();
+    std::io::BufReader::new(server.0.stdout.take().unwrap())
+        .read_line(&mut line)
+        .unwrap();
+    let endpoints: Value = serde_json::from_str(&line).unwrap();
+    let base = endpoints["discogs"]
+        .as_str()
+        .unwrap()
+        .trim_end_matches("/discogs");
+    let providers = offline_eval_providers(base).unwrap();
+    let discogs = DiscogsClient::at(providers.http(), None, providers.discogs_base());
+    let album = discogs.release_metadata_result("1459867").await.unwrap();
+    assert_eq!(album.id, "1459867");
+    assert!(!album.tracks.is_empty());
+    let mb = crate::state::providers::MusicBrainzClient::at(
+        providers.http(),
+        providers.musicbrainz_base(),
+    );
+    let album = mb
+        .release_by_id_result("627377a9-be56-4c45-a56d-9ae941546ef0")
+        .await
+        .unwrap();
+    assert_eq!(album.tracks.len(), 15);
+    assert!(discogs
+        .release_metadata_result("not-captured")
+        .await
+        .is_err());
+    let inventory: Value = providers
+        .http()
+        .get(format!("{base}/__fixtures"))
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(inventory["misses"].as_array().unwrap().len(), 1);
+    assert_eq!(
+        providers
+            .http()
+            .get("http://unreachable.invalid/artwork")
+            .send()
+            .await
+            .unwrap()
+            .status()
+            .as_u16(),
+        501
+    );
+    assert!(providers
+        .http()
+        .get("https://unreachable.invalid/artwork")
+        .send()
+        .await
+        .is_err());
 }

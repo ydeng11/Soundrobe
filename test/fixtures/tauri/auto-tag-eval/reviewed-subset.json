@@ -58,6 +58,7 @@
       "provider": "discogs",
       "releaseId": "7832914",
       "snapshot": "provider-snapshots/enya/discogs-release-7832914.json",
+      "providerTrackPolicy": {"kind": "selected_media", "mediaPosition": "1"},
       "hardNegativeIds": []
     },
     {
@@ -66,6 +67,7 @@
       "provider": "discogs",
       "releaseId": "7832914",
       "snapshot": "provider-snapshots/enya/discogs-release-7832914.json",
+      "providerTrackPolicy": {"kind": "selected_media", "mediaPosition": "2"},
       "hardNegativeIds": []
     },
     {
@@ -130,6 +132,7 @@
       "provider": "discogs",
       "releaseId": "8174021",
       "snapshot": "provider-snapshots/enya/discogs-release-8174021.json",
+      "providerTrackPolicy": {"kind": "selected_media", "mediaPosition": "2"},
       "hardNegativeIds": []
     },
     {
@@ -185,6 +188,7 @@
       "provider": "musicbrainz",
       "releaseId": "3750077a-0574-45e0-85f4-5d5b4066c077",
       "snapshot": "provider-snapshots/extra/3750077a-0574-45e0-85f4-5d5b4066c077.json",
+      "providerTrackPolicy": {"kind": "allowed_extras", "providerTracks": ["2-7"]},
       "hardNegativeIds": []
     },
     {

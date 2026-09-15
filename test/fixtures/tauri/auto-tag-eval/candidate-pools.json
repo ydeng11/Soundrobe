@@ -7,7 +7,7 @@
       "localFixture": "../relapse-deluxe/local.json",
       "localFixtureSha256": "af74b2290da60cdf357dc0deb1affab721adc966a5a216c2689203d4b46c6ca7",
       "candidates": [
-        {"provider": "discogs", "releaseId": "36441795", "response": "provider-snapshots/relapse/discogs-release-36441795.json", "responseSha256": "c8ad11806c623231c430787599d051df2cd545d3f6a4ca7a067f4e8183e3e7c4", "expectation": "acceptable"},
+        {"provider": "discogs", "releaseId": "36441795", "response": "../relapse-deluxe/release-36441795.json", "responseSha256": "791a57e61770548bc7964c53fb7aa601702bf90528ea3bb2f7362c22a6f17c8f", "expectation": "acceptable"},
         {"provider": "discogs", "releaseId": "16649340", "response": "provider-snapshots/relapse/discogs-release-16649340.json", "responseSha256": "2fdd6bfe4eccc333a7e4c3decf628ed75bb47e3dbdaacf65e168c570a934f6a9", "expectation": "hard_negative"}
       ],
       "replay": {"permuteCandidateOrder": true, "requireCompleteMapping": true, "requireUniqueEvidence": true}
@@ -187,8 +187,8 @@
       {
         "provider": "discogs",
         "releaseId": "36441795",
-        "response": "provider-snapshots/relapse/discogs-release-36441795.json",
-        "responseSha256": "c8ad11806c623231c430787599d051df2cd545d3f6a4ca7a067f4e8183e3e7c4",
+        "response": "../relapse-deluxe/release-36441795.json",
+        "responseSha256": "791a57e61770548bc7964c53fb7aa601702bf90528ea3bb2f7362c22a6f17c8f",
         "expectation": "acceptable"
       },
       {
