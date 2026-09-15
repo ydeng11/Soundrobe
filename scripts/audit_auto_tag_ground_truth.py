@@ -137,6 +137,7 @@ def audit(corpus: dict[str, Any], expectations: dict[str, Any]) -> dict[str, Any
         "statusCounts": dict(sorted(status_counts.items())),
         "scoredCaseCount": sum(item["scored"] for item in reviewed_cases),
         "unscoredCaseCount": sum(not item["scored"] for item in reviewed_cases),
+        "complete": not any(not item["scored"] for item in reviewed_cases),
         "artistStatusCounts": {
             artist: dict(sorted(counts.items()))
             for artist, counts in sorted(artist_counts.items())
@@ -215,12 +216,12 @@ def main() -> int:
         render_report(result, args.run_id), encoding="utf-8"
     )
     (args.output_dir / "command.log").write_text(
-        f"status=passed\nrun_id={args.run_id}\ncase_count={result['caseCount']}\n"
+        f"status={'passed' if result['complete'] else 'incomplete'}\nrun_id={args.run_id}\ncase_count={result['caseCount']}\n"
         "network=disabled\n",
         encoding="utf-8",
     )
     print(json.dumps({key: result[key] for key in ("statusCounts", "scoredCaseCount", "unscoredCaseCount")}))
-    return 0
+    return 0 if result["complete"] else 1
 
 
 if __name__ == "__main__":

@@ -129,19 +129,23 @@ def identity(value: Any) -> str | None:
 def audit_equivalence(path: Path) -> dict[str, Any]:
     value = read_json(path)
     cases = value.get("cases")
-    if not isinstance(cases, list):
+    if not isinstance(cases, list) or not cases:
         raise ValueError("equivalence artifact has no cases")
-    failures = [
-        case.get("caseId")
-        for case in cases
-        if case.get("requestEqual") is False
-        or case.get("evidenceEqual") is False
-        or case.get("orderedMatchEqual") is False
-        or case.get("remoteIndicesEqual") is False
-    ]
+    case_ids = [case.get("caseId") for case in cases if isinstance(case, dict)]
+    if len(case_ids) != len(cases) or any(not isinstance(case_id, str) or not case_id for case_id in case_ids):
+        raise ValueError("equivalence cases must have non-empty case IDs")
+    if len(set(case_ids)) != len(case_ids):
+        raise ValueError("equivalence artifact contains duplicate case IDs")
+    comparable_fields = ("requestEqual", "evidenceEqual", "orderedMatchEqual", "remoteIndicesEqual")
+    failures = []
+    for case in cases:
+        checks = [case[field] for field in comparable_fields if field in case]
+        if not checks or any(value is not True for value in checks):
+            failures.append(case.get("caseId"))
     passed = value.get("allLookupRequestsEquivalent") is True and not failures
     return {
         "caseCount": len(cases),
+        "caseIds": case_ids,
         "allLookupRequestsEquivalent": passed,
         "failedCaseIds": failures,
         "mediaMode": value.get("mediaMode"),
@@ -149,22 +153,34 @@ def audit_equivalence(path: Path) -> dict[str, Any]:
     }
 
 
-def audit_native_results(path: Path | None) -> dict[str, Any]:
+def audit_native_results(path: Path | None, expected_case_ids: set[str] | None = None) -> dict[str, Any]:
     if path is None:
         return {
             "available": False,
+            "complete": False,
             "invocationCount": 0,
+            "folderCount": 0,
+            "missingPhases": [],
+            "duplicatePhases": [],
+            "unexpectedCases": [],
             "identityInconsistencies": [],
             "providerUnavailableCases": 0,
         }
     results = read_json(path)
     phases: dict[tuple[str, str], dict[str, Any]] = {}
+    duplicate_phases: list[str] = []
     provider_unavailable: set[str] = set()
-    for record in results.get("invocations", []):
+    invocations = results.get("invocations")
+    if not isinstance(invocations, list):
+        raise ValueError("native results have no invocations array")
+    for record in invocations:
         case_id = record.get("caseId")
         phase = record.get("phase")
         if isinstance(case_id, str) and isinstance(phase, str):
-            phases[(case_id, phase)] = record
+            key = (case_id, phase)
+            if key in phases:
+                duplicate_phases.append(f"{case_id}:{phase}")
+            phases[key] = record
         attempts = record.get("native", {}).get("providerAttempts", [])
         if isinstance(attempts, list) and any(
             isinstance(attempt, dict) and attempt.get("status") == "unavailable"
@@ -187,10 +203,31 @@ def audit_native_results(path: Path | None) -> dict[str, Any]:
                     "warmAuthority": phases.get((case_id, "warm"), {}).get("native", {}).get("authority"),
                 }
             )
+    observed_case_ids = {
+        case_id for case_id, _ in phases
+    } | {
+        folder.get("caseId")
+        for folder in results.get("folderResults", [])
+        if isinstance(folder, dict) and isinstance(folder.get("caseId"), str)
+    }
+    required_case_ids = expected_case_ids if expected_case_ids is not None else observed_case_ids
+    case_ids = sorted(required_case_ids)
+    unexpected_cases = sorted(observed_case_ids - required_case_ids)
+    missing_phases = [
+        f"{case_id}:{phase}"
+        for case_id in case_ids
+        for phase in ("cold", "warm")
+        if (case_id, phase) not in phases
+    ]
+    complete = bool(case_ids) and not missing_phases and not duplicate_phases and not unexpected_cases
     return {
         "available": True,
-        "invocationCount": len(results.get("invocations", [])),
+        "complete": complete,
+        "invocationCount": len(invocations),
         "folderCount": len(results.get("folderResults", [])),
+        "missingPhases": missing_phases,
+        "duplicatePhases": sorted(duplicate_phases),
+        "unexpectedCases": unexpected_cases,
         "identityInconsistencies": drift,
         "providerUnavailableCases": len(provider_unavailable),
         "reconciledAsFailedVerification": len(drift),
@@ -220,6 +257,10 @@ def render_report(result: dict[str, Any], run_id: str) -> str:
         "## Native cold/warm replay",
         "",
         f"- Invocations: {native['invocationCount']}",
+        f"- Cold/warm phases complete: {native['complete']}",
+        f"- Missing phases: {', '.join(native['missingPhases']) if native['missingPhases'] else 'none'}",
+        f"- Duplicate phases: {', '.join(native['duplicatePhases']) if native['duplicatePhases'] else 'none'}",
+        f"- Unexpected cases: {', '.join(native['unexpectedCases']) if native['unexpectedCases'] else 'none'}",
         f"- Provider-unavailable cases: {native['providerUnavailableCases']}",
         f"- Cold/warm identity inconsistencies: {len(native['identityInconsistencies'])}",
         "",
@@ -247,7 +288,7 @@ def main() -> int:
     args = parser.parse_args()
     frozen = audit_candidate_pools(args.candidate_pools)
     equivalence = audit_equivalence(args.equivalence)
-    native = audit_native_results(args.native_results)
+    native = audit_native_results(args.native_results, set(equivalence["caseIds"]))
     result = {
         "schemaVersion": 1,
         "runId": args.run_id,
@@ -258,7 +299,12 @@ def main() -> int:
         "candidatePools": frozen,
         "syntheticEquivalence": equivalence,
         "nativeReplay": native,
-        "reproducible": equivalence["allLookupRequestsEquivalent"] and not native["identityInconsistencies"],
+        "reproducible": (
+            equivalence["allLookupRequestsEquivalent"]
+            and native["available"]
+            and native["complete"]
+            and not native["identityInconsistencies"]
+        ),
         "inputSha256": {
             "candidatePools": sha256_file(args.candidate_pools),
             "equivalence": sha256_file(args.equivalence),
@@ -273,14 +319,14 @@ def main() -> int:
         render_report(result, args.run_id), encoding="utf-8"
     )
     (args.output_dir / "command.log").write_text(
-        f"status=passed\nrun_id={args.run_id}\nnetwork=disabled\n"
+        f"status={'passed' if result['reproducible'] else 'failed'}\nrun_id={args.run_id}\nnetwork=disabled\n"
         f"reproducible={str(result['reproducible']).lower()}\n",
         encoding="utf-8",
     )
     print(json.dumps({key: result[key] for key in (
         "candidatePoolCount", "frozenResponseCount", "reproducible"
     )}))
-    return 0
+    return 0 if result["reproducible"] else 1
 
 
 if __name__ == "__main__":

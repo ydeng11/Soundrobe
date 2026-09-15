@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Auto-tag evaluation corpus refreshes accept an explicit source root through `--source-root` or `SOUNDROBE_AUTO_TAG_EVAL_SOURCE_ROOT`, while committed fixture manifests retain only relative paths.
+
+### Fixed
+
+- Auto-tag evaluation audits now fail closed when ground truth is unscored, supplied native profile phases are incomplete, equivalence evidence is empty, or cold/warm replay identities drift.
+
 ## [0.1.9] - 2026-09-15
 
 ### Added

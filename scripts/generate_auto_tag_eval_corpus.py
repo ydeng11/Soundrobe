@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """Freeze metadata-only auto-tag evaluation inputs from the curated library."""
 from __future__ import annotations
-import hashlib, json, re, sys
+import argparse, hashlib, json, os, re, sys
 from pathlib import Path
 from datetime import date
 from mutagen import File
 
-ROOT = Path('/Users/ihelio/Downloads/Music/Curated')
+ROOT = Path()
 ARTISTS = ['Ariana Grande','Billie Eilish','Eagles','Doja Cat','Ellie Goulding','Eminem','Enya']
 PROVISIONAL_GOLD = ['Ariana Grande','Billie Eilish','Eagles','Doja Cat','Ellie Goulding']
 EXTS = {'.flac','.mp3','.m4a','.wav','.ogg','.opus','.ape','.aiff','.mp4','.wma'}
@@ -105,6 +105,20 @@ def recovery_track(t):
     return dict(t)
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--source-root",
+        type=Path,
+        default=os.environ.get("SOUNDROBE_AUTO_TAG_EVAL_SOURCE_ROOT"),
+        help="curated library root; may also be set with SOUNDROBE_AUTO_TAG_EVAL_SOURCE_ROOT",
+    )
+    args = parser.parse_args()
+    if args.source_root is None:
+        raise SystemExit("--source-root or SOUNDROBE_AUTO_TAG_EVAL_SOURCE_ROOT is required")
+    global ROOT
+    ROOT = args.source_root.expanduser().resolve()
+    if not ROOT.is_dir():
+        raise SystemExit(f"source root does not exist: {ROOT}")
     cases=[]
     physical=[]
     for artist in ARTISTS:
@@ -154,7 +168,7 @@ def main():
       'schemaVersion': 1,
       'corpusVersion': '2026-09-12.inventory-1',
       'capturedDate': str(date.today()),
-      'sourceRoot': str(ROOT),
+      'sourceRoot': '.',
       'artists': ARTISTS,
       'summary': {'physicalFolders': len(physical), 'tracks': sum(len(c['tracks']) for c in cases), 'cases': len(cases), 'verifiedMatchable': 0, 'verifiedAbstain': 0, 'unverified': len(cases), 'excluded': 0, 'provisionalGoldArtists': len(PROVISIONAL_GOLD), 'diagnosticUnverifiedArtists': 2},
       'artistReview': {

@@ -177,6 +177,24 @@ fn load_corpus() -> EvalCorpus {
     serde_json::from_str(&text).expect("auto-tag evaluation corpus JSON")
 }
 
+fn configured_source_root(corpus_root: &Path, override_root: Option<&str>) -> PathBuf {
+    if let Some(override_root) = override_root.map(str::trim).filter(|root| !root.is_empty()) {
+        return PathBuf::from(override_root);
+    }
+    assert!(
+        corpus_root.is_absolute(),
+        "SOUNDROBE_AUTO_TAG_EVAL_SOURCE_ROOT is required for a relative corpus sourceRoot"
+    );
+    corpus_root.to_path_buf()
+}
+
+fn evaluation_source_root(corpus_root: &Path) -> PathBuf {
+    configured_source_root(
+        corpus_root,
+        std::env::var("SOUNDROBE_AUTO_TAG_EVAL_SOURCE_ROOT").ok().as_deref(),
+    )
+}
+
 fn load_expectations() -> ExpectationsFile {
     let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(EXPECTATIONS_RELATIVE);
     serde_json::from_str(
@@ -1785,6 +1803,15 @@ fn evaluation_copy_path_preserves_source_hierarchy() {
 }
 
 #[test]
+fn evaluation_source_root_requires_runtime_configuration_for_relative_corpus_roots() {
+    assert!(std::panic::catch_unwind(|| configured_source_root(Path::new("."), None)).is_err());
+    assert_eq!(
+        configured_source_root(Path::new("."), Some("/private/tmp/library")),
+        PathBuf::from("/private/tmp/library")
+    );
+}
+
+#[test]
 fn reviewed_expectation_overlay_authorizes_only_reviewed_cases() {
     let mut corpus = load_corpus();
     let case_id = corpus.cases[0].case_id.clone();
@@ -2684,7 +2711,8 @@ async fn live_auto_tag_eval() {
         .map(PathBuf::from)
         .unwrap_or_else(|_| fixture_path(EXPECTATIONS_RELATIVE));
     overlay_reviewed_expectations(&mut corpus, &expectations_path);
-    let source_root = fs::canonicalize(&corpus.source_root).expect("evaluation source root exists");
+    let source_root = fs::canonicalize(evaluation_source_root(&corpus.source_root))
+        .expect("evaluation source root exists");
     let artist_filter = std::env::var("SOUNDROBE_AUTO_TAG_EVAL_ARTISTS")
         .ok()
         .filter(|value| !value.trim().is_empty())

@@ -68,14 +68,14 @@ describe("audit_auto_tag_reproducibility.py", () => {
       }],
     });
     const output = path.join(root, "out");
-    execFileSync("python3", [
+    expect(() => execFileSync("python3", [
       scriptPath,
       "--candidate-pools", pools,
       "--equivalence", equivalence,
       "--native-results", native,
       "--output-dir", output,
       "--run-id", "repro-test",
-    ], { encoding: "utf8" });
+    ], { encoding: "utf8", stdio: "pipe" })).toThrow();
     const result = JSON.parse(fs.readFileSync(path.join(output, "reproducibility.json"), "utf8"));
     expect(result).toMatchObject({
       candidatePoolCount: 1,
@@ -99,6 +99,88 @@ describe("audit_auto_tag_reproducibility.py", () => {
     expect(fs.readFileSync(path.join(output, "reproducibility.md"), "utf8")).toContain(
       "Identity inconsistencies are reconciled as `failed_verification`",
     );
+  });
+
+  it("fails closed when equivalence evidence is empty", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "soundrobe-repro-empty-"));
+    temporaryRoots.push(root);
+    const fixtureRoot = path.join(root, "fixtures");
+    const snapshotRoot = path.join(fixtureRoot, "snapshots");
+    fs.mkdirSync(snapshotRoot, { recursive: true });
+    const write = (file: string, value: unknown) => {
+      fs.writeFileSync(file, JSON.stringify(value), "utf8");
+      return crypto.createHash("sha256").update(fs.readFileSync(file)).digest("hex");
+    };
+    const localHash = write(path.join(fixtureRoot, "local.json"), { tracks: [{ title: "One" }] });
+    const responseHash = write(path.join(snapshotRoot, "release.json"), { release_id: "release-1" });
+    const pools = path.join(fixtureRoot, "candidate-pools.json");
+    write(pools, {
+      schemaVersion: 1,
+      pools: [{
+        poolId: "pool",
+        localFixture: "local.json",
+        localFixtureSha256: localHash,
+        candidates: [{ provider: "discogs", releaseId: "release-1", response: "snapshots/release.json", responseSha256: responseHash }],
+      }],
+    });
+    const equivalence = path.join(root, "equivalence.json");
+    write(equivalence, { allLookupRequestsEquivalent: true, cases: [] });
+
+    expect(() => execFileSync("python3", [
+      scriptPath,
+      "--candidate-pools", pools,
+      "--equivalence", equivalence,
+      "--output-dir", path.join(root, "out"),
+    ], { encoding: "utf8", stdio: "pipe" })).toThrow(/equivalence artifact has no cases/);
+  });
+
+  it("fails closed when cold and warm replay phases are missing or duplicated", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "soundrobe-repro-phases-"));
+    temporaryRoots.push(root);
+    const fixtureRoot = path.join(root, "fixtures");
+    const snapshotRoot = path.join(fixtureRoot, "snapshots");
+    fs.mkdirSync(snapshotRoot, { recursive: true });
+    const write = (file: string, value: unknown) => {
+      fs.writeFileSync(file, JSON.stringify(value), "utf8");
+      return crypto.createHash("sha256").update(fs.readFileSync(file)).digest("hex");
+    };
+    const localHash = write(path.join(fixtureRoot, "local.json"), {});
+    const responseHash = write(path.join(snapshotRoot, "release.json"), {});
+    const pools = path.join(fixtureRoot, "candidate-pools.json");
+    write(pools, {
+      schemaVersion: 1,
+      pools: [{
+        poolId: "pool",
+        localFixture: "local.json",
+        localFixtureSha256: localHash,
+        candidates: [{ provider: "discogs", releaseId: "release-1", response: "snapshots/release.json", responseSha256: responseHash }],
+      }],
+    });
+    const equivalence = path.join(root, "equivalence.json");
+    write(equivalence, {
+      allLookupRequestsEquivalent: true,
+      cases: [{ caseId: "case", requestEqual: true }],
+    });
+    const native = path.join(root, "results.json");
+    write(native, {
+      invocations: [
+        { caseId: "case", phase: "cold" },
+        { caseId: "case", phase: "cold" },
+      ],
+    });
+    const output = path.join(root, "out");
+    expect(() => execFileSync("python3", [
+      scriptPath,
+      "--candidate-pools", pools,
+      "--equivalence", equivalence,
+      "--native-results", native,
+      "--output-dir", output,
+    ], { encoding: "utf8", stdio: "pipe" })).toThrow();
+    const result = JSON.parse(fs.readFileSync(path.join(output, "reproducibility.json"), "utf8"));
+    expect(result).toMatchObject({ reproducible: false, nativeReplay: { complete: false } });
+    expect(result.nativeReplay.missingPhases).toEqual(["case:warm"]);
+    expect(result.nativeReplay.duplicatePhases).toEqual(["case:cold"]);
+    expect(fs.readFileSync(path.join(output, "command.log"), "utf8")).toContain("status=failed");
   });
 
   it("rejects a changed frozen response", () => {

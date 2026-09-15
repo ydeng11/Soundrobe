@@ -82,11 +82,14 @@ The audit requires one expectation entry per corpus case, checks source-relative
 folders for root escapes, validates complete mappings for reviewed matches, and
 keeps cases without independent provider review explicitly unscored. It writes
 `ground-truth.json`, `ground-truth.md`, and a status log under the selected
-`.planning/debug/auto-tag-eval/<run-id>/` directory.
+`.planning/debug/auto-tag-eval/<run-id>/` directory. It exits nonzero while any
+case remains unscored, so the current diagnostic inventory is intentionally not
+a passing ground-truth benchmark.
 
 The credentialed native replay is opt-in:
 
 ```sh
+SOUNDROBE_AUTO_TAG_EVAL_SOURCE_ROOT=/path/to/curated-library \
 SOUNDROBE_AUTO_TAG_EVAL_PROFILE=folder_filename \
 SOUNDROBE_AUTO_TAG_EVAL_ARTISTS='Enya' \
 just eval-auto-tag-live
@@ -107,7 +110,9 @@ just eval-auto-tag-repro
 This checks SHA-256 locks for every frozen candidate-pool fixture and provider
 response, validates the saved production-reader equivalence cases, and lists
 cold/warm identity drift. A drift is reported as failed verification and keeps
-the replay separate from deterministic matcher results.
+the replay separate from deterministic matcher results. The gate also requires
+nonempty equivalence evidence and exactly one cold and one warm invocation for
+each retained replay case; missing or duplicate phases fail the command.
 
 The frozen pool manifest now covers eight edition and failure fixtures with
 34 locked responses: Relapse Deluxe, the representative Enya, Ariana, Doja Cat,
@@ -129,6 +134,10 @@ just eval-auto-tag-profiles
 ```
 
 Native outcomes distinguish confirmed success, wrong match, safe abstention, unresolved, incomplete provider work, and failed verification. Provider recovery and a different-release selection are reported separately from matcher attribution. Ordinary CI runs only the deterministic contracts; live evaluation remains manual and credentialed.
+When native result files are supplied, the profile audit exits nonzero unless
+each corpus case has exactly one cold and one warm invocation. It still writes
+the outcome, coverage, provider-unavailable, mapping, readback, and payload
+failure counters for diagnosis.
 
 When additional provider evidence is needed, use the resumable collector in
 small batches:
