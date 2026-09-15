@@ -18,6 +18,9 @@ from pathlib import Path
 from typing import Any
 
 
+PROVIDER_POSITION_RE = re.compile(r"^[1-9][0-9]*(?:-[1-9][0-9]*)?$")
+
+
 def read_json(path: Path) -> Any:
     with path.open(encoding="utf-8") as handle:
         return json.load(handle)
@@ -73,6 +76,13 @@ def duration_compatible(local: Any, provider: Any) -> bool:
     if left is None or right is None:
         return True
     return abs(left - right) <= max(5.0, left * 0.03)
+
+
+def provider_position_parts(value: Any) -> tuple[int, int] | None:
+    if not isinstance(value, str) or not PROVIDER_POSITION_RE.fullmatch(value):
+        return None
+    parts = [int(part) for part in value.split("-")]
+    return (1, parts[0]) if len(parts) == 1 else (parts[0], parts[1])
 
 
 def provider_tracks(payload: dict[str, Any], provider: str) -> list[dict[str, Any]]:
@@ -186,6 +196,12 @@ def compare_case(case: dict[str, Any], row: dict[str, Any], fixture_root: Path) 
     tracks = provider_tracks(payload, provider)
     if not tracks:
         raise ValueError(f"provider snapshot has no tracks for {case['caseId']}")
+    invalid_positions = [track["position"] for track in tracks if provider_position_parts(track["position"]) is None]
+    if invalid_positions:
+        raise ValueError(
+            f"verified case {case['caseId']} has invalid provider positions: "
+            + json.dumps(invalid_positions, ensure_ascii=False)
+        )
     used: set[int] = set()
     exact_used: set[int] = set()
     exact_title_matches = 0
@@ -265,11 +281,14 @@ def compare_case(case: dict[str, Any], row: dict[str, Any], fixture_root: Path) 
         extra_positions = {str(remote["position"]) for remote in unmatched}
         if kind == "selected_media":
             media_position = str(policy.get("mediaPosition") or "")
+            media_number = int(media_position) if media_position.isdigit() else 0
             if not media_position or any(
-                str(item["providerTrack"]).split("-", 1)[0] != media_position
+                provider_position_parts(item["providerTrack"]) is None
+                or provider_position_parts(item["providerTrack"])[0] != media_number
                 for item in mapping
             ) or any(
-                str(remote["position"]).split("-", 1)[0] == media_position
+                provider_position_parts(remote["position"]) is None
+                or provider_position_parts(remote["position"])[0] == media_number
                 for remote in unmatched
             ):
                 raise ValueError(
@@ -277,7 +296,7 @@ def compare_case(case: dict[str, Any], row: dict[str, Any], fixture_root: Path) 
                 )
         elif kind == "allowed_extras":
             allowed = {str(value) for value in policy.get("providerTracks", [])}
-            if extra_positions != allowed:
+            if any(provider_position_parts(value) is None for value in allowed) or extra_positions != allowed:
                 raise ValueError(
                     f"verified case {case['caseId']} has unexpected provider extras: "
                     + json.dumps(sorted(extra_positions))
@@ -351,6 +370,28 @@ def review(corpus: dict[str, Any], manifest: dict[str, Any], fixture_root: Path)
     }
 
 
+def expectation_ledger(result: dict[str, Any]) -> dict[str, Any]:
+    """Export the reviewed subset in the native evaluator's expectation shape."""
+    return {
+        "schemaVersion": result["schemaVersion"],
+        "corpusVersion": result["corpusVersion"],
+        "cases": [
+            {
+                "caseId": item["caseId"],
+                "status": item["status"],
+                "acceptableEditionIds": item.get("acceptableEditionIds", []),
+                "rejectedHardNegativeIds": item.get("hardNegativeIds", []),
+                "matcherAttribution": item.get("improvementAttribution") == "normalized-title",
+                "providerTrackCount": item.get("providerTrackCount"),
+                "providerTrackPolicy": item.get("providerTrackPolicy"),
+                "unmatchedProviderTracks": item.get("unmatchedProviderTracks", []),
+                "mapping": item.get("mapping", []),
+            }
+            for item in result["cases"]
+        ],
+    }
+
+
 def render(result: dict[str, Any]) -> str:
     lines = [
         "# Reviewed auto-tag representative subset",
@@ -387,6 +428,10 @@ def main() -> int:
     result = review(read_json(args.corpus), read_json(args.manifest), args.fixture_root)
     args.output_dir.mkdir(parents=True, exist_ok=True)
     (args.output_dir / "review.json").write_text(json.dumps(result, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    (args.output_dir / "expectations.json").write_text(
+        json.dumps(expectation_ledger(result), indent=2, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
     (args.output_dir / "review.md").write_text(render(result), encoding="utf-8")
     (args.output_dir / "command.log").write_text(
         f"status=passed\ncase_count={result['caseCount']}\ntrack_count={result['trackCount']}\n",

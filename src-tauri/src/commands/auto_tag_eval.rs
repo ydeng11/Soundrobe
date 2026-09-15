@@ -108,11 +108,27 @@ struct ProfileInput {
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
+struct ProviderTrackPolicy {
+    kind: String,
+    #[serde(default)]
+    media_position: Option<String>,
+    #[serde(default)]
+    provider_tracks: Vec<String>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct Expectation {
     status: String,
     acceptable_edition_ids: Vec<String>,
     rejected_hard_negative_ids: Vec<String>,
     mapping: Vec<Value>,
+    #[serde(default)]
+    provider_track_count: Option<usize>,
+    #[serde(default)]
+    provider_track_policy: Option<ProviderTrackPolicy>,
+    #[serde(default)]
+    unmatched_provider_tracks: Option<Vec<String>>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -373,6 +389,108 @@ fn reviewed_mapping_matches(candidate: &AlbumCandidate, mapping: &[Value]) -> bo
     }) && local_tracks.len() == candidate.tracks.len()
 }
 
+fn reviewed_provider_policy_matches(candidate: &AlbumCandidate, expectation: &Expectation) -> bool {
+    let unmatched = expectation
+        .unmatched_provider_tracks
+        .as_deref()
+        .unwrap_or_default();
+    let Some(provider_track_count) = expectation.provider_track_count else {
+        return expectation.provider_track_policy.is_none() && unmatched.is_empty();
+    };
+    if unmatched
+        .iter()
+        .any(|position| provider_position_components(position).is_none())
+        || unmatched.iter().collect::<BTreeSet<_>>().len() != unmatched.len()
+    {
+        return false;
+    }
+    let Some(mapping_positions) = expectation
+        .mapping
+        .iter()
+        .map(|row| row.get("providerTrack").and_then(provider_position_value))
+        .collect::<Option<Vec<_>>>()
+    else {
+        return false;
+    };
+    if mapping_positions
+        .iter()
+        .any(|position| provider_position_components(position).is_none())
+    {
+        return false;
+    }
+    let Some(mut expected_positions) = mapping_positions
+        .iter()
+        .chain(unmatched.iter())
+        .map(|position| provider_position_components(position))
+        .collect::<Option<Vec<_>>>()
+    else {
+        return false;
+    };
+    let provider_tracks = candidate
+        .provider_tracks_for_evaluation
+        .as_deref()
+        .unwrap_or(&candidate.tracks);
+    let Some(mut actual_positions) = provider_tracks
+        .iter()
+        .map(|track| {
+            let track_number = u64::from(track.track_number?);
+            let medium = u64::from(track.disc_number.unwrap_or(1));
+            (medium > 0 && track_number > 0).then_some((medium, track_number))
+        })
+        .collect::<Option<Vec<_>>>()
+    else {
+        return false;
+    };
+    if provider_track_count != actual_positions.len()
+        || expected_positions.len() != actual_positions.len()
+    {
+        return false;
+    }
+    expected_positions.sort_unstable();
+    actual_positions.sort_unstable();
+    if expected_positions != actual_positions {
+        return false;
+    }
+    let Some(policy) = expectation.provider_track_policy.as_ref() else {
+        return unmatched.is_empty();
+    };
+    match policy.kind.as_str() {
+        "selected_media" => {
+            let Some(media_position) = policy
+                .media_position
+                .as_deref()
+                .and_then(|value| value.parse::<u64>().ok())
+            else {
+                return false;
+            };
+            !unmatched.is_empty()
+                && policy.provider_tracks.is_empty()
+                && mapping_positions.iter().all(|position| {
+                    position.contains('-')
+                        && provider_position_components(position)
+                            .is_some_and(|(medium, _)| medium == media_position)
+                })
+                && unmatched.iter().all(|position| {
+                    provider_position_components(position)
+                        .is_some_and(|(medium, _)| medium != media_position)
+                })
+        }
+        "allowed_extras" => {
+            let expected = policy
+                .provider_tracks
+                .iter()
+                .filter(|position| provider_position_components(position).is_some())
+                .collect::<BTreeSet<_>>();
+            let actual = unmatched.iter().collect::<BTreeSet<_>>();
+            !unmatched.is_empty()
+                && policy.media_position.is_none()
+                && expected.len() == policy.provider_tracks.len()
+                && expected == actual
+        }
+        _ => false,
+    }
+}
+
 fn provider_ids_cleared(request: &LookupRequest) -> bool {
     request.musicbrainz_album_id.is_none()
         && request.musicbrainz_artist_id.is_none()
@@ -411,6 +529,7 @@ fn candidate_is_expected(case: &EvalCase, candidate: &AlbumCandidate) -> EvalOut
             .iter()
             .any(|value| value == &id)
         && reviewed_mapping_matches(candidate, &case.expectation.mapping)
+        && reviewed_provider_policy_matches(candidate, &case.expectation)
     {
         EvalOutcome::ConfirmedSuccess
     } else if case
@@ -636,7 +755,8 @@ fn readback_matches(
         || result.written != detail.tracks.len()
         || !candidate_track_count_matches(candidate, detail.tracks.len())
         || (expectation.status == "verified_match"
-            && !reviewed_mapping_matches(candidate, &expectation.mapping))
+            && (!reviewed_mapping_matches(candidate, &expectation.mapping)
+                || !reviewed_provider_policy_matches(candidate, expectation)))
     {
         return false;
     }
@@ -2085,6 +2205,69 @@ fn reviewed_mapping_must_match_the_selected_candidate_positions() {
         &flattened,
         reordered_flattened_mapping.as_array().unwrap()
     ));
+
+    let mut policy_case = case.clone();
+    policy_case.expectation.provider_track_count = Some(3);
+    policy_case.expectation.provider_track_policy = Some(ProviderTrackPolicy {
+        kind: "allowed_extras".into(),
+        media_position: None,
+        provider_tracks: vec!["2-1".into()],
+    });
+    policy_case.expectation.unmatched_provider_tracks = Some(vec!["2-1".into()]);
+    policy_case.expectation.mapping = mapping.as_array().unwrap().clone();
+    let mut allowed_policy_candidate = accepted.clone();
+    allowed_policy_candidate.provider_tracks_for_evaluation = Some(vec![
+        accepted.tracks[0].clone(),
+        accepted.tracks[1].clone(),
+        TrackCandidate {
+            track_number: Some(1),
+            disc_number: Some(2),
+            ..TrackCandidate::default()
+        },
+    ]);
+    assert_eq!(
+        candidate_is_expected(&policy_case, &allowed_policy_candidate),
+        EvalOutcome::ConfirmedSuccess
+    );
+    allowed_policy_candidate
+        .provider_tracks_for_evaluation
+        .as_mut()
+        .unwrap()[2]
+        .track_number = Some(2);
+    assert_eq!(
+        candidate_is_expected(&policy_case, &allowed_policy_candidate),
+        EvalOutcome::Unresolved
+    );
+
+    let mut selected_media_case = case.clone();
+    selected_media_case.expectation.provider_track_count = Some(4);
+    selected_media_case.expectation.provider_track_policy = Some(ProviderTrackPolicy {
+        kind: "selected_media".into(),
+        media_position: Some("1".into()),
+        provider_tracks: Vec::new(),
+    });
+    selected_media_case.expectation.unmatched_provider_tracks =
+        Some(vec!["2-1".into(), "2-2".into()]);
+    selected_media_case.expectation.mapping = mapping.as_array().unwrap().clone();
+    let mut selected_media_candidate = accepted.clone();
+    selected_media_candidate.provider_tracks_for_evaluation = Some(vec![
+        accepted.tracks[0].clone(),
+        accepted.tracks[1].clone(),
+        TrackCandidate {
+            track_number: Some(1),
+            disc_number: Some(2),
+            ..TrackCandidate::default()
+        },
+        TrackCandidate {
+            track_number: Some(2),
+            disc_number: Some(2),
+            ..TrackCandidate::default()
+        },
+    ]);
+    assert_eq!(
+        candidate_is_expected(&selected_media_case, &selected_media_candidate),
+        EvalOutcome::ConfirmedSuccess
+    );
 }
 
 #[test]
