@@ -64,11 +64,13 @@ run can be reported as verified.
 
 The exact Relapse Deluxe regression has a separate reviewed ledger at
 `test/fixtures/tauri/relapse-deluxe/reviewed-truth.json`. It is the only reviewed
-positive in this worktree and records release `36441795`, the alternate-bonus hard
-negative, and the reversed bonus-track mapping. Its corresponding case is the first
-reviewed entry in `test/fixtures/tauri/auto-tag-eval/expectations.json`; the other
-seven-artist cases remain outside scored precision and coverage until they receive the
-same review.
+positive in that standalone Relapse ledger and records release `36441795`, the
+alternate-bonus hard negative, and the reversed bonus-track mapping. Its
+corresponding case is the first reviewed entry in
+`test/fixtures/tauri/auto-tag-eval/expectations.json`; the other seven-artist cases
+remain outside that broad corpus ledger's scored precision and coverage until they
+receive the same review. This does not replace the separate 20-case representative
+review ledger described above.
 
 Audit the complete 321-case ledger offline with:
 
@@ -92,7 +94,7 @@ just eval-auto-tag-live
 
 Optional `SOUNDROBE_AUTO_TAG_EVAL_CASES` narrows by case ID. The runner reads each source folder with the production reader, then creates a fresh temporary folder containing one minimal silent FLAC per source track. It copies corpus-derived metadata, filenames, numbering, credits, and exact durations into those synthetic inputs; original audio payloads are never copied. IDs are cleared for discovery profiles through `WriteQueue`, AI and lyrics are disabled, one isolated cache is reused across cold and warm phases, a ten-minute folder and eight-hour run bound are enforced, and sanitized JSONL/results/report evidence is written under `.planning/debug/auto-tag-eval/<run-id>/`. Original files are hash-checked before and after the run and are never written.
 
-The native runner overlays reviewed entries from `SOUNDROBE_AUTO_TAG_EVAL_EXPECTATIONS` when present, while leaving unreviewed inventory cases diagnostic. The default points to the checked-in expectations ledger beside the corpus.
+The native runner overlays reviewed entries from `SOUNDROBE_AUTO_TAG_EVAL_EXPECTATIONS` when present, while leaving unreviewed inventory cases diagnostic. The supplied expectations file is authoritative for native scoring: the checked-in broad ledger contains the standalone Relapse review, while the generated representative-subset ledger contains its separate 20 verified cases. The default points to the checked-in expectations ledger beside the corpus.
 
 The synthetic-input equivalence gate compares production lookup requests from selected originals and their generated FLAC folders before the native replay. It must pass before broad evaluation is interpreted. The separate Enya audit remains the evidence for real-media payload preservation and malformed-layout behavior.
 

@@ -107,4 +107,30 @@ describe("review_auto_tag_subset.py", () => {
       "--output-dir", path.join(root, "out"),
     ], { encoding: "utf8", stdio: "pipe" })).toThrow(/duration-conflict/);
   });
+
+  it("fails closed on malformed provider positions", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "soundrobe-subset-invalid-position-"));
+    temporaryRoots.push(root);
+    const fixture = path.join(root, "fixtures");
+    fs.mkdirSync(fixture, { recursive: true });
+    fs.writeFileSync(path.join(fixture, "release.json"), JSON.stringify({
+      artists: [{ name: "Artist" }],
+      tracklist: [{ type_: "track", position: "malformed-1", title: "Song", duration: "0:10" }],
+    }), "utf8");
+    fs.writeFileSync(path.join(fixture, "corpus.json"), JSON.stringify({
+      corpusVersion: "test",
+      cases: [{ caseId: "case", artist: "Artist", tracks: [{ title: "Song", duration: 10 }] }],
+    }), "utf8");
+    fs.writeFileSync(path.join(fixture, "manifest.json"), JSON.stringify({
+      schemaVersion: 1,
+      cases: [{ caseId: "case", status: "verified_match", provider: "discogs", releaseId: "release", snapshot: "release.json" }],
+    }), "utf8");
+    expect(() => execFileSync("python3", [
+      scriptPath,
+      "--corpus", path.join(fixture, "corpus.json"),
+      "--manifest", path.join(fixture, "manifest.json"),
+      "--fixture-root", fixture,
+      "--output-dir", path.join(root, "out"),
+    ], { encoding: "utf8", stdio: "pipe" })).toThrow(/invalid provider positions/);
+  });
 });
