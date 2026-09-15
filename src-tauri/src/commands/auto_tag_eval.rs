@@ -294,7 +294,9 @@ fn is_provider_position_sequence(positions: &[String]) -> bool {
         .filter_map(|value| {
             value
                 .split_once('-')
-                .map(|(medium, track)| (medium.parse().ok()?, track.parse().ok()?))
+                .and_then(|(medium, track)| {
+                    Some((medium.parse().ok()?, track.parse().ok()?))
+                })
                 .or_else(|| Some((1, provider_position_component(value)?)))
         })
         .collect::<Vec<_>>();
