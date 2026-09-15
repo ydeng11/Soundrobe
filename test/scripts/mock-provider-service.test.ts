@@ -59,11 +59,9 @@ it("imports locked raw detail snapshots from existing pools for offline review",
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   const base = `http://127.0.0.1:${server.address().port}`;
   expect((await (await fetch(`${base}/discogs/releases/1459867`)).json()).id).toBe(1459867);
-  // A normalized candidate cannot stand in for an upstream release response;
-  // this ID is explicitly locked as unavailable rather than silently omitted.
-  const unavailable = await fetch(`${base}/discogs/releases/36441795`);
-  expect(unavailable.status).toBe(404);
-  expect((await unavailable.json()).reason).toBe("provider_evidence_not_captured");
+  const relapse = await fetch(`${base}/discogs/releases/36441795`);
+  expect(relapse.status).toBe(200);
+  expect((await relapse.json()).tracklist).toHaveLength(22);
   expect((await (await fetch(`${base}/musicbrainz/ws/2/release/627377a9-be56-4c45-a56d-9ae941546ef0?inc=recordings%2Bartist-credits%2Blabels%2Burl-rels&fmt=json`)).json()).id).toBe("627377a9-be56-4c45-a56d-9ae941546ef0");
   const exactMusicBrainz = await fetch(`${base}/musicbrainz/ws/2/release/4f45e662-f5fa-44af-ba11-f202ee324df8?inc=recordings%2Bartist-credits%2Blabels%2Burl-rels&fmt=json`);
   expect((await exactMusicBrainz.json()).id).toBe("4f45e662-f5fa-44af-ba11-f202ee324df8");

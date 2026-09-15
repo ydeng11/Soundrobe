@@ -18,7 +18,7 @@ node scripts/mock-provider-service.cjs serve \
   .planning/debug/provider-mock/manifest.json 18081
 ```
 
-The importer verifies every source hash and writes 23 raw release-detail
+The importer verifies every source hash and writes 24 raw release-detail
 records plus the locked discovery/search, artist-release, and representative
 edition-detail records. Normalized candidate fixtures are rejected and are
 never served as upstream responses.

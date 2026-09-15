@@ -245,6 +245,68 @@ fn provider_candidate_id(candidate: &AlbumCandidate) -> String {
         .to_string()
 }
 
+fn provider_position_value(value: &Value) -> Option<String> {
+    value
+        .as_str()
+        .map(str::to_string)
+        .or_else(|| value.as_u64().map(|value| value.to_string()))
+}
+
+fn candidate_position_matches(track: &TrackCandidate, expected: &str) -> bool {
+    let Some(track_number) = track.track_number else {
+        return false;
+    };
+    if expected == track_number.to_string() {
+        return true;
+    }
+    track.disc_number.is_some_and(|disc_number| {
+        expected == format!("{disc_number}-{track_number}")
+    })
+}
+
+fn reviewed_mapping_matches(candidate: &AlbumCandidate, mapping: &[Value]) -> bool {
+    if mapping.len() != candidate.tracks.len() {
+        return false;
+    }
+    let mut local_tracks = BTreeSet::new();
+    mapping.iter().all(|row| {
+        let Some(local_track) = row
+            .get("localTrack")
+            .and_then(Value::as_u64)
+            .and_then(|value| usize::try_from(value).ok())
+        else {
+            return false;
+        };
+        let Some(provider_track) = row
+            .get("providerTrack")
+            .and_then(provider_position_value)
+        else {
+            return false;
+        };
+        local_track > 0
+            && local_tracks.insert(local_track)
+            && candidate
+                .tracks
+                .get(local_track - 1)
+                .is_some_and(|track| candidate_position_matches(track, &provider_track))
+    }) && local_tracks.len() == candidate.tracks.len()
+}
+
+fn provider_ids_cleared(request: &LookupRequest) -> bool {
+    request.musicbrainz_album_id.is_none()
+        && request.musicbrainz_artist_id.is_none()
+        && request.discogs_release_id.is_none()
+        && request.discogs_artist_id.is_none()
+        && request
+            .tracks
+            .iter()
+            .all(|track| track.musicbrainz_track_id.is_none())
+}
+
+fn candidate_track_count_matches(candidate: &AlbumCandidate, detail_count: usize) -> bool {
+    candidate.tracks.len() == detail_count
+}
+
 fn select_deterministically(
     request: &LookupRequest,
     mut candidates: Vec<AlbumCandidate>,
@@ -267,6 +329,7 @@ fn candidate_is_expected(case: &EvalCase, candidate: &AlbumCandidate) -> EvalOut
             .acceptable_edition_ids
             .iter()
             .any(|value| value == &id)
+        && reviewed_mapping_matches(candidate, &case.expectation.mapping)
     {
         EvalOutcome::ConfirmedSuccess
     } else if case
@@ -474,7 +537,11 @@ fn safe_relative_folder(relative: &str) -> PathBuf {
     path
 }
 
-fn readback_matches(album: &Path, result: Option<&AutoTagRunResult>) -> bool {
+fn readback_matches(
+    album: &Path,
+    result: Option<&AutoTagRunResult>,
+    expectation: &Expectation,
+) -> bool {
     let Some(result) = result else {
         return false;
     };
@@ -484,7 +551,12 @@ fn readback_matches(album: &Path, result: Option<&AutoTagRunResult>) -> bool {
     let Ok(detail) = crate::commands::tracks::read_album(album) else {
         return false;
     };
-    if result.outcome != AutoTagOutcome::Applied || result.written != detail.tracks.len() {
+    if result.outcome != AutoTagOutcome::Applied
+        || result.written != detail.tracks.len()
+        || !candidate_track_count_matches(candidate, detail.tracks.len())
+        || (expectation.status == "verified_match"
+            && !reviewed_mapping_matches(candidate, &expectation.mapping))
+    {
         return false;
     }
     let fallback_artist = album
@@ -1797,6 +1869,83 @@ fn reviewed_expectations_are_required_for_scored_metrics() {
 }
 
 #[test]
+fn reviewed_mapping_must_match_the_selected_candidate_positions() {
+    let candidate = AlbumCandidate {
+        tracks: vec![
+            TrackCandidate {
+                track_number: Some(2),
+                disc_number: Some(1),
+                ..TrackCandidate::default()
+            },
+            TrackCandidate {
+                track_number: Some(1),
+                disc_number: Some(1),
+                ..TrackCandidate::default()
+            },
+        ],
+        ..AlbumCandidate::default()
+    };
+    let mapping = json!([
+        {"localTrack": 1, "providerTrack": "1-2"},
+        {"localTrack": 2, "providerTrack": "1-1"}
+    ]);
+    assert!(reviewed_mapping_matches(&candidate, mapping.as_array().unwrap()));
+
+    let mut case = load_corpus().cases[0].clone();
+    case.expectation.status = "verified_match".into();
+    case.expectation.acceptable_edition_ids = vec!["reviewed-release".into()];
+    case.expectation.mapping = mapping.as_array().unwrap().clone();
+    let mut accepted = candidate.clone();
+    accepted.discogs_release_id = Some("reviewed-release".into());
+    assert_eq!(
+        candidate_is_expected(&case, &accepted),
+        EvalOutcome::ConfirmedSuccess
+    );
+
+    let wrong = json!([
+        {"localTrack": 1, "providerTrack": "1-1"},
+        {"localTrack": 2, "providerTrack": "1-2"}
+    ]);
+    assert!(!reviewed_mapping_matches(&candidate, wrong.as_array().unwrap()));
+    case.expectation.mapping = wrong.as_array().unwrap().clone();
+    assert_eq!(
+        candidate_is_expected(&case, &accepted),
+        EvalOutcome::Unresolved
+    );
+}
+
+#[test]
+fn clean_discovery_requests_have_no_provider_ids() {
+    let clean = LookupRequest::default();
+    assert!(provider_ids_cleared(&clean));
+
+    let mut with_album_id = clean.clone();
+    with_album_id.musicbrainz_album_id = Some("album".into());
+    assert!(!provider_ids_cleared(&with_album_id));
+
+    let mut with_artist_id = clean.clone();
+    with_artist_id.discogs_artist_id = Some("artist".into());
+    assert!(!provider_ids_cleared(&with_artist_id));
+
+    let mut with_track_id = clean;
+    with_track_id.tracks = vec![TrackCandidate {
+        musicbrainz_track_id: Some("track".into()),
+        ..TrackCandidate::default()
+    }];
+    assert!(!provider_ids_cleared(&with_track_id));
+}
+
+#[test]
+fn readback_rejects_a_candidate_with_a_different_track_count() {
+    let candidate = AlbumCandidate {
+        tracks: vec![TrackCandidate::default()],
+        ..AlbumCandidate::default()
+    };
+    assert!(!candidate_track_count_matches(&candidate, 2));
+    assert!(candidate_track_count_matches(&candidate, 1));
+}
+
+#[test]
 fn verified_abstention_rejects_an_applied_candidate() {
     let mut case = load_corpus().cases[0].clone();
     case.expectation.status = "verified_abstain".to_string();
@@ -2336,9 +2485,8 @@ async fn live_auto_tag_eval() {
             }
             if profile != PROFILE_RECOVERY {
                 assert!(
-                    preflight.musicbrainz_album_id.is_none()
-                        && preflight.discogs_release_id.is_none(),
-                    "discovery profile retained a release ID"
+                    provider_ids_cleared(&preflight),
+                    "discovery profile retained provider IDs"
                 );
             }
             let baseline = hash_map(&destination);
@@ -2409,7 +2557,7 @@ async fn live_auto_tag_eval() {
                         .is_some_and(|(left, right)| left == right)
                 });
             let readback = if outcome == "applied" {
-                readback_matches(&destination, native.as_ref())
+                readback_matches(&destination, native.as_ref(), &case.expectation)
             } else {
                 native.as_ref().is_none_or(|value| value.written == 0) && after == baseline
             };
