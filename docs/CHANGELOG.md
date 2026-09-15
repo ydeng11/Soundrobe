@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.10] - 2026-09-15
+
 ### Changed
 
 - Auto-tag evaluation corpus refreshes accept an explicit source root through `--source-root` or `SOUNDROBE_AUTO_TAG_EVAL_SOURCE_ROOT`, while committed fixture manifests retain only relative paths.
@@ -427,7 +429,8 @@ Navidrome-oriented libraries:
 - ReplayGain calculation and ffprobe-based audio validation.
 - Local MusicMoveArr dataset lookup.
 
-[Unreleased]: https://github.com/ydeng11/Soundrobe/compare/v0.1.3...HEAD
+[Unreleased]: https://github.com/ydeng11/Soundrobe/compare/v0.1.10...HEAD
+[0.1.10]: https://github.com/ydeng11/Soundrobe/releases/tag/v0.1.10
 [0.1.3]: https://github.com/ydeng11/Soundrobe/releases/tag/v0.1.3
 [0.1.2]: https://github.com/ydeng11/Soundrobe/releases/tag/v0.1.2
 [0.1.1]: https://github.com/ydeng11/Soundrobe/releases/tag/v0.1.1
