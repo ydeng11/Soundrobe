@@ -339,6 +339,7 @@ fn reviewed_mapping_matches(candidate: &AlbumCandidate, mapping: &[Value]) -> bo
             .len();
     let provider_positions_are_ordered = is_provider_position_sequence(&provider_positions);
     let mut local_tracks = BTreeSet::new();
+    let mut previous_local_track = 0;
     mapping.iter().all(|row| {
         let Some(local_track) = row
             .get("localTrack")
@@ -353,6 +354,10 @@ fn reviewed_mapping_matches(candidate: &AlbumCandidate, mapping: &[Value]) -> bo
         else {
             return false;
         };
+        if local_track <= previous_local_track {
+            return false;
+        }
+        previous_local_track = local_track;
         local_track > 0
             && local_tracks.insert(local_track)
             && candidate
@@ -2068,6 +2073,17 @@ fn reviewed_mapping_must_match_the_selected_candidate_positions() {
     assert!(!reviewed_mapping_matches(
         &flattened,
         malformed_mapping.as_array().unwrap()
+    ));
+
+    let reordered_flattened_mapping = json!([
+        {"localTrack": 2, "providerTrack": "1", "providerTitle": "Second disc"},
+        {"localTrack": 1, "providerTrack": "2", "providerTitle": "First disc"},
+        {"localTrack": 4, "providerTrack": "3", "providerTitle": "Fourth disc"},
+        {"localTrack": 3, "providerTrack": "4", "providerTitle": "Third disc"}
+    ]);
+    assert!(!reviewed_mapping_matches(
+        &flattened,
+        reordered_flattened_mapping.as_array().unwrap()
     ));
 }
 
