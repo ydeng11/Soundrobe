@@ -281,8 +281,18 @@ fn mapping_provider_title_matches(track: &TrackCandidate, row: &Value) -> bool {
     })
 }
 
-fn provider_position_component(value: &str) -> Option<u64> {
-    value.rsplit('-').next()?.parse().ok()
+fn provider_position_components(value: &str) -> Option<(u64, u64)> {
+    let mut components = value.split('-');
+    let first = components.next()?.parse().ok()?;
+    let second = components.next();
+    if components.next().is_some() {
+        return None;
+    }
+    let (medium, track) = match second {
+        Some(track) => (first, track.parse().ok()?),
+        None => (1, first),
+    };
+    (medium > 0 && track > 0).then_some((medium, track))
 }
 
 fn is_provider_position_sequence(positions: &[String]) -> bool {
@@ -291,14 +301,7 @@ fn is_provider_position_sequence(positions: &[String]) -> bool {
     }
     let components = positions
         .iter()
-        .filter_map(|value| {
-            value
-                .split_once('-')
-                .and_then(|(medium, track)| {
-                    Some((medium.parse().ok()?, track.parse().ok()?))
-                })
-                .or_else(|| Some((1, provider_position_component(value)?)))
-        })
+        .filter_map(|value| provider_position_components(value))
         .collect::<Vec<_>>();
     components.len() == positions.len()
         && components.first() == Some(&(1, 1))
@@ -316,10 +319,19 @@ fn reviewed_mapping_matches(candidate: &AlbumCandidate, mapping: &[Value]) -> bo
     if mapping.len() != candidate.tracks.len() {
         return false;
     }
-    let provider_positions = mapping
+    let Some(provider_positions) = mapping
         .iter()
-        .filter_map(|row| row.get("providerTrack").and_then(provider_position_value))
-        .collect::<Vec<_>>();
+        .map(|row| row.get("providerTrack").and_then(provider_position_value))
+        .collect::<Option<Vec<_>>>()
+    else {
+        return false;
+    };
+    if provider_positions
+        .iter()
+        .any(|position| provider_position_components(position).is_none())
+    {
+        return false;
+    }
     let has_duplicate_provider_position = provider_positions.len()
         != provider_positions
             .iter()
@@ -2045,6 +2057,17 @@ fn reviewed_mapping_must_match_the_selected_candidate_positions() {
     assert!(!reviewed_mapping_matches(
         &ambiguous,
         ambiguous_mapping.as_array().unwrap()
+    ));
+
+    let malformed_mapping = json!([
+        {"localTrack": 1, "providerTrack": "malformed-1", "providerTitle": "First disc"},
+        {"localTrack": 2, "providerTrack": "malformed-2", "providerTitle": "Second disc"},
+        {"localTrack": 3, "providerTrack": "malformed-3", "providerTitle": "Third disc"},
+        {"localTrack": 4, "providerTrack": "malformed-4", "providerTitle": "Fourth disc"}
+    ]);
+    assert!(!reviewed_mapping_matches(
+        &flattened,
+        malformed_mapping.as_array().unwrap()
     ));
 }
 
