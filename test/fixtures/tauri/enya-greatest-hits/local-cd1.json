@@ -1,0 +1,302 @@
+{
+  "path": "",
+  "artist_hint": "Enya",
+  "tagged_artist_hint": "Enya",
+  "album_hint": "Greatest Hits CD1",
+  "tagged_album_hint": "Greatest Hits CD1",
+  "year_hint": "2016",
+  "country_hint": null,
+  "musicbrainz_album_id": null,
+  "musicbrainz_artist_id": null,
+  "discogs_release_id": null,
+  "discogs_artist_id": null,
+  "selected_disc_number": 1,
+  "tracks": [
+    {
+      "title": "May It Be",
+      "filename": "01. Enya - May It Be",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 1,
+      "track_total": 22,
+      "length": 212.76,
+      "disc_number": null,
+      "disc_total": null
+    },
+    {
+      "title": "Only Time",
+      "filename": "02. Enya - Only Time",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 2,
+      "track_total": 22,
+      "length": 218.093333,
+      "disc_number": null,
+      "disc_total": null
+    },
+    {
+      "title": "The Humming...",
+      "filename": "03. Enya - The Humming...",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 3,
+      "track_total": 22,
+      "length": 225.173333,
+      "disc_number": null,
+      "disc_total": null
+    },
+    {
+      "title": "Trains And Winter Rains",
+      "filename": "04. Enya - Trains And Winter Rains",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 4,
+      "track_total": 22,
+      "length": 224.8,
+      "disc_number": null,
+      "disc_total": null
+    },
+    {
+      "title": "It's In The Rain",
+      "filename": "05. Enya - It's In The Rain",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 5,
+      "track_total": 22,
+      "length": 248.133333,
+      "disc_number": null,
+      "disc_total": null
+    },
+    {
+      "title": "Orinoco Flow",
+      "filename": "06. Enya - Orinoco Flow",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 6,
+      "track_total": 22,
+      "length": 266.44,
+      "disc_number": null,
+      "disc_total": null
+    },
+    {
+      "title": "Storms In Africa",
+      "filename": "07. Enya - Storms In Africa",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 7,
+      "track_total": 22,
+      "length": 244.84,
+      "disc_number": null,
+      "disc_total": null
+    },
+    {
+      "title": "Caribbean Blue",
+      "filename": "08. Enya - Caribbean Blue",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 8,
+      "track_total": 22,
+      "length": 239.533333,
+      "disc_number": null,
+      "disc_total": null
+    },
+    {
+      "title": "Book Of Days",
+      "filename": "09. Enya - Book Of Days",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 9,
+      "track_total": 22,
+      "length": 153.933333,
+      "disc_number": null,
+      "disc_total": null
+    },
+    {
+      "title": "Echoes In Rain",
+      "filename": "10. Enya - Echoes In Rain",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 10,
+      "track_total": 22,
+      "length": 215.506667,
+      "disc_number": null,
+      "disc_total": null
+    },
+    {
+      "title": "Amarantine",
+      "filename": "11. Enya - Amarantine",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 11,
+      "track_total": 22,
+      "length": 192.8,
+      "disc_number": null,
+      "disc_total": null
+    },
+    {
+      "title": "White Is The Winter Night",
+      "filename": "12. Enya - White Is The Winter Night",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 12,
+      "track_total": 22,
+      "length": 180.24,
+      "disc_number": null,
+      "disc_total": null
+    },
+    {
+      "title": "Anywhere Is ",
+      "filename": "13. Enya - Anywhere Is",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 13,
+      "track_total": 22,
+      "length": 239.533333,
+      "disc_number": null,
+      "disc_total": null
+    },
+    {
+      "title": "Only If...",
+      "filename": "14. Enya - Only If...",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 14,
+      "track_total": 22,
+      "length": 199.8,
+      "disc_number": null,
+      "disc_total": null
+    },
+    {
+      "title": "The Celts",
+      "filename": "15. Enya - The Celts",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 15,
+      "track_total": 22,
+      "length": 178.04,
+      "disc_number": null,
+      "disc_total": null
+    },
+    {
+      "title": "Dark Sky Island",
+      "filename": "16. Enya - Dark Sky Island",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 16,
+      "track_total": 22,
+      "length": 297.506667,
+      "disc_number": null,
+      "disc_total": null
+    },
+    {
+      "title": "One By One",
+      "filename": "17. Enya - One By One",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 17,
+      "track_total": 22,
+      "length": 234.706667,
+      "disc_number": null,
+      "disc_total": null
+    },
+    {
+      "title": "Shepherd Moons",
+      "filename": "18. Enya - Shepherd Moons",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 18,
+      "track_total": 22,
+      "length": 225.586667,
+      "disc_number": null,
+      "disc_total": null
+    },
+    {
+      "title": "Watermark",
+      "filename": "19. Enya - Watermark",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 19,
+      "track_total": 22,
+      "length": 146.2,
+      "disc_number": null,
+      "disc_total": null
+    },
+    {
+      "title": "Paint The Sky With Stars",
+      "filename": "20. Enya - Paint The Sky With Stars",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 20,
+      "track_total": 22,
+      "length": 255.786667,
+      "disc_number": null,
+      "disc_total": null
+    },
+    {
+      "title": "On My Way Home",
+      "filename": "21. Enya - On My Way Home",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 21,
+      "track_total": 22,
+      "length": 218.946667,
+      "disc_number": null,
+      "disc_total": null
+    },
+    {
+      "title": "A Day Without Rain",
+      "filename": "22. Enya - A Day Without Rain",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 22,
+      "track_total": 22,
+      "length": 158.293333,
+      "disc_number": null,
+      "disc_total": null
+    }
+  ]
+}

@@ -216,12 +216,17 @@ async fn discogs_edition_discovery_expands_versions_and_reuses_cache() {
 #[tokio::test]
 #[ignore = "requires the original 18-track album and live providers"]
 async fn live_discogs_edition_smoke() {
+    let source = PathBuf::from(std::env::var("SOUNDROBE_EDITION_SOURCE").expect("source required"));
+    run_live_edition_smoke(source, "Ariana Grande", 18).await;
+}
+
+pub(super) async fn run_live_edition_smoke(source: PathBuf, artist: &str, track_count: usize) {
     use crate::state::config::{load_from, ProcessEnv};
     use std::fs;
-    let source = PathBuf::from(std::env::var("SOUNDROBE_EDITION_SOURCE").expect("source required"));
     let root = PathBuf::from("/private/tmp")
-        .join(format!("soundrobe-edition-smoke-{}", std::process::id()));
+        .join(format!("soundrobe-edition-smoke-{}", uuid::Uuid::new_v4()));
     fs::create_dir_all(&root).unwrap();
+    println!("Smoke temp root: {}", root.display());
     let hash_files = |folder: &Path, audio_only: bool| {
         collect_audio_files(folder)
             .into_iter()
@@ -255,7 +260,7 @@ async fn live_discogs_edition_smoke() {
     };
     let original_hashes = hash_files(&source, false);
     let audio_hashes = hash_files(&source, true);
-    assert_eq!(original_hashes.len(), 18);
+    assert_eq!(original_hashes.len(), track_count);
     fs::write(
         root.join("source-hashes.json"),
         serde_json::to_vec_pretty(&serde_json::json!({
@@ -283,7 +288,7 @@ async fn live_discogs_edition_smoke() {
     } {
         let album = root
             .join(phase)
-            .join("Ariana Grande")
+            .join(artist)
             .join(source.file_name().unwrap());
         fs::create_dir_all(&album).unwrap();
         for path in collect_audio_files(&source) {
@@ -292,6 +297,7 @@ async fn live_discogs_edition_smoke() {
         assert_eq!(hash_files(&album, false), original_hashes);
         let before = build_lookup_request(&album).unwrap();
         assert!(before.discogs_release_id.is_none());
+        assert!(before.musicbrainz_album_id.is_none());
         let cancelled = Arc::new(AtomicBool::new(false));
         let result = resolve_and_apply_album_with_retry_context(
             &album,
@@ -329,9 +335,11 @@ async fn live_discogs_edition_smoke() {
             assert_eq!(result.outcome, AutoTagOutcome::NeedsReview);
         } else {
             assert_eq!(result.outcome, AutoTagOutcome::Applied);
-            assert_eq!(result.written, 18);
+            assert_eq!(result.written, track_count);
             let candidate = result.candidate.unwrap();
             assert_ne!(candidate.source, LookupSource::Llm);
+            assert_eq!(candidate.tracks.len(), track_count);
+            assert!(provider_candidate_credibility(&before, &candidate).is_ok());
             let after = build_lookup_request(&album).unwrap();
             assert!(after.discogs_release_id.is_some() || after.musicbrainz_album_id.is_some());
             let identity = (
@@ -344,8 +352,7 @@ async fn live_discogs_edition_smoke() {
             }
             selected = Some(identity);
             for (old, new) in before.tracks.iter().zip(&after.tracks) {
-                assert_eq!(old.track_number, new.track_number);
-                assert_eq!(new.track_total, Some(18));
+                assert_eq!(new.track_total, Some(track_count as u32));
                 assert!(new.title.as_ref().is_some_and(|title| !title.is_empty()));
                 let old_artists = split_collaborative_artists(&old.artist, &old.artists);
                 let new_artists = split_collaborative_artists(&new.artist, &new.artists);
@@ -355,11 +362,21 @@ async fn live_discogs_edition_smoke() {
                     old.title
                 );
             }
-            for file in collect_audio_files(&album) {
+            // Read persisted numbering directly: build_lookup_request deliberately
+            // prefers filename numbers, which could conceal a wrong bonus mapping.
+            for (file, mapped) in collect_audio_files(&album).iter().zip(&candidate.tracks) {
                 let read = crate::commands::tracks::read_track_metadata(Path::new(&file)).unwrap();
                 assert_eq!(read.year, candidate.year);
+                assert_eq!(read.title, mapped.title);
+                assert_eq!(read.track_number, mapped.track_number);
+                assert_eq!(read.discogs_release_id, candidate.discogs_release_id);
+                assert_eq!(read.musicbrainz_album_id, candidate.musicbrainz_album_id);
             }
         }
     }
-    println!("Smoke artifacts: {}", root.display());
+    println!(
+        "Smoke temp root: {} (removed after verification)",
+        root.display()
+    );
+    fs::remove_dir_all(&root).expect("remove successful smoke temp root");
 }

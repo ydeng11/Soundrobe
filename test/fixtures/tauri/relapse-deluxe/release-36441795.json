@@ -1,0 +1,272 @@
+{
+  "id": 36441795,
+  "status": "Accepted",
+  "year": 2009,
+  "resource_url": "https://api.discogs.com/releases/36441795",
+  "uri": "https://www.discogs.com/release/36441795-Eminem-Relapse-Deluxe",
+  "artists": [
+    {
+      "name": "Eminem",
+      "anv": "",
+      "join": "",
+      "role": "",
+      "tracks": "",
+      "id": 38661,
+      "resource_url": "https://api.discogs.com/artists/38661",
+      "thumbnail_url": "https://i.discogs.com/OMxoYlGYCVH5XjvvcNxFiRoTcoj4dIkM7Nzs27OLrIw/rs:fit/g:sm/q:90/h:600/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9BLTM4NjYx/LTE2NDI5Mjk5NzUt/OTQyOS5qcGVn.jpeg"
+    }
+  ],
+  "artists_sort": "Eminem",
+  "labels": [
+    {
+      "name": "Aftermath Entertainment",
+      "catno": "none",
+      "entity_type": "1",
+      "entity_type_name": "Label",
+      "id": 2310,
+      "resource_url": "https://api.discogs.com/labels/2310",
+      "thumbnail_url": "https://i.discogs.com/PZJDWzXrr7RV8p1VNxDDOw0_z4GgDMo75EPC5lpkc30/rs:fit/g:sm/q:90/h:462/w:600/czM6Ly9kaXNjb2dz/LWRhdGFiYXNlLWlt/YWdlcy9MLTIzMTAt/MTQ4ODkxNzkxOS04/MTQxLnBuZw.jpeg"
+    }
+  ],
+  "series": [],
+  "companies": [],
+  "formats": [
+    {
+      "name": "File",
+      "qty": "22",
+      "descriptions": [
+        "AAC",
+        "Album"
+      ]
+    }
+  ],
+  "data_quality": "Needs Vote",
+  "community": {
+    "have": 1,
+    "want": 5,
+    "rating": {
+      "count": 1,
+      "average": 5.0
+    },
+    "submitter": {
+      "username": "sourceguy2",
+      "resource_url": "https://api.discogs.com/users/sourceguy2"
+    },
+    "contributors": [
+      {
+        "username": "sourceguy2",
+        "resource_url": "https://api.discogs.com/users/sourceguy2"
+      }
+    ],
+    "data_quality": "Needs Vote",
+    "status": "Accepted"
+  },
+  "format_quantity": 22,
+  "date_added": "2026-02-08T01:43:52-08:00",
+  "date_changed": "2026-02-09T10:10:43-08:00",
+  "num_for_sale": 0,
+  "lowest_price": null,
+  "master_id": 100118,
+  "master_url": "https://api.discogs.com/masters/100118",
+  "title": "Relapse (Deluxe)",
+  "country": "US",
+  "released": "2009",
+  "released_formatted": "2009",
+  "identifiers": [],
+  "videos": [
+    {
+      "uri": "https://www.youtube.com/watch?v=hAuo8IOFNuE",
+      "title": "Eminem - 3 a.m.",
+      "description": "REMASTERED IN HD!!\nOfficial Music Video for 3 a.m. performed by Eminem.\n\n(C) 2009 Aftermath Records\n\n#Eminem #3am #Remastered",
+      "duration": 324,
+      "embed": true
+    },
+    {
+      "uri": "https://www.youtube.com/watch?v=RSdKmX2BH7o",
+      "title": "Eminem - We Made You (Official Music Video)",
+      "description": "REMASTERED IN HD!\nCheck out the official music video for \"We Made You\" by Eminem\nPlaylist Best of Eminem: https://goo.gl/AquNpo\nSubscribe for more: https://goo.gl/DxCrDV\n\nMusic video by Eminem performing We Made You. (C) 2009 Shady Records/Aftermath Recor",
+      "duration": 287,
+      "embed": true
+    },
+    {
+      "uri": "https://www.youtube.com/watch?v=lgT1AidzRWM",
+      "title": "Eminem - Beautiful (Official Music Video)",
+      "description": "REMASTERED IN HD!\nMusic video by Eminem performing Beautiful. (C) 2009 Aftermath Records\n#Eminem #Beautiful #Remastered",
+      "duration": 255,
+      "embed": true
+    },
+    {
+      "uri": "https://www.youtube.com/watch?v=_wN3wl473M0",
+      "title": "Eminem, Dr. Dre, & 50 Cent - Crack A Bottle (Official Music Video)",
+      "description": "REMASTERED IN HD!\nOfficial Music Video for Crack A Bottle performed by Eminem, Dr. Dre & 50 Cent.\n\nListen to \"Curtain Call 2\": \nhttps://Eminem.lnk.to/CurtainCall2\n\nhttp://eminem.com\nhttp://facebook.com/eminem\nhttp://twitter.com/eminem\nhttp://instagram.com",
+      "duration": 304,
+      "embed": true
+    }
+  ],
+  "genres": [
+    "Hip Hop"
+  ],
+  "styles": [
+    "Thug Rap",
+    "Pop Rap"
+  ],
+  "tracklist": [
+    {
+      "position": "1",
+      "type_": "track",
+      "title": "Dr. West (Skit)",
+      "duration": "1:30"
+    },
+    {
+      "position": "2",
+      "type_": "track",
+      "title": "3 A.M.",
+      "duration": "5:20"
+    },
+    {
+      "position": "3",
+      "type_": "track",
+      "title": "My Mom",
+      "duration": "5:20"
+    },
+    {
+      "position": "4",
+      "type_": "track",
+      "title": "Insane",
+      "duration": "3:01"
+    },
+    {
+      "position": "5",
+      "type_": "track",
+      "title": "Bagpipes From Baghdad",
+      "duration": "4:43"
+    },
+    {
+      "position": "6",
+      "type_": "track",
+      "title": "Hello",
+      "duration": "4:08"
+    },
+    {
+      "position": "7",
+      "type_": "track",
+      "title": "Tonya (Skit)",
+      "duration": "0:42"
+    },
+    {
+      "position": "8",
+      "type_": "track",
+      "title": "Same Song & Dance",
+      "duration": "4:07"
+    },
+    {
+      "position": "9",
+      "type_": "track",
+      "title": "We Made You",
+      "duration": "4:30"
+    },
+    {
+      "position": "10",
+      "type_": "track",
+      "title": "Medicine Ball",
+      "duration": "3:57"
+    },
+    {
+      "position": "11",
+      "type_": "track",
+      "title": "Paul (Skit)",
+      "duration": "0:19"
+    },
+    {
+      "position": "12",
+      "type_": "track",
+      "title": "Stay Wide Awake",
+      "duration": "5:20"
+    },
+    {
+      "position": "13",
+      "type_": "track",
+      "title": "Old Time's Sake",
+      "duration": "4:38"
+    },
+    {
+      "position": "14",
+      "type_": "track",
+      "title": "Must Be The Ganja",
+      "duration": "4:03"
+    },
+    {
+      "position": "15",
+      "type_": "track",
+      "title": "Mr. Mathers (Skit)",
+      "duration": "0:42"
+    },
+    {
+      "position": "16",
+      "type_": "track",
+      "title": "D\u00e9j\u00e0 Vu",
+      "duration": "4:44"
+    },
+    {
+      "position": "17",
+      "type_": "track",
+      "title": "Beautiful",
+      "duration": "6:33"
+    },
+    {
+      "position": "18",
+      "type_": "track",
+      "title": "Crack A Bottle",
+      "extraartists": [
+        {
+          "name": "50 Cent",
+          "anv": "",
+          "join": "",
+          "role": "Featuring",
+          "tracks": "",
+          "id": 79578,
+          "resource_url": "https://api.discogs.com/artists/79578"
+        },
+        {
+          "name": "Dr. Dre",
+          "anv": "",
+          "join": "",
+          "role": "Featuring",
+          "tracks": "",
+          "id": 50513,
+          "resource_url": "https://api.discogs.com/artists/50513"
+        }
+      ],
+      "duration": "4:58"
+    },
+    {
+      "position": "19",
+      "type_": "track",
+      "title": "Steve Berman (Skit)",
+      "duration": "1:29"
+    },
+    {
+      "position": "20",
+      "type_": "track",
+      "title": "Underground",
+      "duration": "6:11"
+    },
+    {
+      "position": "21",
+      "type_": "track",
+      "title": "Careful What You Wish For",
+      "duration": ""
+    },
+    {
+      "position": "22",
+      "type_": "track",
+      "title": "My Darling",
+      "duration": ""
+    }
+  ],
+  "images": [],
+  "thumb": "",
+  "estimated_weight": 0,
+  "blocked_from_sale": false,
+  "is_offensive": false
+}

@@ -1,0 +1,28 @@
+{
+  "count": 1,
+  "releases": [
+    {
+      "id": "bf39b43f-2bf1-48ad-bdfe-d7608004df52",
+      "title": "Amala",
+      "date": "2018-03-30",
+      "country": "",
+      "artist-credit": [
+        {
+          "name": "Doja Cat",
+          "artist": {
+            "id": "5df62a88-cac9-490a-b62c-c7c88f4020f4",
+            "name": "Doja Cat"
+          }
+        }
+      ],
+      "media": [
+        {
+          "format": "Digital Media",
+          "track-count": 13
+        }
+      ],
+      "label-info": [],
+      "barcode": "886446943367"
+    }
+  ]
+}

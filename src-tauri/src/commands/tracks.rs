@@ -20,7 +20,7 @@ use lofty::iff::wav::WavFile;
 use lofty::mp4::{AtomData, AtomIdent, Mp4File};
 use lofty::mpeg::MpegFile;
 use lofty::ogg::{OpusFile, VorbisFile};
-use lofty::tag::{ItemKey, Tag};
+use lofty::tag::{ItemKey, Tag, TagType};
 use serde::Serialize;
 use std::borrow::Cow;
 use std::collections::HashMap;
@@ -1172,11 +1172,21 @@ fn from_lofty(
         }
         _ => {}
     }
+    let mut ordered_tags = tagged.tags().to_vec();
+    if extension == "flac" {
+        ordered_tags.sort_by_key(|tag| {
+            if tag.tag_type() == TagType::VorbisComments {
+                0
+            } else {
+                1
+            }
+        });
+    }
     from_tags(
         path,
         size_bytes,
         extension,
-        tagged.tags(),
+        &ordered_tags,
         duration,
         bitrate,
         tagged.properties().sample_rate(),

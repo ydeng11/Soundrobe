@@ -1,0 +1,296 @@
+{
+  "artist_hint": "Eminem",
+  "tagged_artist_hint": "Eminem",
+  "album_hint": "Relapse",
+  "tagged_album_hint": "Relapse",
+  "year_hint": "2009",
+  "tracks": [
+    {
+      "title": "Dr. West",
+      "filename": "01 Dr. West",
+      "artist": "Eminem",
+      "artists": [
+        "Eminem"
+      ],
+      "track_number": 1,
+      "track_total": 22,
+      "disc_number": 1,
+      "disc_total": 1,
+      "length": 89.546667
+    },
+    {
+      "title": "3 a.m.",
+      "filename": "02 3 a.m.",
+      "artist": "Eminem",
+      "artists": [
+        "Eminem"
+      ],
+      "track_number": 2,
+      "track_total": 22,
+      "disc_number": 1,
+      "disc_total": 1,
+      "length": 319.853333
+    },
+    {
+      "title": "My Mom",
+      "filename": "03 My Mom",
+      "artist": "Eminem",
+      "artists": [
+        "Eminem"
+      ],
+      "track_number": 3,
+      "track_total": 22,
+      "disc_number": 1,
+      "disc_total": 1,
+      "length": 319.866667
+    },
+    {
+      "title": "Insane",
+      "filename": "04 Insane",
+      "artist": "Eminem",
+      "artists": [
+        "Eminem"
+      ],
+      "track_number": 4,
+      "track_total": 22,
+      "disc_number": 1,
+      "disc_total": 1,
+      "length": 181.36
+    },
+    {
+      "title": "Bagpipes From Baghdad",
+      "filename": "05 Bagpipes From Baghdad",
+      "artist": "Eminem",
+      "artists": [
+        "Eminem"
+      ],
+      "track_number": 5,
+      "track_total": 22,
+      "disc_number": 1,
+      "disc_total": 1,
+      "length": 283.066667
+    },
+    {
+      "title": "Hello",
+      "filename": "06 Hello",
+      "artist": "Eminem",
+      "artists": [
+        "Eminem"
+      ],
+      "track_number": 6,
+      "track_total": 22,
+      "disc_number": 1,
+      "disc_total": 1,
+      "length": 248.2
+    },
+    {
+      "title": "Tonya",
+      "filename": "07 Tonya",
+      "artist": "Eminem",
+      "artists": [
+        "Eminem"
+      ],
+      "track_number": 7,
+      "track_total": 22,
+      "disc_number": 1,
+      "disc_total": 1,
+      "length": 42.213333
+    },
+    {
+      "title": "Same Song & Dance",
+      "filename": "08 Same Song & Dance",
+      "artist": "Eminem",
+      "artists": [
+        "Eminem"
+      ],
+      "track_number": 8,
+      "track_total": 22,
+      "disc_number": 1,
+      "disc_total": 1,
+      "length": 246.653333
+    },
+    {
+      "title": "We Made You",
+      "filename": "09 We Made You",
+      "artist": "Eminem",
+      "artists": [
+        "Eminem"
+      ],
+      "track_number": 9,
+      "track_total": 22,
+      "disc_number": 1,
+      "disc_total": 1,
+      "length": 269.613333
+    },
+    {
+      "title": "Medicine Ball",
+      "filename": "10 Medicine Ball",
+      "artist": "Eminem",
+      "artists": [
+        "Eminem"
+      ],
+      "track_number": 10,
+      "track_total": 22,
+      "disc_number": 1,
+      "disc_total": 1,
+      "length": 237.333333
+    },
+    {
+      "title": "Paul",
+      "filename": "11 Paul",
+      "artist": "Eminem",
+      "artists": [
+        "Eminem"
+      ],
+      "track_number": 11,
+      "track_total": 22,
+      "disc_number": 1,
+      "disc_total": 1,
+      "length": 19.413333
+    },
+    {
+      "title": "Stay Wide Awake",
+      "filename": "12 Stay Wide Awake",
+      "artist": "Eminem",
+      "artists": [
+        "Eminem"
+      ],
+      "track_number": 12,
+      "track_total": 22,
+      "disc_number": 1,
+      "disc_total": 1,
+      "length": 319.973333
+    },
+    {
+      "title": "Old Time's Sake",
+      "filename": "13 Old Time's Sake",
+      "artist": "Eminem",
+      "artists": [
+        "Eminem"
+      ],
+      "track_number": 13,
+      "track_total": 22,
+      "disc_number": 1,
+      "disc_total": 1,
+      "length": 278.16
+    },
+    {
+      "title": "Must Be The Ganja",
+      "filename": "14 Must Be The Ganja",
+      "artist": "Eminem",
+      "artists": [
+        "Eminem"
+      ],
+      "track_number": 14,
+      "track_total": 22,
+      "disc_number": 1,
+      "disc_total": 1,
+      "length": 242.906667
+    },
+    {
+      "title": "Mr. Mathers",
+      "filename": "15 Mr. Mathers",
+      "artist": "Eminem",
+      "artists": [
+        "Eminem"
+      ],
+      "track_number": 15,
+      "track_total": 22,
+      "disc_number": 1,
+      "disc_total": 1,
+      "length": 42.386667
+    },
+    {
+      "title": "Deja Vu",
+      "filename": "16 Deja Vu",
+      "artist": "Eminem",
+      "artists": [
+        "Eminem"
+      ],
+      "track_number": 16,
+      "track_total": 22,
+      "disc_number": 1,
+      "disc_total": 1,
+      "length": 283.52
+    },
+    {
+      "title": "Beautiful",
+      "filename": "17 Beautiful",
+      "artist": "Eminem",
+      "artists": [
+        "Eminem"
+      ],
+      "track_number": 17,
+      "track_total": 22,
+      "disc_number": 1,
+      "disc_total": 1,
+      "length": 392.826667
+    },
+    {
+      "title": "Crack A Bottle",
+      "filename": "18 Crack A Bottle",
+      "artist": "Eminem",
+      "artists": [
+        "Eminem"
+      ],
+      "track_number": 18,
+      "track_total": 22,
+      "disc_number": 1,
+      "disc_total": 1,
+      "length": 297.52
+    },
+    {
+      "title": "Steve Berman",
+      "filename": "19 Steve Berman",
+      "artist": "Eminem",
+      "artists": [
+        "Eminem"
+      ],
+      "track_number": 19,
+      "track_total": 22,
+      "disc_number": 1,
+      "disc_total": 1,
+      "length": 89.186667
+    },
+    {
+      "title": "Underground",
+      "filename": "20 Underground",
+      "artist": "Eminem",
+      "artists": [
+        "Eminem"
+      ],
+      "track_number": 20,
+      "track_total": 22,
+      "disc_number": 1,
+      "disc_total": 1,
+      "length": 371.28
+    },
+    {
+      "title": "My Darling",
+      "filename": "21 My Darling",
+      "artist": "Eminem",
+      "artists": [
+        "Eminem"
+      ],
+      "track_number": 21,
+      "track_total": 22,
+      "disc_number": 1,
+      "disc_total": 1,
+      "length": 320.426667
+    },
+    {
+      "title": "Careful What You Wish For",
+      "filename": "22 Careful What You Wish For",
+      "artist": "Eminem",
+      "artists": [
+        "Eminem"
+      ],
+      "track_number": 22,
+      "track_total": 22,
+      "disc_number": 1,
+      "disc_total": 1,
+      "length": 227.173333
+    }
+  ],
+  "path": ""
+}

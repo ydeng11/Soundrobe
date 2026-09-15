@@ -1,0 +1,310 @@
+{
+  "artist": "Eminem",
+  "artistId": "38661",
+  "artists": [
+    "Eminem"
+  ],
+  "barcode": null,
+  "catalogNumber": "none",
+  "country": "US",
+  "formats": [
+    "File"
+  ],
+  "genre": "Hip Hop, Thug Rap, Pop Rap",
+  "id": "16649340",
+  "linkedDiscogsReleaseId": null,
+  "title": "Relapse",
+  "tracks": [
+    {
+      "artist": "Eminem",
+      "artists": [
+        "Eminem"
+      ],
+      "discNumber": null,
+      "length": 90.0,
+      "matchTitles": [],
+      "recordingId": null,
+      "title": "Dr. West (Skit)",
+      "trackNumber": 1,
+      "trackTotal": 22
+    },
+    {
+      "artist": "Eminem",
+      "artists": [
+        "Eminem"
+      ],
+      "discNumber": null,
+      "length": 320.0,
+      "matchTitles": [],
+      "recordingId": null,
+      "title": "3 A.M.",
+      "trackNumber": 2,
+      "trackTotal": 22
+    },
+    {
+      "artist": "Eminem",
+      "artists": [
+        "Eminem"
+      ],
+      "discNumber": null,
+      "length": 320.0,
+      "matchTitles": [],
+      "recordingId": null,
+      "title": "My Mom",
+      "trackNumber": 3,
+      "trackTotal": 22
+    },
+    {
+      "artist": "Eminem",
+      "artists": [
+        "Eminem"
+      ],
+      "discNumber": null,
+      "length": 181.0,
+      "matchTitles": [],
+      "recordingId": null,
+      "title": "Insane",
+      "trackNumber": 4,
+      "trackTotal": 22
+    },
+    {
+      "artist": "Eminem",
+      "artists": [
+        "Eminem"
+      ],
+      "discNumber": null,
+      "length": 283.0,
+      "matchTitles": [],
+      "recordingId": null,
+      "title": "Bagpipes From Baghdad",
+      "trackNumber": 5,
+      "trackTotal": 22
+    },
+    {
+      "artist": "Eminem",
+      "artists": [
+        "Eminem"
+      ],
+      "discNumber": null,
+      "length": 248.0,
+      "matchTitles": [],
+      "recordingId": null,
+      "title": "Hello",
+      "trackNumber": 6,
+      "trackTotal": 22
+    },
+    {
+      "artist": "Eminem",
+      "artists": [
+        "Eminem"
+      ],
+      "discNumber": null,
+      "length": 42.0,
+      "matchTitles": [],
+      "recordingId": null,
+      "title": "Tonya (Skit)",
+      "trackNumber": 7,
+      "trackTotal": 22
+    },
+    {
+      "artist": "Eminem",
+      "artists": [
+        "Eminem"
+      ],
+      "discNumber": null,
+      "length": 247.0,
+      "matchTitles": [],
+      "recordingId": null,
+      "title": "Same Song & Dance",
+      "trackNumber": 8,
+      "trackTotal": 22
+    },
+    {
+      "artist": "Eminem",
+      "artists": [
+        "Eminem"
+      ],
+      "discNumber": null,
+      "length": 270.0,
+      "matchTitles": [],
+      "recordingId": null,
+      "title": "We Made You",
+      "trackNumber": 9,
+      "trackTotal": 22
+    },
+    {
+      "artist": "Eminem",
+      "artists": [
+        "Eminem"
+      ],
+      "discNumber": null,
+      "length": 237.0,
+      "matchTitles": [],
+      "recordingId": null,
+      "title": "Medicine Ball",
+      "trackNumber": 10,
+      "trackTotal": 22
+    },
+    {
+      "artist": "Eminem",
+      "artists": [
+        "Eminem"
+      ],
+      "discNumber": null,
+      "length": 19.0,
+      "matchTitles": [],
+      "recordingId": null,
+      "title": "Paul (Skit)",
+      "trackNumber": 11,
+      "trackTotal": 22
+    },
+    {
+      "artist": "Eminem",
+      "artists": [
+        "Eminem"
+      ],
+      "discNumber": null,
+      "length": 320.0,
+      "matchTitles": [],
+      "recordingId": null,
+      "title": "Stay Wide Awake",
+      "trackNumber": 12,
+      "trackTotal": 22
+    },
+    {
+      "artist": "Eminem",
+      "artists": [
+        "Eminem"
+      ],
+      "discNumber": null,
+      "length": 278.0,
+      "matchTitles": [],
+      "recordingId": null,
+      "title": "Old Time's Sake",
+      "trackNumber": 13,
+      "trackTotal": 22
+    },
+    {
+      "artist": "Eminem",
+      "artists": [
+        "Eminem"
+      ],
+      "discNumber": null,
+      "length": 243.0,
+      "matchTitles": [],
+      "recordingId": null,
+      "title": "Must Be The Ganja",
+      "trackNumber": 14,
+      "trackTotal": 22
+    },
+    {
+      "artist": "Eminem",
+      "artists": [
+        "Eminem"
+      ],
+      "discNumber": null,
+      "length": 42.0,
+      "matchTitles": [],
+      "recordingId": null,
+      "title": "Mr. Mathers (Skit)",
+      "trackNumber": 15,
+      "trackTotal": 22
+    },
+    {
+      "artist": "Eminem",
+      "artists": [
+        "Eminem"
+      ],
+      "discNumber": null,
+      "length": 284.0,
+      "matchTitles": [],
+      "recordingId": null,
+      "title": "D\u00e9j\u00e0 Vu",
+      "trackNumber": 16,
+      "trackTotal": 22
+    },
+    {
+      "artist": "Eminem",
+      "artists": [
+        "Eminem"
+      ],
+      "discNumber": null,
+      "length": 393.0,
+      "matchTitles": [],
+      "recordingId": null,
+      "title": "Beautiful",
+      "trackNumber": 17,
+      "trackTotal": 22
+    },
+    {
+      "artist": "Eminem & 50 Cent & Dr. Dre",
+      "artists": [
+        "Eminem",
+        "50 Cent",
+        "Dr. Dre"
+      ],
+      "discNumber": null,
+      "length": 298.0,
+      "matchTitles": [],
+      "recordingId": null,
+      "title": "Crack A Bottle",
+      "trackNumber": 18,
+      "trackTotal": 22
+    },
+    {
+      "artist": "Eminem",
+      "artists": [
+        "Eminem"
+      ],
+      "discNumber": null,
+      "length": 89.0,
+      "matchTitles": [],
+      "recordingId": null,
+      "title": "Steve Berman (Skit)",
+      "trackNumber": 19,
+      "trackTotal": 22
+    },
+    {
+      "artist": "Eminem",
+      "artists": [
+        "Eminem"
+      ],
+      "discNumber": null,
+      "length": 371.0,
+      "matchTitles": [],
+      "recordingId": null,
+      "title": "Underground",
+      "trackNumber": 20,
+      "trackTotal": 22
+    },
+    {
+      "artist": "Eminem",
+      "artists": [
+        "Eminem"
+      ],
+      "discNumber": null,
+      "length": 287.0,
+      "matchTitles": [],
+      "recordingId": null,
+      "title": "We Made You (Single Version)",
+      "trackNumber": 21,
+      "trackTotal": 22
+    },
+    {
+      "artist": "Eminem & 50 Cent & Dr. Dre",
+      "artists": [
+        "Eminem",
+        "50 Cent",
+        "Dr. Dre"
+      ],
+      "discNumber": null,
+      "length": null,
+      "matchTitles": [],
+      "recordingId": null,
+      "title": "Crack A Bottle (Single Version)",
+      "trackNumber": 22,
+      "trackTotal": 22
+    }
+  ],
+  "year": "2009"
+}

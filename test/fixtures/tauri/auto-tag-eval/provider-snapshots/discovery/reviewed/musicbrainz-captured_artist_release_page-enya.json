@@ -1,0 +1,120 @@
+{
+  "release-count": 5,
+  "releases": [
+    {
+      "id": "627377a9-be56-4c45-a56d-9ae941546ef0",
+      "title": "The Celts",
+      "date": "1986",
+      "country": "",
+      "artist-credit": [
+        {
+          "name": "Enya",
+          "artist": {
+            "id": "4967c0a1-b9f3-465e-8440-4598fd9fc33c",
+            "name": "Enya"
+          }
+        }
+      ],
+      "media": [
+        {
+          "format": "CD",
+          "track-count": 15
+        }
+      ],
+      "label-info": [],
+      "barcode": "7450991167290"
+    },
+    {
+      "id": "4bf28c39-1b7e-4827-81ed-a306fa4a6b3b",
+      "title": "Shepherd Moons",
+      "date": "1991",
+      "country": "US",
+      "artist-credit": [
+        {
+          "name": "Enya",
+          "artist": {
+            "id": "4967c0a1-b9f3-465e-8440-4598fd9fc33c",
+            "name": "Enya"
+          }
+        }
+      ],
+      "media": [
+        {
+          "format": "CD",
+          "track-count": 12
+        }
+      ],
+      "label-info": [],
+      "barcode": "0208314317218"
+    },
+    {
+      "id": "e3ef3be0-fc27-37b3-99c7-b0d99d56ce12",
+      "title": "Only If...",
+      "date": "1997",
+      "country": "US",
+      "artist-credit": [
+        {
+          "name": "Enya",
+          "artist": {
+            "id": "4967c0a1-b9f3-465e-8440-4598fd9fc33c",
+            "name": "Enya"
+          }
+        }
+      ],
+      "media": [
+        {
+          "format": "",
+          "track-count": 3
+        }
+      ],
+      "label-info": [],
+      "barcode": ""
+    },
+    {
+      "id": "16d139e2-e940-36e4-b865-99f4dd667573",
+      "title": "And Winter Came…",
+      "date": "2008-11-11",
+      "country": "US",
+      "artist-credit": [
+        {
+          "name": "Enya",
+          "artist": {
+            "id": "4967c0a1-b9f3-465e-8440-4598fd9fc33c",
+            "name": "Enya"
+          }
+        }
+      ],
+      "media": [
+        {
+          "format": "CD",
+          "track-count": 12
+        }
+      ],
+      "label-info": [],
+      "barcode": "825646933068"
+    },
+    {
+      "id": "1e6da3bd-a86b-4b7c-8578-db9b381f7e37",
+      "title": "Dark Sky Island",
+      "date": "2015",
+      "country": "BR",
+      "artist-credit": [
+        {
+          "name": "Enya",
+          "artist": {
+            "id": "4967c0a1-b9f3-465e-8440-4598fd9fc33c",
+            "name": "Enya"
+          }
+        }
+      ],
+      "media": [
+        {
+          "format": "CD",
+          "track-count": 11
+        }
+      ],
+      "label-info": [],
+      "barcode": "0825646001859"
+    }
+  ]
+}

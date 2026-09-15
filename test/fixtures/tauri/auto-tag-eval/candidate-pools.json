@@ -1,0 +1,258 @@
+{
+  "schemaVersion": 1,
+  "description": "Frozen provider candidate pools used by deterministic edition replay.",
+  "pools": [
+    {
+      "poolId": "relapse-deluxe",
+      "localFixture": "../relapse-deluxe/local.json",
+      "localFixtureSha256": "af74b2290da60cdf357dc0deb1affab721adc966a5a216c2689203d4b46c6ca7",
+      "candidates": [
+        {"provider": "discogs", "releaseId": "36441795", "response": "../relapse-deluxe/release-36441795.json", "responseSha256": "791a57e61770548bc7964c53fb7aa601702bf90528ea3bb2f7362c22a6f17c8f", "expectation": "acceptable"},
+        {"provider": "discogs", "releaseId": "16649340", "response": "provider-snapshots/relapse/discogs-release-16649340.json", "responseSha256": "2fdd6bfe4eccc333a7e4c3decf628ed75bb47e3dbdaacf65e168c570a934f6a9", "expectation": "hard_negative"}
+      ],
+      "replay": {"permuteCandidateOrder": true, "requireCompleteMapping": true, "requireUniqueEvidence": true}
+    },
+    {
+      "poolId": "enya-wild-child-maxi",
+      "localFixture": "../enya-greatest-hits/local-wild-child.json",
+      "localFixtureSha256": "d2a894c90fc2f71f38e9ab214273aae5e2241a53d2645f93e6ec7f7eace8c709",
+      "candidates": [
+        {"provider": "discogs", "releaseId": "544115", "response": "../enya-greatest-hits/candidate-544115.json", "responseSha256": "b2fd5b3e02261037bba330c58cf64e65ce36d7317b200a0425a49ee5f112d4f0", "expectation": "acceptable"}
+      ],
+      "replay": {"permuteCandidateOrder": true, "requireCompleteMapping": true, "requireUniqueEvidence": true}
+    },
+    {
+      "poolId": "enya-box-of-dreams-clouds",
+      "localFixture": "../enya-greatest-hits/local-box-clouds.json",
+      "localFixtureSha256": "23971900672f4a8e9bbd18af254fde2fa0074b34afd1d913d85f26a0c6a2d3ed",
+      "candidates": [
+        {"provider": "discogs", "releaseId": "7832914", "response": "../enya-greatest-hits/candidate-7832914.json", "responseSha256": "5b922a9bafc7ea29be3a518dd25636e106726820d5dc0fa996df397d155d13be", "expectation": "acceptable"}
+      ],
+      "replay": {"permuteCandidateOrder": true, "requireCompleteMapping": true, "requireUniqueEvidence": true}
+    },
+    {
+      "poolId": "enya-greatest-hits-disc-two",
+      "localFixture": "../enya-greatest-hits/local-cd2.json",
+      "localFixtureSha256": "43363c2ef65d5c6fbbab0c1a8312589f1a86333c6b175ea8e84e106d10f81c59",
+      "candidates": [
+        {"provider": "discogs", "releaseId": "8174021", "response": "../enya-greatest-hits/candidate-8174021.json", "responseSha256": "3e03847ba056a8f5329375347459b0d71a15881a24439ff40df96f040ff9b117", "expectation": "acceptable"},
+        {"provider": "discogs", "releaseId": "15876868", "response": "../enya-greatest-hits/candidate-15876868.json", "responseSha256": "210f85b1f7883672acb1ec5e22911f9b57fc0b916df18cc3e61e1532d874df2a", "expectation": "hard_negative"}
+      ],
+      "replay": {"permuteCandidateOrder": true, "requireCompleteMapping": true, "requireUniqueEvidence": true}
+    },
+    {
+      "poolId": "enya-greatest-hits-title-negative",
+      "localFixture": "../enya-greatest-hits/local-2009-cd2.json",
+      "localFixtureSha256": "2779653ad2d2c48f8cf918436cb92ed179371a6d46aa0d0745de787e9374ff9a",
+      "candidates": [
+        {"provider": "discogs", "releaseId": "1969042", "response": "../enya-greatest-hits/candidate-1969042.json", "responseSha256": "41e8538d215293c62bc4dfa8ef7f35b2fdf80edf70098da92531a024ccf83dcd", "expectation": "hard_negative"}
+      ],
+      "replay": {"permuteCandidateOrder": true, "requireCompleteMapping": true, "requireUniqueEvidence": true}
+    },
+    {
+      "poolId": "enya-cd-dvd-group-negative",
+      "localFixture": "../enya-greatest-hits/local-cd1.json",
+      "localFixtureSha256": "20424fefa35110ead2af1e9bbc1956167b7c44d68ca385c26387b231b14c2692",
+      "candidates": [
+        {"provider": "discogs", "releaseId": "2029801", "response": "../enya-discogs/release-2029801.json", "responseSha256": "9c9d80a91789846fb95c97028fc4a5403db6b285cc1d13e0d43b53edab096fb5", "expectation": "hard_negative"}
+      ],
+      "replay": {"permuteCandidateOrder": true, "requireCompleteMapping": true, "requireUniqueEvidence": true}
+    },
+    {
+      "poolId": "discogs-edition-title-and-duration-negative",
+      "localFixture": "../discogs-editions/local.json",
+      "localFixtureSha256": "6eddad017edc496755e272df73503bc515427f89c31608782213dce86bdc1192",
+      "candidates": [
+        {"provider": "discogs", "releaseId": "16211782", "response": "../discogs-editions/release-16211782.json", "responseSha256": "bafee7a96c4cc7e1122c00b56e05ffdc995fd26d4023f98ab3129cec0d5350e0", "expectation": "hard_negative"}
+      ],
+      "replay": {"permuteCandidateOrder": true, "requireCompleteMapping": true, "requireUniqueEvidence": true}
+    },
+    {
+      "poolId": "reviewed-representative",
+      "localFixture": "reviewed-subset-local.json",
+      "localFixtureSha256": "405139020b7be553216f65f4e2da80af1c600ec4f1dd08674857638fce8cbe45",
+      "candidates": [
+      {
+        "provider": "musicbrainz",
+        "releaseId": "627377a9-be56-4c45-a56d-9ae941546ef0",
+        "response": "provider-snapshots/enya/musicbrainz-release-627377a9-be56-4c45-a56d-9ae941546ef0.json",
+        "responseSha256": "ea4c06eeaadc60f6a43519342ba071008d9e981c9d828583dfaae111b8817970",
+        "expectation": "acceptable"
+      },
+      {
+        "provider": "discogs",
+        "releaseId": "1459867",
+        "response": "provider-snapshots/enya/discogs-release-1459867.json",
+        "responseSha256": "e25016eecd8757a77a9a49301218d3de005c2180436942b074f8a73f54065c11",
+        "expectation": "acceptable"
+      },
+      {
+        "provider": "discogs",
+        "releaseId": "544082",
+        "response": "provider-snapshots/enya/discogs-release-544082.json",
+        "responseSha256": "60801c2b6a948cb189370283633d3a5a0ec05ab7e164437637a4547a1e58aa40",
+        "expectation": "acceptable"
+      },
+      {
+        "provider": "musicbrainz",
+        "releaseId": "4bf28c39-1b7e-4827-81ed-a306fa4a6b3b",
+        "response": "provider-snapshots/enya/musicbrainz-release-4bf28c39-1b7e-4827-81ed-a306fa4a6b3b.json",
+        "responseSha256": "a991d30f9e66bc337f692d9c021fbbe10f1752f38cd0b8d540e45315e81491d4",
+        "expectation": "acceptable"
+      },
+      {
+        "provider": "discogs",
+        "releaseId": "779106",
+        "response": "provider-snapshots/enya/discogs-release-779106.json",
+        "responseSha256": "c9d388b0244f4df08dbc9b547e8a3ac0ed36b17ab42261c0c0bed49832f5e4bb",
+        "expectation": "acceptable"
+      },
+      {
+        "provider": "discogs",
+        "releaseId": "779039",
+        "response": "provider-snapshots/enya/discogs-release-779039.json",
+        "responseSha256": "2ae398113b0618ffd264f153959db7e3297aedd2c1583134b10f9ba77dec0635",
+        "expectation": "acceptable"
+      },
+      {
+        "provider": "discogs",
+        "releaseId": "7832914",
+        "response": "provider-snapshots/enya/discogs-release-7832914.json",
+        "responseSha256": "32059bf3ff0bbc4c2aa7337a58b20416d58fcae03d9515cb80a3b024019af1af",
+        "expectation": "acceptable"
+      },
+      {
+        "provider": "discogs",
+        "releaseId": "7832914",
+        "response": "provider-snapshots/enya/discogs-release-7832914.json",
+        "responseSha256": "32059bf3ff0bbc4c2aa7337a58b20416d58fcae03d9515cb80a3b024019af1af",
+        "expectation": "acceptable"
+      },
+      {
+        "provider": "musicbrainz",
+        "releaseId": "e3ef3be0-fc27-37b3-99c7-b0d99d56ce12",
+        "response": "provider-snapshots/enya/musicbrainz-release-e3ef3be0-fc27-37b3-99c7-b0d99d56ce12.json",
+        "responseSha256": "5f10f05eed814cb8154a725f8f0e19d6b63207d51b61c7591c046f8b84704692",
+        "expectation": "acceptable"
+      },
+      {
+        "provider": "discogs",
+        "releaseId": "1198219",
+        "response": "provider-snapshots/enya/discogs-release-1198219.json",
+        "responseSha256": "6f881a1811795932f649787bb72db6dcf8bcd3d6196ceb4e14bd612e7c046d91",
+        "expectation": "acceptable"
+      },
+      {
+        "provider": "discogs",
+        "releaseId": "2064430",
+        "response": "provider-snapshots/enya/discogs-release-2064430.json",
+        "responseSha256": "4029e6f43368d30a7746a1cd1778b1b8d6bebdc844a633afec592e71305c856c",
+        "expectation": "acceptable"
+      },
+      {
+        "provider": "discogs",
+        "releaseId": "544115",
+        "response": "provider-snapshots/enya/discogs-release-544115.json",
+        "responseSha256": "2b0d58de288e0e59a183fce458fec5c273ca8a1f9679ceafd3c73948f6d41fbf",
+        "expectation": "acceptable"
+      },
+      {
+        "provider": "musicbrainz",
+        "releaseId": "16d139e2-e940-36e4-b865-99f4dd667573",
+        "response": "provider-snapshots/enya/musicbrainz-release-16d139e2-e940-36e4-b865-99f4dd667573.json",
+        "responseSha256": "972c32160f9fe42cb2fcb75253336bb3c8a0da0dafa59f2e9cb384e99ffcf750",
+        "expectation": "acceptable"
+      },
+      {
+        "provider": "discogs",
+        "releaseId": "2994652",
+        "response": "provider-snapshots/enya/discogs-release-2994652.json",
+        "responseSha256": "9617f5efd35ce0e00329a19a7b0ae0d223e16f592e1e62a4779a9e673eb1f142",
+        "expectation": "acceptable"
+      },
+      {
+        "provider": "musicbrainz",
+        "releaseId": "1e6da3bd-a86b-4b7c-8578-db9b381f7e37",
+        "response": "provider-snapshots/enya/musicbrainz-release-1e6da3bd-a86b-4b7c-8578-db9b381f7e37.json",
+        "responseSha256": "777443f63e1cd4918c21fcd1c3c983b236209c1d9d78da718e2b0bb63fab8e27",
+        "expectation": "acceptable"
+      },
+      {
+        "provider": "discogs",
+        "releaseId": "8174021",
+        "response": "provider-snapshots/enya/discogs-release-8174021.json",
+        "responseSha256": "ff7758eeb9524b8c9340e5d6ad65ae17877d2719152504a2edc610ac00c5d3b0",
+        "expectation": "acceptable"
+      },
+      {
+        "provider": "discogs",
+        "releaseId": "36441795",
+        "response": "../relapse-deluxe/release-36441795.json",
+        "responseSha256": "791a57e61770548bc7964c53fb7aa601702bf90528ea3bb2f7362c22a6f17c8f",
+        "expectation": "acceptable"
+      },
+      {
+        "provider": "musicbrainz",
+        "releaseId": "bf39b43f-2bf1-48ad-bdfe-d7608004df52",
+        "response": "provider-snapshots/extra/bf39b43f-2bf1-48ad-bdfe-d7608004df52.json",
+        "responseSha256": "b4c82b6069b5ddccef01e4a8cb34804f270fe34d132b4048777f0bda680432be",
+        "expectation": "acceptable"
+      },
+      {
+        "provider": "musicbrainz",
+        "releaseId": "e95722b4-c235-41f5-94db-941bcd24fc09",
+        "response": "provider-snapshots/extra/e95722b4-c235-41f5-94db-941bcd24fc09.json",
+        "responseSha256": "ac170110b1e79ca79ad2a5ab4488f45c488d1db4b1420b118bcd24e74e9c5295",
+        "expectation": "acceptable"
+      },
+      {
+        "provider": "musicbrainz",
+        "releaseId": "3750077a-0574-45e0-85f4-5d5b4066c077",
+        "response": "provider-snapshots/extra/3750077a-0574-45e0-85f4-5d5b4066c077.json",
+        "responseSha256": "a103915f914170ad97ee26d332f71f9cbdb5fd93378f289303a0fb625e1f5035",
+        "expectation": "acceptable"
+      },
+      {
+        "provider": "discogs",
+        "releaseId": "15876868",
+        "response": "../enya-greatest-hits/candidate-15876868.json",
+        "responseSha256": "210f85b1f7883672acb1ec5e22911f9b57fc0b916df18cc3e61e1532d874df2a",
+        "expectation": "hard_negative"
+      },
+      {
+        "provider": "discogs",
+        "releaseId": "1969042",
+        "response": "../enya-greatest-hits/candidate-1969042.json",
+        "responseSha256": "41e8538d215293c62bc4dfa8ef7f35b2fdf80edf70098da92531a024ccf83dcd",
+        "expectation": "hard_negative"
+      },
+      {
+        "provider": "discogs",
+        "releaseId": "2029801",
+        "response": "../enya-discogs/release-2029801.json",
+        "responseSha256": "9c9d80a91789846fb95c97028fc4a5403db6b285cc1d13e0d43b53edab096fb5",
+        "expectation": "hard_negative"
+      },
+      {
+        "provider": "discogs",
+        "releaseId": "6020781",
+        "response": "provider-snapshots/ariana/ariana-my-everything-6020781.json",
+        "responseSha256": "c2d31bbbb50bdacc836c8843de5bf47e4b607af28f5ec9bf390ba46751993af0",
+        "expectation": "hard_negative"
+      },
+      {
+        "provider": "discogs",
+        "releaseId": "6222572",
+        "response": "provider-snapshots/ariana/ariana-my-everything-6222572.json",
+        "responseSha256": "949e87f0f027c806301e474884c0eaf158be4ac4ab6fdd6a9148a02b08c90d6d",
+        "expectation": "edition_holdout"
+      }
+    ],
+    "replay": {
+      "permuteCandidateOrder": true,
+      "requireCompleteMapping": true,
+      "requireUniqueEvidence": true
+    }
+  }
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "count": 1,
+  "releases": [
+    {
+      "id": "16d139e2-e940-36e4-b865-99f4dd667573",
+      "title": "And Winter Came…",
+      "date": "2008-11-11",
+      "country": "US",
+      "artist-credit": [
+        {
+          "name": "Enya",
+          "artist": {
+            "id": "4967c0a1-b9f3-465e-8440-4598fd9fc33c",
+            "name": "Enya"
+          }
+        }
+      ],
+      "media": [
+        {
+          "format": "CD",
+          "track-count": 12
+        }
+      ],
+      "label-info": [],
+      "barcode": "825646933068"
+    }
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "count": 1,
+  "releases": [
+    {
+      "id": "627377a9-be56-4c45-a56d-9ae941546ef0",
+      "title": "The Celts",
+      "date": "1986",
+      "country": "",
+      "artist-credit": [
+        {
+          "name": "Enya",
+          "artist": {
+            "id": "4967c0a1-b9f3-465e-8440-4598fd9fc33c",
+            "name": "Enya"
+          }
+        }
+      ],
+      "media": [
+        {
+          "format": "CD",
+          "track-count": 15
+        }
+      ],
+      "label-info": [],
+      "barcode": "7450991167290"
+    }
+  ]
+}

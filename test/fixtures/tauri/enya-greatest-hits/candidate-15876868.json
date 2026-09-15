@@ -1,0 +1,628 @@
+{
+  "album": "Only Time - The Collection",
+  "album_artist": "Enya",
+  "album_artists": [
+    "Enya"
+  ],
+  "artist": "Enya",
+  "artists": [
+    "Enya"
+  ],
+  "barcode": null,
+  "catalog_number": null,
+  "confidence": null,
+  "country": "US",
+  "discogs_artist_id": "304",
+  "discogs_release_id": "15876868",
+  "distance": null,
+  "formats": [
+    "CD"
+  ],
+  "genre": null,
+  "linked_discogs_release_id": null,
+  "musicbrainz_albumid": null,
+  "musicbrainz_artistid": null,
+  "source": "discogs",
+  "tracks": [
+    {
+      "title": "Watermark",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 1,
+      "track_total": 12,
+      "disc_number": 1,
+      "disc_total": 4,
+      "length": 144
+    },
+    {
+      "title": "Exile",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 2,
+      "track_total": 12,
+      "disc_number": 1,
+      "disc_total": 4,
+      "length": 260
+    },
+    {
+      "title": "Aldebaran",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 3,
+      "track_total": 12,
+      "disc_number": 1,
+      "disc_total": 4,
+      "length": 185
+    },
+    {
+      "title": "March Of The Celts",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 4,
+      "track_total": 12,
+      "disc_number": 1,
+      "disc_total": 4,
+      "length": 195
+    },
+    {
+      "title": "Boadicea",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 5,
+      "track_total": 12,
+      "disc_number": 1,
+      "disc_total": 4,
+      "length": 208
+    },
+    {
+      "title": "The Sun In The Stream",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 6,
+      "track_total": 12,
+      "disc_number": 1,
+      "disc_total": 4,
+      "length": 174
+    },
+    {
+      "title": "On Your Shore",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 7,
+      "track_total": 12,
+      "disc_number": 1,
+      "disc_total": 4,
+      "length": 239
+    },
+    {
+      "title": "Cursum Perficio",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 8,
+      "track_total": 12,
+      "disc_number": 1,
+      "disc_total": 4,
+      "length": 246
+    },
+    {
+      "title": "Storms In Africa",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 9,
+      "track_total": 12,
+      "disc_number": 1,
+      "disc_total": 4,
+      "length": 243
+    },
+    {
+      "title": "The Celts",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 10,
+      "track_total": 12,
+      "disc_number": 1,
+      "disc_total": 4,
+      "length": 176
+    },
+    {
+      "title": "Miss Clare Remembers",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 11,
+      "track_total": 12,
+      "disc_number": 1,
+      "disc_total": 4,
+      "length": 119
+    },
+    {
+      "title": "I Want Tommorow",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 12,
+      "track_total": 12,
+      "disc_number": 1,
+      "disc_total": 4,
+      "length": 240
+    },
+    {
+      "title": "Orinoco Flow",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 1,
+      "track_total": 12,
+      "disc_number": 2,
+      "disc_total": 4,
+      "length": 265
+    },
+    {
+      "title": "Ebudæ",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 2,
+      "track_total": 12,
+      "disc_number": 2,
+      "disc_total": 4,
+      "length": 113
+    },
+    {
+      "title": "River",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 3,
+      "track_total": 12,
+      "disc_number": 2,
+      "disc_total": 4,
+      "length": 190
+    },
+    {
+      "title": "The Longship",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 4,
+      "track_total": 12,
+      "disc_number": 2,
+      "disc_total": 4,
+      "length": 216
+    },
+    {
+      "title": "Na Laetha Geal M'óige",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 5,
+      "track_total": 12,
+      "disc_number": 2,
+      "disc_total": 4,
+      "length": 234
+    },
+    {
+      "title": "Book Of Days",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 6,
+      "track_total": 12,
+      "disc_number": 2,
+      "disc_total": 4,
+      "length": 175
+    },
+    {
+      "title": "Shepherd Moons",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 7,
+      "track_total": 12,
+      "disc_number": 2,
+      "disc_total": 4,
+      "length": 222
+    },
+    {
+      "title": "Caribbean Blue",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 8,
+      "track_total": 12,
+      "disc_number": 2,
+      "disc_total": 4,
+      "length": 236
+    },
+    {
+      "title": "Evacuee",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 9,
+      "track_total": 12,
+      "disc_number": 2,
+      "disc_total": 4,
+      "length": 229
+    },
+    {
+      "title": "Evening Falls",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 10,
+      "track_total": 12,
+      "disc_number": 2,
+      "disc_total": 4,
+      "length": 226
+    },
+    {
+      "title": "Lothlórien",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 11,
+      "track_total": 12,
+      "disc_number": 2,
+      "disc_total": 4,
+      "length": 126
+    },
+    {
+      "title": "Marble Halls",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 12,
+      "track_total": 12,
+      "disc_number": 2,
+      "disc_total": 4,
+      "length": 231
+    },
+    {
+      "title": "After Ventus",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 1,
+      "track_total": 12,
+      "disc_number": 3,
+      "disc_total": 4,
+      "length": 246
+    },
+    {
+      "title": "No Holly For Miss Quinn",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 2,
+      "track_total": 12,
+      "disc_number": 3,
+      "disc_total": 4,
+      "length": 160
+    },
+    {
+      "title": "The Memory Of Trees",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 3,
+      "track_total": 12,
+      "disc_number": 3,
+      "disc_total": 4,
+      "length": 258
+    },
+    {
+      "title": "Anywhere Is",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 4,
+      "track_total": 12,
+      "disc_number": 3,
+      "disc_total": 4,
+      "length": 238
+    },
+    {
+      "title": "Athair Ar Neamh",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 5,
+      "track_total": 12,
+      "disc_number": 3,
+      "disc_total": 4,
+      "length": 219
+    },
+    {
+      "title": "China Roses",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 6,
+      "track_total": 12,
+      "disc_number": 3,
+      "disc_total": 4,
+      "length": 287
+    },
+    {
+      "title": "How Can I Keep From Singing?",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 7,
+      "track_total": 12,
+      "disc_number": 3,
+      "disc_total": 4,
+      "length": 262
+    },
+    {
+      "title": "Hope Has A Place",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 8,
+      "track_total": 12,
+      "disc_number": 3,
+      "disc_total": 4,
+      "length": 284
+    },
+    {
+      "title": "Tea-House Moon",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 9,
+      "track_total": 12,
+      "disc_number": 3,
+      "disc_total": 4,
+      "length": 161
+    },
+    {
+      "title": "Pax Deorum",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 10,
+      "track_total": 12,
+      "disc_number": 3,
+      "disc_total": 4,
+      "length": 298
+    },
+    {
+      "title": "Eclipse",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 11,
+      "track_total": 12,
+      "disc_number": 3,
+      "disc_total": 4,
+      "length": 93
+    },
+    {
+      "title": "Isobella",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 12,
+      "track_total": 12,
+      "disc_number": 3,
+      "disc_total": 4,
+      "length": 267
+    },
+    {
+      "title": "Only Time",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 1,
+      "track_total": 14,
+      "disc_number": 4,
+      "disc_total": 4,
+      "length": 218
+    },
+    {
+      "title": "A Day Without Rain",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 2,
+      "track_total": 14,
+      "disc_number": 4,
+      "disc_total": 4,
+      "length": 158
+    },
+    {
+      "title": "Song Of Sandman (Lullaby)",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 3,
+      "track_total": 14,
+      "disc_number": 4,
+      "disc_total": 4,
+      "length": 220
+    },
+    {
+      "title": "Willows On The Water",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 4,
+      "track_total": 14,
+      "disc_number": 4,
+      "disc_total": 4,
+      "length": 180
+    },
+    {
+      "title": "Wild Child",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 5,
+      "track_total": 14,
+      "disc_number": 4,
+      "disc_total": 4,
+      "length": 227
+    },
+    {
+      "title": "Flora's Secret",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 6,
+      "track_total": 14,
+      "disc_number": 4,
+      "disc_total": 4,
+      "length": 245
+    },
+    {
+      "title": "Fallen Embers",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 7,
+      "track_total": 14,
+      "disc_number": 4,
+      "disc_total": 4,
+      "length": 149
+    },
+    {
+      "title": "Tempus Vernum",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 8,
+      "track_total": 14,
+      "disc_number": 4,
+      "disc_total": 4,
+      "length": 144
+    },
+    {
+      "title": "Deora Ar Mo Chroí",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 9,
+      "track_total": 14,
+      "disc_number": 4,
+      "disc_total": 4,
+      "length": 168
+    },
+    {
+      "title": "One By One",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 10,
+      "track_total": 14,
+      "disc_number": 4,
+      "disc_total": 4,
+      "length": 233
+    },
+    {
+      "title": "The First Of Autumn",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 11,
+      "track_total": 14,
+      "disc_number": 4,
+      "disc_total": 4,
+      "length": 188
+    },
+    {
+      "title": "Lazy Days",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 12,
+      "track_total": 14,
+      "disc_number": 4,
+      "disc_total": 4,
+      "length": 223
+    },
+    {
+      "title": "May It Be",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 13,
+      "track_total": 14,
+      "disc_number": 4,
+      "disc_total": 4,
+      "length": 210
+    },
+    {
+      "title": "Oíche Chiúin (Silent Night)",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 14,
+      "track_total": 14,
+      "disc_number": 4,
+      "disc_total": 4,
+      "length": 225
+    }
+  ]
+}

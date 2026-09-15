@@ -1,0 +1,172 @@
+{
+  "path": "",
+  "artist_hint": "Enya",
+  "tagged_artist_hint": "Enya",
+  "album_hint": "Only Time - The Collection CD2",
+  "tagged_album_hint": "Only Time - The Collection CD2",
+  "year_hint": "2002",
+  "country_hint": "US",
+  "musicbrainz_album_id": null,
+  "musicbrainz_artist_id": null,
+  "discogs_release_id": null,
+  "discogs_artist_id": null,
+  "selected_disc_number": 2,
+  "tracks": [
+    {
+      "title": "Orinoco Flow",
+      "filename": "01. Orinoco Flow",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 1,
+      "track_total": 12,
+      "length": 268.093333,
+      "disc_number": null,
+      "disc_total": null
+    },
+    {
+      "title": "Ebudae",
+      "filename": "02. Ebudae",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 2,
+      "track_total": 12,
+      "length": 116.973333,
+      "disc_number": null,
+      "disc_total": null
+    },
+    {
+      "title": "River",
+      "filename": "03. River",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 3,
+      "track_total": 12,
+      "length": 192.2,
+      "disc_number": null,
+      "disc_total": null
+    },
+    {
+      "title": "The Longships",
+      "filename": "04. The Longships",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 4,
+      "track_total": 12,
+      "length": 217.36,
+      "disc_number": null,
+      "disc_total": null
+    },
+    {
+      "title": "Na Laetha Geal M'Oige",
+      "filename": "05. Na Laetha Geal M'Oige",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 5,
+      "track_total": 12,
+      "length": 239.173333,
+      "disc_number": null,
+      "disc_total": null
+    },
+    {
+      "title": "Book Of Days",
+      "filename": "06. Book Of Days",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 6,
+      "track_total": 12,
+      "length": 176.093333,
+      "disc_number": null,
+      "disc_total": null
+    },
+    {
+      "title": "Shepherd Moons",
+      "filename": "07. Shepherd Moons",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 7,
+      "track_total": 12,
+      "length": 224.306667,
+      "disc_number": null,
+      "disc_total": null
+    },
+    {
+      "title": "Caribbean Blue",
+      "filename": "08. Caribbean Blue",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 8,
+      "track_total": 12,
+      "length": 240.066667,
+      "disc_number": null,
+      "disc_total": null
+    },
+    {
+      "title": "Evacuee",
+      "filename": "09. Evacuee",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 9,
+      "track_total": 12,
+      "length": 231.693333,
+      "disc_number": null,
+      "disc_total": null
+    },
+    {
+      "title": "Evening Falls",
+      "filename": "10. Evening Falls",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 10,
+      "track_total": 12,
+      "length": 229.4,
+      "disc_number": null,
+      "disc_total": null
+    },
+    {
+      "title": "Lothlorien",
+      "filename": "11. Lothlorien",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 11,
+      "track_total": 12,
+      "length": 129.04,
+      "disc_number": null,
+      "disc_total": null
+    },
+    {
+      "title": "Marble Halls",
+      "filename": "12. Marble Halls",
+      "artist": "Enya",
+      "artists": [
+        "Enya"
+      ],
+      "track_number": 12,
+      "track_total": 12,
+      "length": 233.4,
+      "disc_number": null,
+      "disc_total": null
+    }
+  ]
+}

@@ -421,6 +421,11 @@ pub struct ProviderTrack {
     pub track_number: Option<u32>,
     pub track_total: Option<u32>,
     pub disc_number: Option<u32>,
+    /// Discogs media label (for example `CD` or `DVD`) when the position
+    /// explicitly carries one. This prevents audiovisual bonus content from
+    /// being flattened into the audio tracklist.
+    #[serde(default)]
+    pub media_type: Option<String>,
     pub recording_id: Option<String>,
     /// Raw provider duration, preserving Electron's provider-specific units.
     pub length: Option<f64>,
@@ -1401,6 +1406,7 @@ fn parse_musicbrainz_release(
                     .or_else(|| positive_integer(track.get("position"))),
                 track_total,
                 disc_number,
+                media_type: None,
                 recording_id: recording
                     .and_then(|recording| recording.get("id"))
                     .and_then(serde_json::Value::as_str)
@@ -1533,18 +1539,20 @@ fn parse_discogs_release(value: &serde_json::Value, fallback_id: &str) -> Option
             .and_then(serde_json::Value::as_str)
             .is_some_and(|position| !position.trim().is_empty())
     };
-    // Track totals are per disc: count position-bearing tracks grouped by the
-    // parsed disc number. Tracks without a disc prefix form one group (the
-    // whole tracklist), preserving the previous single-disc behavior.
-    let mut disc_track_counts: HashMap<Option<u32>, u32> = HashMap::new();
+    // Track totals are per disc/media: count position-bearing tracks grouped
+    // by the parsed disc number and explicit media label. A CD/DVD release
+    // therefore retains separate audio and audiovisual groups.
+    let mut disc_track_counts: HashMap<(Option<u32>, Option<String>), u32> = HashMap::new();
     for track in raw_tracks.iter().filter(position_bearing) {
-        let (disc_number, _) = parse_discogs_position(
+        let (disc_number, _, media_type) = parse_discogs_position(
             track
                 .get("position")
                 .and_then(serde_json::Value::as_str)
                 .unwrap_or_default(),
         );
-        *disc_track_counts.entry(disc_number).or_default() += 1;
+        *disc_track_counts
+            .entry((disc_number, media_type))
+            .or_default() += 1;
     }
     let mut tracks = Vec::new();
     for (index, track) in raw_tracks
@@ -1556,8 +1564,10 @@ fn parse_discogs_release(value: &serde_json::Value, fallback_id: &str) -> Option
             .get("position")
             .and_then(serde_json::Value::as_str)
             .unwrap_or_default();
-        let (disc_number, parsed_track_number) = parse_discogs_position(position);
-        let track_total = disc_track_counts.get(&disc_number).copied();
+        let (disc_number, parsed_track_number, media_type) = parse_discogs_position(position);
+        let track_total = disc_track_counts
+            .get(&(disc_number, media_type.clone()))
+            .copied();
         let mut track_artists = discogs_artists(track.get("artists"), artist.as_deref());
         if let Some(credits) = track
             .get("extraartists")
@@ -1596,6 +1606,7 @@ fn parse_discogs_release(value: &serde_json::Value, fallback_id: &str) -> Option
             track_number: parsed_track_number.or_else(|| u32::try_from(index + 1).ok()),
             track_total,
             disc_number,
+            media_type,
             recording_id: None,
             length: track
                 .get("duration")
@@ -1739,17 +1750,22 @@ fn artist_display_name(artists: &[String], fallback: Option<&str>) -> Option<Str
     Some(artists.join(" & "))
 }
 
-fn parse_discogs_position(position: &str) -> (Option<u32>, Option<u32>) {
+fn parse_discogs_position(position: &str) -> (Option<u32>, Option<u32>, Option<String>) {
     let compact = position.trim();
-    let cd = Regex::new(r"(?i)^CD\s*(\d+)[-. ]*(\d+)$").expect("valid Discogs CD position regex");
-    if let Some(captures) = cd.captures(compact) {
+    let media = Regex::new(r"(?i)^(CD|DVD)\s*[-.]?\s*(\d+)(?:[-. ]+(\d+))?$")
+        .expect("valid Discogs media position regex");
+    if let Some(captures) = media.captures(compact) {
+        let media_type = captures.get(1).map(|value| value.as_str().to_ascii_uppercase());
+        let first = captures
+            .get(2)
+            .and_then(|value| value.as_str().parse().ok());
+        let second = captures
+            .get(3)
+            .and_then(|value| value.as_str().parse().ok());
         return (
-            captures
-                .get(1)
-                .and_then(|value| value.as_str().parse().ok()),
-            captures
-                .get(2)
-                .and_then(|value| value.as_str().parse().ok()),
+            second.and(first),
+            second.or(first),
+            media_type,
         );
     }
     let trailing = Regex::new(r"(\d+)$").expect("valid Discogs position regex");
@@ -1759,6 +1775,7 @@ fn parse_discogs_position(position: &str) -> (Option<u32>, Option<u32>) {
             .captures(compact)
             .and_then(|captures| captures.get(1))
             .and_then(|value| value.as_str().parse().ok()),
+        None,
     )
 }
 
@@ -4257,6 +4274,34 @@ mod tests {
             .unwrap()
             .to_ascii_lowercase()
             .contains("authorization: discogs token=secret"));
+    }
+
+    #[test]
+    fn discogs_cd_dvd_positions_keep_media_groups_separate() {
+        let value = serde_json::from_str(include_str!(
+            "../../../test/fixtures/tauri/enya-discogs/release-2029801.json"
+        ))
+        .expect("Enya deluxe fixture");
+        let album = parse_discogs_release(&value, "2029801").expect("release fixture");
+
+        let cds = album
+            .tracks
+            .iter()
+            .filter(|track| track.media_type.as_deref() == Some("CD"))
+            .collect::<Vec<_>>();
+        let dvds = album
+            .tracks
+            .iter()
+            .filter(|track| track.media_type.as_deref() == Some("DVD"))
+            .collect::<Vec<_>>();
+        assert_eq!(album.tracks.len(), 38, "blank heading is not a track");
+        assert_eq!(cds.len(), 22);
+        assert_eq!(dvds.len(), 16);
+        assert_eq!(cds.first().and_then(|track| track.track_number), Some(1));
+        assert_eq!(cds.last().and_then(|track| track.track_number), Some(22));
+        assert!(cds.iter().all(|track| track.track_total == Some(22)));
+        assert!(dvds.iter().all(|track| track.track_total == Some(16)));
+        assert!(dvds.iter().all(|track| track.length.is_none()));
     }
 
     #[tokio::test]
