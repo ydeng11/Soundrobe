@@ -55,6 +55,25 @@ describe("review_auto_tag_subset.py", () => {
       flags: ["unresolved"],
     });
     expect(fs.readFileSync(path.join(output, "review.md"), "utf8")).toContain("Explicitly unresolved: 10");
+    const expectations = JSON.parse(fs.readFileSync(path.join(output, "expectations.json"), "utf8"));
+    expect(expectations).toMatchObject({
+      schemaVersion: 1,
+      corpusVersion: "2026-09-12.inventory-1",
+      cases: expect.arrayContaining([
+        expect.objectContaining({
+          caseId: "8452b6f2b3ea",
+          status: "verified_match",
+          acceptableEditionIds: ["36441795"],
+          rejectedHardNegativeIds: ["16649340", "standard-20-track"],
+        }),
+        expect.objectContaining({
+          caseId: "b7fbe4f8ccd1",
+          status: "unresolved",
+          acceptableEditionIds: [],
+          rejectedHardNegativeIds: ["6020781"],
+        }),
+      ]),
+    });
   });
 
   it("fails closed on a duration conflict instead of promoting a title-only match", () => {

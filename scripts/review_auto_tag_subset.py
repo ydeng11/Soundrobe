@@ -351,6 +351,24 @@ def review(corpus: dict[str, Any], manifest: dict[str, Any], fixture_root: Path)
     }
 
 
+def expectation_ledger(result: dict[str, Any]) -> dict[str, Any]:
+    """Export the reviewed subset in the native evaluator's expectation shape."""
+    return {
+        "schemaVersion": result["schemaVersion"],
+        "corpusVersion": result["corpusVersion"],
+        "cases": [
+            {
+                "caseId": item["caseId"],
+                "status": item["status"],
+                "acceptableEditionIds": item.get("acceptableEditionIds", []),
+                "rejectedHardNegativeIds": item.get("hardNegativeIds", []),
+                "mapping": item.get("mapping", []),
+            }
+            for item in result["cases"]
+        ],
+    }
+
+
 def render(result: dict[str, Any]) -> str:
     lines = [
         "# Reviewed auto-tag representative subset",
@@ -387,6 +405,10 @@ def main() -> int:
     result = review(read_json(args.corpus), read_json(args.manifest), args.fixture_root)
     args.output_dir.mkdir(parents=True, exist_ok=True)
     (args.output_dir / "review.json").write_text(json.dumps(result, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    (args.output_dir / "expectations.json").write_text(
+        json.dumps(expectation_ledger(result), indent=2, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
     (args.output_dir / "review.md").write_text(render(result), encoding="utf-8")
     (args.output_dir / "command.log").write_text(
         f"status=passed\ncase_count={result['caseCount']}\ntrack_count={result['trackCount']}\n",
