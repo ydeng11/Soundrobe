@@ -219,6 +219,12 @@ pub fn build_lookup_request(album_path: &Path) -> Result<LookupRequest, ApiError
     } else {
         tagged_artist.clone().or_else(|| folder_artist_hint.clone())
     };
+    let year_hint = album_evidence.year.clone().or(tagged_year);
+    let folder_album_hint = clean_folder_album_hint(
+        album_evidence.folder_album.or_else(|| non_empty(folder_album)),
+        artist_hint.as_deref(),
+        year_hint.as_deref(),
+    );
     let total = u32::try_from(detail.tracks.len()).ok();
     let tracks = detail
         .tracks
@@ -260,10 +266,13 @@ pub fn build_lookup_request(album_path: &Path) -> Result<LookupRequest, ApiError
         artist_aliases: Vec::new(),
         tagged_artist_hint: tagged_artist,
         folder_artist_hint,
-        album_hint: album_evidence.search_album,
+        album_hint: album_evidence
+            .tagged_album
+            .clone()
+            .or_else(|| folder_album_hint.clone()),
         tagged_album_hint: album_evidence.tagged_album,
-        folder_album_hint: album_evidence.folder_album.or_else(|| non_empty(folder_album)),
-        year_hint: album_evidence.year.or(tagged_year),
+        folder_album_hint,
+        year_hint,
         country_hint: album_evidence.country,
         musicbrainz_album_id,
         musicbrainz_artist_id,
@@ -281,6 +290,10 @@ fn non_empty(value: String) -> Option<String> {
 fn extract_folder_year(name: &str) -> Option<String> {
     let year_prefix =
         Regex::new(r"^\s*((?:19|20)\d{2})(?:\s*[-.]|[^\d]|$)").expect("valid folder year regex");
+    let year_marker = Regex::new(
+        r"(?i)(?:^|[-–—(])\s*((?:19|20)\d{2})(?:\s*(?:\)|\]|\[|$))",
+    )
+    .expect("valid folder year marker regex");
     let extract_prefix = |value: &str| {
         year_prefix
             .captures(value)
@@ -301,7 +314,41 @@ fn extract_folder_year(name: &str) -> Option<String> {
             }
         }
     }
-    None
+    year_marker
+        .captures_iter(name)
+        .last()
+        .and_then(|captures| captures.get(1))
+        .map(|year| year.as_str().to_string())
+}
+
+fn clean_folder_album_hint(
+    value: Option<String>,
+    artist: Option<&str>,
+    year: Option<&str>,
+) -> Option<String> {
+    let mut value = value?;
+    if let Some(artist) = artist {
+        for separator in [" - ", " – ", " — "] {
+            let Some((prefix, title)) = value.split_once(separator) else {
+                continue;
+            };
+            if exact_artist_identity(prefix.trim(), artist) && !title.trim().is_empty() {
+                value = title.trim().to_string();
+                break;
+            }
+        }
+    }
+    if let Some(year) = year {
+        for separator in [" - ", " – ", " — "] {
+            let suffix = format!("{separator}{year}");
+            if value.ends_with(&suffix) {
+                value.truncate(value.len() - suffix.len());
+                value = value.trim_end().to_string();
+                break;
+            }
+        }
+    }
+    non_empty(value)
 }
 
 fn clean_folder_name(name: &str) -> String {
@@ -3925,6 +3972,31 @@ mod tests {
         assert_eq!(
             parse_folder_album_evidence("1991 - Music", None).country,
             None
+        );
+    }
+
+    #[test]
+    fn decorated_folder_album_hint_strips_known_artist_and_matching_year() {
+        let folder = "Doja Cat - Amala - 2018 [TR24][OF]";
+        assert_eq!(extract_folder_year(folder).as_deref(), Some("2018"));
+        assert_eq!(extract_folder_year("Album - 1984 - Live"), None);
+        assert_eq!(
+            clean_folder_album_hint(
+                Some("Doja Cat - Amala - 2018".into()),
+                Some("Doja Cat"),
+                Some("2018"),
+            )
+            .as_deref(),
+            Some("Amala")
+        );
+        assert_eq!(
+            clean_folder_album_hint(
+                Some("Folder Artist - The Album - 2018".into()),
+                Some("Other Artist"),
+                Some("2018"),
+            )
+            .as_deref(),
+            Some("Folder Artist - The Album")
         );
     }
 
