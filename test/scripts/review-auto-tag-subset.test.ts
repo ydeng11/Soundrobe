@@ -61,10 +61,10 @@ describe("review_auto_tag_subset.py", () => {
       corpusVersion: "2026-09-12.inventory-1",
       cases: expect.arrayContaining([
         expect.objectContaining({
-          caseId: "8452b6f2b3ea",
+          caseId: "0c9e8b505ea7",
           status: "verified_match",
-          acceptableEditionIds: ["36441795"],
-          rejectedHardNegativeIds: ["16649340", "standard-20-track"],
+          acceptableEditionIds: ["bf39b43f-2bf1-48ad-bdfe-d7608004df52"],
+          matcherAttribution: true,
         }),
         expect.objectContaining({
           caseId: "b7fbe4f8ccd1",

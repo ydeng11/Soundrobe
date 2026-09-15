@@ -362,6 +362,7 @@ def expectation_ledger(result: dict[str, Any]) -> dict[str, Any]:
                 "status": item["status"],
                 "acceptableEditionIds": item.get("acceptableEditionIds", []),
                 "rejectedHardNegativeIds": item.get("hardNegativeIds", []),
+                "matcherAttribution": item.get("improvementAttribution") == "normalized-title",
                 "mapping": item.get("mapping", []),
             }
             for item in result["cases"]

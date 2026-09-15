@@ -55,6 +55,13 @@ just eval-auto-tag-score
 
 Only reviewed acceptable editions enter precision and coverage. Provider-unavailable rows, unresolved cases, cold/warm identity changes, and write/readback or payload failures remain separate diagnostics. A matcher change is attributable only when the same locked case changes from a safe failure to the reviewed acceptable edition without a new wrong match. The native replay uses synthetic silent FLAC copies, never writes source media, and requires the loopback mock URL; it does not contact MusicBrainz, Discogs, artwork hosts, or AI services.
 
+The generated expectations ledger preserves a per-case `matcherAttribution` flag
+when the reviewed mapping required a normalized title. Native scoring still
+requires the selected provider candidate's track positions to match the full
+reviewed local-to-provider mapping; release ID equality alone is not sufficient.
+Readback also requires the candidate and on-disk track counts to agree before a
+run can be reported as verified.
+
 The exact Relapse Deluxe regression has a separate reviewed ledger at
 `test/fixtures/tauri/relapse-deluxe/reviewed-truth.json`. It is the only reviewed
 positive in this worktree and records release `36441795`, the alternate-bonus hard
