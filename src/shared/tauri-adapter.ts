@@ -214,6 +214,8 @@ export function createTauriDesktopApi(): DesktopAPI {
     // Manual search
     searchReleases: (req) =>
       invokeCommand("album:search-releases", { request: req }),
+    releaseTrackCount: (provider, releaseId, kind) =>
+      invokeCommand("album:release-track-count", { request: { provider, releaseId, kind } }),
     resolveRelease: (provider, releaseId, kind) =>
       invokeCommand("album:resolve-release", { request: { provider, releaseId, kind } }),
     previewReleaseMatch: (req) =>

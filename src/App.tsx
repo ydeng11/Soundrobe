@@ -287,6 +287,7 @@ export default function App() {
       const selectedPath = await window.api.openFolderDialog();
       if (!selectedPath) return;
 
+      setAutoTagSummary(null);
       dispatch({ type: "SET_LIBRARY", path: selectedPath });
       dispatch({ type: "SET_SCANNING", scanning: true });
       dispatch({ type: "SET_ERROR", error: null });
