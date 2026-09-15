@@ -264,10 +264,49 @@ fn candidate_position_matches(track: &TrackCandidate, expected: &str) -> bool {
     })
 }
 
+fn normalized_mapping_title(value: &str) -> String {
+    value
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+        .to_lowercase()
+}
+
+fn mapping_provider_title_matches(track: &TrackCandidate, row: &Value) -> bool {
+    let Some(expected) = row.get("providerTitle").and_then(Value::as_str) else {
+        return false;
+    };
+    track.title.as_deref().is_some_and(|actual| {
+        normalized_mapping_title(actual) == normalized_mapping_title(expected)
+    })
+}
+
+fn provider_position_component(value: &str) -> Option<u64> {
+    value.rsplit('-').next()?.parse().ok()
+}
+
 fn reviewed_mapping_matches(candidate: &AlbumCandidate, mapping: &[Value]) -> bool {
     if mapping.len() != candidate.tracks.len() {
         return false;
     }
+    let provider_positions = mapping
+        .iter()
+        .filter_map(|row| row.get("providerTrack").and_then(provider_position_value))
+        .collect::<Vec<_>>();
+    let has_duplicate_provider_position = provider_positions.len()
+        != provider_positions
+            .iter()
+            .collect::<BTreeSet<_>>()
+            .len();
+    let flattened_disc_positions = has_duplicate_provider_position
+        && provider_positions
+            .iter()
+            .filter_map(|value| provider_position_component(value))
+            .zip(provider_positions.iter().skip(1))
+            .all(|(previous, current)| {
+                provider_position_component(current) == Some(previous + 1)
+                    || provider_position_component(current) == Some(1)
+            });
     let mut local_tracks = BTreeSet::new();
     mapping.iter().all(|row| {
         let Some(local_track) = row
@@ -288,7 +327,12 @@ fn reviewed_mapping_matches(candidate: &AlbumCandidate, mapping: &[Value]) -> bo
             && candidate
                 .tracks
                 .get(local_track - 1)
-                .is_some_and(|track| candidate_position_matches(track, &provider_track))
+                .is_some_and(|track| {
+                    candidate_position_matches(track, &provider_track)
+                        || (flattened_disc_positions
+                            && track.disc_number.is_none()
+                            && mapping_provider_title_matches(track, row))
+                })
     }) && local_tracks.len() == candidate.tracks.len()
 }
 
@@ -1912,6 +1956,52 @@ fn reviewed_mapping_must_match_the_selected_candidate_positions() {
         candidate_is_expected(&case, &accepted),
         EvalOutcome::Unresolved
     );
+
+    let flattened = AlbumCandidate {
+        tracks: vec![
+            TrackCandidate {
+                track_number: Some(1),
+                title: Some("First disc".into()),
+                ..TrackCandidate::default()
+            },
+            TrackCandidate {
+                track_number: Some(2),
+                title: Some("Second disc".into()),
+                ..TrackCandidate::default()
+            },
+            TrackCandidate {
+                track_number: Some(3),
+                title: Some("Third disc".into()),
+                ..TrackCandidate::default()
+            },
+            TrackCandidate {
+                track_number: Some(4),
+                title: Some("Fourth disc".into()),
+                ..TrackCandidate::default()
+            },
+        ],
+        ..AlbumCandidate::default()
+    };
+    let flattened_mapping = json!([
+        {"localTrack": 1, "providerTrack": "1", "providerTitle": "First disc"},
+        {"localTrack": 2, "providerTrack": "2", "providerTitle": "Second disc"},
+        {"localTrack": 3, "providerTrack": "1", "providerTitle": "Third disc"},
+        {"localTrack": 4, "providerTrack": "2", "providerTitle": "Fourth disc"}
+    ]);
+    assert!(reviewed_mapping_matches(
+        &flattened,
+        flattened_mapping.as_array().unwrap()
+    ));
+    let flattened_wrong_title = json!([
+        {"localTrack": 1, "providerTrack": "1", "providerTitle": "First disc"},
+        {"localTrack": 2, "providerTrack": "2", "providerTitle": "Second disc"},
+        {"localTrack": 3, "providerTrack": "1", "providerTitle": "Fourth disc"},
+        {"localTrack": 4, "providerTrack": "2", "providerTitle": "Third disc"}
+    ]);
+    assert!(!reviewed_mapping_matches(
+        &flattened,
+        flattened_wrong_title.as_array().unwrap()
+    ));
 }
 
 #[test]
