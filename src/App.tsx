@@ -16,6 +16,7 @@ import {
 import {
   revertHistoryThrough,
   type TrackSnapshot,
+  type UndoOperation,
 } from "./state/UndoManager";
 import { TitleBar } from "./components/TitleBar";
 import { dirname as dirPath, basename, isInsideDirectory } from "./utils/path";
@@ -74,6 +75,17 @@ import {
 
 const EXTRA_TAG_UNDO_FIELD = "__assistantExtraTags";
 
+function withoutAutoTagReviewSnapshots(history: UndoOperation[]): UndoOperation[] {
+  return history
+    .map((operation) => ({
+      ...operation,
+      snapshots: operation.snapshots.filter(
+        (snapshot) => typeof snapshot.fields.autoTagReviewId !== "string",
+      ),
+    }))
+    .filter((operation) => operation.snapshots.length > 0);
+}
+
 function mapAuditResultForState(r: {
   index: number;
   field: string;
@@ -129,6 +141,7 @@ export default function App() {
   // Cover URL cache: albumPath → dataUrl | null
   const coverUrlCacheRef = useRef<Map<string, string | null>>(new Map());
   const autoTagAbortRef = useRef<AbortController | null>(null);
+  const autoTagStartingRef = useRef(false);
   useEffect(
     () => () => {
       autoTagAbortRef.current?.abort();
@@ -278,6 +291,18 @@ export default function App() {
 
   // --- Library loading ---
 
+  const clearAutoTagResults = useCallback(async () => {
+    await window.api.clearAutoTagReviews();
+    const history = state.undoManager.history;
+    const remaining = withoutAutoTagReviewSnapshots(history);
+    dispatch({
+      type: "APPLY_UNDO_RESULT",
+      undoManager: state.undoManager.replaceHistory(remaining),
+      baseOperationIds: history.map((operation) => operation.id),
+    });
+    setAutoTagSummary(null);
+  }, [state.undoManager]);
+
   const handleOpenLibrary = useCallback(async () => {
     try {
       if (!window.api) {
@@ -287,7 +312,7 @@ export default function App() {
       const selectedPath = await window.api.openFolderDialog();
       if (!selectedPath) return;
 
-      setAutoTagSummary(null);
+      await clearAutoTagResults();
       dispatch({ type: "SET_LIBRARY", path: selectedPath });
       dispatch({ type: "SET_SCANNING", scanning: true });
       dispatch({ type: "SET_ERROR", error: null });
@@ -311,7 +336,7 @@ export default function App() {
         error: `Failed to open library: ${message}`,
       });
     }
-  }, [loadAlbumTracks]);
+  }, [clearAutoTagResults, loadAlbumTracks]);
 
   // --- Album selection (in-memory filter, no disk reads) ---
 
@@ -810,7 +835,11 @@ export default function App() {
   // --- Auto-Tag ---
 
   const handleAutoTag = useCallback(async (reviewAlbumPath?: string) => {
-    if (!state.libraryPath || state.autoTagging) return;
+    if (
+      !state.libraryPath ||
+      state.autoTagging ||
+      autoTagStartingRef.current
+    ) return;
 
     // Determine which album paths to tag
     const targetPaths = reviewAlbumPath ? [reviewAlbumPath] : state.activeAlbumPath
@@ -819,6 +848,18 @@ export default function App() {
 
     if (targetPaths.length === 0) {
       dispatch({ type: "SET_ERROR", error: "No albums found to tag" });
+      return;
+    }
+
+    autoTagStartingRef.current = true;
+    try {
+      await clearAutoTagResults();
+    } catch (error) {
+      autoTagStartingRef.current = false;
+      dispatch({
+        type: "SET_ERROR",
+        error: error instanceof Error ? error.message : "Could not clear previous auto-tag results",
+      });
       return;
     }
 
@@ -966,6 +1007,7 @@ export default function App() {
       }
       dispatch({ type: "SET_ERROR", error: message });
     } finally {
+      autoTagStartingRef.current = false;
       if (autoTagAbortRef.current === runController) {
         autoTagAbortRef.current = null;
       }
@@ -982,6 +1024,7 @@ export default function App() {
     fetchCover,
     loadAlbumTracks,
     recordAutoTagReviewHistory,
+    clearAutoTagResults,
   ]);
 
   // --- Audit: LLM-based metadata verification against file paths ---
@@ -1818,16 +1861,24 @@ export default function App() {
         return;
       }
 
-      if (state.autoTagging) {
+      if (state.autoTagging || autoTagStartingRef.current) {
         throw new Error("Auto-tagging is already running");
       }
 
       const albumPaths = Array.from(new Set(trackPaths.map(dirPath)));
-      const snapshots = await buildAutoTagUndoSnapshots(
-        albumPaths,
-        state.tracks,
-        window.api.readAlbum,
-      );
+      autoTagStartingRef.current = true;
+      let snapshots: TrackSnapshot[];
+      try {
+        await clearAutoTagResults();
+        snapshots = await buildAutoTagUndoSnapshots(
+          albumPaths,
+          state.tracks,
+          window.api.readAlbum,
+        );
+      } catch (error) {
+        autoTagStartingRef.current = false;
+        throw error;
+      }
       const attemptedAlbumPaths: string[] = [];
       let historyRecorded = false;
       let journaledAlbums = new Set<string>();
@@ -1935,6 +1986,7 @@ export default function App() {
         dispatch({ type: "SET_ERROR", error: message });
         throw err;
       } finally {
+        autoTagStartingRef.current = false;
         if (autoTagAbortRef.current === runController) {
           autoTagAbortRef.current = null;
         }
@@ -1945,6 +1997,7 @@ export default function App() {
     [
       handleAssistantRefresh,
       recordAutoTagReviewHistory,
+      clearAutoTagResults,
       state.auditing,
       state.autoTagging,
       state.libraryPath,

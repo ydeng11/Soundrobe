@@ -611,6 +611,7 @@ export interface DesktopAPI {
 
   // Auto-tag
   autoTagAlbum: (albumPath: string) => Promise<string>;
+  clearAutoTagReviews: () => Promise<void>;
   listAutoTagReviews: () => Promise<AutoTagReviewDetail[]>;
   getAutoTagReview: (reviewId: string) => Promise<AutoTagReviewDetail>;
   markAutoTagReviewed: (reviewId: string) => Promise<AutoTagReviewDetail>;

@@ -286,6 +286,7 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            commands::auto_tag_review::auto_tag_reviews_clear,
             commands::auto_tag_review::auto_tag_reviews_list,
             commands::auto_tag_review::auto_tag_review_get,
             commands::auto_tag_review::auto_tag_review_keep,
