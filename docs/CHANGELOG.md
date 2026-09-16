@@ -17,6 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and leaves failed or ambiguous releases in the review queue for user input.
 - Docker and Compose deployment files provide a hardened non-root service,
   persistent configuration, direct per-library mounts, and a health endpoint.
+- `just web-local <libraries-root>` now builds and starts the browser service
+  on loopback for local development, using a separate ignored state directory.
 
 ### Changed
 

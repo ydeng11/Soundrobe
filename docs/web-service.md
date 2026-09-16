@@ -55,6 +55,23 @@ requires the opaque session cookie issued by the login endpoint. Do not expose
 the container directly to the Internet without an HTTPS and access-control
 boundary.
 
+## Local development
+
+For a local browser-service run, make a directory whose immediate children are
+the libraries you want Soundrobe to expose. Set a temporary local password,
+then start the server on loopback:
+
+```sh
+export SOUNDROBE_AUTH_PASSWORD='replace-with-a-local-password'
+just web-local /absolute/path/to/libraries-root
+```
+
+The recipe builds the web assets and starts `http://127.0.0.1:8080`. It stores
+local service state in `.soundrobe-web-local/` by default; override
+`SOUNDROBE_DATA_DIR`, `SOUNDROBE_LISTEN_ADDR`, or `SOUNDROBE_PUBLIC_URL` when
+needed. Stop it with `Ctrl-C`. Do not use this local HTTP setup as an Internet
+deployment; use the container setup with an HTTPS reverse proxy instead.
+
 ## Updates and checks
 
 The repository publishes `ghcr.io/ydeng11/soundrobe:<version>` and `:latest`

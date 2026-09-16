@@ -11,6 +11,7 @@ default:
     @echo ""
     @echo "Start the app:"
     @echo "  just dev                  start Tauri app with Vite HMR"
+    @echo "  just web-local <root>     start the local browser service for mounted libraries"
     @echo ""
     @echo "Develop:"
     @echo "  just install              install app dependencies"
@@ -57,6 +58,28 @@ dev: _deps-check
         SOUNDROBE_LOG="${SOUNDROBE_LOG:-trace}" \
         AUTO_TAG_CHINESE_SCRIPT="${AUTO_TAG_CHINESE_SCRIPT:-simplified}" \
         npm run dev
+
+# `library_root` must contain one directory per browser-visible library, matching
+# the /libraries mount layout used by the container service.
+web-local library_root: _deps-check
+    #!/usr/bin/env bash
+    set -euo pipefail
+    : "${SOUNDROBE_AUTH_PASSWORD:?SOUNDROBE_AUTH_PASSWORD missing — set a local browser password in .env.local or the environment}"
+    library_root={{quote(library_root)}}
+    if [ ! -d "$library_root" ]; then
+        echo "Library root does not exist: $library_root" >&2
+        exit 1
+    fi
+    data_dir="${SOUNDROBE_DATA_DIR:-$PWD/.soundrobe-web-local}"
+    mkdir -p "$data_dir"
+    npm run build:web
+    exec env \
+        SOUNDROBE_LISTEN_ADDR="${SOUNDROBE_LISTEN_ADDR:-127.0.0.1:8080}" \
+        SOUNDROBE_PUBLIC_URL="${SOUNDROBE_PUBLIC_URL:-http://127.0.0.1:8080}" \
+        SOUNDROBE_LIBRARY_ROOT_DIR="$library_root" \
+        SOUNDROBE_WEB_ROOT="$PWD/dist" \
+        SOUNDROBE_DATA_DIR="$data_dir" \
+        cargo run --manifest-path src-tauri/Cargo.toml --no-default-features --features server --bin soundrobe-server
 
 build: _deps-check
     npm run build

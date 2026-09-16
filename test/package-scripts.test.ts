@@ -216,6 +216,9 @@ describe("package scripts", () => {
       expect(justfile).toContain(`DEPRECATED: use 'just ${recipe}'`);
     }
     expect(justfile).toContain("smoke-openrouter:");
+    expect(justfile).toMatch(/^web-local library_root: _deps-check$/m);
+    expect(justfile).toContain("SOUNDROBE_LIBRARY_ROOT_DIR=\"$library_root\"");
+    expect(justfile).toContain("--features server --bin soundrobe-server");
     expect(justfile).toContain("fe-smoke-openrouter:");
     expect(justfile).toContain("live_openrouter_returns_schema_constrained_json");
     expect(justfile).toContain("fe-smoke-assistant:");
