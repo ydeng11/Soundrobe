@@ -16,6 +16,7 @@ use std::{
     path::{Path, PathBuf},
     sync::{Arc, Mutex},
 };
+#[cfg(feature = "desktop")]
 use tauri::State;
 
 /// Delete only journals belonging to processes that are definitely no longer
@@ -666,14 +667,17 @@ impl ReviewStore {
         Ok(data.detail.clone())
     }
 }
+#[cfg(feature = "desktop")]
 #[tauri::command]
 pub fn auto_tag_reviews_clear(store: State<'_, ReviewStore>) -> Result<(), ApiError> {
     store.clear()
 }
+#[cfg(feature = "desktop")]
 #[tauri::command]
 pub fn auto_tag_reviews_list(store: State<'_, ReviewStore>) -> Vec<ReviewDetail> {
     store.list()
 }
+#[cfg(feature = "desktop")]
 #[tauri::command]
 pub fn auto_tag_review_get(
     review_id: String,
@@ -681,6 +685,7 @@ pub fn auto_tag_review_get(
 ) -> Result<ReviewDetail, ApiError> {
     store.get(&review_id)
 }
+#[cfg(feature = "desktop")]
 #[tauri::command]
 pub fn auto_tag_review_keep(
     review_id: String,
@@ -688,6 +693,7 @@ pub fn auto_tag_review_keep(
 ) -> Result<ReviewDetail, ApiError> {
     store.keep(&review_id)
 }
+#[cfg(feature = "desktop")]
 #[tauri::command]
 pub async fn auto_tag_review_revert(
     review_id: String,
@@ -698,6 +704,7 @@ pub async fn auto_tag_review_revert(
         .run_exclusive(async { store.revert(&review_id) })
         .await
 }
+#[cfg(feature = "desktop")]
 #[tauri::command]
 pub fn auto_tag_review_artwork(
     review_id: String,

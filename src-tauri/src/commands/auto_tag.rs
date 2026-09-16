@@ -8,6 +8,7 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
+#[cfg(feature = "desktop")]
 use tauri::{AppHandle, Emitter, Manager, State};
 
 use crate::{
@@ -31,10 +32,11 @@ use crate::{
             ProviderRetryMetrics, ProviderState, RemoteArtworkClient,
         },
         sqlite::CacheState,
-        tasks::{TaskRegistry, TaskStatus},
         write_queue::WriteQueue,
     },
 };
+#[cfg(feature = "desktop")]
+use crate::state::tasks::{TaskRegistry, TaskStatus};
 
 use super::track_matcher::{match_remote_candidate_tracks, MatchEvidence, SkipKind};
 
@@ -1997,7 +1999,7 @@ pub struct AutoTagEvent {
     pub data: Option<serde_json::Value>,
 }
 
-fn auto_tag_event(
+pub(crate) fn auto_tag_event(
     task_id: &str,
     kind: &'static str,
     message: impl Into<String>,
@@ -2014,7 +2016,7 @@ fn auto_tag_event(
     }
 }
 
-fn auto_tag_completion_message(candidate: &AlbumCandidate) -> &'static str {
+pub(crate) fn auto_tag_completion_message(candidate: &AlbumCandidate) -> &'static str {
     if candidate.genre.is_some() {
         "Complete"
     } else {
@@ -2763,6 +2765,7 @@ pub(crate) async fn resolve_and_apply_album_with_retry_context(
             retry_count: musicbrainz_metrics.retry_count(),
             retry_after_seconds: musicbrainz_metrics.max_retry_after_seconds(),
         });
+        #[cfg(feature = "desktop")]
         if let Some(review) = super::auto_tag_review::active_review() { review.evidence("providerAttempts", serde_json::json!(provider_attempts)); }
         report(
             "source",
@@ -2820,6 +2823,7 @@ pub(crate) async fn resolve_and_apply_album_with_retry_context(
             retry_count: discogs_metrics.retry_count(),
             retry_after_seconds: discogs_metrics.max_retry_after_seconds(),
         });
+        #[cfg(feature = "desktop")]
         if let Some(review) = super::auto_tag_review::active_review() { review.evidence("providerAttempts", serde_json::json!(provider_attempts)); }
         report(
             "source",
@@ -2989,6 +2993,7 @@ pub(crate) async fn resolve_and_apply_album_with_retry_context(
     progress(9, "Applying tags...");
     let candidate = convert_candidate_chinese(&candidate, config.chinese_script.as_deref());
 
+    #[cfg(feature = "desktop")]
     if let Some(review) = super::auto_tag_review::active_review() {
         review.evidence("candidate", serde_json::json!(candidate));
         review.evidence("providerAttempts", serde_json::json!(provider_attempts));
@@ -3089,6 +3094,7 @@ pub(crate) async fn resolve_and_apply_album_with_retry_context(
     })
 }
 
+#[cfg(feature = "desktop")]
 #[tauri::command]
 pub fn album_auto_tag(
     album_path: String,

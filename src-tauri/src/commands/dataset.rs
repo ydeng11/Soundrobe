@@ -1,10 +1,13 @@
 //! Read-only local dataset status.
 
+#[cfg(feature = "desktop")]
 use crate::state::config::ConfigState;
-use crate::state::paths::canonical_path;
 use rusqlite::{Connection, OpenFlags};
 use serde::Serialize;
-use std::path::{Path, PathBuf};
+use std::path::Path;
+#[cfg(any(feature = "desktop", test))]
+use std::path::PathBuf;
+#[cfg(feature = "desktop")]
 use tauri::State;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -27,14 +30,15 @@ impl DatasetStatus {
     }
 }
 
+#[cfg(feature = "desktop")]
 #[tauri::command]
 pub fn dataset_status(config: State<'_, ConfigState>) -> DatasetStatus {
     let raw = config.raw();
     let path = raw
         .dataset_path
         .map(PathBuf::from)
-        .or_else(|| dirs::home_dir().map(|home| canonical_path(&home, "dataset-index.sqlite")));
-    path.map_or_else(DatasetStatus::unavailable, |path| dataset_status_at(&path))
+        .unwrap_or_else(|| config.data_file("dataset-index.sqlite"));
+    dataset_status_at(&path)
 }
 
 pub fn dataset_status_at(path: &Path) -> DatasetStatus {

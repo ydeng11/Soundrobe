@@ -12,9 +12,10 @@ use crate::{
         aliases::save_alias,
         openrouter::{ChatMessage, OpenRouterClient},
     },
-    state::{
-        config::ConfigState,
-        providers::{DiscogsAliasResolution, ProviderState, RemoteArtworkClient},
+        state::{
+            config::ConfigState,
+            events::{emit_event, EventSink},
+            providers::{DiscogsAliasResolution, ProviderState, RemoteArtworkClient},
         write_queue::WriteQueue,
     },
 };
@@ -25,7 +26,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
-use tauri::{AppHandle, Emitter, State};
+#[cfg(feature = "desktop")]
+use tauri::{AppHandle, State};
 use unicode_normalization::UnicodeNormalization;
 
 const DETERMINISTIC_CONFIDENCE: f64 = 0.98;
@@ -100,7 +102,7 @@ pub struct AuditRunSummary {
 
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-struct AuditEvent {
+pub(crate) struct AuditEvent {
     #[serde(rename = "type")]
     kind: &'static str,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -1082,7 +1084,7 @@ async fn review_audit_context(
     Ok(merge_audit_findings(context.deterministic_findings, llm))
 }
 
-async fn audit_album_with_services(
+pub(crate) async fn audit_album_with_services(
     album_path: &Path,
     cancelled: &AtomicBool,
     client: Option<&OpenRouterClient>,
@@ -1414,10 +1416,8 @@ fn track_patch_has_field(fields: &TrackPatch) -> bool {
         || !fields.disc_total.is_omitted()
 }
 
-fn emit_audit(app: &AppHandle, event: AuditEvent) {
-    if let Err(error) = app.emit("audit:event", event) {
-        tracing::warn!("failed to emit audit event: {error}");
-    }
+pub(crate) fn emit_audit<S: EventSink>(sink: &S, event: AuditEvent) {
+    emit_event(sink, "audit:event", &event);
 }
 
 fn audit_event(kind: &'static str, message: Option<String>) -> AuditEvent {
@@ -1431,7 +1431,7 @@ fn audit_event(kind: &'static str, message: Option<String>) -> AuditEvent {
     }
 }
 
-fn audit_clients(
+pub(crate) fn audit_clients(
     providers: &ProviderState,
     config: &ConfigState,
 ) -> (
@@ -1523,7 +1523,7 @@ async fn audit_pool_worker(pool: &AuditPool<'_>) {
     }
 }
 
-async fn audit_specific_albums(
+pub(crate) async fn audit_specific_albums(
     emit: &(dyn Fn(AuditEvent) + Sync),
     paths: Vec<String>,
     client: Option<Arc<OpenRouterClient>>,
@@ -1567,8 +1567,8 @@ async fn audit_specific_albums(
     })
 }
 
-async fn finish_audit_run<F>(
-    app: &AppHandle,
+pub(crate) async fn finish_audit_run<F>(
+    emit: &(dyn Fn(AuditEvent) + Sync),
     state: &AuditState,
     token: Arc<AtomicBool>,
     operation: F,
@@ -1578,9 +1578,7 @@ where
 {
     let output = match operation.await {
         Ok(summary) => {
-            emit_audit(
-                app,
-                AuditEvent {
+            emit(AuditEvent {
                     kind: "completed",
                     album_path: None,
                     current: Some(summary.albums),
@@ -1590,15 +1588,11 @@ where
                         summary.albums, summary.issues
                     )),
                     results: None,
-                },
-            );
+                });
             Ok(summary)
         }
         Err(_) if token.load(Ordering::Acquire) => {
-            emit_audit(
-                app,
-                audit_event("cancelled", Some("Audit cancelled".into())),
-            );
+            emit(audit_event("cancelled", Some("Audit cancelled".into())));
             Ok(AuditRunSummary {
                 albums: 0,
                 issues: 0,
@@ -1606,10 +1600,7 @@ where
             })
         }
         Err(error) => {
-            emit_audit(
-                app,
-                audit_event("failed", Some(format!("Audit failed: {error}"))),
-            );
+            emit(audit_event("failed", Some(format!("Audit failed: {error}"))));
             Err(error)
         }
     };
@@ -1617,13 +1608,14 @@ where
     output
 }
 
-fn start_audit(state: &AuditState) -> Result<Arc<AtomicBool>, ApiError> {
+pub(crate) fn start_audit(state: &AuditState) -> Result<Arc<AtomicBool>, ApiError> {
     state.cancel();
     state
         .start()
         .ok_or_else(|| ApiError::Message("Audit state unavailable".into()))
 }
 
+#[cfg(any(feature = "desktop", test))]
 fn specified_album_paths(
     track_paths: Option<Vec<String>>,
     album_paths: Option<Vec<String>>,
@@ -1642,6 +1634,7 @@ fn specified_album_paths(
         .ok_or_else(|| ApiError::Message("No tracks or albums specified for audit".into()))
 }
 
+#[cfg(feature = "desktop")]
 #[tauri::command]
 pub async fn audit_run(
     library_path: String,
@@ -1665,9 +1658,10 @@ pub async fn audit_run(
         config.alias_file_path(),
         &token,
     );
-    finish_audit_run(&app, &audit, token.clone(), operation).await
+    finish_audit_run(&emit, &audit, token.clone(), operation).await
 }
 
+#[cfg(feature = "desktop")]
 #[tauri::command]
 pub async fn audit_run_specified(
     track_paths: Option<Vec<String>>,
@@ -1695,9 +1689,10 @@ pub async fn audit_run_specified(
         config.alias_file_path(),
         &token,
     );
-    finish_audit_run(&app, &audit, token.clone(), operation).await
+    finish_audit_run(&emit, &audit, token.clone(), operation).await
 }
 
+#[cfg(feature = "desktop")]
 #[tauri::command]
 pub async fn audit_run_album(
     album_path: String,
@@ -1716,6 +1711,7 @@ pub async fn audit_run_album(
     .await)
 }
 
+#[cfg(feature = "desktop")]
 #[tauri::command]
 pub async fn audit_apply_fixes(
     album_results: Vec<AuditAlbumResult>,
@@ -1724,6 +1720,7 @@ pub async fn audit_apply_fixes(
     apply_audit_fixes_for_album_results(&queue, album_results).await
 }
 
+#[cfg(feature = "desktop")]
 #[tauri::command]
 pub fn audit_cancel(state: State<'_, AuditState>) {
     state.cancel();

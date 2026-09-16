@@ -4,35 +4,95 @@
 //! These commands are used by the Search button (manual workflow) and do not
 //! change the existing auto-tag pipeline.
 
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
+#[cfg(feature = "desktop")]
 use tauri::State;
 
-use crate::{
-    commands::{
-        auto_tag::{
-            apply_selected_candidate_tags, convert_candidate_chinese, discogs_candidate,
-            fill_manual_candidate_genre_if_missing, musicbrainz_candidate,
-            split_collaborative_artists, AlbumCandidate, TrackCandidate,
-        },
-        library::collect_audio_files,
-        track_matcher::match_remote_candidate_tracks,
-        tracks::read_album,
-    },
-    state::{
-        config::ConfigState,
-        providers::{
-            DiscogsClient, MusicBrainzClient, ProviderAlbum, ProviderState, ReleaseSearchSummary,
-        },
-        write_queue::WriteQueue,
+use crate::commands::lyrics::LyricsDocument;
+use crate::commands::{
+    library::collect_audio_files,
+    mutations::{write_track_queued, TrackPatch},
+    tracks::read_album,
+};
+#[cfg(any(feature = "desktop", feature = "server"))]
+use crate::commands::track_matcher::match_remote_candidate_tracks;
+use crate::error::ApiError;
+use crate::state::{
+    config::ConfigState,
+    providers::{
+        DiscogsClient, MusicBrainzClient, ProviderAlbum, ProviderState, ReleaseSearchSummary,
     },
 };
+use crate::state::write_queue::WriteQueue;
 
 // ── Request / response types ─────────────────────────────────────────
 
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum LookupSource {
+    #[default]
+    Beets,
+    Dataset,
+    Discogs,
+    Folder,
+    Llm,
+    Musicbrainz,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct TrackCandidate {
+    pub title: Option<String>,
+    #[serde(default)]
+    pub match_titles: Vec<String>,
+    pub artist: Option<String>,
+    #[serde(default)]
+    pub artists: Vec<String>,
+    pub track_number: Option<u32>,
+    pub track_total: Option<u32>,
+    pub disc_number: Option<u32>,
+    pub disc_total: Option<u32>,
+    /// Provider media label keeps CD audio separate from DVD extras.
+    #[serde(default)]
+    pub media_type: Option<String>,
+    #[serde(rename = "musicbrainz_trackid")]
+    pub musicbrainz_track_id: Option<String>,
+    pub length: Option<f64>,
+    pub genre: Option<String>,
+    #[serde(default)]
+    pub filename: Option<String>,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct AlbumCandidate {
+    pub artist: Option<String>,
+    #[serde(default)]
+    pub artists: Vec<String>,
+    pub album: Option<String>,
+    pub album_artist: Option<String>,
+    #[serde(default)]
+    pub album_artists: Vec<String>,
+    pub year: Option<String>,
+    pub genre: Option<String>,
+    #[serde(rename = "musicbrainz_albumid")]
+    pub musicbrainz_album_id: Option<String>,
+    #[serde(rename = "musicbrainz_artistid")]
+    pub musicbrainz_artist_id: Option<String>,
+    pub discogs_artist_id: Option<String>,
+    pub discogs_release_id: Option<String>,
+    #[serde(default)]
+    pub tracks: Vec<TrackCandidate>,
+    pub distance: Option<f64>,
+    pub source: LookupSource,
+    pub verification: Option<String>,
+}
+
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SearchReleasesRequest {
     pub provider: String,
     /// At least one of artist or album is required.
@@ -59,7 +119,7 @@ pub struct SearchReleasesResponse {
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ResolveReleaseRequest {
     pub provider: String,
     pub release_id: String,
@@ -67,7 +127,7 @@ pub struct ResolveReleaseRequest {
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct PreviewMatchRequest {
     pub album_path: String,
     pub release: ProviderAlbum,
@@ -98,7 +158,7 @@ pub struct PreviewMatchResult {
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ApplyCandidateRequest {
     pub album_path: String,
     pub candidate: AlbumCandidate,
@@ -107,12 +167,305 @@ pub struct ApplyCandidateRequest {
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
-fn discogs_token(config: &ConfigState) -> Option<String> {
+pub(crate) fn discogs_token(config: &ConfigState) -> Option<String> {
     config.raw().discogs_token.clone()
 }
 
-fn normalise_page_size(page_size: Option<u32>) -> u32 {
+pub(crate) fn normalise_page_size(page_size: Option<u32>) -> u32 {
     page_size.unwrap_or(10).clamp(1, 100)
+}
+
+pub(crate) fn normalise_page(page: Option<u32>) -> u32 {
+    page.unwrap_or(1).clamp(1, 10_000)
+}
+
+pub(crate) fn split_collaborative_artists(
+    artist: &Option<String>,
+    artists: &[String],
+) -> Vec<String> {
+    if artists.len() > 1 {
+        return artists.to_vec();
+    }
+    let source = artist
+        .as_deref()
+        .filter(|value| !value.trim().is_empty())
+        .or_else(|| artists.first().map(String::as_str))
+        .unwrap_or_default();
+    let split = crate::state::providers::split_artist_names(&[source.to_string()]);
+    if split.is_empty() {
+        artists.to_vec()
+    } else {
+        split
+    }
+}
+
+pub fn musicbrainz_candidate(album: ProviderAlbum) -> AlbumCandidate {
+    let artist = album.artist.clone();
+    AlbumCandidate {
+        artist: artist.clone(),
+        artists: album.artists.clone(),
+        album: Some(album.title),
+        album_artist: artist,
+        album_artists: album.artists,
+        year: album.year,
+        genre: album.genre,
+        musicbrainz_album_id: Some(album.id),
+        musicbrainz_artist_id: album.artist_id,
+        tracks: album
+            .tracks
+            .into_iter()
+            .map(|track| TrackCandidate {
+                title: track.title,
+                match_titles: track.match_titles,
+                artist: track.artist,
+                artists: track.artists,
+                track_number: track.track_number,
+                track_total: track.track_total,
+                disc_number: track.disc_number,
+                musicbrainz_track_id: track.recording_id,
+                length: track.length,
+                ..TrackCandidate::default()
+            })
+            .collect(),
+        source: LookupSource::Musicbrainz,
+        ..AlbumCandidate::default()
+    }
+}
+
+pub fn discogs_candidate(album: ProviderAlbum) -> AlbumCandidate {
+    let artist = album.artist.clone();
+    AlbumCandidate {
+        artist: artist.clone(),
+        artists: album.artists.clone(),
+        album: Some(album.title),
+        album_artist: artist,
+        album_artists: album.artists,
+        year: album.year,
+        genre: album.genre,
+        discogs_artist_id: album.artist_id,
+        discogs_release_id: Some(album.id),
+        tracks: album
+            .tracks
+            .into_iter()
+            .map(|track| TrackCandidate {
+                title: track.title,
+                match_titles: track.match_titles,
+                artist: track.artist,
+                artists: track.artists,
+                track_number: track.track_number,
+                track_total: track.track_total,
+                disc_number: track.disc_number,
+                length: track.length,
+                ..TrackCandidate::default()
+            })
+            .collect(),
+        source: LookupSource::Discogs,
+        ..AlbumCandidate::default()
+    }
+}
+
+pub fn convert_candidate_chinese(
+    candidate: &AlbumCandidate,
+    target: Option<&str>,
+) -> AlbumCandidate {
+    let Some(target) = target.filter(|target| matches!(*target, "traditional" | "simplified"))
+    else {
+        return candidate.clone();
+    };
+    let convert = |value: &Option<String>| {
+        value
+            .as_deref()
+            .map(|value| crate::state::providers::convert_chinese_text(value, target))
+    };
+    let convert_many = |values: &[String]| {
+        values
+            .iter()
+            .map(|value| crate::state::providers::convert_chinese_text(value, target))
+            .collect()
+    };
+    let mut converted = candidate.clone();
+    converted.artist = convert(&candidate.artist);
+    converted.artists = convert_many(&candidate.artists);
+    converted.album = convert(&candidate.album);
+    converted.album_artist = convert(&candidate.album_artist);
+    converted.album_artists = convert_many(&candidate.album_artists);
+    converted.year = convert(&candidate.year);
+    converted.genre = convert(&candidate.genre);
+    converted.tracks = candidate
+        .tracks
+        .iter()
+        .map(|track| {
+            let mut track = track.clone();
+            track.title = convert(&track.title);
+            track.artist = convert(&track.artist);
+            track.artists = convert_many(&track.artists);
+            track.genre = convert(&track.genre);
+            track
+        })
+        .collect();
+    converted
+}
+
+#[derive(Clone, Copy)]
+pub(crate) enum CandidateApplyScope<'a> {
+    SelectedTracks(&'a HashSet<usize>),
+}
+
+impl CandidateApplyScope<'_> {
+    fn includes(self, index: usize) -> bool {
+        matches!(self, Self::SelectedTracks(indices) if indices.contains(&index))
+    }
+}
+
+fn has_writable_track_fields(track: &TrackCandidate) -> bool {
+    track.title.is_some()
+        || track.artist.is_some()
+        || !track.artists.is_empty()
+        || track.track_number.is_some()
+        || track.track_total.is_some()
+        || track.disc_number.is_some()
+        || track.disc_total.is_some()
+        || track.musicbrainz_track_id.is_some()
+}
+
+pub(crate) async fn apply_candidate_tags_reported(
+    album_path: &Path,
+    candidate: &AlbumCandidate,
+    queue: &WriteQueue,
+    scope: CandidateApplyScope<'_>,
+    lyrics_map: HashMap<PathBuf, LyricsDocument>,
+    mut report_write: impl FnMut(&str),
+) -> Result<usize, ApiError> {
+    let fallback_artist = album_path
+        .parent()
+        .and_then(Path::file_name)
+        .and_then(|name| name.to_str())
+        .unwrap_or_default();
+    let album_artists = if candidate.album_artists.is_empty() {
+        vec![fallback_artist.to_string()]
+    } else {
+        candidate.album_artists.clone()
+    };
+    let album_artist = album_artists.join(" & ");
+    let mut album_fields = serde_json::Map::new();
+    insert_option(&mut album_fields, "album", &candidate.album);
+    album_fields.insert("albumArtist".into(), album_artist.into());
+    album_fields.insert("albumArtists".into(), serde_json::json!(album_artists));
+    if let Some(year) = &candidate.year {
+        album_fields.insert("year".into(), year.clone().into());
+    }
+    if let Some(genre) = &candidate.genre {
+        album_fields.insert("genre".into(), genre.clone().into());
+    }
+    insert_option(
+        &mut album_fields,
+        "musicbrainzAlbumId",
+        &candidate.musicbrainz_album_id,
+    );
+    insert_option(
+        &mut album_fields,
+        "musicbrainzArtistId",
+        &candidate.musicbrainz_artist_id,
+    );
+    insert_option(
+        &mut album_fields,
+        "discogsReleaseId",
+        &candidate.discogs_release_id,
+    );
+    insert_option(
+        &mut album_fields,
+        "discogsArtistId",
+        &candidate.discogs_artist_id,
+    );
+
+    let mut written = 0;
+    let mut failures = Vec::new();
+    for (index, file_path) in collect_audio_files(album_path).into_iter().enumerate() {
+        let track = candidate.tracks.get(index);
+        if !scope.includes(index) {
+            continue;
+        }
+        let mut fields = album_fields.clone();
+        if let Some(track) = track {
+            if has_writable_track_fields(track) {
+                insert_option(&mut fields, "title", &track.title);
+                insert_option(&mut fields, "artist", &track.artist);
+                if !track.artists.is_empty() {
+                    fields.insert("artists".into(), serde_json::json!(track.artists));
+                }
+                insert_number(&mut fields, "trackNumber", track.track_number);
+                insert_number(&mut fields, "trackTotal", track.track_total);
+                insert_number(&mut fields, "discNumber", track.disc_number);
+                insert_number(&mut fields, "discTotal", track.disc_total);
+                if let Some(track_id) = &track.musicbrainz_track_id {
+                    fields.insert("musicbrainzTrackId".into(), track_id.clone().into());
+                }
+            }
+        }
+        if let Some(lyrics) = lyrics_map.get(Path::new(&file_path)) {
+            fields.insert("lyrics".into(), serde_json::json!(lyrics));
+        }
+        let patch: TrackPatch = serde_json::from_value(fields.into())
+            .map_err(|error| ApiError::WriteTask(error.to_string()))?;
+        match write_track_queued(queue, file_path.clone().into(), patch).await {
+            Ok(()) => {
+                written += 1;
+                report_write(&file_path);
+            }
+            Err(error) => {
+                tracing::warn!(path = %file_path, %error, "manual search write failed");
+                failures.push(format!("{file_path}: {error}"));
+            }
+        }
+    }
+    if failures.is_empty() {
+        Ok(written)
+    } else {
+        Err(ApiError::WriteTask(format!(
+            "manual search wrote {written} file(s), but {} file(s) failed: {}",
+            failures.len(),
+            failures.join("; ")
+        )))
+    }
+}
+
+pub(crate) async fn apply_selected_candidate_tags(
+    album_path: &Path,
+    candidate: &AlbumCandidate,
+    queue: &WriteQueue,
+    selected_track_indices: &[usize],
+) -> Result<usize, ApiError> {
+    let selected_track_indices = selected_track_indices
+        .iter()
+        .copied()
+        .collect::<HashSet<_>>();
+    apply_candidate_tags_reported(
+        album_path,
+        candidate,
+        queue,
+        CandidateApplyScope::SelectedTracks(&selected_track_indices),
+        HashMap::new(),
+        |_| {},
+    )
+    .await
+}
+
+fn insert_option(
+    fields: &mut serde_json::Map<String, serde_json::Value>,
+    name: &str,
+    value: &Option<String>,
+) {
+    fields.insert(name.to_string(), serde_json::json!(value));
+}
+
+fn insert_number(
+    fields: &mut serde_json::Map<String, serde_json::Value>,
+    name: &str,
+    value: Option<u32>,
+) {
+    if let Some(value) = value {
+        fields.insert(name.to_string(), value.into());
+    }
 }
 
 // ── Commands ─────────────────────────────────────────────────────────
@@ -121,7 +474,7 @@ fn normalise_page_size(page_size: Option<u32>) -> u32 {
 /// omits empty ones downstream. Returns `Err` when both artist and album
 /// are empty after trimming.
 #[allow(clippy::too_many_arguments)]
-async fn search_releases_inner(
+pub(crate) async fn search_releases_inner(
     provider: &str,
     trimmed_artist: Option<String>,
     trimmed_album: Option<String>,
@@ -278,13 +631,14 @@ async fn search_releases_inner(
 
 /// Lightweight paged release search.
 /// Returns summary records only — no per-result track detail fetch.
+#[cfg(feature = "desktop")]
 #[tauri::command]
 pub async fn album_search_releases(
     request: SearchReleasesRequest,
     providers: State<'_, ProviderState>,
     config: State<'_, ConfigState>,
 ) -> Result<SearchReleasesResponse, String> {
-    let page = request.page.unwrap_or(1).max(1);
+    let page = normalise_page(request.page);
     let page_size = normalise_page_size(request.page_size);
 
     let token = discogs_token(&config);
@@ -306,6 +660,7 @@ pub async fn album_search_releases(
 }
 
 /// Read only the provider track count; never run genre or candidate enrichment.
+#[cfg(feature = "desktop")]
 #[tauri::command]
 pub async fn album_release_track_count(
     request: ResolveReleaseRequest,
@@ -335,6 +690,7 @@ pub async fn album_release_track_count(
 }
 
 /// Resolve a single release by provider + ID, returning full `ProviderAlbum` with tracks.
+#[cfg(feature = "desktop")]
 #[tauri::command]
 pub async fn album_resolve_release(
     request: ResolveReleaseRequest,
@@ -344,12 +700,12 @@ pub async fn album_resolve_release(
     resolve_release_inner(&request, &providers, &config).await
 }
 
-async fn resolve_release_inner(
+pub(crate) async fn resolve_release_inner(
     request: &ResolveReleaseRequest,
     providers: &ProviderState,
     config: &ConfigState,
 ) -> Result<ProviderAlbum, String> {
-    let mut album = match request.provider.as_str() {
+    let album = match request.provider.as_str() {
         "musicbrainz" => {
             let client = MusicBrainzClient::at(providers.http(), providers.musicbrainz_base());
             client.release_by_id_result(&request.release_id).await
@@ -361,33 +717,22 @@ async fn resolve_release_inner(
                 Some("master") => client
                     .master_metadata(&request.release_id)
                     .await
-                    .ok_or_else(|| format!("Discogs master not found: {}", request.release_id)),
+                    .ok_or_else(|| "Discogs master metadata unavailable".to_string()),
                 _ => client
-                    .release_metadata(&request.release_id)
-                    .await
-                    .ok_or_else(|| format!("Discogs release not found: {}", request.release_id)),
+                    .release_metadata_result(&request.release_id)
+                    .await,
             }
         }
         other => Err(format!("Unknown provider: {other}")),
     }?;
 
-    if album.genre.is_none() {
-        let candidate = match request.provider.as_str() {
-            "musicbrainz" => musicbrainz_candidate(album.clone()),
-            "discogs" => discogs_candidate(album.clone()),
-            _ => unreachable!("provider validated above"),
-        };
-        album.genre = fill_manual_candidate_genre_if_missing(&candidate, &config.raw())
-            .await
-            .genre;
-    }
     Ok(album)
 }
 
 /// Preview local-to-remote track matching for a selected release.
 /// The release was already resolved on the renderer side, so this command
 /// receives the full `ProviderAlbum` and runs matching against local tracks.
-#[tauri::command]
+#[cfg_attr(feature = "desktop", tauri::command)]
 pub async fn album_preview_release_match(
     request: PreviewMatchRequest,
 ) -> Result<PreviewMatchResult, String> {
@@ -439,11 +784,32 @@ pub async fn album_preview_release_match(
         })
         .collect();
 
+    // The shared matcher is owned by auto-tag. Manual search has an equivalent
+    // transport type, so convert at the boundary instead of maintaining a
+    // second matching algorithm.
+    let matcher_track = |track: &TrackCandidate| crate::commands::auto_tag::TrackCandidate {
+        title: track.title.clone(),
+        match_titles: track.match_titles.clone(),
+        artist: track.artist.clone(),
+        artists: track.artists.clone(),
+        track_number: track.track_number,
+        track_total: track.track_total,
+        disc_number: track.disc_number,
+        disc_total: track.disc_total,
+        media_type: track.media_type.clone(),
+        musicbrainz_track_id: track.musicbrainz_track_id.clone(),
+        length: track.length,
+        genre: track.genre.clone(),
+        filename: track.filename.clone(),
+    };
+    let matcher_local_tracks = local_tracks.iter().map(matcher_track).collect::<Vec<_>>();
+    let matcher_remote_tracks = album_candidate.tracks.iter().map(matcher_track).collect::<Vec<_>>();
+
     // Run track matching
     let matched = match_remote_candidate_tracks(
-        &local_tracks,
+        &matcher_local_tracks,
         &filenames,
-        &album_candidate.tracks,
+        &matcher_remote_tracks,
         &request.provider,
         &[],
         &[],
@@ -499,6 +865,7 @@ pub async fn album_preview_release_match(
 /// Apply a user-edited album candidate to the given album directory.
 /// Validates the positional track selection, applies the configured
 /// Chinese-script conversion, then writes only explicitly selected rows.
+#[cfg(feature = "desktop")]
 #[tauri::command]
 pub async fn album_search_apply_candidate(
     request: ApplyCandidateRequest,
@@ -508,7 +875,7 @@ pub async fn album_search_apply_candidate(
     apply_search_candidate(&request, &config, &queue).await
 }
 
-async fn apply_search_candidate(
+pub(crate) async fn apply_search_candidate(
     request: &ApplyCandidateRequest,
     config: &ConfigState,
     queue: &WriteQueue,
@@ -561,7 +928,7 @@ async fn apply_search_candidate(
     .map_err(|e| format!("Failed to apply candidate tags: {e}"))
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "desktop"))]
 mod tests {
     use super::*;
     use crate::state::config::EnvMap;

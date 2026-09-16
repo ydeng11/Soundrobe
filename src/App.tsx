@@ -1,5 +1,6 @@
 import React, {
   useReducer,
+  useState,
   useCallback,
   useEffect,
   useMemo,
@@ -16,7 +17,6 @@ import {
 import {
   revertHistoryThrough,
   type TrackSnapshot,
-  type UndoOperation,
 } from "./state/UndoManager";
 import { TitleBar } from "./components/TitleBar";
 import { dirname as dirPath, basename, isInsideDirectory } from "./utils/path";
@@ -34,7 +34,6 @@ import {
 } from "./components/AuditPanel";
 import { SettingsModal } from "./components/SettingsModal";
 import { UpdateDialog } from "./components/UpdateDialog";
-import { AutoTagSummaryDialog } from "./components/AutoTagSummaryDialog";
 import { ConvertDialog } from "./components/ConvertDialog";
 import { SearchDialog } from "./components/SearchDialog";
 import { ConfirmWriteDialog } from "./components/ConfirmWriteDialog";
@@ -55,9 +54,9 @@ import type {
   TrackData,
   AlbumInfo,
   AlbumDetail,
+  LibraryRoot,
   AuditRunSummary,
   AuditTrackResult,
-  AutoTagReviewDetail,
   PreviewMatchResult,
   AlbumCandidate,
   ProviderAlbum,
@@ -67,24 +66,18 @@ import {
   type OrderingRule,
 } from "./shared/track-numbering";
 import { useAppUpdater } from "./state/useAppUpdater";
+import { WebLibraryPicker } from "./components/WebLibraryPicker";
+import { WebLoginScreen } from "./components/WebLoginScreen";
+import { WebTaggingQueue } from "./components/WebTaggingQueue";
 import {
-  runAutoTagBatch,
-  summaryFromReviews,
-  type AutoTagBatchSummary,
-} from "./state/auto-tag-batch";
+  getWebSession,
+  loginWebSession,
+  logoutWebSession,
+  uploadWebCover,
+} from "./shared/web-adapter";
+import { isWebRuntime } from "./shared/install-desktop-api";
 
 const EXTRA_TAG_UNDO_FIELD = "__assistantExtraTags";
-
-function withoutAutoTagReviewSnapshots(history: UndoOperation[]): UndoOperation[] {
-  return history
-    .map((operation) => ({
-      ...operation,
-      snapshots: operation.snapshots.filter(
-        (snapshot) => typeof snapshot.fields.autoTagReviewId !== "string",
-      ),
-    }))
-    .filter((operation) => operation.snapshots.length > 0);
-}
 
 function mapAuditResultForState(r: {
   index: number;
@@ -114,6 +107,16 @@ function mapAuditResultForState(r: {
 
 export default function App() {
   const [state, dispatch] = useReducer(appReducer, initialAppState);
+  const webRuntime = isWebRuntime();
+  const [webAuthState, setWebAuthState] = React.useState<
+    "desktop" | "checking" | "login" | "authenticated"
+  >(webRuntime ? "checking" : "desktop");
+  const [webRoots, setWebRoots] = React.useState<LibraryRoot[] | null>(null);
+  const [webPickerOpen, setWebPickerOpen] = React.useState(false);
+  const [webRootsLoading, setWebRootsLoading] = React.useState(false);
+  const [webRootsError, setWebRootsError] = React.useState<string | null>(null);
+  const webCoverInputRef = useRef<HTMLInputElement | null>(null);
+  const webCoverTargetRef = useRef<string | null>(null);
   const appBusy =
     state.saving ||
     state.autoTagging ||
@@ -135,19 +138,10 @@ export default function App() {
   const [assistantApplying, setAssistantApplying] = React.useState(false);
   const [assistantApiKeyConfigured, setAssistantApiKeyConfigured] = React.useState(false);
   const [assistantModel, setAssistantModel] = React.useState("");
-  const [autoTagSummary, setAutoTagSummary] =
-    React.useState<AutoTagBatchSummary | null>(null);
+  const [assistantAutonomous, setAssistantAutonomous] = useState(false);
 
   // Cover URL cache: albumPath → dataUrl | null
   const coverUrlCacheRef = useRef<Map<string, string | null>>(new Map());
-  const autoTagAbortRef = useRef<AbortController | null>(null);
-  const autoTagStartingRef = useRef(false);
-  useEffect(
-    () => () => {
-      autoTagAbortRef.current?.abort();
-    },
-    [],
-  );
   // Abort controller for stale cover responses
   const coverAbortRef = useRef<AbortController | null>(null);
   // Debounce timer for rapid cover navigation
@@ -291,17 +285,22 @@ export default function App() {
 
   // --- Library loading ---
 
-  const clearAutoTagResults = useCallback(async () => {
-    await window.api.clearAutoTagReviews();
-    const history = state.undoManager.history;
-    const remaining = withoutAutoTagReviewSnapshots(history);
-    dispatch({
-      type: "APPLY_UNDO_RESULT",
-      undoManager: state.undoManager.replaceHistory(remaining),
-      baseOperationIds: history.map((operation) => operation.id),
-    });
-    setAutoTagSummary(null);
-  }, [state.undoManager]);
+  const loadLibrary = useCallback(async (selectedPath: string) => {
+    dispatch({ type: "SET_LIBRARY", path: selectedPath });
+    dispatch({ type: "SET_SCANNING", scanning: true });
+    dispatch({ type: "SET_ERROR", error: null });
+
+    try {
+      const albums = await window.api.scanLibrary(selectedPath);
+      dispatch({ type: "SET_ALBUMS", albums });
+      await loadAlbumTracks(albums);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to scan library";
+      dispatch({ type: "SET_ERROR", error: message });
+    } finally {
+      dispatch({ type: "SET_SCANNING", scanning: false });
+    }
+  }, [loadAlbumTracks]);
 
   const handleOpenLibrary = useCallback(async () => {
     try {
@@ -309,25 +308,23 @@ export default function App() {
         throw new Error("Tauri desktop bridge is unavailable");
       }
 
+      if (webRuntime) {
+        const roots = await window.api.listLibraryRoots();
+        setWebRootsError(null);
+        if (roots.length === 1) {
+          setWebRoots(null);
+          setWebPickerOpen(false);
+          await loadLibrary(roots[0].path);
+        } else {
+          setWebRoots(roots);
+          setWebPickerOpen(true);
+        }
+        return;
+      }
+
       const selectedPath = await window.api.openFolderDialog();
       if (!selectedPath) return;
-
-      await clearAutoTagResults();
-      dispatch({ type: "SET_LIBRARY", path: selectedPath });
-      dispatch({ type: "SET_SCANNING", scanning: true });
-      dispatch({ type: "SET_ERROR", error: null });
-
-      try {
-        const albums = await window.api.scanLibrary(selectedPath);
-        dispatch({ type: "SET_ALBUMS", albums });
-        await loadAlbumTracks(albums);
-      } catch (err: unknown) {
-        const message =
-          err instanceof Error ? err.message : "Failed to scan library";
-        dispatch({ type: "SET_ERROR", error: message });
-      } finally {
-        dispatch({ type: "SET_SCANNING", scanning: false });
-      }
+      await loadLibrary(selectedPath);
     } catch (err: unknown) {
       const message =
         err instanceof Error ? err.message : "Failed to open folder dialog";
@@ -336,7 +333,39 @@ export default function App() {
         error: `Failed to open library: ${message}`,
       });
     }
-  }, [clearAutoTagResults, loadAlbumTracks]);
+  }, [loadLibrary, webRuntime]);
+
+  const handleWebRootSelect = useCallback(async (path: string) => {
+    setWebRoots(null);
+    setWebPickerOpen(false);
+    setWebRootsError(null);
+    setWebRootsLoading(true);
+    try {
+      await loadLibrary(path);
+    } finally {
+      setWebRootsLoading(false);
+    }
+  }, [loadLibrary]);
+
+  const handleWebLogin = useCallback(async (password: string) => {
+    const session = await loginWebSession(password);
+    if (!session.authenticated) {
+      throw new Error("Sign in failed");
+    }
+    setWebAuthState("authenticated");
+  }, []);
+
+  const handleWebLogout = useCallback(async () => {
+    try {
+      await logoutWebSession();
+    } finally {
+      dispatch({ type: "CLEAR_ALL" });
+      setWebRoots(null);
+      setWebPickerOpen(false);
+      setWebRootsError(null);
+      setWebAuthState("login");
+    }
+  }, []);
 
   // --- Album selection (in-memory filter, no disk reads) ---
 
@@ -585,6 +614,11 @@ export default function App() {
     const trackPath = state.selectedTrack?.path ?? state.selectedTrackPaths[0];
     if (!trackPath) return;
     const albumPath = dirPath(trackPath);
+    if (webRuntime) {
+      webCoverTargetRef.current = albumPath;
+      webCoverInputRef.current?.click();
+      return;
+    }
     try {
       const url = await window.api.setCover(albumPath);
       if (url) {
@@ -593,7 +627,39 @@ export default function App() {
     } catch {
       dispatch({ type: "SET_ERROR", error: "Failed to set cover art" });
     }
-  }, [state.selectedTrack, state.selectedTrackPaths]);
+  }, [state.selectedTrack, state.selectedTrackPaths, webRuntime]);
+
+  const handleWebCoverSelected = useCallback(
+    async (event: React.ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+      const albumPath = webCoverTargetRef.current;
+      event.target.value = "";
+      webCoverTargetRef.current = null;
+      if (!file || !albumPath) return;
+      if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+        dispatch({ type: "SET_ERROR", error: "Choose a JPEG, PNG, or WebP cover image" });
+        return;
+      }
+      dispatch({ type: "SET_SAVING", saving: true });
+      dispatch({ type: "SET_ERROR", error: null });
+      try {
+        const url = await uploadWebCover(albumPath, file);
+        if (!url) {
+          throw new Error("Cover upload returned no image");
+        }
+        coverUrlCacheRef.current.set(albumPath, url);
+        dispatch({ type: "SET_COVER_URL", url });
+      } catch (reason) {
+        dispatch({
+          type: "SET_ERROR",
+          error: reason instanceof Error ? reason.message : "Failed to upload cover art",
+        });
+      } finally {
+        dispatch({ type: "SET_SAVING", saving: false });
+      }
+    },
+    [],
+  );
 
   const handleRemoveCover = useCallback(async () => {
     // Fall back to the first multi-selected track so this button works in batch mode.
@@ -710,14 +776,6 @@ export default function App() {
                 : null;
 
             try {
-              if (typeof remainingFields.autoTagReviewId === "string") {
-                const review = await window.api.revertAutoTagReview(remainingFields.autoTagReviewId);
-                const album = await window.api.readAlbum(review.albumPath);
-                dispatch({ type: "UPDATE_TRACKS", tracks: album.tracks });
-                coverUrlCacheRef.current.delete(review.albumPath);
-                fetchCover(review.albumPath);
-                return null;
-              }
               if (oldPath && snapshot.path !== oldPath) {
                 const track = await window.api.renameTrack(
                   snapshot.path,
@@ -804,45 +862,16 @@ export default function App() {
         dispatch({ type: "SET_REVERTING", reverting: false });
       }
     },
-    [state.reverting, state.saving, state.undoManager, fetchCover],
-  );
-
-  const recordAutoTagReviewHistory = useCallback(
-    async (summary: AutoTagBatchSummary) => {
-      const journaled = new Set<string>();
-      for (const item of summary.items) {
-        if (!item.reviewId) continue;
-        journaled.add(item.albumPath);
-        const review = await window.api.getAutoTagReview(item.reviewId);
-        if (review.canRevert) {
-          dispatch({
-            type: "PUSH_UNDO",
-            description: `Auto-tag: ${basename(item.albumPath)}`,
-            snapshots: [
-              {
-                path: item.albumPath,
-                fields: { autoTagReviewId: item.reviewId },
-              },
-            ],
-          });
-        }
-      }
-      return journaled;
-    },
-    [],
+    [state.reverting, state.saving, state.undoManager],
   );
 
   // --- Auto-Tag ---
 
-  const handleAutoTag = useCallback(async (reviewAlbumPath?: string) => {
-    if (
-      !state.libraryPath ||
-      state.autoTagging ||
-      autoTagStartingRef.current
-    ) return;
+  const handleAutoTag = useCallback(async () => {
+    if (!state.libraryPath || state.autoTagging) return;
 
     // Determine which album paths to tag
-    const targetPaths = reviewAlbumPath ? [reviewAlbumPath] : state.activeAlbumPath
+    const targetPaths = state.activeAlbumPath
       ? [state.activeAlbumPath]
       : state.albums.map((a) => a.path);
 
@@ -851,31 +880,19 @@ export default function App() {
       return;
     }
 
-    autoTagStartingRef.current = true;
-    try {
-      await clearAutoTagResults();
-    } catch (error) {
-      autoTagStartingRef.current = false;
-      dispatch({
-        type: "SET_ERROR",
-        error: error instanceof Error ? error.message : "Could not clear previous auto-tag results",
-      });
-      return;
-    }
+    const isBatch = targetPaths.length > 1;
 
     dispatch({ type: "SET_AUTO_TAGGING", autoTagging: true });
     dispatch({ type: "SET_ERROR", error: null });
-    dispatch({ type: "SET_NOTICE", notice: null });
-    setAutoTagSummary(null);
-    const runController = new AbortController();
-    autoTagAbortRef.current = runController;
 
+    let completed = 0;
+    let totalErrors = 0;
     let snapshots: TrackSnapshot[] = [];
+    const attemptedAlbumPaths: string[] = [];
     let autoTagReadback: TrackData[] = [];
     let historyRecorded = false;
-    let journaledAlbums = new Set<string>();
 
-    const recordAttemptedAutoTag = async (attemptedAlbumPaths: string[]) => {
+    const recordAttemptedAutoTag = async () => {
       if (historyRecorded || attemptedAlbumPaths.length === 0) {
         return autoTagReadback;
       }
@@ -897,7 +914,7 @@ export default function App() {
       }
       const attempted = new Set(attemptedAlbumPaths);
       const changedSnapshots = filterChangedSnapshots(
-        snapshots.filter((snapshot) => attempted.has(dirPath(snapshot.path)) && !journaledAlbums.has(dirPath(snapshot.path))),
+        snapshots.filter((snapshot) => attempted.has(dirPath(snapshot.path))),
         autoTagReadback,
       );
       if (changedSnapshots.length > 0) {
@@ -924,40 +941,99 @@ export default function App() {
         state.tracks,
         window.api.readAlbum,
       );
-      const summary = await runAutoTagBatch({
-        albumPaths: targetPaths,
-        api: window.api,
-        isCancelled: () => runController.signal.aborted,
-        onProgress: (progress) =>
-          dispatch({ type: "SET_AUTO_TAG_PROGRESS", progress }),
-      });
-      setAutoTagSummary(summary);
-      journaledAlbums = await recordAutoTagReviewHistory(summary);
-      const attemptedAlbumPaths = summary.items
-        .filter((item) => item.readbackRequired)
-        .map((item) => item.albumPath);
-      const totalErrors = summary.items.filter(
-        (item) => item.status === "failed" || item.status === "cancelled",
-      ).length;
-      const needsReview = summary.items
-        .filter((item) => item.status === "needs_review")
-        .map(
-          (item) =>
-            `${basename(item.albumPath) ?? item.albumPath}: ${
-              item.reasonCode ?? item.message
-            }`,
-        );
+
+      for (const albumPath of targetPaths) {
+        const albumName = basename(albumPath) ?? albumPath;
+        dispatch({
+          type: "SET_AUTO_TAG_PROGRESS",
+          progress: isBatch
+            ? {
+                current: completed,
+                total: targetPaths.length,
+                message: `${albumName}`,
+              }
+            : { current: 0, total: 9, message: `Auto-tagging: ${albumName}` },
+        });
+
+        const taskId = await window.api.autoTagAlbum(albumPath);
+        attemptedAlbumPaths.push(albumPath);
+        const unsubscribe = window.api.onAutoTagEvent((event) => {
+          if (event.taskId !== taskId) return;
+          dispatch({
+            type: "SET_AUTO_TAG_PROGRESS",
+            progress: isBatch
+              ? {
+                  current: completed,
+                  total: targetPaths.length,
+                  message: event.message,
+                }
+              : {
+                  current: event.progress,
+                  total: event.total,
+                  message: event.message,
+                },
+          });
+        });
+
+        try {
+          let done = false;
+          while (!done) {
+            const progress = await window.api.getTaskProgress(taskId);
+            if (!progress) {
+              done = true;
+              break;
+            }
+
+            dispatch({
+              type: "SET_AUTO_TAG_PROGRESS",
+              progress: isBatch
+                ? {
+                    current: completed,
+                    total: targetPaths.length,
+                    message: progress.message,
+                  }
+                : {
+                    current: progress.progress,
+                    total: progress.total,
+                    message: progress.message,
+                  },
+            });
+
+            if (
+              progress.status === "completed" ||
+              progress.status === "failed" ||
+              progress.status === "cancelled"
+            ) {
+              done = true;
+              if (progress.status === "failed") {
+                totalErrors++;
+                console.debug(
+                  `[auto-tag] Auto-tag failed for ${albumName}: ${progress.message}`,
+                );
+              }
+            } else {
+              await new Promise((resolve) => setTimeout(resolve, 300));
+            }
+          }
+        } finally {
+          unsubscribe();
+        }
+
+        completed++;
+      }
 
       // Scoped refresh: only re-read tracks for tagged albums
       dispatch({
         type: "SET_AUTO_TAG_PROGRESS",
-        progress: {
-          current: targetPaths.length,
-          total: targetPaths.length,
-          message: "Refreshing tracks...",
-        },
+        progress: isBatch
+          ? {
+              current: completed,
+              total: targetPaths.length,
+              message: "Refreshing tracks...",
+            }
+          : { current: 9, total: 9, message: "Refreshing tracks..." },
       });
-      const updatedTrackList = await recordAttemptedAutoTag(attemptedAlbumPaths);
+      const updatedTrackList = await recordAttemptedAutoTag();
       const scannedAlbums = await window.api.scanLibrary(state.libraryPath);
       dispatch({ type: "SET_ALBUMS", albums: scannedAlbums });
 
@@ -988,16 +1064,10 @@ export default function App() {
           error: `Auto-tag completed with ${totalErrors} album(s) with errors`,
         });
       }
-      if (needsReview.length > 0) {
-        dispatch({
-          type: "SET_NOTICE",
-          notice: `Needs review (${needsReview.length}): ${needsReview.slice(0, 3).join("; ")}`,
-        });
-      }
     } catch (err: unknown) {
       let message = err instanceof Error ? err.message : "Auto-tag failed";
       try {
-        await recordAttemptedAutoTag([]);
+        await recordAttemptedAutoTag();
       } catch (readbackError) {
         const detail =
           readbackError instanceof Error
@@ -1007,10 +1077,6 @@ export default function App() {
       }
       dispatch({ type: "SET_ERROR", error: message });
     } finally {
-      autoTagStartingRef.current = false;
-      if (autoTagAbortRef.current === runController) {
-        autoTagAbortRef.current = null;
-      }
       dispatch({ type: "SET_AUTO_TAGGING", autoTagging: false });
       dispatch({ type: "SET_AUTO_TAG_PROGRESS", progress: null });
     }
@@ -1023,8 +1089,6 @@ export default function App() {
     state.autoTagging,
     fetchCover,
     loadAlbumTracks,
-    recordAutoTagReviewHistory,
-    clearAutoTagResults,
   ]);
 
   // --- Audit: LLM-based metadata verification against file paths ---
@@ -1699,6 +1763,7 @@ export default function App() {
         const model = (cfg.llmModel as string) ?? "";
         setAssistantApiKeyConfigured(configured);
         setAssistantModel(model);
+        setAssistantAutonomous((cfg.assistantAutonomous as boolean) ?? false);
       },
       () => {
         // Silently fail — assistant just won't work until API key is configured
@@ -1861,27 +1926,18 @@ export default function App() {
         return;
       }
 
-      if (state.autoTagging || autoTagStartingRef.current) {
+      if (state.autoTagging) {
         throw new Error("Auto-tagging is already running");
       }
 
       const albumPaths = Array.from(new Set(trackPaths.map(dirPath)));
-      autoTagStartingRef.current = true;
-      let snapshots: TrackSnapshot[];
-      try {
-        await clearAutoTagResults();
-        snapshots = await buildAutoTagUndoSnapshots(
-          albumPaths,
-          state.tracks,
-          window.api.readAlbum,
-        );
-      } catch (error) {
-        autoTagStartingRef.current = false;
-        throw error;
-      }
+      const snapshots = await buildAutoTagUndoSnapshots(
+        albumPaths,
+        state.tracks,
+        window.api.readAlbum,
+      );
       const attemptedAlbumPaths: string[] = [];
       let historyRecorded = false;
-      let journaledAlbums = new Set<string>();
       const recordAttemptedAutoTag = async () => {
         if (historyRecorded || attemptedAlbumPaths.length === 0) return;
         const attempted = new Set(attemptedAlbumPaths);
@@ -1903,7 +1959,7 @@ export default function App() {
           dispatch({ type: "UPDATE_TRACKS", tracks: readbacks });
         }
         const changedSnapshots = filterChangedSnapshots(
-          snapshots.filter((snapshot) => attempted.has(dirPath(snapshot.path)) && !journaledAlbums.has(dirPath(snapshot.path))),
+          snapshots.filter((snapshot) => attempted.has(dirPath(snapshot.path))),
           readbacks,
         );
         if (changedSnapshots.length > 0) {
@@ -1924,50 +1980,45 @@ export default function App() {
       };
       dispatch({ type: "SET_AUTO_TAGGING", autoTagging: true });
       dispatch({ type: "SET_ERROR", error: null });
-      dispatch({ type: "SET_NOTICE", notice: null });
-      setAutoTagSummary(null);
-      const runController = new AbortController();
-      autoTagAbortRef.current = runController;
 
       try {
-        const summary = await runAutoTagBatch({
-          albumPaths,
-          api: window.api,
-          isCancelled: () => runController.signal.aborted,
-          onProgress: (progress) =>
-            dispatch({ type: "SET_AUTO_TAG_PROGRESS", progress }),
-        });
-        setAutoTagSummary(summary);
-        journaledAlbums = await recordAutoTagReviewHistory(summary);
-        attemptedAlbumPaths.push(
-          ...summary.items
-            .filter((item) => item.readbackRequired)
-            .map((item) => item.albumPath),
-        );
-        const needsReview = summary.items
-          .filter((item) => item.status === "needs_review")
-          .map(
-            (item) =>
-              `${basename(item.albumPath) ?? item.albumPath}: ${
-                item.reasonCode ?? item.message
-              }`,
-          );
-        const failed = summary.items.filter(
-          (item) => item.status === "failed" || item.status === "cancelled",
-        );
+        let completed = 0;
+        for (const albumPath of albumPaths) {
+          attemptedAlbumPaths.push(albumPath);
+          const taskId = await window.api.autoTagAlbum(albumPath);
+          let done = false;
+          while (!done) {
+            const progress = await window.api.getTaskProgress(taskId);
+            if (!progress) {
+              throw new Error(`Auto-tag task progress disappeared: ${taskId}`);
+            }
+
+            dispatch({
+              type: "SET_AUTO_TAG_PROGRESS",
+              progress: {
+                current: completed,
+                total: albumPaths.length,
+                message: progress.message,
+              },
+            });
+
+            if (
+              progress.status === "completed" ||
+              progress.status === "failed" ||
+              progress.status === "cancelled"
+            ) {
+              if (progress.status !== "completed") {
+                throw new Error(progress.message || `Auto-tag ${progress.status}`);
+              }
+              done = true;
+            } else {
+              await new Promise((resolve) => setTimeout(resolve, 300));
+            }
+          }
+          completed++;
+        }
         await recordAttemptedAutoTag();
         await handleAssistantRefresh();
-        if (failed.length > 0) {
-          throw new Error(
-            `Assistant auto-tag completed with ${failed.length} album(s) with errors`,
-          );
-        }
-        if (needsReview.length > 0) {
-          dispatch({
-            type: "SET_NOTICE",
-            notice: `Needs review (${needsReview.length}): ${needsReview.slice(0, 3).join("; ")}`,
-          });
-        }
       } catch (err: unknown) {
         try {
           await recordAttemptedAutoTag();
@@ -1986,18 +2037,12 @@ export default function App() {
         dispatch({ type: "SET_ERROR", error: message });
         throw err;
       } finally {
-        autoTagStartingRef.current = false;
-        if (autoTagAbortRef.current === runController) {
-          autoTagAbortRef.current = null;
-        }
         dispatch({ type: "SET_AUTO_TAGGING", autoTagging: false });
         dispatch({ type: "SET_AUTO_TAG_PROGRESS", progress: null });
       }
     },
     [
       handleAssistantRefresh,
-      recordAutoTagReviewHistory,
-      clearAutoTagResults,
       state.auditing,
       state.autoTagging,
       state.libraryPath,
@@ -2041,7 +2086,6 @@ export default function App() {
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (document.querySelector('[role="dialog"]')) return;
       if ((e.metaKey || e.ctrlKey) && e.key === "o") {
         e.preventDefault();
         handleOpenLibrary();
@@ -2075,6 +2119,57 @@ export default function App() {
     return () =>
       document.removeEventListener("visibilitychange", handleVisibility);
   }, []);
+
+  useEffect(() => {
+    if (!webRuntime) return;
+    let active = true;
+    void getWebSession()
+      .then((session) => {
+        if (active) setWebAuthState(session.authenticated ? "authenticated" : "login");
+      })
+      .catch(() => {
+        if (active) setWebAuthState("login");
+      });
+    return () => {
+      active = false;
+    };
+  }, [webRuntime]);
+
+  useEffect(() => {
+    if (
+      !webRuntime ||
+      webAuthState !== "authenticated" ||
+      state.libraryPath ||
+      webRoots !== null ||
+      webRootsLoading
+    ) {
+      return;
+    }
+
+    let active = true;
+    setWebRootsLoading(true);
+    setWebRootsError(null);
+    void window.api.listLibraryRoots()
+      .then(async (roots) => {
+        if (!active) return;
+        if (roots.length === 1) {
+          await loadLibrary(roots[0].path);
+          return;
+        }
+        setWebRoots(roots);
+        setWebPickerOpen(true);
+      })
+      .catch((reason: unknown) => {
+        if (!active) return;
+        setWebRootsError(reason instanceof Error ? reason.message : "Failed to load libraries");
+      })
+      .finally(() => {
+        if (active) setWebRootsLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [loadLibrary, state.libraryPath, webAuthState, webRoots, webRootsLoading, webRuntime]);
 
   // Filter tracks by active album — in-memory filter, no disk reads
   const filteredTracks = useMemo(() => {
@@ -2499,38 +2594,29 @@ export default function App() {
     [],
   );
 
-  const openAutoTagResults = async () => {
-    try {
-      const reviews = await window.api.listAutoTagReviews();
-      setAutoTagSummary(summaryFromReviews(reviews));
-    } catch (error) {
-      dispatch({ type: "SET_ERROR", error: String(error) });
-    }
-  };
-  const handleReviewChanged = async (review: AutoTagReviewDetail) => {
-    if (review.decision !== "reverted") return;
-    const history = state.undoManager.history;
-    const remaining = history
-      .map((operation) => ({
-        ...operation,
-        snapshots: operation.snapshots.filter(
-          (snapshot) => snapshot.fields.autoTagReviewId !== review.id,
-        ),
-      }))
-      .filter((operation) => operation.snapshots.length > 0);
-    dispatch({
-      type: "APPLY_UNDO_RESULT",
-      undoManager: state.undoManager.replaceHistory(remaining),
-      baseOperationIds: history.map((operation) => operation.id),
-    });
-    const album = await window.api.readAlbum(review.albumPath);
-    dispatch({ type: "UPDATE_TRACKS", tracks: album.tracks });
-    coverUrlCacheRef.current.delete(review.albumPath);
-    if (state.activeAlbumPath === review.albumPath)
-      fetchCover(review.albumPath);
-  };
-
   const mutationBusy = state.saving || state.reverting || assistantApplying;
+
+  if (webAuthState === "checking") {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-surface text-sm text-text-muted">
+        Loading Soundrobe…
+      </main>
+    );
+  }
+  if (webAuthState === "login") {
+    return <WebLoginScreen onLogin={handleWebLogin} />;
+  }
+  if (webRuntime && (!state.libraryPath || webPickerOpen)) {
+    return (
+      <WebLibraryPicker
+        roots={webRoots ?? []}
+        loading={webRootsLoading}
+        error={webRootsError}
+        onSelect={handleWebRootSelect}
+        onLogout={handleWebLogout}
+      />
+    );
+  }
 
   return (
     <div className="flex flex-col h-screen bg-surface text-text-primary overflow-hidden">
@@ -2551,8 +2637,7 @@ export default function App() {
         onOpenLibrary={handleOpenLibrary}
         onRefresh={handleRefresh}
         onConvert={handleConvert}
-        onAutoTag={() => void handleAutoTag()}
-        onAutoTagResults={() => void openAutoTagResults()}
+        onAutoTag={handleAutoTag}
         onSearch={handleSearch}
         onGetLyrics={handleGetLyrics}
         onAudit={handleAudit}
@@ -2567,7 +2652,21 @@ export default function App() {
         onNoticeDismiss={() => dispatch({ type: "SET_NOTICE", notice: null })}
         onUndoLatest={() => handleRevert()}
         onUndoThrough={handleRevert}
+        onLogout={webRuntime ? handleWebLogout : undefined}
       />
+
+      {webRuntime && <WebTaggingQueue />}
+
+      {webRuntime && (
+        <input
+          ref={webCoverInputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          aria-label="Cover artwork"
+          className="hidden"
+          onChange={handleWebCoverSelected}
+        />
+      )}
 
       <ScanProgressBar
         scanning={state.scanning || state.autoTagging}
@@ -2744,7 +2843,7 @@ export default function App() {
           selectedTrackPaths={state.selectedTrackPaths}
           allTracks={state.tracks}
           allAlbums={state.albums}
-          autonomous={false}
+          autonomous={assistantAutonomous}
           mutationsDisabled={state.reverting}
           onApplyingChange={setAssistantApplying}
           onRefreshRequest={handleAssistantRefresh}
@@ -2770,15 +2869,6 @@ export default function App() {
         error={updater.installError}
         onLater={updater.dismiss}
         onInstall={() => void updater.install()}
-      />
-
-      <AutoTagSummaryDialog
-        summary={autoTagSummary}
-        busy={mutationBusy || state.autoTagging || state.auditing}
-        onRetry={(albumPath) => void handleAutoTag(albumPath)}
-        onSearch={(albumPath) => { handleSelectAlbum(albumPath); setAutoTagSummary(null); setShowSearchDialog(true); }}
-        onChanged={handleReviewChanged}
-        onClose={() => setAutoTagSummary(null)}
       />
 
       <ConvertDialog

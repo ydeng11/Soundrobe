@@ -24,6 +24,7 @@ use crate::state::assistant::{
 };
 use crate::state::config::ConfigState;
 use crate::state::conversation::{ConversationEntry, ConversationState};
+use crate::state::events::emit_event;
 use crate::state::providers::convert_chinese_text;
 use crate::state::providers::{DiscogsClient, MusicBrainzClient, ProviderState};
 use crate::state::write_queue::WriteQueue;
@@ -35,7 +36,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
-use tauri::{AppHandle, Emitter, State};
+use tauri::{AppHandle, State};
 
 const ASSISTANT_LLM_TIMEOUT_SECS: u64 = 120;
 const ASSISTANT_SESSION_TIMEOUT_SECS: u64 = 600;
@@ -247,6 +248,7 @@ mod credential_tests {
         let (key, _model) = resolve_credentials(Some(""), None, "", "");
         assert_eq!(key, None);
     }
+
 }
 
 #[derive(Clone, Copy)]
@@ -276,15 +278,7 @@ async fn execute_native_assistant_tool(
     }
     let result = match name {
         "query.datasetStatus" => {
-            let path = services
-                .config
-                .dataset_path
-                .as_deref()
-                .map(PathBuf::from)
-                .or_else(|| {
-                    dirs::home_dir()
-                        .map(|home| crate::state::paths::canonical_path(&home, "dataset-index.sqlite"))
-                });
+            let path = services.config.dataset_path.as_deref().map(PathBuf::from);
             let status = path
                 .as_deref()
                 .map(dataset_status_at)
@@ -764,7 +758,7 @@ pub async fn assistant_send(
                     "actionBatches": stored_batches
                 })),
             };
-            let _ = app.emit("assistant:event", &event);
+            emit_event(&app, "assistant:event", &event);
             return Ok(event);
         }
 
@@ -870,7 +864,7 @@ pub async fn assistant_send(
             message: assistant_step_message(step_number),
             data: None,
         };
-        let _ = app.emit("assistant:event", step);
+        emit_event(&app, "assistant:event", &step);
         let response = tokio::time::timeout_at(
             deadline,
             client.complete_json(
@@ -888,7 +882,7 @@ pub async fn assistant_send(
                 message: "Cancelled".into(),
                 data: None,
             };
-            let _ = app.emit("assistant:event", &event);
+            emit_event(&app, "assistant:event", &event);
             return Ok(event);
         }
         let response = match response {
@@ -1058,7 +1052,7 @@ pub async fn assistant_send(
                 data: None,
             };
             conversation.record("assistant_message", &event.message, Some(&model), 0, 0, 0);
-            let _ = app.emit("assistant:event", &event);
+            emit_event(&app, "assistant:event", &event);
             return Ok(event);
         }
         if would_repeat_tool_call(&signatures, &tool_call.tool_name, &tool_call.args) {
@@ -1081,7 +1075,7 @@ pub async fn assistant_send(
                 "toolArgs": tool_call.args
             })),
         };
-        let _ = app.emit("assistant:event", &running);
+        emit_event(&app, "assistant:event", &running);
         conversation.record(
             "tool_call",
             &serde_json::json!({
@@ -1187,7 +1181,7 @@ pub async fn assistant_send(
                 "error": result.error
             })),
         };
-        let _ = app.emit("assistant:event", &tool_result);
+        emit_event(&app, "assistant:event", &tool_result);
         if !result.ok {
             let validation_error = result
                 .error
@@ -1218,7 +1212,7 @@ pub async fn assistant_send(
                 })),
             };
             conversation.record("assistant_message", &event.message, Some(&model), 0, 0, 0);
-            let _ = app.emit("assistant:event", &event);
+            emit_event(&app, "assistant:event", &event);
             return Ok(event);
         }
         messages.push(ChatMessage {
@@ -1255,7 +1249,7 @@ pub async fn assistant_send(
             data: None,
         };
         conversation.record("assistant_message", &event.message, Some(&model), 0, 0, 0);
-        let _ = app.emit("assistant:event", &event);
+        emit_event(&app, "assistant:event", &event);
         return Ok(event);
     }
     match resolve_assistant_outcome(&draft, &pending_tool_batches, &session_id, &input) {
@@ -1309,7 +1303,7 @@ pub async fn assistant_send(
                 }
             };
             conversation.record("assistant_message", &event.message, Some(&model), 0, 0, 0);
-            let _ = app.emit("assistant:event", &event);
+            emit_event(&app, "assistant:event", &event);
             Ok(event)
         }
         Err(error) => assistant_error_event(&app, Some(session_id), &error.to_string()),
@@ -1343,7 +1337,7 @@ fn assistant_error_event_with_conversation(
         message: message.to_string(),
         data: None,
     };
-    let _ = app.emit("assistant:event", &event);
+    emit_event(app, "assistant:event", &event);
     Ok(event)
 }
 
@@ -3702,15 +3696,16 @@ pub fn assistant_cancel(
             "Failed to record assistant cancellation".to_string(),
         ));
     }
-    app.emit(
+    emit_event(
+        &app,
         "assistant:event",
-        AssistantEvent {
+        &AssistantEvent {
             session_id: current.session_id,
             event_type: "cancelled",
             message: "Session cancelled".to_string(),
             data: None,
         },
-    )?;
+    );
     Ok(())
 }
 
@@ -3747,15 +3742,16 @@ pub fn assistant_reject_actions(
         .current()
         .ok_or_else(|| ApiError::Message("No active assistant session".to_string()))?;
     conversation.record("system", &format!("Rejected: {title}"), None, 0, 0, 0);
-    app.emit(
+    emit_event(
+        &app,
         "assistant:event",
-        AssistantEvent {
+        &AssistantEvent {
             session_id: current.session_id,
             event_type: "action_batch_rejected",
             message: format!("Rejected: {title}"),
             data: Some(serde_json::json!({ "batchId": action_batch_id })),
         },
-    )?;
+    );
     Ok(())
 }
 
@@ -4259,13 +4255,11 @@ fn finish_metadata_apply(
 }
 
 async fn apply_standard_actions(
-    runtime: &AssistantRuntimeState,
     batch: &AssistantActionBatch,
-    batch_id: &str,
     metadata_only: bool,
-    mark_status: bool,
     undo_tracks: &BTreeMap<String, crate::commands::tracks::TrackData>,
     progress: Option<TrackWriteProgress>,
+    max_folder_concurrency: usize,
 ) -> Value {
     let mut updates: Vec<(String, TrackPatch)> = Vec::new();
     for action in &batch.actions {
@@ -4280,9 +4274,6 @@ async fn apply_standard_actions(
         let patch = match action_patch(field, action.new_value.as_deref()) {
             Ok(patch) => patch,
             Err(error) => {
-                if mark_status {
-                    runtime.mark_batch_failed(batch_id, &error.to_string());
-                }
                 return serde_json::json!({ "success": false, "error": error.to_string() });
             }
         };
@@ -4302,9 +4293,6 @@ async fn apply_standard_actions(
         .collect::<Vec<_>>();
     if undo.len() != updates.len() {
         let message = "Could not capture complete standard-tag undo evidence";
-        if mark_status {
-            runtime.mark_batch_failed(batch_id, message);
-        }
         return serde_json::json!({ "success": false, "error": message, "undoSnapshots": undo });
     }
     let write_result = match batch_write_with_exclusive_queue_held(
@@ -4313,6 +4301,7 @@ async fn apply_standard_actions(
             .map(|(path, fields)| TrackUpdate { path, fields })
             .collect(),
         progress,
+        max_folder_concurrency,
     )
     .await
     {
@@ -4343,14 +4332,8 @@ async fn apply_standard_actions(
         .count();
     if failed > 0 {
         let error = format!("Failed to update {failed} track(s)");
-        if mark_status {
-            runtime.mark_batch_failed(batch_id, &error);
-        }
         serde_json::json!({ "success": false, "error": error, "results": results.into_iter().filter(|result| result["success"] == false).collect::<Vec<_>>(), "undoSnapshots": undo })
     } else {
-        if mark_status {
-            runtime.mark_batch_applied(batch_id);
-        }
         serde_json::json!({ "success": true, "results": results, "undoSnapshots": undo })
     }
 }
@@ -4792,6 +4775,7 @@ async fn apply_metadata_action_batch(
     batch: &AssistantActionBatch,
     batch_id: &str,
     progress: Option<AssistantApplyProgress>,
+    max_folder_concurrency: usize,
 ) -> Value {
     let mut standard_paths = BTreeSet::new();
     let mut extra_paths = BTreeSet::new();
@@ -4902,13 +4886,11 @@ async fn apply_metadata_action_batch(
     let write_result = match batch.kind.as_str() {
         "tag-update" => {
             apply_standard_actions(
-                runtime,
                 batch,
-                batch_id,
-                false,
                 false,
                 &standard_undo,
                 standard_progress,
+                max_folder_concurrency,
             )
             .await
         }
@@ -4927,13 +4909,11 @@ async fn apply_metadata_action_batch(
         }
         "metadata-update" => {
             let standard = apply_standard_actions(
-                runtime,
                 batch,
-                batch_id,
                 true,
-                false,
                 &standard_undo,
                 standard_progress,
+                max_folder_concurrency,
             )
             .await;
             let extra = apply_extra_actions(
@@ -5086,7 +5066,11 @@ async fn apply_action_batch_with_progress(
     ) {
         return queue
             .run_exclusive(apply_metadata_action_batch(
-                runtime, &batch, batch_id, progress,
+                runtime,
+                &batch,
+                batch_id,
+                progress,
+                queue.max_folder_concurrency(),
             ))
             .await;
     }
@@ -5131,9 +5115,10 @@ pub async fn assistant_apply_actions(
         let batch_id = action_batch_id.clone();
         Arc::new(
             move |phase: &'static str, current: u64, total: u64, message: String| {
-                let _ = app.emit(
+                emit_event(
+                    &app,
                     "assistant:event",
-                    AssistantEvent {
+                    &AssistantEvent {
                         session_id: session_id.clone(),
                         event_type: "action_batch_progress",
                         message,
@@ -5231,9 +5216,10 @@ pub async fn assistant_apply_actions(
         _ => return Ok(result),
     };
     conversation.record("system", &message, None, 0, 0, 0);
-    let _ = app.emit(
+    emit_event(
+        &app,
         "assistant:event",
-        AssistantEvent {
+        &AssistantEvent {
             session_id: current.session_id,
             event_type,
             message,
@@ -5305,9 +5291,10 @@ pub fn assistant_complete_task_actions(
     };
     if let Some(current) = conversation.current() {
         conversation.record("system", &message, None, 0, 0, 0);
-        let _ = app.emit(
+        emit_event(
+            &app,
             "assistant:event",
-            AssistantEvent {
+            &AssistantEvent {
                 session_id: current.session_id,
                 event_type,
                 message: message.clone(),

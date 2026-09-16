@@ -1,0 +1,38 @@
+services:
+  soundrobe:
+    image: ${SOUNDROBE_IMAGE:-ghcr.io/ydeng11/soundrobe:latest}
+    user: "${SOUNDROBE_UID:-65532}:${SOUNDROBE_GID:-65532}"
+    restart: unless-stopped
+    ports:
+      - "${SOUNDROBE_PORT:-8080}:8080"
+    environment:
+      SOUNDROBE_LISTEN_ADDR: 0.0.0.0:8080
+      SOUNDROBE_PUBLIC_URL: "${SOUNDROBE_PUBLIC_URL:?Set SOUNDROBE_PUBLIC_URL}"
+      SOUNDROBE_DATA_DIR: /config
+      SOUNDROBE_LIBRARY_ROOT_DIR: /libraries
+      SOUNDROBE_AUTH_PASSWORD_FILE: /run/secrets/soundrobe_password
+    volumes:
+      - "${SOUNDROBE_CONFIG_DIR:-./data/soundrobe}:/config"
+      - "${SOUNDROBE_LIBRARY_1_PATH:?Set SOUNDROBE_LIBRARY_1_PATH}:/libraries/${SOUNDROBE_LIBRARY_1_NAME:-music}:rw"
+      # Add one direct bind mount per additional library root, for example:
+      # - "/volume1/audiobooks:/libraries/audiobooks:rw"
+    secrets:
+      - soundrobe_password
+    read_only: true
+    tmpfs:
+      - "/tmp:rw,noexec,nosuid,size=128m"
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    stop_grace_period: 30s
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://127.0.0.1:8080/healthz"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+
+secrets:
+  soundrobe_password:
+    file: "${SOUNDROBE_PASSWORD_FILE:?Set SOUNDROBE_PASSWORD_FILE}"

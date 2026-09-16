@@ -8,6 +8,7 @@ import type { TrackData, AlbumInfo, TaskProgress } from "../../src/shared/deskto
 afterEach(() => {
   cleanup();
   delete (window as unknown as Record<string, unknown>).api;
+  delete window.__SOUNDROBE_RUNTIME__;
 });
 
 function makeTrack(path: string, overrides?: Partial<TrackData>): TrackData {
@@ -52,6 +53,9 @@ beforeEach(() => {
       dev: false,
     }),
     openFolderDialog: vi.fn().mockResolvedValue("/music"),
+    listLibraryRoots: vi.fn().mockResolvedValue([
+      { id: "music", name: "music", path: "/libraries/music" },
+    ]),
     scanLibrary: vi.fn().mockResolvedValue([
       {
         path: "/music/Test Album",
@@ -153,6 +157,50 @@ describe("App — batch save progress", () => {
   it("renders the title bar and open-library button", async () => {
     render(<App />);
     expect(screen.getByText("Open Library")).toBeTruthy();
+  });
+
+  it("auto-selects the sole mounted library in the web runtime", async () => {
+    window.__SOUNDROBE_RUNTIME__ = "web";
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(new Response(JSON.stringify({ authenticated: true })));
+
+    render(<App />);
+
+    await waitFor(() => expect(screen.getAllByTestId(/^file-row-/)).toHaveLength(2));
+    expect(window.api.listLibraryRoots).toHaveBeenCalledTimes(1);
+    expect(window.api.openFolderDialog).not.toHaveBeenCalled();
+    expect(window.api.scanLibrary).toHaveBeenCalledWith("/libraries/music");
+
+    fetchMock.mockRestore();
+  });
+
+  it("uploads a browser-selected cover without invoking the native picker", async () => {
+    window.__SOUNDROBE_RUNTIME__ = "web";
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(new Response(JSON.stringify({ authenticated: true })))
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify("data:image/jpeg;base64,uploaded")),
+      );
+
+    render(<App />);
+    const row = (await screen.findAllByTestId(/^file-row-/))[0];
+    fireEvent.click(row);
+    fireEvent.click(await screen.findByRole("button", { name: "Change" }));
+    fireEvent.change(screen.getByLabelText("Cover artwork"), {
+      target: { files: [new File(["cover"], "cover.png", { type: "image/png" })] },
+    });
+
+    await waitFor(() => {
+      expect(screen.getByAltText("Cover art").getAttribute("src")).toBe(
+        "data:image/jpeg;base64,uploaded",
+      );
+    });
+    expect(window.api.setCover).not.toHaveBeenCalled();
+    expect(fetchMock.mock.calls[1][0]).toContain("/api/v1/covers?albumPath=");
+
+    fetchMock.mockRestore();
   });
 
   it("summarizes structured lyrics embedding results", async () => {
