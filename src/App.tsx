@@ -2169,7 +2169,9 @@ export default function App() {
     return () => {
       active = false;
     };
-  }, [loadLibrary, state.libraryPath, webAuthState, webRoots, webRootsLoading, webRuntime]);
+  // `setWebRootsLoading(true)` must not immediately re-run this effect: doing
+  // so triggers its cleanup and abandons the in-flight mounted-root response.
+  }, [loadLibrary, state.libraryPath, webAuthState, webRoots, webRuntime]);
 
   // Filter tracks by active album — in-memory filter, no disk reads
   const filteredTracks = useMemo(() => {
