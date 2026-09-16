@@ -459,6 +459,25 @@ impl ReviewJournal {
     }
 }
 impl ReviewStore {
+    /// Results and their recovery journals are scoped to one auto-tag batch.
+    /// A running review must finish before its batch can be replaced.
+    pub fn clear(&self) -> Result<(), ApiError> {
+        let mut records = self.records.lock().unwrap();
+        if records
+            .iter()
+            .any(|record| record.data.lock().unwrap().detail.outcome == "running")
+        {
+            return Err(failure(
+                "Cannot clear auto-tag results while tagging is running",
+            ));
+        }
+        records.clear();
+        self.owners.lock().unwrap().clear();
+        if self.files.0.exists() {
+            fs::remove_dir_all(&self.files.0)?;
+        }
+        Ok(())
+    }
     pub fn cleanup(&self) {
         if self.files.0.exists() {
             if let Err(error) = fs::remove_dir_all(&self.files.0) {
@@ -646,6 +665,10 @@ impl ReviewStore {
         super::covers::cover_cache_invalidate(&data.detail.album_path);
         Ok(data.detail.clone())
     }
+}
+#[tauri::command]
+pub fn auto_tag_reviews_clear(store: State<'_, ReviewStore>) -> Result<(), ApiError> {
+    store.clear()
 }
 #[tauri::command]
 pub fn auto_tag_reviews_list(store: State<'_, ReviewStore>) -> Vec<ReviewDetail> {
@@ -968,6 +991,32 @@ mod tests {
             detail.result["earlierAttempts"][0]["result"]["events"][0]["message"],
             "Genre remains missing"
         );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn clear_discards_prior_run_results_and_recovery_records() {
+        let root = std::env::temp_dir().join(uuid::Uuid::new_v4().to_string());
+        fs::create_dir_all(&root).unwrap();
+        let store = ReviewStore::default();
+        let first = store.begin("first", &root).unwrap();
+        first.event("warning", "First run", None);
+        store.finish("first", "needs_review", json!({})).unwrap();
+
+        store.clear().unwrap();
+
+        assert!(
+            store.list().is_empty(),
+            "previous run must not appear in Results"
+        );
+        assert!(
+            store.get("first").is_err(),
+            "previous run cannot be recovered after reset"
+        );
+        let second = store.begin("second", &root).unwrap();
+        store.finish("second", "applied", json!({})).unwrap();
+        assert_eq!(store.list().len(), 1, "only the new run is retained");
+        drop(second);
         fs::remove_dir_all(root).unwrap();
     }
 

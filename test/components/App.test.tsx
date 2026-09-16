@@ -96,6 +96,7 @@ beforeEach(() => {
     listDirectory: vi.fn().mockRejectedValue(new Error("no-op")),
     readDirectory: vi.fn().mockRejectedValue(new Error("no-op")),
     autoTagAlbum: vi.fn().mockRejectedValue(new Error("no-op")),
+    clearAutoTagReviews: vi.fn().mockResolvedValue(undefined),
     downloadAlbumLyrics: vi.fn().mockRejectedValue(new Error("no-op")),
     onAutoTagEvent: vi.fn().mockReturnValue(vi.fn()),
     getTaskProgress: vi.fn().mockResolvedValue({
@@ -712,6 +713,7 @@ describe("App — modification history", () => {
 
   it("clears previous auto-tag results when opening another library", async () => {
     const openFolderDialog = window.api.openFolderDialog as ReturnType<typeof vi.fn>;
+    const clearAutoTagReviews = window.api.clearAutoTagReviews as ReturnType<typeof vi.fn>;
     openFolderDialog
       .mockResolvedValueOnce("/music")
       .mockResolvedValueOnce("/other-artist");
@@ -732,6 +734,7 @@ describe("App — modification history", () => {
     fireEvent.click(screen.getByText("Auto-Tag"));
     await screen.findByRole("dialog", { name: "Auto-tag summary" });
     expect(screen.getByText("/music/Test Album")).toBeTruthy();
+    expect(clearAutoTagReviews).toHaveBeenCalledTimes(2);
 
     fireEvent.click(screen.getByText("Open Library"));
 
@@ -739,6 +742,62 @@ describe("App — modification history", () => {
       expect(screen.queryByRole("dialog", { name: "Auto-tag summary" })).toBeNull();
     });
     expect(openFolderDialog).toHaveBeenCalledTimes(2);
+    expect(clearAutoTagReviews).toHaveBeenCalledTimes(3);
+  });
+
+  it("removes reset auto-tag reviews from Undo history", async () => {
+    const review = {
+      id: "reset-review",
+      albumPath: "/music/Test Album",
+      outcome: "applied" as const,
+      decision: "pending" as const,
+      result: {},
+      before: { tracks: [], artworks: [], errors: [] },
+      after: { tracks: [], artworks: [], errors: [] },
+      canRevert: true,
+      errors: [],
+    };
+    window.api.getAutoTagReview = vi.fn().mockResolvedValue(review);
+    vi.mocked(window.api.autoTagAlbum).mockResolvedValue("reset-task");
+    vi.mocked(window.api.getTaskProgress).mockResolvedValue({
+      taskId: "reset-task",
+      status: "completed",
+      progress: 1,
+      total: 1,
+      message: "Applied",
+      result: { reviewId: review.id },
+    });
+
+    render(<App />);
+    fireEvent.click(screen.getByText("Open Library"));
+    await screen.findAllByTestId(/^file-row-/);
+    fireEvent.click(screen.getByText("Auto-Tag"));
+    await screen.findByRole("dialog", { name: "Auto-tag summary" });
+    fireEvent.click(screen.getByRole("button", { name: "Done" }));
+    const undo = screen.getByRole("button", { name: "Undo latest modification" });
+    await waitFor(() => expect((undo as HTMLButtonElement).disabled).toBe(false));
+
+    fireEvent.click(screen.getByText("Open Library"));
+
+    await waitFor(() => expect((undo as HTMLButtonElement).disabled).toBe(true));
+  });
+
+  it("starts only one auto-tag batch while reset is pending", async () => {
+    render(<App />);
+    fireEvent.click(screen.getByText("Open Library"));
+    await screen.findAllByTestId(/^file-row-/);
+
+    let resolveClear: (() => void) | undefined;
+    window.api.clearAutoTagReviews = vi.fn(
+      () => new Promise<void>((resolve) => { resolveClear = resolve; }),
+    );
+
+    fireEvent.click(screen.getByText("Auto-Tag"));
+    fireEvent.click(screen.getByText("Auto-Tag"));
+    expect(window.api.clearAutoTagReviews).toHaveBeenCalledOnce();
+
+    resolveClear?.();
+    await waitFor(() => expect(window.api.autoTagAlbum).toHaveBeenCalledOnce());
   });
 
   it("reverts an older history point newest-first after confirmation", async () => {

@@ -154,6 +154,7 @@ export function createTauriDesktopApi(): DesktopAPI {
     setConfig: (key, value) => invokeCommand("config:set", { key, value }),
 
     // Auto-tag
+    clearAutoTagReviews: () => invokeCommand("auto-tag:reviews:clear"),
     listAutoTagReviews: () => invokeCommand("auto-tag:reviews:list"),
     getAutoTagReview: (reviewId) => invokeCommand("auto-tag:review:get", { reviewId }),
     markAutoTagReviewed: (reviewId) => invokeCommand("auto-tag:review:keep", { reviewId }),
