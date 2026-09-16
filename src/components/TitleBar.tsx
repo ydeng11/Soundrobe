@@ -40,6 +40,8 @@ interface TitleBarProps {
   onUndoLatest: () => void;
   onUndoThrough: (operationId: number) => void;
   onLogout?: () => void;
+  /** The browser service owns library discovery and background enrichment. */
+  webService?: boolean;
 }
 
 
@@ -78,6 +80,7 @@ export function TitleBar({
   onUndoLatest,
   onUndoThrough,
   onLogout,
+  webService = false,
 }: TitleBarProps) {
   const [numberMenuOpen, setNumberMenuOpen] = useState(false);
   const [historyMenuOpen, setHistoryMenuOpen] = useState(false);
@@ -157,8 +160,8 @@ export function TitleBar({
       {/* Spacer for traffic light controls (70px accounts for native red/yellow/green) */}
       <div className="w-[70px] shrink-0" />
 
-      {/* Open Library */}
-      <button
+      {/* Folder selection stays a desktop-only control. */}
+      {!webService && <button
         onClick={onOpenLibrary}
         className="no-drag inline-flex items-center gap-1.5 px-3 py-1 text-[11.5px] font-medium text-text-secondary hover:text-text-primary bg-transparent hover:bg-surface-hover rounded-md transition-all active:scale-[0.97] whitespace-nowrap"
         title="Open music library (⌘O)"
@@ -167,14 +170,14 @@ export function TitleBar({
           <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
         </svg>
         <span>Open Library</span>
-      </button>
+      </button>}
 
       {/* Library path */}
       {libraryPath && (
         <div className="flex items-center gap-1.5 text-[11px] text-text-muted truncate max-w-[180px] no-drag">
           <span className="truncate">{libraryPath}</span>
           <span className="text-text-muted/50 tabular-nums">({trackCount})</span>
-          <button
+          {!webService && <button
             onClick={onRefresh}
             className="inline-flex items-center justify-center w-5 h-5 text-text-muted hover:text-text-primary rounded hover:bg-surface-hover transition-all shrink-0"
             title="Refresh library (⌘R)"
@@ -184,7 +187,7 @@ export function TitleBar({
               <polyline points="1 20 1 14 7 14" />
               <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
             </svg>
-          </button>
+          </button>}
         </div>
       )}
 
@@ -313,6 +316,7 @@ export function TitleBar({
         )}
       </div>
 
+      {!webService && <>
       {onAutoTagResults && <button type="button" onClick={onAutoTagResults} disabled={autoTagging || saving || reverting} className="px-2 py-1 text-xs rounded hover:bg-surface-hover disabled:opacity-50" title="Reopen this session’s auto-tag results">Results</button>}
 
       {/* Auto-Tag button */}
@@ -401,6 +405,7 @@ export function TitleBar({
       </button>
 
       <div className="w-px h-4 bg-border no-drag" />
+      </>}
 
       {/* Number button with dropdown */}
       <div className="relative no-drag">

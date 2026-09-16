@@ -66,9 +66,8 @@ import {
   type OrderingRule,
 } from "./shared/track-numbering";
 import { useAppUpdater } from "./state/useAppUpdater";
-import { WebLibraryPicker } from "./components/WebLibraryPicker";
 import { WebLoginScreen } from "./components/WebLoginScreen";
-import { WebTaggingQueue } from "./components/WebTaggingQueue";
+import { WebTaggingDebugPortal } from "./components/WebTaggingDebugPortal";
 import {
   getWebSession,
   loginWebSession,
@@ -111,9 +110,6 @@ export default function App() {
   const [webAuthState, setWebAuthState] = React.useState<
     "desktop" | "checking" | "login" | "authenticated"
   >(webRuntime ? "checking" : "desktop");
-  const [webRoots, setWebRoots] = React.useState<LibraryRoot[] | null>(null);
-  const [webPickerOpen, setWebPickerOpen] = React.useState(false);
-  const [webRootsLoading, setWebRootsLoading] = React.useState(false);
   const [webRootsError, setWebRootsError] = React.useState<string | null>(null);
   const webCoverInputRef = useRef<HTMLInputElement | null>(null);
   const webCoverTargetRef = useRef<string | null>(null);
@@ -308,20 +304,6 @@ export default function App() {
         throw new Error("Tauri desktop bridge is unavailable");
       }
 
-      if (webRuntime) {
-        const roots = await window.api.listLibraryRoots();
-        setWebRootsError(null);
-        if (roots.length === 1) {
-          setWebRoots(null);
-          setWebPickerOpen(false);
-          await loadLibrary(roots[0].path);
-        } else {
-          setWebRoots(roots);
-          setWebPickerOpen(true);
-        }
-        return;
-      }
-
       const selectedPath = await window.api.openFolderDialog();
       if (!selectedPath) return;
       await loadLibrary(selectedPath);
@@ -333,19 +315,21 @@ export default function App() {
         error: `Failed to open library: ${message}`,
       });
     }
-  }, [loadLibrary, webRuntime]);
-
-  const handleWebRootSelect = useCallback(async (path: string) => {
-    setWebRoots(null);
-    setWebPickerOpen(false);
-    setWebRootsError(null);
-    setWebRootsLoading(true);
-    try {
-      await loadLibrary(path);
-    } finally {
-      setWebRootsLoading(false);
-    }
   }, [loadLibrary]);
+
+  const loadMountedLibraries = useCallback(async (roots: LibraryRoot[]) => {
+    if (roots.length === 0) throw new Error("No music libraries are mounted");
+    dispatch({ type: "SET_LIBRARY", path: roots[0].path });
+    dispatch({ type: "SET_SCANNING", scanning: true });
+    dispatch({ type: "SET_ERROR", error: null });
+    try {
+      const albums = (await Promise.all(roots.map((root) => window.api.scanLibrary(root.path)))).flat();
+      dispatch({ type: "SET_ALBUMS", albums });
+      await loadAlbumTracks(albums);
+    } finally {
+      dispatch({ type: "SET_SCANNING", scanning: false });
+    }
+  }, [loadAlbumTracks]);
 
   const handleWebLogin = useCallback(async (password: string) => {
     const session = await loginWebSession(password);
@@ -360,8 +344,6 @@ export default function App() {
       await logoutWebSession();
     } finally {
       dispatch({ type: "CLEAR_ALL" });
-      setWebRoots(null);
-      setWebPickerOpen(false);
       setWebRootsError(null);
       setWebAuthState("login");
     }
@@ -2086,22 +2068,22 @@ export default function App() {
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === "o") {
+      if (!webRuntime && (e.metaKey || e.ctrlKey) && e.key === "o") {
         e.preventDefault();
         handleOpenLibrary();
       }
-      if ((e.metaKey || e.ctrlKey) && e.key === "t") {
+      if (!webRuntime && (e.metaKey || e.ctrlKey) && e.key === "t") {
         e.preventDefault();
         handleAutoTag();
       }
-      if ((e.metaKey || e.ctrlKey) && e.key === "r") {
+      if (!webRuntime && (e.metaKey || e.ctrlKey) && e.key === "r") {
         e.preventDefault();
         handleRefresh();
       }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [handleOpenLibrary, handleAutoTag, handleRefresh]);
+  }, [handleOpenLibrary, handleAutoTag, handleRefresh, webRuntime]);
 
   // --- File watching: re-scan on page visibility change ---
 
@@ -2139,39 +2121,26 @@ export default function App() {
     if (
       !webRuntime ||
       webAuthState !== "authenticated" ||
-      state.libraryPath ||
-      webRoots !== null ||
-      webRootsLoading
+      state.libraryPath
     ) {
       return;
     }
 
     let active = true;
-    setWebRootsLoading(true);
     setWebRootsError(null);
     void window.api.listLibraryRoots()
       .then(async (roots) => {
         if (!active) return;
-        if (roots.length === 1) {
-          await loadLibrary(roots[0].path);
-          return;
-        }
-        setWebRoots(roots);
-        setWebPickerOpen(true);
+        await loadMountedLibraries(roots);
       })
       .catch((reason: unknown) => {
         if (!active) return;
         setWebRootsError(reason instanceof Error ? reason.message : "Failed to load libraries");
-      })
-      .finally(() => {
-        if (active) setWebRootsLoading(false);
       });
     return () => {
       active = false;
     };
-  // `setWebRootsLoading(true)` must not immediately re-run this effect: doing
-  // so triggers its cleanup and abandons the in-flight mounted-root response.
-  }, [loadLibrary, state.libraryPath, webAuthState, webRoots, webRuntime]);
+  }, [loadMountedLibraries, state.libraryPath, webAuthState, webRuntime]);
 
   // Filter tracks by active album — in-memory filter, no disk reads
   const filteredTracks = useMemo(() => {
@@ -2608,15 +2577,11 @@ export default function App() {
   if (webAuthState === "login") {
     return <WebLoginScreen onLogin={handleWebLogin} />;
   }
-  if (webRuntime && (!state.libraryPath || webPickerOpen)) {
+  if (webRuntime && !state.libraryPath) {
     return (
-      <WebLibraryPicker
-        roots={webRoots ?? []}
-        loading={webRootsLoading}
-        error={webRootsError}
-        onSelect={handleWebRootSelect}
-        onLogout={handleWebLogout}
-      />
+      <main className="flex min-h-screen items-center justify-center bg-surface text-sm text-text-muted">
+        {webRootsError ?? "Reading mounted music libraries…"}
+      </main>
     );
   }
 
@@ -2655,9 +2620,10 @@ export default function App() {
         onUndoLatest={() => handleRevert()}
         onUndoThrough={handleRevert}
         onLogout={webRuntime ? handleWebLogout : undefined}
+        webService={webRuntime}
       />
 
-      {webRuntime && <WebTaggingQueue />}
+      {webRuntime && <WebTaggingDebugPortal />}
 
       {webRuntime && (
         <input

@@ -18,6 +18,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Docker and Compose deployment files provide a hardened non-root service,
   persistent configuration, direct per-library mounts, and a health endpoint.
 
+### Changed
+
+- The self-hosted dashboard now opens mounted libraries automatically as a
+  viewer and editor. Manual tagging, search, lyrics, audit, and library-load
+  controls remain in the desktop app; web users can inspect automatic tagging
+  outcomes through an on-demand Activity diagnostics portal.
+
 ## [0.1.11] - 2026-09-16
 
 ### Fixed
