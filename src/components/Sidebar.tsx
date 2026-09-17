@@ -20,12 +20,12 @@ export function Sidebar({
   web = false,
 }: SidebarProps) {
   return (
-    <div data-web-variant={web || undefined} className={web ? "w-full min-w-[15rem] h-full flex flex-col bg-[#fbfaf8] select-none overflow-hidden" : "w-[220px] min-w-[180px] h-full flex flex-col bg-sidebar-DEFAULT backdrop-blur-xl border-r border-sidebar-border select-none overflow-hidden"}>
+    <div data-web-variant={web || undefined} className={web ? "web-folder-sidebar" : "w-[220px] min-w-[180px] h-full flex flex-col bg-sidebar-DEFAULT backdrop-blur-xl border-r border-sidebar-border select-none overflow-hidden"}>
       {/* App header */}
       {web ? (
-        <div className="border-b border-[#ebe9e6] px-4 py-3.5">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#9b5638]">Mounted root</p>
-          <p className="mt-1 truncate text-xs text-[#77736f]" title={libraryPath ?? undefined}>{libraryPath ?? "No library selected"}</p>
+        <div className="web-folder-sidebar-heading">
+          <p className="web-rail-label">Mounted root</p>
+          <p className="web-root-name" title={libraryPath ?? undefined}>{libraryPath ?? "No library selected"}</p>
         </div>
       ) : (
         <div className="px-4 pt-3 pb-2 flex items-center gap-2.5">
@@ -53,17 +53,17 @@ export function Sidebar({
       )}
 
       {/* Divider */}
-      <div className={web ? "mx-4 my-2 h-px bg-[#ebe9e6]" : "mx-4 my-2 h-px bg-sidebar-border"} />
+      <div className={web ? "web-folder-sidebar-divider" : "mx-4 my-2 h-px bg-sidebar-border"} />
 
       {/* Section header */}
-      <div className={web ? "px-4 py-2" : "px-4 py-1"}>
-        <span className="text-[11px] font-semibold uppercase tracking-wider text-text-muted">
+      <div className={web ? "web-folder-sidebar-label" : "px-4 py-1"}>
+        <span className={web ? "web-rail-label" : "text-[11px] font-semibold uppercase tracking-wider text-text-muted"}>
           {web ? `Albums ${albums.length}` : "Albums"}
         </span>
       </div>
 
       {/* Albums List */}
-      <div className="flex-1 overflow-y-auto px-2 pb-2">
+      <div className={web ? "web-folder-sidebar-list" : "flex-1 overflow-y-auto px-2 pb-2"}>
         {!libraryPath ? (
           <div className="px-3 py-6 text-center">
             <div className="text-text-muted text-[11px] leading-relaxed">
@@ -73,7 +73,7 @@ export function Sidebar({
             </div>
             <button
               onClick={onOpenLibrary}
-              className="mt-3 px-3 py-1.5 text-[11px] font-medium rounded-lg bg-accent text-white hover:bg-accent/90 transition-colors shadow-sm"
+              className={web ? "web-button-primary mt-3" : "mt-3 px-3 py-1.5 text-[11px] font-medium rounded-lg bg-accent text-white hover:bg-accent/90 transition-colors shadow-sm"}
             >
               Open Library…
             </button>
@@ -83,7 +83,7 @@ export function Sidebar({
             No albums found
           </div>
         ) : (
-          <div className="space-y-0.5">
+          <div className={web ? "space-y-0.5 px-2" : "space-y-0.5"}>
             {/* "All Files" item */}
             <AlbumRow
               web={web}
@@ -109,7 +109,7 @@ export function Sidebar({
 
       {/* Bottom metadata */}
       {libraryPath && (
-        <div className="px-4 py-2 border-t border-sidebar-border">
+        <div className={web ? "web-folder-sidebar-footer" : "px-4 py-2 border-t border-sidebar-border"}>
           <div className="flex items-center gap-1.5 text-[10px] text-text-muted truncate">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
               <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
@@ -153,8 +153,8 @@ function AlbumRow({
         onClick={onClick}
         className={`w-full flex items-center gap-2 pl-[15px] pr-2.5 ${web ? "py-2.5 rounded-xl" : "py-1.5 rounded-lg"} text-[12px] transition-all duration-150 text-left ${
           active
-            ? web ? "bg-[#f0e8df] text-[#713b25] font-medium" : "bg-sidebar-active text-accent font-medium"
-            : web ? "text-[#625d58] hover:bg-[#f3f1ef] hover:text-[#282828]" : "text-text-secondary hover:bg-sidebar-hover hover:text-text-primary"
+            ? web ? "web-folder-row-selected" : "bg-sidebar-active text-accent font-medium"
+            : web ? "web-folder-row" : "text-text-secondary hover:bg-sidebar-hover hover:text-text-primary"
         }`}
       >
         <span className="w-4 h-4 shrink-0 flex items-center justify-center">

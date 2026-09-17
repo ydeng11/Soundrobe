@@ -51,6 +51,20 @@ describe("WebSettingsPage", () => {
     expect(screen.getByText("Version 0.1.11")).toBeTruthy();
   });
 
+  it("keeps the selected settings section visible in the browser tabs", async () => {
+    render(<WebSettingsPage />);
+
+    await screen.findByDisplayValue("openai/gpt-4o-mini");
+    const general = screen.getByRole("link", { name: "General" });
+    const providers = screen.getByRole("link", { name: "AI & Providers" });
+    expect(general.getAttribute("aria-current")).toBe("page");
+    expect(providers.getAttribute("aria-current")).toBeNull();
+
+    fireEvent.click(providers);
+    expect(general.getAttribute("aria-current")).toBeNull();
+    expect(providers.getAttribute("aria-current")).toBe("page");
+  });
+
   it("keeps redacted secrets intact and saves only supported web settings", async () => {
     const setConfig = vi.fn().mockResolvedValue(undefined);
     window.api.setConfig = setConfig;

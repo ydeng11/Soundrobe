@@ -96,6 +96,7 @@ export function WebSettingsPage() {
   const [keyConfigured, setKeyConfigured] = useState(false);
   const [connection, setConnection] = useState<"idle" | "testing" | "success" | "error">("idle");
   const [connectionError, setConnectionError] = useState<string | null>(null);
+  const [activeSection, setActiveSection] = useState<(typeof SECTIONS)[number]["id"]>("general");
 
   const loadSettings = useCallback(async () => {
     setLoading(true);
@@ -214,35 +215,41 @@ export function WebSettingsPage() {
   const hasConfiguredKey = keyConfigured || Boolean(settings.llmApiKey);
 
   return (
-    <div data-testid="web-settings-page" className="space-y-9">
-      <header className="max-w-3xl">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#9b5638]">CONFIGURATION</p>
-        <h1 className="mt-3 text-4xl font-semibold tracking-[-0.04em] text-[#202124] sm:text-5xl">Settings</h1>
-        <p className="mt-3 max-w-2xl text-[15px] leading-7 text-[#6d6b68]">Control metadata providers, lyrics, and editing preferences for this browser UI.</p>
+    <div data-testid="web-settings-page" className="web-settings-page">
+      <header className="web-settings-heading web-page-heading">
+        <div>
+          <span className="web-visually-hidden">CONFIGURATION</span>
+          <p className="web-eyebrow">Configuration</p>
+          <h1 className="web-page-title">Settings</h1>
+          <p className="web-page-description">Control metadata providers, lyrics, and editing preferences for this browser UI.</p>
+        </div>
       </header>
 
-      {error && <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#e5b9ab] bg-[#fff6f2] px-4 py-3 text-sm text-[#9b3e24]"><span>{error}</span><button type="button" onClick={() => void loadSettings()} disabled={loading} className={SECONDARY_BUTTON_CLASS}>Retry</button></div>}
+      {error && <div role="alert" className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[#f0c9d0] bg-[#fff7f8] px-4 py-3 text-sm text-[#a24557]"><span>{error}</span><button type="button" onClick={() => void loadSettings()} disabled={loading} className={SECONDARY_BUTTON_CLASS}>Retry</button></div>}
 
-      <div className="grid gap-7 lg:grid-cols-[13rem_minmax(0,1fr)] lg:items-start">
-        <nav aria-label="Settings sections" className="lg:sticky lg:top-6">
-          <div className="space-y-1 rounded-xl border border-transparent p-1">
-            {SECTIONS.map((section, index) => (
+      <nav aria-label="Settings sections" className="web-settings-tabs">
+        {SECTIONS.map((section) => (
               <a
                 key={section.id}
                 href={`#${section.id}`}
-                className={`block rounded-lg px-3 py-2.5 text-sm transition-colors ${index === 0 ? "bg-[#f0efed] font-medium text-[#282828]" : "text-[#77736f] hover:bg-[#f3f1ef] hover:text-[#282828]"}`}
+                aria-current={activeSection === section.id ? "page" : undefined}
+                className={`web-settings-tab ${activeSection === section.id ? "is-selected" : ""}`}
+                onClick={(event) => {
+                  event.preventDefault();
+                  setActiveSection(section.id);
+                  document.getElementById(section.id)?.scrollIntoView?.({ behavior: "smooth", block: "start" });
+                }}
               >
                 {section.label}
               </a>
             ))}
-          </div>
-          <p className="px-3 pt-4 text-xs leading-5 text-[#9a9691]">Changes stay on the service until you save them.</p>
-        </nav>
+      </nav>
+      <p className="mb-4 text-xs text-[#9a98a4]">Changes stay on the service until you save them.</p>
 
-        <div className="min-w-0 space-y-5">
-          <section id="general" className="scroll-mt-6 overflow-hidden rounded-2xl border border-[#d9d8d5] bg-white">
+        <div className="min-w-0">
+          <section id="general" className="web-settings-card">
             <CardHeading title="General" description="Service information for this browser session." />
-            <div className="grid gap-3 px-5 py-5 sm:grid-cols-2 sm:px-6">
+            <div className="grid gap-3 px-4 py-4 sm:grid-cols-2">
               <InfoRow label="Runtime" value="Browser service" />
               <InfoRow label="Version" value={appVersion ? `Version ${appVersion}` : "Version unavailable"} />
               <InfoRow label="Credentials" value={hasConfiguredKey ? "Protected values configured" : "No provider key configured"} />
@@ -250,9 +257,9 @@ export function WebSettingsPage() {
             </div>
           </section>
 
-          <section id="providers" className="scroll-mt-6 overflow-hidden rounded-2xl border border-[#d9d8d5] bg-white">
+          <section id="providers" className="web-settings-card">
             <CardHeading title="AI & metadata providers" description="Choose the services that can suggest metadata. Secrets remain protected by the service." />
-            <div className="space-y-5 px-5 py-5 sm:px-6">
+            <div className="web-settings-card-body">
               <Field label="Provider" htmlFor="web-settings-provider">
                 <select id="web-settings-provider" value={settings.llmProvider} onChange={(event) => handleProviderChange(event.target.value)} className={INPUT_CLASS}>
                   <option value="">Select provider</option>
@@ -279,9 +286,9 @@ export function WebSettingsPage() {
             </div>
           </section>
 
-          <section id="lyrics" className="scroll-mt-6 overflow-hidden rounded-2xl border border-[#d9d8d5] bg-white">
+          <section id="lyrics" className="web-settings-card">
             <CardHeading title="Lyrics & metadata" description="Keep lyrics and written tag text aligned with your existing native settings." />
-            <div className="space-y-5 px-5 py-5 sm:px-6">
+            <div className="web-settings-card-body">
               <Field label="Lyrics API URL" htmlFor="web-settings-lyrics-url" hint="Leave blank to use the service default.">
                 <input id="web-settings-lyrics-url" value={settings.lyricsApiUrl} onChange={(event) => updateSetting("lyricsApiUrl", event.target.value)} placeholder="https://lrclib.net/api" className={INPUT_CLASS} />
               </Field>
@@ -296,37 +303,36 @@ export function WebSettingsPage() {
             </div>
           </section>
 
-          <section id="assistant" className="scroll-mt-6 overflow-hidden rounded-2xl border border-[#d9d8d5] bg-white">
+          <section id="assistant" className="web-settings-card">
             <CardHeading title="Assistant & diagnostics" description="Browser-supported assistant behavior and service diagnostics." />
-            <div className="space-y-5 px-5 py-5 sm:px-6">
+            <div className="web-settings-card-body">
               <ToggleField id="web-settings-assistant" label="Auto-apply assistant actions" description="Apply low-risk tag changes without an extra approval step." checked={settings.assistantAutonomous} onChange={(checked) => updateSetting("assistantAutonomous", checked)} />
               <ToggleField id="web-settings-debug" label="Debug mode" description="Publish verbose service diagnostics to the browser activity stream." checked={settings.debug} onChange={(checked) => updateSetting("debug", checked)} />
               <p className="border-t border-[#ebe9e6] pt-4 text-xs leading-5 text-[#85807a]">Native update and desktop-only controls are intentionally unavailable in the browser service.</p>
             </div>
           </section>
 
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#d9d8d5] bg-[#faf9f7] px-5 py-4 sm:px-6">
+          <div className="web-settings-save">
             <div className="text-sm text-[#77736f]">{saveMessage ?? "Save changes when you are ready."}</div>
             <button type="button" onClick={() => void handleSave()} disabled={loading || saving || !loaded} className={PRIMARY_BUTTON_CLASS}>
               {saving ? "Saving…" : "Save settings"}
             </button>
           </div>
-        </div>
       </div>
     </div>
   );
 }
 
 function CardHeading({ title, description }: { title: string; description: string }) {
-  return <div className="border-b border-[#ebe9e6] px-5 py-5 sm:px-6"><h2 className="text-base font-semibold tracking-[-0.01em] text-[#282828]">{title}</h2><p className="mt-1 text-sm leading-6 text-[#77736f]">{description}</p></div>;
+  return <div className="web-settings-card-heading"><h2>{title}</h2><p>{description}</p></div>;
 }
 
 function InfoRow({ label, value }: { label: string; value: string }) {
-  return <div className="rounded-xl bg-[#f8f7f5] px-4 py-3"><p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#99938c]">{label}</p><p className="mt-1 text-sm text-[#3b3936]">{value}</p></div>;
+  return <div className="web-settings-info"><p className="web-settings-info-label">{label}</p><p className="web-settings-info-value">{value}</p></div>;
 }
 
 function Field({ label, htmlFor, hint, children }: { label: string; htmlFor: string; hint?: string; children: React.ReactNode }) {
-  return <div className="space-y-2"><label htmlFor={htmlFor} className="block text-sm font-medium text-[#393735]">{label}</label>{children}{hint && <p className="text-xs leading-5 text-[#8b867f]">{hint}</p>}</div>;
+  return <div className="web-settings-field"><label htmlFor={htmlFor} className="web-settings-label">{label}</label>{children}{hint && <p className="web-settings-hint">{hint}</p>}</div>;
 }
 
 function SecretField({ id, label, value, onChange }: { id: string; label: string; value: string; onChange: (value: string) => void }) {
@@ -334,9 +340,9 @@ function SecretField({ id, label, value, onChange }: { id: string; label: string
 }
 
 function ToggleField({ id, label, description, checked, onChange }: { id: string; label: string; description: string; checked: boolean; onChange: (checked: boolean) => void }) {
-  return <div className="flex items-start justify-between gap-5"><div><label htmlFor={id} className="text-sm font-medium text-[#393735]">{label}</label><p className="mt-1 max-w-xl text-xs leading-5 text-[#8b867f]">{description}</p></div><button id={id} type="button" role="switch" aria-checked={checked} onClick={() => onChange(!checked)} className={`relative mt-0.5 inline-flex h-6 w-11 shrink-0 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-[#a85732]/30 ${checked ? "bg-[#292725]" : "bg-[#d3d0cc]"}`}><span className={`absolute top-1 h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${checked ? "translate-x-6" : "translate-x-1"}`} /></button></div>;
+  return <div className="flex items-start justify-between gap-5 border-t border-[#e7e8ee] pt-4 first:border-t-0 first:pt-0"><div><label htmlFor={id} className="web-settings-label">{label}</label><p className="web-settings-hint">{description}</p></div><button id={id} type="button" role="switch" aria-checked={checked} onClick={() => onChange(!checked)} className={`relative mt-0.5 inline-flex h-6 w-11 shrink-0 rounded-full transition-colors focus:outline-none ${checked ? "bg-[#9b7cf7]" : "bg-[#d9dbe3]"}`}><span className={`absolute top-1 h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${checked ? "translate-x-6" : "translate-x-1"}`} /></button></div>;
 }
 
-const INPUT_CLASS = "w-full rounded-xl border border-[#d9d8d5] bg-[#fcfbfa] px-3.5 py-2.5 text-sm text-[#302e2c] outline-none transition focus:border-[#a85732] focus:ring-2 focus:ring-[#a85732]/10";
-const PRIMARY_BUTTON_CLASS = "rounded-xl bg-[#202124] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[#3a3937] disabled:cursor-not-allowed disabled:opacity-50";
-const SECONDARY_BUTTON_CLASS = "rounded-xl border border-[#d1cec9] bg-white px-3.5 py-2.5 text-sm font-medium text-[#46423e] transition hover:border-[#a9a39b] hover:bg-[#f8f7f5] disabled:cursor-not-allowed disabled:opacity-50";
+const INPUT_CLASS = "web-settings-input";
+const PRIMARY_BUTTON_CLASS = "web-button-primary";
+const SECONDARY_BUTTON_CLASS = "web-button-secondary";

@@ -107,13 +107,13 @@ export function WebTaggingDebugPortal({ open: initiallyOpen = false }: WebTaggin
     <div className={initiallyOpen ? "" : "fixed bottom-4 right-4 z-50"}>
       {open && (
         <section
-          className={`rounded-2xl border border-[#ded5c8] bg-[#fffdf9] p-5 shadow-[0_18px_50px_rgba(65,48,32,0.08)] ${initiallyOpen ? "w-full" : "mb-2 w-[min(36rem,calc(100vw-2rem))]"}`}
+          className={`web-activity-panel ${initiallyOpen ? "w-full" : "mb-2 w-[min(36rem,calc(100vw-2rem))]"}`}
           aria-label="Background tagging diagnostics"
         >
           <div className="flex items-start justify-between gap-3">
             <div>
-              <h2 className="font-serif text-xl font-semibold text-[#28231d]">Recent service activity</h2>
-              <p className="mt-1 text-sm text-[#71675d]">
+              <h2 className="web-page-title">Recent service activity</h2>
+              <p className="web-page-description">
                 Automatic activity and review outcomes for mounted libraries.
               </p>
             </div>
@@ -157,21 +157,21 @@ export function WebTaggingDebugPortal({ open: initiallyOpen = false }: WebTaggin
               </div>
             )}
             {loadState === "ready" && tasks.length === 0 && (
-              <p className="rounded-xl border border-dashed border-[#ded5c8] px-4 py-8 text-center text-sm text-[#71675d]">No background activity.</p>
+              <p className="rounded-lg border border-dashed border-[#e7e8ee] px-4 py-8 text-center text-sm text-[#777583]">No background activity.</p>
             )}
             {tasks.length > 0 && (
               <ol className="max-h-72 space-y-2 overflow-auto">
                 {tasks.map((task) => {
                   const formattedResult = formatTaskResult(task.result);
                   return (
-                    <li key={task.taskId} className="rounded-xl border border-[#e5ddd2] bg-[#faf7f1] px-4 py-3">
+                    <li key={task.taskId} className="rounded-lg border border-[#e7e8ee] bg-[#fbfbfd] px-4 py-3">
                       <div className="flex items-center justify-between gap-2">
                         <span className={`rounded-full border px-2 py-0.5 text-xs ${statusTone[task.status]}`}>
                           {task.status.replace("_", " ")}
                         </span>
                         <span className="truncate text-xs text-text-muted">{task.taskId}</span>
                       </div>
-                      <p className="mt-2 text-sm text-[#28231d]">{task.message}</p>
+                      <p className="mt-2 text-sm text-[#252431]">{task.message}</p>
                       {task.total > 0 && (
                         <p className="mt-1 text-xs text-text-muted">
                           Progress: {task.progress}/{task.total}

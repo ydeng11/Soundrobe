@@ -71,6 +71,7 @@ import { WebLibraryPicker } from "./components/WebLibraryPicker";
 import { WebServiceShell, type WebServiceView } from "./components/WebServiceShell";
 import { WebTaggingDebugPortal } from "./components/WebTaggingDebugPortal";
 import { WebSettingsPage } from "./components/WebSettingsPage";
+import { WebHomeView } from "./components/WebHomeView";
 import {
   getWebSession,
   loginWebSession,
@@ -369,6 +370,7 @@ export default function App() {
   const handleSelectWebRoot = useCallback(
     (path: string) => {
       setWebLibraryPickerOpen(false);
+      setWebView("workspace");
       void loadLibrary(path, true);
     },
     [loadLibrary],
@@ -376,6 +378,7 @@ export default function App() {
 
   const handleChangeWebLibrary = useCallback(() => {
     setWebLibraryPickerOpen(true);
+    setWebView("library");
   }, []);
 
   // --- Album selection (in-memory filter, no disk reads) ---
@@ -2898,23 +2901,24 @@ export default function App() {
   );
 
   const webLibraryWorkspace = (
-    <section data-testid="web-library-workspace" className="overflow-hidden rounded-2xl border border-[#ded5c8] bg-[#fffdf9] shadow-[0_18px_50px_rgba(65,48,32,0.08)]">
+    <section data-testid="web-library-workspace" className="web-workspace">
       <input ref={webCoverInputRef} type="file" accept="image/jpeg,image/png,image/webp" aria-label="Cover artwork" className="hidden" onChange={handleWebCoverSelected} />
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#e5ddd2] bg-[#faf7f1] px-4 py-3 sm:px-5">
-        <div className="min-w-0"><p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#a85732]">Mounted library</p><p className="mt-1 truncate text-sm text-[#62594f]">Mounted library: {state.libraryPath}</p></div>
+      <div className="web-workspace-toolbar">
+        <div className="web-workspace-folder"><FolderIcon /><span title={state.libraryPath ?? undefined}>{state.libraryPath}</span><span className="web-visually-hidden">Mounted library: {state.libraryPath}</span></div>
+        <div className="web-workspace-toolbar-spacer" />
         <div className="flex shrink-0 items-center gap-2">
-          <button type="button" onClick={handleChangeWebLibrary} className="rounded-full border border-[#d9cdbd] px-3 py-1.5 text-xs font-semibold text-[#544a40] hover:bg-[#eee6da]">Change library</button>
-          <button type="button" onClick={() => void handleRefresh()} disabled={state.scanning} className="rounded-full bg-[#332c25] px-3 py-1.5 text-xs font-semibold text-[#fffaf2] hover:bg-[#4a4037] disabled:opacity-50">Refresh library</button>
+          <button type="button" onClick={handleChangeWebLibrary} className="web-button-secondary">Change library</button>
+          <button type="button" onClick={() => void handleRefresh()} disabled={state.scanning} className="web-button-primary">{state.scanning ? "Refreshing…" : "Refresh library"}</button>
         </div>
       </div>
       <ScanProgressBar scanning={state.scanning || state.autoTagging} progress={state.autoTagProgress ? { current: state.autoTagProgress.current, total: state.autoTagProgress.total } : state.scanningProgress} label={state.autoTagProgress?.message ?? null} />
       <ScanProgressBar scanning={state.saving} progress={state.saveProgress} label={state.saving ? "Saving tracks…" : null} />
       <AuditBanner results={state.auditResults} onDismiss={() => dispatch({ type: "CLEAR_AUDIT_RESULTS" })} />
       {state.error && <div role="alert" className="mx-4 mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 sm:mx-5">{state.error}</div>}
-      <div className="flex min-h-[34rem] flex-col xl:flex-row">
-        <div className="w-full shrink-0 overflow-x-auto border-b border-[#e5ddd2] xl:w-auto xl:overflow-visible xl:border-b-0 xl:border-r"><Sidebar web albums={state.albums} libraryPath={state.libraryPath} activeAlbumPath={state.activeAlbumPath} onSelectAlbum={handleSelectAlbum} onOpenLibrary={handleChangeWebLibrary} /></div>
-        <div className="min-w-0 flex-1 border-b border-[#e5ddd2] xl:border-b-0 xl:border-r"><FileGrid web tracks={state.tracks} activeAlbumPath={state.activeAlbumPath} selectedTrackPath={state.selectedTrackPath} selectedTrackPaths={state.selectedTrackPaths} filterText={state.filterText} auditByTrackPath={auditByTrackPath} onSelectTrack={handleSelectTrack} onMultiSelect={handleMultiSelect} onEditExtraTags={handleEditExtraTagsFromSelection} onDeleteFiles={handleDeleteFiles} /></div>
-        <aside className="w-full shrink-0 overflow-y-auto xl:w-[320px]">
+      <div className="web-workspace-panes">
+        <div className="web-folder-pane"><Sidebar web albums={state.albums} libraryPath={state.libraryPath} activeAlbumPath={state.activeAlbumPath} onSelectAlbum={handleSelectAlbum} onOpenLibrary={handleChangeWebLibrary} /></div>
+        <div className="web-table-pane"><FileGrid web webActive={webView === "workspace" && !webLibraryPickerOpen} tracks={state.tracks} activeAlbumPath={state.activeAlbumPath} selectedTrackPath={state.selectedTrackPath} selectedTrackPaths={state.selectedTrackPaths} filterText={state.filterText} auditByTrackPath={auditByTrackPath} onSelectTrack={handleSelectTrack} onMultiSelect={handleMultiSelect} onEditExtraTags={handleEditExtraTagsFromSelection} onDeleteFiles={handleDeleteFiles} /></div>
+        <aside className="web-editor-pane">
           {state.selectedTrackPaths.length > 1 ? <BatchEditor web tracks={selectedTracksForBatch} coverDataUrl={state.coverDataUrl} saving={mutationBusy} onSave={handleBatchSave} onChangeCover={handleChangeCover} onRemoveCover={handleRemoveCover} onDownloadCover={handleDownloadCover} onDownloadArtistArt={handleDownloadArtistArt} /> : state.selectedTrack ? <>{selectedTrackAudit && <SelectedTrackAuditFindings results={selectedTrackAudit.results} onApplyFixes={() => handleApplyAuditFixes(buildAuditApplyAlbumResults({ auditResults: state.auditResults, tracks: state.tracks, trackPath: state.selectedTrackPath }))} onApplyFix={(result) => handleApplyAuditFixes(singleAuditFixResult(result, dirPath(state.selectedTrackPath!)))} applying={mutationBusy} />}<MetadataEditor web track={state.selectedTrack} dirPath={dirPath(state.selectedTrack.path)} coverDataUrl={state.coverDataUrl} saving={mutationBusy} onSave={handleSaveMetadata} onChangeCover={handleChangeCover} onRemoveCover={handleRemoveCover} onDownloadCover={handleDownloadCover} onDownloadArtistArt={handleDownloadArtistArt} /></> : visibleAuditResult ? <AuditPanel results={visibleAuditResult.results} albumName={basename(visibleAuditResult.albumPath) ?? ""} onApplyFixes={() => handleApplyAuditFixes(buildAuditApplyAlbumResults({ auditResults: state.auditResults, tracks: state.tracks, albumPath: visibleAuditResult.albumPath }))} onApplyFix={(result) => handleApplyAuditFixes(singleAuditFixResult(result, visibleAuditResult.albumPath))} applying={mutationBusy} /> : <div className="flex min-h-48 items-center justify-center px-8 text-center text-sm text-[#8a7e71]">Select a file to edit its tags.</div>}
         </aside>
       </div>
@@ -2935,10 +2939,30 @@ export default function App() {
   );
 
   if (webRuntime) {
-    const showLibrary = webView === "library";
-    const showPicker = showLibrary && (webLibraryPickerOpen || !state.libraryPath);
+    // Library is the browser root picker on every visit; a selected root is
+    // still available in Workspace and is not silently replaced here.
+    const showPicker = webView === "library";
     return (
-      <WebServiceShell activeView={webView} onViewChange={handleWebViewChange} onLogout={handleWebLogout}>
+      <WebServiceShell
+        activeView={webView}
+        onViewChange={handleWebViewChange}
+        onLogout={handleWebLogout}
+        searchText={state.filterText}
+        onSearchChange={handleFilterChange}
+        searchEnabled={webView === "workspace" && Boolean(state.libraryPath) && !webLibraryPickerOpen}
+        libraryPath={state.libraryPath}
+        albumCount={state.albums.length}
+        trackCount={state.tracks.length}
+      >
+        {webView === "home" && (
+          <WebHomeView
+            libraryPath={state.libraryPath}
+            albumCount={state.albums.length}
+            trackCount={state.tracks.length}
+            onViewChange={handleWebViewChange}
+            onOpenLibrary={handleChangeWebLibrary}
+          />
+        )}
         {showPicker && (
           <WebLibraryPicker
             roots={webRoots}
@@ -2947,8 +2971,20 @@ export default function App() {
             onSelect={handleSelectWebRoot}
           />
         )}
+        {webView === "workspace" && !state.libraryPath && (
+          <section className="web-home" data-testid="web-workspace-empty">
+            <div className="web-home-hero">
+              <p className="web-eyebrow">Workspace</p>
+              <h1>Choose a library to begin.</h1>
+              <p>Your file grid and tag editor appear here after a mounted root is loaded.</p>
+              <div className="web-home-actions">
+                <button type="button" className="web-button-primary" onClick={handleChangeWebLibrary}>Choose a library</button>
+              </div>
+            </div>
+          </section>
+        )}
         {webView === "activity" && (
-          <section data-testid="web-activity-view" className="rounded-xl border border-border bg-white p-5 shadow-sm sm:p-6">
+          <section data-testid="web-activity-view" className="web-activity">
             <WebTaggingDebugPortal open />
           </section>
         )}
@@ -2956,7 +2992,7 @@ export default function App() {
           <WebSettingsPage />
         )}
         {state.libraryPath && (
-          <div aria-hidden={!(showLibrary && !webLibraryPickerOpen)} className={showLibrary && !webLibraryPickerOpen ? "contents" : "hidden"}>
+          <div aria-hidden={!(webView === "workspace" && !webLibraryPickerOpen)} className={webView === "workspace" && !webLibraryPickerOpen ? "contents" : "hidden"}>
             {webLibraryWorkspace}
           </div>
         )}
@@ -2966,6 +3002,14 @@ export default function App() {
   }
 
   return <>{desktopWorkspace}{settingsModal}</>;
+}
+
+function FolderIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M3 6.5A2.5 2.5 0 0 1 5.5 4H10l2 2h6.5A2.5 2.5 0 0 1 21 8.5v8A2.5 2.5 0 0 1 18.5 19h-13A2.5 2.5 0 0 1 3 16.5z" />
+    </svg>
+  );
 }
 
 /** Build an undo snapshot from a track's current field values. */

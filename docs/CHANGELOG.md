@@ -36,15 +36,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   scanning a selected mounted root. Web users can switch between Library,
   Activity, and Settings while automatic tagging outcomes remain available
   through the on-demand Activity diagnostics portal.
-- The browser service now has a warm, responsive workspace with compact
-  service navigation, session status, a mounted-library editor, and an
-  in-page activity monitor; the standalone desktop layout remains unchanged.
-- Browser Settings is now an inline configuration page with a persistent
-  section rail, protected credential handling, provider connection checks, and
-  service-only diagnostics; native update controls remain desktop-only.
-- The browser library editor now uses a denser album rail, music-management
-  track table, and warm inspector treatment while preserving selection, audit,
-  draft, and apply behavior.
+- The browser service now has a compact Soundrobe shell with Home, Workspace,
+  Library, Activity, and Settings views, a lilac active navigation treatment,
+  and a focused workspace search that filters loaded files only.
+- Browser Settings now uses horizontal in-page sections with thin grouped
+  cards while preserving protected credentials, provider checks, and service-
+  only diagnostics; native update controls remain desktop-only.
+- The browser library editor now uses a pale canvas, fixed folder rail, dense
+  file table, and uncarded metadata workspace while preserving selection,
+  audit, draft, and apply behavior. Desktop composition remains unchanged.
 
 ## [0.1.11] - 2026-09-16
 

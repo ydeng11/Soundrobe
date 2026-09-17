@@ -84,6 +84,8 @@ interface FileGridProps {
   auditByTrackPath?: Record<string, TrackAuditSummary>;
   /** Browser-only compact table treatment. Desktop columns and interactions stay unchanged. */
   web?: boolean;
+  /** Select All is scoped to the visible, focused browser workspace only. */
+  webActive?: boolean;
 }
 
 export function FileGrid({
@@ -98,6 +100,7 @@ export function FileGrid({
   onDeleteFiles,
   auditByTrackPath = {},
   web = false,
+  webActive = false,
 }: FileGridProps) {
   const [sortKey, setSortKey] = useState<SortKey>("track");
   const [sortAsc, setSortAsc] = useState(true);
@@ -263,6 +266,7 @@ export function FileGrid({
 
   // Right-click context menu state
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
+  const fileListRef = useRef<HTMLDivElement>(null);
   // Guards against rapid right-clicks that would trigger the Rust backend's
   // ContextMenuAlreadyActive rejection (one concurrent native popup at a time).
   const contextMenuBusyRef = useRef(false);
@@ -371,13 +375,16 @@ export function FileGrid({
         if (active === "input" || active === "textarea" || active === "select") {
           return; // Let native select-all work in text fields
         }
+        if (web && (!webActive || !fileListRef.current?.contains(document.activeElement))) {
+          return;
+        }
         e.preventDefault();
         onMultiSelect?.(sortedPaths);
       }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [sortedPaths, onMultiSelect]);
+  }, [sortedPaths, onMultiSelect, web, webActive]);
 
   const showTrackMenu = useCallback(
     async (track: TrackData) => {
@@ -499,11 +506,11 @@ export function FileGrid({
   }, []);
 
   return (
-    <div data-web-variant={web || undefined} className={web ? "flex flex-col h-full bg-[#fffdfb]" : "flex flex-col h-full bg-white"}>
+    <div data-web-variant={web || undefined} className={web ? "web-file-grid" : "flex flex-col h-full bg-white"}>
       {/* Column headers */}
       <div
         ref={headerRef}
-        className={web ? "flex items-center px-4 py-2.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-[#99938c] bg-[#faf9f7] border-b border-[#ebe9e6] select-none overflow-hidden" : "flex items-center px-3 py-1.5 text-[11px] font-medium text-text-muted bg-surface-alt/60 border-b border-border select-none overflow-hidden"}
+        className={web ? "web-file-grid-header flex items-center select-none overflow-hidden" : "flex items-center px-3 py-1.5 text-[11px] font-medium text-text-muted bg-surface-alt/60 border-b border-border select-none overflow-hidden"}
         onContextMenu={web ? undefined : handleHeaderContextMenu}
       >
         {COLUMNS.map((col, ci) => (
@@ -512,7 +519,7 @@ export function FileGrid({
               onClick={() => toggleSort(col.key)}
               className={`flex items-center gap-1.5 px-1.5 transition-all duration-150 truncate shrink-0 rounded-md ${
                 col.key === sortKey
-                  ? web ? "bg-[#f0e8df] text-[#713b25] font-semibold" : "bg-accent/10 text-accent font-semibold"
+                  ? web ? "web-file-header-selected" : "bg-accent/10 text-accent font-semibold"
                   : web ? "hover:bg-[#f3f1ef] hover:text-[#4b4641]" : "hover:bg-surface-hover hover:text-text-secondary"
               }`}
               style={{
@@ -587,8 +594,11 @@ export function FileGrid({
 
       {/* File rows */}
       <div
-        className="flex-1 overflow-y-auto"
+        ref={fileListRef}
+        className={web ? "web-file-grid-body" : "flex-1 overflow-y-auto"}
         data-testid="file-grid-body"
+        tabIndex={web ? 0 : undefined}
+        aria-label={web ? "File list" : undefined}
         onContextMenu={web ? undefined : handleFileAreaContextMenu}
       >
         {sorted.length === 0 ? (
@@ -626,7 +636,7 @@ export function FileGrid({
       </div>
 
       {/* Footer bar */}
-      <div className={web ? "flex items-center px-4 py-2 text-[10px] text-[#8b867f] bg-[#faf9f7] border-t border-[#ebe9e6] gap-3" : "flex items-center px-4 py-1.5 text-[10.5px] text-text-muted bg-surface-alt/60 border-t border-border gap-3"}>
+      <div className={web ? "web-file-grid-footer" : "flex items-center px-4 py-1.5 text-[10.5px] text-text-muted bg-surface-alt/60 border-t border-border gap-3"}>
         <span className="tabular-nums">{sorted.length} file{sorted.length !== 1 ? "s" : ""}</span>
         {multiSelected.size > 1 && (
           <span className="text-accent tabular-nums font-medium">{multiSelected.size} selected</span>
@@ -725,20 +735,26 @@ const FileGridRow = memo(function FileGridRow({
       ? "bg-green-500/5 shadow-[inset_2px_0_0_0_rgba(34,197,94,0.35)]"
       : null;
 
-  const rowClass = [
-    web ? "flex items-center px-4 py-2.5 text-[12px] cursor-pointer select-none border-b border-[#eeeae5]" : "flex items-center px-3 py-1 text-[12.5px] cursor-pointer select-none border-b border-border/30",
-    "transition-colors duration-75",
-    isPrimary
-      ? "bg-table-selected border-table-selectedBorder shadow-[inset_2px_0_0_0_rgba(0,122,255,0.5)]"
-      : isMulti
-        ? "bg-table-selected/60"
-        : auditClass
-          ? auditClass
-      : isAltRow
-          ? web ? "bg-[#fdfbf8]" : "bg-table-alt"
-          : web ? "bg-[#fffdfb]" : "bg-table-row",
-    web ? "hover:bg-[#f4eee8]" : "hover:bg-table-selected/40",
-  ].join(" ");
+  const rowClass = web
+    ? [
+        "web-file-grid-row",
+        isPrimary || isMulti ? "web-file-grid-row-selected" : "",
+        auditClass ?? "",
+      ].join(" ")
+    : [
+        "flex items-center px-3 py-1 text-[12.5px] cursor-pointer select-none border-b border-border/30",
+        "transition-colors duration-75",
+        isPrimary
+          ? "bg-table-selected border-table-selectedBorder shadow-[inset_2px_0_0_0_rgba(0,122,255,0.5)]"
+          : isMulti
+            ? "bg-table-selected/60"
+            : auditClass
+              ? auditClass
+              : isAltRow
+                ? "bg-table-alt"
+                : "bg-table-row",
+        "hover:bg-table-selected/40",
+      ].join(" ");
 
   return (
     <div
@@ -754,8 +770,8 @@ const FileGridRow = memo(function FileGridRow({
               col.align === "right" ? "text-right" : "text-left"
             } px-1.5 truncate ${
               isPrimary
-                ? web ? "text-[#282828] font-medium" : "text-text-primary font-medium"
-                : web ? "text-[#625d58]" : "text-text-secondary"
+                ? web ? "web-file-cell-primary" : "text-text-primary font-medium"
+                : web ? "web-file-cell" : "text-text-secondary"
             }`}
             style={{
               width: columnWidths?.[col.key] ?? (col.width.includes("-") ? 80 : 120),
