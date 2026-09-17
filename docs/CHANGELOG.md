@@ -26,10 +26,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- The self-hosted dashboard now opens mounted libraries automatically as a
-  viewer and editor. Manual tagging, search, lyrics, audit, and library-load
-  controls remain in the desktop app; web users can inspect automatic tagging
-  outcomes through an on-demand Activity diagnostics portal.
+- The self-hosted dashboard now opens a navigable library picker before
+  scanning a selected mounted root. Web users can switch between Library,
+  Activity, and Settings while automatic tagging outcomes remain available
+  through the on-demand Activity diagnostics portal.
 
 ## [0.1.11] - 2026-09-16
 

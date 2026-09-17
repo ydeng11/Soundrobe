@@ -159,19 +159,122 @@ describe("App — batch save progress", () => {
     expect(screen.getByText("Open Library")).toBeTruthy();
   });
 
-  it("auto-selects the sole mounted library in the web runtime", async () => {
+  it("keeps the mounted-library picker visible until a web user chooses a root", async () => {
     window.__SOUNDROBE_RUNTIME__ = "web";
     const fetchMock = vi
       .spyOn(globalThis, "fetch")
-      .mockResolvedValue(new Response(JSON.stringify({ authenticated: true })));
+      .mockImplementation(async () => new Response(JSON.stringify({ authenticated: true })));
 
     render(<App />);
 
-    await waitFor(() => expect(screen.getAllByTestId(/^file-row-/)).toHaveLength(2));
+    expect(await screen.findByText("Choose a library")).toBeTruthy();
     expect(window.api.listLibraryRoots).toHaveBeenCalledTimes(1);
     expect(window.api.openFolderDialog).not.toHaveBeenCalled();
-    expect(window.api.scanLibrary).toHaveBeenCalledWith("/libraries/music");
+    expect(window.api.scanLibrary).not.toHaveBeenCalled();
 
+    fetchMock.mockRestore();
+  });
+
+  it("keeps Library, Activity, and Settings navigable before a web library opens", async () => {
+    window.__SOUNDROBE_RUNTIME__ = "web";
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementation(async () => new Response(JSON.stringify({ authenticated: true })));
+
+    render(<App />);
+    await screen.findByText("Choose a library");
+
+    fireEvent.click(screen.getByRole("button", { name: "Activity" }));
+    expect(screen.getByTestId("web-activity-view")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Library" }).getAttribute("aria-current")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+    expect(await screen.findByRole("heading", { name: "Settings", level: 2 })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Library" }).getAttribute("aria-current")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Library" }));
+    expect(screen.getByText("Choose a library")).toBeTruthy();
+
+    fetchMock.mockRestore();
+  });
+
+  it("scans only the selected mounted root and refreshes that root", async () => {
+    window.__SOUNDROBE_RUNTIME__ = "web";
+    window.api.listLibraryRoots = vi.fn().mockResolvedValue([
+      { id: "jazz", name: "jazz", path: "/libraries/jazz" },
+      { id: "classical", name: "classical", path: "/libraries/classical" },
+    ]);
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementation(async () => new Response(JSON.stringify({ authenticated: true })));
+
+    render(<App />);
+    await screen.findByText("Choose a library");
+    fireEvent.click(screen.getByRole("button", { name: /classical/ }));
+    await waitFor(() => expect(window.api.scanLibrary).toHaveBeenCalledWith("/libraries/classical"));
+    expect(window.api.scanLibrary).not.toHaveBeenCalledWith("/libraries/jazz");
+
+    fireEvent.click(screen.getByRole("button", { name: "Refresh library" }));
+    await waitFor(() => {
+      const calls = (window.api.scanLibrary as ReturnType<typeof vi.fn>).mock.calls;
+      expect(calls.filter(([path]) => path === "/libraries/classical")).toHaveLength(2);
+    });
+
+    fetchMock.mockRestore();
+  });
+
+  it("ignores a late scan after switching roots or signing out", async () => {
+    window.__SOUNDROBE_RUNTIME__ = "web";
+    window.api.listLibraryRoots = vi.fn().mockResolvedValue([
+      { id: "first", name: "first", path: "/libraries/first" },
+      { id: "second", name: "second", path: "/libraries/second" },
+    ]);
+    let resolveFirstScan!: (albums: AlbumInfo[]) => void;
+    const firstScan = new Promise<AlbumInfo[]>((resolve) => { resolveFirstScan = resolve; });
+    (window.api.scanLibrary as ReturnType<typeof vi.fn>)
+      .mockImplementationOnce(() => firstScan)
+      .mockResolvedValue([
+        { path: "/libraries/second/New Album", name: "New Album", artistHint: "", albumHint: "", trackCount: 0 },
+      ] as AlbumInfo[]);
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementation(async () => new Response(JSON.stringify({ authenticated: true })));
+
+    render(<App />);
+    await screen.findByText("Choose a library");
+    fireEvent.click(screen.getByRole("button", { name: /first/ }));
+    await waitFor(() => expect(window.api.scanLibrary).toHaveBeenCalledWith("/libraries/first"));
+    fireEvent.click(await screen.findByRole("button", { name: "Change library" }));
+    fireEvent.click(screen.getByRole("button", { name: /second/ }));
+    await waitFor(() => expect(screen.getByText("New Album")).toBeTruthy());
+
+    fireEvent.click(screen.getByRole("button", { name: "Sign out" }));
+    expect(await screen.findByRole("heading", { name: "Sign in to Soundrobe" })).toBeTruthy();
+
+    await act(async () => {
+      resolveFirstScan([{ path: "/libraries/first/Stale Album", name: "Stale Album", artistHint: "", albumHint: "", trackCount: 0 }]);
+    });
+    expect(screen.queryByText("Stale Album")).toBeNull();
+
+    fetchMock.mockRestore();
+  });
+
+  it("preserves an editor draft while navigating web service tabs", async () => {
+    window.__SOUNDROBE_RUNTIME__ = "web";
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementation(async () => new Response(JSON.stringify({ authenticated: true })));
+
+    render(<App />);
+    fireEvent.click(await screen.findByRole("button", { name: /music/ }));
+    fireEvent.click((await screen.findAllByTestId(/^file-row-/))[0]);
+    const titleInput = await screen.findByPlaceholderText("Track title");
+    fireEvent.change(titleInput, { target: { value: "Draft title" } });
+
+    fireEvent.click(screen.getByRole("button", { name: "Activity" }));
+    fireEvent.click(screen.getByRole("button", { name: "Library" }));
+
+    expect((screen.getByPlaceholderText("Track title") as HTMLInputElement).value).toBe("Draft title");
     fetchMock.mockRestore();
   });
 
@@ -185,6 +288,7 @@ describe("App — batch save progress", () => {
       );
 
     render(<App />);
+    fireEvent.click(await screen.findByRole("button", { name: /music/ }));
     const row = (await screen.findAllByTestId(/^file-row-/))[0];
     fireEvent.click(row);
     fireEvent.click(await screen.findByRole("button", { name: "Change" }));

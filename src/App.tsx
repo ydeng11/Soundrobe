@@ -67,6 +67,8 @@ import {
 } from "./shared/track-numbering";
 import { useAppUpdater } from "./state/useAppUpdater";
 import { WebLoginScreen } from "./components/WebLoginScreen";
+import { WebLibraryPicker } from "./components/WebLibraryPicker";
+import { WebServiceShell, type WebServiceView } from "./components/WebServiceShell";
 import { WebTaggingDebugPortal } from "./components/WebTaggingDebugPortal";
 import {
   getWebSession,
@@ -110,7 +112,12 @@ export default function App() {
   const [webAuthState, setWebAuthState] = React.useState<
     "desktop" | "checking" | "login" | "authenticated"
   >(webRuntime ? "checking" : "desktop");
+  const [webView, setWebView] = React.useState<WebServiceView>("library");
+  const [webRoots, setWebRoots] = React.useState<LibraryRoot[]>([]);
+  const [webRootsLoading, setWebRootsLoading] = React.useState(webRuntime);
   const [webRootsError, setWebRootsError] = React.useState<string | null>(null);
+  const [webLibraryPickerOpen, setWebLibraryPickerOpen] = React.useState(webRuntime);
+  const libraryLoadIdRef = useRef(0);
   const webCoverInputRef = useRef<HTMLInputElement | null>(null);
   const webCoverTargetRef = useRef<string | null>(null);
   const appBusy =
@@ -214,87 +221,101 @@ export default function App() {
   }, []);
 
   /** Read track data for every album and dispatch results. */
-  const loadAlbumTracks = useCallback(async (albums: AlbumInfo[]) => {
-    const trackGroups: TrackData[][] = Array.from(
-      { length: albums.length },
-      () => [],
-    );
-    const concurrency = 4;
-    let nextIndex = 0;
-    let completed = 0;
+  const loadAlbumTracks = useCallback(
+    async (albums: AlbumInfo[], isCurrent: () => boolean = () => true) => {
+      const trackGroups: TrackData[][] = Array.from(
+        { length: albums.length },
+        () => [],
+      );
+      const concurrency = 4;
+      let nextIndex = 0;
+      let completed = 0;
 
-    const processAlbum = async (album: AlbumInfo) => {
-      try {
-        const detail = await window.api.readAlbum(album.path);
-        return detail.tracks;
-      } catch {
-        return [] as TrackData[];
-      }
-    };
+      const processAlbum = async (album: AlbumInfo) => {
+        try {
+          const detail = await window.api.readAlbum(album.path);
+          return detail.tracks;
+        } catch {
+          return [] as TrackData[];
+        }
+      };
 
-    // Process albums concurrently with a concurrency limit
-    const worker = async () => {
-      while (true) {
-        const idx = nextIndex++;
-        if (idx >= albums.length) break;
-        dispatch({
-          type: "SET_SCANNING_PROGRESS",
-          progress: {
-            current: Math.min(completed + 1, albums.length),
-            total: albums.length,
-          },
-        });
-        const tracks = await processAlbum(albums[idx]);
-        trackGroups[idx] = tracks;
-        completed += 1;
-      }
-    };
+      // Process albums concurrently with a concurrency limit
+      const worker = async () => {
+        while (true) {
+          const idx = nextIndex++;
+          if (idx >= albums.length) break;
+          if (!isCurrent()) return;
+          dispatch({
+            type: "SET_SCANNING_PROGRESS",
+            progress: {
+              current: Math.min(completed + 1, albums.length),
+              total: albums.length,
+            },
+          });
+          const tracks = await processAlbum(albums[idx]);
+          trackGroups[idx] = tracks;
+          completed += 1;
+        }
+      };
 
-    const workers = Array.from(
-      { length: Math.min(concurrency, albums.length) },
-      () => worker(),
-    );
-    await Promise.all(workers);
+      const workers = Array.from(
+        { length: Math.min(concurrency, albums.length) },
+        () => worker(),
+      );
+      await Promise.all(workers);
 
-    dispatch({ type: "SET_SCANNING_PROGRESS", progress: null });
-    const allTracks = trackGroups.flat();
-    dispatch({ type: "SET_TRACKS", tracks: allTracks });
-  }, []);
+      if (!isCurrent()) return;
+      dispatch({ type: "SET_SCANNING_PROGRESS", progress: null });
+      const allTracks = trackGroups.flat();
+      dispatch({ type: "SET_TRACKS", tracks: allTracks });
+    },
+    [],
+  );
 
   /** Full library re-scan — called on manual refresh. */
   const handleRefresh = useCallback(async () => {
     if (!state.libraryPath) return;
+    const selectedPath = state.libraryPath;
+    const loadId = ++libraryLoadIdRef.current;
+    const isCurrent = () => libraryLoadIdRef.current === loadId;
     dispatch({ type: "SET_SCANNING", scanning: true });
     dispatch({ type: "SET_ERROR", error: null });
     try {
-      const albums = await window.api.scanLibrary(state.libraryPath);
+      const albums = await window.api.scanLibrary(selectedPath);
+      if (!isCurrent()) return;
       dispatch({ type: "SET_ALBUMS", albums });
-      await loadAlbumTracks(albums);
+      await loadAlbumTracks(albums, isCurrent);
     } catch (err: unknown) {
+      if (!isCurrent()) return;
       const message =
         err instanceof Error ? err.message : "Failed to refresh library";
       dispatch({ type: "SET_ERROR", error: message });
     } finally {
-      dispatch({ type: "SET_SCANNING", scanning: false });
+      if (isCurrent()) dispatch({ type: "SET_SCANNING", scanning: false });
     }
   }, [state.libraryPath, loadAlbumTracks]);
 
   // --- Library loading ---
 
   const loadLibrary = useCallback(async (selectedPath: string) => {
+    const loadId = ++libraryLoadIdRef.current;
+    const isCurrent = () => libraryLoadIdRef.current === loadId;
     dispatch({ type: "SET_LIBRARY", path: selectedPath });
     dispatch({ type: "SET_SCANNING", scanning: true });
     dispatch({ type: "SET_ERROR", error: null });
 
     try {
       const albums = await window.api.scanLibrary(selectedPath);
+      if (!isCurrent()) return;
       dispatch({ type: "SET_ALBUMS", albums });
-      await loadAlbumTracks(albums);
+      await loadAlbumTracks(albums, isCurrent);
     } catch (err: unknown) {
+      if (!isCurrent()) return;
       const message = err instanceof Error ? err.message : "Failed to scan library";
       dispatch({ type: "SET_ERROR", error: message });
     } finally {
-      dispatch({ type: "SET_SCANNING", scanning: false });
+      if (isCurrent()) dispatch({ type: "SET_SCANNING", scanning: false });
     }
   }, [loadAlbumTracks]);
 
@@ -317,20 +338,6 @@ export default function App() {
     }
   }, [loadLibrary]);
 
-  const loadMountedLibraries = useCallback(async (roots: LibraryRoot[]) => {
-    if (roots.length === 0) throw new Error("No music libraries are mounted");
-    dispatch({ type: "SET_LIBRARY", path: roots[0].path });
-    dispatch({ type: "SET_SCANNING", scanning: true });
-    dispatch({ type: "SET_ERROR", error: null });
-    try {
-      const albums = (await Promise.all(roots.map((root) => window.api.scanLibrary(root.path)))).flat();
-      dispatch({ type: "SET_ALBUMS", albums });
-      await loadAlbumTracks(albums);
-    } finally {
-      dispatch({ type: "SET_SCANNING", scanning: false });
-    }
-  }, [loadAlbumTracks]);
-
   const handleWebLogin = useCallback(async (password: string) => {
     const session = await loginWebSession(password);
     if (!session.authenticated) {
@@ -340,13 +347,30 @@ export default function App() {
   }, []);
 
   const handleWebLogout = useCallback(async () => {
+    libraryLoadIdRef.current += 1;
     try {
       await logoutWebSession();
     } finally {
       dispatch({ type: "CLEAR_ALL" });
+      setWebRoots([]);
+      setWebRootsLoading(false);
       setWebRootsError(null);
+      setWebLibraryPickerOpen(true);
+      setWebView("library");
       setWebAuthState("login");
     }
+  }, []);
+
+  const handleSelectWebRoot = useCallback(
+    (path: string) => {
+      setWebLibraryPickerOpen(false);
+      void loadLibrary(path);
+    },
+    [loadLibrary],
+  );
+
+  const handleChangeWebLibrary = useCallback(() => {
+    setWebLibraryPickerOpen(true);
   }, []);
 
   // --- Album selection (in-memory filter, no disk reads) ---
@@ -1725,6 +1749,20 @@ export default function App() {
     dispatch({ type: "TOGGLE_SETTINGS", show: false });
   }, []);
 
+  const handleWebViewChange = useCallback((view: WebServiceView) => {
+    setWebView(view);
+    if (view === "settings") {
+      dispatch({ type: "TOGGLE_SETTINGS", show: true });
+    } else if (state.showSettings) {
+      dispatch({ type: "TOGGLE_SETTINGS", show: false });
+    }
+  }, [state.showSettings]);
+
+  const handleWebSettingsClose = useCallback(() => {
+    handleCloseSettings();
+    setWebView("library");
+  }, [handleCloseSettings]);
+
   // --- Assistant ---
 
   const handleToggleAssistant = useCallback(() => {
@@ -2118,29 +2156,29 @@ export default function App() {
   }, [webRuntime]);
 
   useEffect(() => {
-    if (
-      !webRuntime ||
-      webAuthState !== "authenticated" ||
-      state.libraryPath
-    ) {
+    if (!webRuntime || webAuthState !== "authenticated") {
       return;
     }
 
     let active = true;
+    setWebRootsLoading(true);
     setWebRootsError(null);
     void window.api.listLibraryRoots()
-      .then(async (roots) => {
+      .then((roots) => {
         if (!active) return;
-        await loadMountedLibraries(roots);
+        setWebRoots(roots);
       })
       .catch((reason: unknown) => {
         if (!active) return;
         setWebRootsError(reason instanceof Error ? reason.message : "Failed to load libraries");
+      })
+      .finally(() => {
+        if (active) setWebRootsLoading(false);
       });
     return () => {
       active = false;
     };
-  }, [loadMountedLibraries, state.libraryPath, webAuthState, webRuntime]);
+  }, [webAuthState, webRuntime]);
 
   // Filter tracks by active album — in-memory filter, no disk reads
   const filteredTracks = useMemo(() => {
@@ -2577,15 +2615,7 @@ export default function App() {
   if (webAuthState === "login") {
     return <WebLoginScreen onLogin={handleWebLogin} />;
   }
-  if (webRuntime && !state.libraryPath) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-surface text-sm text-text-muted">
-        {webRootsError ?? "Reading mounted music libraries…"}
-      </main>
-    );
-  }
-
-  return (
+  const desktopWorkspace = (
     <div className="flex flex-col h-screen bg-surface text-text-primary overflow-hidden">
       <TitleBar
         libraryPath={state.libraryPath}
@@ -2622,8 +2652,6 @@ export default function App() {
         onLogout={webRuntime ? handleWebLogout : undefined}
         webService={webRuntime}
       />
-
-      {webRuntime && <WebTaggingDebugPortal />}
 
       {webRuntime && (
         <input
@@ -2820,15 +2848,6 @@ export default function App() {
         />
       </ErrorBoundary>
 
-      <SettingsModal
-        open={state.showSettings}
-        onClose={handleCloseSettings}
-        onCheckForUpdates={updater.checkManually}
-        updateSupported={updater.supported}
-        updateChecking={updater.checking}
-        updateCheckMessage={updater.checkMessage}
-      />
-
       <UpdateDialog
         update={updater.update}
         busy={appBusy}
@@ -2882,6 +2901,78 @@ export default function App() {
       )}
     </div>
   );
+
+  const settingsModal = (
+    <SettingsModal
+      open={state.showSettings}
+      onClose={webRuntime ? handleWebSettingsClose : handleCloseSettings}
+      onCheckForUpdates={updater.checkManually}
+      updateSupported={updater.supported}
+      updateChecking={updater.checking}
+      updateCheckMessage={updater.checkMessage}
+    />
+  );
+
+  if (webRuntime) {
+    const showLibrary = webView === "library";
+    const showPicker = showLibrary && (webLibraryPickerOpen || !state.libraryPath);
+    return (
+      <WebServiceShell activeView={webView} onViewChange={handleWebViewChange}>
+        {showPicker && (
+          <WebLibraryPicker
+            roots={webRoots}
+            loading={webRootsLoading}
+            error={webRootsError}
+            onSelect={handleSelectWebRoot}
+            onLogout={handleWebLogout}
+          />
+        )}
+        {showLibrary && state.libraryPath && !webLibraryPickerOpen && (
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-white px-3 py-2 text-sm">
+            <span className="truncate text-text-muted">Mounted library: {state.libraryPath}</span>
+            <div className="flex shrink-0 gap-2">
+              <button
+                type="button"
+                onClick={handleChangeWebLibrary}
+                className="rounded-md border border-border px-2 py-1 text-xs text-text-secondary hover:bg-surface-hover"
+              >
+                Change library
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleRefresh()}
+                disabled={state.scanning}
+                className="rounded-md border border-border px-2 py-1 text-xs text-text-secondary hover:bg-surface-hover disabled:opacity-50"
+              >
+                Refresh library
+              </button>
+            </div>
+          </div>
+        )}
+        {webView === "activity" && (
+          <section data-testid="web-activity-view" className="rounded-xl border border-border bg-white p-5 shadow-sm sm:p-6">
+            <h2 className="text-lg font-semibold">Activity</h2>
+            <p className="mt-1 text-sm text-text-muted">Background tagging activity and review outcomes.</p>
+            <WebTaggingDebugPortal />
+          </section>
+        )}
+        {webView === "settings" && (
+          <p className="rounded-xl border border-border bg-white p-5 text-sm text-text-secondary shadow-sm sm:p-6">
+            Update the service settings in the dialog.
+          </p>
+        )}
+        <div
+          aria-hidden={!(showLibrary && state.libraryPath && !webLibraryPickerOpen)}
+          className={showLibrary && state.libraryPath && !webLibraryPickerOpen ? "contents" : "hidden"}
+        >
+          {desktopWorkspace}
+        </div>
+        {settingsModal}
+      </WebServiceShell>
+    );
+  }
+
+  return <>{desktopWorkspace}{settingsModal}</>;
 }
 
 /** Build an undo snapshot from a track's current field values. */
