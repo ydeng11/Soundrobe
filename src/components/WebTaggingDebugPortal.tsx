@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { listWebTasks, type WebTask, type WebTaskStatus } from "../shared/web-adapter";
 
 const statusTone: Record<WebTaskStatus, string> = {
@@ -20,49 +20,70 @@ export function WebTaggingDebugPortal() {
   const [tasks, setTasks] = useState<WebTask[]>([]);
   const [loadState, setLoadState] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [hasLoaded, setHasLoaded] = useState(false);
-  const activeRef = useRef(false);
+  const openingRef = useRef(0);
+  const requestSequenceRef = useRef(0);
+
+  const requestRefresh = useCallback(
+    (
+      opening: number,
+      onSuccess: (nextTasks: WebTask[]) => void,
+      onFailure: () => void,
+    ) => {
+      const sequence = ++requestSequenceRef.current;
+      void listWebTasks()
+        .then((nextTasks) => {
+          if (opening !== openingRef.current || sequence !== requestSequenceRef.current) return;
+          onSuccess(nextTasks);
+        })
+        .catch(() => {
+          if (opening === openingRef.current && sequence === requestSequenceRef.current) {
+            onFailure();
+          }
+        });
+    },
+    [],
+  );
 
   useEffect(() => {
     if (!open) return;
-    let active = true;
-    activeRef.current = true;
-    const refresh = async () => {
-      try {
-        const nextTasks = await listWebTasks();
-        if (!active) return;
-        setTasks(nextTasks);
-        setHasLoaded(true);
-        setLoadState("ready");
-      } catch {
-        if (!active) return;
-        setLoadState("error");
-      }
+    const opening = openingRef.current + 1;
+    openingRef.current = opening;
+    const refresh = () => {
+      requestRefresh(
+        opening,
+        (nextTasks) => {
+          setTasks(nextTasks);
+          setHasLoaded(true);
+          setLoadState("ready");
+        },
+        () => {
+          setLoadState("error");
+        },
+      );
     };
     setLoadState("loading");
-    void refresh();
+    refresh();
     const interval = window.setInterval(() => void refresh(), 5_000);
     return () => {
-      active = false;
-      activeRef.current = false;
+      requestSequenceRef.current += 1;
       window.clearInterval(interval);
     };
-  }, [open]);
+  }, [open, requestRefresh]);
 
   const showFirstLoadError = loadState === "error" && !hasLoaded;
   const showStaleError = loadState === "error" && hasLoaded;
   const retry = () => {
-    if (!activeRef.current) return;
+    const opening = openingRef.current;
     setLoadState("loading");
-    void listWebTasks()
-      .then((nextTasks) => {
-        if (!activeRef.current) return;
+    requestRefresh(
+      opening,
+      (nextTasks) => {
         setTasks(nextTasks);
         setHasLoaded(true);
         setLoadState("ready");
-      })
-      .catch(() => {
-        if (activeRef.current) setLoadState("error");
-      });
+      },
+      () => setLoadState("error"),
+    );
   };
 
   return (
