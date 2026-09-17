@@ -2906,6 +2906,30 @@ export default function App() {
     </div>
   );
 
+  const webLibraryWorkspace = (
+    <section data-testid="web-library-workspace" className="overflow-hidden rounded-2xl border border-[#ded5c8] bg-[#fffdf9] shadow-[0_18px_50px_rgba(65,48,32,0.08)]">
+      <input ref={webCoverInputRef} type="file" accept="image/jpeg,image/png,image/webp" aria-label="Cover artwork" className="hidden" onChange={handleWebCoverSelected} />
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#e5ddd2] bg-[#faf7f1] px-4 py-3 sm:px-5">
+        <div className="min-w-0"><p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#a85732]">Mounted library</p><p className="mt-1 truncate text-sm text-[#62594f]">Mounted library: {state.libraryPath}</p></div>
+        <div className="flex shrink-0 items-center gap-2">
+          <button type="button" onClick={handleChangeWebLibrary} className="rounded-full border border-[#d9cdbd] px-3 py-1.5 text-xs font-semibold text-[#544a40] hover:bg-[#eee6da]">Change library</button>
+          <button type="button" onClick={() => void handleRefresh()} disabled={state.scanning} className="rounded-full bg-[#332c25] px-3 py-1.5 text-xs font-semibold text-[#fffaf2] hover:bg-[#4a4037] disabled:opacity-50">Refresh library</button>
+        </div>
+      </div>
+      <ScanProgressBar scanning={state.scanning || state.autoTagging} progress={state.autoTagProgress ? { current: state.autoTagProgress.current, total: state.autoTagProgress.total } : state.scanningProgress} label={state.autoTagProgress?.message ?? null} />
+      <ScanProgressBar scanning={state.saving} progress={state.saveProgress} label={state.saving ? "Saving tracks…" : null} />
+      <AuditBanner results={state.auditResults} onDismiss={() => dispatch({ type: "CLEAR_AUDIT_RESULTS" })} />
+      {state.error && <div role="alert" className="mx-4 mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 sm:mx-5">{state.error}</div>}
+      <div className="flex min-h-[34rem] overflow-hidden">
+        <div className="hidden shrink-0 border-r border-[#e5ddd2] lg:block"><Sidebar albums={state.albums} libraryPath={state.libraryPath} activeAlbumPath={state.activeAlbumPath} onSelectAlbum={handleSelectAlbum} onOpenLibrary={handleChangeWebLibrary} /></div>
+        <div className="min-w-0 flex-1 border-r border-[#e5ddd2]"><FileGrid tracks={state.tracks} activeAlbumPath={state.activeAlbumPath} selectedTrackPath={state.selectedTrackPath} selectedTrackPaths={state.selectedTrackPaths} filterText={state.filterText} auditByTrackPath={auditByTrackPath} onSelectTrack={handleSelectTrack} onMultiSelect={handleMultiSelect} onEditExtraTags={handleEditExtraTagsFromSelection} onDeleteFiles={handleDeleteFiles} /></div>
+        <aside className="hidden w-[320px] shrink-0 overflow-y-auto xl:block">
+          {state.selectedTrackPaths.length > 1 ? <BatchEditor tracks={selectedTracksForBatch} coverDataUrl={state.coverDataUrl} saving={mutationBusy} onSave={handleBatchSave} onChangeCover={handleChangeCover} onRemoveCover={handleRemoveCover} onDownloadCover={handleDownloadCover} onDownloadArtistArt={handleDownloadArtistArt} /> : state.selectedTrack ? <MetadataEditor track={state.selectedTrack} dirPath={dirPath(state.selectedTrack.path)} coverDataUrl={state.coverDataUrl} saving={mutationBusy} onSave={handleSaveMetadata} onChangeCover={handleChangeCover} onRemoveCover={handleRemoveCover} onDownloadCover={handleDownloadCover} onDownloadArtistArt={handleDownloadArtistArt} /> : <div className="flex h-full items-center justify-center px-8 text-center text-sm text-[#8a7e71]">Select a file to edit its tags.</div>}
+        </aside>
+      </div>
+    </section>
+  );
+
   const settingsModal = (
     <SettingsModal
       open={state.showSettings}
@@ -2921,56 +2945,32 @@ export default function App() {
     const showLibrary = webView === "library";
     const showPicker = showLibrary && (webLibraryPickerOpen || !state.libraryPath);
     return (
-      <WebServiceShell activeView={webView} onViewChange={handleWebViewChange}>
+      <WebServiceShell activeView={webView} onViewChange={handleWebViewChange} onLogout={handleWebLogout}>
         {showPicker && (
           <WebLibraryPicker
             roots={webRoots}
             loading={webRootsLoading}
             error={webRootsError}
             onSelect={handleSelectWebRoot}
-            onLogout={handleWebLogout}
           />
-        )}
-        {showLibrary && state.libraryPath && !webLibraryPickerOpen && (
-          <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-white px-3 py-2 text-sm">
-            <span className="truncate text-text-muted">Mounted library: {state.libraryPath}</span>
-            <div className="flex shrink-0 gap-2">
-              <button
-                type="button"
-                onClick={handleChangeWebLibrary}
-                className="rounded-md border border-border px-2 py-1 text-xs text-text-secondary hover:bg-surface-hover"
-              >
-                Change library
-              </button>
-              <button
-                type="button"
-                onClick={() => void handleRefresh()}
-                disabled={state.scanning}
-                className="rounded-md border border-border px-2 py-1 text-xs text-text-secondary hover:bg-surface-hover disabled:opacity-50"
-              >
-                Refresh library
-              </button>
-            </div>
-          </div>
         )}
         {webView === "activity" && (
           <section data-testid="web-activity-view" className="rounded-xl border border-border bg-white p-5 shadow-sm sm:p-6">
-            <h2 className="text-lg font-semibold">Activity</h2>
-            <p className="mt-1 text-sm text-text-muted">Background tagging activity and review outcomes.</p>
-            <WebTaggingDebugPortal />
+            <WebTaggingDebugPortal open />
           </section>
         )}
         {webView === "settings" && (
-          <p className="rounded-xl border border-border bg-white p-5 text-sm text-text-secondary shadow-sm sm:p-6">
-            Update the service settings in the dialog.
-          </p>
+          <section className="rounded-2xl border border-[#ded5c8] bg-[#fffdf9] p-5 shadow-[0_18px_50px_rgba(65,48,32,0.08)] sm:p-7">
+            <h2 className="font-serif text-xl font-semibold text-[#28231d]">Configuration</h2>
+            <p className="mt-2 max-w-xl text-sm leading-6 text-[#71675d]">Use the existing settings panel to manage provider and service preferences.</p>
+            <button type="button" onClick={handleOpenSettings} className="mt-5 rounded-full bg-[#332c25] px-4 py-2 text-sm font-semibold text-[#fffaf2] hover:bg-[#4a4037]">Open settings</button>
+          </section>
         )}
-        <div
-          aria-hidden={!(showLibrary && state.libraryPath && !webLibraryPickerOpen)}
-          className={showLibrary && state.libraryPath && !webLibraryPickerOpen ? "contents" : "hidden"}
-        >
-          {desktopWorkspace}
-        </div>
+        {state.libraryPath && (
+          <div aria-hidden={!(showLibrary && !webLibraryPickerOpen)} className={showLibrary && !webLibraryPickerOpen ? "contents" : "hidden"}>
+            {webLibraryWorkspace}
+          </div>
+        )}
         {settingsModal}
       </WebServiceShell>
     );

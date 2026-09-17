@@ -32,6 +32,15 @@ afterEach(() => {
 });
 
 describe("WebTaggingDebugPortal", () => {
+  it("renders the monitor in flow when requested by the Activity page", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("[]", { status: 200 }));
+
+    render(<WebTaggingDebugPortal open />);
+
+    await waitFor(() => expect(screen.getByText("No background activity.")).toBeTruthy());
+    expect(screen.queryByRole("button", { name: "Activity" })).toBeNull();
+  });
+
   it("keeps automatic tagging details out of the editor until Activity is opened", async () => {
     const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response(JSON.stringify([{

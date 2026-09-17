@@ -23,14 +23,15 @@ export function WebLoginScreen({ onLogin }: WebLoginScreenProps) {
   };
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-surface px-4 text-text-primary">
+    <main className="flex min-h-screen items-center justify-center bg-[#f5f0e8] px-4 text-[#28231d]">
       <form
         onSubmit={handleSubmit}
-        className="flex w-full max-w-sm flex-col gap-4 rounded-xl border border-border bg-white p-6 shadow-sm"
+        className="flex w-full max-w-sm flex-col gap-5 rounded-2xl border border-[#ded5c8] bg-[#fffdf9] p-7 shadow-[0_18px_50px_rgba(65,48,32,0.08)]"
       >
         <div>
-          <h1 className="text-lg font-semibold">Sign in to Soundrobe</h1>
-          <p className="mt-1 text-sm text-text-muted">Use the shared operator password.</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#a85732]">Soundrobe service</p>
+          <h1 className="mt-2 font-serif text-2xl font-semibold">Sign in to Soundrobe</h1>
+          <p className="mt-2 text-sm text-[#71675d]">Use the shared operator password.</p>
         </div>
         <label className="flex flex-col gap-1 text-sm font-medium" htmlFor="web-password">
           Password
@@ -41,14 +42,14 @@ export function WebLoginScreen({ onLogin }: WebLoginScreenProps) {
             onChange={(event) => setPassword(event.target.value)}
             autoComplete="current-password"
             required
-            className="rounded-md border border-border px-3 py-2 font-normal outline-none focus:border-accent"
+            className="rounded-xl border border-[#d9cdbd] bg-[#faf7f1] px-3 py-2 font-normal outline-none focus:border-[#a85732] focus:ring-2 focus:ring-[#a85732]/20"
           />
         </label>
         {error && <p className="text-sm text-red-600" role="alert">{error}</p>}
         <button
           type="submit"
           disabled={submitting}
-          className="rounded-md bg-accent px-3 py-2 text-sm font-medium text-white disabled:opacity-60"
+          className="rounded-full bg-[#332c25] px-3 py-2.5 text-sm font-semibold text-[#fffaf2] hover:bg-[#4a4037] disabled:opacity-60"
         >
           {submitting ? "Signing in…" : "Sign in"}
         </button>

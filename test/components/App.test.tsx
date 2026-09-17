@@ -220,7 +220,7 @@ describe("App — batch save progress", () => {
 
     render(<App />);
     await screen.findByText("Choose a library");
-    fireEvent.click(screen.getByRole("button", { name: /classical/ }));
+    fireEvent.click(await screen.findByRole("button", { name: /classical/ }));
     await waitFor(() => expect(window.api.scanLibrary).toHaveBeenCalledWith("/libraries/classical"));
     expect(window.api.scanLibrary).not.toHaveBeenCalledWith("/libraries/jazz");
 
@@ -230,6 +230,21 @@ describe("App — batch save progress", () => {
       expect(calls.filter(([path]) => path === "/libraries/classical")).toHaveLength(2);
     });
 
+    fetchMock.mockRestore();
+  });
+
+  it("uses the browser-only workspace instead of the desktop title bar after selecting a mounted root", async () => {
+    window.__SOUNDROBE_RUNTIME__ = "web";
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementation(async () => new Response(JSON.stringify({ authenticated: true })));
+
+    render(<App />);
+    fireEvent.click(await screen.findByRole("button", { name: /music/ }));
+
+    expect(await screen.findByTestId("web-library-workspace")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Change library" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Open Library" })).toBeNull();
     fetchMock.mockRestore();
   });
 

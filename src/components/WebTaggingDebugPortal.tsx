@@ -14,9 +14,14 @@ function formatTaskResult(result: unknown): string | null {
   return typeof result === "string" ? result : JSON.stringify(result, null, 2);
 }
 
+export interface WebTaggingDebugPortalProps {
+  /** Renders the monitor directly in the Activity route instead of as a floating diagnostic. */
+  open?: boolean;
+}
+
 /** Kept out of the primary editor so automatic tagging stays quiet. */
-export function WebTaggingDebugPortal() {
-  const [open, setOpen] = useState(false);
+export function WebTaggingDebugPortal({ open: initiallyOpen = false }: WebTaggingDebugPortalProps) {
+  const [open, setOpen] = useState(initiallyOpen);
   const [tasks, setTasks] = useState<WebTask[]>([]);
   const [loadState, setLoadState] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [hasLoaded, setHasLoaded] = useState(false);
@@ -99,33 +104,33 @@ export function WebTaggingDebugPortal() {
   };
 
   return (
-    <div className="fixed bottom-4 right-4 z-50">
+    <div className={initiallyOpen ? "" : "fixed bottom-4 right-4 z-50"}>
       {open && (
         <section
-          className="mb-2 w-[min(36rem,calc(100vw-2rem))] rounded-xl border border-border bg-white p-4 shadow-xl"
+          className={`rounded-2xl border border-[#ded5c8] bg-[#fffdf9] p-5 shadow-[0_18px_50px_rgba(65,48,32,0.08)] ${initiallyOpen ? "w-full" : "mb-2 w-[min(36rem,calc(100vw-2rem))]"}`}
           aria-label="Background tagging diagnostics"
         >
           <div className="flex items-start justify-between gap-3">
             <div>
-              <h2 className="text-sm font-semibold">Background tagging diagnostics</h2>
-              <p className="mt-1 text-xs text-text-muted">
+              <h2 className="font-serif text-xl font-semibold text-[#28231d]">Recent service activity</h2>
+              <p className="mt-1 text-sm text-[#71675d]">
                 Automatic activity and review outcomes for mounted libraries.
               </p>
             </div>
-            <button
+            {!initiallyOpen && <button
               type="button"
               onClick={() => setOpen(false)}
               className="text-xs text-text-muted hover:text-text-primary"
             >
               Close
-            </button>
+            </button>}
           </div>
           <div className="mt-3" aria-live="polite" aria-busy={loadState === "loading"}>
             {loadState === "loading" && !hasLoaded && (
-              <p className="text-sm text-text-muted">Loading activity…</p>
+              <p className="text-sm text-[#71675d]">Loading activity…</p>
             )}
             {loadState === "loading" && hasLoaded && (
-              <p className="text-sm text-text-muted">Refreshing activity…</p>
+              <p className="text-sm text-[#71675d]">Refreshing activity…</p>
             )}
             {showFirstLoadError && (
               <div className="flex items-center justify-between gap-3 text-sm text-red-700">
@@ -152,21 +157,21 @@ export function WebTaggingDebugPortal() {
               </div>
             )}
             {loadState === "ready" && tasks.length === 0 && (
-              <p className="text-sm text-text-muted">No background activity.</p>
+              <p className="rounded-xl border border-dashed border-[#ded5c8] px-4 py-8 text-center text-sm text-[#71675d]">No background activity.</p>
             )}
             {tasks.length > 0 && (
               <ol className="max-h-72 space-y-2 overflow-auto">
                 {tasks.map((task) => {
                   const formattedResult = formatTaskResult(task.result);
                   return (
-                    <li key={task.taskId} className="rounded-lg border border-border px-3 py-2">
+                    <li key={task.taskId} className="rounded-xl border border-[#e5ddd2] bg-[#faf7f1] px-4 py-3">
                       <div className="flex items-center justify-between gap-2">
                         <span className={`rounded-full border px-2 py-0.5 text-xs ${statusTone[task.status]}`}>
                           {task.status.replace("_", " ")}
                         </span>
                         <span className="truncate text-xs text-text-muted">{task.taskId}</span>
                       </div>
-                      <p className="mt-1 text-sm text-text-primary">{task.message}</p>
+                      <p className="mt-2 text-sm text-[#28231d]">{task.message}</p>
                       {task.total > 0 && (
                         <p className="mt-1 text-xs text-text-muted">
                           Progress: {task.progress}/{task.total}
@@ -188,14 +193,14 @@ export function WebTaggingDebugPortal() {
           </div>
         </section>
       )}
-      <button
+      {!initiallyOpen && <button
         type="button"
         onClick={() => setOpen((value) => !value)}
         className="rounded-full border border-border bg-white px-3 py-2 text-xs font-medium text-text-secondary shadow-lg hover:bg-surface-hover"
         aria-expanded={open}
       >
         Activity
-      </button>
+      </button>}
     </div>
   );
 }

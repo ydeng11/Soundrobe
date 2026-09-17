@@ -33,6 +33,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   scanning a selected mounted root. Web users can switch between Library,
   Activity, and Settings while automatic tagging outcomes remain available
   through the on-demand Activity diagnostics portal.
+- The browser service now has a warm, responsive workspace with compact
+  service navigation, session status, a mounted-library editor, and an
+  in-page activity monitor; the standalone desktop layout remains unchanged.
 
 ## [0.1.11] - 2026-09-16
 
