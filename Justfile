@@ -70,7 +70,7 @@ web-local library_root: _deps-check
         echo "Library root does not exist: $library_root" >&2
         exit 1
     fi
-    data_dir="${SOUNDROBE_DATA_DIR:-$PWD/.soundrobe-web-local}"
+    data_dir="${SOUNDROBE_DATA_DIR:-$HOME/.soundrobe}"
     mkdir -p "$data_dir"
     npm run build:web
     exec env \

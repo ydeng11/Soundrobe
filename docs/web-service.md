@@ -69,8 +69,10 @@ just web-local "/path/to/libraries-root"
 
 The recipe builds the web assets and starts on port 8080. Open either
 `http://127.0.0.1:8080` or `http://localhost:8080`; both loopback addresses are
-accepted for local browser requests. It stores local service state in
-`.soundrobe-web-local/` by default; override `SOUNDROBE_DATA_DIR`,
+accepted for local browser requests. By default it uses the standalone app's
+`~/.soundrobe/` data directory, so the browser service uses the same local
+settings and provider configuration during development. Set `SOUNDROBE_DATA_DIR`
+to an isolated directory when testing configuration changes. You can also override
 `SOUNDROBE_LISTEN_ADDR`, `SOUNDROBE_PUBLIC_URL`, or
 `SOUNDROBE_ADDITIONAL_ORIGINS` when needed. Stop it with `Ctrl-C`. Do not use
 this local HTTP setup as an Internet deployment; use the container setup with

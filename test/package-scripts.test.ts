@@ -218,6 +218,7 @@ describe("package scripts", () => {
     expect(justfile).toContain("smoke-openrouter:");
     expect(justfile).toMatch(/^web-local library_root: _deps-check$/m);
     expect(justfile).toContain("SOUNDROBE_LIBRARY_ROOT_DIR=\"$library_root\"");
+    expect(justfile).toContain('data_dir="${SOUNDROBE_DATA_DIR:-$HOME/.soundrobe}"');
     expect(justfile).toContain(
       'SOUNDROBE_ADDITIONAL_ORIGINS="${SOUNDROBE_ADDITIONAL_ORIGINS:-http://localhost:8080}"',
     );
