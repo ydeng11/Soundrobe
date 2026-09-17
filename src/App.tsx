@@ -298,9 +298,13 @@ export default function App() {
 
   // --- Library loading ---
 
-  const loadLibrary = useCallback(async (selectedPath: string) => {
+  const loadLibrary = useCallback(async (selectedPath: string, clearContent = false) => {
     const loadId = ++libraryLoadIdRef.current;
     const isCurrent = () => libraryLoadIdRef.current === loadId;
+    if (clearContent) {
+      dispatch({ type: "SET_ALBUMS", albums: [] });
+      dispatch({ type: "SET_TRACKS", tracks: [] });
+    }
     dispatch({ type: "SET_LIBRARY", path: selectedPath });
     dispatch({ type: "SET_SCANNING", scanning: true });
     dispatch({ type: "SET_ERROR", error: null });
@@ -364,7 +368,7 @@ export default function App() {
   const handleSelectWebRoot = useCallback(
     (path: string) => {
       setWebLibraryPickerOpen(false);
-      void loadLibrary(path);
+      void loadLibrary(path, true);
     },
     [loadLibrary],
   );
