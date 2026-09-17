@@ -242,9 +242,10 @@ describe("App — batch save progress", () => {
     render(<App />);
     fireEvent.click(await screen.findByRole("button", { name: /music/ }));
 
-    expect(await screen.findByTestId("web-library-workspace")).toBeTruthy();
+    const workspace = await screen.findByTestId("web-library-workspace");
     expect(screen.getByRole("button", { name: "Change library" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Open Library" })).toBeNull();
+    expect(workspace.querySelector("aside")?.className).not.toMatch(/\bhidden\b/);
     fetchMock.mockRestore();
   });
 

@@ -40,7 +40,7 @@ export function WebServiceShell({ activeView = "library", onViewChange, onLogout
             })}
           </nav>
           <div className="flex shrink-0 items-center gap-3">
-            <span className="hidden items-center gap-1.5 text-xs font-medium text-[#62594f] sm:flex"><span aria-hidden="true" className="h-2 w-2 rounded-full bg-[#4d7c57]" />Service online</span>
+            <span className="hidden items-center gap-1.5 text-xs font-medium text-[#62594f] sm:flex"><span aria-hidden="true" className="h-2 w-2 rounded-full bg-[#4d7c57]" />Session active</span>
             {onLogout && <button type="button" onClick={onLogout} className="rounded-full border border-[#d9cdbd] px-3 py-1.5 text-sm font-medium text-[#544a40] transition-colors hover:border-[#b9a58e] hover:bg-[#eee6da] focus:outline-none focus:ring-2 focus:ring-[#a85732]/40">Sign out</button>}
           </div>
         </div>

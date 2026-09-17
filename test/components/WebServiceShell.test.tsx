@@ -42,7 +42,8 @@ describe("WebServiceShell", () => {
       </WebServiceShell>,
     );
 
-    expect(screen.getByText("Service online")).toBeTruthy();
+    expect(screen.getByText("Session active")).toBeTruthy();
+    expect(screen.queryByText("Service online")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Sign out" }));
     expect(onLogout).toHaveBeenCalledTimes(1);
   });
