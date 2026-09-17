@@ -22,14 +22,17 @@ export function WebTaggingDebugPortal() {
   const [hasLoaded, setHasLoaded] = useState(false);
   const openingRef = useRef(0);
   const requestSequenceRef = useRef(0);
+  const refreshInFlightRef = useRef<{ opening: number; sequence: number } | null>(null);
 
   const requestRefresh = useCallback(
     (
       opening: number,
       onSuccess: (nextTasks: WebTask[]) => void,
       onFailure: () => void,
-    ) => {
+    ): boolean => {
+      if (refreshInFlightRef.current) return false;
       const sequence = ++requestSequenceRef.current;
+      refreshInFlightRef.current = { opening, sequence };
       void listWebTasks()
         .then((nextTasks) => {
           if (opening !== openingRef.current || sequence !== requestSequenceRef.current) return;
@@ -39,7 +42,13 @@ export function WebTaggingDebugPortal() {
           if (opening === openingRef.current && sequence === requestSequenceRef.current) {
             onFailure();
           }
+        })
+        .finally(() => {
+          if (refreshInFlightRef.current?.sequence === sequence) {
+            refreshInFlightRef.current = null;
+          }
         });
+      return true;
     },
     [],
   );
@@ -65,6 +74,9 @@ export function WebTaggingDebugPortal() {
     refresh();
     const interval = window.setInterval(() => void refresh(), 5_000);
     return () => {
+      if (refreshInFlightRef.current?.opening === opening) {
+        refreshInFlightRef.current = null;
+      }
       requestSequenceRef.current += 1;
       window.clearInterval(interval);
     };
@@ -74,8 +86,7 @@ export function WebTaggingDebugPortal() {
   const showStaleError = loadState === "error" && hasLoaded;
   const retry = () => {
     const opening = openingRef.current;
-    setLoadState("loading");
-    requestRefresh(
+    const started = requestRefresh(
       opening,
       (nextTasks) => {
         setTasks(nextTasks);
@@ -84,6 +95,7 @@ export function WebTaggingDebugPortal() {
       },
       () => setLoadState("error"),
     );
+    if (started) setLoadState("loading");
   };
 
   return (

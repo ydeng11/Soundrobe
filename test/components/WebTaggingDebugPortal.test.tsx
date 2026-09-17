@@ -174,6 +174,37 @@ describe("WebTaggingDebugPortal", () => {
     expect(clearIntervalMock).toHaveBeenCalledWith(1);
   });
 
+  it("does not overlap delayed interval refreshes and settles the next poll", async () => {
+    let poll: (() => void) | undefined;
+    vi.spyOn(window, "setInterval").mockImplementation((callback, timeout) => {
+      if (timeout === 5_000) {
+        poll = typeof callback === "function" ? callback as () => void : undefined;
+      }
+      return 1;
+    });
+    const initial = deferred<Response>();
+    const nextPoll = deferred<Response>();
+    const fetchMock = vi.spyOn(globalThis, "fetch")
+      .mockImplementationOnce(() => initial.promise)
+      .mockImplementationOnce(() => nextPoll.promise);
+
+    render(<WebTaggingDebugPortal />);
+    fireEvent.click(screen.getByRole("button", { name: "Activity" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+
+    poll?.();
+    poll?.();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    initial.resolve(taskResponse("initial-task", "Initial result"));
+    await waitFor(() => expect(screen.getByText("Initial result")).toBeTruthy());
+    poll?.();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+
+    nextPoll.resolve(taskResponse("next-poll-task", "Next poll result"));
+    await waitFor(() => expect(screen.getByText("Next poll result")).toBeTruthy());
+  });
+
   it("ignores a retry from a closed Activity opening after it is reopened", async () => {
     const firstLoad = deferred<Response>();
     const oldRetry = deferred<Response>();
@@ -209,67 +240,4 @@ describe("WebTaggingDebugPortal", () => {
     expect(screen.queryByText("Old retry")).toBeNull();
   });
 
-  it("keeps the newer poll result when retry resolves before it", async () => {
-    let poll: (() => void) | undefined;
-    vi.spyOn(window, "setInterval").mockImplementation((callback, timeout) => {
-      if (timeout === 5_000) {
-        poll = typeof callback === "function" ? callback as () => void : undefined;
-      }
-      return 1;
-    });
-    const retry = deferred<Response>();
-    const pollRefresh = deferred<Response>();
-    const fetchMock = vi.spyOn(globalThis, "fetch")
-      .mockResolvedValueOnce(new Response(JSON.stringify({ error: "offline" }), { status: 503 }))
-      .mockImplementationOnce(() => retry.promise)
-      .mockImplementationOnce(() => pollRefresh.promise);
-
-    render(<WebTaggingDebugPortal />);
-    fireEvent.click(screen.getByRole("button", { name: "Activity" }));
-    await waitFor(() => expect(screen.getByText("Unable to load activity.")).toBeTruthy());
-    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
-    poll?.();
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
-
-    retry.resolve(taskResponse("retry-task", "Retry result"));
-    pollRefresh.resolve(taskResponse("poll-task", "Poll result"));
-    await waitFor(() => expect(screen.getByText("Poll result")).toBeTruthy());
-    expect(screen.queryByText("Retry result")).toBeNull();
-  });
-
-  it("keeps the newer poll result when a delayed retry failure resolves after it", async () => {
-    let poll: (() => void) | undefined;
-    vi.spyOn(window, "setInterval").mockImplementation((callback, timeout) => {
-      if (timeout === 5_000) {
-        poll = typeof callback === "function" ? callback as () => void : undefined;
-      }
-      return 1;
-    });
-    const retry = deferred<Response>();
-    const pollRefresh = deferred<Response>();
-    const fetchMock = vi.spyOn(globalThis, "fetch")
-      .mockResolvedValueOnce(new Response(JSON.stringify({ error: "offline" }), { status: 503 }))
-      .mockImplementationOnce(() => retry.promise)
-      .mockImplementationOnce(() => pollRefresh.promise);
-
-    render(<WebTaggingDebugPortal />);
-    fireEvent.click(screen.getByRole("button", { name: "Activity" }));
-    await waitFor(() => expect(screen.getByText("Unable to load activity.")).toBeTruthy());
-    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
-    poll?.();
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
-
-    pollRefresh.resolve(taskResponse("poll-task", "Poll result"));
-    await waitFor(() => expect(screen.getByText("Poll result")).toBeTruthy());
-    await act(async () => {
-      retry.reject(new Error("delayed retry failure"));
-      await Promise.resolve();
-      await Promise.resolve();
-    });
-    expect(screen.getByText("Poll result")).toBeTruthy();
-    expect(screen.queryByText("Unable to load activity.")).toBeNull();
-    expect(screen.queryByText("Refresh failed; showing last known activity.")).toBeNull();
-  });
 });
