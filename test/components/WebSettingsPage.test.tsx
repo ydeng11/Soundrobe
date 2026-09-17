@@ -89,6 +89,46 @@ describe("WebSettingsPage", () => {
     expect(screen.getByText("Connection successful")).toBeTruthy();
   });
 
+  it("keeps Save disabled after a failed load and allows retrying the load", async () => {
+    const getConfig = vi.fn()
+      .mockRejectedValueOnce(new Error("service unavailable"))
+      .mockResolvedValueOnce(defaultConfig);
+    const setConfig = vi.fn().mockResolvedValue(undefined);
+    window.api.getConfig = getConfig;
+    window.api.setConfig = setConfig;
+    render(<WebSettingsPage />);
+
+    await screen.findByRole("alert");
+    const saveButton = screen.getByRole("button", { name: "Save settings" }) as HTMLButtonElement;
+    expect(saveButton.disabled).toBe(true);
+
+    fireEvent.click(saveButton);
+    expect(setConfig).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    await screen.findByDisplayValue("openai/gpt-4o-mini");
+    expect(getConfig).toHaveBeenCalledTimes(2);
+    expect(saveButton.disabled).toBe(false);
+  });
+
+  it("tests a protected connection with a blank key after the masked field is cleared", async () => {
+    const testLlmConnection = vi.fn().mockResolvedValue({ model: "openai/gpt-4o-mini" });
+    window.api.testLlmConnection = testLlmConnection;
+    render(<WebSettingsPage />);
+
+    await screen.findByDisplayValue("openai/gpt-4o-mini");
+    fireEvent.change(screen.getByLabelText("LLM API key"), { target: { value: "" } });
+    fireEvent.click(screen.getByRole("button", { name: "Test connection" }));
+
+    await waitFor(() => expect(testLlmConnection).toHaveBeenCalledTimes(1));
+    expect(testLlmConnection).toHaveBeenCalledWith(
+      "",
+      "openai/gpt-4o-mini",
+      "openrouter",
+      undefined,
+    );
+  });
+
   it("does not offer native update controls", async () => {
     render(<WebSettingsPage />);
     await screen.findByDisplayValue("openai/gpt-4o-mini");

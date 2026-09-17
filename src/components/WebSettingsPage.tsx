@@ -88,6 +88,7 @@ function settingBoolean(value: unknown): boolean {
 export function WebSettingsPage() {
   const [settings, setSettings] = useState<WebSettingsState>(DEFAULT_SETTINGS);
   const [loading, setLoading] = useState(true);
+  const [loaded, setLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
@@ -98,6 +99,7 @@ export function WebSettingsPage() {
 
   const loadSettings = useCallback(async () => {
     setLoading(true);
+    setLoaded(false);
     setError(null);
     setSaveMessage(null);
     try {
@@ -120,6 +122,7 @@ export function WebSettingsPage() {
       });
       setKeyConfigured(config.llmApiKeyConfigured === true || Boolean(config.llmApiKey));
       setAppVersion(info?.version ?? null);
+      setLoaded(true);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Failed to load settings");
     } finally {
@@ -152,6 +155,7 @@ export function WebSettingsPage() {
   }, []);
 
   const handleSave = useCallback(async () => {
+    if (!loaded) return;
     setSaving(true);
     setError(null);
     setSaveMessage(null);
@@ -184,10 +188,10 @@ export function WebSettingsPage() {
     } finally {
       setSaving(false);
     }
-  }, [settings]);
+  }, [loaded, settings]);
 
   const handleTestConnection = useCallback(async () => {
-    if (!settings.llmModel || (!settings.llmApiKey && !settings.llmApiKey.startsWith("****"))) return;
+    if (!settings.llmModel || (!keyConfigured && !settings.llmApiKey)) return;
     setConnection("testing");
     setConnectionError(null);
     try {
@@ -204,7 +208,7 @@ export function WebSettingsPage() {
       setConnection("error");
       setConnectionError(reason instanceof Error ? reason.message : "Connection failed");
     }
-  }, [settings.llmApiKey, settings.llmBaseUrl, settings.llmModel, settings.llmProvider]);
+  }, [keyConfigured, settings.llmApiKey, settings.llmBaseUrl, settings.llmModel, settings.llmProvider]);
 
   const modelOptions = useMemo(() => PROVIDERS[settings.llmProvider]?.models ?? [], [settings.llmProvider]);
   const hasConfiguredKey = keyConfigured || Boolean(settings.llmApiKey);
@@ -217,7 +221,7 @@ export function WebSettingsPage() {
         <p className="mt-3 max-w-2xl text-[15px] leading-7 text-[#6d6b68]">Control metadata providers, lyrics, and editing preferences for this browser UI.</p>
       </header>
 
-      {error && <div role="alert" className="rounded-xl border border-[#e5b9ab] bg-[#fff6f2] px-4 py-3 text-sm text-[#9b3e24]">{error}</div>}
+      {error && <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#e5b9ab] bg-[#fff6f2] px-4 py-3 text-sm text-[#9b3e24]"><span>{error}</span><button type="button" onClick={() => void loadSettings()} disabled={loading} className={SECONDARY_BUTTON_CLASS}>Retry</button></div>}
 
       <div className="grid gap-7 lg:grid-cols-[13rem_minmax(0,1fr)] lg:items-start">
         <nav aria-label="Settings sections" className="lg:sticky lg:top-6">
@@ -303,7 +307,7 @@ export function WebSettingsPage() {
 
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#d9d8d5] bg-[#faf9f7] px-5 py-4 sm:px-6">
             <div className="text-sm text-[#77736f]">{saveMessage ?? "Save changes when you are ready."}</div>
-            <button type="button" onClick={() => void handleSave()} disabled={loading || saving} className={PRIMARY_BUTTON_CLASS}>
+            <button type="button" onClick={() => void handleSave()} disabled={loading || saving || !loaded} className={PRIMARY_BUTTON_CLASS}>
               {saving ? "Saving…" : "Save settings"}
             </button>
           </div>

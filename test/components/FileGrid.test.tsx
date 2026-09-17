@@ -495,6 +495,38 @@ describe("FileGrid", () => {
     expect(dataRows.length).toBeGreaterThanOrEqual(3);
   });
 
+  it("sorts the browser Format column by codec rather than bitrate", () => {
+    const formatTracks = [
+      makeTrack("/music/flac-track.flac", {
+        codec: "flac",
+        bitrate: 320000,
+        trackNumber: 1,
+      }),
+      makeTrack("/music/mp3-track.mp3", {
+        codec: "mp3",
+        bitrate: 128000,
+        trackNumber: 2,
+      }),
+    ];
+    const { container } = render(
+      <FileGrid
+        web
+        tracks={formatTracks}
+        selectedTrackPath={null}
+        filterText=""
+        onSelectTrack={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByText("Format"));
+
+    const rows = [...container.querySelectorAll<HTMLElement>("[data-testid^='file-row-']")];
+    expect(rows.map((row) => row.dataset.testid)).toEqual([
+      "file-row-/music/flac-track.flac",
+      "file-row-/music/mp3-track.mp3",
+    ]);
+  });
+
   it("shift-click range select calls onMultiSelect with all paths in range, not onSelectTrack", () => {
     const onSelect = vi.fn();
     const onMulti = vi.fn();

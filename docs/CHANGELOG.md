@@ -12,6 +12,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Local browser-service sign-in accepts both standard loopback addresses.
 - Switching mounted browser-service roots clears the previous library while the
   replacement scan is in progress or reports an error.
+- Browser Settings now keeps saving unavailable until configuration loads
+  successfully, tests protected provider credentials after a masked key is
+  cleared, and sorts the browser Format column by codec.
 
 ### Added
 

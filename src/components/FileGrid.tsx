@@ -351,12 +351,14 @@ export function FileGrid({
           cmp = a.duration - b.duration;
           break;
         case "bitrate":
-          cmp = (a.bitrate ?? 0) - (b.bitrate ?? 0);
+          cmp = web
+            ? (a.codec ?? "").localeCompare(b.codec ?? "")
+            : (a.bitrate ?? 0) - (b.bitrate ?? 0);
           break;
       }
       return sortAsc ? cmp : -cmp;
     });
-  }, [albumFiltered, filterText, sortKey, sortAsc]);
+  }, [albumFiltered, filterText, sortKey, sortAsc, web]);
 
   // Memoize the sorted paths array for quick lookups in the Cmd+A handler
   const sortedPaths = useMemo(() => sorted.map((t) => t.path), [sorted]);
