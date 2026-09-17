@@ -62,4 +62,36 @@ describe("WebLibraryPicker", () => {
     fireEvent.click(screen.getByRole("button", { name: /jazz/ }));
     expect(onSelect).toHaveBeenCalledWith("/libraries/jazz");
   });
+
+  it("shows a distinct loading state without offering stale selections", () => {
+    render(
+      <WebLibraryPicker
+        roots={[{ id: "jazz", name: "jazz", path: "/libraries/jazz" }]}
+        loading
+        onSelect={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("status").textContent).toContain("Loading libraries…");
+    expect(screen.queryByRole("button", { name: /jazz/ })).toBeNull();
+  });
+
+  it("shows a root-loading error and does not expose selections", () => {
+    render(
+      <WebLibraryPicker
+        roots={[{ id: "jazz", name: "jazz", path: "/libraries/jazz" }]}
+        error="The library service is unavailable"
+        onSelect={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("alert").textContent).toContain("The library service is unavailable");
+    expect(screen.queryByRole("button", { name: /jazz/ })).toBeNull();
+  });
+
+  it("explains when the service has no mounted roots", () => {
+    render(<WebLibraryPicker roots={[]} onSelect={vi.fn()} />);
+
+    expect(screen.getByText(/No libraries are mounted\./)).toBeTruthy();
+  });
 });
