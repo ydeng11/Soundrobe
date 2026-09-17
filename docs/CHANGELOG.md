@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Local browser-service sign-in accepts both standard loopback addresses.
+
 ### Added
 
 - Soundrobe can now run as a self-hosted web service: a password-protected

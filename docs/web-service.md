@@ -63,14 +63,18 @@ then start the server on loopback:
 
 ```sh
 export SOUNDROBE_AUTH_PASSWORD='replace-with-a-local-password'
-just web-local /absolute/path/to/libraries-root
+# Replace this with an existing directory that contains your library folders.
+just web-local "/path/to/libraries-root"
 ```
 
-The recipe builds the web assets and starts `http://127.0.0.1:8080`. It stores
-local service state in `.soundrobe-web-local/` by default; override
-`SOUNDROBE_DATA_DIR`, `SOUNDROBE_LISTEN_ADDR`, or `SOUNDROBE_PUBLIC_URL` when
-needed. Stop it with `Ctrl-C`. Do not use this local HTTP setup as an Internet
-deployment; use the container setup with an HTTPS reverse proxy instead.
+The recipe builds the web assets and starts on port 8080. Open either
+`http://127.0.0.1:8080` or `http://localhost:8080`; both loopback addresses are
+accepted for local browser requests. It stores local service state in
+`.soundrobe-web-local/` by default; override `SOUNDROBE_DATA_DIR`,
+`SOUNDROBE_LISTEN_ADDR`, `SOUNDROBE_PUBLIC_URL`, or
+`SOUNDROBE_ADDITIONAL_ORIGINS` when needed. Stop it with `Ctrl-C`. Do not use
+this local HTTP setup as an Internet deployment; use the container setup with
+an HTTPS reverse proxy instead.
 
 ## Updates and checks
 

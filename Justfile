@@ -76,6 +76,7 @@ web-local library_root: _deps-check
     exec env \
         SOUNDROBE_LISTEN_ADDR="${SOUNDROBE_LISTEN_ADDR:-127.0.0.1:8080}" \
         SOUNDROBE_PUBLIC_URL="${SOUNDROBE_PUBLIC_URL:-http://127.0.0.1:8080}" \
+        SOUNDROBE_ADDITIONAL_ORIGINS="${SOUNDROBE_ADDITIONAL_ORIGINS:-http://localhost:8080}" \
         SOUNDROBE_LIBRARY_ROOT_DIR="$library_root" \
         SOUNDROBE_WEB_ROOT="$PWD/dist" \
         SOUNDROBE_DATA_DIR="$data_dir" \

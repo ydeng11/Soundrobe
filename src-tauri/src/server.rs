@@ -113,10 +113,11 @@ impl ServerConfig {
             .map(PathBuf::from)
             .unwrap_or_else(|| PathBuf::from("/app/dist"));
         let password_file = std::env::var_os("SOUNDROBE_AUTH_PASSWORD_FILE").map(PathBuf::from);
-        let auth = AuthConfig::from_sources(
+        let auth = AuthConfig::from_sources_with_allowed_origins(
             password_file.as_deref(),
             std::env::var("SOUNDROBE_AUTH_PASSWORD").ok().as_deref(),
             std::env::var("SOUNDROBE_PUBLIC_URL").ok().as_deref(),
+            std::env::var("SOUNDROBE_ADDITIONAL_ORIGINS").ok().as_deref(),
         )?;
 
         Ok(Self {
@@ -149,19 +150,42 @@ impl ServerConfig {
 #[derive(Clone)]
 struct AuthConfig {
     password: Arc<str>,
-    public_origin: Arc<str>,
+    allowed_origins: Vec<Arc<str>>,
     secure_cookie: bool,
 }
 
 impl AuthConfig {
+    #[cfg(test)]
     fn from_sources(
         password_file: Option<&Path>,
         fallback_password: Option<&str>,
         public_url: Option<&str>,
     ) -> anyhow::Result<Self> {
+        Self::from_sources_with_allowed_origins(password_file, fallback_password, public_url, None)
+    }
+
+    fn from_sources_with_allowed_origins(
+        password_file: Option<&Path>,
+        fallback_password: Option<&str>,
+        public_url: Option<&str>,
+        additional_origins: Option<&str>,
+    ) -> anyhow::Result<Self> {
         let public_url =
             public_url.ok_or_else(|| anyhow::anyhow!("SOUNDROBE_PUBLIC_URL is required"))?;
         let (public_origin, secure_cookie) = parse_public_origin(public_url)?;
+        let mut allowed_origins = vec![Arc::<str>::from(public_origin.as_str())];
+        for value in additional_origins.unwrap_or_default().split(',') {
+            let value = value.trim();
+            if value.is_empty() {
+                continue;
+            }
+            let (origin, _) = parse_public_origin(value).map_err(|_| {
+                anyhow::anyhow!("SOUNDROBE_ADDITIONAL_ORIGINS must contain absolute HTTP(S) origins")
+            })?;
+            if !allowed_origins.iter().any(|allowed| allowed.as_ref() == origin) {
+                allowed_origins.push(Arc::from(origin));
+            }
+        }
         let password = match password_file {
             Some(path) => std::fs::read_to_string(path)
                 .map(|value| value.trim_end_matches(['\r', '\n']).to_string())
@@ -178,13 +202,19 @@ impl AuthConfig {
 
         Ok(Self {
             password: Arc::from(password),
-            public_origin: Arc::from(public_origin),
+            allowed_origins,
             secure_cookie,
         })
     }
 
     fn password_matches(&self, candidate: &str) -> bool {
         self.password.as_bytes().ct_eq(candidate.as_bytes()).into()
+    }
+
+    fn origin_matches(&self, origin: &str) -> bool {
+        self.allowed_origins
+            .iter()
+            .any(|allowed| allowed.as_ref() == origin)
     }
 }
 
@@ -2210,7 +2240,7 @@ async fn enforce_web_security(
             .get(header::ORIGIN)
             .and_then(|value| value.to_str().ok())
             .and_then(normalized_origin)
-            .is_some_and(|origin| origin == state.auth.config.public_origin.as_ref());
+            .is_some_and(|origin| state.auth.config.origin_matches(&origin));
         if !origin_matches {
             return error_response(StatusCode::FORBIDDEN, "same-origin request required");
         }
@@ -4519,6 +4549,37 @@ mod tests {
             ("https://soundrobe.test".to_string(), true)
         );
         assert!(parse_public_origin("https://soundrobe.test/app").is_err());
+    }
+
+    #[tokio::test]
+    async fn explicitly_configured_additional_origins_are_allowed_for_mutations() {
+        let mut config = test_config();
+        config.auth = AuthConfig::from_sources_with_allowed_origins(
+            None,
+            Some("secret"),
+            Some("http://127.0.0.1:8080"),
+            Some("http://localhost:8080"),
+        )
+        .unwrap();
+
+        let response = router(config)
+            .oneshot(origin_request_with(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/v1/commands/scan")
+                    .body(Body::empty())
+                    .unwrap(),
+                "http://localhost:8080",
+            ))
+            .await
+            .unwrap();
+
+        assert_json_error(
+            response,
+            StatusCode::UNAUTHORIZED,
+            r#"{"error":"authentication required"}"#,
+        )
+        .await;
     }
 
     #[tokio::test]
