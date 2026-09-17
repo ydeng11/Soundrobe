@@ -36,6 +36,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The browser service now has a warm, responsive workspace with compact
   service navigation, session status, a mounted-library editor, and an
   in-page activity monitor; the standalone desktop layout remains unchanged.
+- Browser Settings is now an inline configuration page with a persistent
+  section rail, protected credential handling, provider connection checks, and
+  service-only diagnostics; native update controls remain desktop-only.
+- The browser library editor now uses a denser album rail, music-management
+  track table, and warm inspector treatment while preserving selection, audit,
+  draft, and apply behavior.
 
 ## [0.1.11] - 2026-09-16
 

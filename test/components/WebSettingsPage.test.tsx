@@ -1,0 +1,99 @@
+// @vitest-environment jsdom
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import React from "react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { WebSettingsPage } from "../../src/components/WebSettingsPage";
+
+afterEach(() => cleanup());
+
+const defaultConfig = {
+  llmProvider: "openrouter",
+  llmModel: "openai/gpt-4o-mini",
+  llmBaseUrl: "",
+  llmApiKey: "****7f",
+  llmApiKeyConfigured: true,
+  discogsToken: "****21",
+  theAudioDbApiKey: "",
+  lyricsApiUrl: "https://lrclib.net/api",
+  lyricsDownloadEnabled: true,
+  chineseScript: "simplified",
+  assistantAutonomous: false,
+  debug: true,
+};
+
+beforeEach(() => {
+  window.api = {
+    appInfo: vi.fn().mockResolvedValue({
+      identifier: "com.ihelio.soundrobe",
+      version: "0.1.11",
+      runtime: "web",
+      dev: false,
+    }),
+    getConfig: vi.fn().mockResolvedValue(defaultConfig),
+    setConfig: vi.fn().mockResolvedValue(undefined),
+    setDebugMode: vi.fn().mockResolvedValue(undefined),
+    testLlmConnection: vi.fn().mockResolvedValue({ model: "openai/gpt-4o-mini" }),
+  } as any;
+});
+
+describe("WebSettingsPage", () => {
+  it("renders the inline template settings page before a library is mounted", async () => {
+    render(<WebSettingsPage />);
+
+    expect(screen.getByText("CONFIGURATION")).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Settings" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "General" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "AI & Providers" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Lyrics & metadata" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Save settings" })).toBeTruthy();
+
+    await screen.findByDisplayValue("openai/gpt-4o-mini");
+    expect(screen.getByText("Version 0.1.11")).toBeTruthy();
+  });
+
+  it("keeps redacted secrets intact and saves only supported web settings", async () => {
+    const setConfig = vi.fn().mockResolvedValue(undefined);
+    window.api.setConfig = setConfig;
+    render(<WebSettingsPage />);
+
+    await screen.findByDisplayValue("openai/gpt-4o-mini");
+    fireEvent.change(screen.getByLabelText("Model"), { target: { value: "new-model" } });
+    fireEvent.change(screen.getByLabelText("Lyrics API URL"), {
+      target: { value: "https://lyrics.example/api" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save settings" }));
+
+    await waitFor(() => expect(setConfig).toHaveBeenCalled());
+    expect(setConfig).toHaveBeenCalledWith("llmModel", "new-model");
+    expect(setConfig).toHaveBeenCalledWith("lyricsApiUrl", "https://lyrics.example/api");
+    expect(setConfig).not.toHaveBeenCalledWith("llmApiKey", "****7f");
+    expect(setConfig).not.toHaveBeenCalledWith("discogsToken", "****21");
+    expect(setConfig).not.toHaveBeenCalledWith("llmApiKey", "");
+  });
+
+  it("tests the configured connection without exposing a raw key", async () => {
+    const testLlmConnection = vi.fn().mockResolvedValue({ model: "openai/gpt-4o-mini" });
+    window.api.testLlmConnection = testLlmConnection;
+    render(<WebSettingsPage />);
+
+    await screen.findByDisplayValue("openai/gpt-4o-mini");
+    fireEvent.click(screen.getByRole("button", { name: "Test connection" }));
+
+    await waitFor(() => expect(testLlmConnection).toHaveBeenCalledTimes(1));
+    expect(testLlmConnection).toHaveBeenCalledWith(
+      "",
+      "openai/gpt-4o-mini",
+      "openrouter",
+      undefined,
+    );
+    expect(screen.getByText("Connection successful")).toBeTruthy();
+  });
+
+  it("does not offer native update controls", async () => {
+    render(<WebSettingsPage />);
+    await screen.findByDisplayValue("openai/gpt-4o-mini");
+
+    expect(screen.queryByRole("button", { name: /update/i })).toBeNull();
+    expect(screen.queryByText(/application updates/i)).toBeNull();
+  });
+});

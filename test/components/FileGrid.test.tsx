@@ -78,6 +78,28 @@ const tracks: TrackData[] = [
 ];
 
 describe("FileGrid", () => {
+  it("uses the compact browser table hierarchy without the native context menu", () => {
+    const onSelect = vi.fn();
+    const showTrackContextMenu = vi.fn();
+    window.api = { showTrackContextMenu } as unknown as Window["api"];
+    const { container } = render(
+      <FileGrid
+        web
+        tracks={tracks}
+        selectedTrackPath={null}
+        filterText=""
+        onSelectTrack={onSelect}
+      />,
+    );
+
+    expect(screen.getByText("Location")).toBeTruthy();
+    expect(screen.getByText("Format")).toBeTruthy();
+    expect(container.querySelector("[data-web-variant='true']")).toBeTruthy();
+    fireEvent.contextMenu(screen.getByText("music/song1.mp3"));
+    fireEvent.contextMenu(screen.getByTestId("file-grid-body"));
+    expect(showTrackContextMenu).not.toHaveBeenCalled();
+  });
+
   it("renders all files when no filter is set", () => {
     const onSelect = vi.fn();
     render(

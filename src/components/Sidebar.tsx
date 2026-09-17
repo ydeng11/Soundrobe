@@ -7,6 +7,8 @@ interface SidebarProps {
   activeAlbumPath: string | null;
   onSelectAlbum: (path: string | null) => void;
   onOpenLibrary: () => void;
+  /** Browser-only compact navigation treatment. Desktop remains unchanged. */
+  web?: boolean;
 }
 
 export function Sidebar({
@@ -15,40 +17,48 @@ export function Sidebar({
   activeAlbumPath,
   onSelectAlbum,
   onOpenLibrary,
+  web = false,
 }: SidebarProps) {
   return (
-    <div className="w-[220px] min-w-[180px] h-full flex flex-col bg-sidebar-DEFAULT backdrop-blur-xl border-r border-sidebar-border select-none overflow-hidden">
+    <div data-web-variant={web || undefined} className={web ? "w-full min-w-[15rem] h-full flex flex-col bg-[#fbfaf8] select-none overflow-hidden" : "w-[220px] min-w-[180px] h-full flex flex-col bg-sidebar-DEFAULT backdrop-blur-xl border-r border-sidebar-border select-none overflow-hidden"}>
       {/* App header */}
-      <div className="px-4 pt-3 pb-2 flex items-center gap-2.5">
-        <div className="w-6 h-6 rounded-lg bg-accent flex items-center justify-center shadow-sm shadow-accent/20 transition-all duration-300 group">
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="white"
-            strokeWidth="2.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="group-hover:scale-110 transition-transform duration-300"
-          >
-            <path d="M9 18V5l12-2v13" />
-            <circle cx="6" cy="18" r="3" />
-            <circle cx="18" cy="16" r="3" />
-          </svg>
+      {web ? (
+        <div className="border-b border-[#ebe9e6] px-4 py-3.5">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#9b5638]">Mounted root</p>
+          <p className="mt-1 truncate text-xs text-[#77736f]" title={libraryPath ?? undefined}>{libraryPath ?? "No library selected"}</p>
         </div>
-        <span className="text-[13px] font-semibold text-text-primary tracking-tight">
-          TagUI
-        </span>
-      </div>
+      ) : (
+        <div className="px-4 pt-3 pb-2 flex items-center gap-2.5">
+          <div className="w-6 h-6 rounded-lg bg-accent flex items-center justify-center shadow-sm shadow-accent/20 transition-all duration-300 group">
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="white"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="group-hover:scale-110 transition-transform duration-300"
+            >
+              <path d="M9 18V5l12-2v13" />
+              <circle cx="6" cy="18" r="3" />
+              <circle cx="18" cy="16" r="3" />
+            </svg>
+          </div>
+          <span className="text-[13px] font-semibold text-text-primary tracking-tight">
+            TagUI
+          </span>
+        </div>
+      )}
 
       {/* Divider */}
-      <div className="mx-4 my-2 h-px bg-sidebar-border" />
+      <div className={web ? "mx-4 my-2 h-px bg-[#ebe9e6]" : "mx-4 my-2 h-px bg-sidebar-border"} />
 
       {/* Section header */}
-      <div className="px-4 py-1">
+      <div className={web ? "px-4 py-2" : "px-4 py-1"}>
         <span className="text-[11px] font-semibold uppercase tracking-wider text-text-muted">
-          Albums
+          {web ? `Albums ${albums.length}` : "Albums"}
         </span>
       </div>
 
@@ -76,6 +86,7 @@ export function Sidebar({
           <div className="space-y-0.5">
             {/* "All Files" item */}
             <AlbumRow
+              web={web}
               name="All Files"
               count={0}
               active={activeAlbumPath === null}
@@ -83,6 +94,7 @@ export function Sidebar({
             />
             {albums.map((album) => (
               <AlbumRow
+                web={web}
                 key={album.path}
                 name={album.name}
                 artist={album.artistHint || album.albumHint}
@@ -118,12 +130,14 @@ function AlbumRow({
   count,
   active,
   onClick,
+  web = false,
 }: {
   name: string;
   artist?: string;
   count?: number;
   active?: boolean;
   onClick: () => void;
+  web?: boolean;
 }) {
   return (
     <div className="relative group">
@@ -137,10 +151,10 @@ function AlbumRow({
       />
       <button
         onClick={onClick}
-        className={`w-full flex items-center gap-2 pl-[15px] pr-2.5 py-1.5 rounded-lg text-[12px] transition-all duration-150 text-left ${
+        className={`w-full flex items-center gap-2 pl-[15px] pr-2.5 ${web ? "py-2.5 rounded-xl" : "py-1.5 rounded-lg"} text-[12px] transition-all duration-150 text-left ${
           active
-            ? "bg-sidebar-active text-accent font-medium"
-            : "text-text-secondary hover:bg-sidebar-hover hover:text-text-primary"
+            ? web ? "bg-[#f0e8df] text-[#713b25] font-medium" : "bg-sidebar-active text-accent font-medium"
+            : web ? "text-[#625d58] hover:bg-[#f3f1ef] hover:text-[#282828]" : "text-text-secondary hover:bg-sidebar-hover hover:text-text-primary"
         }`}
       >
         <span className="w-4 h-4 shrink-0 flex items-center justify-center">

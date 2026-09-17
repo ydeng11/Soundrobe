@@ -18,11 +18,12 @@ const navigation: Array<{ view: WebServiceView; label: string }> = [
 const pageCopy: Record<WebServiceView, { title: string; description: string }> = {
   library: { title: "Your collection, in focus.", description: "Browse a mounted library and make precise metadata updates without leaving the service." },
   activity: { title: "Work in progress.", description: "Follow background tagging work and review outcomes as the service completes them." },
-  settings: { title: "Service settings.", description: "Open the existing settings panel to manage the service configuration." },
+  settings: { title: "Settings.", description: "Control the browser service with the same focused tools as the desktop app." },
 };
 
 export function WebServiceShell({ activeView = "library", onViewChange, onLogout, children }: WebServiceShellProps) {
   const copy = pageCopy[activeView];
+  const showPageIntro = activeView !== "settings";
   return (
     <div data-testid="web-service-shell" className="flex h-screen min-h-0 flex-col overflow-hidden bg-[#f5f0e8] text-[#28231d]">
       <header className="shrink-0 border-b border-[#ded5c8] bg-[#faf7f1]/95 px-4 py-3 backdrop-blur sm:px-6">
@@ -46,8 +47,8 @@ export function WebServiceShell({ activeView = "library", onViewChange, onLogout
         </div>
       </header>
       <main className="min-h-0 min-w-0 flex-1 overflow-y-auto">
-        <div className="mx-auto flex w-full max-w-[90rem] flex-col gap-6 px-4 py-7 sm:px-6 lg:px-8">
-          <div className="max-w-3xl"><p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#a85732]">Soundrobe service</p><h1 className="mt-2 font-serif text-3xl font-semibold tracking-tight text-[#28231d] sm:text-4xl">{copy.title}</h1><p className="mt-2 text-sm leading-6 text-[#71675d]">{copy.description}</p></div>
+        <div className={`mx-auto flex w-full max-w-[90rem] flex-col px-4 sm:px-6 lg:px-8 ${showPageIntro ? "gap-6 py-7" : "py-10 sm:py-12"}`}>
+          {showPageIntro && <div className="max-w-3xl"><p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#a85732]">Soundrobe service</p><h1 className="mt-2 font-serif text-3xl font-semibold tracking-tight text-[#28231d] sm:text-4xl">{copy.title}</h1><p className="mt-2 text-sm leading-6 text-[#71675d]">{copy.description}</p></div>}
           <div className="min-w-0">{children}</div>
         </div>
       </main>

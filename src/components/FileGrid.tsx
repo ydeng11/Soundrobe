@@ -55,6 +55,22 @@ const ALL_COLUMNS: Column[] = [
   { key: "bitrate", label: "Bitrate", width: "w-20", align: "right" },
 ];
 
+const WEB_COLUMN_KEYS = new Set<SortKey>([
+  "track",
+  "title",
+  "artist",
+  "year",
+  "bitrate",
+  "filename",
+]);
+
+const WEB_COLUMNS: Column[] = ALL_COLUMNS
+  .filter((column) => WEB_COLUMN_KEYS.has(column.key))
+  .map((column) => ({
+    ...column,
+    label: column.key === "filename" ? "Location" : column.key === "bitrate" ? "Format" : column.label,
+  }));
+
 interface FileGridProps {
   tracks: TrackData[];
   activeAlbumPath?: string | null;
@@ -66,6 +82,8 @@ interface FileGridProps {
   onEditExtraTags?: (track: TrackData, selectedPaths: string[]) => void;
   onDeleteFiles?: (paths: string[]) => void;
   auditByTrackPath?: Record<string, TrackAuditSummary>;
+  /** Browser-only compact table treatment. Desktop columns and interactions stay unchanged. */
+  web?: boolean;
 }
 
 export function FileGrid({
@@ -79,19 +97,20 @@ export function FileGrid({
   onEditExtraTags,
   onDeleteFiles,
   auditByTrackPath = {},
+  web = false,
 }: FileGridProps) {
   const [sortKey, setSortKey] = useState<SortKey>("track");
   const [sortAsc, setSortAsc] = useState(true);
   const lastClickedRef = useRef<number>(-1);
 
   const [visibleColumns, setVisibleColumns] = useState<Set<string>>(
-    () => new Set(ALL_COLUMNS.filter((c) => !c.defaultHidden).map((c) => c.key))
+    () => new Set((web ? WEB_COLUMNS : ALL_COLUMNS).filter((c) => !c.defaultHidden).map((c) => c.key))
   );
 
   // Memoize visible column descriptors — stable identity while visible set is unchanged
   const COLUMNS = useMemo(
-    () => ALL_COLUMNS.filter((c) => visibleColumns.has(c.key)),
-    [visibleColumns]
+    () => (web ? WEB_COLUMNS : ALL_COLUMNS).filter((c) => visibleColumns.has(c.key)),
+    [visibleColumns, web]
   );
 
   // Derive multi-selected paths from props instead of mirroring in local state
@@ -478,21 +497,21 @@ export function FileGrid({
   }, []);
 
   return (
-    <div className="flex flex-col h-full bg-white">
+    <div data-web-variant={web || undefined} className={web ? "flex flex-col h-full bg-[#fffdfb]" : "flex flex-col h-full bg-white"}>
       {/* Column headers */}
       <div
         ref={headerRef}
-        className="flex items-center px-3 py-1.5 text-[11px] font-medium text-text-muted bg-surface-alt/60 border-b border-border select-none overflow-hidden"
-        onContextMenu={handleHeaderContextMenu}
+        className={web ? "flex items-center px-4 py-2.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-[#99938c] bg-[#faf9f7] border-b border-[#ebe9e6] select-none overflow-hidden" : "flex items-center px-3 py-1.5 text-[11px] font-medium text-text-muted bg-surface-alt/60 border-b border-border select-none overflow-hidden"}
+        onContextMenu={web ? undefined : handleHeaderContextMenu}
       >
         {COLUMNS.map((col, ci) => (
           <React.Fragment key={col.key}>
             <button
               onClick={() => toggleSort(col.key)}
-              className={`flex items-center gap-1.5 px-1.5 hover:text-text-secondary transition-all duration-150 truncate shrink-0 rounded-md ${
+              className={`flex items-center gap-1.5 px-1.5 transition-all duration-150 truncate shrink-0 rounded-md ${
                 col.key === sortKey
-                  ? "bg-accent/10 text-accent font-semibold"
-                  : "hover:bg-surface-hover"
+                  ? web ? "bg-[#f0e8df] text-[#713b25] font-semibold" : "bg-accent/10 text-accent font-semibold"
+                  : web ? "hover:bg-[#f3f1ef] hover:text-[#4b4641]" : "hover:bg-surface-hover hover:text-text-secondary"
               }`}
               style={{
                 width: columnWidths?.[col.key] ?? (col.width.includes("-") ? 80 : 120),
@@ -534,7 +553,7 @@ export function FileGrid({
             Columns
           </div>
           <div className="h-px bg-border/50 mx-2 my-0.5" />
-          {ALL_COLUMNS.map((col) => (
+          {(web ? WEB_COLUMNS : ALL_COLUMNS).map((col) => (
             <button
               key={col.key}
               onClick={(e) => {
@@ -568,7 +587,7 @@ export function FileGrid({
       <div
         className="flex-1 overflow-y-auto"
         data-testid="file-grid-body"
-        onContextMenu={handleFileAreaContextMenu}
+        onContextMenu={web ? undefined : handleFileAreaContextMenu}
       >
         {sorted.length === 0 ? (
           <div className="flex items-center justify-center h-full text-text-muted text-[12px]">
@@ -598,13 +617,14 @@ export function FileGrid({
               columnWidths={columnWidths}
               onRowClick={handleRowClick}
               onRowContextMenu={handleRowContextMenu}
+              web={web}
             />
           ))
         )}
       </div>
 
       {/* Footer bar */}
-      <div className="flex items-center px-4 py-1.5 text-[10.5px] text-text-muted bg-surface-alt/60 border-t border-border gap-3">
+      <div className={web ? "flex items-center px-4 py-2 text-[10px] text-[#8b867f] bg-[#faf9f7] border-t border-[#ebe9e6] gap-3" : "flex items-center px-4 py-1.5 text-[10.5px] text-text-muted bg-surface-alt/60 border-t border-border gap-3"}>
         <span className="tabular-nums">{sorted.length} file{sorted.length !== 1 ? "s" : ""}</span>
         {multiSelected.size > 1 && (
           <span className="text-accent tabular-nums font-medium">{multiSelected.size} selected</span>
@@ -679,6 +699,7 @@ interface FileGridRowProps {
   columnWidths: Record<string, number> | null;
   onRowClick: (track: TrackData, index: number, event: React.MouseEvent) => void;
   onRowContextMenu: (e: React.MouseEvent, track: TrackData) => void;
+  web?: boolean;
 }
 
 const FileGridRow = memo(function FileGridRow({
@@ -692,6 +713,7 @@ const FileGridRow = memo(function FileGridRow({
   columnWidths,
   onRowClick,
   onRowContextMenu,
+  web = false,
 }: FileGridRowProps) {
   const auditClass = auditSummary?.hasManualReview
     ? auditSummary.highestStatus === "error"
@@ -702,7 +724,7 @@ const FileGridRow = memo(function FileGridRow({
       : null;
 
   const rowClass = [
-    "flex items-center px-3 py-1 text-[12.5px] cursor-pointer select-none border-b border-border/30",
+    web ? "flex items-center px-4 py-2.5 text-[12px] cursor-pointer select-none border-b border-[#eeeae5]" : "flex items-center px-3 py-1 text-[12.5px] cursor-pointer select-none border-b border-border/30",
     "transition-colors duration-75",
     isPrimary
       ? "bg-table-selected border-table-selectedBorder shadow-[inset_2px_0_0_0_rgba(0,122,255,0.5)]"
@@ -710,17 +732,17 @@ const FileGridRow = memo(function FileGridRow({
         ? "bg-table-selected/60"
         : auditClass
           ? auditClass
-        : isAltRow
-          ? "bg-table-alt"
-          : "bg-table-row",
-    "hover:bg-table-selected/40",
+      : isAltRow
+          ? web ? "bg-[#fdfbf8]" : "bg-table-alt"
+          : web ? "bg-[#fffdfb]" : "bg-table-row",
+    web ? "hover:bg-[#f4eee8]" : "hover:bg-table-selected/40",
   ].join(" ");
 
   return (
     <div
       data-testid={`file-row-${track.path}`}
       onClick={(e) => onRowClick(track, index, e)}
-      onContextMenu={(e) => onRowContextMenu(e, track)}
+      onContextMenu={web ? undefined : (e) => onRowContextMenu(e, track)}
       className={rowClass}
     >
       {columns.map((col, ci) => (
@@ -730,8 +752,8 @@ const FileGridRow = memo(function FileGridRow({
               col.align === "right" ? "text-right" : "text-left"
             } px-1.5 truncate ${
               isPrimary
-                ? "text-text-primary font-medium"
-                : "text-text-secondary"
+                ? web ? "text-[#282828] font-medium" : "text-text-primary font-medium"
+                : web ? "text-[#625d58]" : "text-text-secondary"
             }`}
             style={{
               width: columnWidths?.[col.key] ?? (col.width.includes("-") ? 80 : 120),
@@ -751,7 +773,7 @@ const FileGridRow = memo(function FileGridRow({
                 )}
               </span>
             ) : (
-              getCellValue(track, col.key)
+              web && col.key === "bitrate" ? track.codec.toUpperCase() : getCellValue(track, col.key)
             )}
           </span>
           {ci < columns.length - 1 && (

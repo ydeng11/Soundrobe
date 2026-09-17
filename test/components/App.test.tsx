@@ -199,7 +199,8 @@ describe("App — batch save progress", () => {
     expect(screen.getByRole("button", { name: "Library" }).getAttribute("aria-current")).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "Settings" }));
-    expect(await screen.findByRole("heading", { name: "Settings", level: 2 })).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "Settings", level: 1 })).toBeTruthy();
+    expect(screen.queryByRole("dialog")).toBeNull();
     expect(screen.getByRole("button", { name: "Library" }).getAttribute("aria-current")).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "Library" }));

@@ -70,6 +70,7 @@ import { WebLoginScreen } from "./components/WebLoginScreen";
 import { WebLibraryPicker } from "./components/WebLibraryPicker";
 import { WebServiceShell, type WebServiceView } from "./components/WebServiceShell";
 import { WebTaggingDebugPortal } from "./components/WebTaggingDebugPortal";
+import { WebSettingsPage } from "./components/WebSettingsPage";
 import {
   getWebSession,
   loginWebSession,
@@ -1755,17 +1756,7 @@ export default function App() {
 
   const handleWebViewChange = useCallback((view: WebServiceView) => {
     setWebView(view);
-    if (view === "settings") {
-      dispatch({ type: "TOGGLE_SETTINGS", show: true });
-    } else if (state.showSettings) {
-      dispatch({ type: "TOGGLE_SETTINGS", show: false });
-    }
-  }, [state.showSettings]);
-
-  const handleWebSettingsClose = useCallback(() => {
-    handleCloseSettings();
-    setWebView("library");
-  }, [handleCloseSettings]);
+  }, []);
 
   // --- Assistant ---
 
@@ -2921,24 +2912,26 @@ export default function App() {
       <AuditBanner results={state.auditResults} onDismiss={() => dispatch({ type: "CLEAR_AUDIT_RESULTS" })} />
       {state.error && <div role="alert" className="mx-4 mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 sm:mx-5">{state.error}</div>}
       <div className="flex min-h-[34rem] flex-col xl:flex-row">
-        <div className="w-full shrink-0 overflow-x-auto border-b border-[#e5ddd2] xl:w-auto xl:overflow-visible xl:border-b-0 xl:border-r"><Sidebar albums={state.albums} libraryPath={state.libraryPath} activeAlbumPath={state.activeAlbumPath} onSelectAlbum={handleSelectAlbum} onOpenLibrary={handleChangeWebLibrary} /></div>
-        <div className="min-w-0 flex-1 border-b border-[#e5ddd2] xl:border-b-0 xl:border-r"><FileGrid tracks={state.tracks} activeAlbumPath={state.activeAlbumPath} selectedTrackPath={state.selectedTrackPath} selectedTrackPaths={state.selectedTrackPaths} filterText={state.filterText} auditByTrackPath={auditByTrackPath} onSelectTrack={handleSelectTrack} onMultiSelect={handleMultiSelect} onEditExtraTags={handleEditExtraTagsFromSelection} onDeleteFiles={handleDeleteFiles} /></div>
+        <div className="w-full shrink-0 overflow-x-auto border-b border-[#e5ddd2] xl:w-auto xl:overflow-visible xl:border-b-0 xl:border-r"><Sidebar web albums={state.albums} libraryPath={state.libraryPath} activeAlbumPath={state.activeAlbumPath} onSelectAlbum={handleSelectAlbum} onOpenLibrary={handleChangeWebLibrary} /></div>
+        <div className="min-w-0 flex-1 border-b border-[#e5ddd2] xl:border-b-0 xl:border-r"><FileGrid web tracks={state.tracks} activeAlbumPath={state.activeAlbumPath} selectedTrackPath={state.selectedTrackPath} selectedTrackPaths={state.selectedTrackPaths} filterText={state.filterText} auditByTrackPath={auditByTrackPath} onSelectTrack={handleSelectTrack} onMultiSelect={handleMultiSelect} onEditExtraTags={handleEditExtraTagsFromSelection} onDeleteFiles={handleDeleteFiles} /></div>
         <aside className="w-full shrink-0 overflow-y-auto xl:w-[320px]">
-          {state.selectedTrackPaths.length > 1 ? <BatchEditor tracks={selectedTracksForBatch} coverDataUrl={state.coverDataUrl} saving={mutationBusy} onSave={handleBatchSave} onChangeCover={handleChangeCover} onRemoveCover={handleRemoveCover} onDownloadCover={handleDownloadCover} onDownloadArtistArt={handleDownloadArtistArt} /> : state.selectedTrack ? <>{selectedTrackAudit && <SelectedTrackAuditFindings results={selectedTrackAudit.results} onApplyFixes={() => handleApplyAuditFixes(buildAuditApplyAlbumResults({ auditResults: state.auditResults, tracks: state.tracks, trackPath: state.selectedTrackPath }))} onApplyFix={(result) => handleApplyAuditFixes(singleAuditFixResult(result, dirPath(state.selectedTrackPath!)))} applying={mutationBusy} />}<MetadataEditor track={state.selectedTrack} dirPath={dirPath(state.selectedTrack.path)} coverDataUrl={state.coverDataUrl} saving={mutationBusy} onSave={handleSaveMetadata} onChangeCover={handleChangeCover} onRemoveCover={handleRemoveCover} onDownloadCover={handleDownloadCover} onDownloadArtistArt={handleDownloadArtistArt} /></> : visibleAuditResult ? <AuditPanel results={visibleAuditResult.results} albumName={basename(visibleAuditResult.albumPath) ?? ""} onApplyFixes={() => handleApplyAuditFixes(buildAuditApplyAlbumResults({ auditResults: state.auditResults, tracks: state.tracks, albumPath: visibleAuditResult.albumPath }))} onApplyFix={(result) => handleApplyAuditFixes(singleAuditFixResult(result, visibleAuditResult.albumPath))} applying={mutationBusy} /> : <div className="flex min-h-48 items-center justify-center px-8 text-center text-sm text-[#8a7e71]">Select a file to edit its tags.</div>}
+          {state.selectedTrackPaths.length > 1 ? <BatchEditor web tracks={selectedTracksForBatch} coverDataUrl={state.coverDataUrl} saving={mutationBusy} onSave={handleBatchSave} onChangeCover={handleChangeCover} onRemoveCover={handleRemoveCover} onDownloadCover={handleDownloadCover} onDownloadArtistArt={handleDownloadArtistArt} /> : state.selectedTrack ? <>{selectedTrackAudit && <SelectedTrackAuditFindings results={selectedTrackAudit.results} onApplyFixes={() => handleApplyAuditFixes(buildAuditApplyAlbumResults({ auditResults: state.auditResults, tracks: state.tracks, trackPath: state.selectedTrackPath }))} onApplyFix={(result) => handleApplyAuditFixes(singleAuditFixResult(result, dirPath(state.selectedTrackPath!)))} applying={mutationBusy} />}<MetadataEditor web track={state.selectedTrack} dirPath={dirPath(state.selectedTrack.path)} coverDataUrl={state.coverDataUrl} saving={mutationBusy} onSave={handleSaveMetadata} onChangeCover={handleChangeCover} onRemoveCover={handleRemoveCover} onDownloadCover={handleDownloadCover} onDownloadArtistArt={handleDownloadArtistArt} /></> : visibleAuditResult ? <AuditPanel results={visibleAuditResult.results} albumName={basename(visibleAuditResult.albumPath) ?? ""} onApplyFixes={() => handleApplyAuditFixes(buildAuditApplyAlbumResults({ auditResults: state.auditResults, tracks: state.tracks, albumPath: visibleAuditResult.albumPath }))} onApplyFix={(result) => handleApplyAuditFixes(singleAuditFixResult(result, visibleAuditResult.albumPath))} applying={mutationBusy} /> : <div className="flex min-h-48 items-center justify-center px-8 text-center text-sm text-[#8a7e71]">Select a file to edit its tags.</div>}
         </aside>
       </div>
     </section>
   );
 
   const settingsModal = (
-    <SettingsModal
-      open={state.showSettings}
-      onClose={webRuntime ? handleWebSettingsClose : handleCloseSettings}
-      onCheckForUpdates={updater.checkManually}
-      updateSupported={updater.supported}
-      updateChecking={updater.checking}
-      updateCheckMessage={updater.checkMessage}
-    />
+    !webRuntime ? (
+      <SettingsModal
+        open={state.showSettings}
+        onClose={handleCloseSettings}
+        onCheckForUpdates={updater.checkManually}
+        updateSupported={updater.supported}
+        updateChecking={updater.checking}
+        updateCheckMessage={updater.checkMessage}
+      />
+    ) : null
   );
 
   if (webRuntime) {
@@ -2960,11 +2953,7 @@ export default function App() {
           </section>
         )}
         {webView === "settings" && (
-          <section className="rounded-2xl border border-[#ded5c8] bg-[#fffdf9] p-5 shadow-[0_18px_50px_rgba(65,48,32,0.08)] sm:p-7">
-            <h2 className="font-serif text-xl font-semibold text-[#28231d]">Configuration</h2>
-            <p className="mt-2 max-w-xl text-sm leading-6 text-[#71675d]">Use the existing settings panel to manage provider and service preferences.</p>
-            <button type="button" onClick={handleOpenSettings} className="mt-5 rounded-full bg-[#332c25] px-4 py-2 text-sm font-semibold text-[#fffaf2] hover:bg-[#4a4037]">Open settings</button>
-          </section>
+          <WebSettingsPage />
         )}
         {state.libraryPath && (
           <div aria-hidden={!(showLibrary && !webLibraryPickerOpen)} className={showLibrary && !webLibraryPickerOpen ? "contents" : "hidden"}>
