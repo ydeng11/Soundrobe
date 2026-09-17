@@ -24,6 +24,22 @@ export interface WebSession {
   authenticated: boolean;
 }
 
+export type WebTaskStatus =
+  | "running"
+  | "completed"
+  | "needs_review"
+  | "failed"
+  | "cancelled";
+
+export interface WebTask {
+  taskId: string;
+  status: WebTaskStatus;
+  progress: number;
+  total: number;
+  message: string;
+  result: unknown;
+}
+
 export interface WebEventSource {
   addEventListener: (type: string, listener: (event: WebEventMessage) => void) => void;
   close: () => void;
@@ -209,6 +225,14 @@ export function logoutWebSession(options: WebAuthOptions = {}): Promise<WebSessi
   const { fetchImpl, baseUrl } = webAuthOptions(options);
   return requestJson<WebSession>(fetchImpl, authUrl(baseUrl, "logout"), {
     method: "POST",
+    credentials: "same-origin",
+  });
+}
+
+export function listWebTasks(options: WebAuthOptions = {}): Promise<WebTask[]> {
+  const { fetchImpl, baseUrl } = webAuthOptions(options);
+  return requestJson<WebTask[]>(fetchImpl, `${baseUrl}/api/v1/tasks`, {
+    method: "GET",
     credentials: "same-origin",
   });
 }

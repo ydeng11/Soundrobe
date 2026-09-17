@@ -4,6 +4,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   createWebDesktopApi,
   getWebSession,
+  listWebTasks,
   loginWebSession,
   logoutWebSession,
   uploadWebCover,
@@ -55,6 +56,33 @@ describe("web-adapter command transport", () => {
         credentials: "same-origin",
         headers: { "content-type": "application/json" },
         body: "{}",
+      }),
+    );
+  });
+
+  it("lists web tasks through the typed browser transport", async () => {
+    const tasks = [{
+      taskId: "auto-tag-1-100",
+      status: "running" as const,
+      progress: 2,
+      total: 9,
+      message: "Looking up",
+      result: null,
+    }];
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify(tasks), { status: 200 }),
+    );
+
+    await expect(listWebTasks({
+      fetch: fetchMock,
+      baseUrl: "https://soundrobe.test",
+    })).resolves.toEqual(tasks);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://soundrobe.test/api/v1/tasks",
+      expect.objectContaining({
+        method: "GET",
+        credentials: "same-origin",
       }),
     );
   });
